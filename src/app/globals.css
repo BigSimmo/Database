@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f6f8fb;
+  --foreground: #0f172a;
+  --app-shell: #0f1b24;
+  --app-shell-muted: #18303d;
+  --surface: #ffffff;
+  --surface-raised: #fbfdff;
+  --surface-subtle: #eef4f7;
+  --surface-inset: #f7fafc;
+  --text: #0f172a;
+  --text-muted: #5b687a;
+  --text-soft: #7a8797;
+  --border: #d7e1e8;
+  --border-strong: #b9c7d1;
+  --primary: #0f766e;
+  --primary-strong: #0b5f5a;
+  --primary-soft: #d9f4ef;
+  --primary-contrast: #ffffff;
+  --info: #2563eb;
+  --info-soft: #dbeafe;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --disabled: #94a3b8;
+  --focus: #14b8a6;
+  --shadow-soft: 0 16px 40px rgb(15 23 42 / 8%);
+  --shadow-tight: 0 8px 22px rgb(15 23 42 / 8%);
+  --shadow-hover: 0 12px 32px rgb(15 23 42 / 11%);
+  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
+  color-scheme: light;
+}
+
+.dark {
+  --background: #050914;
+  --foreground: #e5edf4;
+  --app-shell: #07111a;
+  --app-shell-muted: #102432;
+  --surface: #101827;
+  --surface-raised: #152033;
+  --surface-subtle: #0c1421;
+  --surface-inset: #08111d;
+  --text: #e5edf4;
+  --text-muted: #a6b4c3;
+  --text-soft: #7d8ea2;
+  --border: #243449;
+  --border-strong: #3b4c63;
+  --primary: #2dd4bf;
+  --primary-strong: #5eead4;
+  --primary-soft: #0d3b3a;
+  --primary-contrast: #04111a;
+  --info: #60a5fa;
+  --info-soft: #102a4c;
+  --success: #4ade80;
+  --success-soft: #12351f;
+  --warning: #fbbf24;
+  --warning-soft: #3f2c0a;
+  --danger: #f87171;
+  --danger-soft: #421717;
+  --disabled: #64748b;
+  --focus: #5eead4;
+  --shadow-soft: 0 18px 48px rgb(0 0 0 / 28%);
+  --shadow-tight: 0 10px 28px rgb(0 0 0 / 22%);
+  --shadow-hover: 0 16px 38px rgb(0 0 0 / 34%);
+  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+  overflow-x: clip;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a,
+summary,
+input,
+textarea,
+select {
+  outline: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: var(--ring-focus);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button,
+a,
+summary {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: 160ms;
+  transition-timing-function: ease;
+}
+
+button:active,
+a:active,
+summary:active {
+  transform: translateY(1px);
+}
+
+.polished-scroll {
+  scrollbar-color: color-mix(in srgb, var(--border-strong) 80%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.polished-scroll::-webkit-scrollbar {
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+.polished-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-radius: 999px;
+}
+
+.polished-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.dark ::selection {
+  background: var(--primary-soft);
+  color: #ecfeff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}
