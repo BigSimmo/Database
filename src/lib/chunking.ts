@@ -21,12 +21,11 @@ export function detectHeading(text: string) {
   return null;
 }
 
-export function chunkTextWithOverlap(
-  text: string,
-  chunkSize = env.CHUNK_SIZE,
-  overlap = env.CHUNK_OVERLAP,
-) {
-  const clean = text.replace(/\s+\n/g, "\n").replace(/[ \t]+/g, " ").trim();
+export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, overlap = env.CHUNK_OVERLAP) {
+  const clean = text
+    .replace(/\s+\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
   if (!clean) return [];
   if (clean.length <= chunkSize) return [clean];
 

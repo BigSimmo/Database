@@ -58,6 +58,20 @@ heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
 - `MAX_UPLOAD_MB`, `CHUNK_SIZE`, and `CHUNK_OVERLAP` are deliberately
   conservative defaults for local-first indexing.
 
+## Clinical Safety Status
+
+- This project is a clinical reference prototype, not validated clinical
+  decision support.
+- Demo documents are synthetic and are not clinical guidance.
+- Do not upload patient-identifiable documents unless local governance, privacy,
+  and data-processing approvals explicitly allow it.
+- Generated answers and copied drafts must be verified against linked source
+  documents, source status, local policy, and patient context before clinical
+  use.
+- Production deployment needs clinical governance review, source approval rules,
+  and TGA Software as a Medical Device screening where applicable.
+- See `docs/clinical-governance.md` for the deployment governance checklist.
+
 ## Commands
 
 ```bash
@@ -68,10 +82,14 @@ npm run worker    # local ingestion worker
 npm run samples   # generate synthetic upload corpus
 npm run samples:check
 npm run lint
+npm run typecheck
 npm run test
+npm run test:coverage
 npm run test:e2e
 npm run test:e2e:chromium
 npm run test:e2e:visual
+npm run format
+npm run format:check
 npm run build
 ```
 

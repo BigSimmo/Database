@@ -3,13 +3,12 @@ import { demoSummary, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { summarizeDocument } from "@/lib/rag";
 import { jsonError } from "@/lib/http";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     if (isDemoMode()) {
@@ -19,8 +18,16 @@ export async function POST(
       return NextResponse.json({ ...demoSummary(id), demoMode: true });
     }
 
-    return NextResponse.json(await summarizeDocument(id));
+    const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
+    return NextResponse.json(await summarizeDocument(id, user.id));
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse();
+    }
+    if (error instanceof Error && error.message === "Document not found.") {
+      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    }
     return jsonError(error, 400);
   }
 }

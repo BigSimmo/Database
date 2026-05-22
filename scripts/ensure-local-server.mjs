@@ -120,7 +120,9 @@ if (target.alreadyRunning) {
 }
 
 if (target.port !== stablePort) {
-  console.log(`Stable project port ${stablePort} is serving another local project; starting Clinical KB at http://localhost:${target.port}`);
+  console.log(
+    `Stable project port ${stablePort} is serving another local project; starting Clinical KB at http://localhost:${target.port}`,
+  );
 }
 
 startDevServer(target.port);

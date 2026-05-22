@@ -7,14 +7,8 @@ const files = [
   ["synthetic-clozapine-monitoring-with-image.pdf", "application/pdf"],
   ["synthetic-risk-flow-with-image.pdf", "application/pdf"],
   ["synthetic-scanned-lithium-safety-net.pdf", "application/pdf"],
-  [
-    "synthetic-adhd-shared-care.docx",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ],
-  [
-    "synthetic-metabolic-monitoring.xlsx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ],
+  ["synthetic-adhd-shared-care.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ["synthetic-metabolic-monitoring.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
   ["synthetic-perinatal-prescribing-note.txt", "text/plain"],
 ] as const;
 

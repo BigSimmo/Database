@@ -66,13 +66,8 @@ async function extractPdf(buffer: Buffer) {
         const dataUrlMatch = image.dataUrl?.match(/^data:(.*?);base64,(.*)$/);
         const mimeType = dataUrlMatch?.[1] ?? "image/png";
         const extension = mimeType.includes("jpeg") ? "jpg" : "png";
-        const outputPath = path.join(
-          imageDir,
-          `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`,
-        );
-        const bytes = dataUrlMatch
-          ? Buffer.from(dataUrlMatch[2], "base64")
-          : Buffer.from(image.data);
+        const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
+        const bytes = dataUrlMatch ? Buffer.from(dataUrlMatch[2], "base64") : Buffer.from(image.data);
         await writeFile(outputPath, bytes);
         images.push({
           pageNumber: page.pageNumber,
@@ -109,12 +104,7 @@ async function extractDocx(buffer: Buffer) {
     if (file.dir) continue;
     const bytes = await file.async("nodebuffer");
     const ext = path.extname(name).toLowerCase() || ".png";
-    const mimeType =
-      ext === ".jpg" || ext === ".jpeg"
-        ? "image/jpeg"
-        : ext === ".webp"
-          ? "image/webp"
-          : "image/png";
+    const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".webp" ? "image/webp" : "image/png";
     const outputPath = path.join(tempRoot, `docx-image-${index}${ext}`);
     await writeFile(outputPath, bytes);
     images.push({ pageNumber: null, path: outputPath, mimeType, bbox: null });
@@ -152,26 +142,20 @@ function extractTxt(buffer: Buffer) {
   } satisfies ExtractedDocument;
 }
 
-export async function extractDocument(args: {
-  buffer: Buffer;
-  fileName: string;
-  mimeType: string;
-}) {
+export async function extractDocument(args: { buffer: Buffer; fileName: string; mimeType: string }) {
   if (args.mimeType === "application/pdf" || args.fileName.toLowerCase().endsWith(".pdf")) {
     return extractPdf(args.buffer);
   }
 
   if (
-    args.mimeType ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    args.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     args.fileName.toLowerCase().endsWith(".docx")
   ) {
     return extractDocx(args.buffer);
   }
 
   if (
-    args.mimeType ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    args.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     args.fileName.toLowerCase().endsWith(".xlsx")
   ) {
     return extractXlsx(args.buffer);

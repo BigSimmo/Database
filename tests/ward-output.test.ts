@@ -10,8 +10,7 @@ import {
 import type { RagAnswer } from "../src/lib/types";
 
 const answer: RagAnswer = {
-  answer:
-    "Monitor renal function and escalate review for vomiting, dehydration, tremor, confusion, or ataxia.",
+  answer: "Monitor renal function and escalate review for vomiting, dehydration, tremor, confusion, or ataxia.",
   grounded: true,
   confidence: "medium",
   citations: [

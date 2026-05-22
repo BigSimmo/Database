@@ -30,10 +30,7 @@ function result(overrides: Partial<SearchResult>): SearchResult {
 
 describe("evidence helpers", () => {
   it("extracts short exact quote text from retrieved chunks", () => {
-    const quotes = extractQuoteCards(
-      [result({})],
-      "What lithium toxicity symptoms need review?",
-    );
+    const quotes = extractQuoteCards([result({})], "What lithium toxicity symptoms need review?");
 
     expect(quotes).toHaveLength(1);
     expect(quotes[0].quote).toContain("vomiting");
@@ -72,11 +69,7 @@ describe("evidence helpers", () => {
   });
 
   it("deduplicates near-identical chunks on the same page", () => {
-    const sources = [
-      result({ id: "a1" }),
-      result({ id: "a2" }),
-      result({ id: "a3", page_number: 2 }),
-    ];
+    const sources = [result({ id: "a1" }), result({ id: "a2" }), result({ id: "a3", page_number: 2 })];
 
     expect(dedupeSearchResults(sources).map((source) => source.id)).toEqual(["a1", "a3"]);
   });
@@ -148,18 +141,21 @@ describe("evidence helpers", () => {
 
   it("prefers exact quote cards from the same source chunk", () => {
     const source = result({ id: "quoted-source" });
-    const recommendation = selectBestSourceRecommendation([source], [
-      {
-        chunk_id: "quoted-source",
-        document_id: "doc-a",
-        title: "Synthetic source",
-        file_name: "source.pdf",
-        page_number: 1,
-        chunk_index: 0,
-        section_heading: "Monitoring",
-        quote: "Escalate review for vomiting, dehydration, tremor, confusion, or ataxia.",
-      },
-    ]);
+    const recommendation = selectBestSourceRecommendation(
+      [source],
+      [
+        {
+          chunk_id: "quoted-source",
+          document_id: "doc-a",
+          title: "Synthetic source",
+          file_name: "source.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Monitoring",
+          quote: "Escalate review for vomiting, dehydration, tremor, confusion, or ataxia.",
+        },
+      ],
+    );
 
     expect(recommendation?.quote).toContain("Escalate review");
     expect(recommendation?.snippet).toContain("Escalate review");

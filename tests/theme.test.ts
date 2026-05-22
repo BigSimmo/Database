@@ -17,4 +17,3 @@ describe("theme helpers", () => {
     expect(nextTheme("dark")).toBe("light");
   });
 });
-

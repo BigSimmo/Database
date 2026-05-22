@@ -15,16 +15,9 @@ type SetupCheck = {
   detail: string;
 };
 
-const requiredSupabaseEnvPresent = Boolean(
-  env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY,
-);
+const requiredSupabaseEnvPresent = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 
-function check(
-  id: SetupCheckId,
-  label: string,
-  status: SetupCheckStatus,
-  detail: string,
-): SetupCheck {
+function check(id: SetupCheckId, label: string, status: SetupCheckStatus, detail: string): SetupCheck {
   return { id, label, status, detail };
 }
 
@@ -95,33 +88,18 @@ async function readWorkerStatus() {
       .limit(1);
 
     if (error) {
-      return check(
-        "worker",
-        "npm run worker running",
-        "unknown",
-        "Ingestion jobs could not be checked.",
-      );
+      return check("worker", "npm run worker running", "unknown", "Ingestion jobs could not be checked.");
     }
 
     const latest = data?.[0];
     if (!latest?.updated_at) {
-      return check(
-        "worker",
-        "npm run worker running",
-        "unknown",
-        "No ingestion activity has been recorded yet.",
-      );
+      return check("worker", "npm run worker running", "unknown", "No ingestion activity has been recorded yet.");
     }
 
     const updatedAt = new Date(latest.updated_at).getTime();
     const recentWindowMs = Math.max(env.WORKER_POLL_MS * 6, 60_000);
     if (Number.isFinite(updatedAt) && Date.now() - updatedAt <= recentWindowMs) {
-      return check(
-        "worker",
-        "npm run worker running",
-        "ready",
-        "Recent ingestion activity was detected.",
-      );
+      return check("worker", "npm run worker running", "ready", "Recent ingestion activity was detected.");
     }
 
     return check(
@@ -131,12 +109,7 @@ async function readWorkerStatus() {
       "No recent ingestion activity proves the worker is active.",
     );
   } catch {
-    return check(
-      "worker",
-      "npm run worker running",
-      "unknown",
-      "Worker status could not be inferred.",
-    );
+    return check("worker", "npm run worker running", "unknown", "Worker status could not be inferred.");
   }
 }
 

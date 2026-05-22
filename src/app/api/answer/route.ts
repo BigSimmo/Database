@@ -4,6 +4,8 @@ import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError } from "@/lib/http";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -23,13 +25,19 @@ export async function POST(request: Request) {
       });
     }
 
+    const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
     const answer = await answerQuestionWithScope({
       query: body.query,
       documentId: body.documentId,
       documentIds: body.documentIds,
+      ownerId: user.id,
     });
     return NextResponse.json(answer);
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse();
+    }
     return jsonError(error, 400);
   }
 }

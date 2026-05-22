@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+test-results/
+playwright-report/
+sample-documents/
+dev-server*.log
+package-lock.json
+public/demo-documents/

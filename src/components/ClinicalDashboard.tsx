@@ -16,21 +16,31 @@ import {
   Filter,
   ListChecks,
   Loader2,
+  LogIn,
+  LogOut,
+  Mail,
   Moon,
   Quote,
   Search,
+  ShieldAlert,
   Sun,
   Target,
   UploadCloud,
+  WifiOff,
   X,
 } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import {
-  documentCitationHref,
-  formatCompactCitationLabel,
-  formatCitationLabel,
-} from "@/lib/citations";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
+import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import {
+  extractionQualityLabel,
+  formatClinicalDate,
+  normalizeSourceMetadata,
+  sourceStatusLabel,
+  validationStatusLabel,
+} from "@/lib/source-metadata";
+import { useAuthSession } from "@/lib/supabase/client";
 import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
 import type {
   ClinicalDocument,
@@ -83,16 +93,12 @@ type SetupCheck = {
 };
 
 const textMuted = "text-[color:var(--text-muted)]";
-const panel =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]";
-const panelSubtle =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
+const panel = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]";
+const panelSubtle = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
 const controlBase =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-none";
-const primaryControl =
-  `${controlBase} bg-[color:var(--primary)] px-5 text-[color:var(--primary-contrast)] hover:bg-[color:var(--primary-strong)]`;
-const secondaryControl =
-  `${controlBase} border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]`;
+const primaryControl = `${controlBase} bg-[color:var(--primary)] px-5 text-[color:var(--primary-contrast)] hover:bg-[color:var(--primary-strong)]`;
+const secondaryControl = `${controlBase} border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]`;
 const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]";
 const shellChip =
   "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition hover:shadow-[var(--shadow-tight)]";
@@ -102,9 +108,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 function normalizeNavigationHash(hash: string) {
-  return navigationHashes.includes(hash as (typeof navigationHashes)[number])
-    ? hash
-    : "#search";
+  return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
 
 function getThemeSnapshot(): ResolvedTheme {
@@ -155,28 +159,24 @@ function statusTone(status: string) {
   if (status === "indexed" || status === "completed") {
     return {
       icon: CheckCircle2,
-      className:
-        "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]",
+      className: "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]",
     };
   }
   if (status === "failed") {
     return {
       icon: AlertCircle,
-      className:
-        "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+      className: "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
     };
   }
   if (status === "processing") {
     return {
       icon: Loader2,
-      className:
-        "border-[color:var(--info)]/30 bg-[color:var(--info-soft)] text-[color:var(--info)]",
+      className: "border-[color:var(--info)]/30 bg-[color:var(--info-soft)] text-[color:var(--info)]",
     };
   }
   return {
     icon: FileText,
-    className:
-      "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+    className: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   };
 }
 
@@ -207,10 +207,58 @@ function StrengthBadge({ strength }: { strength?: string }) {
         : "border-[color:var(--info)]/30 bg-[color:var(--info-soft)] text-[color:var(--info)]";
 
   return (
-    <span className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold", className)}>
+    <span
+      className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold", className)}
+    >
       <CheckCircle2 className="h-3.5 w-3.5" />
       {label}
     </span>
+  );
+}
+
+function SourceStatusBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
+  const source = normalizeSourceMetadata(metadata);
+  const toneClassName =
+    source.document_status === "current"
+      ? "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]"
+      : source.document_status === "outdated"
+        ? "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+        : source.document_status === "review_due"
+          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+          : "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
+
+  return (
+    <span
+      title={sourceStatusLabel(source)}
+      className={cn(
+        "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
+        toneClassName,
+        className,
+      )}
+    >
+      {sourceStatusLabel(source)}
+    </span>
+  );
+}
+
+function SourceProvenance({ metadata }: { metadata?: unknown }) {
+  const source = normalizeSourceMetadata(metadata);
+  const items = [
+    validationStatusLabel(source),
+    `Review ${formatClinicalDate(source.review_date)}`,
+    source.jurisdiction ?? "Jurisdiction unknown",
+    extractionQualityLabel(source),
+  ];
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]">
+      {items.map((item, index) => (
+        <span key={`${item}:${index}`} className="inline-flex items-center gap-2">
+          {index > 0 && <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />}
+          {item}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -226,14 +274,18 @@ function SourceImage({
   const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const { authorizationHeader, markSessionExpired } = useAuthSession();
 
   useEffect(() => {
     const cached = getCachedSignedUrl(endpoint);
     if (cached) return () => undefined;
 
     let active = true;
-    fetch(endpoint)
-      .then((response) => (response.ok ? response.json() : null))
+    fetch(endpoint, { headers: authorizationHeader })
+      .then((response) => {
+        if (response.status === 401) markSessionExpired();
+        return response.ok ? response.json() : null;
+      })
       .then((data) => {
         if (active && data?.url) {
           setCachedSignedUrl(endpoint, data);
@@ -249,7 +301,7 @@ function SourceImage({
     return () => {
       active = false;
     };
-  }, [attempt, endpoint]);
+  }, [attempt, authorizationHeader, endpoint, markSessionExpired]);
 
   function retryImage() {
     clearCachedSignedUrl(endpoint);
@@ -304,6 +356,8 @@ function SourceImage({
     <img
       src={url}
       alt={caption}
+      loading="lazy"
+      decoding="async"
       onError={handleImageError}
       className={cn(className, "w-full rounded-lg object-contain")}
     />
@@ -315,6 +369,7 @@ function SectionHeading({
   title,
   description,
   action,
+  testId,
   hideDescriptionOnMobile = false,
   compactMobile = false,
 }: {
@@ -322,16 +377,25 @@ function SectionHeading({
   title: string;
   description?: string;
   action?: ReactNode;
+  testId?: string;
   hideDescriptionOnMobile?: boolean;
   compactMobile?: boolean;
 }) {
+  const alignWhenCompact = compactMobile && hideDescriptionOnMobile ? "items-center sm:items-start" : "items-start";
+
   return (
-    <div className={cn("flex flex-wrap items-start justify-between", compactMobile ? "gap-2 sm:gap-3" : "gap-3")}>
-      <div className={cn("flex min-w-0 items-start", compactMobile ? "gap-2 sm:gap-3" : "gap-3")}>
-        <span className={cn(
-          "mt-0.5 grid shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
-          compactMobile ? "h-7 w-7 sm:h-9 sm:w-9" : "h-9 w-9",
-        )}>
+    <div
+      data-testid={testId}
+      className={cn("flex flex-wrap justify-between", alignWhenCompact, compactMobile ? "gap-2 sm:gap-3" : "gap-3")}
+    >
+      <div className={cn("flex min-w-0", alignWhenCompact, compactMobile ? "gap-2 sm:gap-3" : "gap-3")}>
+        <span
+          data-section-heading-icon
+          className={cn(
+            "grid shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
+            compactMobile ? "h-7 w-7 sm:h-9 sm:w-9" : "h-9 w-9",
+          )}
+        >
           <Icon className={cn(compactMobile ? "h-4 w-4 sm:h-4.5 sm:w-4.5" : "h-4.5 w-4.5")} />
         </span>
         <div className="min-w-0">
@@ -348,6 +412,55 @@ function SectionHeading({
   );
 }
 
+function AnswerHeaderActions({
+  bestSource,
+  grounded,
+}: {
+  bestSource: BestSourceRecommendation | null;
+  grounded: boolean;
+}) {
+  return (
+    <div
+      data-testid="answer-header-actions"
+      className="flex min-h-7 shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
+    >
+      {bestSource && (
+        <Link
+          data-testid="answer-top-source-chip"
+          href={bestSource.viewer_href}
+          className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/45 px-2 text-[11px] font-semibold leading-none text-[color:var(--primary)] transition hover:border-[color:var(--primary)]/35 hover:bg-[color:var(--primary-soft)] sm:min-h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs"
+          aria-label={`Open best source: ${formatCitationLabel(bestSource)}`}
+        >
+          <Target className="h-3.5 w-3.5" />
+          <span className="sm:hidden">Top</span>
+          <span className="hidden sm:inline">Top source</span>
+        </Link>
+      )}
+      {grounded ? (
+        <span
+          data-testid="answer-grounding-chip"
+          className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[color:var(--success)]/20 bg-[color:var(--success-soft)]/45 px-2 text-[11px] font-semibold leading-none text-[color:var(--success)] sm:min-h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs"
+          aria-label="Source-backed answer"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="sm:hidden">Backed</span>
+          <span className="hidden sm:inline">Source-backed</span>
+        </span>
+      ) : (
+        <span
+          data-testid="answer-grounding-chip"
+          className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)]/45 px-2 text-[11px] font-semibold leading-none text-[color:var(--warning)] sm:min-h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs"
+          aria-label="Insufficient source support"
+        >
+          <AlertCircle className="h-3.5 w-3.5" />
+          <span className="sm:hidden">Limited</span>
+          <span className="hidden sm:inline">Insufficient</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 function MasterSearchHeader({
   documents,
   query,
@@ -355,6 +468,7 @@ function MasterSearchHeader({
   selectedDocumentIds,
   hasAnswer,
   demoMode,
+  realDataReady,
   theme,
   onQueryChange,
   onAsk,
@@ -370,6 +484,7 @@ function MasterSearchHeader({
   selectedDocumentIds: string[];
   hasAnswer: boolean;
   demoMode: boolean;
+  realDataReady: boolean;
   theme: ResolvedTheme;
   onQueryChange: (query: string) => void;
   onAsk: () => void;
@@ -379,7 +494,7 @@ function MasterSearchHeader({
   onPickSample: (sample: string) => void;
   onToggleTheme: () => void;
 }) {
-  const canAsk = query.trim().length >= 2 && !loading;
+  const canAsk = query.trim().length >= 2 && !loading && realDataReady;
   const compactMobile = hasAnswer;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -508,7 +623,7 @@ function MasterSearchHeader({
             "grid gap-2",
             compactMobile
               ? "grid-cols-[minmax(0,1fr)_72px_44px] sm:grid-cols-[minmax(0,1fr)_148px]"
-              : "sm:grid-cols-[minmax(0,1fr)_136px] lg:grid-cols-[minmax(0,1fr)_148px]",
+              : "grid-cols-[minmax(0,1fr)_72px_44px] sm:grid-cols-[minmax(0,1fr)_136px] lg:grid-cols-[minmax(0,1fr)_148px]",
           )}
         >
           <label className="relative min-w-0">
@@ -540,34 +655,41 @@ function MasterSearchHeader({
           <button
             type="submit"
             disabled={!canAsk}
-            title={query.trim().length < 2 ? "Enter at least two characters to ask" : "Generate a source-backed answer"}
+            title={
+              !realDataReady
+                ? "Sign in before searching private documents"
+                : query.trim().length < 2
+                  ? "Enter at least two characters to ask"
+                  : "Generate a source-backed answer"
+            }
             className={cn(primaryControl, compactMobile ? "h-12 rounded-lg px-3 sm:h-14 sm:px-5" : "h-14 rounded-lg")}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             <span className="sm:hidden">Ask</span>
             <span className="hidden sm:inline">{query.trim().length < 2 ? "Ask" : "Answer"}</span>
           </button>
-          {hasAnswer && (
-            <details className="relative sm:hidden">
-              <summary
-                className="grid h-12 w-[44px] cursor-pointer list-none place-items-center rounded-lg border border-white/10 bg-white/7 text-slate-100 transition hover:bg-white/12"
-                aria-label="Open document scope and prompt controls"
-              >
-                <Filter className="h-4 w-4" />
-              </summary>
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[calc(100vw-1.5rem)] max-w-sm rounded-lg border border-white/10 bg-[color:var(--app-shell)] p-2 shadow-[var(--shadow-soft)]">
-                <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-slate-300">
-                  <span>Scope & prompts</span>
-                  {selectedDocumentIds.length > 0 && <span>{selectedDocumentIds.length} scoped</span>}
-                </div>
-                {renderScopeAndPromptRows()}
+          <details className="relative sm:hidden">
+            <summary
+              className="grid h-12 w-[44px] cursor-pointer list-none place-items-center rounded-lg border border-white/10 bg-white/7 text-slate-100 transition hover:bg-white/12"
+              aria-label="Open document scope and prompt controls"
+            >
+              <Filter className="h-4 w-4" />
+            </summary>
+            <div
+              data-testid="mobile-scope-popover"
+              className="mobile-popover-scroll polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[calc(100vw-1.5rem)] max-w-sm overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-[color:var(--app-shell-muted)] p-3 shadow-[var(--shadow-tight)]"
+            >
+              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-slate-300">
+                <span>Scope & prompts</span>
+                {selectedDocumentIds.length > 0 && <span>{selectedDocumentIds.length} scoped</span>}
               </div>
-            </details>
-          )}
+              {renderScopeAndPromptRows()}
+            </div>
+          </details>
         </form>
 
         {!hasAnswer ? (
-          <div>{renderScopeAndPromptRows()}</div>
+          <div className="hidden sm:block">{renderScopeAndPromptRows()}</div>
         ) : (
           <details className="hidden rounded-lg border border-white/10 bg-white/5 sm:block">
             <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-slate-100">
@@ -582,9 +704,7 @@ function MasterSearchHeader({
               </span>
               <ChevronDown className="h-4 w-4" />
             </summary>
-            <div className="border-t border-white/10 p-2">
-              {renderScopeAndPromptRows()}
-            </div>
+            <div className="border-t border-white/10 p-2">{renderScopeAndPromptRows()}</div>
           </details>
         )}
       </div>
@@ -606,9 +726,14 @@ function CopyButton({
   onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} aria-label={ariaLabel ?? label} className={cn(secondaryControl, "px-3 text-xs")}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel ?? label}
+      className={cn(secondaryControl, "px-3 text-xs")}
+    >
       {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
-      <span className="sm:hidden">{copied ? "Copied" : shortLabel ?? label}</span>
+      <span className="sm:hidden">{copied ? "Copied" : (shortLabel ?? label)}</span>
       <span className="hidden sm:inline">{copied ? "Copied" : label}</span>
     </button>
   );
@@ -668,36 +793,50 @@ function SourceActionRow({
   );
 }
 
-function BestSourceJumpStrip({
+function VerificationActionStrip({
   source,
   grounded,
+  citationCount,
+  quoteCount,
 }: {
   source: BestSourceRecommendation | null | undefined;
   grounded: boolean;
+  citationCount: number;
+  quoteCount: number;
 }) {
   if (!source) return null;
 
-  const label = grounded ? "Top source" : "Closest source";
+  const label = grounded ? "Verify source" : "Closest source";
+  const evidenceLabel = `${citationCount} citation${citationCount === 1 ? "" : "s"} · ${quoteCount} quote${
+    quoteCount === 1 ? "" : "s"
+  }`;
 
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--surface)] px-2.5 py-2 shadow-[var(--shadow-tight)] sm:mt-4 sm:px-3">
+    <div
+      data-testid="verify-source-strip"
+      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] px-3 py-2.5"
+    >
       <div className="flex min-w-0 items-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)] sm:h-8 sm:w-8">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
           <Target className="h-4 w-4" />
         </span>
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
-          <p className="truncate text-[13px] font-semibold text-[color:var(--text)] sm:text-sm">
+          <p className="truncate text-[13px] font-semibold text-[color:var(--text)]">
             {formatCompactCitationLabel(source)}
           </p>
         </div>
       </div>
+      <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-xs font-semibold text-[color:var(--text-muted)]">
+        {evidenceLabel}
+      </span>
+      <SourceStatusBadge metadata={source.source_metadata} className="max-w-[8rem] truncate sm:max-w-none" />
       <Link
         href={source.viewer_href}
         className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-lg bg-[color:var(--primary)] px-3 text-xs font-semibold text-[color:var(--primary-contrast)] transition hover:bg-[color:var(--primary-strong)]"
         aria-label={`Open best source: ${formatCitationLabel(source)}`}
       >
-        Open
+        Open source
         <ExternalLink className="h-4 w-4" />
       </Link>
     </div>
@@ -719,7 +858,7 @@ function BestSourceCard({
   const score = Math.max(0, Math.min(100, Math.round(source.score * 100)));
 
   return (
-    <article className="rounded-lg border border-[color:var(--primary)]/25 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)] sm:p-4">
+    <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)] sm:h-9 sm:w-9">
@@ -735,7 +874,7 @@ function BestSourceCard({
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <StrengthBadge strength={source.source_strength} />
           <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text-muted)]">
             {score}% match
@@ -743,7 +882,9 @@ function BestSourceCard({
         </div>
       </div>
 
-      <p className="mt-2 line-clamp-3 text-[15px] font-medium leading-6 text-[color:var(--text)] sm:mt-3 sm:line-clamp-4">
+      <SourceProvenance metadata={source.source_metadata} />
+      <p className={cn("mt-3 text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Reason selected</p>
+      <p className="mt-1 line-clamp-3 text-[15px] font-medium leading-6 text-[color:var(--text)] sm:line-clamp-4">
         &ldquo;{source.snippet}&rdquo;
       </p>
 
@@ -755,6 +896,78 @@ function BestSourceCard({
         imageCount={source.image_count}
       />
     </article>
+  );
+}
+
+function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extractSafetyFindings> }) {
+  if (findings.length === 0) return null;
+
+  return (
+    <section
+      data-testid="safety-findings-panel"
+      className="rounded-lg border border-[color:var(--warning)]/30 border-l-4 border-l-[color:var(--warning)] bg-[color:var(--surface-raised)] p-3 sm:p-4"
+    >
+      <SectionHeading
+        icon={ShieldAlert}
+        title="Safety-critical source findings"
+        description="Items are extracted only from retrieved source text. Verify the linked source before clinical use."
+        hideDescriptionOnMobile
+        compactMobile
+      />
+      <div className="mt-3 grid gap-2 sm:mt-4">
+        {findings.map((finding) => (
+          <article
+            key={finding.id}
+            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--warning-soft)] px-2 text-xs font-bold text-[color:var(--warning)]">
+                {finding.label}
+              </span>
+              <Link
+                href={finding.href}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--primary)]"
+                aria-label={`Open source for ${formatSafetyFindingLabel(finding)}`}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Source
+              </Link>
+            </div>
+            <p className="mt-2 text-[15px] font-medium leading-6 text-[color:var(--text)]">{finding.text}</p>
+            <p className={cn("mt-2 text-xs font-semibold leading-5", textMuted)}>
+              {formatCitationLabel(finding.citation)}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CopyGovernanceStrip({
+  copiedAnswer,
+  copiedDraft,
+  onCopyAnswer,
+  onCopyDraft,
+}: {
+  copiedAnswer: boolean;
+  copiedDraft: boolean;
+  onCopyAnswer: () => void;
+  onCopyDraft: () => void;
+}) {
+  return (
+    <div
+      data-testid="copy-governance-strip"
+      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5"
+    >
+      <p className={cn("min-w-0 flex-1 text-[13px] font-semibold leading-5 sm:text-sm", textMuted)}>
+        Draft only; verify source first before pasting into the medical record.
+      </p>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <CopyButton label="Copy answer with citations" shortLabel="Copy" copied={copiedAnswer} onClick={onCopyAnswer} />
+        <CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedDraft} onClick={onCopyDraft} />
+      </div>
+    </div>
   );
 }
 
@@ -771,8 +984,6 @@ function QuoteCards({
   onFollowUp: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
-  if (quotes.length === 0) return null;
-
   return (
     <section id="quotes" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
       <SectionHeading
@@ -781,44 +992,56 @@ function QuoteCards({
         description="Verbatim excerpts linked to the source PDF and page."
         hideDescriptionOnMobile
         compactMobile
-        action={<CopyButton label="Copy exact quotes" shortLabel="Quotes" copied={copiedQuotes} onClick={onCopyQuotes} />}
+        action={
+          quotes.length > 0 ? (
+            <CopyButton label="Copy exact quotes" shortLabel="Quotes" copied={copiedQuotes} onClick={onCopyQuotes} />
+          ) : null
+        }
       />
-      <div className="grid gap-3 md:grid-cols-2">
-        {quotes.map((quote, index) => (
-          <article
-            key={`${quote.chunk_id}:${quote.quote}`}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)] sm:p-4"
-          >
-            <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-xs font-bold text-[color:var(--primary)] sm:h-8 sm:w-8">
-                {index + 1}
-              </span>
-              <StrengthBadge strength={quote.source_strength} />
-            </div>
-            <blockquote className="text-[15px] font-medium leading-6 text-[color:var(--text)]">
-              &ldquo;{quote.quote}&rdquo;
-            </blockquote>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3 sm:mt-4 sm:gap-3">
-              <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
-                {formatCompactCitationLabel(quote)}
-              </span>
-              <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
-                {quote.title}, page {quote.page_number ?? "n/a"}
-              </span>
-              <div className="w-full sm:w-auto">
-                <SourceActionRow
-                  viewerHref={documentCitationHref(quote)}
-                  sourceTitle={`quote ${index + 1} from ${quote.title}`}
-                  documentId={quote.document_id}
-                  onScopeDocument={onScopeDocument}
-                  onFollowUp={() => onFollowUp(quote)}
-                  divider={false}
-                />
+      {quotes.length === 0 ? (
+        <EmptyState
+          icon={Quote}
+          title="No exact quotes returned"
+          body="This answer did not include separate quote cards. Use the answer citations and source passages to verify the source text."
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {quotes.map((quote, index) => (
+            <article
+              key={`${quote.chunk_id}:${quote.quote}`}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)] sm:p-4"
+            >
+              <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-xs font-bold text-[color:var(--primary)] sm:h-8 sm:w-8">
+                  {index + 1}
+                </span>
+                <StrengthBadge strength={quote.source_strength} />
               </div>
-            </div>
-          </article>
-        ))}
-      </div>
+              <blockquote className="text-[15px] font-medium leading-6 text-[color:var(--text)]">
+                &ldquo;{quote.quote}&rdquo;
+              </blockquote>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3 sm:mt-4 sm:gap-3">
+                <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
+                  {formatCompactCitationLabel(quote)}
+                </span>
+                <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
+                  {quote.title}, page {quote.page_number ?? "n/a"}
+                </span>
+                <div className="w-full sm:w-auto">
+                  <SourceActionRow
+                    viewerHref={documentCitationHref(quote)}
+                    sourceTitle={`quote ${index + 1} from ${quote.title}`}
+                    documentId={quote.document_id}
+                    onScopeDocument={onScopeDocument}
+                    onFollowUp={() => onFollowUp(quote)}
+                    divider={false}
+                  />
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -851,17 +1074,15 @@ function ClinicalOutputPanel({
           <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
         </summary>
         <div className="space-y-3 border-t border-[color:var(--border)] p-4">
-          <CopyButton
-            label="Copy ward note"
-            shortLabel="Ward note"
-            copied={copiedWardNote}
-            onClick={onCopyWardNote}
-          />
+          <CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedWardNote} onClick={onCopyWardNote} />
           <p className={cn("text-[15px] leading-6", textMuted)}>
-            Review before pasting into the medical record.
+            Draft only; verify source first before pasting into the medical record.
           </p>
           {sections.map((section) => (
-            <article key={section.id} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+            <article
+              key={section.id}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            >
               <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
               <ul className="mt-2 space-y-2 text-[15px] leading-6 text-[color:var(--text-muted)]">
                 {section.items.map((item) => (
@@ -881,14 +1102,17 @@ function ClinicalOutputPanel({
           icon={ListChecks}
           title="Clinical formats"
           description="Practical formats generated only from retrieved answer text and quotes."
-          action={<CopyButton label="Copy ward note" copied={copiedWardNote} onClick={onCopyWardNote} />}
+          action={<CopyButton label="Copy clinical draft" copied={copiedWardNote} onClick={onCopyWardNote} />}
         />
         <p className={cn("mt-3 text-[15px] leading-6", textMuted)}>
-          Review before pasting into the medical record.
+          Draft only; verify source first before pasting into the medical record.
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {sections.map((section) => (
-            <article key={section.id} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+            <article
+              key={section.id}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            >
               <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
               <ul className="mt-2 space-y-2 text-[15px] leading-6 text-[color:var(--text-muted)]">
                 {section.items.map((item) => (
@@ -907,8 +1131,6 @@ function ClinicalOutputPanel({
 }
 
 function VisualEvidenceStrip({ evidence }: { evidence: VisualEvidenceCard[] }) {
-  if (evidence.length === 0) return null;
-
   return (
     <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
       <SectionHeading
@@ -918,28 +1140,38 @@ function VisualEvidenceStrip({ evidence }: { evidence: VisualEvidenceCard[] }) {
         hideDescriptionOnMobile
         compactMobile
       />
-      <div className="grid gap-3 md:grid-cols-2">
-        {evidence.map((item) => (
-          <figure key={item.id} className={cn(panel, "overflow-hidden p-2.5 sm:p-3")}>
-            <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
-              <SourceImage endpoint={item.signed_url_endpoint} caption={item.caption} />
-            </div>
-            <figcaption className="mt-2 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">{item.caption}</figcaption>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3 text-xs sm:mt-3 sm:gap-3">
-              <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
-                {formatCompactCitationLabel(item)}
-              </span>
-              <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
-                {item.title}, page {item.page_number ?? "n/a"}
-              </span>
-              <Link href={item.viewer_href} className={cn(secondaryControl, "min-h-[44px] px-4 text-xs")}>
-                <ExternalLink className="h-4 w-4" />
-                Open PDF
-              </Link>
-            </div>
-          </figure>
-        ))}
-      </div>
+      {evidence.length === 0 ? (
+        <EmptyState
+          icon={FileImage}
+          title="No indexed images cited"
+          body="This answer did not cite extracted diagrams or image captions."
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {evidence.map((item) => (
+            <figure key={item.id} className={cn(panel, "overflow-hidden p-2.5 sm:p-3")}>
+              <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
+                <SourceImage endpoint={item.signed_url_endpoint} caption={item.caption} />
+              </div>
+              <figcaption className="mt-2 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
+                {item.caption}
+              </figcaption>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3 text-xs sm:mt-3 sm:gap-3">
+                <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                  {formatCompactCitationLabel(item)}
+                </span>
+                <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
+                  {item.title}, page {item.page_number ?? "n/a"}
+                </span>
+                <Link href={item.viewer_href} className={cn(secondaryControl, "min-h-[44px] px-4 text-xs")}>
+                  <ExternalLink className="h-4 w-4" />
+                  Open PDF
+                </Link>
+              </div>
+            </figure>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -952,7 +1184,9 @@ function SourceList({
   onScopeDocument: (documentId: string) => void;
 }) {
   if (sources.length === 0) {
-    return <EmptyState icon={FileText} title="No source passages yet" body="Ask a question to populate the source list." />;
+    return (
+      <EmptyState icon={FileText} title="No source passages yet" body="Ask a question to populate the source list." />
+    );
   }
 
   return (
@@ -970,8 +1204,10 @@ function SourceList({
               <p className={cn("mt-1 text-xs leading-5", textMuted)}>
                 {source.file_name} · page {source.page_number ?? "n/a"} · chunk {source.chunk_index}
               </p>
+              <SourceProvenance metadata={source.source_metadata} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <SourceStatusBadge metadata={source.source_metadata} />
               <StrengthBadge strength={source.source_strength} />
               <button
                 type="button"
@@ -983,22 +1219,16 @@ function SourceList({
               </button>
             </div>
           </div>
-          <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6 sm:mt-3 sm:line-clamp-4", textMuted)}>{source.content}</p>
+          <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6 sm:mt-3 sm:line-clamp-4", textMuted)}>
+            {source.content}
+          </p>
         </article>
       ))}
     </div>
   );
 }
 
-function EmptyState({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: typeof FileText;
-  title: string;
-  body: string;
-}) {
+function EmptyState({ icon: Icon, title, body }: { icon: typeof FileText; title: string; body: string }) {
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm sm:p-5">
       <div className="flex items-start gap-3">
@@ -1041,6 +1271,94 @@ function AnswerSkeleton() {
   );
 }
 
+function AuthPanel() {
+  const { status, error, isConfigured, signInWithEmail, signOut, session } = useAuthSession();
+  const [email, setEmail] = useState("");
+  const busy = status === "loading";
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!email.trim()) return;
+    await signInWithEmail(email.trim());
+  }
+
+  if (!isConfigured) {
+    return (
+      <div className={cn(panelSubtle, "p-3")}>
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+          <div>
+            <p className="text-sm font-semibold text-[color:var(--text)]">Real-data sign-in unavailable</p>
+            <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
+              Configure the Supabase public URL and publishable key before using private documents.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "authenticated") {
+    return (
+      <div className={cn(panelSubtle, "p-3")}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
+            <p className={cn("mt-1 text-xs leading-5", textMuted)}>{session?.user.email ?? "Authenticated session"}</p>
+          </div>
+          <button type="button" onClick={signOut} className={cn(secondaryControl, "px-3 text-xs")}>
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className={cn(panelSubtle, "space-y-3 p-3")}>
+      <div className="flex items-start gap-3">
+        <LogIn className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--primary)]" />
+        <div>
+          <p className="text-sm font-semibold text-[color:var(--text)]">
+            {status === "expired" ? "Session expired" : "Sign in for private documents"}
+          </p>
+          <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
+            Real-data search, upload, and source previews require a Supabase Auth session.
+          </p>
+        </div>
+      </div>
+      <label className="block">
+        <span className={fieldLabel}>Email address</span>
+        <div className="relative">
+          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20"
+          />
+        </div>
+      </label>
+      <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+        Send sign-in link
+      </button>
+      {error && (
+        <p
+          className={cn(
+            "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs",
+            textMuted,
+          )}
+        >
+          {error}
+        </p>
+      )}
+    </form>
+  );
+}
+
 function DocumentDrawer({
   documents,
   selectedDocumentIds,
@@ -1072,7 +1390,11 @@ function DocumentDrawer({
           <EmptyState
             icon={FileText}
             title={documents.length === 0 ? "No indexed documents" : "No matching documents"}
-            body={documents.length === 0 ? "Upload a guideline to start indexing." : "Try another document title or file name."}
+            body={
+              documents.length === 0
+                ? "Upload a guideline to start indexing."
+                : "Try another document title or file name."
+            }
           />
         ) : (
           filtered.slice(0, 12).map((document) => {
@@ -1090,12 +1412,11 @@ function DocumentDrawer({
                   <p className={cn("mt-1 truncate text-xs", textMuted)}>
                     {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
                   </p>
-                  <p className="mt-1 text-[15px] leading-6 text-[color:var(--warning)]">
-                    Review date not provided.
-                  </p>
+                  <SourceProvenance metadata={document.metadata} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={document.status} />
+                  <SourceStatusBadge metadata={document.metadata} />
                   <button
                     type="button"
                     onClick={() => onToggleScope(document.id)}
@@ -1121,9 +1442,13 @@ function DocumentDrawer({
 function UploadPanel({
   onUploaded,
   demoMode,
+  canUpload,
+  authorizationHeader,
 }: {
   onUploaded: () => void;
   demoMode: boolean;
+  canUpload: boolean;
+  authorizationHeader: Record<string, string>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string>("");
@@ -1135,6 +1460,10 @@ function UploadPanel({
       setStatus(
         "Demo mode is serving seeded documents. Configure .env.local, run supabase/schema.sql, and start npm run worker to upload real files.",
       );
+      return;
+    }
+    if (!canUpload) {
+      setStatus("Sign in before uploading private guideline files.");
       return;
     }
 
@@ -1149,7 +1478,7 @@ function UploadPanel({
     const formData = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch("/api/upload", { method: "POST", body: formData });
+      const response = await fetch("/api/upload", { method: "POST", headers: authorizationHeader, body: formData });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Upload failed");
       setStatus("Queued for local worker ingestion.");
@@ -1169,7 +1498,7 @@ function UploadPanel({
         <input
           name="title"
           placeholder="Use the file name if left blank"
-          disabled={demoMode}
+          disabled={demoMode || !canUpload}
           className="h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20 disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)]"
         />
       </label>
@@ -1180,11 +1509,15 @@ function UploadPanel({
           name="file"
           type="file"
           accept=".pdf,.docx,.xlsx,.txt,application/pdf,text/plain"
-          disabled={demoMode}
+          disabled={demoMode || !canUpload}
           className="block min-h-[44px] w-full cursor-pointer rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-3 py-2 text-sm text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[color:var(--app-shell)] file:px-3 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:file:bg-slate-100 dark:file:text-slate-950"
         />
       </label>
-      <button type="submit" disabled={uploading} className={cn(secondaryControl, "w-full")}>
+      <button
+        type="submit"
+        disabled={uploading || (!demoMode && !canUpload)}
+        className={cn(secondaryControl, "w-full")}
+      >
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
         Queue document
       </button>
@@ -1195,7 +1528,10 @@ function UploadPanel({
             textMuted,
           )}
         >
-          {status || "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files."}
+          {status ||
+            (demoMode
+              ? "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files."
+              : "Sign in before uploading private guideline files.")}
         </p>
       )}
     </form>
@@ -1273,7 +1609,8 @@ function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
         ))}
       </div>
       <p className={cn("mt-3 text-xs leading-5", textMuted)}>
-        Setup status is read-only and never exposes secret values. Worker status is inferred from recent ingestion activity.
+        Setup status is read-only and never exposes secret values. Worker status is inferred from recent ingestion
+        activity.
       </p>
     </div>
   );
@@ -1299,7 +1636,11 @@ function UtilityDrawer({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className={cn("group", panel, className)}>
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className={cn("group", panelSubtle, className)}
+    >
       <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <span className="flex min-w-0 items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--primary)]">
@@ -1322,8 +1663,138 @@ function UtilityDrawer({
   );
 }
 
+const guideSections = [
+  {
+    title: "Ask and verify",
+    body: "Ask a focused guideline question, then verify the answer against linked citations and source passages before clinical use.",
+  },
+  {
+    title: "Top source and citations",
+    body: "Use Top source, citation chips, and source cards to open the relevant document page and check the retrieved evidence.",
+  },
+  {
+    title: "Scope",
+    body: "Use document scope controls when a question should search only selected guidelines rather than every indexed source.",
+  },
+  {
+    title: "Quotes, images, sources",
+    body: "The bottom nav jumps to exact quotes, extracted diagrams, and source passages. Empty sections simply mean none were cited.",
+  },
+  {
+    title: "Upload and indexing",
+    body: "Real uploads require Supabase, OpenAI setup, the database schema, and the worker. Demo mode is synthetic only.",
+  },
+  {
+    title: "Copying text",
+    body: "Copied drafts are not final clinical notes. Keep the provenance footer and verify source material before using copied text.",
+  },
+] as const;
+
+function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    document.body.style.overflow = "hidden";
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousActiveElement?.focus();
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-slate-950/70 px-3 py-3 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clinical-kb-guide-title"
+        className="max-h-[min(82svh,42rem)] w-full overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] sm:max-w-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 sm:p-5">
+          <div className="flex min-w-0 gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
+              <BookOpen className="h-4.5 w-4.5" />
+            </span>
+            <div className="min-w-0">
+              <h2
+                id="clinical-kb-guide-title"
+                className="text-base font-semibold tracking-tight text-[color:var(--text)]"
+              >
+                Clinical KB guide
+              </h2>
+              <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
+                Practical use notes for source-backed guideline search.
+              </p>
+            </div>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            aria-label="Close guide"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+          {guideSections.map((section) => (
+            <article
+              key={section.title}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3"
+            >
+              <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
+              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function GuideTrigger({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="flex justify-center pt-1">
+      <button
+        type="button"
+        data-testid="dashboard-guide-trigger"
+        onClick={onOpen}
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+        aria-label="Open user guide"
+      >
+        <BookOpen className="h-4 w-4" />
+        Guide
+      </button>
+    </div>
+  );
+}
+
 export function ClinicalDashboard() {
   const mainRef = useRef<HTMLElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const navSyncLockRef = useRef<number | null>(null);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
   const [query, setQuery] = useState("");
@@ -1334,23 +1805,65 @@ export function ClinicalDashboard() {
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [setupChecks, setSetupChecks] = useState<SetupCheck[]>(fallbackSetupChecks);
   const [demoMode, setDemoMode] = useState(false);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
+  const [guideOpen, setGuideOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const auth = useAuthSession();
+  const { status: authStatus, authorizationHeader, markSessionExpired } = auth;
+  const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
+  const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
+  const clientDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
+  const canUsePrivateApis = clientDemoMode || authStatus === "authenticated";
+  const openGuide = useCallback(() => setGuideOpen(true), []);
+  const closeGuide = useCallback(() => setGuideOpen(false), []);
 
-  async function refresh() {
-    const [documentsResponse, jobsResponse, setupResponse] = await Promise.all([
-      fetch("/api/documents"),
-      fetch("/api/jobs"),
-      fetch("/api/setup-status"),
+  const refresh = useCallback(async () => {
+    setApiUnavailable(false);
+    const setupResponse = await fetch("/api/setup-status").catch(() => null);
+
+    if (!setupResponse) {
+      setApiUnavailable(true);
+      setSetupWarning("The local API is unavailable.");
+      return;
+    }
+
+    let nextDemoMode = clientDemoMode;
+    if (setupResponse.ok) {
+      const payload = await setupResponse.json();
+      setSetupChecks(payload.checks ?? fallbackSetupChecks);
+      nextDemoMode = Boolean(payload.demoMode);
+      if (nextDemoMode) setDemoMode(true);
+      if (!nextDemoMode && authStatus !== "authenticated") {
+        setDocuments([]);
+        setJobs([]);
+        return;
+      }
+    }
+
+    const protectedHeaders = nextDemoMode ? undefined : authorizationHeader;
+    const [documentsResponse, jobsResponse] = await Promise.all([
+      fetch("/api/documents", { headers: protectedHeaders }),
+      fetch("/api/jobs", { headers: protectedHeaders }),
     ]);
+
+    if (documentsResponse.status === 401 || jobsResponse.status === 401) {
+      markSessionExpired();
+      setDocuments([]);
+      setJobs([]);
+      return;
+    }
 
     if (documentsResponse.ok) {
       const payload = await documentsResponse.json();
       setDocuments(payload.documents ?? []);
       if (payload.demoMode) setDemoMode(true);
       if (payload.setupRequired) setSetupWarning(payload.error);
+    } else {
+      setApiUnavailable(true);
     }
 
     if (jobsResponse.ok) {
@@ -1358,14 +1871,10 @@ export function ClinicalDashboard() {
       setJobs(payload.jobs ?? []);
       if (payload.demoMode) setDemoMode(true);
       if (payload.setupRequired) setSetupWarning(payload.error);
+    } else {
+      setApiUnavailable(true);
     }
-
-    if (setupResponse.ok) {
-      const payload = await setupResponse.json();
-      setSetupChecks(payload.checks ?? fallbackSetupChecks);
-      if (payload.demoMode) setDemoMode(true);
-    }
-  }
+  }, [authStatus, authorizationHeader, clientDemoMode, markSessionExpired]);
 
   useEffect(() => {
     const tick = () => {
@@ -1384,12 +1893,22 @@ export function ClinicalDashboard() {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [demoMode]);
+  }, [authStatus, authorizationHeader, clientDemoMode, demoMode, refresh]);
+
+  useEffect(() => {
+    const updateOnline = () => setIsOnline(navigator.onLine);
+    updateOnline();
+    window.addEventListener("online", updateOnline);
+    window.addEventListener("offline", updateOnline);
+    return () => {
+      window.removeEventListener("online", updateOnline);
+      window.removeEventListener("offline", updateOnline);
+    };
+  }, []);
 
   useEffect(() => {
     const updateHash = () => {
       const nextHash = normalizeNavigationHash(window.location.hash || "#search");
-      setActiveHash(nextHash);
       window.requestAnimationFrame(() => navigateMobileSection(nextHash, { updateHistory: false }));
     };
     updateHash();
@@ -1397,21 +1916,40 @@ export function ClinicalDashboard() {
     return () => window.removeEventListener("hashchange", updateHash);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (navSyncLockRef.current !== null) {
+        window.clearTimeout(navSyncLockRef.current);
+      }
+    };
+  }, []);
+
   async function ask() {
     if (query.trim().length < 2) return;
+    if (!clientDemoMode && authStatus !== "authenticated") {
+      setError("Sign in before searching private guideline documents.");
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetch("/api/answer", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(clientDemoMode ? {} : authorizationHeader),
+        },
         body: JSON.stringify({
           query,
           documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
         }),
       });
       const payload = await response.json();
+      if (response.status === 401) markSessionExpired();
       if (!response.ok) throw new Error(payload.error || "Answer generation failed");
       setAnswer(payload);
       setSources(payload.sources ?? []);
@@ -1425,9 +1963,7 @@ export function ClinicalDashboard() {
 
   function toggleDocumentScope(documentId: string) {
     setSelectedDocumentIds((current) =>
-      current.includes(documentId)
-        ? current.filter((id) => id !== documentId)
-        : [...current, documentId],
+      current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId],
     );
   }
 
@@ -1441,23 +1977,28 @@ export function ClinicalDashboard() {
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
-  function navigateMobileSection(
-    href: string,
-    options: { updateHistory?: boolean } = {},
-  ) {
+  function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
     const shouldUpdateHistory = options.updateHistory ?? true;
-    setActiveHash(href);
     const main = mainRef.current;
     if (!main) return;
 
+    if (navSyncLockRef.current !== null) {
+      window.clearTimeout(navSyncLockRef.current);
+    }
+
     if (href === "#search") {
+      setActiveHash(href);
       main.scrollTo({ top: 0, behavior: "auto" });
       if (shouldUpdateHistory) window.history.replaceState(null, "", href);
+      navSyncLockRef.current = window.setTimeout(() => {
+        navSyncLockRef.current = null;
+      }, 350);
       return;
     }
 
     const target = document.querySelector<HTMLElement>(href);
     if (!target) return;
+    setActiveHash(href);
     const mainTop = main.getBoundingClientRect().top;
     const targetTop = target.getBoundingClientRect().top;
     main.scrollTo({
@@ -1465,11 +2006,15 @@ export function ClinicalDashboard() {
       behavior: "auto",
     });
     if (shouldUpdateHistory) window.history.replaceState(null, "", href);
+    navSyncLockRef.current = window.setTimeout(() => {
+      navSyncLockRef.current = null;
+    }, 350);
   }
 
   function syncActiveSectionFromScroll() {
     const main = mainRef.current;
     if (!main) return;
+    if (navSyncLockRef.current !== null) return;
 
     if (main.scrollTop < 120) {
       setActiveHash((current) => (current === "#search" ? current : "#search"));
@@ -1493,6 +2038,14 @@ export function ClinicalDashboard() {
     setActiveHash((active) => (active === current ? active : current));
   }
 
+  function scheduleActiveSectionSync() {
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      syncActiveSectionFromScroll();
+    });
+  }
+
   async function copyText(action: string, text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -1511,19 +2064,25 @@ export function ClinicalDashboard() {
     window.setTimeout(() => setCopiedAction((current) => (current === action ? null : current)), 1800);
   }
 
-  const visualEvidence = useMemo(
-    () => answer?.visualEvidence ?? answer?.smartPanel?.visualEvidence ?? [],
-    [answer],
-  );
+  const visualEvidence = useMemo(() => answer?.visualEvidence ?? answer?.smartPanel?.visualEvidence ?? [], [answer]);
+  const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answer?.bestSource ?? answer?.smartPanel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
   const gaps = answer?.conflictsOrGaps ?? answer?.smartPanel?.conflictsOrGaps ?? [];
   const showSystemNotice = demoMode || setupWarning;
+  const bottomNavItems = [
+    { label: "Answer", icon: Search, href: "#search", count: null },
+    { label: "Quotes", icon: Quote, href: "#quotes", count: answer ? (answer.quoteCards ?? []).length : null },
+    { label: "Images", icon: FileImage, href: "#images", count: answer ? visualEvidence.length : null },
+    { label: "Sources", icon: FileText, href: "#sources", count: answer ? sources.length : null },
+  ] as const;
   const renderSystemNotice = (className?: string) => (
     <UtilityDrawer
       icon={AlertCircle}
       title={demoMode ? "Demo mode" : "Setup required"}
-      summary={demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."}
+      summary={
+        demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."
+      }
       mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
       className={className}
     >
@@ -1534,9 +2093,29 @@ export function ClinicalDashboard() {
       </p>
     </UtilityDrawer>
   );
+  const showAuthPanel = !clientDemoMode && authStatus !== "authenticated";
+  const showDegradedNotice = !isOnline || apiUnavailable;
+  const renderDegradedNotice = () => (
+    <UtilityDrawer
+      icon={!isOnline ? WifiOff : AlertCircle}
+      title={!isOnline ? "Offline" : "Service unavailable"}
+      summary={
+        !isOnline
+          ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
+          : "The local API did not respond. Check the app server and setup status before retrying."
+      }
+      mobileSummary={!isOnline ? "Offline" : "API unavailable"}
+    >
+      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+        {!isOnline
+          ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
+          : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
+      </p>
+    </UtilityDrawer>
+  );
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[color:var(--background)] text-[color:var(--text)] lg:block lg:h-auto lg:min-h-screen lg:overflow-x-clip lg:overflow-y-visible">
+    <div className="mobile-app-shell flex flex-col overflow-hidden bg-[color:var(--background)] text-[color:var(--text)] lg:block lg:h-auto lg:min-h-screen lg:overflow-x-clip lg:overflow-y-visible">
       <MasterSearchHeader
         documents={documents}
         query={query}
@@ -1544,6 +2123,7 @@ export function ClinicalDashboard() {
         selectedDocumentIds={selectedDocumentIds}
         hasAnswer={Boolean(answer)}
         demoMode={demoMode}
+        realDataReady={canUsePrivateApis}
         theme={theme}
         onQueryChange={setQuery}
         onAsk={ask}
@@ -1556,276 +2136,302 @@ export function ClinicalDashboard() {
 
       <main
         ref={mainRef}
-        onScroll={syncActiveSectionFromScroll}
+        onScroll={scheduleActiveSectionSync}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
       >
         <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-6 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-8 lg:px-8">
-        {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
+          {showDegradedNotice && renderDegradedNotice()}
+          {showAuthPanel && <AuthPanel />}
+          {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
 
-        <section className={cn(panel, "overflow-hidden")}>
-          <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 sm:p-5">
-            <SectionHeading
-              icon={Search}
-              title="Answer"
-              description="Sourced synthesis with quotes, PDFs, and indexed diagrams."
-              hideDescriptionOnMobile
-              compactMobile
-              action={
-                answer ? (
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {bestSource && (
-                      <Link
-                        href={bestSource.viewer_href}
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[color:var(--primary)]/30 bg-[color:var(--primary-soft)] px-3 text-xs font-semibold text-[color:var(--primary)] transition hover:bg-[color:var(--surface)]"
-                        aria-label={`Open best source: ${formatCitationLabel(bestSource)}`}
-                      >
-                        <Target className="h-3.5 w-3.5" />
-                        Top source
-                      </Link>
-                    )}
-                    {answer.grounded ? (
-                      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[color:var(--success)]/30 bg-[color:var(--success-soft)] px-2.5 text-xs font-semibold text-[color:var(--success)]">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Source-backed
-                      </span>
-                    ) : (
-                      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-2.5 text-xs font-semibold text-[color:var(--warning)]">
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        Insufficient
-                      </span>
-                    )}
+          <section className={cn(panel, "overflow-hidden")}>
+            <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 sm:p-5">
+              <SectionHeading
+                icon={Search}
+                title="Answer"
+                description="Sourced synthesis with quotes, PDFs, and indexed diagrams."
+                testId="answer-section-heading"
+                hideDescriptionOnMobile
+                compactMobile
+                action={
+                  answer ? (
+                    <AnswerHeaderActions
+                      bestSource={bestSource}
+                      grounded={answer.grounded && answer.confidence !== "unsupported"}
+                    />
+                  ) : null
+                }
+              />
+            </div>
+
+            <div className="p-3 sm:p-5">
+              {error && (
+                <div className="mb-4 rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]">
+                  <AlertCircle className="mr-2 inline h-4 w-4" />
+                  {error}
+                </div>
+              )}
+
+              {loading && !answer ? (
+                <AnswerSkeleton />
+              ) : answer ? (
+                <div className="space-y-4 sm:space-y-5">
+                  <div className="rounded-lg border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)] sm:p-4">
+                    <p className="whitespace-pre-wrap text-[15px] font-medium leading-6 text-[color:var(--text)] sm:leading-7">
+                      {answer.answer}
+                    </p>
                   </div>
-                ) : null
-              }
-            />
-          </div>
 
-          <div className="p-3 sm:p-5">
-            {error && (
-              <div className="mb-4 rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]">
-                <AlertCircle className="mr-2 inline h-4 w-4" />
-                {error}
-              </div>
-            )}
+                  <SafetyFindingsPanel findings={safetyFindings} />
 
-            {loading && !answer ? (
-              <AnswerSkeleton />
-            ) : answer ? (
-              <div className="space-y-4 sm:space-y-5">
-                <div className="rounded-lg border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)] sm:p-4">
-                  <p className="whitespace-pre-wrap text-[15px] font-medium leading-6 text-[color:var(--text)] sm:leading-7">
-                    {answer.answer}
-                  </p>
-                  <BestSourceJumpStrip
+                  <VerificationActionStrip
                     source={bestSource}
                     grounded={answer.grounded && answer.confidence !== "unsupported"}
+                    citationCount={answer.citations.length}
+                    quoteCount={answer.quoteCards?.length ?? 0}
                   />
-                </div>
 
-                <BestSourceCard
-                  source={bestSource}
-                  grounded={answer.grounded && answer.confidence !== "unsupported"}
-                  onScopeDocument={scopeOnlyDocument}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <CopyButton
-                    label="Copy answer with citations"
-                    shortLabel="Copy"
-                    copied={copiedAction === "answer"}
-                    onClick={() => copyText("answer", formatAnswerForClipboard(answer))}
+                  <CopyGovernanceStrip
+                    copiedAnswer={copiedAction === "answer"}
+                    copiedDraft={copiedAction === "ward-note"}
+                    onCopyAnswer={() => copyText("answer", formatAnswerForClipboard(answer))}
+                    onCopyDraft={() => copyText("ward-note", formatWardNote(answer, demoMode))}
                   />
-                  <CopyButton
-                    label="Copy ward note"
-                    shortLabel="Ward note"
-                    copied={copiedAction === "ward-note"}
-                    onClick={() => copyText("ward-note", formatWardNote(answer, demoMode))}
-                  />
-                </div>
-                <p className={cn("text-[15px] leading-6", textMuted)}>
-                  Review before pasting into the medical record.
-                </p>
 
-                <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <div className="flex min-w-max gap-2 pb-1 sm:min-w-0 sm:flex-wrap">
-                    {answer.citations.map((citation) => (
-                      <Link
-                        key={citation.chunk_id}
-                        href={documentCitationHref(citation)}
-                        aria-label={`Open ${formatCitationLabel(citation)}`}
-                        className="inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--primary)]/30 bg-[color:var(--surface)] px-3 py-2 text-[13px] font-semibold text-[color:var(--primary)] transition hover:bg-[color:var(--primary-soft)] sm:text-xs"
-                      >
-                        <span className="sm:hidden">{formatCompactCitationLabel(citation)}</span>
-                        <span className="hidden sm:inline">{formatCitationLabel(citation)}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                {sourceSummary && (
-                  <p className={cn("text-[13px] font-semibold leading-5 sm:text-xs", textMuted)}>
-                    {sourceSummary.document_count} documents · {sourceSummary.quote_count} exact quotes · {sourceSummary.image_count} indexed images
-                  </p>
-                )}
-              </div>
-            ) : (
-              <EmptyState
-                icon={Search}
-                title="Ask indexed guidelines"
-                body="The answer, quotes, source PDFs, and diagrams will appear here."
-              />
-            )}
-          </div>
-        </section>
-
-        {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
-
-        <QuoteCards
-          quotes={answer?.quoteCards ?? []}
-          copiedQuotes={copiedAction === "quotes"}
-          onCopyQuotes={() => copyText("quotes", formatQuotesForClipboard(answer?.quoteCards ?? []))}
-          onFollowUp={followUpFromQuote}
-          onScopeDocument={scopeOnlyDocument}
-        />
-        <VisualEvidenceStrip evidence={visualEvidence} />
-        {answer && (
-          <ClinicalOutputPanel
-            answer={answer}
-            copiedWardNote={copiedAction === "ward-note-panel"}
-            onCopyWardNote={() => copyText("ward-note-panel", formatWardNote(answer, demoMode))}
-          />
-        )}
-
-        <section id="sources" className="grid gap-3 scroll-mt-4 sm:scroll-mt-6">
-          {answer?.answerSections?.length ? (
-            <UtilityDrawer
-              icon={ListChecks}
-              title="Answer details"
-              summary={`${answer.answerSections.length} sourced detail sections`}
-              mobileSummary={`${answer.answerSections.length} details`}
-            >
-              <div className="grid gap-3 md:grid-cols-3">
-                {answer.answerSections.map((section) => (
-                  <article key={`${section.heading}:${section.citation_chunk_ids.join(",")}`} className={cn(panelSubtle, "p-4")}>
-                    <h2 className="text-sm font-semibold text-[color:var(--text)]">{section.heading}</h2>
-                    <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
-                  </article>
-                ))}
-              </div>
-            </UtilityDrawer>
-          ) : null}
-
-          <UtilityDrawer
-            icon={FileText}
-            title="Source passages"
-            summary={sources.length ? `${sources.length} retrieved passages` : "Retrieved passages appear after a question."}
-            mobileSummary={sources.length ? `${sources.length} passages` : "No passages yet"}
-          >
-            <SourceList sources={sources} onScopeDocument={scopeOnlyDocument} />
-          </UtilityDrawer>
-
-          <UtilityDrawer
-            icon={BookOpen}
-            title="Documents"
-            summary={documents.length ? `${documents.length} indexed documents available` : "No indexed documents yet."}
-            mobileSummary={documents.length ? `${documents.length} documents` : "No documents"}
-          >
-            <DocumentDrawer
-              documents={documents}
-              selectedDocumentIds={selectedDocumentIds}
-              onToggleScope={toggleDocumentScope}
-            />
-          </UtilityDrawer>
-
-          <UtilityDrawer
-            icon={Filter}
-            title="Retrieval details"
-            summary="Retrieval diagnostics and gaps are available here when needed."
-            mobileSummary="Diagnostics"
-          >
-            <div className="space-y-4 text-sm">
-              {answer?.documentBreakdown?.length ? (
-                <div className="grid gap-3 md:grid-cols-3">
-                  {answer.documentBreakdown.map((document) => (
-                    <div key={document.document_id} className={cn(panelSubtle, "p-3")}>
-                      <p className="font-semibold text-[color:var(--text)]">{document.title}</p>
-                      <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                        {document.source_count} chunks · {document.quote_count} quotes · pages {document.pages.join(", ") || "n/a"}
-                      </p>
+                  <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="flex min-w-max gap-2 pb-1 sm:min-w-0 sm:flex-wrap">
+                      {answer.citations.map((citation) => (
+                        <Link
+                          key={citation.chunk_id}
+                          href={documentCitationHref(citation)}
+                          aria-label={`Open ${formatCitationLabel(citation)}`}
+                          className="inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--primary)]/30 bg-[color:var(--surface)] px-3 py-2 text-[13px] font-semibold text-[color:var(--primary)] transition hover:bg-[color:var(--primary-soft)] sm:text-xs"
+                        >
+                          <span className="sm:hidden">{formatCompactCitationLabel(citation)}</span>
+                          <span className="hidden sm:inline">{formatCitationLabel(citation)}</span>
+                        </Link>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+
+                  {sourceSummary && (
+                    <p className={cn("text-[13px] font-semibold leading-5 sm:text-xs", textMuted)}>
+                      {sourceSummary.document_count} documents · {sourceSummary.quote_count} exact quotes ·{" "}
+                      {sourceSummary.image_count} indexed images
+                    </p>
+                  )}
                 </div>
               ) : (
-                <EmptyState icon={Filter} title="No retrieval details yet" body="Ask a question to inspect source coverage and gaps." />
-              )}
-              {gaps.length > 0 && (
-                <div className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-[color:var(--warning)]">
-                  <AlertCircle className="mr-2 inline h-4 w-4" />
-                  {gaps[0].message}
-                </div>
+                <EmptyState
+                  icon={Search}
+                  title="Ask indexed guidelines"
+                  body="The answer, quotes, source PDFs, and diagrams will appear here."
+                />
               )}
             </div>
-          </UtilityDrawer>
+          </section>
 
-          <UtilityDrawer
-            icon={UploadCloud}
-            title="Upload and indexing"
-            summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-            mobileSummary="Setup & uploads"
-          >
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-3">
-                <SetupChecklist checks={setupChecks} />
-                <UploadPanel onUploaded={refresh} demoMode={demoMode} />
-              </div>
-              <div className="space-y-3">
-                {jobs.length === 0 ? (
-                  <EmptyState icon={UploadCloud} title="No ingestion jobs" body="Queued uploads and worker progress appear here." />
+          {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+
+          {answer && (
+            <QuoteCards
+              quotes={answer.quoteCards ?? []}
+              copiedQuotes={copiedAction === "quotes"}
+              onCopyQuotes={() => copyText("quotes", formatQuotesForClipboard(answer.quoteCards ?? []))}
+              onFollowUp={followUpFromQuote}
+              onScopeDocument={scopeOnlyDocument}
+            />
+          )}
+          {answer && <VisualEvidenceStrip evidence={visualEvidence} />}
+          {answer && (
+            <ClinicalOutputPanel
+              answer={answer}
+              copiedWardNote={copiedAction === "ward-note-panel"}
+              onCopyWardNote={() => copyText("ward-note-panel", formatWardNote(answer, demoMode))}
+            />
+          )}
+
+          <section id="sources" className="grid gap-3 scroll-mt-4 sm:scroll-mt-6">
+            {bestSource ? (
+              <UtilityDrawer
+                icon={Target}
+                title="Top source detail"
+                summary="Why the leading source was selected."
+                mobileSummary="Top source"
+              >
+                <BestSourceCard
+                  source={bestSource}
+                  grounded={answer?.grounded === true && answer.confidence !== "unsupported"}
+                  onScopeDocument={scopeOnlyDocument}
+                />
+              </UtilityDrawer>
+            ) : null}
+
+            {answer?.answerSections?.length ? (
+              <UtilityDrawer
+                icon={ListChecks}
+                title="Answer details"
+                summary={`${answer.answerSections.length} sourced detail sections`}
+                mobileSummary={`${answer.answerSections.length} details`}
+              >
+                <div className="grid gap-3 md:grid-cols-3">
+                  {answer.answerSections.map((section) => (
+                    <article
+                      key={`${section.heading}:${section.citation_chunk_ids.join(",")}`}
+                      className={cn(panelSubtle, "p-4")}
+                    >
+                      <h2 className="text-sm font-semibold text-[color:var(--text)]">{section.heading}</h2>
+                      <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
+                    </article>
+                  ))}
+                </div>
+              </UtilityDrawer>
+            ) : null}
+
+            <UtilityDrawer
+              icon={FileText}
+              title="Source passages"
+              summary={
+                sources.length ? `${sources.length} retrieved passages` : "Retrieved passages appear after a question."
+              }
+              mobileSummary={sources.length ? `${sources.length} passages` : "No passages yet"}
+            >
+              <SourceList sources={sources} onScopeDocument={scopeOnlyDocument} />
+            </UtilityDrawer>
+
+            <UtilityDrawer
+              icon={BookOpen}
+              title="Documents"
+              summary={
+                documents.length ? `${documents.length} indexed documents available` : "No indexed documents yet."
+              }
+              mobileSummary={documents.length ? `${documents.length} documents` : "No documents"}
+            >
+              <DocumentDrawer
+                documents={documents}
+                selectedDocumentIds={selectedDocumentIds}
+                onToggleScope={toggleDocumentScope}
+              />
+            </UtilityDrawer>
+
+            <UtilityDrawer
+              icon={Filter}
+              title="Retrieval details"
+              summary="Retrieval diagnostics and gaps are available here when needed."
+              mobileSummary="Diagnostics"
+            >
+              <div className="space-y-4 text-sm">
+                {answer?.documentBreakdown?.length ? (
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {answer.documentBreakdown.map((document) => (
+                      <div key={document.document_id} className={cn(panelSubtle, "p-3")}>
+                        <p className="font-semibold text-[color:var(--text)]">{document.title}</p>
+                        <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                          {document.source_count} chunks · {document.quote_count} quotes · pages{" "}
+                          {document.pages.join(", ") || "n/a"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  jobs.slice(0, 6).map((job) => (
-                    <div key={job.id} className={cn(panelSubtle, "p-3")}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="truncate text-sm font-semibold text-[color:var(--text)]">{job.stage}</p>
-                        <StatusBadge status={job.status} />
-                      </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
-                        <div className="h-full rounded-full bg-[color:var(--primary)]" style={{ width: `${job.progress}%` }} />
-                      </div>
-                    </div>
-                  ))
+                  <EmptyState
+                    icon={Filter}
+                    title="No retrieval details yet"
+                    body="Ask a question to inspect source coverage and gaps."
+                  />
+                )}
+                {gaps.length > 0 && (
+                  <div className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-[color:var(--warning)]">
+                    <AlertCircle className="mr-2 inline h-4 w-4" />
+                    {gaps[0].message}
+                  </div>
                 )}
               </div>
-            </div>
-          </UtilityDrawer>
-        </section>
+            </UtilityDrawer>
+
+            <UtilityDrawer
+              icon={UploadCloud}
+              title="Upload and indexing"
+              summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
+              mobileSummary="Setup & uploads"
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                    Developer setup status
+                  </p>
+                  <SetupChecklist checks={setupChecks} />
+                  {!clientDemoMode && authStatus !== "authenticated" && <AuthPanel />}
+                  <p className={cn("pt-1 text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical upload</p>
+                  <UploadPanel
+                    onUploaded={refresh}
+                    demoMode={clientDemoMode}
+                    canUpload={authStatus === "authenticated"}
+                    authorizationHeader={authorizationHeader}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Indexing progress</p>
+                  {jobs.length === 0 ? (
+                    <EmptyState
+                      icon={UploadCloud}
+                      title="No ingestion jobs"
+                      body="Queued uploads and worker progress appear here."
+                    />
+                  ) : (
+                    jobs.slice(0, 6).map((job) => (
+                      <div key={job.id} className={cn(panelSubtle, "p-3")}>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-semibold text-[color:var(--text)]">{job.stage}</p>
+                          <StatusBadge status={job.status} />
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
+                          <div
+                            className="h-full rounded-full bg-[color:var(--primary)]"
+                            style={{ width: `${job.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </UtilityDrawer>
+          </section>
+
+          <GuideTrigger onOpen={openGuide} />
         </div>
       </main>
 
       <nav className="z-30 grid shrink-0 select-none grid-cols-4 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-soft)] lg:hidden">
-        {[
-          ["Answer", Search, "#search"],
-          ["Quotes", Quote, "#quotes"],
-          ["Images", FileImage, "#images"],
-          ["Sources", FileText, "#sources"],
-        ].map(([label, Icon, href]) => (
+        {bottomNavItems.map(({ label, icon: Icon, href, count }) => (
           <a
-            key={label as string}
-            href={href as string}
+            key={label}
+            href={href}
+            aria-label={count === null ? label : `${label}, ${count} item${count === 1 ? "" : "s"}`}
             aria-current={activeHash === href ? "page" : undefined}
             onClick={(event) => {
               event.preventDefault();
-              navigateMobileSection(href as string);
+              navigateMobileSection(href);
             }}
             className={cn(
               "flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-lg transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--primary)]",
               activeHash === href && "bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
             )}
           >
-            <Icon className="h-5 w-5" />
-            {label as string}
+            <span className="inline-flex h-5 items-center justify-center gap-1">
+              <Icon className="h-5 w-5" />
+              {count !== null && (
+                <span className="min-w-4 rounded-full bg-[color:var(--surface-subtle)] px-1 text-center text-[10px] font-bold leading-4 text-[color:var(--text)]">
+                  {count}
+                </span>
+              )}
+            </span>
+            {label}
           </a>
         ))}
       </nav>
+      <GuideDialog open={guideOpen} onClose={closeGuide} />
     </div>
   );
 }

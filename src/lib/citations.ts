@@ -9,6 +9,7 @@ export function citationFromResult(result: SearchResult): Citation {
     page_number: result.page_number,
     chunk_index: result.chunk_index,
     similarity: result.similarity,
+    source_metadata: result.source_metadata,
   };
 }
 

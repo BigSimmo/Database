@@ -32,11 +32,7 @@ export async function generateTextResponse(input: string, model = env.OPENAI_ANS
   return response.output_text;
 }
 
-export async function captionImageFromBase64(args: {
-  base64: string;
-  mimeType: string;
-  nearbyText?: string;
-}) {
+export async function captionImageFromBase64(args: { base64: string; mimeType: string; nearbyText?: string }) {
   const client = createOpenAIClient();
   const response = await client.responses.create({
     model: env.OPENAI_VISION_MODEL,

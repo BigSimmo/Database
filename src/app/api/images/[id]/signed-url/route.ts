@@ -4,13 +4,11 @@ import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     if (isDemoMode()) {
@@ -25,17 +23,27 @@ export async function GET(
     }
 
     const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(_request, supabase);
     const { data: image, error } = await supabase
       .from("document_images")
-      .select("storage_path,mime_type,caption")
+      .select("document_id,storage_path,mime_type,caption")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
+    if (!image) return NextResponse.json({ error: "Image not found." }, { status: 404 });
 
-    const signed = await supabase.storage
-      .from(env.SUPABASE_IMAGE_BUCKET)
-      .createSignedUrl(image.storage_path, 60 * 10);
+    const { data: document, error: documentError } = await supabase
+      .from("documents")
+      .select("id")
+      .eq("id", image.document_id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (documentError) throw new Error(documentError.message);
+    if (!document) return NextResponse.json({ error: "Image not found." }, { status: 404 });
+
+    const signed = await supabase.storage.from(env.SUPABASE_IMAGE_BUCKET).createSignedUrl(image.storage_path, 60 * 10);
 
     if (signed.error) throw new Error(signed.error.message);
     return NextResponse.json({
@@ -44,6 +52,9 @@ export async function GET(
       caption: image.caption,
     });
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse();
+    }
     return jsonError(error);
   }
 }

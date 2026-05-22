@@ -1,4 +1,5 @@
 import { formatCitationLabel } from "@/lib/citations";
+import { clipboardProvenanceLine } from "@/lib/source-metadata";
 import type { QuoteCard, RagAnswer } from "@/lib/types";
 
 export type ClinicalOutputSection = {
@@ -62,11 +63,19 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
 
 export function formatAnswerForClipboard(answer: RagAnswer) {
   const citations = answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`);
+  const provenance = answer.citations.map(
+    (citation, index) =>
+      `${index + 1}. ${formatCitationLabel(citation)} | ${clipboardProvenanceLine(citation.source_metadata)}`,
+  );
   return [
-    "Answer",
+    "Source-backed answer draft",
+    "Clinician must verify against linked source documents before clinical use.",
+    "",
     normalizeText(answer.answer),
     citations.length ? "\nCitations" : "",
     ...citations,
+    provenance.length ? "\nSource status" : "",
+    ...provenance,
   ]
     .filter(Boolean)
     .join("\n");
@@ -80,29 +89,52 @@ export function formatQuotesForClipboard(quotes: QuoteCard[] = []) {
 
 export function formatWardNote(answer: RagAnswer, demoMode = false) {
   const clinicalSections = buildClinicalOutputSections(answer);
+  const generatedAt = new Intl.DateTimeFormat("en-AU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Australia/Perth",
+    timeZoneName: "short",
+  }).format(new Date());
+  const sourceStatus = answer.citations.map(
+    (citation, index) =>
+      `${index + 1}. ${formatCitationLabel(citation)} | ${clipboardProvenanceLine(citation.source_metadata)}`,
+  );
   const body = [
-    "Source-backed ward note",
-    "Review before pasting into the medical record.",
+    "Source-backed clinical draft",
+    "Clinician must verify against linked source documents before clinical use.",
     demoMode ? "Synthetic demo only: not clinical guidance." : "Generated only from indexed source documents.",
+    `Generated: ${generatedAt}`,
     "",
     normalizeText(answer.answer),
     "",
-    ...clinicalSections.flatMap((section) => [
-      section.title,
-      ...section.items.map((item) => `- ${item}`),
-      "",
-    ]),
+    ...clinicalSections.flatMap((section) => [section.title, ...section.items.map((item) => `- ${item}`), ""]),
     "Citations",
     ...answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`),
+    "",
+    "Source status",
+    ...sourceStatus,
+    "",
+    "Review requirement",
+    "This is a draft for clinician review only. Verify source text, source status, local policy, patient context, and medication details before use.",
   ];
 
-  return body.filter((line, index, lines) => line || lines[index - 1]).join("\n").trim();
+  return body
+    .filter((line, index, lines) => line || lines[index - 1])
+    .join("\n")
+    .trim();
 }
 
 export function createQuoteFollowUp(quote: QuoteCard) {
   return `Using the quoted source from ${quote.title}, page ${quote.page_number ?? "n/a"}, what is the practical clinical answer? Quote: "${normalizeText(quote.quote)}"`;
 }
 
-export function shouldPollForUpdates(demoMode: boolean, visibilityState: DocumentVisibilityState | "visible" | "hidden") {
+export function shouldPollForUpdates(
+  demoMode: boolean,
+  visibilityState: DocumentVisibilityState | "visible" | "hidden",
+) {
   return !demoMode && visibilityState === "visible";
 }

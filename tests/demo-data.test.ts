@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  demoAnswer,
-  demoDocuments,
-  demoSearch,
-  getDemoDocumentPayload,
-} from "../src/lib/demo-data";
+import { demoAnswer, demoDocuments, demoSearch, getDemoDocumentPayload } from "../src/lib/demo-data";
 
 describe("demo data mode", () => {
   it("seeds three indexed documents", () => {

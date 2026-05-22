@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import { AuthProvider } from "@/lib/supabase/client";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -45,12 +47,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <Script
-          id="clinical-kb-theme"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
-        {children}
+        <Script id="clinical-kb-theme" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

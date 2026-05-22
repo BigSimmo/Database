@@ -3,13 +3,11 @@ import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     if (isDemoMode()) {
@@ -22,13 +20,16 @@ export async function GET(
     }
 
     const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
     const { data: document, error } = await supabase
       .from("documents")
       .select("*")
       .eq("id", id)
-      .single();
+      .eq("owner_id", user.id)
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
+    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
     const { data: pages, error: pagesError } = await supabase
       .from("document_pages")
@@ -67,6 +68,9 @@ export async function GET(
       chunks: chunks ?? [],
     });
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse();
+    }
     return jsonError(error);
   }
 }

@@ -1,0 +1,88 @@
+import type { ClinicalSourceMetadata } from "@/lib/types";
+
+const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
+const knownValidation = new Set(["unverified", "locally_reviewed", "approved"]);
+const knownExtraction = new Set(["good", "partial", "poor", "unknown"]);
+
+function stringOrNull(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, fallback: T): T {
+  return typeof value === "string" && allowed.has(value) ? (value as T) : fallback;
+}
+
+export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata {
+  const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+
+  return {
+    source_title: stringOrNull(value.source_title),
+    publisher: stringOrNull(value.publisher),
+    jurisdiction: stringOrNull(value.jurisdiction),
+    version: stringOrNull(value.version),
+    publication_date: stringOrNull(value.publication_date),
+    review_date: stringOrNull(value.review_date),
+    uploaded_at: stringOrNull(value.uploaded_at),
+    indexed_at: stringOrNull(value.indexed_at),
+    uploaded_by: stringOrNull(value.uploaded_by),
+    document_status: enumOrDefault(value.document_status, knownStatuses, "unknown"),
+    clinical_validation_status: enumOrDefault(value.clinical_validation_status, knownValidation, "unverified"),
+    extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown"),
+  };
+}
+
+export function formatClinicalDate(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Australia/Perth",
+  }).format(date);
+}
+
+export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+  const status = metadata?.document_status ?? "unknown";
+  if (status === "current") return "Current source";
+  if (status === "review_due") return "Review due";
+  if (status === "outdated") return "Outdated source";
+  return "Source status unknown";
+}
+
+export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+  const status = metadata?.clinical_validation_status ?? "unverified";
+  if (status === "approved") return "Approved";
+  if (status === "locally_reviewed") return "Locally reviewed";
+  return "Not locally validated";
+}
+
+export function extractionQualityLabel(metadata?: ClinicalSourceMetadata | null) {
+  const status = metadata?.extraction_quality ?? "unknown";
+  if (status === "good") return "Good extraction";
+  if (status === "partial") return "Partial extraction";
+  if (status === "poor") return "Poor extraction";
+  return "Extraction unknown";
+}
+
+export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null) {
+  const source = metadata ?? normalizeSourceMetadata(null);
+  return [
+    source.publisher ?? "Publisher unknown",
+    source.jurisdiction ?? "Jurisdiction unknown",
+    `review ${formatClinicalDate(source.review_date)}`,
+    sourceStatusLabel(source),
+    validationStatusLabel(source),
+  ].join(" · ");
+}
+
+export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null) {
+  const source = metadata ?? normalizeSourceMetadata(null);
+  return [
+    `Source status: ${sourceStatusLabel(source)}`,
+    `Validation: ${validationStatusLabel(source)}`,
+    `Review date: ${formatClinicalDate(source.review_date)}`,
+    `Jurisdiction: ${source.jurisdiction ?? "Unknown"}`,
+  ].join(" | ");
+}

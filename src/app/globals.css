@@ -97,6 +97,24 @@ body {
   overflow-x: clip;
 }
 
+.mobile-app-shell {
+  height: 100svh;
+}
+
+.mobile-popover-scroll {
+  max-height: min(70svh, 28rem);
+}
+
+@supports (height: 100dvh) {
+  .mobile-app-shell {
+    height: 100dvh;
+  }
+
+  .mobile-popover-scroll {
+    max-height: min(70dvh, 28rem);
+  }
+}
+
 button,
 input,
 textarea,
@@ -182,5 +200,75 @@ summary::-webkit-details-marker {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     transform: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --background: Canvas;
+    --foreground: CanvasText;
+    --app-shell: CanvasText;
+    --surface: Canvas;
+    --surface-raised: Canvas;
+    --surface-subtle: Canvas;
+    --surface-inset: Canvas;
+    --text: CanvasText;
+    --text-muted: CanvasText;
+    --text-soft: CanvasText;
+    --border: ButtonBorder;
+    --border-strong: ButtonText;
+    --primary: LinkText;
+    --primary-strong: LinkText;
+    --primary-soft: Canvas;
+    --primary-contrast: Canvas;
+    --info: LinkText;
+    --info-soft: Canvas;
+    --success: CanvasText;
+    --success-soft: Canvas;
+    --warning: CanvasText;
+    --warning-soft: Canvas;
+    --danger: Mark;
+    --danger-soft: Canvas;
+    --focus: Highlight;
+  }
+
+  button,
+  a,
+  summary,
+  input,
+  textarea,
+  select {
+    forced-color-adjust: auto;
+  }
+}
+
+@media print {
+  html,
+  body {
+    min-width: 0;
+    overflow: visible;
+    background: #fff;
+    color: #000;
+  }
+
+  header,
+  nav,
+  button,
+  [data-testid="pdf-toolbar"] {
+    display: none !important;
+  }
+
+  main,
+  section,
+  article,
+  .source-print {
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  a {
+    color: #000;
+    text-decoration: underline;
   }
 }

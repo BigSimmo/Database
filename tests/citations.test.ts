@@ -36,8 +36,6 @@ describe("citations", () => {
   });
 
   it("links to source document, page, and chunk", () => {
-    expect(documentCitationHref(citationFromResult(result))).toBe(
-      "/documents/doc-1?page=12&chunk=chunk-1",
-    );
+    expect(documentCitationHref(citationFromResult(result))).toBe("/documents/doc-1?page=12&chunk=chunk-1");
   });
 });

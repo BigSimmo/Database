@@ -5,6 +5,8 @@ import { isDemoMode } from "@/lib/env";
 import { buildSmartPanel, buildVisualEvidence, diversifySearchResults } from "@/lib/evidence";
 import { jsonError } from "@/lib/http";
 import { searchChunks } from "@/lib/rag";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -28,12 +30,18 @@ export async function POST(request: Request) {
       });
     }
 
-    const results = diversifySearchResults(await searchChunks({
-      query: body.query,
-      topK: body.topK ?? 8,
-      documentId: body.documentId,
-      documentIds: body.documentIds,
-    }), body.topK ?? 8);
+    const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
+    const results = diversifySearchResults(
+      await searchChunks({
+        query: body.query,
+        topK: body.topK ?? 8,
+        documentId: body.documentId,
+        documentIds: body.documentIds,
+        ownerId: user.id,
+      }),
+      body.topK ?? 8,
+    );
 
     return NextResponse.json({
       results,
@@ -41,6 +49,9 @@ export async function POST(request: Request) {
       smartPanel: buildSmartPanel(body.query, results),
     });
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse();
+    }
     return jsonError(error, 400);
   }
 }

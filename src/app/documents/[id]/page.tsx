@@ -8,11 +8,5 @@ export default async function DocumentPage({
   searchParams: Promise<{ page?: string; chunk?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  return (
-    <DocumentViewer
-      documentId={id}
-      initialPage={Number(query.page ?? 1)}
-      chunkId={query.chunk}
-    />
-  );
+  return <DocumentViewer documentId={id} initialPage={Number(query.page ?? 1)} chunkId={query.chunk} />;
 }

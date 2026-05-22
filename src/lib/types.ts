@@ -1,6 +1,21 @@
 export type DocumentStatus = "queued" | "processing" | "indexed" | "failed";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
+export type ClinicalSourceMetadata = {
+  source_title: string | null;
+  publisher: string | null;
+  jurisdiction: string | null;
+  version: string | null;
+  publication_date: string | null;
+  review_date: string | null;
+  uploaded_at: string | null;
+  indexed_at: string | null;
+  uploaded_by: string | null;
+  document_status: "current" | "review_due" | "outdated" | "unknown";
+  clinical_validation_status: "unverified" | "locally_reviewed" | "approved";
+  extraction_quality: "good" | "partial" | "poor" | "unknown";
+};
+
 export type ClinicalDocument = {
   id: string;
   title: string;
@@ -14,6 +29,7 @@ export type ClinicalDocument = {
   chunk_count: number;
   image_count: number;
   error_message: string | null;
+  metadata?: Record<string, unknown> | ClinicalSourceMetadata | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +68,7 @@ export type SearchResult = {
   text_rank?: number;
   hybrid_score?: number;
   source_strength?: SourceStrength;
+  source_metadata?: ClinicalSourceMetadata | null;
   images: ChunkImage[];
 };
 
@@ -63,6 +80,7 @@ export type Citation = {
   page_number: number | null;
   chunk_index: number;
   similarity?: number;
+  source_metadata?: ClinicalSourceMetadata | null;
 };
 
 export type QuoteCard = Citation & {

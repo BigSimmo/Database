@@ -21,6 +21,20 @@ import {
 } from "@/lib/evidence";
 
 const now = "2026-05-18T10:00:00.000+08:00";
+const syntheticMetadata = {
+  source_title: "Synthetic demonstration source",
+  publisher: "Clinical KB demo",
+  jurisdiction: "Australia/WA",
+  version: "demo",
+  publication_date: null,
+  review_date: null,
+  uploaded_at: now,
+  indexed_at: now,
+  uploaded_by: null,
+  document_status: "unknown" as const,
+  clinical_validation_status: "unverified" as const,
+  extraction_quality: "good" as const,
+};
 
 export const demoDocuments: ClinicalDocument[] = [
   {
@@ -36,6 +50,7 @@ export const demoDocuments: ClinicalDocument[] = [
     chunk_count: 2,
     image_count: 0,
     error_message: null,
+    metadata: syntheticMetadata,
     created_at: now,
     updated_at: now,
   },
@@ -52,6 +67,7 @@ export const demoDocuments: ClinicalDocument[] = [
     chunk_count: 3,
     image_count: 1,
     error_message: null,
+    metadata: syntheticMetadata,
     created_at: now,
     updated_at: now,
   },
@@ -68,6 +84,7 @@ export const demoDocuments: ClinicalDocument[] = [
     chunk_count: 3,
     image_count: 1,
     error_message: null,
+    metadata: syntheticMetadata,
     created_at: now,
     updated_at: now,
   },
@@ -103,8 +120,7 @@ export const demoPages = [
     page_number: 1,
     ocr_used: false,
     metadata: {},
-    text:
-      "Synthetic lithium monitoring protocol. Synthetic test document for RAG demonstration only. Not a clinical guideline and not medical advice.\n\nLithium baseline checklist: Confirm indication, formulation, target range, recent renal function, thyroid function, calcium, weight, blood pressure, and current interacting medicines. Record baseline mood symptoms and risk context. For the synthetic Perth clinic workflow, document the monitoring owner and the review interval before prescribing.\n\nMonitoring schedule: In this synthetic protocol, check lithium level 5 to 7 days after initiation or dose change, then repeat until stable. After stability, the sample schedule uses lithium level every 3 months, renal and thyroid tests every 6 months, and calcium annually. Escalate review when there is vomiting, diarrhoea, dehydration, acute kidney injury, new NSAID/ACE inhibitor/diuretic exposure, tremor, confusion, or ataxia.",
+    text: "Synthetic lithium monitoring protocol. Synthetic test document for RAG demonstration only. Not a clinical guideline and not medical advice.\n\nLithium baseline checklist: Confirm indication, formulation, target range, recent renal function, thyroid function, calcium, weight, blood pressure, and current interacting medicines. Record baseline mood symptoms and risk context. For the synthetic Perth clinic workflow, document the monitoring owner and the review interval before prescribing.\n\nMonitoring schedule: In this synthetic protocol, check lithium level 5 to 7 days after initiation or dose change, then repeat until stable. After stability, the sample schedule uses lithium level every 3 months, renal and thyroid tests every 6 months, and calcium annually. Escalate review when there is vomiting, diarrhoea, dehydration, acute kidney injury, new NSAID/ACE inhibitor/diuretic exposure, tremor, confusion, or ataxia.",
   },
   {
     id: "page-clozapine-1",
@@ -112,8 +128,7 @@ export const demoPages = [
     page_number: 1,
     ocr_used: false,
     metadata: {},
-    text:
-      "Synthetic clozapine monitoring protocol with image evidence. This synthetic document emphasises FBC/ANC monitoring, myocarditis symptom screening, metabolic monitoring, constipation prevention, and shared-care communication. A source answer should mention that fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation require urgent review. Baseline: FBC/ANC, ECG if indicated, troponin/CRP if local protocol requires, weight, waist, lipids, glucose/HbA1c, smoking status, bowel history, and medicine reconciliation.",
+    text: "Synthetic clozapine monitoring protocol with image evidence. This synthetic document emphasises FBC/ANC monitoring, myocarditis symptom screening, metabolic monitoring, constipation prevention, and shared-care communication. A source answer should mention that fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation require urgent review. Baseline: FBC/ANC, ECG if indicated, troponin/CRP if local protocol requires, weight, waist, lipids, glucose/HbA1c, smoking status, bowel history, and medicine reconciliation.",
   },
   {
     id: "page-clozapine-2",
@@ -121,8 +136,7 @@ export const demoPages = [
     page_number: 2,
     ocr_used: false,
     metadata: {},
-    text:
-      "Embedded image evidence. The synthetic clozapine monitoring table should be extracted, captioned, and inserted into searchable chunk context. The table covers FBC/ANC, myocarditis, metabolic monitoring, and constipation planning across baseline, initiation, and ongoing care.",
+    text: "Embedded image evidence. The synthetic clozapine monitoring table should be extracted, captioned, and inserted into searchable chunk context. The table covers FBC/ANC, myocarditis, metabolic monitoring, and constipation planning across baseline, initiation, and ongoing care.",
   },
   {
     id: "page-risk-1",
@@ -130,8 +144,7 @@ export const demoPages = [
     page_number: 1,
     ocr_used: false,
     metadata: {},
-    text:
-      "Synthetic acute risk triage flow with image evidence. The synthetic WA-style triage flow separates immediate safety, mental state, substance use, supports, means restriction, protective factors, and follow-up plan. Escalate in this test document for current intent, recent attempt, command hallucinations, severe agitation, intoxication with unsafe behaviour, inability to collaborate on safety planning, or absent supervision.",
+    text: "Synthetic acute risk triage flow with image evidence. The synthetic WA-style triage flow separates immediate safety, mental state, substance use, supports, means restriction, protective factors, and follow-up plan. Escalate in this test document for current intent, recent attempt, command hallucinations, severe agitation, intoxication with unsafe behaviour, inability to collaborate on safety planning, or absent supervision.",
   },
   {
     id: "page-risk-2",
@@ -139,8 +152,7 @@ export const demoPages = [
     page_number: 2,
     ocr_used: false,
     metadata: {},
-    text:
-      "Embedded image evidence. The acute risk flowchart shows immediate safety, current intent, means restriction, protective factors, and senior review as linked triage steps.",
+    text: "Embedded image evidence. The acute risk flowchart shows immediate safety, current intent, means restriction, protective factors, and senior review as linked triage steps.",
   },
 ];
 
@@ -157,6 +169,7 @@ export const demoChunks: SearchResult[] = [
       "Lithium baseline checklist: Confirm indication, formulation, target range, renal function, thyroid function, calcium, weight, blood pressure, current interacting medicines, baseline mood symptoms, risk context, monitoring owner, and review interval before prescribing.",
     image_ids: [],
     similarity: 0.91,
+    source_metadata: syntheticMetadata,
     images: [],
   },
   {
@@ -171,6 +184,7 @@ export const demoChunks: SearchResult[] = [
       "Escalate review when there is vomiting, diarrhoea, dehydration, acute kidney injury, new NSAID/ACE inhibitor/diuretic exposure, tremor, confusion, or ataxia. Lithium levels are checked 5 to 7 days after initiation or dose change, then repeated until stable.",
     image_ids: [],
     similarity: 0.93,
+    source_metadata: syntheticMetadata,
     images: [],
   },
   {
@@ -185,6 +199,7 @@ export const demoChunks: SearchResult[] = [
       "Clozapine safety checkpoints: FBC/ANC monitoring, myocarditis symptom screening, metabolic monitoring, constipation prevention, and shared-care communication. Urgent review triggers include fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation.",
     image_ids: [],
     similarity: 0.88,
+    source_metadata: syntheticMetadata,
     images: [],
   },
   {
@@ -199,6 +214,7 @@ export const demoChunks: SearchResult[] = [
       "[[IMAGE_DATA_START]] Image ID: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa; Description: Synthetic clozapine monitoring table showing domains for FBC/ANC, myocarditis, metabolic review, and constipation planning across baseline, initiation, and ongoing care. [[IMAGE_DATA_END]]",
     image_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
     similarity: 0.94,
+    source_metadata: syntheticMetadata,
     images: [demoImages[0]],
   },
   {
@@ -213,6 +229,7 @@ export const demoChunks: SearchResult[] = [
       "Escalate for current intent, recent attempt, command hallucinations, severe agitation, intoxication with unsafe behaviour, inability to collaborate on safety planning, or absent supervision. The synthetic WA-style triage flow separates immediate safety, mental state, substance use, supports, means restriction, protective factors, and follow-up plan.",
     image_ids: [],
     similarity: 0.92,
+    source_metadata: syntheticMetadata,
     images: [],
   },
   {
@@ -227,6 +244,7 @@ export const demoChunks: SearchResult[] = [
       "[[IMAGE_DATA_START]] Image ID: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb; Description: Synthetic acute risk triage flow linking immediate safety, current intent, means restriction, protective factors, and senior review. [[IMAGE_DATA_END]]",
     image_ids: ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
     similarity: 0.9,
+    source_metadata: syntheticMetadata,
     images: [demoImages[1]],
   },
 ];
@@ -287,12 +305,7 @@ function scoreChunk(query: string, chunk: SearchResult) {
   return Math.min(0.98, chunk.similarity * 0.6 + keywordScore + tokenScore);
 }
 
-export function demoSearch(
-  query: string,
-  topK = 8,
-  documentId?: string,
-  documentIds?: string[],
-) {
+export function demoSearch(query: string, topK = 8, documentId?: string, documentIds?: string[]) {
   const filters = documentIds?.length ? documentIds : documentId ? [documentId] : null;
   return demoChunks
     .filter((chunk) => !filters || filters.includes(chunk.document_id))
@@ -315,14 +328,14 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
   const inferredDocumentId =
     broadMultiDocumentQuery || documentIds?.length
       ? undefined
-      : documentId ??
-    (lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image")
-      ? demoDocuments[1].id
-      : lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")
-        ? demoDocuments[2].id
-        : lowered.includes("lithium") || lowered.includes("toxicity")
-          ? demoDocuments[0].id
-          : undefined);
+      : (documentId ??
+        (lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image")
+          ? demoDocuments[1].id
+          : lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")
+            ? demoDocuments[2].id
+            : lowered.includes("lithium") || lowered.includes("toxicity")
+              ? demoDocuments[0].id
+              : undefined));
   const sources = demoSearch(query, 6, inferredDocumentId, documentIds);
   const quoteCards = extractQuoteCards(sources, query);
   const documentBreakdown = buildDocumentBreakdown(sources, quoteCards);
@@ -394,12 +407,12 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
             },
           ]
         : [
-          {
-            heading: "Direct answer",
-            body: answer,
-            citation_chunk_ids: sources.slice(0, 4).map((source) => source.id),
-          },
-        ]
+            {
+              heading: "Direct answer",
+              body: answer,
+              citation_chunk_ids: sources.slice(0, 4).map((source) => source.id),
+            },
+          ]
       : [],
     evidenceSummary,
     sourceCoverage,

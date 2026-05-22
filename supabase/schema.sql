@@ -159,6 +159,7 @@ returns table (
   section_heading text,
   content text,
   image_ids uuid[],
+  source_metadata jsonb,
   similarity double precision,
   images jsonb
 )
@@ -175,6 +176,7 @@ as $$
     c.section_heading,
     c.content,
     c.image_ids,
+    d.metadata as source_metadata,
     1 - (c.embedding <=> query_embedding) as similarity,
     coalesce(
       (
@@ -217,6 +219,7 @@ returns table (
   section_heading text,
   content text,
   image_ids uuid[],
+  source_metadata jsonb,
   similarity double precision,
   text_rank double precision,
   hybrid_score double precision,
@@ -279,6 +282,7 @@ as $$
     c.section_heading,
     c.content,
     c.image_ids,
+    d.metadata as source_metadata,
     c.similarity,
     c.text_rank,
     ((c.similarity * 0.75) + (least(c.text_rank, 1) * 0.25))::double precision as hybrid_score,

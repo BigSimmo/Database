@@ -75,11 +75,7 @@ const acuteRiskSections: Section[] = [
 ];
 
 function escapeXml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 async function renderSvgToPng(svg: string, filePath: string, width: number, height: number) {
@@ -105,18 +101,20 @@ function monitoringTableSvg() {
       <text x="248" y="121" fill="#ffffff" font-weight="700">Baseline</text>
       <text x="410" y="121" fill="#ffffff" font-weight="700">Initiation</text>
       <text x="585" y="121" fill="#ffffff" font-weight="700">Ongoing</text>
-      ${["FBC / ANC", "Myocarditis", "Metabolic", "Constipation"].map((row, index) => {
-        const y = 154 + index * 42;
-        const fill = index % 2 === 0 ? "#f1f5f9" : "#ffffff";
-        const cells = [
-          row,
-          index === 0 ? "confirm" : index === 1 ? "symptoms" : index === 2 ? "weight/lipids" : "bowel history",
-          index === 0 ? "weekly" : index === 1 ? "CRP/troponin" : index === 2 ? "weight" : "active plan",
-          index === 0 ? "per protocol" : index === 1 ? "if symptomatic" : index === 2 ? "scheduled" : "review",
-        ];
-        return `<rect x="52" y="${y - 26}" width="656" height="42" fill="${fill}"/>
+      ${["FBC / ANC", "Myocarditis", "Metabolic", "Constipation"]
+        .map((row, index) => {
+          const y = 154 + index * 42;
+          const fill = index % 2 === 0 ? "#f1f5f9" : "#ffffff";
+          const cells = [
+            row,
+            index === 0 ? "confirm" : index === 1 ? "symptoms" : index === 2 ? "weight/lipids" : "bowel history",
+            index === 0 ? "weekly" : index === 1 ? "CRP/troponin" : index === 2 ? "weight" : "active plan",
+            index === 0 ? "per protocol" : index === 1 ? "if symptomatic" : index === 2 ? "scheduled" : "review",
+          ];
+          return `<rect x="52" y="${y - 26}" width="656" height="42" fill="${fill}"/>
           ${cells.map((cell, cellIndex) => `<text x="${70 + cellIndex * 170}" y="${y}" font-weight="${cellIndex === 0 ? "700" : "400"}">${cell}</text>`).join("")}`;
-      }).join("")}
+        })
+        .join("")}
     </g>
   </svg>`;
 }
@@ -132,10 +130,14 @@ function riskFlowSvg() {
       ["Means restriction", 514, 98, "#7c2d12"],
       ["Protective factors", 180, 238, "#475569"],
       ["Senior review", 410, 238, "#be123c"],
-    ].map(([label, x, y, color]) => `
+    ]
+      .map(
+        ([label, x, y, color]) => `
       <rect x="${x}" y="${y}" width="176" height="82" rx="12" fill="${color}" opacity="0.92"/>
       <text x="${Number(x) + 88}" y="${Number(y) + 48}" font-family="Arial" font-size="18" fill="#ffffff" font-weight="700" text-anchor="middle">${label}</text>
-    `).join("")}
+    `,
+      )
+      .join("")}
     <g stroke="#64748b" stroke-width="4" fill="none" marker-end="url(#arrow)">
       <defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10" fill="#64748b"/></marker></defs>
       <path d="M246 139 H292"/>
@@ -160,7 +162,12 @@ function scannedPageSvg() {
       "This page is rasterised on purpose so the worker OCR fallback can be tested.",
       "The expected RAG answer should cite this scanned PDF page if OCR dependencies are installed.",
       "Perth clinic workflow: document who checks pathology and who contacts the patient after abnormal results.",
-    ].map((line, index) => `<text x="130" y="${390 + index * 72}" font-family="Arial" font-size="29" fill="#111827">${line}</text>`).join("")}
+    ]
+      .map(
+        (line, index) =>
+          `<text x="130" y="${390 + index * 72}" font-family="Arial" font-size="29" fill="#111827">${line}</text>`,
+      )
+      .join("")}
     <rect x="130" y="760" width="740" height="230" fill="#fef3c7" stroke="#f59e0b"/>
     <text x="160" y="825" font-family="Arial" font-size="30" font-weight="700" fill="#92400e">Search phrase</text>
     <text x="160" y="890" font-family="Arial" font-size="29" fill="#111827">What toxicity safety-net symptoms are listed?</text>
@@ -192,9 +199,12 @@ async function createPdf(fileName: string, title: string, sections: Section[], i
     doc.addPage();
     doc.fontSize(16).fillColor("#0f172a").text("Embedded image evidence");
     doc.moveDown(0.5);
-    doc.fontSize(10).fillColor("#475569").text(
-      "The raster image below should be extracted by the worker, uploaded to Supabase Storage, captioned by the vision model, and inserted into searchable chunk context.",
-    );
+    doc
+      .fontSize(10)
+      .fillColor("#475569")
+      .text(
+        "The raster image below should be extracted by the worker, uploaded to Supabase Storage, captioned by the vision model, and inserted into searchable chunk context.",
+      );
     doc.moveDown(1);
     doc.image(imagePath, { fit: [480, 280], align: "center" });
   }
@@ -230,29 +240,47 @@ async function createDocx(fileName: string, imagePath: string) {
     "Image caption target: a small monitoring timeline is embedded in the DOCX package.",
   ];
 
-  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8"?>
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Default Extension="png" ContentType="image/png"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`);
-  zip.folder("_rels")!.file(".rels", `<?xml version="1.0" encoding="UTF-8"?>
+</Types>`,
+  );
+  zip.folder("_rels")!.file(
+    ".rels",
+    `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`);
-  zip.folder("word")!.folder("_rels")!.file("document.xml.rels", `<?xml version="1.0" encoding="UTF-8"?>
+</Relationships>`,
+  );
+  zip
+    .folder("word")!
+    .folder("_rels")!
+    .file(
+      "document.xml.rels",
+      `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rIdImage1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/adhd-monitoring.png"/>
-</Relationships>`);
-  zip.folder("word")!.file("document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+</Relationships>`,
+    );
+  zip.folder("word")!.file(
+    "document.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <w:body>
     ${paragraphs.map((text) => `<w:p><w:r><w:t>${escapeXml(text)}</w:t></w:r></w:p>`).join("")}
     <w:p><w:r><w:t>Embedded image: synthetic ADHD monitoring timeline.</w:t></w:r></w:p>
   </w:body>
-</w:document>`);
-  zip.folder("word")!.folder("media")!.file("adhd-monitoring.png", await BunlessRead(imagePath));
+</w:document>`,
+  );
+  zip
+    .folder("word")!
+    .folder("media")!
+    .file("adhd-monitoring.png", await BunlessRead(imagePath));
 
   const content = await zip.generateAsync({ type: "nodebuffer" });
   await writeFile(path.join(outDir, fileName), content);
@@ -387,10 +415,12 @@ async function main() {
     `<svg width="760" height="260" viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
       <rect width="760" height="260" rx="18" fill="#f8fafc"/>
       <text x="42" y="50" font-family="Arial" font-size="24" font-weight="700" fill="#0f172a">Synthetic ADHD monitoring timeline</text>
-      ${["Baseline", "2 weeks", "6 weeks", "Shared care"].map((label, index) => {
-        const x = 70 + index * 170;
-        return `<circle cx="${x}" cy="135" r="34" fill="#0f766e"/><text x="${x}" y="141" font-family="Arial" font-size="15" fill="#fff" font-weight="700" text-anchor="middle">${label}</text>`;
-      }).join("")}
+      ${["Baseline", "2 weeks", "6 weeks", "Shared care"]
+        .map((label, index) => {
+          const x = 70 + index * 170;
+          return `<circle cx="${x}" cy="135" r="34" fill="#0f766e"/><text x="${x}" y="141" font-family="Arial" font-size="15" fill="#fff" font-weight="700" text-anchor="middle">${label}</text>`;
+        })
+        .join("")}
       <path d="M104 135 H576" stroke="#64748b" stroke-width="5"/>
       <text x="42" y="220" font-family="Arial" font-size="18" fill="#334155">Track BP, pulse, weight, sleep, appetite, diversion risk, and follow-up owner.</text>
     </svg>`,

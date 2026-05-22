@@ -1,6 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { embedText, generateTextResponse } from "@/lib/openai";
 import { compactCitations } from "@/lib/citations";
+import { expandClinicalQuery, rankClinicalResults } from "@/lib/clinical-search";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import { z } from "zod";
 import {
   buildDocumentBreakdown,
   buildEvidenceSummary,
@@ -13,7 +16,201 @@ import {
   reconcileQuoteCards,
   selectBestSourceRecommendation,
 } from "@/lib/evidence";
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { AnswerSection, Citation, ConflictOrGap, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
+
+type OwnerScopedArgs = {
+  ownerId?: string;
+  documentId?: string;
+  documentIds?: string[];
+};
+
+const confidenceOrder = {
+  unsupported: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+} as const;
+
+const citationSchema = z.object({
+  chunk_id: z.string(),
+  document_id: z.string().optional(),
+  title: z.string().optional(),
+  file_name: z.string().optional(),
+  page_number: z.number().nullable().optional(),
+  chunk_index: z.number().optional(),
+});
+
+const answerJsonSchema = z.object({
+  answer: z.string().min(1).optional(),
+  grounded: z.boolean().optional(),
+  confidence: z.enum(["high", "medium", "low", "unsupported"]).optional(),
+  answerSections: z
+    .array(
+      z.object({
+        heading: z.string().min(1),
+        body: z.string().min(1),
+        citation_chunk_ids: z.array(z.string()).optional().default([]),
+      }),
+    )
+    .optional()
+    .default([]),
+  citations: z.array(citationSchema).optional().default([]),
+  quoteCards: z
+    .array(
+      citationSchema.extend({
+        quote: z.string().min(1),
+        section_heading: z.string().nullable().optional(),
+      }),
+    )
+    .optional()
+    .default([]),
+  conflictsOrGaps: z
+    .array(
+      z.object({
+        type: z.enum(["gap", "conflict"]).catch("gap"),
+        message: z.string().min(1),
+        source_chunk_ids: z.array(z.string()).optional(),
+      }),
+    )
+    .optional()
+    .default([]),
+});
+
+function resultCitation(result: SearchResult): Citation {
+  return {
+    chunk_id: result.id,
+    document_id: result.document_id,
+    title: result.title,
+    file_name: result.file_name,
+    page_number: result.page_number,
+    chunk_index: result.chunk_index,
+    similarity: result.similarity,
+    source_metadata: result.source_metadata,
+  };
+}
+
+function allowedChunkMap(results: SearchResult[]) {
+  return new Map(results.map((result) => [result.id, result]));
+}
+
+function deriveConfidence(results: SearchResult[], acceptedCitationCount: number): RagAnswer["confidence"] {
+  if (acceptedCitationCount === 0 || results.length === 0) return "unsupported";
+  const strongest = results.reduce((max, result) => Math.max(max, result.similarity), 0);
+  if (strongest >= 0.82 && acceptedCitationCount >= 2) return "high";
+  if (strongest >= 0.64) return "medium";
+  return "low";
+}
+
+function clampConfidence(
+  proposed: RagAnswer["confidence"] | undefined,
+  derived: RagAnswer["confidence"],
+): RagAnswer["confidence"] {
+  if (!proposed) return derived;
+  return confidenceOrder[proposed] < confidenceOrder[derived] ? proposed : derived;
+}
+
+function sanitizeCitations(proposed: Array<{ chunk_id: string }> | undefined, results: SearchResult[]) {
+  const chunks = allowedChunkMap(results);
+  const citations: Citation[] = [];
+  const seen = new Set<string>();
+
+  for (const citation of proposed ?? []) {
+    const source = chunks.get(citation.chunk_id);
+    if (!source || seen.has(source.id)) continue;
+    seen.add(source.id);
+    citations.push(resultCitation(source));
+  }
+
+  if (proposed && proposed.length > 0) return citations;
+  return compactCitations(results);
+}
+
+function sanitizeAnswerSections(sections: AnswerSection[] | undefined, results: SearchResult[]): AnswerSection[] {
+  const allowed = new Set(results.map((result) => result.id));
+  return (sections ?? [])
+    .map((section) => ({
+      heading: section.heading,
+      body: section.body,
+      citation_chunk_ids: section.citation_chunk_ids.filter((id) => allowed.has(id)),
+    }))
+    .filter((section) => section.citation_chunk_ids.length > 0);
+}
+
+function sanitizeQuoteCards(
+  cards: Array<{ chunk_id: string; quote: string; section_heading?: string | null }> | undefined,
+  results: SearchResult[],
+): QuoteCard[] {
+  const chunks = allowedChunkMap(results);
+  return (cards ?? [])
+    .map((card) => {
+      const source = chunks.get(card.chunk_id);
+      if (!source) return null;
+      return {
+        ...resultCitation(source),
+        quote: card.quote,
+        section_heading: card.section_heading ?? source.section_heading,
+      } satisfies QuoteCard;
+    })
+    .filter((card): card is QuoteCard => Boolean(card));
+}
+
+function sanitizeConflictsOrGaps(items: ConflictOrGap[] | undefined, results: SearchResult[]): ConflictOrGap[] {
+  const allowed = new Set(results.map((result) => result.id));
+  return (items ?? [])
+    .map((item) => ({
+      type: item.type,
+      message: item.message,
+      source_chunk_ids: item.source_chunk_ids?.filter((id) => allowed.has(id)),
+    }))
+    .filter((item) => !item.source_chunk_ids || item.source_chunk_ids.length > 0);
+}
+
+function normalizeSearchResults(results: SearchResult[]) {
+  return results.map((result) => ({
+    ...result,
+    source_metadata: normalizeSourceMetadata(result.source_metadata),
+  }));
+}
+
+function safeFallbackAnswer(raw: string, results: SearchResult[]): RagAnswer {
+  const citations = compactCitations(results);
+  const confidence = deriveConfidence(results, citations.length);
+  return {
+    answer: raw || "The model returned an invalid response. Verify the retrieved sources before using this answer.",
+    grounded: citations.length > 0 && confidence !== "unsupported",
+    confidence,
+    citations,
+    sources: results,
+    answerSections: [],
+    conflictsOrGaps: detectConflictsOrGaps(results),
+    visualEvidence: buildVisualEvidence(results),
+    bestSource: selectBestSourceRecommendation(results),
+  };
+}
+
+async function resolveDocumentFilterList(
+  supabase: ReturnType<typeof createAdminClient>,
+  args: OwnerScopedArgs,
+): Promise<string[] | undefined> {
+  const requestedDocumentIds = args.documentIds?.length
+    ? args.documentIds
+    : args.documentId
+      ? [args.documentId]
+      : undefined;
+
+  if (!args.ownerId) {
+    return requestedDocumentIds;
+  }
+
+  let query = supabase.from("documents").select("id").eq("owner_id", args.ownerId);
+  if (requestedDocumentIds?.length) {
+    query = query.in("id", requestedDocumentIds);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((document: { id: string }) => document.id);
+}
 
 export async function searchChunks(args: {
   query: string;
@@ -21,27 +218,32 @@ export async function searchChunks(args: {
   minSimilarity?: number;
   documentId?: string;
   documentIds?: string[];
+  ownerId?: string;
 }) {
-  const embedding = await embedText(args.query);
   const supabase = createAdminClient();
-  const documentFilterList = args.documentIds?.length
-    ? args.documentIds
-    : args.documentId
-      ? [args.documentId]
-      : undefined;
+  const documentFilterList = await resolveDocumentFilterList(supabase, args);
+  if (args.ownerId && documentFilterList?.length === 0) {
+    return [];
+  }
+
+  const expandedQuery = expandClinicalQuery(args.query);
+  const embedding = await embedText(expandedQuery);
   const candidateCount = Math.max((args.topK ?? 8) * 3, 24);
   const minSimilarity = args.minSimilarity ?? 0.15;
 
   const { data: hybridData, error: hybridError } = await supabase.rpc("match_document_chunks_hybrid", {
     query_embedding: embedding,
-    query_text: args.query,
+    query_text: expandedQuery,
     match_count: candidateCount,
     min_similarity: minSimilarity,
     document_filters: documentFilterList ?? null,
   });
 
   if (!hybridError) {
-    return diversifySearchResults((hybridData ?? []) as SearchResult[], args.topK ?? 8);
+    return diversifySearchResults(
+      rankClinicalResults(args.query, (hybridData ?? []) as SearchResult[]),
+      args.topK ?? 8,
+    );
   }
 
   const vectorFilters = documentFilterList?.length ? documentFilterList : [null];
@@ -60,7 +262,7 @@ export async function searchChunks(args: {
     }),
   );
 
-  return diversifySearchResults(resultSets.flat(), args.topK ?? 8);
+  return diversifySearchResults(rankClinicalResults(args.query, resultSets.flat()), args.topK ?? 8);
 }
 
 function sourceBlock(results: SearchResult[]) {
@@ -79,37 +281,29 @@ function sourceBlock(results: SearchResult[]) {
     .join("\n\n---\n\n");
 }
 
-function parseAnswerJson(raw: string, results: SearchResult[]): RagAnswer {
+export function parseAnswerJson(raw: string, results: SearchResult[]): RagAnswer {
   try {
-    const parsed = JSON.parse(raw) as Partial<RagAnswer>;
+    const parsed = answerJsonSchema.parse(JSON.parse(raw));
+    const citations = sanitizeCitations(parsed.citations, results);
+    const derivedConfidence = parsed.citations.length
+      ? deriveConfidence(results, citations.length)
+      : clampConfidence("low", deriveConfidence(results, citations.length));
+    const confidence = clampConfidence(parsed.confidence, derivedConfidence);
     return {
       answer: parsed.answer ?? raw,
-      grounded: Boolean(parsed.grounded),
-      confidence: parsed.confidence ?? "low",
-      citations: parsed.citations?.length ? parsed.citations : compactCitations(results),
+      grounded: citations.length > 0 && confidence !== "unsupported",
+      confidence,
+      citations,
       sources: results,
-      answerSections: parsed.answerSections ?? [],
-      evidenceSummary: parsed.evidenceSummary,
-      conflictsOrGaps: parsed.conflictsOrGaps ?? [],
-      sourceCoverage: parsed.sourceCoverage,
-      quoteCards: parsed.quoteCards ?? [],
-      visualEvidence: parsed.visualEvidence ?? [],
-      bestSource: parsed.bestSource,
-      documentBreakdown: parsed.documentBreakdown ?? [],
-      smartPanel: parsed.smartPanel,
+      answerSections: sanitizeAnswerSections(parsed.answerSections, results),
+      conflictsOrGaps: sanitizeConflictsOrGaps(parsed.conflictsOrGaps, results),
+      quoteCards: sanitizeQuoteCards(parsed.quoteCards, results),
+      visualEvidence: [],
+      bestSource: null,
+      documentBreakdown: [],
     };
   } catch {
-    return {
-      answer: raw,
-      grounded: results.length > 0,
-      confidence: results.length > 0 ? "medium" : "unsupported",
-      citations: compactCitations(results),
-      sources: results,
-      answerSections: [],
-      conflictsOrGaps: detectConflictsOrGaps(results),
-      visualEvidence: buildVisualEvidence(results),
-      bestSource: selectBestSourceRecommendation(results),
-    };
+    return safeFallbackAnswer(raw, results);
   }
 }
 
@@ -121,14 +315,18 @@ export async function answerQuestionWithScope(args: {
   query: string;
   documentId?: string;
   documentIds?: string[];
+  ownerId?: string;
 }) {
-  const results = await searchChunks({
-    query: args.query,
-    documentId: args.documentId,
-    documentIds: args.documentIds,
-    topK: 12,
-    minSimilarity: 0.12,
-  });
+  const results = normalizeSearchResults(
+    await searchChunks({
+      query: args.query,
+      documentId: args.documentId,
+      documentIds: args.documentIds,
+      ownerId: args.ownerId,
+      topK: 12,
+      minSimilarity: 0.12,
+    }),
+  );
   const quoteCards = extractQuoteCards(results, args.query);
   const documentBreakdown = buildDocumentBreakdown(results, quoteCards);
   const smartPanel = buildSmartPanel(args.query, results);
@@ -192,6 +390,7 @@ ${sourceBlock(results)}`;
 
   const supabase = createAdminClient();
   await supabase.from("rag_queries").insert({
+    owner_id: args.ownerId ?? null,
     query: args.query,
     answer: answer.answer,
     source_chunk_ids: results.map((result) => result.id),
@@ -209,15 +408,18 @@ ${sourceBlock(results)}`;
   return answer;
 }
 
-export async function summarizeDocument(documentId: string) {
+export async function summarizeDocument(documentId: string, ownerId?: string) {
   const supabase = createAdminClient();
-  const { data: document, error: documentError } = await supabase
-    .from("documents")
-    .select("id,title,file_name")
-    .eq("id", documentId)
-    .single();
+  let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);
+
+  if (ownerId) {
+    documentQuery = documentQuery.eq("owner_id", ownerId);
+  }
+
+  const { data: document, error: documentError } = await documentQuery.maybeSingle();
 
   if (documentError) throw new Error(documentError.message);
+  if (!document) throw new Error("Document not found.");
 
   const { data: chunks, error } = await supabase
     .from("document_chunks")
@@ -241,6 +443,7 @@ export async function summarizeDocument(documentId: string) {
     ...chunk,
     title: document.title,
     file_name: document.file_name,
+    source_metadata: normalizeSourceMetadata((document as { metadata?: unknown }).metadata),
     similarity: 1,
     images: [],
   })) as SearchResult[];

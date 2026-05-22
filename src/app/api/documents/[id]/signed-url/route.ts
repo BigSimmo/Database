@@ -4,13 +4,11 @@ import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     if (isDemoMode()) {
@@ -24,13 +22,16 @@ export async function GET(
     }
 
     const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(_request, supabase);
     const { data: document, error } = await supabase
       .from("documents")
       .select("storage_path,file_type")
       .eq("id", id)
-      .single();
+      .eq("owner_id", user.id)
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
+    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
     const signed = await supabase.storage
       .from(env.SUPABASE_DOCUMENT_BUCKET)
@@ -39,6 +40,9 @@ export async function GET(
     if (signed.error) throw new Error(signed.error.message);
     return NextResponse.json({ url: signed.data.signedUrl, fileType: document.file_type });
   } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse();
+    }
     return jsonError(error);
   }
 }

@@ -38,19 +38,13 @@ function queryTokens(query: string) {
   const expanded = new Set(tokens);
 
   if (tokens.some((token) => ["toxicity", "safety", "lithium"].includes(token))) {
-    ["vomiting", "diarrhoea", "dehydration", "tremor", "confusion", "ataxia"].forEach((token) =>
-      expanded.add(token),
-    );
+    ["vomiting", "diarrhoea", "dehydration", "tremor", "confusion", "ataxia"].forEach((token) => expanded.add(token));
   }
   if (tokens.some((token) => ["clozapine", "table", "image", "monitoring"].includes(token))) {
-    ["fbc", "anc", "myocarditis", "metabolic", "constipation"].forEach((token) =>
-      expanded.add(token),
-    );
+    ["fbc", "anc", "myocarditis", "metabolic", "constipation"].forEach((token) => expanded.add(token));
   }
   if (tokens.some((token) => ["risk", "escalate", "senior"].includes(token))) {
-    ["intent", "attempt", "agitation", "supervision", "review"].forEach((token) =>
-      expanded.add(token),
-    );
+    ["intent", "attempt", "agitation", "supervision", "review"].forEach((token) => expanded.add(token));
   }
 
   return expanded;
@@ -78,8 +72,7 @@ function bestQuoteFromContent(content: string, query: string) {
   const best =
     sentences
       .map((sentence) => ({ sentence, score: sentenceScore(sentence, tokens) }))
-      .sort((a, b) => b.score - a.score || b.sentence.length - a.sentence.length)[0]
-      ?.sentence ?? clean;
+      .sort((a, b) => b.score - a.score || b.sentence.length - a.sentence.length)[0]?.sentence ?? clean;
 
   if (best.length <= 340) return best;
   return `${best.slice(0, 337).trim()}...`;
@@ -111,10 +104,7 @@ export function extractQuoteCards(results: SearchResult[], query: string, limit 
   return quoteCards;
 }
 
-export function buildDocumentBreakdown(
-  results: SearchResult[],
-  quoteCards: QuoteCard[] = [],
-) {
+export function buildDocumentBreakdown(results: SearchResult[], quoteCards: QuoteCard[] = []) {
   const grouped = new Map<string, DocumentBreakdown>();
 
   for (const result of results) {
@@ -148,9 +138,7 @@ export function buildDocumentBreakdown(
     if (item) item.quote_count += 1;
   }
 
-  return Array.from(grouped.values()).sort(
-    (a, b) => b.top_similarity - a.top_similarity,
-  );
+  return Array.from(grouped.values()).sort((a, b) => b.top_similarity - a.top_similarity);
 }
 
 export function buildSmartPanel(query: string, results: SearchResult[]) {
@@ -261,15 +249,10 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
   return cards;
 }
 
-export function buildEvidenceSummary(
-  results: SearchResult[],
-  quoteCards: QuoteCard[] = [],
-): EvidenceSummary {
+export function buildEvidenceSummary(results: SearchResult[], quoteCards: QuoteCard[] = []): EvidenceSummary {
   const imageCount = results.reduce((count, source) => count + (source.images?.length ?? 0), 0);
   const coverage = buildSourceCoverage(results);
-  const strength = results.length
-    ? sourceStrengthForSimilarity(coverage.strongest_similarity)
-    : "none";
+  const strength = results.length ? sourceStrengthForSimilarity(coverage.strongest_similarity) : "none";
 
   return {
     document_count: coverage.documents_used,
@@ -294,7 +277,8 @@ export function detectConflictsOrGaps(results: SearchResult[]): ConflictOrGap[] 
   if (documents.size === 1) {
     gaps.push({
       type: "gap",
-      message: "Current evidence comes from one document; broaden document scope if you need cross-document comparison.",
+      message:
+        "Current evidence comes from one document; broaden document scope if you need cross-document comparison.",
       source_chunk_ids: results.slice(0, 3).map((source) => source.id),
     });
   }
@@ -310,11 +294,7 @@ export function detectConflictsOrGaps(results: SearchResult[]): ConflictOrGap[] 
   return gaps;
 }
 
-export function diversifySearchResults(
-  results: SearchResult[],
-  limit = 12,
-  maxPerDocument = 4,
-) {
+export function diversifySearchResults(results: SearchResult[], limit = 12, maxPerDocument = 4) {
   const enriched = dedupeSearchResults(results)
     .map((result) => ({
       ...result,

@@ -122,7 +122,15 @@ if (forwardedArgs.includes("--print-port")) {
 
 const child = spawn(
   process.execPath,
-  [nextBin, parsedCommand.command, "--hostname", "localhost", "--port", String(freePort), ...removePortArgs(forwardedArgs)],
+  [
+    nextBin,
+    parsedCommand.command,
+    "--hostname",
+    "localhost",
+    "--port",
+    String(freePort),
+    ...removePortArgs(forwardedArgs),
+  ],
   {
     cwd: projectRoot,
     env: { ...process.env, PORT: String(freePort) },

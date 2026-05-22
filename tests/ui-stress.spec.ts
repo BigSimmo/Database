@@ -122,13 +122,13 @@ function makeStressAnswer() {
 async function mockStressData(page: Page) {
   const documents = Array.from({ length: 24 }, (_, index) => makeDocument(index + 1));
 
-  await page.route("**/api/documents", async (route) => {
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { documents, demoMode: true } });
   });
-  await page.route("**/api/jobs", async (route) => {
+  await page.route(/\/api\/jobs(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { jobs: [], demoMode: true } });
   });
-  await page.route("**/api/setup-status", async (route) => {
+  await page.route(/\/api\/setup-status(?:\?.*)?$/, async (route) => {
     await route.fulfill({
       json: {
         demoMode: true,
@@ -141,17 +141,14 @@ async function mockStressData(page: Page) {
       },
     });
   });
-  await page.route("**/api/answer", async (route) => {
+  await page.route(/\/api\/answer(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: makeStressAnswer() });
   });
 }
 
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(
-      document.documentElement.scrollWidth,
-      document.body?.scrollWidth ?? 0,
-    );
+    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
     return documentWidth - document.documentElement.clientWidth;
   });
 
@@ -166,7 +163,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
     test(`many documents and citations do not overflow at ${viewport.name}`, async ({ page }) => {
       await mockStressData(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("/");
+      await page.goto("/", { waitUntil: "domcontentloaded" });
 
       await expect(
         page.getByText(viewport.name === "mobile" ? "24 documents" : "24 indexed documents available"),
@@ -178,7 +175,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         .fill("Show all stress citations and source cards");
       await page.getByRole("button", { name: /Ask|Answer/ }).click();
 
-      await expect(page.getByText("Source-backed")).toBeVisible();
+      await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByText("10 exact quotes")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });

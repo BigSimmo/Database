@@ -16,10 +16,7 @@ const envSchema = z.object({
   WORKER_POLL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(24),
   PYTHON_BIN: z.string().default("python"),
-  NEXT_PUBLIC_DEMO_MODE: z
-    .enum(["true", "false"])
-    .optional()
-    .default("false"),
+  NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });
 
 export const env = envSchema.parse(process.env);
@@ -32,9 +29,7 @@ export function requireServerEnv() {
 
   if (missing.length > 0) {
     throw new Error(
-      `Missing server environment variables: ${missing
-        .map(([key]) => key)
-        .join(", ")}. See .env.example.`,
+      `Missing server environment variables: ${missing.map(([key]) => key).join(", ")}. See .env.example.`,
     );
   }
 }
@@ -46,9 +41,5 @@ export function requireOpenAIEnv() {
 }
 
 export function isDemoMode() {
-  return (
-    env.NEXT_PUBLIC_DEMO_MODE === "true" ||
-    !env.NEXT_PUBLIC_SUPABASE_URL ||
-    !env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  return env.NEXT_PUBLIC_DEMO_MODE === "true" || !env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY;
 }
