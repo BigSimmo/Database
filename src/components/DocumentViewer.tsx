@@ -22,14 +22,28 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import {
-  extractionQualityLabel,
-  formatClinicalDate,
-  normalizeSourceMetadata,
-  sourceStatusLabel,
-  validationStatusLabel,
-} from "@/lib/source-metadata";
+  appBackdrop,
+  clinicalDivider,
+  cn,
+  evidenceSurface,
+  eyebrowText,
+  fieldControl,
+  fieldLabel,
+  floatingControl,
+  LoadingPanel,
+  panel,
+  PanelHeading,
+  premiumHeaderSurface,
+  primaryControl,
+  SourceProvenance,
+  SourceStatusBadge,
+  sourceCard,
+  textMuted,
+  toolbarButton,
+} from "@/components/ui-primitives";
+import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalDocument, RagAnswer } from "@/lib/types";
 
@@ -55,80 +69,17 @@ type ChunkRow = {
   image_ids: string[];
 };
 
-const textMuted = "text-[color:var(--text-muted)]";
-const panel = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]";
-const panelSubtle = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-const iconButton =
-  "grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none";
-const primaryButton =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-[color:var(--primary)] px-4 text-sm font-semibold text-[color:var(--primary-contrast)] transition hover:bg-[color:var(--primary-strong)] hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-none";
-const secondaryButton =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-tight)]";
-
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function PanelHeading({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof FileText;
-  title: string;
-  description?: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <h2 className="text-base font-semibold tracking-tight text-[color:var(--text)]">{title}</h2>
-        {description && <p className={cn("mt-1 text-sm leading-6", textMuted)}>{description}</p>}
-      </div>
-    </div>
-  );
-}
-
-function SourceStatusBadge({ metadata }: { metadata?: unknown }) {
-  const source = normalizeSourceMetadata(metadata);
-  const className =
-    source.document_status === "current"
-      ? "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]"
-      : source.document_status === "outdated"
-        ? "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-        : source.document_status === "review_due"
-          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-          : "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
-
-  return (
-    <span className={cn("inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold", className)}>
-      {sourceStatusLabel(source)}
-    </span>
-  );
-}
+const iconButton = toolbarButton;
+const primaryButton = primaryControl;
+const secondaryButton = floatingControl;
 
 function SourceMetadataSummary({ metadata }: { metadata?: unknown }) {
   const source = normalizeSourceMetadata(metadata);
-  const items = [
-    validationStatusLabel(source),
-    `Review ${formatClinicalDate(source.review_date)}`,
-    source.jurisdiction ?? "Jurisdiction unknown",
-    extractionQualityLabel(source),
-  ];
 
   return (
-    <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3">
-      <SourceStatusBadge metadata={source} />
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]">
-        {items.map((item, index) => (
-          <span key={`${item}:${index}`} className="inline-flex items-center gap-2">
-            {index > 0 && <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />}
-            {item}
-          </span>
-        ))}
-      </div>
+    <div className={cn(evidenceSurface, "mt-3 p-3")}>
+      <SourceStatusBadge metadata={source} showTitle={false} />
+      <SourceProvenance metadata={source} />
     </div>
   );
 }
@@ -180,7 +131,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
   }
 
   return (
-    <figure className={cn(panelSubtle, "overflow-hidden p-3")}>
+    <figure className={cn(sourceCard, "overflow-hidden p-3")}>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
         page {image.page_number ?? "n/a"}
       </p>
@@ -220,28 +171,14 @@ function DocumentImage({ image }: { image: ImageRow }) {
   );
 }
 
-function LoadingPanel({ label }: { label: string }) {
-  return (
-    <div className="mt-3 grid min-h-28 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-4 text-center text-sm font-semibold text-[color:var(--text-muted)]">
-      <div>
-        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--primary)]" />
-        {label}
-      </div>
-    </div>
-  );
-}
-
 function PinnedSourceEvidence({ loading, chunk }: { loading: boolean; chunk: ChunkRow | undefined }) {
   return (
-    <section
-      data-testid="pinned-source-evidence"
-      className="rounded-lg border border-[color:var(--primary)]/25 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-tight)]"
-    >
+    <section data-testid="pinned-source-evidence" className={cn(evidenceSurface, "p-4")}>
       <PanelHeading icon={Quote} title="Pinned source evidence" />
       {loading ? (
         <LoadingPanel label="Loading pinned source evidence" />
       ) : chunk ? (
-        <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-[15px] leading-6 text-[color:var(--text-muted)]">
+        <div className={cn(sourceCard, "mt-3 p-3 text-[15px] leading-7 text-[color:var(--text-muted)]")}>
           {chunk.section_heading && (
             <p className="mb-2 font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
           )}
@@ -288,14 +225,12 @@ function IndexedTextPanel({
         }
       />
       <label className="mt-4 block">
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-          Search within indexed source text
-        </span>
+        <span className={fieldLabel}>Search within indexed source text</span>
         <input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Find a term, warning, or monitoring item"
-          className="h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20"
+          className={fieldControl}
         />
       </label>
       {loading ? (
@@ -307,19 +242,15 @@ function IndexedTextPanel({
       ) : (
         <p className={cn("mt-4 text-[15px]", textMuted)}>No extracted text has been indexed for this page yet.</p>
       )}
-      <div className="mt-4 border-t border-[color:var(--border)] pt-4">
+      <div className={cn("mt-4 pt-4", clinicalDivider)}>
         <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
         <div className="mt-3 grid gap-3">
           {visibleChunks.length === 0 ? (
             <p className={cn("text-[15px] leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (
-              <article
-                id={`chunk-${chunk.id}`}
-                key={chunk.id}
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <article id={`chunk-${chunk.id}`} key={chunk.id} className={cn(sourceCard, "p-3")}>
+                <p className={eyebrowText}>
                   Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
                 </p>
                 {chunk.section_heading && (
@@ -462,7 +393,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
     <div className="bg-[color:var(--surface-inset)]">
       <div
         data-testid="pdf-toolbar"
-        className="z-10 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface)]/95 p-2 backdrop-blur sm:sticky sm:top-[69px] sm:flex sm:flex-wrap sm:p-3"
+        className="z-10 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-[69px] sm:flex sm:flex-wrap sm:p-3"
       >
         <button
           onClick={() => jumpToPage(page - 1)}
@@ -473,7 +404,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           <ChevronLeft className="h-4 w-4" />
         </button>
         {pagesReady ? (
-          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-sm font-medium text-[color:var(--text-muted)] sm:gap-2 sm:px-3">
+          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-glass)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
             <span className="hidden sm:inline">Page</span>
             <input
               aria-label="PDF page number"
@@ -490,7 +421,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             <span className="text-[13px] font-semibold sm:text-sm">of {totalPages}</span>
           </label>
         ) : (
-          <div className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text-muted)] sm:px-3">
+          <div className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:px-3">
             <Loader2 className="h-4 w-4 animate-spin text-[color:var(--primary)]" />
             <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
             <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>
@@ -761,31 +692,29 @@ export function DocumentViewer({
   };
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-[color:var(--background)] text-[color:var(--text)]">
+    <main className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)]")}>
       <header
-        className="sticky top-0 z-20 border-b border-white/10 bg-[color:var(--app-shell)] px-3 py-2 text-white shadow-[var(--shadow-soft)] sm:px-4 sm:py-3 lg:px-8"
+        className={cn("sticky top-0 z-20 px-3 py-2 sm:px-4 sm:py-3 lg:px-8", premiumHeaderSurface)}
         style={{ backgroundColor: "var(--app-shell)" }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:gap-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link
               href="/"
-              className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 transition hover:bg-white/12"
+              className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/12"
               aria-label="Back to search"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight sm:text-base">
-                {document?.title ?? "Document"}
-              </p>
+              <p className="truncate text-sm font-semibold sm:text-base">{document?.title ?? "Document"}</p>
               <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">
                 page {initialPage} · {document?.file_name ?? "loading source"}
               </p>
               <div className="hidden items-center gap-2 sm:flex">
                 {document ? (
                   <>
-                    <SourceStatusBadge metadata={document.metadata} />
+                    <SourceStatusBadge metadata={document.metadata} showTitle={false} />
                     <span className="truncate text-xs font-medium text-slate-300">
                       Review {formatClinicalDate(normalizeSourceMetadata(document.metadata).review_date)}
                     </span>
@@ -804,7 +733,7 @@ export function DocumentViewer({
           <button
             onClick={summarize}
             disabled={loadingSummary}
-            className={cn(primaryButton, "w-[44px] px-0 sm:w-auto sm:px-5")}
+            className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
             aria-label="Summarise document"
           >
             {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -822,7 +751,7 @@ export function DocumentViewer({
           <details className={cn("group lg:hidden", panel)}>
             <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
               <span className="inline-flex min-w-0 items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--primary)]">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
                   <FileText className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
@@ -836,7 +765,7 @@ export function DocumentViewer({
               </span>
               <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
             </summary>
-            <div className="border-t border-[color:var(--border)] p-4">
+            <div className={cn(clinicalDivider, "p-4")}>
               <IndexedTextPanel
                 loading={effectiveLoadingDocument}
                 selectedPage={selectedPage}
@@ -850,7 +779,7 @@ export function DocumentViewer({
           <div className={cn(panel, "overflow-hidden")}>
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
-                <div className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
+                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--primary-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
                   <div>
                     <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--primary)]" />
                     <p>Loading source document</p>
@@ -863,7 +792,7 @@ export function DocumentViewer({
                   </div>
                 </div>
               ) : effectiveViewerError ? (
-                <div className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
+                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
                   <div>
                     <AlertCircle className="mx-auto mb-2 h-8 w-8" />
                     <p className="font-semibold">{effectiveViewerError}</p>
@@ -889,7 +818,7 @@ export function DocumentViewer({
                   initialPage={initialPage}
                 />
               ) : (
-                <div className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
+                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--primary-soft)_40%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
                   <div>
                     <FileText className="mx-auto mb-2 h-8 w-8" />
                     Source preview is available after a signed URL is generated.

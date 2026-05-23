@@ -2,76 +2,102 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Theme tokens */
 :root {
-  --background: #f6f8fb;
+  --background: #eef6f7;
   --foreground: #0f172a;
-  --app-shell: #0f1b24;
-  --app-shell-muted: #18303d;
+  --app-shell: #04141b;
+  --app-shell-muted: #0b2a35;
+  --app-shell-accent: #0e8078;
   --surface: #ffffff;
   --surface-raised: #fbfdff;
-  --surface-subtle: #eef4f7;
-  --surface-inset: #f7fafc;
+  --surface-subtle: #eaf4f5;
+  --surface-inset: #f5fafb;
+  --surface-glass: rgb(255 255 255 / 76%);
+  --surface-highlight: rgb(255 255 255 / 68%);
+  --surface-lux: rgb(255 255 255 / 88%);
+  --surface-wash: #e7f3f4;
   --text: #0f172a;
-  --text-muted: #5b687a;
-  --text-soft: #7a8797;
-  --border: #d7e1e8;
-  --border-strong: #b9c7d1;
-  --primary: #0f766e;
-  --primary-strong: #0b5f5a;
-  --primary-soft: #d9f4ef;
-  --primary-contrast: #ffffff;
+  --text-heading: #07131d;
+  --text-muted: #526273;
+  --text-soft: #748495;
+  --border: #ccdae2;
+  --border-strong: #9fb4c1;
+  --border-lux: rgb(149 178 190 / 54%);
+  --primary: #0e8f85;
+  --primary-strong: #0c6963;
+  --primary-soft: #ddf7f3;
+  --primary-contrast: #f8fffe;
   --info: #2563eb;
-  --info-soft: #dbeafe;
+  --info-soft: #dcecff;
   --success: #15803d;
-  --success-soft: #dcfce7;
-  --warning: #b45309;
-  --warning-soft: #fef3c7;
+  --success-soft: #dff8e8;
+  --warning: #b7791f;
+  --warning-soft: #fff4d6;
   --danger: #b91c1c;
-  --danger-soft: #fee2e2;
+  --danger-soft: #ffe4e6;
   --disabled: #94a3b8;
-  --focus: #14b8a6;
-  --shadow-soft: 0 16px 40px rgb(15 23 42 / 8%);
-  --shadow-tight: 0 8px 22px rgb(15 23 42 / 8%);
-  --shadow-hover: 0 12px 32px rgb(15 23 42 / 11%);
+  --focus: #2ccbbb;
+  --glow-primary: 0 0 0 1px rgb(44 203 187 / 14%), 0 14px 36px rgb(14 143 133 / 12%);
+  --glow-soft: 0 0 0 1px rgb(44 203 187 / 10%), 0 12px 28px rgb(15 23 42 / 7%);
+  --shadow-soft: 0 18px 52px rgb(15 23 42 / 9%);
+  --shadow-tight: 0 10px 26px rgb(15 23 42 / 7%);
+  --shadow-hover: 0 18px 40px rgb(15 23 42 / 11%);
+  --shadow-elevated: 0 26px 70px rgb(15 23 42 / 12%);
+  --shadow-lux: 0 1px 0 rgb(255 255 255 / 68%) inset, 0 22px 64px rgb(15 23 42 / 11%);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 72%);
   --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
   color-scheme: light;
 }
 
 .dark {
-  --background: #050914;
+  --background: #03080d;
   --foreground: #e5edf4;
-  --app-shell: #07111a;
-  --app-shell-muted: #102432;
-  --surface: #101827;
-  --surface-raised: #152033;
-  --surface-subtle: #0c1421;
-  --surface-inset: #08111d;
+  --app-shell: #020d14;
+  --app-shell-muted: #08232d;
+  --app-shell-accent: #2bc9bb;
+  --surface: #0b1622;
+  --surface-raised: #101e2c;
+  --surface-subtle: #0a1420;
+  --surface-inset: #050e17;
+  --surface-glass: rgb(14 29 43 / 72%);
+  --surface-highlight: rgb(255 255 255 / 5%);
+  --surface-lux: rgb(15 31 47 / 84%);
+  --surface-wash: #07131d;
   --text: #e5edf4;
-  --text-muted: #a6b4c3;
-  --text-soft: #7d8ea2;
-  --border: #243449;
-  --border-strong: #3b4c63;
-  --primary: #2dd4bf;
-  --primary-strong: #5eead4;
-  --primary-soft: #0d3b3a;
+  --text-heading: #f4fbff;
+  --text-muted: #a7b7c7;
+  --text-soft: #8092a6;
+  --border: #22384a;
+  --border-strong: #3f5c70;
+  --border-lux: rgb(111 144 162 / 38%);
+  --primary: #33d4c2;
+  --primary-strong: #76ded3;
+  --primary-soft: #0a3838;
   --primary-contrast: #04111a;
-  --info: #60a5fa;
-  --info-soft: #102a4c;
-  --success: #4ade80;
-  --success-soft: #12351f;
-  --warning: #fbbf24;
-  --warning-soft: #3f2c0a;
-  --danger: #f87171;
-  --danger-soft: #421717;
+  --info: #7db7ff;
+  --info-soft: #102c4f;
+  --success: #5ee68a;
+  --success-soft: #113a23;
+  --warning: #f8c44d;
+  --warning-soft: #3f2d0d;
+  --danger: #fb7d86;
+  --danger-soft: #44181c;
   --disabled: #64748b;
-  --focus: #5eead4;
-  --shadow-soft: 0 18px 48px rgb(0 0 0 / 28%);
-  --shadow-tight: 0 10px 28px rgb(0 0 0 / 22%);
-  --shadow-hover: 0 16px 38px rgb(0 0 0 / 34%);
+  --focus: #7de3d8;
+  --glow-primary: 0 0 0 1px rgb(51 212 194 / 18%), 0 16px 46px rgb(45 212 191 / 12%);
+  --glow-soft: 0 0 0 1px rgb(51 212 194 / 12%), 0 14px 34px rgb(0 0 0 / 22%);
+  --shadow-soft: 0 24px 64px rgb(0 0 0 / 32%);
+  --shadow-tight: 0 12px 32px rgb(0 0 0 / 24%);
+  --shadow-hover: 0 20px 46px rgb(0 0 0 / 36%);
+  --shadow-elevated: 0 30px 80px rgb(0 0 0 / 44%);
+  --shadow-lux: 0 1px 0 rgb(255 255 255 / 5%) inset, 0 28px 76px rgb(0 0 0 / 42%);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 5%);
   --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
   color-scheme: dark;
 }
 
+/* Tailwind theme bridge */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -79,42 +105,35 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Reset and base document styles */
 * {
   box-sizing: border-box;
 }
 
 html {
   min-width: 320px;
-  background: var(--background);
+  background:
+    radial-gradient(circle at 50% -12%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 34rem),
+    linear-gradient(180deg, var(--background), color-mix(in srgb, var(--background) 90%, var(--surface-inset)));
   overflow-x: clip;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 28rem),
+    radial-gradient(circle at 98% 12%, color-mix(in srgb, var(--info) 7%, transparent), transparent 26rem),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-feature-settings:
+    "liga" 1,
+    "calt" 1,
+    "ss01" 1;
   text-rendering: optimizeLegibility;
   overflow-x: clip;
 }
 
-.mobile-app-shell {
-  height: 100svh;
-}
-
-.mobile-popover-scroll {
-  max-height: min(70svh, 28rem);
-}
-
-@supports (height: 100dvh) {
-  .mobile-app-shell {
-    height: 100dvh;
-  }
-
-  .mobile-popover-scroll {
-    max-height: min(70dvh, 28rem);
-  }
-}
-
+/* Interactive element defaults */
 button,
 input,
 textarea,
@@ -158,6 +177,40 @@ summary:active {
   transform: translateY(1px);
 }
 
+summary::-webkit-details-marker {
+  display: none;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.dark ::selection {
+  background: var(--primary-soft);
+  color: #ecfeff;
+}
+
+/* Layout utilities */
+.mobile-app-shell {
+  height: 100svh;
+}
+
+.mobile-popover-scroll {
+  max-height: min(70svh, 28rem);
+}
+
+@supports (height: 100dvh) {
+  .mobile-app-shell {
+    height: 100dvh;
+  }
+
+  .mobile-popover-scroll {
+    max-height: min(70dvh, 28rem);
+  }
+}
+
+/* Scroll and print helpers */
 .polished-scroll {
   scrollbar-color: color-mix(in srgb, var(--border-strong) 80%, transparent) transparent;
   scrollbar-width: thin;
@@ -177,20 +230,7 @@ summary:active {
   background: transparent;
 }
 
-summary::-webkit-details-marker {
-  display: none;
-}
-
-::selection {
-  background: var(--primary-soft);
-  color: var(--primary-strong);
-}
-
-.dark ::selection {
-  background: var(--primary-soft);
-  color: #ecfeff;
-}
-
+/* User preference and alternate output modes */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -231,6 +271,18 @@ summary::-webkit-details-marker {
     --danger: Mark;
     --danger-soft: Canvas;
     --focus: Highlight;
+    --surface-lux: Canvas;
+    --surface-wash: Canvas;
+    --text-heading: CanvasText;
+    --border-lux: ButtonBorder;
+    --glow-primary: none;
+    --glow-soft: none;
+    --shadow-soft: none;
+    --shadow-tight: none;
+    --shadow-hover: none;
+    --shadow-elevated: none;
+    --shadow-lux: none;
+    --shadow-inset: none;
   }
 
   button,

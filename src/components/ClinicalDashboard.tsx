@@ -34,12 +34,38 @@ import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel }
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import {
-  extractionQualityLabel,
-  formatClinicalDate,
-  normalizeSourceMetadata,
-  sourceStatusLabel,
-  validationStatusLabel,
-} from "@/lib/source-metadata";
+  appBackdrop,
+  answerSurface,
+  clinicalDivider,
+  cn,
+  evidenceSurface,
+  EmptyState,
+  fieldControlPlain,
+  fieldControlWithIcon,
+  fieldIcon,
+  floatingControl,
+  glassPanel,
+  iconTilePremium,
+  fieldLabel,
+  metadataPill,
+  navPill,
+  panel,
+  panelSubtle,
+  premiumHeaderSurface,
+  primaryControl,
+  raisedCard,
+  shellChip,
+  SourceProvenance,
+  SourceStatusBadge,
+  sourceCard,
+  subtleStatusPill,
+  textMuted,
+  toneDanger,
+  toneInfo,
+  toneNeutral,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
 import type {
@@ -91,21 +117,6 @@ type SetupCheck = {
   status: SetupCheckStatus;
   detail: string;
 };
-
-const textMuted = "text-[color:var(--text-muted)]";
-const panel = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]";
-const panelSubtle = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-const controlBase =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-none";
-const primaryControl = `${controlBase} bg-[color:var(--primary)] px-5 text-[color:var(--primary-contrast)] hover:bg-[color:var(--primary-strong)]`;
-const secondaryControl = `${controlBase} border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]`;
-const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]";
-const shellChip =
-  "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition hover:shadow-[var(--shadow-tight)]";
-
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
@@ -159,24 +170,24 @@ function statusTone(status: string) {
   if (status === "indexed" || status === "completed") {
     return {
       icon: CheckCircle2,
-      className: "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]",
+      className: toneSuccess,
     };
   }
   if (status === "failed") {
     return {
       icon: AlertCircle,
-      className: "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+      className: toneDanger,
     };
   }
   if (status === "processing") {
     return {
       icon: Loader2,
-      className: "border-[color:var(--info)]/30 bg-[color:var(--info-soft)] text-[color:var(--info)]",
+      className: toneInfo,
     };
   }
   return {
     icon: FileText,
-    className: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+    className: toneNeutral,
   };
 }
 
@@ -199,12 +210,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function StrengthBadge({ strength }: { strength?: string }) {
   const label = strength ?? "source";
-  const className =
-    strength === "strong"
-      ? "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]"
-      : strength === "limited"
-        ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-        : "border-[color:var(--info)]/30 bg-[color:var(--info-soft)] text-[color:var(--info)]";
+  const className = strength === "strong" ? toneSuccess : strength === "limited" ? toneWarning : toneInfo;
 
   return (
     <span
@@ -213,52 +219,6 @@ function StrengthBadge({ strength }: { strength?: string }) {
       <CheckCircle2 className="h-3.5 w-3.5" />
       {label}
     </span>
-  );
-}
-
-function SourceStatusBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
-  const source = normalizeSourceMetadata(metadata);
-  const toneClassName =
-    source.document_status === "current"
-      ? "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]"
-      : source.document_status === "outdated"
-        ? "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-        : source.document_status === "review_due"
-          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-          : "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
-
-  return (
-    <span
-      title={sourceStatusLabel(source)}
-      className={cn(
-        "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
-        toneClassName,
-        className,
-      )}
-    >
-      {sourceStatusLabel(source)}
-    </span>
-  );
-}
-
-function SourceProvenance({ metadata }: { metadata?: unknown }) {
-  const source = normalizeSourceMetadata(metadata);
-  const items = [
-    validationStatusLabel(source),
-    `Review ${formatClinicalDate(source.review_date)}`,
-    source.jurisdiction ?? "Jurisdiction unknown",
-    extractionQualityLabel(source),
-  ];
-
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]">
-      {items.map((item, index) => (
-        <span key={`${item}:${index}`} className="inline-flex items-center gap-2">
-          {index > 0 && <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />}
-          {item}
-        </span>
-      ))}
-    </div>
   );
 }
 
@@ -399,7 +359,7 @@ function SectionHeading({
           <Icon className={cn(compactMobile ? "h-4 w-4 sm:h-4.5 sm:w-4.5" : "h-4.5 w-4.5")} />
         </span>
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-tight text-[color:var(--text)] sm:text-base">{title}</h2>
+          <h2 className="text-[15px] font-semibold text-[color:var(--text-heading)] sm:text-base">{title}</h2>
           {description && (
             <p className={cn("mt-1 text-sm leading-6", textMuted, hideDescriptionOnMobile && "hidden sm:block")}>
               {description}
@@ -570,7 +530,8 @@ function MasterSearchHeader({
     <header
       id="search"
       className={cn(
-        "sticky top-0 z-30 border-b border-white/10 bg-[color:var(--app-shell)] px-3 text-white shadow-[var(--shadow-soft)] lg:px-8",
+        "sticky top-0 z-30 px-3 lg:px-8",
+        premiumHeaderSurface,
         compactMobile ? "py-2 sm:py-3" : "py-2.5 sm:py-3",
       )}
       style={{ backgroundColor: "var(--app-shell)" }}
@@ -580,7 +541,7 @@ function MasterSearchHeader({
           <div className="flex min-w-0 items-center gap-3">
             <div
               className={cn(
-                "grid shrink-0 place-items-center rounded-lg bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)]",
+                "grid shrink-0 place-items-center rounded-lg border border-white/20 bg-[linear-gradient(135deg,var(--primary),var(--primary-strong))] text-[color:var(--primary-contrast)] shadow-[var(--glow-soft)]",
                 compactMobile ? "h-9 w-9 sm:h-[44px] sm:w-[44px]" : "h-[44px] w-[44px]",
               )}
             >
@@ -588,7 +549,7 @@ function MasterSearchHeader({
             </div>
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-base font-semibold tracking-tight">Clinical Guide</p>
+                <p className="truncate text-base font-semibold">Clinical Guide</p>
                 {demoMode && (
                   <span className="hidden shrink-0 rounded-md border border-amber-300/25 bg-amber-300/12 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-amber-100 sm:inline-flex">
                     Demo data
@@ -609,7 +570,7 @@ function MasterSearchHeader({
             <button
               type="button"
               onClick={onToggleTheme}
-              className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 transition hover:bg-white/12"
+              className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:border-white/25 hover:bg-white/12"
               aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
@@ -637,7 +598,7 @@ function MasterSearchHeader({
               aria-label="Ask a question across indexed guidelines"
               placeholder="Ask a guideline question"
               className={cn(
-                "w-full rounded-lg border border-white/15 bg-white/95 pl-12 pr-12 font-semibold text-slate-950 shadow-inner outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/30 dark:bg-slate-950/95 dark:text-slate-50 dark:placeholder:text-slate-500",
+                "w-full rounded-lg border border-white/20 bg-white/95 pl-12 pr-12 font-semibold text-slate-950 shadow-[0_16px_34px_rgb(0_0_0_/_14%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/25 dark:bg-slate-950/90 dark:text-slate-50 dark:placeholder:text-slate-500",
                 compactMobile ? "h-12 text-sm sm:h-14 sm:text-base" : "h-14 text-base",
               )}
             />
@@ -670,16 +631,16 @@ function MasterSearchHeader({
           </button>
           <details className="relative sm:hidden">
             <summary
-              className="grid h-12 w-[44px] cursor-pointer list-none place-items-center rounded-lg border border-white/10 bg-white/7 text-slate-100 transition hover:bg-white/12"
+              className="grid h-12 w-[44px] cursor-pointer list-none place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:border-white/25 hover:bg-white/12"
               aria-label="Open document scope and prompt controls"
             >
               <Filter className="h-4 w-4" />
             </summary>
             <div
               data-testid="mobile-scope-popover"
-              className="mobile-popover-scroll polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[calc(100vw-1.5rem)] max-w-sm overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-[color:var(--app-shell-muted)] p-3 shadow-[var(--shadow-tight)]"
+              className="mobile-popover-scroll polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[calc(100vw-1.5rem)] max-w-sm overflow-y-auto overscroll-contain rounded-lg border border-white/15 bg-[color:var(--surface-glass)] p-3 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl dark:bg-[color:var(--app-shell-muted)] dark:text-white"
             >
-              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-slate-300">
+              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)] dark:text-slate-300">
                 <span>Scope & prompts</span>
                 {selectedDocumentIds.length > 0 && <span>{selectedDocumentIds.length} scoped</span>}
               </div>
@@ -691,7 +652,7 @@ function MasterSearchHeader({
         {!hasAnswer ? (
           <div className="hidden sm:block">{renderScopeAndPromptRows()}</div>
         ) : (
-          <details className="hidden rounded-lg border border-white/10 bg-white/5 sm:block">
+          <details className="hidden rounded-lg border border-white/10 bg-white/6 shadow-[var(--shadow-inset)] backdrop-blur-md sm:block">
             <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-slate-100">
               <span className="inline-flex items-center gap-2">
                 <Filter className="h-4 w-4" />
@@ -730,7 +691,7 @@ function CopyButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel ?? label}
-      className={cn(secondaryControl, "px-3 text-xs")}
+      className={cn(floatingControl, "px-3 text-xs")}
     >
       {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
       <span className="sm:hidden">{copied ? "Copied" : (shortLabel ?? label)}</span>
@@ -766,7 +727,7 @@ function SourceActionRow({
         <button
           type="button"
           onClick={onFollowUp}
-          className={cn(secondaryControl, "px-3 text-xs")}
+          className={cn(floatingControl, "px-3 text-xs")}
           aria-label={`Ask a follow-up from ${sourceTitle}`}
         >
           <Search className="h-4 w-4" />
@@ -777,7 +738,7 @@ function SourceActionRow({
       <button
         type="button"
         onClick={() => onScopeDocument(documentId)}
-        className={cn(secondaryControl, "px-3 text-xs")}
+        className={cn(floatingControl, "px-3 text-xs")}
         aria-label={`Search only ${sourceTitle}`}
       >
         <Filter className="h-4 w-4" />
@@ -785,7 +746,7 @@ function SourceActionRow({
         <span className="hidden sm:inline">Search this document</span>
       </button>
       {imageCount > 0 && (
-        <span className="inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)]">
+        <span className={cn(metadataPill, "min-h-[44px] rounded-lg px-3")}>
           {imageCount} indexed image{imageCount === 1 ? "" : "s"}
         </span>
       )}
@@ -814,10 +775,10 @@ function VerificationActionStrip({
   return (
     <div
       data-testid="verify-source-strip"
-      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] px-3 py-2.5"
+      className={cn(evidenceSurface, "flex flex-wrap items-center justify-between gap-2 px-3 py-2.5")}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
+        <span className={cn(iconTilePremium, "h-7 w-7 rounded-md")}>
           <Target className="h-4 w-4" />
         </span>
         <div className="min-w-0">
@@ -827,9 +788,7 @@ function VerificationActionStrip({
           </p>
         </div>
       </div>
-      <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-xs font-semibold text-[color:var(--text-muted)]">
-        {evidenceLabel}
-      </span>
+      <span className={subtleStatusPill}>{evidenceLabel}</span>
       <SourceStatusBadge metadata={source.source_metadata} className="max-w-[8rem] truncate sm:max-w-none" />
       <Link
         href={source.viewer_href}
@@ -858,10 +817,10 @@ function BestSourceCard({
   const score = Math.max(0, Math.min(100, Math.round(source.score * 100)));
 
   return (
-    <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 sm:p-4">
+    <article className={cn(evidenceSurface, "p-3 sm:p-4")}>
       <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)] sm:h-9 sm:w-9">
+          <span className={cn(iconTilePremium, "h-8 w-8 sm:h-9 sm:w-9")}>
             <Target className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
           </span>
           <div className="min-w-0">
@@ -876,9 +835,7 @@ function BestSourceCard({
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <StrengthBadge strength={source.source_strength} />
-          <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text-muted)]">
-            {score}% match
-          </span>
+          <span className={subtleStatusPill}>{score}% match</span>
         </div>
       </div>
 
@@ -905,7 +862,10 @@ function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extract
   return (
     <section
       data-testid="safety-findings-panel"
-      className="rounded-lg border border-[color:var(--warning)]/30 border-l-4 border-l-[color:var(--warning)] bg-[color:var(--surface-raised)] p-3 sm:p-4"
+      className={cn(
+        evidenceSurface,
+        "border-l-4 border-l-[color:var(--warning)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning-soft)_42%,transparent),transparent_62%),var(--surface-raised)] p-3 sm:p-4",
+      )}
     >
       <SectionHeading
         icon={ShieldAlert}
@@ -916,17 +876,17 @@ function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extract
       />
       <div className="mt-3 grid gap-2 sm:mt-4">
         {findings.map((finding) => (
-          <article
-            key={finding.id}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-          >
+          <article key={finding.id} className={cn(sourceCard, "bg-[color:var(--surface-glass)] p-3 backdrop-blur-md")}>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--warning-soft)] px-2 text-xs font-bold text-[color:var(--warning)]">
                 {finding.label}
               </span>
               <Link
                 href={finding.href}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--primary)]"
+                className={cn(
+                  raisedCard,
+                  "inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
+                )}
                 aria-label={`Open source for ${formatSafetyFindingLabel(finding)}`}
               >
                 <ExternalLink className="h-4 w-4" />
@@ -958,7 +918,10 @@ function CopyGovernanceStrip({
   return (
     <div
       data-testid="copy-governance-strip"
-      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5"
+      className={cn(
+        sourceCard,
+        "flex flex-wrap items-center justify-between gap-2 bg-[color:var(--surface-glass)] px-3 py-2.5 backdrop-blur-md",
+      )}
     >
       <p className={cn("min-w-0 flex-1 text-[13px] font-semibold leading-5 sm:text-sm", textMuted)}>
         Draft only; verify source first before pasting into the medical record.
@@ -1007,20 +970,20 @@ function QuoteCards({
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {quotes.map((quote, index) => (
-            <article
-              key={`${quote.chunk_id}:${quote.quote}`}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)] sm:p-4"
-            >
+            <article key={`${quote.chunk_id}:${quote.quote}`} className={cn(sourceCard, "p-3 sm:p-4")}>
               <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-xs font-bold text-[color:var(--primary)] sm:h-8 sm:w-8">
-                  {index + 1}
-                </span>
+                <span className={cn(iconTilePremium, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>{index + 1}</span>
                 <StrengthBadge strength={quote.source_strength} />
               </div>
               <blockquote className="text-[15px] font-medium leading-6 text-[color:var(--text)]">
                 &ldquo;{quote.quote}&rdquo;
               </blockquote>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3 sm:mt-4 sm:gap-3">
+              <div
+                className={cn(
+                  "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
+                  clinicalDivider,
+                )}
+              >
                 <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
                   {formatCompactCitationLabel(quote)}
                 </span>
@@ -1063,7 +1026,7 @@ function ClinicalOutputPanel({
       <details className={cn("group sm:hidden", panelSubtle)}>
         <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
+            <span className={cn(iconTilePremium, "h-8 w-8")}>
               <ListChecks className="h-4 w-4" />
             </span>
             <span className="min-w-0">
@@ -1079,10 +1042,7 @@ function ClinicalOutputPanel({
             Draft only; verify source first before pasting into the medical record.
           </p>
           {sections.map((section) => (
-            <article
-              key={section.id}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-            >
+            <article key={section.id} className={cn(sourceCard, "p-3")}>
               <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
               <ul className="mt-2 space-y-2 text-[15px] leading-6 text-[color:var(--text-muted)]">
                 {section.items.map((item) => (
@@ -1109,10 +1069,7 @@ function ClinicalOutputPanel({
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {sections.map((section) => (
-            <article
-              key={section.id}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-            >
+            <article key={section.id} className={cn(sourceCard, "p-3")}>
               <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
               <ul className="mt-2 space-y-2 text-[15px] leading-6 text-[color:var(--text-muted)]">
                 {section.items.map((item) => (
@@ -1149,21 +1106,26 @@ function VisualEvidenceStrip({ evidence }: { evidence: VisualEvidenceCard[] }) {
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {evidence.map((item) => (
-            <figure key={item.id} className={cn(panel, "overflow-hidden p-2.5 sm:p-3")}>
+            <figure key={item.id} className={cn(sourceCard, "overflow-hidden p-2.5 sm:p-3")}>
               <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
                 <SourceImage endpoint={item.signed_url_endpoint} caption={item.caption} />
               </div>
               <figcaption className="mt-2 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
                 {item.caption}
               </figcaption>
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3 text-xs sm:mt-3 sm:gap-3">
+              <div
+                className={cn(
+                  "mt-2 flex flex-wrap items-center justify-between gap-2 pt-3 text-xs sm:mt-3 sm:gap-3",
+                  clinicalDivider,
+                )}
+              >
                 <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
                   {formatCompactCitationLabel(item)}
                 </span>
                 <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
                   {item.title}, page {item.page_number ?? "n/a"}
                 </span>
-                <Link href={item.viewer_href} className={cn(secondaryControl, "min-h-[44px] px-4 text-xs")}>
+                <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
                   <ExternalLink className="h-4 w-4" />
                   Open PDF
                 </Link>
@@ -1192,7 +1154,7 @@ function SourceList({
   return (
     <div className="space-y-3">
       {sources.map((source) => (
-        <article key={source.id} className={cn(panelSubtle, "p-3 sm:p-4")}>
+        <article key={source.id} className={cn(sourceCard, "p-3 sm:p-4")}>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <div className="min-w-0">
               <Link
@@ -1228,22 +1190,6 @@ function SourceList({
   );
 }
 
-function EmptyState({ icon: Icon, title, body }: { icon: typeof FileText; title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-          <Icon className="h-4.5 w-4.5" />
-        </span>
-        <div className="min-w-0">
-          <p className="font-semibold text-[color:var(--text)]">{title}</p>
-          <p className={cn("mt-1 leading-6", textMuted)}>{body}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AnswerSkeleton() {
   return (
     <div className="space-y-4" aria-label="Loading answer">
@@ -1251,7 +1197,7 @@ function AnswerSkeleton() {
         <div className="h-4 w-10/12 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
         <div className="h-4 w-full animate-pulse rounded bg-[color:var(--surface-subtle)]" />
         <div className="h-4 w-8/12 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-        <div className="mt-4 flex min-h-[60px] items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+        <div className={cn(sourceCard, "mt-4 flex min-h-[60px] items-center justify-between gap-3 p-3")}>
           <div className="min-w-0 flex-1 space-y-2">
             <div className="h-3 w-24 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
             <div className="h-4 w-48 max-w-full animate-pulse rounded bg-[color:var(--surface-subtle)]" />
@@ -1306,7 +1252,7 @@ function AuthPanel() {
             <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
             <p className={cn("mt-1 text-xs leading-5", textMuted)}>{session?.user.email ?? "Authenticated session"}</p>
           </div>
-          <button type="button" onClick={signOut} className={cn(secondaryControl, "px-3 text-xs")}>
+          <button type="button" onClick={signOut} className={cn(floatingControl, "px-3 text-xs")}>
             <LogOut className="h-4 w-4" />
             Sign out
           </button>
@@ -1331,13 +1277,13 @@ function AuthPanel() {
       <label className="block">
         <span className={fieldLabel}>Email address</span>
         <div className="relative">
-          <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          <Mail className={fieldIcon} />
           <input
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@example.com"
-            className="h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20"
+            className={fieldControlWithIcon}
           />
         </div>
       </label>
@@ -1377,12 +1323,12 @@ function DocumentDrawer({
   return (
     <div className="space-y-3">
       <label className="relative block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+        <Search className={fieldIcon} />
         <input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder="Find a document"
-          className="h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20"
+          className={fieldControlWithIcon}
         />
       </label>
       <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
@@ -1499,7 +1445,10 @@ function UploadPanel({
           name="title"
           placeholder="Use the file name if left blank"
           disabled={demoMode || !canUpload}
-          className="h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20 disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)]"
+          className={cn(
+            fieldControlPlain,
+            "disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)]",
+          )}
         />
       </label>
       <label className="block">
@@ -1513,11 +1462,7 @@ function UploadPanel({
           className="block min-h-[44px] w-full cursor-pointer rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-3 py-2 text-sm text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[color:var(--app-shell)] file:px-3 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:file:bg-slate-100 dark:file:text-slate-950"
         />
       </label>
-      <button
-        type="submit"
-        disabled={uploading || (!demoMode && !canUpload)}
-        className={cn(secondaryControl, "w-full")}
-      >
+      <button type="submit" disabled={uploading || (!demoMode && !canUpload)} className={cn(floatingControl, "w-full")}>
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
         Queue document
       </button>
@@ -1567,12 +1512,12 @@ const fallbackSetupChecks: SetupCheck[] = [
 
 function setupBadgeClasses(status: SetupCheckStatus) {
   if (status === "ready") {
-    return "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]";
+    return toneSuccess;
   }
   if (status === "needs_setup") {
-    return "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+    return toneWarning;
   }
-  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
+  return toneNeutral;
 }
 
 function setupBadgeLabel(status: SetupCheckStatus) {
@@ -1589,10 +1534,7 @@ function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
       <p className="text-sm font-semibold text-[color:var(--text)]">First-run setup checklist</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {items.map((item) => (
-          <div
-            key={item.id}
-            className="min-h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
-          >
+          <div key={item.id} className={cn(sourceCard, "min-h-10 px-3 py-2")}>
             <div className="flex min-w-0 items-center justify-between gap-2">
               <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">{item.label}</span>
               <span
@@ -1643,7 +1585,7 @@ function UtilityDrawer({
     >
       <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <span className="flex min-w-0 items-center gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--primary)]">
+          <span className={iconTilePremium}>
             <Icon className="h-4 w-4" />
           </span>
           <span className="min-w-0">
@@ -1658,7 +1600,7 @@ function UtilityDrawer({
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
       </summary>
-      {open && <div className="border-t border-[color:var(--border)] p-4">{children}</div>}
+      {open && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
     </details>
   );
 }
@@ -1727,19 +1669,16 @@ function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
         role="dialog"
         aria-modal="true"
         aria-labelledby="clinical-kb-guide-title"
-        className="max-h-[min(82svh,42rem)] w-full overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] sm:max-w-2xl"
+        className={cn(glassPanel, "max-h-[min(82svh,42rem)] w-full overflow-y-auto sm:max-w-2xl")}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] p-4 sm:p-5">
           <div className="flex min-w-0 gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
+            <span className={cn(iconTilePremium, "h-10 w-10")}>
               <BookOpen className="h-4.5 w-4.5" />
             </span>
             <div className="min-w-0">
-              <h2
-                id="clinical-kb-guide-title"
-                className="text-base font-semibold tracking-tight text-[color:var(--text)]"
-              >
+              <h2 id="clinical-kb-guide-title" className="text-base font-semibold text-[color:var(--text-heading)]">
                 Clinical KB guide
               </h2>
               <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
@@ -1751,7 +1690,7 @@ function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            className={cn(navPill, "h-[44px] w-[44px] px-0")}
             aria-label="Close guide"
           >
             <X className="h-4 w-4" />
@@ -1760,10 +1699,7 @@ function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
 
         <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
           {guideSections.map((section) => (
-            <article
-              key={section.title}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3"
-            >
+            <article key={section.title} className={cn(sourceCard, "p-3")}>
               <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
               <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
             </article>
@@ -1781,7 +1717,7 @@ function GuideTrigger({ onOpen }: { onOpen: () => void }) {
         type="button"
         data-testid="dashboard-guide-trigger"
         onClick={onOpen}
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+        className={cn(navPill, "px-3")}
         aria-label="Open user guide"
       >
         <BookOpen className="h-4 w-4" />
@@ -2115,7 +2051,12 @@ export function ClinicalDashboard() {
   );
 
   return (
-    <div className="mobile-app-shell flex flex-col overflow-hidden bg-[color:var(--background)] text-[color:var(--text)] lg:block lg:h-auto lg:min-h-screen lg:overflow-x-clip lg:overflow-y-visible">
+    <div
+      className={cn(
+        appBackdrop,
+        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:block lg:h-auto lg:min-h-screen lg:overflow-x-clip lg:overflow-y-visible",
+      )}
+    >
       <MasterSearchHeader
         documents={documents}
         query={query}
@@ -2145,7 +2086,7 @@ export function ClinicalDashboard() {
           {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
 
           <section className={cn(panel, "overflow-hidden")}>
-            <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 sm:p-5">
+            <div className="border-b border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_75%),var(--surface-raised)] p-3 sm:p-5">
               <SectionHeading
                 icon={Search}
                 title="Answer"
@@ -2176,8 +2117,8 @@ export function ClinicalDashboard() {
                 <AnswerSkeleton />
               ) : answer ? (
                 <div className="space-y-4 sm:space-y-5">
-                  <div className="rounded-lg border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)] sm:p-4">
-                    <p className="whitespace-pre-wrap text-[15px] font-medium leading-6 text-[color:var(--text)] sm:leading-7">
+                  <div className={cn(answerSurface, "p-3 sm:p-4")}>
+                    <p className="whitespace-pre-wrap text-[15px] font-medium leading-7 text-[color:var(--text-heading)]">
                       {answer.answer}
                     </p>
                   </div>
@@ -2215,7 +2156,9 @@ export function ClinicalDashboard() {
                   </div>
 
                   {sourceSummary && (
-                    <p className={cn("text-[13px] font-semibold leading-5 sm:text-xs", textMuted)}>
+                    <p
+                      className={cn(metadataPill, "inline-flex min-h-8 w-fit max-w-full flex-wrap gap-x-1.5 leading-5")}
+                    >
                       {sourceSummary.document_count} documents · {sourceSummary.quote_count} exact quotes ·{" "}
                       {sourceSummary.image_count} indexed images
                     </p>
@@ -2403,7 +2346,7 @@ export function ClinicalDashboard() {
         </div>
       </main>
 
-      <nav className="z-30 grid shrink-0 select-none grid-cols-4 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-soft)] lg:hidden">
+      <nav className="z-30 grid shrink-0 select-none grid-cols-4 border-t border-white/30 bg-[color:var(--surface-glass)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-white/10 lg:hidden">
         {bottomNavItems.map(({ label, icon: Icon, href, count }) => (
           <a
             key={label}
@@ -2415,14 +2358,16 @@ export function ClinicalDashboard() {
               navigateMobileSection(href);
             }}
             className={cn(
-              "flex min-h-[48px] flex-col items-center justify-center gap-1 rounded-lg transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--primary)]",
-              activeHash === href && "bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
+              navPill,
+              "min-h-[48px] flex-col gap-1 border-transparent bg-transparent px-2 shadow-none backdrop-blur-0 hover:bg-[color:var(--surface-subtle)]",
+              activeHash === href &&
+                "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]",
             )}
           >
             <span className="inline-flex h-5 items-center justify-center gap-1">
               <Icon className="h-5 w-5" />
               {count !== null && (
-                <span className="min-w-4 rounded-full bg-[color:var(--surface-subtle)] px-1 text-center text-[10px] font-bold leading-4 text-[color:var(--text)]">
+                <span className="min-w-4 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-glass)] px-1 text-center text-[10px] font-bold leading-4 text-[color:var(--text)] shadow-[var(--shadow-inset)]">
                   {count}
                 </span>
               )}
