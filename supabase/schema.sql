@@ -308,6 +308,32 @@ as $$
   limit match_count;
 $$;
 
+-- New Supabase projects do not automatically expose public tables to the Data API.
+-- Keep these grants explicit so the Next.js API and worker can use supabase-js
+-- with the service role, while authenticated direct access remains constrained by RLS.
+grant usage on schema public to authenticated, service_role;
+
+grant select, insert, update, delete on table
+  public.documents,
+  public.document_pages,
+  public.document_images,
+  public.document_chunks,
+  public.ingestion_jobs,
+  public.rag_queries
+to service_role;
+
+grant usage, select on all sequences in schema public to service_role;
+grant execute on all functions in schema public to service_role;
+
+grant select, insert, update, delete on table public.documents to authenticated;
+grant select on table
+  public.document_pages,
+  public.document_images,
+  public.document_chunks,
+  public.ingestion_jobs
+to authenticated;
+grant select, insert on table public.rag_queries to authenticated;
+
 alter table public.documents enable row level security;
 alter table public.document_pages enable row level security;
 alter table public.document_images enable row level security;
