@@ -15,6 +15,9 @@ const envSchema = z.object({
   CHUNK_OVERLAP: z.coerce.number().int().nonnegative().default(200),
   WORKER_POLL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(24),
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  WORKER_STALE_AFTER_MINUTES: z.coerce.number().int().positive().default(45),
   PYTHON_BIN: z.string().default("python"),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });

@@ -12,34 +12,25 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 export const textMuted = "text-[color:var(--text-muted)]";
-export const surfaceCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]";
 export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-export const elevatedCard = `${surfaceCard} shadow-[var(--shadow-elevated)]`;
-export const quietCard = `${raisedCard} shadow-[var(--shadow-tight)]`;
 export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
 export const appBackdrop =
   "bg-[radial-gradient(circle_at_50%_-12%,color-mix(in_srgb,var(--primary)_11%,transparent),transparent_28rem),linear-gradient(180deg,var(--background),color-mix(in_srgb,var(--background)_90%,var(--surface-inset)))]";
 export const glassPanel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] shadow-[var(--shadow-lux)] backdrop-blur-lg dark:border-white/10";
-export const elevatedPanel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_38%),var(--surface-lux)] shadow-[var(--shadow-lux)]";
 export const quietPanel =
   "rounded-lg border border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_52%),var(--surface-raised)] shadow-[var(--shadow-tight)]";
-export const luxPanel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_44%),var(--surface-lux)] shadow-[var(--shadow-lux)]";
-export const luxCard = `${luxPanel} ring-1 ring-white/35 dark:ring-white/5`;
-export const clinicalCard = luxCard;
 export const sourceCard = `${quietPanel} hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface =
   "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary-soft)_30%,transparent),transparent_58%),var(--surface-lux)] shadow-[var(--shadow-lux)]";
 export const evidenceSurface =
   "rounded-lg border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary-soft)_24%,transparent),transparent_60%),var(--surface-lux)] shadow-[var(--glow-soft)]";
-export const panel = clinicalCard;
+export const panel =
+  "rounded-lg border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_44%),var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/35 dark:ring-white/5";
 export const panelSubtle = quietPanel;
 export const controlBase =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-tight)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none";
 export const primaryControl = `${controlBase} bg-[linear-gradient(135deg,var(--primary),var(--primary-strong))] px-5 text-[color:var(--primary-contrast)] shadow-[var(--glow-soft)] hover:bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] hover:shadow-[var(--glow-primary)]`;
-export const secondaryControl = `${controlBase} border border-[color:var(--border)] bg-[color:var(--surface-glass)] px-4 text-[color:var(--text)] backdrop-blur-md hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]`;
 export const floatingControl =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] backdrop-blur-lg transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none";
 export const toolbarButton =
@@ -67,11 +58,8 @@ export const iconTilePremium =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/18 bg-[radial-gradient(circle_at_35%_20%,color-mix(in_srgb,var(--primary)_16%,white),var(--primary-soft))] text-[color:var(--primary)] shadow-[var(--glow-soft)]";
 export const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]";
-export const heroHeaderSurface =
+export const premiumHeaderSurface =
   "border-b border-white/10 bg-[radial-gradient(circle_at_12%_-35%,color-mix(in_srgb,var(--app-shell-accent)_34%,transparent),transparent_18rem),linear-gradient(135deg,var(--app-shell)_0%,var(--app-shell-muted)_58%,color-mix(in_srgb,var(--app-shell-muted)_72%,var(--app-shell-accent))_100%)] text-white shadow-[var(--shadow-soft)]";
-export const premiumHeaderSurface = heroHeaderSurface;
-export const verificationSurface = evidenceSurface;
-export const verificationPanel = verificationSurface;
 
 export const toneSuccess =
   "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]";

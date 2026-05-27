@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -20,6 +21,189 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+}
+
+const readySetupChecks = [
+  { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
+  { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
+  { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
+  { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
+];
+
+async function mockPrivateUnauthenticatedApi(page: Page) {
+  await page.route(/\/api\/setup-status$/, async (route) => {
+    await route.fulfill({
+      json: { demoMode: false, checks: readySetupChecks },
+    });
+  });
+}
+
+async function seedAuthenticatedSession(page: Page) {
+  await page.addInitScript(() => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
+    window.localStorage.setItem(
+      "sb-sjrfecxgysukkwxsowpy-auth-token",
+      JSON.stringify({
+        access_token: "test-access-token",
+        refresh_token: "test-refresh-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: expiresAt,
+        user: {
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          aud: "authenticated",
+          role: "authenticated",
+          email: "test@example.com",
+          app_metadata: { provider: "email", providers: ["email"] },
+          user_metadata: { email: "test@example.com" },
+          created_at: new Date().toISOString(),
+        },
+      }),
+    );
+  });
+}
+
+async function mockPrivateAuthenticatedApi(page: Page) {
+  await page.route(/\/api\/setup-status$/, async (route) => {
+    await route.fulfill({
+      json: { demoMode: false, checks: readySetupChecks },
+    });
+  });
+  await page.route(/\/api\/documents$/, async (route) => {
+    await route.fulfill({ json: { documents: [] } });
+  });
+  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { jobs: [] } });
+  });
+  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        batches: [
+          {
+            id: "batch-1",
+            owner_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            name: "Duplicate dry run",
+            source_root: "D:\\Clinical PDFs",
+            include_glob: "**/*.pdf",
+            status: "completed",
+            total_files: 3,
+            queued_files: 1,
+            skipped_files: 2,
+            failed_files: 0,
+            total_bytes: 1024,
+            metadata: {},
+            completed_at: "2026-05-27T00:00:00.000Z",
+            created_at: "2026-05-27T00:00:00.000Z",
+            updated_at: "2026-05-27T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+  });
+  await page.route(/\/api\/upload$/, async (route) => {
+    await route.fulfill({
+      json: {
+        duplicate: true,
+        duplicateReason: "exact_content_hash",
+        document: {
+          id: "11111111-1111-4111-8111-111111111111",
+          title: "Existing guideline",
+          file_name: "guideline.pdf",
+          status: "indexed",
+        },
+        message: 'Exact copy already exists as "Existing guideline"; no duplicate job was queued.',
+      },
+    });
+  });
+}
+
+async function mockDemoApi(page: Page) {
+  await page.route(/\/api\/setup-status$/, async (route) => {
+    await route.fulfill({
+      json: { demoMode: true, checks: readySetupChecks },
+    });
+  });
+  await page.route(/\/api\/documents$/, async (route) => {
+    await route.fulfill({ json: { documents: demoDocuments, demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { jobs: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { batches: [], demoMode: true } });
+  });
+  await page.route(/\/api\/answer$/, async (route) => {
+    const body = route.request().postDataJSON() as {
+      query?: string;
+      documentId?: string;
+      documentIds?: string[];
+    };
+    await route.fulfill({
+      json: {
+        ...demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
+        demoMode: true,
+      },
+    });
+  });
+  await page.route(/\/api\/documents\/([^/]+)\/signed-url(?:\?.*)?$/, async (route) => {
+    const id = new URL(route.request().url()).pathname.split("/").at(-2) ?? "";
+    const document = getDemoDocument(id);
+    if (!document) {
+      await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
+      return;
+    }
+    await route.fulfill({
+      json: { url: document.storage_path, fileType: document.file_type, demoMode: true },
+    });
+  });
+  await page.route(/\/api\/documents\/([^/]+)(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const id = url.pathname.split("/").at(-1) ?? "";
+    const payload = getDemoDocumentPayload(id, url.searchParams.get("chunk"));
+    if (!payload) {
+      await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
+      return;
+    }
+    await route.fulfill({ json: { ...payload, demoMode: true } });
+  });
+}
+
+async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } = {}) {
+  const audit = await page.evaluate(() => {
+    const duplicateIds = [...document.querySelectorAll("[id]")]
+      .map((element) => element.id)
+      .filter((id, index, all) => id && all.indexOf(id) !== index);
+    const brokenAriaRefs: Array<{ attr: string; id: string }> = [];
+
+    for (const element of [
+      ...document.querySelectorAll("[aria-labelledby],[aria-describedby],[aria-controls]"),
+    ]) {
+      for (const attr of ["aria-labelledby", "aria-describedby", "aria-controls"]) {
+        const value = element.getAttribute(attr);
+        if (!value) continue;
+        for (const id of value.split(/\s+/).filter(Boolean)) {
+          if (!document.getElementById(id)) brokenAriaRefs.push({ attr, id });
+        }
+      }
+    }
+
+    return {
+      h1Count: document.querySelectorAll("h1,[role='heading'][aria-level='1']").length,
+      duplicateIds: [...new Set(duplicateIds)],
+      brokenAriaRefs,
+      hasFrameworkOverlay: /Unhandled Runtime Error|Build Error|Application error|Next\.js/.test(document.body.innerText),
+    };
+  });
+
+  expect(audit.h1Count).toBe(1);
+  expect(audit.duplicateIds).toEqual([]);
+  expect(audit.brokenAriaRefs).toEqual([]);
+  expect(audit.hasFrameworkOverlay).toBe(false);
+
+  if (options.mobileNav) {
+    await expect(page.getByRole("navigation", { name: "Answer sections" })).toBeVisible();
+  }
 }
 
 async function waitForDemoDashboardReady(page: Page) {
@@ -49,7 +233,7 @@ async function openGuide(page: Page) {
   const trigger = page.getByTestId("dashboard-guide-trigger");
   await trigger.scrollIntoViewIfNeeded();
   await expect(trigger).toBeVisible();
-  await trigger.click({ force: true });
+  await trigger.click();
 
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   await expect(dialog).toBeVisible();
@@ -67,17 +251,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
   for (const viewport of dashboardViewports) {
     test(`dashboard loads without page overflow at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockPrivateUnauthenticatedApi(page);
       await gotoApp(page, "/");
 
-      await expect(page.getByText("Clinical Guide")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
       await expect(page.getByLabel("Ask a question across indexed guidelines")).toBeVisible();
+      await expectDomIntegrity(page, { mobileNav: viewport.width < 1024 });
       await expectNoPageHorizontalOverflow(page);
     });
   }
 
+  test("private mode unauthenticated dashboard keeps search disabled and DOM coherent", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+
+    await expect(page.getByText("Sign in for private documents")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ask" })).toBeDisabled();
+    await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+    await expectDomIntegrity(page, { mobileNav: true });
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("demo answer flow reaches a source-backed answer", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
@@ -101,6 +300,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("link", { name: /Quotes, \d+ items?/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Images, \d+ items?/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Sources, \d+ items?/ })).toBeVisible();
+    await expectDomIntegrity(page, { mobileNav: true });
 
     const hierarchy = await page.evaluate(() => {
       const safety = document.querySelector('[data-testid="safety-findings-panel"]');
@@ -157,6 +357,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("document viewer puts pinned evidence before the PDF preview on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
+    await mockDemoApi(page);
     await gotoApp(
       page,
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
@@ -168,8 +369,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const pdfScroller = page.getByTestId("pdf-canvas-scroll");
 
     await expect(evidence).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     await expect(preview).toBeVisible();
     await expect(toolbar).toBeVisible({ timeout: 30000 });
+    await expectDomIntegrity(page);
 
     const evidenceBox = await evidence.boundingBox();
     const previewBox = await preview.boundingBox();
@@ -203,6 +406,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
   });
 
   test("document viewer failed preview exposes retry recovery", async ({ page }) => {
+    await page.route(/\/api\/setup-status$/, async (route) => {
+      await route.fulfill({ json: { demoMode: true, checks: readySetupChecks } });
+    });
+    await page.route(/\/api\/documents\/([^/]+)(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const id = url.pathname.split("/").at(-1) ?? "";
+      const payload = getDemoDocumentPayload(id, url.searchParams.get("chunk"));
+      await route.fulfill({ json: { ...payload, demoMode: true } });
+    });
     await page.route(/\/api\/documents\/[^/]+\/signed-url(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 503,
@@ -215,8 +427,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    await expect(page.getByText("Source preview could not be loaded.")).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId("pdf-preview").getByText("Source preview could not be loaded.")).toBeVisible({
+      timeout: 30000,
+    });
     await expect(page.getByRole("button", { name: "Retry preview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
+    await expectDomIntegrity(page);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document viewer private missing source state is coherent", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    await expect(page.getByTestId("pdf-preview").getByText("Sign in to open private source documents.")).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.getByRole("heading", { level: 1, name: "Sign in required" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Summarise document" })).toBeDisabled();
+    await expect(page.locator("body")).not.toContainText("loading source");
+    await expect(page.locator("body")).not.toContainText("Loading source metadata");
+    await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -233,14 +468,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("upload drawer exposes setup checklist and explicit upload labels", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-    await expect(page.getByLabel("Ask a question across indexed guidelines")).toBeEnabled();
+    await expect(page.getByLabel("Ask a question across indexed guidelines")).toBeVisible();
 
-    const uploadDrawer = page.locator("details").filter({ hasText: "Upload and indexing" }).first();
     await scrollDashboardToBottom(page);
-    await uploadDrawer.scrollIntoViewIfNeeded();
-    await uploadDrawer.locator("summary").click({ force: true });
+    const uploadSummary = page.locator("summary").filter({ hasText: "Upload and indexing" }).first();
+    await uploadSummary.scrollIntoViewIfNeeded();
+    await uploadSummary.click({ force: true });
+    const uploadDrawer = page.locator("details").filter({ hasText: "Upload and indexing" }).first();
 
     await expect(uploadDrawer.getByText("First-run setup checklist")).toBeVisible();
     await expect(uploadDrawer.getByText(".env.local configured")).toBeVisible();
@@ -252,14 +488,41 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("duplicate upload warning and exact-copy batch count are visible", async ({ page }) => {
+    await page.setViewportSize({ width: 414, height: 820 });
+    await seedAuthenticatedSession(page);
+    await mockPrivateAuthenticatedApi(page);
+    await gotoApp(page, "/");
+
+    await scrollDashboardToBottom(page);
+    const uploadSummary = page.locator("summary").filter({ hasText: "Upload and indexing" }).first();
+    await uploadSummary.scrollIntoViewIfNeeded();
+    await uploadSummary.click({ force: true });
+    const uploadDrawer = page.locator("details").filter({ hasText: "Upload and indexing" }).first();
+
+    await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
+    await expect(uploadDrawer.getByText("2 exact copies skipped")).toBeVisible();
+    await uploadDrawer.locator('input[name="file"]').setInputFiles({
+      name: "guideline.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.7"),
+    });
+    await uploadDrawer.getByRole("button", { name: "Queue document" }).click();
+
+    await expect(
+      uploadDrawer.getByText('Exact copy already exists as "Existing guideline"; no duplicate job was queued.'),
+    ).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ]) {
     test(`guide opens and dismisses at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockPrivateUnauthenticatedApi(page);
       await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
 
       const dialog = await openGuide(page);
       await dialog.getByRole("button", { name: "Close guide" }).click();

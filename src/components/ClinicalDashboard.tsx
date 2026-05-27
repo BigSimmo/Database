@@ -21,6 +21,7 @@ import {
   Mail,
   Moon,
   Quote,
+  RefreshCw,
   Search,
   ShieldAlert,
   Sun,
@@ -71,6 +72,7 @@ import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/the
 import type {
   ClinicalDocument,
   BestSourceRecommendation,
+  ImportBatch,
   IngestionJob,
   QuoteCard,
   RagAnswer,
@@ -549,7 +551,7 @@ function MasterSearchHeader({
             </div>
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-base font-semibold">Clinical Guide</p>
+                <h1 className="truncate text-base font-semibold">Clinical Guide</h1>
                 {demoMode && (
                   <span className="hidden shrink-0 rounded-md border border-amber-300/25 bg-amber-300/12 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-amber-100 sm:inline-flex">
                     Demo data
@@ -1398,39 +1400,47 @@ function UploadPanel({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string>("");
+  const [statusTone, setStatusTone] = useState<"neutral" | "success" | "warning" | "error">("neutral");
   const [uploading, setUploading] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (demoMode) {
+      setStatusTone("warning");
       setStatus(
         "Demo mode is serving seeded documents. Configure .env.local, run supabase/schema.sql, and start npm run worker to upload real files.",
       );
       return;
     }
     if (!canUpload) {
+      setStatusTone("warning");
       setStatus("Sign in before uploading private guideline files.");
       return;
     }
 
     const file = fileRef.current?.files?.[0];
     if (!file) {
+      setStatusTone("warning");
       setStatus("Choose a PDF, DOCX, XLSX, or TXT file first.");
       return;
     }
 
     setUploading(true);
+    setStatusTone("neutral");
     setStatus("Uploading private document to Supabase Storage...");
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     try {
       const response = await fetch("/api/upload", { method: "POST", headers: authorizationHeader, body: formData });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Upload failed");
-      setStatus("Queued for local worker ingestion.");
-      event.currentTarget.reset();
+      setStatusTone(payload.duplicate ? "warning" : "success");
+      setStatus(payload.message ?? "Queued for local worker ingestion.");
+      form.reset();
       onUploaded();
     } catch (error) {
+      setStatusTone("error");
       setStatus(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setUploading(false);
@@ -1468,9 +1478,16 @@ function UploadPanel({
       </button>
       {(status || demoMode) && (
         <p
+          role="status"
           className={cn(
-            "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5",
-            textMuted,
+            "rounded-lg border p-3 text-xs font-medium leading-5",
+            statusTone === "success"
+              ? toneSuccess
+              : statusTone === "warning"
+                ? toneWarning
+                : statusTone === "error"
+                  ? toneDanger
+                  : "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
           )}
         >
           {status ||
@@ -1480,6 +1497,98 @@ function UploadPanel({
         </p>
       )}
     </form>
+  );
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function IndexingMonitor({
+  jobs,
+  batches,
+  actionId,
+  onRetry,
+  onReindex,
+}: {
+  jobs: IngestionJob[];
+  batches: ImportBatch[];
+  actionId: string | null;
+  onRetry: (jobId: string) => void;
+  onReindex: (documentId: string) => void;
+}) {
+  if (jobs.length === 0 && batches.length === 0) {
+    return <EmptyState icon={UploadCloud} title="No ingestion jobs" body="Queued uploads and worker progress appear here." />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {batches.slice(0, 3).map((batch) => (
+        <div key={batch.id} className={cn(panelSubtle, "p-3")}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[color:var(--text)]">{batch.name}</p>
+              <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                {batch.total_files} files · {formatBytes(batch.total_bytes)} · {batch.queued_files} queued ·{" "}
+                {batch.skipped_files} exact copies skipped · {batch.failed_files} failed
+              </p>
+            </div>
+            <StatusBadge status={batch.status} />
+          </div>
+        </div>
+      ))}
+
+      <p className={cn("text-xs leading-5", textMuted)}>
+        Keep `npm run worker` open while jobs are pending or processing. Failed jobs can be retried after fixing the
+        cause.
+      </p>
+
+      {jobs.slice(0, 10).map((job) => {
+        const documentTitle = job.documents?.title ?? job.documents?.file_name ?? "Document";
+        const busy = actionId === job.id || actionId === job.document_id;
+        return (
+          <div key={job.id} className={cn(panelSubtle, "p-3")}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[color:var(--text)]">{documentTitle}</p>
+                <p className={cn("mt-1 truncate text-xs", textMuted)}>{job.stage}</p>
+              </div>
+              <StatusBadge status={job.status} />
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
+              <div className="h-full rounded-full bg-[color:var(--primary)]" style={{ width: `${job.progress}%` }} />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={cn("text-xs", textMuted)}>
+                Attempt {job.attempt_count ?? 0}/{job.max_attempts ?? 3}
+              </span>
+              {job.status === "failed" && (
+                <button
+                  type="button"
+                  onClick={() => onRetry(job.id)}
+                  disabled={busy}
+                  className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Retry
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onReindex(job.document_id)}
+                disabled={busy || job.status === "processing"}
+                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Reindex
+              </button>
+            </div>
+            {job.error_message && <p className={cn("mt-2 line-clamp-2 text-xs leading-5", textMuted)}>{job.error_message}</p>}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1733,6 +1842,7 @@ export function ClinicalDashboard() {
   const navSyncLockRef = useRef<number | null>(null);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
+  const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
@@ -1747,6 +1857,7 @@ export function ClinicalDashboard() {
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const { status: authStatus, authorizationHeader, markSessionExpired } = auth;
@@ -1776,20 +1887,23 @@ export function ClinicalDashboard() {
       if (!nextDemoMode && authStatus !== "authenticated") {
         setDocuments([]);
         setJobs([]);
+        setBatches([]);
         return;
       }
     }
 
     const protectedHeaders = nextDemoMode ? undefined : authorizationHeader;
-    const [documentsResponse, jobsResponse] = await Promise.all([
+    const [documentsResponse, jobsResponse, batchesResponse] = await Promise.all([
       fetch("/api/documents", { headers: protectedHeaders }),
-      fetch("/api/jobs", { headers: protectedHeaders }),
+      fetch("/api/ingestion/jobs", { headers: protectedHeaders }),
+      fetch("/api/ingestion/batches", { headers: protectedHeaders }),
     ]);
 
-    if (documentsResponse.status === 401 || jobsResponse.status === 401) {
+    if (documentsResponse.status === 401 || jobsResponse.status === 401 || batchesResponse.status === 401) {
       markSessionExpired();
       setDocuments([]);
       setJobs([]);
+      setBatches([]);
       return;
     }
 
@@ -1810,7 +1924,55 @@ export function ClinicalDashboard() {
     } else {
       setApiUnavailable(true);
     }
+
+    if (batchesResponse.ok) {
+      const payload = await batchesResponse.json();
+      setBatches(payload.batches ?? []);
+      if (payload.demoMode) setDemoMode(true);
+    } else {
+      setApiUnavailable(true);
+    }
   }, [authStatus, authorizationHeader, clientDemoMode, markSessionExpired]);
+
+  const retryJob = useCallback(
+    async (jobId: string) => {
+      setIndexingActionId(jobId);
+      try {
+        const response = await fetch(`/api/ingestion/jobs/${jobId}/retry`, {
+          method: "POST",
+          headers: authorizationHeader,
+        });
+        if (response.status === 401) {
+          markSessionExpired();
+          return;
+        }
+        await refresh();
+      } finally {
+        setIndexingActionId(null);
+      }
+    },
+    [authorizationHeader, markSessionExpired, refresh],
+  );
+
+  const reindexDocument = useCallback(
+    async (documentId: string) => {
+      setIndexingActionId(documentId);
+      try {
+        const response = await fetch(`/api/documents/${documentId}/reindex`, {
+          method: "POST",
+          headers: authorizationHeader,
+        });
+        if (response.status === 401) {
+          markSessionExpired();
+          return;
+        }
+        await refresh();
+      } finally {
+        setIndexingActionId(null);
+      }
+    },
+    [authorizationHeader, markSessionExpired, refresh],
+  );
 
   useEffect(() => {
     const tick = () => {
@@ -2315,28 +2477,13 @@ export function ClinicalDashboard() {
                 </div>
                 <div className="space-y-3">
                   <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Indexing progress</p>
-                  {jobs.length === 0 ? (
-                    <EmptyState
-                      icon={UploadCloud}
-                      title="No ingestion jobs"
-                      body="Queued uploads and worker progress appear here."
-                    />
-                  ) : (
-                    jobs.slice(0, 6).map((job) => (
-                      <div key={job.id} className={cn(panelSubtle, "p-3")}>
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-semibold text-[color:var(--text)]">{job.stage}</p>
-                          <StatusBadge status={job.status} />
-                        </div>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
-                          <div
-                            className="h-full rounded-full bg-[color:var(--primary)]"
-                            style={{ width: `${job.progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  <IndexingMonitor
+                    jobs={jobs}
+                    batches={batches}
+                    actionId={indexingActionId}
+                    onRetry={retryJob}
+                    onReindex={reindexDocument}
+                  />
                 </div>
               </div>
             </UtilityDrawer>
@@ -2346,7 +2493,10 @@ export function ClinicalDashboard() {
         </div>
       </main>
 
-      <nav className="z-30 grid shrink-0 select-none grid-cols-4 border-t border-white/30 bg-[color:var(--surface-glass)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-white/10 lg:hidden">
+      <nav
+        aria-label="Answer sections"
+        className="z-30 grid shrink-0 select-none grid-cols-4 border-t border-white/30 bg-[color:var(--surface-glass)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-white/10 lg:hidden"
+      >
         {bottomNavItems.map(({ label, icon: Icon, href, count }) => (
           <a
             key={label}

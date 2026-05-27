@@ -33,9 +33,10 @@ async function readSchemaStatus() {
 
   try {
     const supabase = createAdminClient();
-    const [documents, jobs, buckets] = await Promise.all([
-      supabase.from("documents").select("id").limit(1),
-      supabase.from("ingestion_jobs").select("id").limit(1),
+    const [documents, jobs, batches, buckets] = await Promise.all([
+      supabase.from("documents").select("id,content_hash,import_batch_id").limit(1),
+      supabase.from("ingestion_jobs").select("id,attempt_count,max_attempts,locked_at").limit(1),
+      supabase.from("import_batches").select("id").limit(1),
       supabase.storage.listBuckets(),
     ]);
 
@@ -44,7 +45,7 @@ async function readSchemaStatus() {
       buckets.data?.some((bucket) => bucket.id === env.SUPABASE_DOCUMENT_BUCKET) &&
       buckets.data?.some((bucket) => bucket.id === env.SUPABASE_IMAGE_BUCKET);
 
-    if (documents.error || jobs.error || !hasRequiredBuckets) {
+    if (documents.error || jobs.error || batches.error || !hasRequiredBuckets) {
       return check(
         "schema",
         "supabase/schema.sql applied",
@@ -70,10 +71,12 @@ async function readSchemaStatus() {
 }
 
 async function readWorkerStatus() {
+  const label = "npm run worker running";
+
   if (!requiredSupabaseEnvPresent) {
     return check(
       "worker",
-      "npm run worker running",
+      label,
       "unknown",
       "Worker status cannot be inferred until Supabase is configured.",
     );
@@ -81,35 +84,38 @@ async function readWorkerStatus() {
 
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("ingestion_jobs")
-      .select("status,updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(1);
+    const [latestResult, activeResult] = await Promise.all([
+      supabase.from("ingestion_jobs").select("status,updated_at").order("updated_at", { ascending: false }).limit(1),
+      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
+    ]);
 
-    if (error) {
-      return check("worker", "npm run worker running", "unknown", "Ingestion jobs could not be checked.");
+    if (latestResult.error || activeResult.error) {
+      return check("worker", label, "unknown", "Ingestion jobs could not be checked.");
     }
 
-    const latest = data?.[0];
+    const latest = latestResult.data?.[0];
     if (!latest?.updated_at) {
-      return check("worker", "npm run worker running", "unknown", "No ingestion activity has been recorded yet.");
+      return check("worker", label, "unknown", "No ingestion activity has been recorded yet.");
     }
 
     const updatedAt = new Date(latest.updated_at).getTime();
     const recentWindowMs = Math.max(env.WORKER_POLL_MS * 6, 60_000);
     if (Number.isFinite(updatedAt) && Date.now() - updatedAt <= recentWindowMs) {
-      return check("worker", "npm run worker running", "ready", "Recent ingestion activity was detected.");
+      return check("worker", label, "ready", "Recent ingestion activity was detected.");
+    }
+
+    if ((activeResult.count ?? 0) === 0 && latest.status === "completed") {
+      return check("worker", label, "ready", "No queued ingestion work is waiting; the latest job completed.");
     }
 
     return check(
       "worker",
-      "npm run worker running",
+      label,
       "unknown",
-      "No recent ingestion activity proves the worker is active.",
+      "Queued or processing ingestion work exists, but no recent activity proves the worker is active.",
     );
   } catch {
-    return check("worker", "npm run worker running", "unknown", "Worker status could not be inferred.");
+    return check("worker", label, "unknown", "Worker status could not be inferred.");
   }
 }
 

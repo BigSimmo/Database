@@ -17,6 +17,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "worker": "tsx worker/index.ts",
+    "worker:once": "tsx worker/index.ts --once",
+    "import:docs": "tsx scripts/import-documents.ts",
+    "check:indexing": "tsx scripts/check-indexing.ts",
     "samples": "tsx scripts/generate-sample-documents.ts",
     "samples:check": "tsx scripts/check-sample-extraction.ts"
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAnswerJson } from "../src/lib/rag";
+import { buildRagSourceBlock, parseAnswerJson } from "../src/lib/rag";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -92,6 +92,13 @@ describe("RAG trust validation", () => {
     });
     expect(answer.citations[0].source_metadata?.document_status).toBe("current");
     expect(answer.answerSections).toHaveLength(1);
+  });
+
+  it("includes exact citation chunk IDs in the model source block", () => {
+    const block = buildRagSourceBlock([source()]);
+
+    expect(block).toContain("citation_chunk_id: chunk-1");
+    expect(block).toContain("document_id: doc-1");
   });
 
   it("clamps model confidence to retrieval strength", () => {

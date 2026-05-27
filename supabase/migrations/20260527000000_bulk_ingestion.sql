@@ -1,40 +1,3 @@
--- Medical RAG Knowledge Base schema.
--- Run this in the Supabase SQL editor or with the Supabase CLI.
--- Tables are RLS protected; the local Next.js API and worker use the service role.
-
-create schema if not exists extensions;
-set search_path = public, extensions;
-
-create extension if not exists vector with schema extensions;
-create extension if not exists pg_trgm with schema extensions;
-create extension if not exists "uuid-ossp" with schema extensions;
-grant usage on schema extensions to anon, authenticated, service_role;
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'clinical-documents',
-  'clinical-documents',
-  false,
-  157286400,
-  array[
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain'
-  ]
-)
-on conflict (id) do update set public = false;
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'clinical-images',
-  'clinical-images',
-  false,
-  52428800,
-  array['image/png', 'image/jpeg', 'image/webp']
-)
-on conflict (id) do update set public = false;
-
 create table if not exists public.import_batches (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -54,115 +17,27 @@ create table if not exists public.import_batches (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.documents (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
-  title text not null,
-  description text,
-  file_name text not null,
-  file_type text not null,
-  file_size bigint not null default 0,
-  storage_path text not null,
-  content_hash text,
-  source_path text,
-  import_batch_id uuid references public.import_batches(id) on delete set null,
-  status text not null default 'queued'
-    check (status in ('queued', 'processing', 'indexed', 'failed')),
-  page_count integer not null default 0,
-  chunk_count integer not null default 0,
-  image_count integer not null default 0,
-  error_message text,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+alter table public.documents add column if not exists content_hash text;
+alter table public.documents add column if not exists source_path text;
+alter table public.documents add column if not exists import_batch_id uuid references public.import_batches(id) on delete set null;
 
-create table if not exists public.document_pages (
-  id uuid primary key default gen_random_uuid(),
-  document_id uuid not null references public.documents(id) on delete cascade,
-  page_number integer not null,
-  text text not null default '',
-  ocr_used boolean not null default false,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now(),
-  unique (document_id, page_number)
-);
-
-create table if not exists public.document_images (
-  id uuid primary key default gen_random_uuid(),
-  document_id uuid not null references public.documents(id) on delete cascade,
-  page_number integer,
-  storage_path text not null,
-  mime_type text not null default 'image/png',
-  caption text not null default '',
-  bbox jsonb,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.document_chunks (
-  id uuid primary key default gen_random_uuid(),
-  document_id uuid not null references public.documents(id) on delete cascade,
-  page_number integer,
-  chunk_index integer not null,
-  section_heading text,
-  content text not null,
-  token_estimate integer not null default 0,
-  image_ids uuid[] not null default '{}',
-  metadata jsonb not null default '{}'::jsonb,
-  embedding vector(1536) not null,
-  search_tsv tsvector generated always as (
-    to_tsvector('english', coalesce(section_heading, '') || ' ' || content)
-  ) stored,
-  created_at timestamptz not null default now(),
-  unique (document_id, chunk_index)
-);
-
-create table if not exists public.ingestion_jobs (
-  id uuid primary key default gen_random_uuid(),
-  document_id uuid not null references public.documents(id) on delete cascade,
-  batch_id uuid references public.import_batches(id) on delete set null,
-  status text not null default 'pending'
-    check (status in ('pending', 'processing', 'completed', 'failed')),
-  stage text not null default 'queued',
-  progress integer not null default 0 check (progress between 0 and 100),
-  error_message text,
-  attempt_count integer not null default 0,
-  max_attempts integer not null default 3,
-  locked_at timestamptz,
-  locked_by text,
-  next_run_at timestamptz not null default now(),
-  started_at timestamptz,
-  completed_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.rag_queries (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
-  query text not null,
-  answer text,
-  source_chunk_ids uuid[] not null default '{}',
-  model text,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
+alter table public.ingestion_jobs add column if not exists batch_id uuid references public.import_batches(id) on delete set null;
+alter table public.ingestion_jobs add column if not exists attempt_count integer not null default 0;
+alter table public.ingestion_jobs add column if not exists max_attempts integer not null default 3;
+alter table public.ingestion_jobs add column if not exists locked_at timestamptz;
+alter table public.ingestion_jobs add column if not exists locked_by text;
+alter table public.ingestion_jobs add column if not exists next_run_at timestamptz not null default now();
 
 create unique index if not exists documents_owner_content_hash_unique_idx
   on public.documents(owner_id, content_hash)
   where content_hash is not null;
+
 create index if not exists import_batches_owner_status_idx on public.import_batches(owner_id, status, created_at desc);
-create index if not exists documents_status_idx on public.documents(status);
 create index if not exists documents_owner_status_idx on public.documents(owner_id, status, created_at desc);
 create index if not exists documents_import_batch_idx on public.documents(import_batch_id);
 create index if not exists documents_owner_hash_idx on public.documents(owner_id, content_hash);
 create index if not exists document_pages_document_idx on public.document_pages(document_id, page_number);
 create index if not exists document_images_document_idx on public.document_images(document_id, page_number);
-create index if not exists document_chunks_document_idx on public.document_chunks(document_id, chunk_index);
-create index if not exists document_chunks_search_idx on public.document_chunks using gin(search_tsv);
-create index if not exists document_chunks_embedding_hnsw_idx
-  on public.document_chunks using hnsw (embedding vector_cosine_ops);
 create index if not exists ingestion_jobs_document_idx on public.ingestion_jobs(document_id);
 create index if not exists ingestion_jobs_batch_idx on public.ingestion_jobs(batch_id, status);
 create index if not exists ingestion_jobs_claim_idx
@@ -173,7 +48,7 @@ create index if not exists rag_queries_owner_idx on public.rag_queries(owner_id,
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
-set search_path = public, extensions, pg_temp
+set search_path = public, pg_temp
 as $$
 begin
   new.updated_at = now();
@@ -184,16 +59,6 @@ $$;
 drop trigger if exists import_batches_updated_at on public.import_batches;
 create trigger import_batches_updated_at
 before update on public.import_batches
-for each row execute function public.set_updated_at();
-
-drop trigger if exists documents_updated_at on public.documents;
-create trigger documents_updated_at
-before update on public.documents
-for each row execute function public.set_updated_at();
-
-drop trigger if exists ingestion_jobs_updated_at on public.ingestion_jobs;
-create trigger ingestion_jobs_updated_at
-before update on public.ingestion_jobs
 for each row execute function public.set_updated_at();
 
 create or replace function public.claim_ingestion_jobs(
@@ -216,7 +81,7 @@ returns table (
   documents jsonb
 )
 language plpgsql
-set search_path = public, extensions, pg_temp
+set search_path = public, pg_temp
 as $$
 begin
   return query
@@ -272,7 +137,7 @@ $$;
 create or replace function public.reset_document_index(p_document_id uuid)
 returns void
 language plpgsql
-set search_path = public, extensions, pg_temp
+set search_path = public, pg_temp
 as $$
 begin
   delete from public.document_chunks where document_id = p_document_id;
@@ -281,6 +146,7 @@ begin
 end;
 $$;
 
+drop function if exists public.match_document_chunks(vector, integer, double precision, uuid);
 create or replace function public.match_document_chunks(
   query_embedding vector(1536),
   match_count integer default 8,
@@ -304,7 +170,7 @@ returns table (
 )
 language sql
 stable
-set search_path = public, extensions, pg_temp
+set search_path = public, pg_temp
 as $$
   select
     c.id,
@@ -343,6 +209,7 @@ as $$
   limit match_count;
 $$;
 
+drop function if exists public.match_document_chunks_hybrid(vector, text, integer, double precision, uuid[]);
 create or replace function public.match_document_chunks_hybrid(
   query_embedding vector(1536),
   query_text text,
@@ -369,7 +236,7 @@ returns table (
 )
 language sql
 stable
-set search_path = public, extensions, pg_temp
+set search_path = public, pg_temp
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -455,52 +322,30 @@ as $$
   limit match_count;
 $$;
 
-grant usage on schema public to authenticated, service_role;
-
-grant select, insert, update, delete on table
-  public.import_batches,
-  public.documents,
-  public.document_pages,
-  public.document_images,
-  public.document_chunks,
-  public.ingestion_jobs,
-  public.rag_queries
-to service_role;
-
-grant usage, select on all sequences in schema public to service_role;
-grant execute on all functions in schema public to service_role;
+grant select, insert, update, delete on table public.import_batches to service_role;
+grant select on table public.import_batches to authenticated;
 grant execute on function public.claim_ingestion_jobs(text, integer, integer) to service_role;
 grant execute on function public.reset_document_index(uuid) to service_role;
 
-grant select on table public.import_batches to authenticated;
-grant select, insert, update, delete on table public.documents to authenticated;
-grant select on table
-  public.document_pages,
-  public.document_images,
-  public.document_chunks,
-  public.ingestion_jobs
-to authenticated;
-grant select, insert on table public.rag_queries to authenticated;
-
 alter table public.import_batches enable row level security;
-alter table public.documents enable row level security;
-alter table public.document_pages enable row level security;
-alter table public.document_images enable row level security;
-alter table public.document_chunks enable row level security;
-alter table public.ingestion_jobs enable row level security;
-alter table public.rag_queries enable row level security;
 
+drop policy if exists "import batches owner read" on public.import_batches;
 create policy "import batches owner read" on public.import_batches
   for select to authenticated using (owner_id = (select auth.uid()));
 
+drop policy if exists "documents owner read" on public.documents;
+drop policy if exists "documents owner write" on public.documents;
+drop policy if exists "pages owner read" on public.document_pages;
+drop policy if exists "images owner read" on public.document_images;
+drop policy if exists "chunks owner read" on public.document_chunks;
+drop policy if exists "jobs owner read" on public.ingestion_jobs;
+drop policy if exists "rag owner read" on public.rag_queries;
+drop policy if exists "rag owner insert" on public.rag_queries;
+
 create policy "documents owner read" on public.documents
   for select to authenticated using (owner_id = (select auth.uid()));
-create policy "documents owner insert" on public.documents
-  for insert to authenticated with check (owner_id = (select auth.uid()));
-create policy "documents owner update" on public.documents
-  for update to authenticated using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
-create policy "documents owner delete" on public.documents
-  for delete to authenticated using (owner_id = (select auth.uid()));
+create policy "documents owner write" on public.documents
+  for all to authenticated using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
 
 create policy "pages owner read" on public.document_pages
   for select to authenticated using (
@@ -526,6 +371,9 @@ create policy "rag owner read" on public.rag_queries
   for select to authenticated using (owner_id = (select auth.uid()));
 create policy "rag owner insert" on public.rag_queries
   for insert to authenticated with check (owner_id = (select auth.uid()));
+
+drop policy if exists "document storage owner read" on storage.objects;
+drop policy if exists "image storage owner read" on storage.objects;
 
 create policy "document storage owner read" on storage.objects
   for select to authenticated

@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import type { ChunkInput, DocumentChunk } from "@/lib/types";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
+const paragraphBoundary = /\n{2,}/;
 
 export function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -23,12 +24,44 @@ export function detectHeading(text: string) {
 
 export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, overlap = env.CHUNK_OVERLAP) {
   const clean = text
-    .replace(/\s+\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .trim();
   if (!clean) return [];
   if (clean.length <= chunkSize) return [clean];
 
+  const paragraphs = clean.split(paragraphBoundary).map((paragraph) => paragraph.trim()).filter(Boolean);
+  if (paragraphs.length > 1) {
+    const chunks: string[] = [];
+    let current = "";
+
+    for (const paragraph of paragraphs) {
+      if (paragraph.length > chunkSize) {
+        if (current) {
+          chunks.push(current.trim());
+          current = "";
+        }
+        chunks.push(...chunkTextBySentence(paragraph, chunkSize, overlap));
+        continue;
+      }
+
+      const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
+      if (candidate.length > chunkSize && current) {
+        chunks.push(current.trim());
+        current = paragraph;
+      } else {
+        current = candidate;
+      }
+    }
+
+    if (current) chunks.push(current.trim());
+    return chunks.filter(Boolean);
+  }
+
+  return chunkTextBySentence(clean, chunkSize, overlap);
+}
+
+function chunkTextBySentence(clean: string, chunkSize: number, overlap: number) {
   const chunks: string[] = [];
   let start = 0;
 
@@ -79,7 +112,12 @@ export function buildChunks(inputs: ChunkInput[]) {
         content,
         token_estimate: estimateTokens(content),
         image_ids: referencedImageIds,
-        metadata: { page_chunk_index: pageChunkIndex },
+        metadata: {
+          ...(input.metadata ?? {}),
+          page_chunk_index: pageChunkIndex,
+          page_start: input.pageNumber,
+          page_end: input.pageNumber,
+        },
       });
     });
   }
