@@ -29,7 +29,25 @@ export async function generateTextResponse(input: string, model = env.OPENAI_ANS
     input,
   });
 
-  return response.output_text;
+  return (response as { output_text: string }).output_text;
+}
+
+export async function generateStructuredTextResponse(input: string, schema: Record<string, unknown>, model = env.OPENAI_ANSWER_MODEL) {
+  const client = createOpenAIClient();
+  const response = await client.responses.create({
+    model,
+    input,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "clinical_rag_answer",
+        strict: true,
+        schema,
+      },
+    },
+  } as Parameters<typeof client.responses.create>[0]);
+
+  return (response as { output_text: string }).output_text;
 }
 
 export async function captionImageFromBase64(args: { base64: string; mimeType: string; nearbyText?: string }) {

@@ -198,12 +198,14 @@ function IndexedTextPanel({
   selectedPage,
   chunks,
   search,
+  idPrefix,
   onSearchChange,
 }: {
   loading: boolean;
   selectedPage: PageRow | undefined;
   chunks: ChunkRow[];
   search: string;
+  idPrefix: string;
   onSearchChange: (value: string) => void;
 }) {
   const normalizedSearch = search.trim().toLowerCase();
@@ -249,7 +251,7 @@ function IndexedTextPanel({
             <p className={cn("text-[15px] leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (
-              <article id={`chunk-${chunk.id}`} key={chunk.id} className={cn(sourceCard, "p-3")}>
+              <article id={`${idPrefix}-${chunk.id}`} key={chunk.id} className={cn(sourceCard, "p-3")}>
                 <p className={eyebrowText}>
                   Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
                 </p>
@@ -553,11 +555,13 @@ export function DocumentViewer({
   const [summary, setSummary] = useState<RagAnswer | null>(null);
   const [loadingDocument, setLoadingDocument] = useState(true);
   const [viewerError, setViewerError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
   const [sourceSearch, setSourceSearch] = useState("");
   const [isOnline, setIsOnline] = useState(true);
+  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !isConfigured);
   const clientDemoMode = serverDemoMode;
@@ -588,35 +592,61 @@ export function DocumentViewer({
       if (!controller.signal.aborted) {
         setLoadingDocument(true);
         setViewerError(null);
+        setPreviewError(null);
+        setSignedUrl(null);
       }
     }, 0);
     const detailUrl = `/api/documents/${documentId}${chunkId ? `?chunk=${chunkId}` : ""}`;
-    Promise.all([
-      fetch(detailUrl, {
-        signal: controller.signal,
-        headers: clientDemoMode ? undefined : authorizationHeader,
-      }).then(async (response) => {
-        const payload = await response.json();
-        if (response.status === 401) markSessionExpired();
-        if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
-        return payload;
-      }),
-      fetch(`/api/documents/${documentId}/signed-url`, {
-        signal: controller.signal,
-        headers: clientDemoMode ? undefined : authorizationHeader,
-      }).then(async (response) => {
-        const payload = await response.json();
-        if (response.status === 401) markSessionExpired();
-        if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
-        return payload;
-      }),
-    ])
-      .then(([detail, signed]) => {
-        setDocument(detail.document ?? null);
-        setPages(detail.pages ?? []);
-        setImages(detail.images ?? []);
-        setChunks(detail.chunks ?? []);
-        setSignedUrl(signed.url ?? null);
+    const detailRequest = fetch(detailUrl, {
+      signal: controller.signal,
+      headers: clientDemoMode ? undefined : authorizationHeader,
+    }).then(async (response) => {
+      const payload = await response.json();
+      if (response.status === 401) markSessionExpired();
+      if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
+      return payload;
+    });
+    const signedUrlRequest = fetch(`/api/documents/${documentId}/signed-url`, {
+      signal: controller.signal,
+      headers: clientDemoMode ? undefined : authorizationHeader,
+    }).then(async (response) => {
+      const payload = await response.json();
+      if (response.status === 401) markSessionExpired();
+      if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
+      return payload;
+    });
+
+    Promise.allSettled([detailRequest, signedUrlRequest])
+      .then(([detailResult, signedUrlResult]) => {
+        if (controller.signal.aborted) return;
+
+        if (detailResult.status === "fulfilled") {
+          const detail = detailResult.value;
+          setDocument(detail.document ?? null);
+          setPages(detail.pages ?? []);
+          setImages(detail.images ?? []);
+          setChunks(detail.chunks ?? []);
+        } else {
+          setDocument(null);
+          setPages([]);
+          setImages([]);
+          setChunks([]);
+          setViewerError(
+            detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
+          );
+        }
+
+        if (signedUrlResult.status === "fulfilled") {
+          setSignedUrl(signedUrlResult.value.url ?? null);
+          setPreviewError(null);
+        } else {
+          setSignedUrl(null);
+          setPreviewError(
+            signedUrlResult.reason instanceof Error
+              ? signedUrlResult.reason.message
+              : "Source preview could not be loaded.",
+          );
+        }
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
@@ -652,7 +682,20 @@ export function DocumentViewer({
     };
   }, []);
 
+  useEffect(() => {
+    if (clientDemoMode || authStatus !== "loading") {
+      return () => undefined;
+    }
+
+    const timeout = window.setTimeout(() => setAuthLoadingTimedOut(true), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [authStatus, clientDemoMode]);
+
   async function summarize() {
+    if (!canSummarizeDocument) {
+      setSummaryError("Load a source document before summarising.");
+      return;
+    }
     if (!clientDemoMode && authStatus !== "authenticated") {
       setSummaryError("Sign in before summarising private documents.");
       return;
@@ -676,17 +719,56 @@ export function DocumentViewer({
   }
 
   const authViewerError =
-    !clientDemoMode && authStatus !== "authenticated" && authStatus !== "loading"
+    !clientDemoMode && authStatus !== "authenticated" && (authStatus !== "loading" || authLoadingTimedOut)
       ? isConfigured
         ? "Sign in to open private source documents."
         : "Supabase browser authentication is not configured for private source documents."
       : null;
-  const effectiveLoadingDocument = !clientDemoMode && authStatus === "loading" ? true : loadingDocument;
+  const effectiveLoadingDocument =
+    !clientDemoMode && authStatus !== "authenticated"
+      ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
+      : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
+  const viewerState = effectiveLoadingDocument
+    ? "loading"
+    : document
+      ? "ready"
+      : authViewerError
+        ? "auth-required"
+        : "error";
+  const readyDocument = viewerState === "ready" ? document : null;
+  const headerTitle =
+    readyDocument
+      ? readyDocument.title
+      : viewerState === "auth-required"
+        ? "Sign in required"
+        : viewerState === "loading"
+          ? "Document"
+          : "Source unavailable";
+  const headerSubtitle =
+    readyDocument
+      ? `page ${initialPage} · ${readyDocument.file_name}`
+      : viewerState === "loading"
+        ? `page ${initialPage} · loading source`
+        : (effectiveViewerError ?? "Source unavailable");
+  const headerMetadata =
+    readyDocument
+      ? sourceStatusLabel(normalizeSourceMetadata(readyDocument.metadata))
+      : viewerState === "loading"
+        ? "Loading source metadata"
+        : viewerState === "auth-required"
+          ? "Private source document"
+          : "Source unavailable";
+  const canSummarizeDocument =
+    viewerState === "ready" && !loadingSummary && (clientDemoMode || authStatus === "authenticated");
+  const summarizeTitle = canSummarizeDocument
+    ? "Generate a source-backed document summary"
+    : "Load a source document before summarising";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunks.find((chunk) => chunk.id === chunkId) ?? chunks[0];
   const retryPreview = () => {
     setViewerError(null);
+    setPreviewError(null);
     setLoadingDocument(true);
     setPreviewAttempt((current) => current + 1);
   };
@@ -707,32 +789,34 @@ export function DocumentViewer({
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold sm:text-base">{document?.title ?? "Document"}</p>
+              <h1 className="truncate text-sm font-semibold sm:text-base">{headerTitle}</h1>
               <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">
-                page {initialPage} · {document?.file_name ?? "loading source"}
+                {headerSubtitle}
               </p>
               <div className="hidden items-center gap-2 sm:flex">
-                {document ? (
+                {readyDocument ? (
                   <>
-                    <SourceStatusBadge metadata={document.metadata} showTitle={false} />
+                    <SourceStatusBadge metadata={readyDocument.metadata} showTitle={false} />
                     <span className="truncate text-xs font-medium text-slate-300">
-                      Review {formatClinicalDate(normalizeSourceMetadata(document.metadata).review_date)}
+                      Review {formatClinicalDate(normalizeSourceMetadata(readyDocument.metadata).review_date)}
                     </span>
                   </>
+                ) : viewerState === "loading" ? (
+                  <span className="truncate text-xs font-semibold text-slate-300">{headerMetadata}</span>
                 ) : (
-                  <span className="truncate text-xs font-semibold text-slate-300">Loading source metadata</span>
+                  <span className="truncate text-xs font-semibold text-amber-100">{headerMetadata}</span>
                 )}
                 {!isOnline && <span className="text-xs font-semibold text-amber-100">Offline</span>}
               </div>
               <p className="mt-0.5 truncate text-[13px] font-semibold text-amber-100 sm:hidden">
-                p.{initialPage} ·{" "}
-                {document ? sourceStatusLabel(normalizeSourceMetadata(document.metadata)) : "Loading source metadata"}
+                p.{initialPage} · {headerMetadata}
               </p>
             </div>
           </div>
           <button
             onClick={summarize}
-            disabled={loadingSummary}
+            disabled={!canSummarizeDocument}
+            title={summarizeTitle}
             className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
             aria-label="Summarise document"
           >
@@ -771,6 +855,7 @@ export function DocumentViewer({
                 selectedPage={selectedPage}
                 chunks={chunks}
                 search={sourceSearch}
+                idPrefix="mobile-chunk"
                 onSearchChange={setSourceSearch}
               />
             </div>
@@ -791,11 +876,11 @@ export function DocumentViewer({
                     )}
                   </div>
                 </div>
-              ) : effectiveViewerError ? (
+              ) : effectiveViewerError || previewError ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
                   <div>
                     <AlertCircle className="mx-auto mb-2 h-8 w-8" />
-                    <p className="font-semibold">{effectiveViewerError}</p>
+                    <p className="font-semibold">{effectiveViewerError ?? previewError}</p>
                     <div className="mt-3 flex flex-wrap justify-center gap-2">
                       <button type="button" onClick={retryPreview} className={secondaryButton}>
                         <RefreshCw className="h-4 w-4" />
@@ -834,6 +919,7 @@ export function DocumentViewer({
               selectedPage={selectedPage}
               chunks={chunks}
               search={sourceSearch}
+              idPrefix="desktop-chunk"
               onSearchChange={setSourceSearch}
             />
           </div>

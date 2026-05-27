@@ -1,5 +1,6 @@
 export type DocumentStatus = "queued" | "processing" | "indexed" | "failed";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
+export type ImportBatchStatus = "queued" | "processing" | "completed" | "completed_with_errors" | "failed";
 
 export type ClinicalSourceMetadata = {
   source_title: string | null;
@@ -18,12 +19,16 @@ export type ClinicalSourceMetadata = {
 
 export type ClinicalDocument = {
   id: string;
+  owner_id?: string | null;
   title: string;
   description: string | null;
   file_name: string;
   file_type: string;
   file_size: number;
   storage_path: string;
+  content_hash?: string | null;
+  source_path?: string | null;
+  import_batch_id?: string | null;
   status: DocumentStatus;
   page_count: number;
   chunk_count: number;
@@ -37,10 +42,35 @@ export type ClinicalDocument = {
 export type IngestionJob = {
   id: string;
   document_id: string;
+  batch_id?: string | null;
   status: JobStatus;
   stage: string;
   progress: number;
   error_message: string | null;
+  attempt_count?: number;
+  max_attempts?: number;
+  locked_at?: string | null;
+  locked_by?: string | null;
+  next_run_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  documents?: Pick<ClinicalDocument, "title" | "file_name" | "status"> | null;
+};
+
+export type ImportBatch = {
+  id: string;
+  owner_id: string | null;
+  name: string;
+  source_root: string | null;
+  include_glob: string;
+  status: ImportBatchStatus;
+  total_files: number;
+  queued_files: number;
+  skipped_files: number;
+  failed_files: number;
+  total_bytes: number;
+  metadata: Record<string, unknown>;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -201,6 +231,7 @@ export type ExtractedImage = {
 export type ExtractedDocument = {
   pages: ExtractedPage[];
   images: ExtractedImage[];
+  warnings?: string[];
 };
 
 export type ChunkInput = {
@@ -208,6 +239,7 @@ export type ChunkInput = {
   pageNumber: number | null;
   pageText: string;
   images?: Array<{ id: string; caption: string; pageNumber: number | null }>;
+  metadata?: Record<string, unknown>;
 };
 
 export type DocumentChunk = {

@@ -17,12 +17,15 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "worker": "tsx worker/index.ts",
+    "worker:once": "tsx worker/index.ts --once",
+    "import:docs": "tsx scripts/import-documents.ts",
+    "check:indexing": "tsx scripts/check-indexing.ts",
     "samples": "tsx scripts/generate-sample-documents.ts",
     "samples:check": "tsx scripts/check-sample-extraction.ts"
   },
   "dependencies": {
     "@next/env": "^16.2.6",
-    "@supabase/supabase-js": "^2.105.4",
+    "@supabase/supabase-js": "^2.106.1",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.16.0",

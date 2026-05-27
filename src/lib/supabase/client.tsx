@@ -18,19 +18,33 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+let browserSupabaseClient: SupabaseClient | null | undefined;
+let browserSupabaseClientConfig: string | null = null;
 
 function createBrowserSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return null;
 
-  return createClient(url, key, {
+  if (!url || !key) {
+    browserSupabaseClient = null;
+    browserSupabaseClientConfig = null;
+    return null;
+  }
+
+  const configKey = `${url}:${key}`;
+  if (browserSupabaseClientConfig === configKey) {
+    return browserSupabaseClient ?? null;
+  }
+
+  browserSupabaseClientConfig = configKey;
+  browserSupabaseClient = createClient(url, key, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
     },
   });
+  return browserSupabaseClient;
 }
 
 export function authorizationHeadersForAccessToken(accessToken: string | null | undefined): Record<string, string> {

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { assertAllowedFile, jsonError } from "@/lib/http";
@@ -26,6 +27,24 @@ export async function POST(request: Request) {
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
     const storagePath = `${user.id}/documents/${documentId}/${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    const contentHash = createHash("sha256").update(buffer).digest("hex");
+
+    const { data: duplicate, error: duplicateError } = await supabase
+      .from("documents")
+      .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
+      .eq("owner_id", user.id)
+      .eq("content_hash", contentHash)
+      .maybeSingle();
+
+    if (duplicateError) throw new Error(duplicateError.message);
+    if (duplicate?.id) {
+      return NextResponse.json({
+        document: duplicate,
+        duplicate: true,
+        duplicateReason: "exact_content_hash",
+        message: `Exact copy already exists as "${duplicate.title}"; no duplicate job was queued.`,
+      });
+    }
 
     const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
       contentType: file.type,
@@ -50,6 +69,7 @@ export async function POST(request: Request) {
         file_type: file.type,
         file_size: file.size,
         storage_path: storagePath,
+        content_hash: contentHash,
         status: "queued",
         metadata: {
           source_title: title,
@@ -66,6 +86,7 @@ export async function POST(request: Request) {
           extraction_quality: "unknown",
           max_upload_mb: env.MAX_UPLOAD_MB,
           confidentiality_scope: "guidelines-only",
+          content_hash: contentHash,
         },
       })
       .select()
@@ -77,9 +98,11 @@ export async function POST(request: Request) {
       .from("ingestion_jobs")
       .insert({
         document_id: documentId,
+        batch_id: null,
         status: "pending",
         stage: "queued",
         progress: 0,
+        max_attempts: env.WORKER_MAX_ATTEMPTS,
       })
       .select()
       .single();

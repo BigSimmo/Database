@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { embedText, generateTextResponse } from "@/lib/openai";
+import { embedText, generateStructuredTextResponse, generateTextResponse } from "@/lib/openai";
 import { compactCitations } from "@/lib/citations";
 import { expandClinicalQuery, rankClinicalResults } from "@/lib/clinical-search";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -18,10 +18,84 @@ import {
 } from "@/lib/evidence";
 import type { AnswerSection, Citation, ConflictOrGap, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
 
-type OwnerScopedArgs = {
-  ownerId?: string;
-  documentId?: string;
-  documentIds?: string[];
+const answerJsonOutputSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    answer: { type: "string" },
+    grounded: { type: "boolean" },
+    confidence: { type: "string", enum: ["high", "medium", "low", "unsupported"] },
+    answerSections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          heading: { type: "string" },
+          body: { type: "string" },
+          citation_chunk_ids: { type: "array", items: { type: "string" } },
+        },
+        required: ["heading", "body", "citation_chunk_ids"],
+      },
+    },
+    citations: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          chunk_id: { type: "string" },
+          document_id: { type: "string" },
+          title: { type: "string" },
+          file_name: { type: "string" },
+          page_number: { type: ["number", "null"] },
+          chunk_index: { type: "number" },
+        },
+        required: ["chunk_id", "document_id", "title", "file_name", "page_number", "chunk_index"],
+      },
+    },
+    quoteCards: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          chunk_id: { type: "string" },
+          document_id: { type: "string" },
+          title: { type: "string" },
+          file_name: { type: "string" },
+          page_number: { type: ["number", "null"] },
+          chunk_index: { type: "number" },
+          quote: { type: "string" },
+          section_heading: { type: ["string", "null"] },
+        },
+        required: [
+          "chunk_id",
+          "document_id",
+          "title",
+          "file_name",
+          "page_number",
+          "chunk_index",
+          "quote",
+          "section_heading",
+        ],
+      },
+    },
+    conflictsOrGaps: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          type: { type: "string", enum: ["gap", "conflict"] },
+          message: { type: "string" },
+          source_chunk_ids: { type: "array", items: { type: "string" } },
+        },
+        required: ["type", "message", "source_chunk_ids"],
+      },
+    },
+  },
+  required: ["answer", "grounded", "confidence", "answerSections", "citations", "quoteCards", "conflictsOrGaps"],
 };
 
 const confidenceOrder = {
@@ -188,30 +262,6 @@ function safeFallbackAnswer(raw: string, results: SearchResult[]): RagAnswer {
   };
 }
 
-async function resolveDocumentFilterList(
-  supabase: ReturnType<typeof createAdminClient>,
-  args: OwnerScopedArgs,
-): Promise<string[] | undefined> {
-  const requestedDocumentIds = args.documentIds?.length
-    ? args.documentIds
-    : args.documentId
-      ? [args.documentId]
-      : undefined;
-
-  if (!args.ownerId) {
-    return requestedDocumentIds;
-  }
-
-  let query = supabase.from("documents").select("id").eq("owner_id", args.ownerId);
-  if (requestedDocumentIds?.length) {
-    query = query.in("id", requestedDocumentIds);
-  }
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((document: { id: string }) => document.id);
-}
-
 export async function searchChunks(args: {
   query: string;
   topK?: number;
@@ -221,14 +271,11 @@ export async function searchChunks(args: {
   ownerId?: string;
 }) {
   const supabase = createAdminClient();
-  const documentFilterList = await resolveDocumentFilterList(supabase, args);
-  if (args.ownerId && documentFilterList?.length === 0) {
-    return [];
-  }
+  const documentFilterList = args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined;
 
   const expandedQuery = expandClinicalQuery(args.query);
   const embedding = await embedText(expandedQuery);
-  const candidateCount = Math.max((args.topK ?? 8) * 3, 24);
+  const candidateCount = Math.max((args.topK ?? 8) * 5, 48);
   const minSimilarity = args.minSimilarity ?? 0.15;
 
   const { data: hybridData, error: hybridError } = await supabase.rpc("match_document_chunks_hybrid", {
@@ -237,6 +284,7 @@ export async function searchChunks(args: {
     match_count: candidateCount,
     min_similarity: minSimilarity,
     document_filters: documentFilterList ?? null,
+    owner_filter: args.ownerId ?? null,
   });
 
   if (!hybridError) {
@@ -255,6 +303,7 @@ export async function searchChunks(args: {
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filter: documentFilter,
+        owner_filter: args.ownerId ?? null,
       });
 
       if (error) throw new Error(error.message);
@@ -265,7 +314,7 @@ export async function searchChunks(args: {
   return diversifySearchResults(rankClinicalResults(args.query, resultSets.flat()), args.topK ?? 8);
 }
 
-function sourceBlock(results: SearchResult[]) {
+export function buildRagSourceBlock(results: SearchResult[]) {
   return results
     .map((result, index) => {
       const page = result.page_number ? `page ${result.page_number}` : "page unavailable";
@@ -273,7 +322,11 @@ function sourceBlock(results: SearchResult[]) {
         ? `\nImages: ${result.images.map((image) => image.caption).join(" | ")}`
         : "";
       return [
-        `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
+        [
+          `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
+          `citation_chunk_id: ${result.id}`,
+          `document_id: ${result.document_id}`,
+        ].join("\n"),
         result.content,
         images,
       ].join("\n");
@@ -317,6 +370,8 @@ export async function answerQuestionWithScope(args: {
   documentIds?: string[];
   ownerId?: string;
 }) {
+  const startedAt = Date.now();
+  const searchStartedAt = Date.now();
   const results = normalizeSearchResults(
     await searchChunks({
       query: args.query,
@@ -327,6 +382,7 @@ export async function answerQuestionWithScope(args: {
       minSimilarity: 0.12,
     }),
   );
+  const searchLatencyMs = Date.now() - searchStartedAt;
   const quoteCards = extractQuoteCards(results, args.query);
   const documentBreakdown = buildDocumentBreakdown(results, quoteCards);
   const smartPanel = buildSmartPanel(args.query, results);
@@ -375,9 +431,16 @@ Rules:
 Question: ${args.query}
 
 Sources:
-${sourceBlock(results)}`;
+${buildRagSourceBlock(results)}`;
 
-  const raw = await generateTextResponse(prompt);
+  const generationStartedAt = Date.now();
+  let raw: string;
+  try {
+    raw = await generateStructuredTextResponse(prompt, answerJsonOutputSchema);
+  } catch {
+    raw = await generateTextResponse(prompt);
+  }
+  const generationLatencyMs = Date.now() - generationStartedAt;
   const answer = parseAnswerJson(raw, results);
   answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, args.query);
   answer.documentBreakdown = documentBreakdown;
@@ -399,8 +462,14 @@ ${sourceBlock(results)}`;
       document_id: args.documentId ?? null,
       document_ids: args.documentIds ?? null,
       grounded: answer.grounded,
+      confidence: answer.confidence,
+      retrieved_candidate_count: results.length,
+      cited_chunk_count: answer.citations.length,
       quote_count: answer.quoteCards?.length ?? 0,
       visual_evidence_count: answer.visualEvidence?.length ?? 0,
+      search_latency_ms: searchLatencyMs,
+      generation_latency_ms: generationLatencyMs,
+      total_latency_ms: Date.now() - startedAt,
       evidence_summary: answer.evidenceSummary,
     },
   });
@@ -455,7 +524,7 @@ Return strict JSON only with this shape:
 
 Document: ${document.title}
 Sources:
-${sourceBlock(results)}`;
+${buildRagSourceBlock(results)}`;
 
   const answer = parseAnswerJson(await generateTextResponse(prompt), results);
   answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, "summary");

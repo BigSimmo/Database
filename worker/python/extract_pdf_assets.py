@@ -15,6 +15,18 @@ def maybe_ocr_page(page):
         import pytesseract
         from PIL import Image
 
+        tesseract_cmd = os.environ.get("TESSERACT_CMD")
+        if tesseract_cmd:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        elif os.name == "nt":
+            for candidate in (
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ):
+                if os.path.exists(candidate):
+                    pytesseract.pytesseract.tesseract_cmd = candidate
+                    break
+
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
         image = Image.open(io.BytesIO(pix.tobytes("png")))
         return pytesseract.image_to_string(image)
@@ -30,7 +42,7 @@ def extract(pdf_path, output_dir):
 
     for page_index, page in enumerate(document):
         page_number = page_index + 1
-        text = page.get_text("text") or ""
+        text = page.get_text("text", sort=True) or ""
         ocr_used = False
 
         if len(text.strip()) < 40:
@@ -68,7 +80,7 @@ def extract(pdf_path, output_dir):
                 }
             )
 
-    return {"pages": pages, "images": images}
+    return {"pages": pages, "images": images, "warnings": []}
 
 
 if __name__ == "__main__":

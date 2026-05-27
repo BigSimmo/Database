@@ -88,6 +88,7 @@ async function extractPdf(buffer: Buffer) {
             }))
           : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }],
       images,
+      warnings: ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."],
     };
   }
 }

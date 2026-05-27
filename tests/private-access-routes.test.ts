@@ -343,6 +343,43 @@ describe("private document API access", () => {
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
+  it("alerts on exact-copy uploads without storing or queueing a duplicate", async () => {
+    const duplicate = {
+      id: documentId,
+      title: "Existing guideline",
+      file_name: "guideline.pdf",
+      status: "indexed",
+      page_count: 4,
+      chunk_count: 8,
+      image_count: 1,
+      created_at: "2026-05-27T00:00:00.000Z",
+    };
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(duplicate) : ok([])));
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      duplicate: true,
+      duplicateReason: "exact_content_hash",
+      document: duplicate,
+    });
+    expect(String(body.message)).toContain("Exact copy already exists");
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+  });
+
   it("cleans up uploaded storage when document insert fails", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "documents" && call.operation === "insert" ? fail("document insert failed") : ok([]),
@@ -461,13 +498,14 @@ describe("private document API access", () => {
     expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
   });
 
-  it("does not call retrieval RPCs when owner scoping removes all requested documents", async () => {
-    const client = createSupabaseMock((call) => (call.table === "documents" ? ok([]) : ok([])));
+  it("passes owner scope into retrieval RPCs", async () => {
+    const client = createSupabaseMock();
     mockRuntime(client);
     const embedText = vi.fn(async () => [0.1, 0.2, 0.3]);
     vi.doMock("@/lib/openai", () => ({
       embedText,
       generateTextResponse: vi.fn(),
+      generateStructuredTextResponse: vi.fn(),
     }));
     const { searchChunks } = await import("../src/lib/rag");
 
@@ -478,9 +516,13 @@ describe("private document API access", () => {
     });
 
     expect(results).toEqual([]);
-    expect(embedText).not.toHaveBeenCalled();
-    expect(client.rpc).not.toHaveBeenCalled();
-    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
-    expect(client.calls[0].inFilters).toContainEqual({ column: "id", values: [otherDocumentId] });
+    expect(embedText).toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith(
+      "match_document_chunks_hybrid",
+      expect.objectContaining({
+        owner_filter: userId,
+        document_filters: [otherDocumentId],
+      }),
+    );
   });
 });
