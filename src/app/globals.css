@@ -5,7 +5,6 @@
 /* Theme tokens */
 :root {
   --background: #eef6f7;
-  --foreground: #0f172a;
   --app-shell: #04141b;
   --app-shell-muted: #0b2a35;
   --app-shell-accent: #0e8078;
@@ -52,7 +51,6 @@
 
 .dark {
   --background: #03080d;
-  --foreground: #e5edf4;
   --app-shell: #020d14;
   --app-shell-muted: #08232d;
   --app-shell-accent: #2bc9bb;
@@ -97,14 +95,6 @@
   color-scheme: dark;
 }
 
-/* Tailwind theme bridge */
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 /* Reset and base document styles */
 * {
   box-sizing: border-box;
@@ -123,7 +113,7 @@ body {
     radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 28rem),
     radial-gradient(circle at 98% 12%, color-mix(in srgb, var(--info) 7%, transparent), transparent 26rem),
     var(--background);
-  color: var(--foreground);
+  color: var(--text);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   font-feature-settings:
     "liga" 1,
@@ -247,7 +237,6 @@ summary::-webkit-details-marker {
   :root,
   .dark {
     --background: Canvas;
-    --foreground: CanvasText;
     --app-shell: CanvasText;
     --surface: Canvas;
     --surface-raised: Canvas;

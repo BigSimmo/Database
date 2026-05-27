@@ -599,7 +599,7 @@ function MasterSearchHeader({
               placeholder="Ask a guideline question"
               className={cn(
                 "w-full rounded-lg border border-white/20 bg-white/95 pl-12 pr-12 font-semibold text-slate-950 shadow-[0_16px_34px_rgb(0_0_0_/_14%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/25 dark:bg-slate-950/90 dark:text-slate-50 dark:placeholder:text-slate-500",
-                compactMobile ? "h-12 text-sm sm:h-14 sm:text-base" : "h-14 text-base",
+                "h-11 text-sm sm:text-base",
               )}
             />
             {query && (
@@ -623,7 +623,7 @@ function MasterSearchHeader({
                   ? "Enter at least two characters to ask"
                   : "Generate a source-backed answer"
             }
-            className={cn(primaryControl, compactMobile ? "h-12 rounded-lg px-3 sm:h-14 sm:px-5" : "h-14 rounded-lg")}
+            className={cn(primaryControl, compactMobile ? "h-11 rounded-lg px-3 sm:px-5" : "h-11 rounded-lg")}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             <span className="sm:hidden">Ask</span>
@@ -631,7 +631,7 @@ function MasterSearchHeader({
           </button>
           <details className="relative sm:hidden">
             <summary
-              className="grid h-12 w-[44px] cursor-pointer list-none place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:border-white/25 hover:bg-white/12"
+              className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:border-white/25 hover:bg-white/12"
               aria-label="Open document scope and prompt controls"
             >
               <Filter className="h-4 w-4" />
