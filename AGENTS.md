@@ -44,7 +44,7 @@ The goal is to leave useful completed work safely committed and, where safe, pus
 
 Treat `main`, `master`, `develop`, and `release/*` as protected/base branches for this workflow.
 
-If `upload` is run while on `main`, create or use a branch named exactly `temporary` before staging, committing, or pushing:
+If `upload` is run while on `main`, automatically create or use a branch named exactly `temporary` before staging, committing, or pushing, then continue the upload workflow from `temporary`:
 
 - If neither local `temporary` nor `origin/temporary` exists, run `git switch -c temporary`.
 - If local `temporary` exists and is not checked out in another worktree, switch to it only when it is clearly safe.
