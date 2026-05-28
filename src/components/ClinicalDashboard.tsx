@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  Sparkles,
   Sun,
   Target,
   UploadCloud,
@@ -69,6 +70,7 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
+import { SafeBoldText } from "@/components/SafeBoldText";
 import type {
   ClinicalDocument,
   BestSourceRecommendation,
@@ -76,6 +78,7 @@ import type {
   IngestionJob,
   QuoteCard,
   RagAnswer,
+  RelatedDocument,
   SearchResult,
   VisualEvidenceCard,
 } from "@/lib/types";
@@ -119,6 +122,68 @@ type SetupCheck = {
   status: SetupCheckStatus;
   detail: string;
 };
+
+type AnswerPayload = RagAnswer & { demoMode?: boolean };
+
+function answerStreamProgressMessage(data: unknown) {
+  if (!data || typeof data !== "object") return null;
+  const message = (data as { message?: unknown }).message;
+  return typeof message === "string" && message.trim() ? message.trim() : null;
+}
+
+async function readAnswerStream(response: Response, onProgress: (message: string) => void): Promise<AnswerPayload> {
+  if (!response.body) throw new Error("Answer stream could not be opened.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalPayload: AnswerPayload | null = null;
+
+  function processEvent(block: string) {
+    const lines = block.split(/\r?\n/);
+    let event = "message";
+    const dataLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith("event:")) event = line.slice("event:".length).trim();
+      if (line.startsWith("data:")) dataLines.push(line.slice("data:".length).trimStart());
+    }
+
+    if (dataLines.length === 0) return;
+    const data = JSON.parse(dataLines.join("\n")) as unknown;
+    if (event === "progress") {
+      const message = answerStreamProgressMessage(data);
+      if (message) onProgress(message);
+      return;
+    }
+    if (event === "error") {
+      const message = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
+      throw new Error(typeof message === "string" && message ? message : "Answer generation failed.");
+    }
+    if (event === "final") {
+      finalPayload = data as AnswerPayload;
+    }
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+
+    let separatorIndex = buffer.indexOf("\n\n");
+    while (separatorIndex >= 0) {
+      const block = buffer.slice(0, separatorIndex).trim();
+      buffer = buffer.slice(separatorIndex + 2);
+      if (block) processEvent(block);
+      separatorIndex = buffer.indexOf("\n\n");
+    }
+
+    if (done) break;
+  }
+
+  if (buffer.trim()) processEvent(buffer.trim());
+  if (!finalPayload) throw new Error("Answer stream ended before a final answer was received.");
+  return finalPayload as AnswerPayload;
+}
 
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
@@ -1127,6 +1192,11 @@ function VisualEvidenceStrip({ evidence }: { evidence: VisualEvidenceCard[] }) {
                 <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
                   {item.title}, page {item.page_number ?? "n/a"}
                 </span>
+                {item.image_type && (
+                  <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                    {item.image_type.replaceAll("_", " ")}
+                  </span>
+                )}
                 <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
                   <ExternalLink className="h-4 w-4" />
                   Open PDF
@@ -1137,6 +1207,67 @@ function VisualEvidenceStrip({ evidence }: { evidence: VisualEvidenceCard[] }) {
         </div>
       )}
     </section>
+  );
+}
+
+function RelatedDocumentsPanel({
+  documents,
+  onScopeDocument,
+}: {
+  documents: RelatedDocument[];
+  onScopeDocument: (documentId: string) => void;
+}) {
+  if (documents.length === 0) return null;
+
+  return (
+    <UtilityDrawer
+      icon={BookOpen}
+      title="Related documents"
+      summary={`${documents.length} broader document match${documents.length === 1 ? "" : "es"}`}
+      mobileSummary={`${documents.length} related`}
+    >
+      <div className="grid gap-3 md:grid-cols-2">
+        {documents.map((document) => (
+          <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link
+                  href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
+                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                >
+                  <span className="line-clamp-2">{document.title}</span>
+                </Link>
+                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                  {document.match_reason} · pages {document.best_pages.join(", ") || "n/a"} ·{" "}
+                  {document.image_count} images
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onScopeDocument(document.document_id)}
+                className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+              >
+                Scope
+              </button>
+            </div>
+            {document.summary && (
+              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
+                <SafeBoldText text={document.summary} />
+              </p>
+            )}
+            {document.labels.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {document.labels.slice(0, 6).map((label) => (
+                  <span key={`${label.label_type}:${label.label}`} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                    {label.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </UtilityDrawer>
   );
 }
 
@@ -1318,7 +1449,9 @@ function DocumentDrawer({
 }) {
   const [filter, setFilter] = useState("");
   const filtered = documents.filter((document) => {
-    const haystack = `${document.title} ${document.file_name}`.toLowerCase();
+    const labelText = document.labels?.map((label) => label.label).join(" ") ?? "";
+    const summaryText = document.summary?.summary ?? "";
+    const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
     return haystack.includes(filter.toLowerCase());
   });
 
@@ -1360,6 +1493,23 @@ function DocumentDrawer({
                   <p className={cn("mt-1 truncate text-xs", textMuted)}>
                     {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
                   </p>
+                  {document.summary?.summary && (
+                    <p className={cn("mt-2 line-clamp-2 text-[13px] leading-5", textMuted)}>
+                      <SafeBoldText text={document.summary.summary} />
+                    </p>
+                  )}
+                  {document.labels?.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {document.labels.slice(0, 5).map((label) => (
+                        <span
+                          key={`${document.id}:${label.label_type}:${label.label}`}
+                          className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}
+                        >
+                          {label.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   <SourceProvenance metadata={document.metadata} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1511,12 +1661,14 @@ function IndexingMonitor({
   actionId,
   onRetry,
   onReindex,
+  onEnrich,
 }: {
   jobs: IngestionJob[];
   batches: ImportBatch[];
   actionId: string | null;
   onRetry: (jobId: string) => void;
   onReindex: (documentId: string) => void;
+  onEnrich: (documentId: string) => void;
 }) {
   if (jobs.length === 0 && batches.length === 0) {
     return <EmptyState icon={UploadCloud} title="No ingestion jobs" body="Queued uploads and worker progress appear here." />;
@@ -1582,6 +1734,15 @@ function IndexingMonitor({
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Reindex
+              </button>
+              <button
+                type="button"
+                onClick={() => onEnrich(job.document_id)}
+                disabled={busy || job.status === "processing"}
+                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Enrich
               </button>
             </div>
             {job.error_message && <p className={cn("mt-2 line-clamp-2 text-xs leading-5", textMuted)}>{job.error_message}</p>}
@@ -1847,6 +2008,7 @@ export function ClinicalDashboard() {
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [setupChecks, setSetupChecks] = useState<SetupCheck[]>(fallbackSetupChecks);
@@ -1955,12 +2117,16 @@ export function ClinicalDashboard() {
   );
 
   const reindexDocument = useCallback(
-    async (documentId: string) => {
+    async (documentId: string, mode: "full" | "enrichment" = "full") => {
       setIndexingActionId(documentId);
       try {
         const response = await fetch(`/api/documents/${documentId}/reindex`, {
           method: "POST",
-          headers: authorizationHeader,
+          headers: {
+            ...authorizationHeader,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ mode }),
         });
         if (response.status === 401) {
           markSessionExpired();
@@ -1972,6 +2138,10 @@ export function ClinicalDashboard() {
       }
     },
     [authorizationHeader, markSessionExpired, refresh],
+  );
+  const enrichDocument = useCallback(
+    (documentId: string) => reindexDocument(documentId, "enrichment"),
+    [reindexDocument],
   );
 
   useEffect(() => {
@@ -2033,9 +2203,10 @@ export function ClinicalDashboard() {
     }
     setLoading(true);
     setError(null);
+    setAnswerProgress("Searching indexed documents.");
 
     try {
-      const response = await fetch("/api/answer", {
+      const response = await fetch("/api/answer/stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2046,9 +2217,12 @@ export function ClinicalDashboard() {
           documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
         }),
       });
-      const payload = await response.json();
       if (response.status === 401) markSessionExpired();
-      if (!response.ok) throw new Error(payload.error || "Answer generation failed");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Answer generation failed");
+      }
+      const payload = await readAnswerStream(response, setAnswerProgress);
       setAnswer(payload);
       setSources(payload.sources ?? []);
       if (payload.demoMode) setDemoMode(true);
@@ -2056,6 +2230,7 @@ export function ClinicalDashboard() {
       setError(requestError instanceof Error ? requestError.message : "Answer generation failed");
     } finally {
       setLoading(false);
+      setAnswerProgress(null);
     }
   }
 
@@ -2163,6 +2338,10 @@ export function ClinicalDashboard() {
   }
 
   const visualEvidence = useMemo(() => answer?.visualEvidence ?? answer?.smartPanel?.visualEvidence ?? [], [answer]);
+  const relatedDocuments = useMemo(
+    () => answer?.relatedDocuments ?? answer?.smartPanel?.relatedDocuments ?? [],
+    [answer],
+  );
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answer?.bestSource ?? answer?.smartPanel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
@@ -2275,13 +2454,23 @@ export function ClinicalDashboard() {
                 </div>
               )}
 
+              {loading && answerProgress && (
+                <div
+                  role="status"
+                  className="mb-4 flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                >
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
+                  <span className="min-w-0 truncate">{answerProgress}</span>
+                </div>
+              )}
+
               {loading && !answer ? (
                 <AnswerSkeleton />
               ) : answer ? (
                 <div className="space-y-4 sm:space-y-5">
                   <div className={cn(answerSurface, "p-3 sm:p-4")}>
                     <p className="whitespace-pre-wrap text-[15px] font-medium leading-7 text-[color:var(--text-heading)]">
-                      {answer.answer}
+                      <SafeBoldText text={answer.answer} />
                     </p>
                   </div>
 
@@ -2348,6 +2537,7 @@ export function ClinicalDashboard() {
             />
           )}
           {answer && <VisualEvidenceStrip evidence={visualEvidence} />}
+          {answer && <RelatedDocumentsPanel documents={relatedDocuments} onScopeDocument={scopeOnlyDocument} />}
           {answer && (
             <ClinicalOutputPanel
               answer={answer}
@@ -2386,7 +2576,9 @@ export function ClinicalDashboard() {
                       className={cn(panelSubtle, "p-4")}
                     >
                       <h2 className="text-sm font-semibold text-[color:var(--text)]">{section.heading}</h2>
-                      <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
+                      <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
+                        <SafeBoldText text={section.body} />
+                      </p>
                     </article>
                   ))}
                 </div>
@@ -2483,6 +2675,7 @@ export function ClinicalDashboard() {
                     actionId={indexingActionId}
                     onRetry={retryJob}
                     onReindex={reindexDocument}
+                    onEnrich={enrichDocument}
                   />
                 </div>
               </div>

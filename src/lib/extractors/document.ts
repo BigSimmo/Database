@@ -74,6 +74,10 @@ async function extractPdf(buffer: Buffer) {
           path: outputPath,
           mimeType,
           bbox: null,
+          width: null,
+          height: null,
+          sourceKind: "fallback",
+          metadata: { source_kind: "fallback" },
         });
       }
     }
@@ -108,7 +112,16 @@ async function extractDocx(buffer: Buffer) {
     const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".webp" ? "image/webp" : "image/png";
     const outputPath = path.join(tempRoot, `docx-image-${index}${ext}`);
     await writeFile(outputPath, bytes);
-    images.push({ pageNumber: null, path: outputPath, mimeType, bbox: null });
+    images.push({
+      pageNumber: null,
+      path: outputPath,
+      mimeType,
+      bbox: null,
+      width: null,
+      height: null,
+      sourceKind: "embedded",
+      metadata: { source_kind: "docx_media", file_name: name },
+    });
   }
 
   return {

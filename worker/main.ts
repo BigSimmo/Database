@@ -4,12 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
+import { upsertDocumentEnrichment } from "../src/lib/document-enrichment";
 import { extractDocument, fileToBase64 } from "../src/lib/extractors/document";
+import { cheapImageSkipReason, classifiedImageSkipReason, lightweightPerceptualHash } from "../src/lib/image-filtering";
 import { isRetryableIngestionError, nextRetryAt, terminalBatchStatus } from "../src/lib/ingestion";
-import { captionImageFromBase64, embedTexts } from "../src/lib/openai";
+import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import type { ExtractedDocument } from "../src/lib/types";
+import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { checkPythonPdfPrerequisites } from "./prerequisites";
 
 type JobDocument = {
@@ -111,10 +113,94 @@ function hashBytes(bytes: Buffer) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function shouldSkipImage(bytes: Buffer, imageHash: string, seenHashes: Set<string>) {
-  if (bytes.length < 4096) return "small decorative image";
-  if (seenHashes.has(imageHash)) return "duplicate image";
-  return null;
+type ImageClassification = Awaited<ReturnType<typeof classifyAndCaptionImageFromBase64>>;
+
+const imageEvidenceCategories = new Set<ImageEvidenceCategory>([
+  "clinical_table",
+  "flowchart_algorithm",
+  "form_checklist",
+  "risk_matrix",
+  "medication_chart",
+  "graph",
+  "screenshot_ui",
+  "photo",
+  "logo_decorative",
+  "unclear",
+]);
+
+function cachedImageMetadata(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function cachedImageLabels(labels: unknown) {
+  if (!Array.isArray(labels)) return [];
+  return labels.map((label) => String(label).trim()).filter(Boolean).slice(0, 6);
+}
+
+async function getCachedImageClassification(ownerId: string | null, imageHash: string) {
+  if (!ownerId) return null;
+
+  const { data, error } = await supabase
+    .from("image_caption_cache")
+    .select("caption,metadata")
+    .eq("owner_id", ownerId)
+    .eq("image_hash", imageHash)
+    .eq("model", env.OPENAI_VISION_MODEL)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Image caption cache lookup failed", safeErrorLogDetails(error));
+    return null;
+  }
+  if (!data) return null;
+
+  const metadata = cachedImageMetadata(data.metadata);
+  const imageType = imageEvidenceCategories.has(metadata.image_type as ImageEvidenceCategory)
+    ? (metadata.image_type as ImageEvidenceCategory)
+    : "unclear";
+  const score = Number(metadata.clinical_relevance_score);
+
+  return {
+    image_type: imageType,
+    searchable: Boolean(metadata.searchable) && imageType !== "logo_decorative",
+    clinical_relevance_score: Number.isFinite(score) ? Math.min(Math.max(score, 0), 1) : 0.4,
+    labels: cachedImageLabels(metadata.labels),
+    caption: String(data.caption || "").trim() || "Extracted source image.",
+    skip_reason: typeof metadata.skip_reason === "string" && metadata.skip_reason.trim() ? metadata.skip_reason.trim() : null,
+  } satisfies ImageClassification;
+}
+
+async function setCachedImageClassification(args: {
+  ownerId: string | null;
+  imageHash: string;
+  mimeType: string;
+  classification: ImageClassification;
+}) {
+  if (!args.ownerId || !args.classification.caption.trim()) return;
+
+  const { error } = await supabase.from("image_caption_cache").upsert(
+    {
+      owner_id: args.ownerId,
+      image_hash: args.imageHash,
+      model: env.OPENAI_VISION_MODEL,
+      caption: args.classification.caption,
+      mime_type: args.mimeType,
+      metadata: {
+        extractor: "local-worker",
+        image_type: args.classification.image_type,
+        searchable: args.classification.searchable,
+        clinical_relevance_score: args.classification.clinical_relevance_score,
+        labels: args.classification.labels,
+        skip_reason: args.classification.skip_reason,
+      },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "owner_id,image_hash,model" },
+  );
+
+  if (error) {
+    console.warn("Image caption cache write failed", safeErrorLogDetails(error));
+  }
 }
 
 async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument, pagesByNumber: Map<number, string>) {
@@ -122,9 +208,13 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     id: string;
     caption: string;
     pageNumber: number | null;
+    imageType: ImageEvidenceCategory;
+    labels: string[];
   }> = [];
   const seenHashes = new Set<string>();
   let skippedImages = 0;
+  const skipReasons = new Map<string, number>();
+  const imageTypeCounts = new Map<string, number>();
 
   for (const [index, image] of extracted.images.entries()) {
     await updateJob(job.id, {
@@ -134,12 +224,43 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
 
     const bytes = await readFile(image.path);
     const imageHash = hashBytes(bytes);
-    const skipReason = shouldSkipImage(bytes, imageHash, seenHashes);
+    const perceptualHash = lightweightPerceptualHash(imageHash, image.width, image.height);
+    const skipReason = cheapImageSkipReason({
+      bytesLength: bytes.length,
+      imageHash,
+      seenHashes,
+      image,
+    });
     if (skipReason) {
       skippedImages += 1;
+      skipReasons.set(skipReason, (skipReasons.get(skipReason) ?? 0) + 1);
       continue;
     }
     seenHashes.add(imageHash);
+
+    const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
+    let classification = await getCachedImageClassification(job.documents.owner_id, imageHash);
+    const classificationCacheHit = Boolean(classification);
+    if (!classification) {
+      classification = await classifyAndCaptionImageFromBase64({
+        base64: await fileToBase64(image.path),
+        mimeType: image.mimeType,
+        nearbyText,
+      });
+      await setCachedImageClassification({
+        ownerId: job.documents.owner_id,
+        imageHash,
+        mimeType: image.mimeType,
+        classification,
+      });
+    }
+    const classifiedSkipReason = classifiedImageSkipReason(classification);
+    if (classifiedSkipReason) {
+      skippedImages += 1;
+      skipReasons.set(classifiedSkipReason, (skipReasons.get(classifiedSkipReason) ?? 0) + 1);
+      continue;
+    }
+    imageTypeCounts.set(classification.image_type, (imageTypeCounts.get(classification.image_type) ?? 0) + 1);
 
     const ext = path.extname(image.path) || ".png";
     const imagePrefix = job.documents.owner_id
@@ -152,13 +273,6 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
 
     if (upload.error) throw new Error(upload.error.message);
 
-    const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
-    const caption = await captionImageFromBase64({
-      base64: await fileToBase64(image.path),
-      mimeType: image.mimeType,
-      nearbyText,
-    });
-
     const { data, error } = await supabase
       .from("document_images")
       .insert({
@@ -166,11 +280,26 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         page_number: image.pageNumber,
         storage_path: imagePath,
         mime_type: image.mimeType,
-        caption,
+        caption: classification.caption,
         bbox: image.bbox ?? null,
-        metadata: { extractor: "local-worker", image_hash: imageHash },
+        image_type: classification.image_type,
+        searchable: classification.searchable,
+        clinical_relevance_score: classification.clinical_relevance_score,
+        source_kind: image.sourceKind ?? "embedded",
+        width: image.width ?? null,
+        height: image.height ?? null,
+        image_hash: imageHash,
+        perceptual_hash: perceptualHash,
+        labels: classification.labels,
+        metadata: {
+          extractor: "local-worker",
+          image_hash: imageHash,
+          perceptual_hash: perceptualHash,
+          classification_cache_hit: classificationCacheHit,
+          ...(image.metadata ?? {}),
+        },
       })
-      .select("id,caption,page_number")
+      .select("id,caption,page_number,image_type,labels")
       .single();
 
     if (error) throw new Error(error.message);
@@ -178,15 +307,23 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       id: data.id,
       caption: data.caption,
       pageNumber: data.page_number,
+      imageType: data.image_type,
+      labels: data.labels ?? [],
     });
   }
 
-  return { insertedImages, skippedImages };
+  return {
+    insertedImages,
+    skippedImages,
+    skipReasons: Object.fromEntries(skipReasons.entries()),
+    imageTypeCounts: Object.fromEntries(imageTypeCounts.entries()),
+  };
 }
 
 async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
   const pagesByNumber = new Map(extracted.pages.map((page) => [page.pageNumber, page.text] as const));
-  const { insertedImages, skippedImages } = await uploadAndCaptionImages(job, extracted, pagesByNumber);
+  const imageResult = await uploadAndCaptionImages(job, extracted, pagesByNumber);
+  const { insertedImages } = imageResult;
 
   await updateJob(job.id, { stage: "chunking", progress: 72 });
   const chunkMetadata = {
@@ -225,10 +362,21 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     if (error) throw new Error(error.message);
   }
 
-  return { chunks, imageCount: insertedImages.length, skippedImages };
+  return {
+    chunks,
+    imageCount: insertedImages.length,
+    skippedImages: imageResult.skippedImages,
+    imageSkipReasons: imageResult.skipReasons,
+    imageTypeCounts: imageResult.imageTypeCounts,
+  };
 }
 
-function extractionMetrics(extracted: ExtractedDocument, skippedImages: number) {
+function extractionMetrics(
+  extracted: ExtractedDocument,
+  skippedImages: number,
+  imageSkipReasons: Record<string, number>,
+  imageTypeCounts: Record<string, number>,
+) {
   const textCharacterCount = extracted.pages.reduce((sum, page) => sum + page.text.length, 0);
   const ocrPageCount = extracted.pages.filter((page) => page.ocrUsed).length;
   const warnings = [...(extracted.warnings ?? [])];
@@ -239,8 +387,36 @@ function extractionMetrics(extracted: ExtractedDocument, skippedImages: number) 
     ocr_page_count: ocrPageCount,
     text_character_count: textCharacterCount,
     extracted_image_count: extracted.images.length,
+    searchable_image_count: Object.values(imageTypeCounts).reduce((sum, count) => sum + count, 0),
     skipped_image_count: skippedImages,
+    skipped_image_reasons: imageSkipReasons,
+    image_type_counts: imageTypeCounts,
     extraction_warnings: warnings,
+  };
+}
+
+async function loadEnrichmentRows(documentId: string) {
+  const [chunksResult, imagesResult] = await Promise.all([
+    supabase
+      .from("document_chunks")
+      .select("id,page_number,chunk_index,section_heading,content")
+      .eq("document_id", documentId)
+      .order("chunk_index", { ascending: true })
+      .limit(24),
+    supabase
+      .from("document_images")
+      .select("id,page_number,caption,image_type,labels")
+      .eq("document_id", documentId)
+      .eq("searchable", true)
+      .order("clinical_relevance_score", { ascending: false })
+      .limit(12),
+  ]);
+
+  if (chunksResult.error) throw new Error(chunksResult.error.message);
+  if (imagesResult.error) throw new Error(imagesResult.error.message);
+  return {
+    chunks: chunksResult.data ?? [],
+    images: imagesResult.data ?? [],
   };
 }
 
@@ -268,8 +444,20 @@ async function processJob(job: JobRow) {
 
     await updateJob(job.id, { stage: "saving pages", progress: 32 });
     await insertPages(job.document_id, extracted);
-    const { chunks, imageCount, skippedImages } = await insertEmbeddedChunks(job, extracted);
-    const metrics = extractionMetrics(extracted, skippedImages);
+    const { chunks, imageCount, skippedImages, imageSkipReasons, imageTypeCounts } = await insertEmbeddedChunks(
+      job,
+      extracted,
+    );
+    const metrics = extractionMetrics(extracted, skippedImages, imageSkipReasons, imageTypeCounts);
+
+    await updateJob(job.id, { stage: "summarising and labelling", progress: 96 });
+    const enrichmentRows = await loadEnrichmentRows(job.document_id);
+    await upsertDocumentEnrichment({
+      supabase,
+      document: job.documents,
+      chunks: enrichmentRows.chunks,
+      images: enrichmentRows.images,
+    });
 
     await updateDocument(job.document_id, {
       status: "indexed",

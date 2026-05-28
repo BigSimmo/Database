@@ -42,8 +42,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { data: images, error: imagesError } = await supabase
       .from("document_images")
-      .select("id,page_number,storage_path,caption,bbox,mime_type")
+      .select(
+        "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels",
+      )
       .eq("document_id", id)
+      .eq("searchable", true)
       .order("page_number", { ascending: true });
 
     if (imagesError) throw new Error(imagesError.message);
@@ -61,8 +64,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (chunksError) throw new Error(chunksError.message);
 
+    const [labelsResult, summaryResult] = await Promise.all([
+      supabase.from("document_labels").select("*").eq("document_id", id).order("confidence", { ascending: false }),
+      supabase.from("document_summaries").select("*").eq("document_id", id).maybeSingle(),
+    ]);
+
+    if (labelsResult.error) throw new Error(labelsResult.error.message);
+    if (summaryResult.error) throw new Error(summaryResult.error.message);
+
     return NextResponse.json({
-      document,
+      document: {
+        ...document,
+        labels: labelsResult.data ?? [],
+        summary: summaryResult.data ?? null,
+      },
       pages: pages ?? [],
       images: images ?? [],
       chunks: chunks ?? [],

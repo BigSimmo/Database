@@ -146,6 +146,11 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, ragMock?: Re
       MAX_UPLOAD_MB: 150,
       SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
       SUPABASE_IMAGE_BUCKET: "clinical-images",
+      RAG_SEARCH_CACHE_TTL_MS: 0,
+      RAG_SEARCH_CACHE_SIZE: 0,
+      RAG_ANSWER_CACHE_TTL_MS: 0,
+      RAG_ANSWER_CACHE_SIZE: 0,
+      RAG_AWAIT_QUERY_LOGS: false,
     },
     isDemoMode: () => false,
     requireOpenAIEnv: () => undefined,
@@ -205,7 +210,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
   });
 
@@ -443,7 +448,19 @@ describe("private document API access", () => {
   });
 
   it("passes owner scope through search and answer routes", async () => {
-    const searchChunks = vi.fn(async () => []);
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "No owned evidence.",
       grounded: false,
@@ -452,7 +469,7 @@ describe("private document API access", () => {
       sources: [],
     }));
     const client = createSupabaseMock();
-    mockRuntime(client, { searchChunks, answerQuestionWithScope });
+    mockRuntime(client, { searchChunksWithTelemetry, answerQuestionWithScope });
 
     const searchRoute = await import("../src/app/api/search/route");
     const answerRoute = await import("../src/app/api/answer/route");
@@ -470,11 +487,43 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(searchChunks).toHaveBeenCalledWith(
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: userId, documentIds: [otherDocumentId] }),
     );
     expect(answerQuestionWithScope).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: userId, documentId: otherDocumentId }),
+    );
+  });
+
+  it("streams answer progress before the final answer with owner scope", async () => {
+    const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
+      await args.onProgress?.({ stage: "retrieved", message: "Retrieved 2 candidate sources." });
+      return {
+        answer: "Owned evidence.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [],
+      };
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body.indexOf("event: progress")).toBeGreaterThanOrEqual(0);
+    expect(body.indexOf("event: final")).toBeGreaterThan(body.indexOf("event: progress"));
+    expect(body).toContain("Retrieved 2 candidate sources.");
+    expect(answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
     );
   });
 
@@ -501,11 +550,12 @@ describe("private document API access", () => {
   it("passes owner scope into retrieval RPCs", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);
-    const embedText = vi.fn(async () => [0.1, 0.2, 0.3]);
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
     vi.doMock("@/lib/openai", () => ({
-      embedText,
+      embedTextWithTelemetry,
       generateTextResponse: vi.fn(),
       generateStructuredTextResponse: vi.fn(),
+      generateStructuredTextResult: vi.fn(),
     }));
     const { searchChunks } = await import("../src/lib/rag");
 
@@ -516,7 +566,7 @@ describe("private document API access", () => {
     });
 
     expect(results).toEqual([]);
-    expect(embedText).toHaveBeenCalled();
+    expect(embedTextWithTelemetry).toHaveBeenCalled();
     expect(client.rpc).toHaveBeenCalledWith(
       "match_document_chunks_hybrid",
       expect.objectContaining({

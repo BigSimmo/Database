@@ -2,6 +2,29 @@ export type DocumentStatus = "queued" | "processing" | "indexed" | "failed";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type ImportBatchStatus = "queued" | "processing" | "completed" | "completed_with_errors" | "failed";
 
+export type ImageEvidenceCategory =
+  | "clinical_table"
+  | "flowchart_algorithm"
+  | "form_checklist"
+  | "risk_matrix"
+  | "medication_chart"
+  | "graph"
+  | "screenshot_ui"
+  | "photo"
+  | "logo_decorative"
+  | "unclear";
+
+export type DocumentLabelType =
+  | "topic"
+  | "document_type"
+  | "medication"
+  | "risk"
+  | "setting"
+  | "workflow"
+  | "population"
+  | "service"
+  | "custom";
+
 export type ClinicalSourceMetadata = {
   source_title: string | null;
   publisher: string | null;
@@ -35,6 +58,8 @@ export type ClinicalDocument = {
   image_count: number;
   error_message: string | null;
   metadata?: Record<string, unknown> | ClinicalSourceMetadata | null;
+  labels?: DocumentLabel[];
+  summary?: DocumentSummary | null;
   created_at: string;
   updated_at: string;
 };
@@ -82,6 +107,11 @@ export type ChunkImage = {
   signed_url?: string;
   caption: string;
   bbox?: unknown;
+  image_type?: ImageEvidenceCategory;
+  searchable?: boolean;
+  clinical_relevance_score?: number;
+  source_kind?: string | null;
+  labels?: string[];
 };
 
 export type SearchResult = {
@@ -133,6 +163,58 @@ export type VisualEvidenceCard = {
   source_chunk_id: string;
   chunk_index: number;
   viewer_href: string;
+  image_type?: ImageEvidenceCategory;
+  clinical_relevance_score?: number;
+  labels?: string[];
+};
+
+export type DocumentLabel = {
+  id: string;
+  document_id: string;
+  owner_id?: string | null;
+  label: string;
+  label_type: DocumentLabelType;
+  source: "generated" | "manual";
+  confidence: number;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DocumentSummary = {
+  id: string;
+  document_id: string;
+  owner_id?: string | null;
+  summary: string;
+  clinical_specifics: {
+    actions?: string[];
+    thresholds_timing?: string[];
+    medication_monitoring?: string[];
+    risk_escalation?: string[];
+    documentation_forms?: string[];
+    exceptions_gaps?: string[];
+    [key: string]: unknown;
+  };
+  source_chunk_ids: string[];
+  source_image_ids: string[];
+  model: string | null;
+  metadata?: Record<string, unknown>;
+  generated_at?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type RelatedDocument = {
+  document_id: string;
+  title: string;
+  file_name: string;
+  labels: DocumentLabel[];
+  summary: string | null;
+  best_pages: number[];
+  best_chunk_ids: string[];
+  image_count: number;
+  match_reason: string;
+  score: number;
 };
 
 export type DocumentBreakdown = {
@@ -185,6 +267,14 @@ export type AnswerSection = {
   citation_chunk_ids: string[];
 };
 
+export type OpenAITokenUsage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  cached_input_tokens?: number;
+  reasoning_output_tokens?: number;
+};
+
 export type SmartPanel = {
   query: string;
   total_sources: number;
@@ -196,6 +286,7 @@ export type SmartPanel = {
   evidenceSummary: EvidenceSummary;
   sourceCoverage: SourceCoverage;
   conflictsOrGaps: ConflictOrGap[];
+  relatedDocuments?: RelatedDocument[];
 };
 
 export type RagAnswer = {
@@ -204,6 +295,23 @@ export type RagAnswer = {
   confidence: "high" | "medium" | "low" | "unsupported";
   citations: Citation[];
   sources: SearchResult[];
+  modelUsed?: string | null;
+  routingMode?: "unsupported" | "extractive" | "fast" | "strong";
+  routingReason?: string;
+  latencyTimings?: {
+    search_cache_hit?: boolean;
+    text_fast_path_latency_ms?: number;
+    embedding_skipped?: boolean;
+    embedding_latency_ms?: number;
+    embedding_cache_hit?: boolean;
+    supabase_rpc_latency_ms?: number;
+    rerank_latency_ms?: number;
+    search_latency_ms?: number;
+    generation_latency_ms?: number;
+    total_latency_ms?: number;
+  };
+  openAIRequestIds?: string[];
+  openAIUsage?: OpenAITokenUsage;
   answerSections?: AnswerSection[];
   evidenceSummary?: EvidenceSummary;
   conflictsOrGaps?: ConflictOrGap[];
@@ -213,6 +321,7 @@ export type RagAnswer = {
   bestSource?: BestSourceRecommendation | null;
   documentBreakdown?: DocumentBreakdown[];
   smartPanel?: SmartPanel;
+  relatedDocuments?: RelatedDocument[];
 };
 
 export type ExtractedPage = {
@@ -226,6 +335,10 @@ export type ExtractedImage = {
   path: string;
   mimeType: string;
   bbox?: [number, number, number, number] | null;
+  width?: number | null;
+  height?: number | null;
+  sourceKind?: "embedded" | "diagram_crop" | "page_region" | "fallback";
+  metadata?: Record<string, unknown>;
 };
 
 export type ExtractedDocument = {

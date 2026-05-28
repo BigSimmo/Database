@@ -5,6 +5,7 @@ export class PublicApiError extends Error {
   constructor(
     message: string,
     readonly status = 400,
+    readonly details?: { code?: string; requestId?: string | null },
   ) {
     super(message);
     this.name = "PublicApiError";
@@ -23,12 +24,14 @@ function publicErrorMessage(error: unknown, status: number) {
 function logSafeError(error: unknown, status: number) {
   if (process.env.NODE_ENV === "test") return;
   const name = error instanceof Error ? error.name : typeof error;
-  console.error("API request failed", { status, name });
+  const details = error instanceof PublicApiError ? error.details : undefined;
+  console.error("API request failed", { status, name, code: details?.code, requestId: details?.requestId });
 }
 
 export function jsonError(error: unknown, status = 500) {
-  logSafeError(error, status);
-  return NextResponse.json({ error: publicErrorMessage(error, status) }, { status });
+  const responseStatus = error instanceof PublicApiError ? error.status : status;
+  logSafeError(error, responseStatus);
+  return NextResponse.json({ error: publicErrorMessage(error, responseStatus) }, { status: responseStatus });
 }
 
 export function assertAllowedFile(file: File, maxUploadMb: number) {

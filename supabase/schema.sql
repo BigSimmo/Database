@@ -73,6 +73,20 @@ create table if not exists public.documents (
   image_count integer not null default 0,
   error_message text,
   metadata jsonb not null default '{}'::jsonb,
+  search_tsv tsvector generated always as (
+    to_tsvector('english', coalesce(title, '') || ' ' || coalesce(file_name, ''))
+  ) stored,
+  title_search_tsv tsvector generated always as (
+    to_tsvector(
+      'english',
+      regexp_replace(
+        regexp_replace(coalesce(title, '') || ' ' || coalesce(file_name, ''), '([[:lower:]])([[:upper:]])', '\1 \2', 'g'),
+        '[^[:alnum:]]+',
+        ' ',
+        'g'
+      )
+    )
+  ) stored,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -96,8 +110,84 @@ create table if not exists public.document_images (
   mime_type text not null default 'image/png',
   caption text not null default '',
   bbox jsonb,
+  image_type text not null default 'unclear'
+    check (image_type in (
+      'clinical_table',
+      'flowchart_algorithm',
+      'form_checklist',
+      'risk_matrix',
+      'medication_chart',
+      'graph',
+      'screenshot_ui',
+      'photo',
+      'logo_decorative',
+      'unclear'
+    )),
+  searchable boolean not null default true,
+  clinical_relevance_score real not null default 0,
+  skip_reason text,
+  source_kind text not null default 'embedded',
+  width integer,
+  height integer,
+  image_hash text,
+  perceptual_hash text,
+  labels text[] not null default '{}',
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.image_caption_cache (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  image_hash text not null,
+  model text not null,
+  mime_type text,
+  caption text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, image_hash, model)
+);
+
+create table if not exists public.document_labels (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  owner_id uuid references auth.users(id) on delete set null,
+  label text not null,
+  label_type text not null
+    check (label_type in (
+      'topic',
+      'document_type',
+      'medication',
+      'risk',
+      'setting',
+      'workflow',
+      'population',
+      'service',
+      'custom'
+    )),
+  source text not null default 'generated'
+    check (source in ('generated', 'manual')),
+  confidence real not null default 0.5 check (confidence >= 0 and confidence <= 1),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (document_id, label_type, label, source)
+);
+
+create table if not exists public.document_summaries (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null unique references public.documents(id) on delete cascade,
+  owner_id uuid references auth.users(id) on delete set null,
+  summary text not null,
+  clinical_specifics jsonb not null default '{}'::jsonb,
+  source_chunk_ids uuid[] not null default '{}',
+  source_image_ids uuid[] not null default '{}',
+  model text,
+  metadata jsonb not null default '{}'::jsonb,
+  generated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.document_chunks (
@@ -157,8 +247,23 @@ create index if not exists documents_status_idx on public.documents(status);
 create index if not exists documents_owner_status_idx on public.documents(owner_id, status, created_at desc);
 create index if not exists documents_import_batch_idx on public.documents(import_batch_id);
 create index if not exists documents_owner_hash_idx on public.documents(owner_id, content_hash);
+create index if not exists documents_search_idx on public.documents using gin(search_tsv);
+create index if not exists documents_title_search_idx on public.documents using gin(title_search_tsv);
 create index if not exists document_pages_document_idx on public.document_pages(document_id, page_number);
 create index if not exists document_images_document_idx on public.document_images(document_id, page_number);
+create index if not exists document_images_searchable_idx
+  on public.document_images(document_id, searchable, image_type, page_number);
+create index if not exists document_images_hash_idx
+  on public.document_images(document_id, image_hash)
+  where image_hash is not null;
+create index if not exists document_images_labels_idx
+  on public.document_images using gin(labels);
+create index if not exists image_caption_cache_owner_hash_idx
+  on public.image_caption_cache(owner_id, image_hash, model);
+create index if not exists document_labels_owner_label_idx
+  on public.document_labels(owner_id, label_type, label);
+create index if not exists document_labels_document_idx on public.document_labels(document_id);
+create index if not exists document_summaries_owner_idx on public.document_summaries(owner_id, generated_at desc);
 create index if not exists document_chunks_document_idx on public.document_chunks(document_id, chunk_index);
 create index if not exists document_chunks_search_idx on public.document_chunks using gin(search_tsv);
 create index if not exists document_chunks_embedding_hnsw_idx
@@ -194,6 +299,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists ingestion_jobs_updated_at on public.ingestion_jobs;
 create trigger ingestion_jobs_updated_at
 before update on public.ingestion_jobs
+for each row execute function public.set_updated_at();
+
+drop trigger if exists image_caption_cache_updated_at on public.image_caption_cache;
+create trigger image_caption_cache_updated_at
+before update on public.image_caption_cache
 for each row execute function public.set_updated_at();
 
 create or replace function public.claim_ingestion_jobs(
@@ -281,6 +391,39 @@ begin
 end;
 $$;
 
+create or replace function public.chunk_image_metadata(chunk_image_ids uuid[])
+returns jsonb
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', i.id,
+        'page_number', i.page_number,
+        'storage_path', i.storage_path,
+        'caption', i.caption,
+        'bbox', i.bbox,
+        'image_type', i.image_type,
+        'searchable', i.searchable,
+        'clinical_relevance_score', i.clinical_relevance_score,
+        'source_kind', i.source_kind,
+        'width', i.width,
+        'height', i.height,
+        'labels', i.labels,
+        'metadata', i.metadata
+      )
+      order by i.page_number nulls last, i.created_at
+    ),
+    '[]'::jsonb
+  )
+  from public.document_images i
+  where i.id = any(chunk_image_ids)
+    and i.searchable = true
+    and i.image_type <> 'logo_decorative';
+$$;
+
 create or replace function public.match_document_chunks(
   query_embedding vector(1536),
   match_count integer default 8,
@@ -318,22 +461,7 @@ as $$
     c.image_ids,
     d.metadata as source_metadata,
     1 - (c.embedding <=> query_embedding) as similarity,
-    coalesce(
-      (
-        select jsonb_agg(
-          jsonb_build_object(
-            'id', i.id,
-            'page_number', i.page_number,
-            'storage_path', i.storage_path,
-            'caption', i.caption,
-            'bbox', i.bbox
-          )
-        )
-        from public.document_images i
-        where i.id = any(c.image_ids)
-      ),
-      '[]'::jsonb
-    ) as images
+    public.chunk_image_metadata(c.image_ids) as images
   from public.document_chunks c
   join public.documents d on d.id = c.document_id
   where (document_filter is null or c.document_id = document_filter)
@@ -384,7 +512,10 @@ as $$
       c.content,
       c.image_ids,
       1 - (c.embedding <=> query_embedding) as similarity,
-      ts_rank_cd(c.search_tsv, query.tsq)::double precision as text_rank
+      (
+        ts_rank_cd(c.search_tsv, query.tsq) +
+        (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
+      )::double precision as text_rank
     from public.document_chunks c
     join public.documents d on d.id = c.document_id
     cross join query
@@ -404,14 +535,20 @@ as $$
       c.content,
       c.image_ids,
       1 - (c.embedding <=> query_embedding) as similarity,
-      ts_rank_cd(c.search_tsv, query.tsq)::double precision as text_rank
+      (
+        ts_rank_cd(c.search_tsv, query.tsq) +
+        (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
+      )::double precision as text_rank
     from public.document_chunks c
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
       and (owner_filter is null or d.owner_id = owner_filter)
-      and c.search_tsv @@ query.tsq
-    order by ts_rank_cd(c.search_tsv, query.tsq) desc
+      and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
+    order by (
+      ts_rank_cd(c.search_tsv, query.tsq) +
+      (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
+    ) desc
     limit greatest(match_count * 6, 48)
   ),
   combined as (
@@ -433,26 +570,139 @@ as $$
     c.similarity,
     c.text_rank,
     ((c.similarity * 0.72) + (least(c.text_rank, 1) * 0.28))::double precision as hybrid_score,
-    coalesce(
-      (
-        select jsonb_agg(
-          jsonb_build_object(
-            'id', i.id,
-            'page_number', i.page_number,
-            'storage_path', i.storage_path,
-            'caption', i.caption,
-            'bbox', i.bbox
-          )
-        )
-        from public.document_images i
-        where i.id = any(c.image_ids)
-      ),
-      '[]'::jsonb
-    ) as images
+    public.chunk_image_metadata(c.image_ids) as images
   from combined c
   join public.documents d on d.id = c.document_id
   order by hybrid_score desc, c.similarity desc, c.text_rank desc
   limit match_count;
+$$;
+
+create or replace function public.match_document_chunks_text(
+  query_text text,
+  match_count integer default 12,
+  document_filters uuid[] default null,
+  owner_filter uuid default null
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  title text,
+  file_name text,
+  page_number integer,
+  chunk_index integer,
+  section_heading text,
+  content text,
+  image_ids uuid[],
+  source_metadata jsonb,
+  similarity double precision,
+  text_rank double precision,
+  hybrid_score double precision,
+  images jsonb
+)
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  with query as (
+    select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
+  ),
+  ranked as (
+    select
+      c.id,
+      c.document_id,
+      d.title,
+      d.file_name,
+      c.page_number,
+      c.chunk_index,
+      c.section_heading,
+      c.content,
+      c.image_ids,
+      d.metadata as source_metadata,
+      (
+        ts_rank_cd(c.search_tsv, query.tsq) +
+        (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
+      )::double precision as text_rank
+    from public.document_chunks c
+    join public.documents d on d.id = c.document_id
+    cross join query
+    where (document_filters is null or c.document_id = any(document_filters))
+      and (owner_filter is null or d.owner_id = owner_filter)
+      and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
+    order by (
+      ts_rank_cd(c.search_tsv, query.tsq) +
+      (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
+    ) desc
+    limit greatest(match_count * 5, 48)
+  )
+  select
+    ranked.id,
+    ranked.document_id,
+    ranked.title,
+    ranked.file_name,
+    ranked.page_number,
+    ranked.chunk_index,
+    ranked.section_heading,
+    ranked.content,
+    ranked.image_ids,
+    ranked.source_metadata,
+    least(0.95, 0.56 + (least(ranked.text_rank, 1) * 0.39))::double precision as similarity,
+    ranked.text_rank,
+    least(0.97, 0.58 + (least(ranked.text_rank, 1) * 0.39))::double precision as hybrid_score,
+    public.chunk_image_metadata(ranked.image_ids) as images
+  from ranked
+  order by hybrid_score desc, text_rank desc
+  limit match_count;
+$$;
+
+create or replace function public.get_related_document_metadata(
+  document_ids uuid[],
+  owner_filter uuid default null
+)
+returns table (
+  document_id uuid,
+  labels jsonb,
+  summary text
+)
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select
+    d.id as document_id,
+    coalesce(
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', l.id,
+            'document_id', l.document_id,
+            'owner_id', l.owner_id,
+            'label', l.label,
+            'label_type', l.label_type,
+            'source', l.source,
+            'confidence', l.confidence,
+            'metadata', l.metadata,
+            'created_at', l.created_at,
+            'updated_at', l.updated_at
+          )
+          order by l.confidence desc, l.label
+        )
+        from public.document_labels l
+        where l.document_id = d.id
+          and (owner_filter is null or l.owner_id = owner_filter)
+      ),
+      '[]'::jsonb
+    ) as labels,
+    (
+      select s.summary
+      from public.document_summaries s
+      where s.document_id = d.id
+        and (owner_filter is null or s.owner_id = owner_filter)
+      order by s.generated_at desc
+      limit 1
+    ) as summary
+  from public.documents d
+  where d.id = any(document_ids)
+    and (owner_filter is null or d.owner_id = owner_filter);
 $$;
 
 grant usage on schema public to authenticated, service_role;
@@ -462,6 +712,9 @@ grant select, insert, update, delete on table
   public.documents,
   public.document_pages,
   public.document_images,
+  public.image_caption_cache,
+  public.document_labels,
+  public.document_summaries,
   public.document_chunks,
   public.ingestion_jobs,
   public.rag_queries
@@ -477,15 +730,21 @@ grant select, insert, update, delete on table public.documents to authenticated;
 grant select on table
   public.document_pages,
   public.document_images,
+  public.document_labels,
+  public.document_summaries,
   public.document_chunks,
   public.ingestion_jobs
 to authenticated;
 grant select, insert on table public.rag_queries to authenticated;
+grant insert, update, delete on table public.document_labels to authenticated;
 
 alter table public.import_batches enable row level security;
 alter table public.documents enable row level security;
 alter table public.document_pages enable row level security;
 alter table public.document_images enable row level security;
+alter table public.image_caption_cache enable row level security;
+alter table public.document_labels enable row level security;
+alter table public.document_summaries enable row level security;
 alter table public.document_chunks enable row level security;
 alter table public.ingestion_jobs enable row level security;
 alter table public.rag_queries enable row level security;
@@ -511,6 +770,20 @@ create policy "images owner read" on public.document_images
   for select to authenticated using (
     exists (select 1 from public.documents d where d.id = document_id and d.owner_id = (select auth.uid()))
   );
+
+create policy "labels owner read" on public.document_labels
+  for select to authenticated using (owner_id = (select auth.uid()));
+create policy "labels owner manual insert" on public.document_labels
+  for insert to authenticated with check (owner_id = (select auth.uid()) and source = 'manual');
+create policy "labels owner manual update" on public.document_labels
+  for update to authenticated
+  using (owner_id = (select auth.uid()) and source = 'manual')
+  with check (owner_id = (select auth.uid()) and source = 'manual');
+create policy "labels owner manual delete" on public.document_labels
+  for delete to authenticated using (owner_id = (select auth.uid()) and source = 'manual');
+
+create policy "summaries owner read" on public.document_summaries
+  for select to authenticated using (owner_id = (select auth.uid()));
 
 create policy "chunks owner read" on public.document_chunks
   for select to authenticated using (

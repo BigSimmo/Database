@@ -154,7 +154,7 @@ export function buildSmartPanel(query: string, results: SearchResult[]) {
     quotes: quoteCards,
     visualEvidence,
     bestSource,
-    image_count: results.reduce((count, source) => count + (source.images?.length ?? 0), 0),
+    image_count: visualEvidence.length,
     evidenceSummary: buildEvidenceSummary(results, quoteCards),
     sourceCoverage: buildSourceCoverage(results),
     conflictsOrGaps: detectConflictsOrGaps(results),
@@ -189,7 +189,7 @@ export function selectBestSourceRecommendation(
     snippet: snippet.length === 260 ? `${snippet.slice(0, 257).trim()}...` : snippet,
     quote,
     section_heading: best.section_heading,
-    image_count: best.images?.length ?? best.image_ids.length,
+    image_count: (best.images ?? []).filter((image) => image.searchable !== false).length,
     viewer_href: documentCitationHref(citation),
   };
 }
@@ -216,7 +216,7 @@ export function buildSourceCoverage(results: SearchResult[]): SourceCoverage {
     documents_used: documents.size,
     pages,
     strongest_similarity: strongest,
-    has_images: results.some((source) => source.images?.length || source.image_ids.length),
+    has_images: results.some((source) => source.images?.some((image) => image.searchable !== false)),
   };
 }
 
@@ -226,6 +226,7 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
 
   for (const result of results) {
     for (const image of result.images ?? []) {
+      if (image.searchable === false || image.image_type === "logo_decorative") continue;
       if (seen.has(image.id)) continue;
       seen.add(image.id);
       const pageNumber = image.page_number ?? result.page_number;
@@ -241,6 +242,9 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
         source_chunk_id: result.id,
         chunk_index: result.chunk_index,
         viewer_href: `/documents/${result.document_id}?page=${pageNumber ?? 1}&chunk=${result.id}`,
+        image_type: image.image_type,
+        clinical_relevance_score: image.clinical_relevance_score,
+        labels: image.labels,
       });
       if (cards.length >= limit) return cards;
     }
@@ -250,7 +254,7 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
 }
 
 export function buildEvidenceSummary(results: SearchResult[], quoteCards: QuoteCard[] = []): EvidenceSummary {
-  const imageCount = results.reduce((count, source) => count + (source.images?.length ?? 0), 0);
+  const imageCount = buildVisualEvidence(results).length;
   const coverage = buildSourceCoverage(results);
   const strength = results.length ? sourceStrengthForSimilarity(coverage.strongest_similarity) : "none";
 

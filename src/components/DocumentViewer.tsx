@@ -45,6 +45,7 @@ import {
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { useAuthSession } from "@/lib/supabase/client";
+import { SafeBoldText } from "@/components/SafeBoldText";
 import type { ClinicalDocument, RagAnswer } from "@/lib/types";
 
 type PageRow = {
@@ -58,6 +59,9 @@ type ImageRow = {
   id: string;
   page_number: number | null;
   caption: string;
+  image_type?: string | null;
+  clinical_relevance_score?: number | null;
+  labels?: string[] | null;
 };
 
 type ChunkRow = {
@@ -134,6 +138,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
     <figure className={cn(sourceCard, "overflow-hidden p-3")}>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
         page {image.page_number ?? "n/a"}
+        {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
       </p>
       <div className="mt-2 rounded-lg bg-[color:var(--surface-inset)] p-3">
         {failed ? (
@@ -167,6 +172,18 @@ function DocumentImage({ image }: { image: ImageRow }) {
         )}
       </div>
       <figcaption className="mt-3 text-[15px] leading-6 text-[color:var(--text)]">{image.caption}</figcaption>
+      {image.labels?.length ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {image.labels.slice(0, 5).map((label) => (
+            <span
+              key={`${image.id}:${label}`}
+              className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[10px] font-semibold text-[color:var(--text-muted)]"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </figure>
   );
 }
@@ -938,6 +955,52 @@ export function DocumentViewer({
             />
             <SourceMetadataSummary metadata={document?.metadata} />
           </section>
+
+          {document?.summary || document?.labels?.length ? (
+            <section className={cn(panel, "p-4 source-print")}>
+              <PanelHeading
+                icon={Sparkles}
+                title="High-yield summary"
+                description="Indexing-time summary and generated labels from source evidence."
+              />
+              {document.summary?.summary && (
+                <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
+                  <SafeBoldText text={document.summary.summary} />
+                </p>
+              )}
+              {document.summary?.clinical_specifics && (
+                <div className="mt-4 grid gap-3">
+                  {Object.entries(document.summary.clinical_specifics)
+                    .filter(([, items]) => Array.isArray(items) && items.length > 0)
+                    .slice(0, 6)
+                    .map(([key, items]) => (
+                      <div key={key} className={cn(sourceCard, "p-3")}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                          {key.replaceAll("_", " ")}
+                        </p>
+                        <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
+                          {(items as string[]).slice(0, 5).map((item) => (
+                            <li key={item}>- <SafeBoldText text={item} /></li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                </div>
+              )}
+              {document.labels?.length ? (
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {document.labels.slice(0, 12).map((label) => (
+                    <span
+                      key={`${label.label_type}:${label.label}`}
+                      className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[11px] font-semibold text-[color:var(--text-muted)]"
+                    >
+                      {label.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className={cn(panel, "p-4")}>
             <PanelHeading

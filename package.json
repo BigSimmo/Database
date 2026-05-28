@@ -19,7 +19,10 @@
     "worker": "tsx worker/index.ts",
     "worker:once": "tsx worker/index.ts --once",
     "import:docs": "tsx scripts/import-documents.ts",
+    "enrich:documents": "tsx scripts/enrich-documents.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
+    "eval:rag": "tsx scripts/eval-rag.ts",
+    "eval:search": "tsx scripts/eval-search.ts",
     "samples": "tsx scripts/generate-sample-documents.ts",
     "samples:check": "tsx scripts/check-sample-extraction.ts"
   },

@@ -22,7 +22,34 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
-    return NextResponse.json({ documents: data ?? [] });
+    const documents = data ?? [];
+    const documentIds = documents.map((document) => document.id);
+
+    if (documentIds.length === 0) return NextResponse.json({ documents });
+
+    const [labelsResult, summariesResult] = await Promise.all([
+      supabase.from("document_labels").select("*").in("document_id", documentIds),
+      supabase.from("document_summaries").select("*").in("document_id", documentIds),
+    ]);
+
+    if (labelsResult.error) throw new Error(labelsResult.error.message);
+    if (summariesResult.error) throw new Error(summariesResult.error.message);
+
+    const labelsByDocument = new Map<string, unknown[]>();
+    for (const label of labelsResult.data ?? []) {
+      const existing = labelsByDocument.get(label.document_id) ?? [];
+      existing.push(label);
+      labelsByDocument.set(label.document_id, existing);
+    }
+    const summariesByDocument = new Map((summariesResult.data ?? []).map((summary) => [summary.document_id, summary]));
+
+    return NextResponse.json({
+      documents: documents.map((document) => ({
+        ...document,
+        labels: labelsByDocument.get(document.id) ?? [],
+        summary: summariesByDocument.get(document.id) ?? null,
+      })),
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
