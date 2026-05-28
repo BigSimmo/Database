@@ -17,3 +17,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Do not kill or modify other projects' local servers. If the stable project port is busy, let `npm run ensure` choose the next safe project URL.
 - Do not run a permanent watcher. Only start or verify the server when the current chat task needs the app or the user asks to run it.
 <!-- END:local-server-safety -->
+
+<!-- BEGIN:supabase-project-safety -->
+
+# Supabase project safety
+
+- This repo targets the live Supabase project `Clinical KB Database`.
+- Expected project ref: `sjrfecxgysukkwxsowpy`.
+- Older unused project ref `qjgitjyhxrwxsrydablr` belongs to `Database`; treat it as stale and do not use it.
+- Run `npm run check:supabase-project` after changing Supabase env values.
+<!-- END:supabase-project-safety -->

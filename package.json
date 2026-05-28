@@ -20,6 +20,7 @@
     "worker:once": "tsx worker/index.ts --once",
     "import:docs": "tsx scripts/import-documents.ts",
     "enrich:documents": "tsx scripts/enrich-documents.ts",
+    "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
     "eval:rag": "tsx scripts/eval-rag.ts",
     "eval:search": "tsx scripts/eval-search.ts",

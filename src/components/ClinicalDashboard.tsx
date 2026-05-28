@@ -117,7 +117,7 @@ const themeChangeEvent = "clinical-kb-theme-change";
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
 type SetupCheck = {
-  id: "env" | "schema" | "openai" | "worker";
+  id: "env" | "project" | "schema" | "openai" | "worker";
   label: string;
   status: SetupCheckStatus;
   detail: string;
@@ -1757,6 +1757,12 @@ const fallbackSetupChecks: SetupCheck[] = [
   {
     id: "env",
     label: ".env.local configured",
+    status: "unknown",
+    detail: "Setup status has not loaded yet.",
+  },
+  {
+    id: "project",
+    label: "Clinical KB Database target",
     status: "unknown",
     detail: "Setup status has not loaded yet.",
   },

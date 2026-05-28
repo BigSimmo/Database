@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "playwright/test";
+import { getPlaywrightBaseUrl } from "./scripts/playwright-base-url";
+
+const baseURL = getPlaywrightBaseUrl();
 
 export default defineConfig({
   testDir: "./tests",
@@ -11,15 +14,9 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:4298",
+    baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-  },
-  webServer: {
-    command: "npm run ensure",
-    url: "http://localhost:4298/api/local-project-id",
-    reuseExistingServer: true,
-    timeout: 120_000,
   },
   projects: [
     {

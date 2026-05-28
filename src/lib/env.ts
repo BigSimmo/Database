@@ -1,8 +1,11 @@
 import { z } from "zod";
+import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_PROJECT_REF: z.string().optional(),
+  SUPABASE_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
@@ -53,6 +56,8 @@ export function requireServerEnv() {
       `Missing server environment variables: ${missing.map(([key]) => key).join(", ")}. See .env.example.`,
     );
   }
+
+  assertExpectedSupabaseProjectConfig(env);
 }
 
 export function requireOpenAIEnv() {
@@ -62,5 +67,11 @@ export function requireOpenAIEnv() {
 }
 
 export function isDemoMode() {
-  return env.NEXT_PUBLIC_DEMO_MODE === "true" || !env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY;
+  const projectCheck = checkSupabaseProjectConfig(env);
+  return (
+    env.NEXT_PUBLIC_DEMO_MODE === "true" ||
+    !env.NEXT_PUBLIC_SUPABASE_URL ||
+    !env.SUPABASE_SERVICE_ROLE_KEY ||
+    projectCheck.status === "mismatch"
+  );
 }

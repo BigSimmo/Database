@@ -8,14 +8,33 @@ questions with source citations that link back to the original PDF/document.
 ## Setup
 
 1. Copy `.env.example` to `.env.local` and fill in Supabase and OpenAI values.
-2. Run `supabase/schema.sql` in your Supabase project SQL editor.
-3. Install optional PDF/OCR worker dependencies:
+2. Confirm the Supabase target:
+
+```bash
+npm run check:supabase-project
+```
+
+The expected live project is `Clinical KB Database`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
+SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy
+SUPABASE_PROJECT_NAME=Clinical KB Database
+```
+
+Do not use the older unused Supabase project `Database`
+(`qjgitjyhxrwxsrydablr`). Local checks and runtime guards warn or fall back to
+demo mode if that stale ref appears in `.env.local`.
+
+3. Run `supabase/schema.sql` in the `Clinical KB Database` Supabase project SQL
+   editor.
+4. Install optional PDF/OCR worker dependencies:
 
 ```bash
 python -m pip install -r worker/python/requirements.txt
 ```
 
-4. Start the app:
+5. Start the app:
 
 ```bash
 npm run dev
@@ -38,7 +57,7 @@ belongs to this project, and starts the dev server in the background if needed.
 When you say `run` in this chat, Codex should use this command and return the
 printed URL.
 
-5. In a second terminal, start the local ingestion worker:
+6. In a second terminal, start the local ingestion worker:
 
 ```bash
 npm run worker
@@ -50,6 +69,8 @@ heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
 ## Environment Notes
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it in the browser.
+- `SUPABASE_PROJECT_REF` must stay `sjrfecxgysukkwxsowpy` for the live
+  `Clinical KB Database` project.
 - Documents and extracted images are stored in private Supabase buckets.
 - Initial assumptions are guideline/reference documents only, not patient
   identifiable records.
@@ -79,6 +100,7 @@ npm run dev       # Next.js UI/API on this project's stable localhost port
 npm run ensure    # check/start this project's dev server in the background
 npm run start     # production preview on the same safe port selection
 npm run worker    # local ingestion worker
+npm run check:supabase-project
 npm run samples   # generate synthetic upload corpus
 npm run samples:check
 npm run lint

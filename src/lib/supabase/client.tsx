@@ -2,6 +2,7 @@
 
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
 
@@ -26,6 +27,14 @@ function createBrowserSupabaseClient() {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !key) {
+    browserSupabaseClient = null;
+    browserSupabaseClientConfig = null;
+    return null;
+  }
+
+  const projectCheck = checkSupabaseProjectConfig({ NEXT_PUBLIC_SUPABASE_URL: url });
+  if (projectCheck.status === "mismatch") {
+    console.error(formatSupabaseProjectCheck(projectCheck));
     browserSupabaseClient = null;
     browserSupabaseClientConfig = null;
     return null;

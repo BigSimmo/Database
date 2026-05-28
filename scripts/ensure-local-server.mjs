@@ -11,6 +11,11 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const maxPort = 65535;
 const identityPath = "/api/local-project-id";
 const logPath = path.join(projectRoot, "dev-server.log");
+const printUrlOnly = process.argv.slice(2).includes("--print-url");
+
+function localUrl(port) {
+  return `http://localhost:${port}`;
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -108,30 +113,30 @@ const stablePort = stableProjectPort(projectRoot);
 const existingPort = await findExistingProjectServer(stablePort);
 
 if (existingPort) {
-  console.log(`Clinical KB is already running at http://localhost:${existingPort}`);
+  console.log(printUrlOnly ? localUrl(existingPort) : `Clinical KB is already running at ${localUrl(existingPort)}`);
   process.exit(0);
 }
 
 const target = await findStartPort(stablePort);
 
 if (target.alreadyRunning) {
-  console.log(`Clinical KB is already running at http://localhost:${target.port}`);
+  console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is already running at ${localUrl(target.port)}`);
   process.exit(0);
 }
 
-if (target.port !== stablePort) {
+if (target.port !== stablePort && !printUrlOnly) {
   console.log(
-    `Stable project port ${stablePort} is serving another local project; starting Clinical KB at http://localhost:${target.port}`,
+    `Stable project port ${stablePort} is serving another local project; starting Clinical KB at ${localUrl(target.port)}`,
   );
 }
 
 startDevServer(target.port);
 
 if (await waitForProject(target.port)) {
-  console.log(`Clinical KB is running at http://localhost:${target.port}`);
-  console.log(`Server log: ${logPath}`);
+  console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is running at ${localUrl(target.port)}`);
+  if (!printUrlOnly) console.log(`Server log: ${logPath}`);
   process.exit(0);
 }
 
-console.error(`Clinical KB did not become ready at http://localhost:${target.port}. Check ${logPath}`);
+console.error(`Clinical KB did not become ready at ${localUrl(target.port)}. Check ${logPath}`);
 process.exit(1);

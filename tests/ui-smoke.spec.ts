@@ -26,6 +26,7 @@ async function gotoApp(page: Page, path: string) {
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
+  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
@@ -480,6 +481,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(uploadDrawer.getByText("First-run setup checklist")).toBeVisible();
     await expect(uploadDrawer.getByText(".env.local configured")).toBeVisible();
+    await expect(uploadDrawer.getByText("Clinical KB Database target")).toBeVisible();
     await expect(uploadDrawer.getByText("supabase/schema.sql applied")).toBeVisible();
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();

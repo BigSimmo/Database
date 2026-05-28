@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
-type SetupCheckId = "env" | "schema" | "openai" | "worker";
+type SetupCheckId = "env" | "project" | "schema" | "openai" | "worker";
 
 type SetupCheck = {
   id: SetupCheckId;
@@ -16,6 +17,8 @@ type SetupCheck = {
 };
 
 const requiredSupabaseEnvPresent = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseProjectCheck = checkSupabaseProjectConfig(env, { requireMetadata: true });
+const supabaseProjectCanBeQueried = requiredSupabaseEnvPresent && supabaseProjectCheck.status !== "mismatch";
 
 function check(id: SetupCheckId, label: string, status: SetupCheckStatus, detail: string): SetupCheck {
   return { id, label, status, detail };
@@ -28,6 +31,15 @@ async function readSchemaStatus() {
       "supabase/schema.sql applied",
       "unknown",
       "Supabase environment is missing, so schema checks were skipped.",
+    );
+  }
+
+  if (!supabaseProjectCanBeQueried) {
+    return check(
+      "schema",
+      "supabase/schema.sql applied",
+      "unknown",
+      "Supabase project mismatch detected, so schema checks were skipped.",
     );
   }
 
@@ -82,6 +94,15 @@ async function readWorkerStatus() {
     );
   }
 
+  if (!supabaseProjectCanBeQueried) {
+    return check(
+      "worker",
+      label,
+      "unknown",
+      "Worker status cannot be inferred while Supabase points at the wrong project.",
+    );
+  }
+
   try {
     const supabase = createAdminClient();
     const [latestResult, activeResult] = await Promise.all([
@@ -132,6 +153,12 @@ export async function GET() {
         requiredSupabaseEnvPresent
           ? "Required Supabase server environment variables are present."
           : "Set the required Supabase URL and server key.",
+      ),
+      check(
+        "project",
+        "Clinical KB Database target",
+        supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+        formatSupabaseProjectCheck(supabaseProjectCheck),
       ),
       schema,
       check(
