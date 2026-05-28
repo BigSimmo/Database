@@ -72,8 +72,13 @@ async function mockPrivateAuthenticatedApi(page: Page) {
       json: { demoMode: false, checks: readySetupChecks },
     });
   });
-  await page.route(/\/api\/documents$/, async (route) => {
-    await route.fulfill({ json: { documents: [] } });
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        documents: [],
+        pagination: { limit: 150, offset: 0, total: 0, nextOffset: 0, hasMore: false },
+      },
+    });
   });
   await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { jobs: [] } });
@@ -148,8 +153,20 @@ async function mockDemoApi(page: Page) {
       json: { demoMode: true, checks: readySetupChecks },
     });
   });
-  await page.route(/\/api\/documents$/, async (route) => {
-    await route.fulfill({ json: { documents: demoDocuments, demoMode: true } });
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        documents: demoDocuments,
+        demoMode: true,
+        pagination: {
+          limit: 150,
+          offset: 0,
+          total: demoDocuments.length,
+          nextOffset: demoDocuments.length,
+          hasMore: false,
+        },
+      },
+    });
   });
   await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { jobs: [], demoMode: true } });

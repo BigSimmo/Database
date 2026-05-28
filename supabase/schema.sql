@@ -239,6 +239,26 @@ create table if not exists public.rag_queries (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.storage_cleanup_jobs (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  document_id uuid,
+  document_title text,
+  document_bucket text not null default 'clinical-documents',
+  document_paths text[] not null default '{}',
+  image_bucket text not null default 'clinical-images',
+  image_paths text[] not null default '{}',
+  status text not null default 'pending'
+    check (status in ('pending', 'completed', 'failed')),
+  attempts integer not null default 0,
+  storage_removed integer not null default 0,
+  last_error text,
+  metadata jsonb not null default '{}'::jsonb,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create unique index if not exists documents_owner_content_hash_unique_idx
   on public.documents(owner_id, content_hash)
   where content_hash is not null;
@@ -274,6 +294,12 @@ create index if not exists ingestion_jobs_claim_idx
   on public.ingestion_jobs(status, next_run_at, created_at)
   where status in ('pending', 'processing');
 create index if not exists rag_queries_owner_idx on public.rag_queries(owner_id, created_at desc);
+create index if not exists rag_queries_source_chunk_ids_gin_idx
+  on public.rag_queries using gin(source_chunk_ids);
+create index if not exists storage_cleanup_jobs_owner_status_idx
+  on public.storage_cleanup_jobs(owner_id, status, created_at desc);
+create index if not exists storage_cleanup_jobs_document_idx
+  on public.storage_cleanup_jobs(document_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -304,6 +330,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists image_caption_cache_updated_at on public.image_caption_cache;
 create trigger image_caption_cache_updated_at
 before update on public.image_caption_cache
+for each row execute function public.set_updated_at();
+
+drop trigger if exists storage_cleanup_jobs_updated_at on public.storage_cleanup_jobs;
+create trigger storage_cleanup_jobs_updated_at
+before update on public.storage_cleanup_jobs
 for each row execute function public.set_updated_at();
 
 create or replace function public.claim_ingestion_jobs(
@@ -705,7 +736,25 @@ as $$
     and (owner_filter is null or d.owner_id = owner_filter);
 $$;
 
+alter default privileges for role postgres in schema public
+  revoke all privileges on tables from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke usage, select on sequences from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from public, anon, authenticated;
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges for role postgres in schema public
+  grant usage, select on sequences to service_role;
+alter default privileges for role postgres in schema public
+  grant execute on functions to service_role;
+
+revoke usage on schema public from anon;
 grant usage on schema public to authenticated, service_role;
+
+revoke all privileges on all tables in schema public from anon, authenticated;
+revoke all privileges on all sequences in schema public from anon, authenticated;
+revoke execute on all functions in schema public from public, anon, authenticated;
 
 grant select, insert, update, delete on table
   public.import_batches,
@@ -717,25 +766,26 @@ grant select, insert, update, delete on table
   public.document_summaries,
   public.document_chunks,
   public.ingestion_jobs,
-  public.rag_queries
+  public.rag_queries,
+  public.storage_cleanup_jobs
 to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
-grant execute on function public.claim_ingestion_jobs(text, integer, integer) to service_role;
-grant execute on function public.reset_document_index(uuid) to service_role;
 
-grant select on table public.import_batches to authenticated;
-grant select, insert, update, delete on table public.documents to authenticated;
 grant select on table
+  public.import_batches,
+  public.documents,
   public.document_pages,
   public.document_images,
   public.document_labels,
   public.document_summaries,
   public.document_chunks,
-  public.ingestion_jobs
+  public.ingestion_jobs,
+  public.rag_queries,
+  public.storage_cleanup_jobs
 to authenticated;
-grant select, insert on table public.rag_queries to authenticated;
+
 grant insert, update, delete on table public.document_labels to authenticated;
 
 alter table public.import_batches enable row level security;
@@ -748,18 +798,13 @@ alter table public.document_summaries enable row level security;
 alter table public.document_chunks enable row level security;
 alter table public.ingestion_jobs enable row level security;
 alter table public.rag_queries enable row level security;
+alter table public.storage_cleanup_jobs enable row level security;
 
 create policy "import batches owner read" on public.import_batches
   for select to authenticated using (owner_id = (select auth.uid()));
 
 create policy "documents owner read" on public.documents
   for select to authenticated using (owner_id = (select auth.uid()));
-create policy "documents owner insert" on public.documents
-  for insert to authenticated with check (owner_id = (select auth.uid()));
-create policy "documents owner update" on public.documents
-  for update to authenticated using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
-create policy "documents owner delete" on public.documents
-  for delete to authenticated using (owner_id = (select auth.uid()));
 
 create policy "pages owner read" on public.document_pages
   for select to authenticated using (
@@ -797,8 +842,9 @@ create policy "jobs owner read" on public.ingestion_jobs
 
 create policy "rag owner read" on public.rag_queries
   for select to authenticated using (owner_id = (select auth.uid()));
-create policy "rag owner insert" on public.rag_queries
-  for insert to authenticated with check (owner_id = (select auth.uid()));
+
+create policy "storage cleanup owner read" on public.storage_cleanup_jobs
+  for select to authenticated using (owner_id = (select auth.uid()));
 
 create policy "document storage owner read" on storage.objects
   for select to authenticated

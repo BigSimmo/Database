@@ -115,6 +115,7 @@ const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 
 const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
+const documentPageSize = 150;
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
 type SetupCheck = {
@@ -122,6 +123,13 @@ type SetupCheck = {
   label: string;
   status: SetupCheckStatus;
   detail: string;
+};
+type DocumentPagination = {
+  limit: number;
+  offset: number;
+  total: number;
+  nextOffset: number;
+  hasMore: boolean;
 };
 
 type AnswerPayload = RagAnswer & { demoMode?: boolean };
@@ -1441,15 +1449,21 @@ function AuthPanel() {
 
 function DocumentDrawer({
   documents,
+  pagination,
+  loadingMoreDocuments,
   selectedDocumentIds,
   onToggleScope,
+  onLoadMoreDocuments,
   onDocumentRenamed,
   onDocumentDeleted,
   canManageDocuments,
 }: {
   documents: ClinicalDocument[];
+  pagination: DocumentPagination | null;
+  loadingMoreDocuments: boolean;
   selectedDocumentIds: string[];
   onToggleScope: (documentId: string) => void;
+  onLoadMoreDocuments: () => void;
   onDocumentRenamed: (document: ClinicalDocument) => void;
   onDocumentDeleted: (result: DocumentDeleteResult) => void;
   canManageDocuments: boolean;
@@ -1473,6 +1487,11 @@ function DocumentDrawer({
           className={fieldControlWithIcon}
         />
       </label>
+      {pagination && pagination.total > documents.length ? (
+        <p className={cn("text-xs", textMuted)}>
+          Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
+        </p>
+      ) : null}
       <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
         {filtered.length === 0 ? (
           <EmptyState
@@ -1546,6 +1565,17 @@ function DocumentDrawer({
           })
         )}
       </div>
+      {pagination?.hasMore ? (
+        <button
+          type="button"
+          onClick={onLoadMoreDocuments}
+          disabled={loadingMoreDocuments}
+          className={cn(floatingControl, "w-full justify-center")}
+        >
+          {loadingMoreDocuments ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
+          Load more documents
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -2057,6 +2087,8 @@ export function ClinicalDashboard() {
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
+  const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
+  const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [query, setQuery] = useState("");
@@ -2103,6 +2135,7 @@ export function ClinicalDashboard() {
       if (nextDemoMode) setDemoMode(true);
       if (!nextDemoMode && authStatus !== "authenticated") {
         setDocuments([]);
+        setDocumentsPagination(null);
         setJobs([]);
         setBatches([]);
         return;
@@ -2111,7 +2144,7 @@ export function ClinicalDashboard() {
 
     const protectedHeaders = nextDemoMode ? undefined : authorizationHeader;
     const [documentsResponse, jobsResponse, batchesResponse] = await Promise.all([
-      fetch("/api/documents", { headers: protectedHeaders }),
+      fetch(`/api/documents?limit=${documentPageSize}`, { headers: protectedHeaders }),
       fetch("/api/ingestion/jobs", { headers: protectedHeaders }),
       fetch("/api/ingestion/batches", { headers: protectedHeaders }),
     ]);
@@ -2119,6 +2152,7 @@ export function ClinicalDashboard() {
     if (documentsResponse.status === 401 || jobsResponse.status === 401 || batchesResponse.status === 401) {
       markSessionExpired();
       setDocuments([]);
+      setDocumentsPagination(null);
       setJobs([]);
       setBatches([]);
       return;
@@ -2127,6 +2161,7 @@ export function ClinicalDashboard() {
     if (documentsResponse.ok) {
       const payload = await documentsResponse.json();
       setDocuments(payload.documents ?? []);
+      setDocumentsPagination(payload.pagination ?? null);
       if (payload.demoMode) setDemoMode(true);
       if (payload.setupRequired) setSetupWarning(payload.error);
     } else {
@@ -2150,6 +2185,45 @@ export function ClinicalDashboard() {
       setApiUnavailable(true);
     }
   }, [authStatus, authorizationHeader, clientDemoMode, markSessionExpired]);
+
+  const loadMoreDocuments = useCallback(async () => {
+    if (!documentsPagination?.hasMore || loadingMoreDocuments || (!clientDemoMode && authStatus !== "authenticated")) {
+      return;
+    }
+
+    setLoadingMoreDocuments(true);
+    try {
+      const protectedHeaders = clientDemoMode ? undefined : authorizationHeader;
+      const response = await fetch(
+        `/api/documents?limit=${documentPageSize}&offset=${documentsPagination.nextOffset}`,
+        { headers: protectedHeaders },
+      );
+      if (response.status === 401) {
+        markSessionExpired();
+        return;
+      }
+      if (!response.ok) {
+        setApiUnavailable(true);
+        return;
+      }
+      const payload = await response.json();
+      const nextDocuments = (payload.documents ?? []) as ClinicalDocument[];
+      setDocuments((current) => {
+        const seen = new Set(current.map((document) => document.id));
+        return [...current, ...nextDocuments.filter((document) => !seen.has(document.id))];
+      });
+      setDocumentsPagination(payload.pagination ?? null);
+    } finally {
+      setLoadingMoreDocuments(false);
+    }
+  }, [
+    authStatus,
+    authorizationHeader,
+    clientDemoMode,
+    documentsPagination,
+    loadingMoreDocuments,
+    markSessionExpired,
+  ]);
 
   const retryJob = useCallback(
     async (jobId: string) => {
@@ -2687,8 +2761,11 @@ export function ClinicalDashboard() {
             >
               <DocumentDrawer
                 documents={documents}
+                pagination={documentsPagination}
+                loadingMoreDocuments={loadingMoreDocuments}
                 selectedDocumentIds={selectedDocumentIds}
                 onToggleScope={toggleDocumentScope}
+                onLoadMoreDocuments={loadMoreDocuments}
                 onDocumentRenamed={handleDocumentRenamed}
                 onDocumentDeleted={handleDocumentDeleted}
                 canManageDocuments={!clientDemoMode && authStatus === "authenticated"}

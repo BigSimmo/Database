@@ -15,6 +15,8 @@ type QueryCall = {
   table: string;
   operation: "select" | "insert" | "update" | "delete";
   selected?: string;
+  range?: { from: number; to: number };
+  orFilters: string[];
   filters: QueryFilter[];
   inFilters: QueryInFilter[];
   overlapsFilters: QueryInFilter[];
@@ -81,6 +83,16 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  range(from: number, to: number) {
+    this.call.range = { from, to };
+    return this;
+  }
+
+  or(filter: string) {
+    this.call.orFilters.push(filter);
+    return this;
+  }
+
   limit(count: number) {
     this.call.limitCount = count;
     return this;
@@ -139,6 +151,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
       const call: QueryCall = {
         table,
         operation: "select",
+        orFilters: [],
         filters: [],
         inFilters: [],
         overlapsFilters: [],
@@ -230,7 +243,11 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(200);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(body.pagination).toMatchObject({ limit: 100, offset: 0, nextOffset: 1, hasMore: false });
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(client.calls[0].selected).toContain("id,owner_id,title");
+    expect(client.calls[0].selected).not.toBe("*");
+    expect(client.calls[0].range).toEqual({ from: 0, to: 99 });
   });
 
   it("does not return raw internal database errors", async () => {
@@ -556,6 +573,8 @@ describe("private document API access", () => {
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
       if (call.table === "document_images" && call.operation === "select") return ok([{ storage_path: imagePath }]);
       if (call.table === "document_chunks" && call.operation === "select") return ok([{ id: chunkId }]);
+      if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
+      if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
       if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
       if (call.table === "documents" && call.operation === "delete") return ok([]);
       return ok([]);
@@ -570,9 +589,19 @@ describe("private document API access", () => {
     const body = await payload(response);
     const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
     const documentDelete = client.calls.find((call) => call.table === "documents" && call.operation === "delete");
+    const cleanupInsert = client.calls.find((call) => call.table === "storage_cleanup_jobs" && call.operation === "insert");
+    const cleanupUpdate = client.calls.find((call) => call.table === "storage_cleanup_jobs" && call.operation === "update");
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({ deleted: true, documentId, storageWarnings: [] });
+    expect(cleanupInsert?.insertPayload).toMatchObject({
+      owner_id: userId,
+      document_id: documentId,
+      document_paths: [sourcePath],
+      image_paths: [imagePath],
+      status: "pending",
+    });
+    expect(cleanupUpdate?.updatePayload).toMatchObject({ status: "completed", storage_removed: 0 });
     expect(ragDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
     expect(ragDelete?.overlapsFilters).toContainEqual({ column: "source_chunk_ids", values: [chunkId] });
     expect(documentDelete?.filters).toContainEqual({ column: "id", value: documentId });

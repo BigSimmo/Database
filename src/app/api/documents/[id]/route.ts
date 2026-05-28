@@ -53,6 +53,62 @@ async function removeStorageObjects(args: {
   return { storageRemoved, storageWarnings: warnings };
 }
 
+async function createStorageCleanupJob(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  documentId: string;
+  documentTitle: string;
+  sourcePath: string | null;
+  imagePaths: string[];
+}) {
+  const { data, error } = await args.supabase
+    .from("storage_cleanup_jobs")
+    .insert({
+      owner_id: args.ownerId,
+      document_id: args.documentId,
+      document_title: args.documentTitle,
+      document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+      document_paths: args.sourcePath ? [args.sourcePath] : [],
+      image_bucket: env.SUPABASE_IMAGE_BUCKET,
+      image_paths: Array.from(new Set(args.imagePaths.filter(Boolean))),
+      status: "pending",
+      metadata: {
+        operation: "permanent_document_delete",
+        created_by: "api/documents/[id]",
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data.id as string;
+}
+
+async function updateStorageCleanupJob(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  cleanupJobId: string;
+  status: "completed" | "failed";
+  storageRemoved: number;
+  warnings: string[];
+}) {
+  const { error } = await args.supabase
+    .from("storage_cleanup_jobs")
+    .update({
+      status: args.status,
+      attempts: 1,
+      storage_removed: args.storageRemoved,
+      last_error: args.warnings.length ? args.warnings.join("; ") : null,
+      completed_at: args.status === "completed" ? new Date().toISOString() : null,
+      metadata: {
+        operation: "permanent_document_delete",
+        storage_warnings: args.warnings,
+      },
+    })
+    .eq("id", args.cleanupJobId);
+
+  return error ? storageWarningsFrom(error, "Cleanup ledger") : null;
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -231,23 +287,59 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (chunksError) throw new Error(chunksError.message);
 
     const chunkIds = (chunks ?? []).map((chunk) => chunk.id).filter(Boolean);
+    const imagePaths = (images ?? []).map((image) => image.storage_path).filter(Boolean);
+    const cleanupJobId = await createStorageCleanupJob({
+      supabase,
+      ownerId: user.id,
+      documentId: id,
+      documentTitle: document.title,
+      sourcePath: document.storage_path,
+      imagePaths,
+    });
+
     if (chunkIds.length > 0) {
       const { error: queryDeleteError } = await supabase
         .from("rag_queries")
         .delete()
         .eq("owner_id", user.id)
         .overlaps("source_chunk_ids", chunkIds);
-      if (queryDeleteError) throw new Error(queryDeleteError.message);
+      if (queryDeleteError) {
+        const ledgerWarning = await updateStorageCleanupJob({
+          supabase,
+          cleanupJobId,
+          status: "failed",
+          storageRemoved: 0,
+          warnings: [`Query log delete: ${queryDeleteError.message}`],
+        });
+        throw new Error(ledgerWarning ? `${queryDeleteError.message}; ${ledgerWarning}` : queryDeleteError.message);
+      }
     }
 
     const { error: deleteError } = await supabase.from("documents").delete().eq("id", id).eq("owner_id", user.id);
-    if (deleteError) throw new Error(deleteError.message);
+    if (deleteError) {
+      const ledgerWarning = await updateStorageCleanupJob({
+        supabase,
+        cleanupJobId,
+        status: "failed",
+        storageRemoved: 0,
+        warnings: [`Database delete: ${deleteError.message}`],
+      });
+      throw new Error(ledgerWarning ? `${deleteError.message}; ${ledgerWarning}` : deleteError.message);
+    }
 
     const cleanup = await removeStorageObjects({
       supabase,
       sourcePath: document.storage_path,
-      imagePaths: (images ?? []).map((image) => image.storage_path).filter(Boolean),
+      imagePaths,
     });
+    const ledgerWarning = await updateStorageCleanupJob({
+      supabase,
+      cleanupJobId,
+      status: cleanup.storageWarnings.length > 0 ? "failed" : "completed",
+      storageRemoved: cleanup.storageRemoved,
+      warnings: cleanup.storageWarnings,
+    });
+    if (ledgerWarning) cleanup.storageWarnings.push(ledgerWarning);
 
     invalidateRagCachesForOwner(user.id);
     return NextResponse.json({

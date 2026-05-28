@@ -24,6 +24,8 @@
     "check:indexing": "tsx scripts/check-indexing.ts",
     "eval:rag": "tsx scripts/eval-rag.ts",
     "eval:search": "tsx scripts/eval-search.ts",
+    "cleanup:storage": "tsx scripts/cleanup-storage.ts",
+    "purge:query-logs": "tsx scripts/purge-query-logs.ts",
     "samples": "tsx scripts/generate-sample-documents.ts",
     "samples:check": "tsx scripts/check-sample-extraction.ts"
   },
