@@ -436,6 +436,22 @@ function setCachedSearch(args: SearchChunksArgs, results: SearchResult[], teleme
   }
 }
 
+export function invalidateRagCachesForOwner(ownerId?: string | null) {
+  if (!ownerId) {
+    answerCache.clear();
+    searchCache.clear();
+    return;
+  }
+
+  const prefix = `${ownerId}|`;
+  for (const key of answerCache.keys()) {
+    if (key.startsWith(prefix)) answerCache.delete(key);
+  }
+  for (const key of searchCache.keys()) {
+    if (key.startsWith(prefix)) searchCache.delete(key);
+  }
+}
+
 async function insertRagQuery(row: Record<string, unknown>) {
   const supabase = createAdminClient();
   await supabase.from("rag_queries").insert(row);

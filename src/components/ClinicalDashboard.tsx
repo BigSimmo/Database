@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
@@ -1442,10 +1443,16 @@ function DocumentDrawer({
   documents,
   selectedDocumentIds,
   onToggleScope,
+  onDocumentRenamed,
+  onDocumentDeleted,
+  canManageDocuments,
 }: {
   documents: ClinicalDocument[];
   selectedDocumentIds: string[];
   onToggleScope: (documentId: string) => void;
+  onDocumentRenamed: (document: ClinicalDocument) => void;
+  onDocumentDeleted: (result: DocumentDeleteResult) => void;
+  canManageDocuments: boolean;
 }) {
   const [filter, setFilter] = useState("");
   const filtered = documents.filter((document) => {
@@ -1515,6 +1522,12 @@ function DocumentDrawer({
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={document.status} />
                   <SourceStatusBadge metadata={document.metadata} />
+                  <DocumentManagementActions
+                    document={document}
+                    disabled={!canManageDocuments}
+                    onRenamed={onDocumentRenamed}
+                    onDeleted={onDocumentDeleted}
+                  />
                   <button
                     type="button"
                     onClick={() => onToggleScope(document.id)}
@@ -2003,6 +2016,42 @@ function GuideTrigger({ onOpen }: { onOpen: () => void }) {
   );
 }
 
+function answerReferencesDocument(answer: RagAnswer | null, documentId: string) {
+  if (!answer) return false;
+  return (
+    answer.citations.some((citation) => citation.document_id === documentId) ||
+    answer.sources.some((source) => source.document_id === documentId) ||
+    Boolean(answer.bestSource?.document_id === documentId) ||
+    Boolean(answer.relatedDocuments?.some((document) => document.document_id === documentId)) ||
+    Boolean(answer.visualEvidence?.some((image) => image.document_id === documentId))
+  );
+}
+
+function applyRenamedDocumentToAnswer(answer: RagAnswer | null, document: ClinicalDocument) {
+  if (!answer || !answerReferencesDocument(answer, document.id)) return answer;
+  const renameCitation = <T extends { document_id: string; title: string }>(item: T): T =>
+    item.document_id === document.id ? { ...item, title: document.title } : item;
+  const renameRelated = (item: RelatedDocument): RelatedDocument =>
+    item.document_id === document.id ? { ...item, title: document.title } : item;
+
+  return {
+    ...answer,
+    citations: answer.citations.map(renameCitation),
+    quoteCards: answer.quoteCards?.map(renameCitation),
+    sources: answer.sources.map(renameCitation),
+    visualEvidence: answer.visualEvidence?.map(renameCitation),
+    bestSource: answer.bestSource ? renameCitation(answer.bestSource) : answer.bestSource,
+    relatedDocuments: answer.relatedDocuments?.map(renameRelated),
+    smartPanel: answer.smartPanel
+      ? {
+          ...answer.smartPanel,
+          bestSource: answer.smartPanel.bestSource ? renameCitation(answer.smartPanel.bestSource) : answer.smartPanel.bestSource,
+          relatedDocuments: answer.smartPanel.relatedDocuments?.map(renameRelated),
+        }
+      : answer.smartPanel,
+  } satisfies RagAnswer;
+}
+
 export function ClinicalDashboard() {
   const mainRef = useRef<HTMLElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -2148,6 +2197,32 @@ export function ClinicalDashboard() {
   const enrichDocument = useCallback(
     (documentId: string) => reindexDocument(documentId, "enrichment"),
     [reindexDocument],
+  );
+
+  const handleDocumentRenamed = useCallback((updatedDocument: ClinicalDocument) => {
+    setDocuments((current) =>
+      current.map((document) => (document.id === updatedDocument.id ? { ...document, ...updatedDocument } : document)),
+    );
+    setSources((current) =>
+      current.map((source) =>
+        source.document_id === updatedDocument.id ? { ...source, title: updatedDocument.title } : source,
+      ),
+    );
+    setAnswer((current) => applyRenamedDocumentToAnswer(current, updatedDocument));
+  }, []);
+
+  const handleDocumentDeleted = useCallback(
+    (result: DocumentDeleteResult) => {
+      setDocuments((current) => current.filter((document) => document.id !== result.documentId));
+      setSelectedDocumentIds((current) => current.filter((documentId) => documentId !== result.documentId));
+      setSources((current) => current.filter((source) => source.document_id !== result.documentId));
+      setAnswer((current) => (answerReferencesDocument(current, result.documentId) ? null : current));
+      if (result.storageWarnings.length > 0) {
+        setError(`Document deleted, but storage cleanup needs review: ${result.storageWarnings.join("; ")}`);
+      }
+      void refresh().catch(() => undefined);
+    },
+    [refresh],
   );
 
   useEffect(() => {
@@ -2614,6 +2689,9 @@ export function ClinicalDashboard() {
                 documents={documents}
                 selectedDocumentIds={selectedDocumentIds}
                 onToggleScope={toggleDocumentScope}
+                onDocumentRenamed={handleDocumentRenamed}
+                onDocumentDeleted={handleDocumentDeleted}
+                canManageDocuments={!clientDemoMode && authStatus === "authenticated"}
               />
             </UtilityDrawer>
 

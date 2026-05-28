@@ -13,11 +13,13 @@ type QueryFilter = { column: string; value: unknown };
 type QueryInFilter = { column: string; values: unknown[] };
 type QueryCall = {
   table: string;
-  operation: "select" | "insert";
+  operation: "select" | "insert" | "update" | "delete";
   selected?: string;
   filters: QueryFilter[];
   inFilters: QueryInFilter[];
+  overlapsFilters: QueryInFilter[];
   insertPayload?: unknown;
+  updatePayload?: unknown;
   limitCount?: number;
   maybeSingle: boolean;
   single: boolean;
@@ -49,6 +51,17 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  update(payload: unknown) {
+    this.call.operation = "update";
+    this.call.updatePayload = payload;
+    return this;
+  }
+
+  delete() {
+    this.call.operation = "delete";
+    return this;
+  }
+
   eq(column: string, value: unknown) {
     this.call.filters.push({ column, value });
     return this;
@@ -56,6 +69,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
   in(column: string, values: unknown[]) {
     this.call.inFilters.push({ column, values });
+    return this;
+  }
+
+  overlaps(column: string, values: unknown[]) {
+    this.call.overlapsFilters.push({ column, values });
     return this;
   }
 
@@ -123,6 +141,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
         operation: "select",
         filters: [],
         inFilters: [],
+        overlapsFilters: [],
         maybeSingle: false,
         single: false,
       };
@@ -445,6 +464,149 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toEqual({ error: "Document not found." });
     expect(client.calls).toHaveLength(1);
+  });
+
+  it("allows owners to rename the document display title without changing file provenance", async () => {
+    const original = {
+      id: documentId,
+      owner_id: userId,
+      title: "Original title",
+      file_name: "source.pdf",
+      storage_path: `${userId}/documents/${documentId}/source.pdf`,
+      content_hash: "hash-1",
+      metadata: { source_path: "C:\\Guidelines\\source.pdf" },
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(original);
+      if (call.table === "documents" && call.operation === "update") {
+        return ok({
+          ...original,
+          ...(call.updatePayload as Record<string, unknown>),
+        });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { PATCH } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "Better clinical title" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const updateCall = client.calls.find((call) => call.table === "documents" && call.operation === "update");
+    const update = updateCall?.updatePayload as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect((body.document as Record<string, unknown>).title).toBe("Better clinical title");
+    expect(update.title).toBe("Better clinical title");
+    expect(update).not.toHaveProperty("file_name");
+    expect(update).not.toHaveProperty("storage_path");
+    expect(update).not.toHaveProperty("content_hash");
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+  });
+
+  it("rejects invalid document rename titles", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { PATCH } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "   " }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toEqual({ error: "Enter a document title between 1 and 180 characters." });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("does not rename another user's document", async () => {
+    const client = createSupabaseMock(() => ok(null));
+    mockRuntime(client);
+    const { PATCH } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${otherDocumentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "Not mine" }),
+      }),
+      { params: Promise.resolve({ id: otherDocumentId }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+  });
+
+  it("permanently deletes an owned document, query logs, and storage objects", async () => {
+    const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
+    const imagePath = `${userId}/images/${imageId}.png`;
+    const chunkId = "44444444-4444-4444-8444-444444444444";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: sourcePath });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "document_images" && call.operation === "select") return ok([{ storage_path: imagePath }]);
+      if (call.table === "document_chunks" && call.operation === "select") return ok([{ id: chunkId }]);
+      if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
+      if (call.table === "documents" && call.operation === "delete") return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { DELETE } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await DELETE(
+      authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
+    const documentDelete = client.calls.find((call) => call.table === "documents" && call.operation === "delete");
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ deleted: true, documentId, storageWarnings: [] });
+    expect(ragDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(ragDelete?.overlapsFilters).toContainEqual({ column: "source_chunk_ids", values: [chunkId] });
+    expect(documentDelete?.filters).toContainEqual({ column: "id", value: documentId });
+    expect(documentDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(client.storageMocks.storageFrom).toHaveBeenCalledWith("clinical-documents");
+    expect(client.storageMocks.storageFrom).toHaveBeenCalledWith("clinical-images");
+    expect(client.storageMocks.remove).toHaveBeenCalledWith([sourcePath]);
+    expect(client.storageMocks.remove).toHaveBeenCalledWith([imagePath]);
+  });
+
+  it("blocks permanent delete while a document is actively indexing", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: "source.pdf" });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok([{ id: "job-1", status: "processing" }]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { DELETE } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await DELETE(
+      authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toEqual({
+      error: "Document is currently indexing. Stop or wait for the worker before deleting.",
+    });
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
+    expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
   it("passes owner scope through search and answer routes", async () => {

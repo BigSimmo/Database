@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
@@ -46,6 +47,7 @@ import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/
 import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import { DocumentManagementActions } from "@/components/DocumentManagementActions";
 import type { ClinicalDocument, RagAnswer } from "@/lib/types";
 
 type PageRow = {
@@ -564,6 +566,7 @@ export function DocumentViewer({
   initialPage: number;
   chunkId?: string;
 }) {
+  const router = useRouter();
   const [document, setDocument] = useState<ClinicalDocument | null>(null);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [images, setImages] = useState<ImageRow[]>([]);
@@ -789,6 +792,12 @@ export function DocumentViewer({
     setLoadingDocument(true);
     setPreviewAttempt((current) => current + 1);
   };
+  const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
+    setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
+  };
+  const handleDocumentDeleted = () => {
+    router.push("/");
+  };
 
   return (
     <main className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)]")}>
@@ -830,16 +839,26 @@ export function DocumentViewer({
               </p>
             </div>
           </div>
-          <button
-            onClick={summarize}
-            disabled={!canSummarizeDocument}
-            title={summarizeTitle}
-            className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
-            aria-label="Summarise document"
-          >
-            {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            <span className="hidden sm:inline">Summarise</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {readyDocument && (
+              <DocumentManagementActions
+                document={readyDocument}
+                disabled={clientDemoMode || authStatus !== "authenticated"}
+                onRenamed={handleDocumentRenamed}
+                onDeleted={handleDocumentDeleted}
+              />
+            )}
+            <button
+              onClick={summarize}
+              disabled={!canSummarizeDocument}
+              title={summarizeTitle}
+              className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
+              aria-label="Summarise document"
+            >
+              {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <span className="hidden sm:inline">Summarise</span>
+            </button>
+          </div>
         </div>
       </header>
 
