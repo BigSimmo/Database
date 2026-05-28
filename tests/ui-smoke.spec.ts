@@ -1,3 +1,4 @@
+import type { Route } from "playwright-core";
 import { expect, test, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 
@@ -119,6 +120,28 @@ async function mockPrivateAuthenticatedApi(page: Page) {
   });
 }
 
+function answerStreamBody(payload: unknown) {
+  return [
+    `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
+    `event: final\ndata: ${JSON.stringify(payload)}`,
+    "",
+  ].join("\n\n");
+}
+
+async function fulfillAnswerResponse(route: Route, payload: unknown) {
+  const pathname = new URL(route.request().url()).pathname;
+  if (pathname.endsWith("/stream")) {
+    await route.fulfill({
+      body: answerStreamBody(payload),
+      contentType: "text/event-stream; charset=utf-8",
+      headers: { "Cache-Control": "no-cache, no-transform" },
+    });
+    return;
+  }
+
+  await route.fulfill({ json: payload });
+}
+
 async function mockDemoApi(page: Page) {
   await page.route(/\/api\/setup-status$/, async (route) => {
     await route.fulfill({
@@ -134,17 +157,15 @@ async function mockDemoApi(page: Page) {
   await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { batches: [], demoMode: true } });
   });
-  await page.route(/\/api\/answer$/, async (route) => {
+  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
     const body = route.request().postDataJSON() as {
       query?: string;
       documentId?: string;
       documentIds?: string[];
     };
-    await route.fulfill({
-      json: {
-        ...demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
-        demoMode: true,
-      },
+    await fulfillAnswerResponse(route, {
+      ...demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
+      demoMode: true,
     });
   });
   await page.route(/\/api\/documents\/([^/]+)\/signed-url(?:\?.*)?$/, async (route) => {
@@ -462,8 +483,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const payload = await response.json();
     expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(4);
-    expect(payload.checks.map((check: { id: string }) => check.id)).toEqual(["env", "schema", "openai", "worker"]);
+    expect(payload.checks).toHaveLength(5);
+    expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
+      "env",
+      "project",
+      "schema",
+      "openai",
+      "worker",
+    ]);
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });
 

@@ -7,7 +7,14 @@ import {
 
 loadEnvConfig(process.cwd());
 
-const check = checkSupabaseProjectConfig(process.env, { requireMetadata: true });
+const check = checkSupabaseProjectConfig(
+  {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
+    SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+  },
+  { requireMetadata: true },
+);
 
 console.log(`Expected Supabase project: ${expectedSupabaseProject.name} (${expectedSupabaseProject.ref})`);
 console.log(`Expected Supabase URL: ${expectedSupabaseProject.url}`);
