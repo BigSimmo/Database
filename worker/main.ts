@@ -4,9 +4,16 @@ import os from "node:os";
 import path from "node:path";
 import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
-import { upsertDocumentEnrichment } from "../src/lib/document-enrichment";
+import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/document-enrichment";
+import { ragDeepMemoryVersion, upsertDocumentDeepMemory } from "../src/lib/deep-memory";
 import { extractDocument, fileToBase64 } from "../src/lib/extractors/document";
-import { cheapImageSkipReason, classifiedImageSkipReason, lightweightPerceptualHash } from "../src/lib/image-filtering";
+import {
+  assessClinicalImageUse,
+  cheapImageSkipReason,
+  classifiedImageSkipReason,
+  clinicalImagePolicyVersion,
+  lightweightPerceptualHash,
+} from "../src/lib/image-filtering";
 import { isRetryableIngestionError, nextRetryAt, terminalBatchStatus } from "../src/lib/ingestion";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
@@ -134,7 +141,75 @@ function cachedImageMetadata(value: unknown) {
 
 function cachedImageLabels(labels: unknown) {
   if (!Array.isArray(labels)) return [];
-  return labels.map((label) => String(label).trim()).filter(Boolean).slice(0, 6);
+  return labels
+    .map((label) => String(label).trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function metadataString(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function compactMetadataText(value: string | null, limit = 1200) {
+  if (!value) return null;
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
+}
+
+function imageTableMetadata(image: ExtractedDocument["images"][number]) {
+  const metadata = image.metadata ?? {};
+  const tableText = metadataString(metadata, "table_text");
+  const confidence = Number(metadata.table_confidence);
+  return {
+    candidateType: metadataString(metadata, "candidate_type"),
+    tableLabel: metadataString(metadata, "table_label"),
+    tableTitle: metadataString(metadata, "table_title"),
+    tableRole: metadataString(metadata, "table_role"),
+    tableConfidence: Number.isFinite(confidence) ? confidence : null,
+    tableText,
+    tableTextSnippet: compactMetadataText(tableText),
+    accessibleTableMarkdown: metadataString(metadata, "accessible_table_markdown") ?? tableText,
+    tableRows: Array.isArray(metadata.table_rows) ? metadata.table_rows : null,
+    tableColumns: Array.isArray(metadata.table_columns) ? metadata.table_columns : null,
+  };
+}
+
+function nonClinicalTableClassification(args: {
+  tableMetadata: ReturnType<typeof imageTableMetadata>;
+  sourceKind?: string | null;
+  imageType?: ImageEvidenceCategory;
+}) {
+  const assessment = assessClinicalImageUse({
+    imageType: args.imageType ?? "clinical_table",
+    searchable: true,
+    clinicalRelevanceScore: 0.4,
+    sourceKind: args.sourceKind,
+    tableRole: args.tableMetadata.tableRole,
+    tableText: args.tableMetadata.tableText,
+    tableTitle: args.tableMetadata.tableTitle,
+    tableLabel: args.tableMetadata.tableLabel,
+  });
+  if (assessment.clinical_use_class === "clinical_evidence" || assessment.clinical_use_class === "ambiguous") {
+    return null;
+  }
+  return {
+    image_type: args.imageType ?? ("clinical_table" as const),
+    searchable: false,
+    clinical_relevance_score: 0,
+    labels: [],
+    caption:
+      assessment.clinical_use_class === "administrative"
+        ? "Administrative document-control table retained for audit, not clinical evidence."
+        : "Reference table retained for audit, not clinical evidence.",
+    skip_reason: assessment.clinical_use_reason,
+    clinical_use_class: assessment.clinical_use_class,
+    clinical_use_reason: assessment.clinical_use_reason,
+    clinical_signal_score: assessment.clinical_signal_score,
+    admin_signal_score: assessment.admin_signal_score,
+  } satisfies ImageClassification;
 }
 
 async function getCachedImageClassification(ownerId: string | null, imageHash: string) {
@@ -159,14 +234,28 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     ? (metadata.image_type as ImageEvidenceCategory)
     : "unclear";
   const score = Number(metadata.clinical_relevance_score);
+  const labels = cachedImageLabels(metadata.labels);
+  const assessment = assessClinicalImageUse({
+    imageType,
+    searchable: Boolean(metadata.searchable),
+    clinicalRelevanceScore: score,
+    caption: String(data.caption || ""),
+    labels,
+    skipReason: typeof metadata.skip_reason === "string" ? metadata.skip_reason : null,
+  });
 
   return {
     image_type: imageType,
-    searchable: Boolean(metadata.searchable) && imageType !== "logo_decorative",
-    clinical_relevance_score: Number.isFinite(score) ? Math.min(Math.max(score, 0), 1) : 0.4,
-    labels: cachedImageLabels(metadata.labels),
+    searchable: assessment.searchable && imageType !== "logo_decorative",
+    clinical_relevance_score: assessment.clinical_relevance_score,
+    labels,
     caption: String(data.caption || "").trim() || "Extracted source image.",
-    skip_reason: typeof metadata.skip_reason === "string" && metadata.skip_reason.trim() ? metadata.skip_reason.trim() : null,
+    skip_reason:
+      typeof metadata.skip_reason === "string" && metadata.skip_reason.trim() ? metadata.skip_reason.trim() : null,
+    clinical_use_class: assessment.clinical_use_class,
+    clinical_use_reason: assessment.clinical_use_reason,
+    clinical_signal_score: assessment.clinical_signal_score,
+    admin_signal_score: assessment.admin_signal_score,
   } satisfies ImageClassification;
 }
 
@@ -192,6 +281,11 @@ async function setCachedImageClassification(args: {
         clinical_relevance_score: args.classification.clinical_relevance_score,
         labels: args.classification.labels,
         skip_reason: args.classification.skip_reason,
+        clinical_use_class: args.classification.clinical_use_class,
+        clinical_use_reason: args.classification.clinical_use_reason,
+        clinical_signal_score: args.classification.clinical_signal_score,
+        admin_signal_score: args.classification.admin_signal_score,
+        image_policy_version: clinicalImagePolicyVersion,
       },
       updated_at: new Date().toISOString(),
     },
@@ -209,7 +303,12 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     caption: string;
     pageNumber: number | null;
     imageType: ImageEvidenceCategory;
+    sourceKind: string | null;
     labels: string[];
+    tableLabel: string | null;
+    tableTitle: string | null;
+    tableTextSnippet: string | null;
+    tableRole: string | null;
   }> = [];
   const seenHashes = new Set<string>();
   let skippedImages = 0;
@@ -239,13 +338,27 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     seenHashes.add(imageHash);
 
     const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
-    let classification = await getCachedImageClassification(job.documents.owner_id, imageHash);
-    const classificationCacheHit = Boolean(classification);
+    const tableMetadata = imageTableMetadata(image);
+    let classification: ImageClassification | null =
+      image.sourceKind === "table_crop"
+        ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
+        : null;
+    let classificationCacheHit = false;
+    if (!classification) {
+      classification = await getCachedImageClassification(job.documents.owner_id, imageHash);
+      classificationCacheHit = Boolean(classification);
+    }
     if (!classification) {
       classification = await classifyAndCaptionImageFromBase64({
         base64: await fileToBase64(image.path),
         mimeType: image.mimeType,
         nearbyText,
+        sourceKind: image.sourceKind ?? null,
+        candidateType: tableMetadata.candidateType,
+        tableLabel: tableMetadata.tableLabel,
+        tableTitle: tableMetadata.tableTitle,
+        tableRole: tableMetadata.tableRole,
+        tableText: tableMetadata.tableText,
       });
       await setCachedImageClassification({
         ownerId: job.documents.owner_id,
@@ -254,13 +367,44 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         classification,
       });
     }
+    const policyAssessment = assessClinicalImageUse({
+      imageType: classification.image_type,
+      searchable: classification.searchable,
+      clinicalRelevanceScore: classification.clinical_relevance_score,
+      sourceKind: image.sourceKind ?? null,
+      tableRole: tableMetadata.tableRole,
+      tableText: tableMetadata.tableText,
+      tableTitle: tableMetadata.tableTitle,
+      tableLabel: tableMetadata.tableLabel,
+      caption: classification.caption,
+      labels: classification.labels,
+      skipReason: classification.skip_reason,
+    });
+    classification = {
+      ...classification,
+      searchable: policyAssessment.searchable,
+      clinical_relevance_score: policyAssessment.clinical_relevance_score,
+      skip_reason: policyAssessment.searchable ? classification.skip_reason : policyAssessment.clinical_use_reason,
+      clinical_use_class: policyAssessment.clinical_use_class,
+      clinical_use_reason: policyAssessment.clinical_use_reason,
+      clinical_signal_score: policyAssessment.clinical_signal_score,
+      admin_signal_score: policyAssessment.admin_signal_score,
+    };
+
     const classifiedSkipReason = classifiedImageSkipReason(classification);
-    if (classifiedSkipReason) {
+    const retainAsAuditTable =
+      image.sourceKind === "table_crop" &&
+      ["administrative", "reference"].includes(policyAssessment.clinical_use_class) &&
+      classification.image_type !== "logo_decorative";
+    if (classifiedSkipReason && !retainAsAuditTable) {
       skippedImages += 1;
       skipReasons.set(classifiedSkipReason, (skipReasons.get(classifiedSkipReason) ?? 0) + 1);
       continue;
     }
-    imageTypeCounts.set(classification.image_type, (imageTypeCounts.get(classification.image_type) ?? 0) + 1);
+    const persistedSearchable = policyAssessment.searchable;
+    if (persistedSearchable) {
+      imageTypeCounts.set(classification.image_type, (imageTypeCounts.get(classification.image_type) ?? 0) + 1);
+    }
 
     const ext = path.extname(image.path) || ".png";
     const imagePrefix = job.documents.owner_id
@@ -283,8 +427,8 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         caption: classification.caption,
         bbox: image.bbox ?? null,
         image_type: classification.image_type,
-        searchable: classification.searchable,
-        clinical_relevance_score: classification.clinical_relevance_score,
+        searchable: persistedSearchable,
+        clinical_relevance_score: persistedSearchable ? classification.clinical_relevance_score : 0,
         source_kind: image.sourceKind ?? "embedded",
         width: image.width ?? null,
         height: image.height ?? null,
@@ -292,24 +436,49 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         perceptual_hash: perceptualHash,
         labels: classification.labels,
         metadata: {
+          ...(image.metadata ?? {}),
           extractor: "local-worker",
           image_hash: imageHash,
           perceptual_hash: perceptualHash,
           classification_cache_hit: classificationCacheHit,
-          ...(image.metadata ?? {}),
+          candidate_type: tableMetadata.candidateType ?? image.metadata?.candidate_type ?? null,
+          table_label: tableMetadata.tableLabel,
+          table_title: tableMetadata.tableTitle,
+          table_text: tableMetadata.tableText,
+          table_text_snippet: tableMetadata.tableTextSnippet,
+          table_role: tableMetadata.tableRole,
+          table_confidence: tableMetadata.tableConfidence,
+          table_rows: tableMetadata.tableRows,
+          table_columns: tableMetadata.tableColumns,
+          accessible_table_markdown: tableMetadata.accessibleTableMarkdown,
+          clinical_use_class: policyAssessment.clinical_use_class,
+          clinical_use_reason: policyAssessment.clinical_use_reason,
+          clinical_signal_score: policyAssessment.clinical_signal_score,
+          admin_signal_score: policyAssessment.admin_signal_score,
+          image_policy_version: clinicalImagePolicyVersion,
+          retained_for_audit: retainAsAuditTable || undefined,
+          retained_for_document_view: retainAsAuditTable || undefined,
+          skip_reason: retainAsAuditTable ? classifiedSkipReason : classification.skip_reason,
         },
       })
-      .select("id,caption,page_number,image_type,labels")
+      .select("id,caption,page_number,image_type,labels,searchable")
       .single();
 
     if (error) throw new Error(error.message);
-    insertedImages.push({
-      id: data.id,
-      caption: data.caption,
-      pageNumber: data.page_number,
-      imageType: data.image_type,
-      labels: data.labels ?? [],
-    });
+    if (data.searchable !== false) {
+      insertedImages.push({
+        id: data.id,
+        caption: data.caption,
+        pageNumber: data.page_number,
+        imageType: data.image_type,
+        sourceKind: image.sourceKind ?? "embedded",
+        labels: data.labels ?? [],
+        tableLabel: tableMetadata.tableLabel,
+        tableTitle: tableMetadata.tableTitle,
+        tableTextSnippet: tableMetadata.tableTextSnippet,
+        tableRole: tableMetadata.tableRole,
+      });
+    }
   }
 
   return {
@@ -331,6 +500,8 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     content_hash: job.documents.content_hash ?? null,
     embedding_model: env.OPENAI_EMBEDDING_MODEL,
     extractor: "local-worker",
+    rag_indexing_version: ragDeepMemoryVersion,
+    rag_memory_version: ragDeepMemoryVersion,
   };
   const chunks = buildChunks(
     extracted.pages.map((page) => ({
@@ -399,17 +570,17 @@ async function loadEnrichmentRows(documentId: string) {
   const [chunksResult, imagesResult] = await Promise.all([
     supabase
       .from("document_chunks")
-      .select("id,page_number,chunk_index,section_heading,content")
+      .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata")
       .eq("document_id", documentId)
       .order("chunk_index", { ascending: true })
-      .limit(24),
+      .limit(1000),
     supabase
       .from("document_images")
-      .select("id,page_number,caption,image_type,labels")
+      .select("id,page_number,caption,image_type,labels,source_kind,clinical_relevance_score,metadata")
       .eq("document_id", documentId)
       .eq("searchable", true)
       .order("clinical_relevance_score", { ascending: false })
-      .limit(12),
+      .limit(200),
   ]);
 
   if (chunksResult.error) throw new Error(chunksResult.error.message);
@@ -450,7 +621,7 @@ async function processJob(job: JobRow) {
     );
     const metrics = extractionMetrics(extracted, skippedImages, imageSkipReasons, imageTypeCounts);
 
-    await updateJob(job.id, { stage: "summarising and labelling", progress: 96 });
+    await updateJob(job.id, { stage: "summarising and labelling", progress: 95 });
     const enrichmentRows = await loadEnrichmentRows(job.document_id);
     await upsertDocumentEnrichment({
       supabase,
@@ -458,7 +629,15 @@ async function processJob(job: JobRow) {
       chunks: enrichmentRows.chunks,
       images: enrichmentRows.images,
     });
+    await updateJob(job.id, { stage: "building structured memory", progress: 98 });
+    const deepMemory = await upsertDocumentDeepMemory({
+      supabase,
+      document: job.documents,
+      chunks: enrichmentRows.chunks,
+      images: enrichmentRows.images,
+    });
 
+    const indexedAt = new Date().toISOString();
     await updateDocument(job.document_id, {
       status: "indexed",
       page_count: extracted.pages.length,
@@ -467,7 +646,14 @@ async function processJob(job: JobRow) {
       error_message: null,
       metadata: {
         ...(job.documents.metadata ?? {}),
-        indexed_at: new Date().toISOString(),
+        indexed_at: indexedAt,
+        rag_enrichment_version: ragEnrichmentVersion,
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+        rag_memory_updated_at: indexedAt,
+        rag_enrichment_updated_at: indexedAt,
+        section_count: deepMemory.sections.length,
+        memory_card_count: deepMemory.memoryCards.length,
         extraction_quality: extracted.pages.length > 0 && metrics.text_character_count >= 80 ? "good" : "partial",
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,

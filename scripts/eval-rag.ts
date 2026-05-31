@@ -1,13 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
-import {
-  estimateCostUsd,
-  findOwnerIdByEmail,
-  loadAdminClient,
-  percentile,
-  validateRagAnswer,
-} from "./eval-utils";
+import { estimateCostUsd, findOwnerIdByEmail, loadAdminClient, percentile, validateRagAnswer } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -90,7 +84,8 @@ function summarizeFailures(results: EvalResult[]) {
   const failedCases = results.filter((result) => result.failures.length > 0);
   const failures: string[] = [];
 
-  if (supported.length >= 18 && groundedSupported < 17) failures.push(`supported grounded ${groundedSupported}/${supported.length}`);
+  if (supported.length >= 18 && groundedSupported < 17)
+    failures.push(`supported grounded ${groundedSupported}/${supported.length}`);
   if (unsupported.length >= 2 && unsupportedCorrect !== unsupported.length) {
     failures.push(`unsupported correct ${unsupportedCorrect}/${unsupported.length}`);
   }
@@ -147,14 +142,15 @@ function printHumanSummary(results: EvalResult[]) {
   console.log(`  token_totals=${JSON.stringify(tokenTotals)}`);
   console.log(
     `  estimated_cost_usd=${
-      estimatedCostUsd === null ? "set RAG_EVAL_INPUT_USD_PER_MILLION and RAG_EVAL_OUTPUT_USD_PER_MILLION" : estimatedCostUsd.toFixed(6)
+      estimatedCostUsd === null
+        ? "set RAG_EVAL_INPUT_USD_PER_MILLION and RAG_EVAL_OUTPUT_USD_PER_MILLION"
+        : estimatedCostUsd.toFixed(6)
     }`,
   );
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerEmail) throw new Error('Provide --owner-email "you@example.com" or set RAG_EVAL_OWNER_EMAIL.');
 
   const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
     import("@/lib/env"),
@@ -165,11 +161,12 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
+  const ownerId = args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined;
+  const scope = ownerId ? `owner:${args.ownerEmail}` : "public";
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: EvalResult[] = [];
 
-  if (!args.json) console.log(`Running ${cases.length} RAG eval case(s).`);
+  if (!args.json) console.log(`Running ${cases.length} RAG eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
     const answer = (await answerQuestionWithScope({
@@ -225,7 +222,7 @@ async function main() {
   const thresholdFailures = summarizeFailures(results);
 
   if (args.json) {
-    console.log(JSON.stringify({ results, thresholdFailures }, null, 2));
+    console.log(JSON.stringify({ scope, results, thresholdFailures }, null, 2));
   } else {
     printHumanSummary(results);
     if (thresholdFailures.length > 0) {

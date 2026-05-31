@@ -53,7 +53,11 @@ async function main() {
   console.log(`RAG query logs older than ${args.olderThanDays} day(s): ${count ?? 0}`);
   if (args.dryRun || !count) return;
 
-  const { error: deleteError } = await supabase.from("rag_queries").delete().eq("owner_id", ownerId).lt("created_at", before);
+  const { error: deleteError } = await supabase
+    .from("rag_queries")
+    .delete()
+    .eq("owner_id", ownerId)
+    .lt("created_at", before);
   if (deleteError) throw new Error(deleteError.message);
   console.log(`Deleted ${count} old RAG query log(s).`);
 }

@@ -1,4 +1,5 @@
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
+import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import type {
   BestSourceRecommendation,
   ConflictOrGap,
@@ -11,17 +12,42 @@ import type {
   SourceStrength,
   VisualEvidenceCard,
 } from "@/lib/types";
+import type { ClinicalImageUseClass } from "@/lib/types";
 
 const imageTagPattern = /\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g;
 
 export function normalizeEvidenceText(text: string) {
   return text
     .replace(imageTagPattern, (tag) => {
+      const title = tag.match(/Table title:\s*([\s\S]*?)(?:;\s*[A-Z][^:]{1,32}:|\s*\[\[IMAGE_DATA_END\]\])/)?.[1];
+      const tableText = tag.match(/Table text:\s*([\s\S]*?)(?:;\s*Description:|\s*\[\[IMAGE_DATA_END\]\])/)?.[1];
       const description = tag.match(/Description:\s*([\s\S]*?)\s*\[\[IMAGE_DATA_END\]\]/)?.[1];
-      return description ? `Image evidence: ${description.trim()}` : "";
+      return [
+        title ? `Table: ${title.trim()}` : "",
+        tableText ? `Table text: ${tableText.trim()}` : "",
+        description ? `Image evidence: ${description.trim()}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
     })
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function imageMetadata(image: { metadata?: Record<string, unknown> | null }) {
+  return image.metadata && typeof image.metadata === "object" ? image.metadata : {};
+}
+
+function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function compactText(value: string | null, limit = 500) {
+  if (!value) return null;
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
 }
 
 export function sourceStrengthForSimilarity(similarity: number): SourceStrength {
@@ -41,7 +67,14 @@ function queryTokens(query: string) {
     ["vomiting", "diarrhoea", "dehydration", "tremor", "confusion", "ataxia"].forEach((token) => expanded.add(token));
   }
   if (tokens.some((token) => ["clozapine", "table", "image", "monitoring"].includes(token))) {
-    ["fbc", "anc", "myocarditis", "metabolic", "constipation"].forEach((token) => expanded.add(token));
+    ["fbc", "wbc", "anc", "neutrophil", "myocarditis", "metabolic", "constipation"].forEach((token) =>
+      expanded.add(token),
+    );
+  }
+  if (tokens.some((token) => ["withhold", "withholding", "cease", "stop", "stopping"].includes(token))) {
+    ["cease", "ceased", "discontinue", "discontinued", "interrupt", "interruption", "red"].forEach((token) =>
+      expanded.add(token),
+    );
   }
   if (tokens.some((token) => ["risk", "escalate", "senior"].includes(token))) {
     ["intent", "attempt", "agitation", "supervision", "review"].forEach((token) => expanded.add(token));
@@ -59,20 +92,51 @@ function sentenceScore(sentence: string, tokens: Set<string>) {
   return score;
 }
 
+function tableRowQuoteCandidates(content: string) {
+  const lines = content
+    .split(/\r?\n+/)
+    .map((line) => normalizeText(line))
+    .filter((line) => line.split(/\s+/).length >= 2);
+  const candidates: string[] = [];
+  let activeHeader: string | null = null;
+
+  for (const line of lines) {
+    if (/\bwbc\b/i.test(line) && /\bneutrophil\b/i.test(line) && /\boutcome\b/i.test(line)) {
+      activeHeader = line;
+      continue;
+    }
+    if (activeHeader && /\b(?:green|amber|red)\b/i.test(line) && /\b(?:continue|cease|required|blood tests?)\b/i.test(line)) {
+      candidates.push(`${activeHeader} ${line}`);
+    }
+  }
+
+  return candidates;
+}
+
 function bestQuoteFromContent(content: string, query: string) {
   const clean = normalizeText(content);
   if (!clean) return "";
 
   const tokens = queryTokens(query);
-  const sentences = clean
+  const rawLineCandidates = content
+    .split(/\r?\n+/)
+    .map((line) => normalizeText(line))
+    .filter((line) => line.split(/\s+/).length >= 3);
+  const sentenceCandidates = clean
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
+  const sentences = Array.from(new Set([...tableRowQuoteCandidates(content), ...rawLineCandidates, ...sentenceCandidates]));
 
   const best =
     sentences
-      .map((sentence) => ({ sentence, score: sentenceScore(sentence, tokens) }))
-      .sort((a, b) => b.score - a.score || b.sentence.length - a.sentence.length)[0]?.sentence ?? clean;
+      .map((sentence) => {
+        const score = sentenceScore(sentence, tokens);
+        const lengthPenalty = sentence.length > 340 ? 6 : sentence.length > 260 ? 1.2 : sentence.length > 180 ? 0.4 : 0;
+        return { sentence, score, adjustedScore: score - lengthPenalty };
+      })
+      .sort((a, b) => b.adjustedScore - a.adjustedScore || b.score - a.score || a.sentence.length - b.sentence.length)[0]
+      ?.sentence ?? clean;
 
   if (best.length <= 340) return best;
   return `${best.slice(0, 337).trim()}...`;
@@ -189,7 +253,7 @@ export function selectBestSourceRecommendation(
     snippet: snippet.length === 260 ? `${snippet.slice(0, 257).trim()}...` : snippet,
     quote,
     section_heading: best.section_heading,
-    image_count: (best.images ?? []).filter((image) => image.searchable !== false).length,
+    image_count: (best.images ?? []).filter((image) => isClinicalImageEvidence(image)).length,
     viewer_href: documentCitationHref(citation),
   };
 }
@@ -216,20 +280,29 @@ export function buildSourceCoverage(results: SearchResult[]): SourceCoverage {
     documents_used: documents.size,
     pages,
     strongest_similarity: strongest,
-    has_images: results.some((source) => source.images?.some((image) => image.searchable !== false)),
+    has_images: results.some((source) => source.images?.some((image) => isClinicalImageEvidence(image))),
   };
 }
 
 export function buildVisualEvidence(results: SearchResult[], limit = 8) {
   const seen = new Set<string>();
-  const cards: VisualEvidenceCard[] = [];
+  const cards: Array<VisualEvidenceCard & { priority: number }> = [];
 
   for (const result of results) {
     for (const image of result.images ?? []) {
-      if (image.searchable === false || image.image_type === "logo_decorative") continue;
+      if (!isClinicalImageEvidence(image)) continue;
       if (seen.has(image.id)) continue;
       seen.add(image.id);
       const pageNumber = image.page_number ?? result.page_number;
+      const metadata = imageMetadata(image);
+      const tableText =
+        image.tableTextSnippet ?? metadataText(metadata, "table_text") ?? metadataText(metadata, "table_text_snippet");
+      const sourceKind = image.sourceKind ?? image.source_kind ?? metadataText(metadata, "source_kind");
+      const tableRole = image.tableRole ?? metadataText(metadata, "table_role");
+      const priority =
+        (sourceKind === "table_crop" ? 40 : 0) +
+        (tableRole === "clinical" ? 30 : tableRole === "admin" || tableRole === "reference" ? 8 : 0) +
+        (image.clinical_relevance_score ?? 0) * 20;
       cards.push({
         id: `${result.id}:${image.id}`,
         image_id: image.id,
@@ -244,13 +317,41 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
         viewer_href: `/documents/${result.document_id}?page=${pageNumber ?? 1}&chunk=${result.id}`,
         image_type: image.image_type,
         clinical_relevance_score: image.clinical_relevance_score,
+        source_kind: sourceKind,
+        tableLabel: image.tableLabel ?? metadataText(metadata, "table_label"),
+        tableTitle: image.tableTitle ?? metadataText(metadata, "table_title"),
+        tableRole,
+        clinicalUseClass:
+          typeof metadata.clinical_use_class === "string"
+            ? (metadata.clinical_use_class as ClinicalImageUseClass)
+            : (image.clinicalUseClass ?? null),
+        clinicalUseReason:
+          typeof metadata.clinical_use_reason === "string"
+            ? metadata.clinical_use_reason
+            : (image.clinicalUseReason ?? null),
+        accessibleTableMarkdown:
+          typeof metadata.accessible_table_markdown === "string"
+            ? metadata.accessible_table_markdown
+            : (image.accessibleTableMarkdown ?? null),
+        tableRows: Array.isArray(metadata.table_rows) ? (metadata.table_rows as string[][]) : (image.tableRows ?? null),
+        tableColumns: Array.isArray(metadata.table_columns)
+          ? (metadata.table_columns as string[])
+          : (image.tableColumns ?? null),
+        tableTextSnippet: compactText(tableText),
         labels: image.labels,
+        priority,
       });
-      if (cards.length >= limit) return cards;
     }
   }
 
-  return cards;
+  return cards
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, limit)
+    .map((card) => {
+      const { priority, ...publicCard } = card;
+      void priority;
+      return publicCard;
+    });
 }
 
 export function buildEvidenceSummary(results: SearchResult[], quoteCards: QuoteCard[] = []): EvidenceSummary {
@@ -298,17 +399,19 @@ export function detectConflictsOrGaps(results: SearchResult[]): ConflictOrGap[] 
   return gaps;
 }
 
-export function diversifySearchResults(results: SearchResult[], limit = 12, maxPerDocument = 4) {
-  const enriched = dedupeSearchResults(results)
-    .map((result) => ({
-      ...result,
-      source_strength: result.source_strength ?? sourceStrengthForSimilarity(result.similarity),
-    }))
-    .sort((a, b) => {
+export function diversifySearchResults(results: SearchResult[], limit = 12, maxPerDocument = 4, preserveOrder = false) {
+  const enriched = dedupeSearchResults(results).map((result) => ({
+    ...result,
+    source_strength: result.source_strength ?? sourceStrengthForSimilarity(result.similarity),
+  }));
+
+  if (!preserveOrder) {
+    enriched.sort((a, b) => {
       const aScore = a.hybrid_score ?? a.similarity;
       const bScore = b.hybrid_score ?? b.similarity;
       return bScore - aScore || b.similarity - a.similarity;
     });
+  }
 
   const documentCounts = new Map<string, number>();
   const selected: SearchResult[] = [];

@@ -39,6 +39,17 @@ async function mockPrivateUnauthenticatedApi(page: Page) {
       json: { demoMode: false, checks: readySetupChecks },
     });
   });
+  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+    const body = route.request().postDataJSON() as {
+      query?: string;
+      documentId?: string;
+      documentIds?: string[];
+    };
+    await fulfillAnswerResponse(
+      route,
+      demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
+    );
+  });
 }
 
 async function seedAuthenticatedSession(page: Page) {
@@ -185,6 +196,47 @@ async function mockDemoApi(page: Page) {
       demoMode: true,
     });
   });
+  await page.route(/\/api\/search$/, async (route) => {
+    await route.fulfill({
+      json: {
+        results: [
+          {
+            id: "44444444-4444-4444-8444-444444444442",
+            document_id: "11111111-1111-4111-8111-111111111111",
+            title: "Synthetic lithium monitoring protocol",
+            file_name: "lithium-monitoring.pdf",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Monitoring",
+            content: "Lithium monitoring and toxicity safety-net source passage.",
+            image_ids: [],
+            similarity: 0.9,
+            hybrid_score: 0.92,
+            images: [],
+          },
+        ],
+        visualEvidence: [],
+        relatedDocuments: [],
+        documentMatches: [
+          {
+            document_id: "11111111-1111-4111-8111-111111111111",
+            title: "Synthetic lithium monitoring protocol",
+            file_name: "lithium-monitoring.pdf",
+            labels: [{ label: "lithium", label_type: "medication", source: "generated", confidence: 0.94 }],
+            summarySnippet: "Lithium monitoring and toxicity safety-net reminders.",
+            bestPages: [1],
+            bestChunkIds: ["44444444-4444-4444-8444-444444444442"],
+            imageCount: 1,
+            tableCount: 1,
+            matchReason: "Matched indexed passage",
+            score: 0.92,
+          },
+        ],
+        smartPanel: {},
+        demoMode: true,
+      },
+    });
+  });
   await page.route(/\/api\/documents\/([^/]+)\/signed-url(?:\?.*)?$/, async (route) => {
     const id = new URL(route.request().url()).pathname.split("/").at(-2) ?? "";
     const document = getDemoDocument(id);
@@ -215,9 +267,7 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } =
       .filter((id, index, all) => id && all.indexOf(id) !== index);
     const brokenAriaRefs: Array<{ attr: string; id: string }> = [];
 
-    for (const element of [
-      ...document.querySelectorAll("[aria-labelledby],[aria-describedby],[aria-controls]"),
-    ]) {
+    for (const element of [...document.querySelectorAll("[aria-labelledby],[aria-describedby],[aria-controls]")]) {
       for (const attr of ["aria-labelledby", "aria-describedby", "aria-controls"]) {
         const value = element.getAttribute(attr);
         if (!value) continue;
@@ -231,7 +281,9 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } =
       h1Count: document.querySelectorAll("h1,[role='heading'][aria-level='1']").length,
       duplicateIds: [...new Set(duplicateIds)],
       brokenAriaRefs,
-      hasFrameworkOverlay: /Unhandled Runtime Error|Build Error|Application error|Next\.js/.test(document.body.innerText),
+      hasFrameworkOverlay: /Unhandled Runtime Error|Build Error|Application error|Next\.js/.test(
+        document.body.innerText,
+      ),
     };
   });
 
@@ -246,7 +298,7 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } =
 }
 
 async function waitForDemoDashboardReady(page: Page) {
-  await expect(page.getByLabel("Ask a question across indexed guidelines")).toBeEnabled();
+  await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeEnabled();
   await expect(page.getByText("3 documents")).toBeAttached({ timeout: 30000 });
 }
 
@@ -295,19 +347,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
-      await expect(page.getByLabel("Ask a question across indexed guidelines")).toBeVisible();
+      await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width < 1024 });
       await expectNoPageHorizontalOverflow(page);
     });
   }
 
-  test("private mode unauthenticated dashboard keeps search disabled and DOM coherent", async ({ page }) => {
+  test("private mode unauthenticated dashboard allows public search", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
 
-    await expect(page.getByText("Sign in for private documents")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Ask" })).toBeDisabled();
+    const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
+    await questionInput.fill("lithium monitoring");
+    await expect(page.getByRole("button", { name: "Ask" })).toBeEnabled();
+    await page.getByRole("button", { name: "Ask" }).click();
+    await expect(page.getByLabel("Source-backed answer")).toBeVisible();
+    await expect(page.getByText("Sign in before searching private guideline documents")).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true });
     await expectNoPageHorizontalOverflow(page);
@@ -319,7 +375,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    const questionInput = page.getByLabel("Ask a question across indexed guidelines");
+    const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await expect(questionInput).toBeEnabled();
     await expect(page.getByLabel("Open document scope and prompt controls")).toBeVisible();
     const question = "What toxicity safety-net symptoms should be reviewed for lithium?";
@@ -373,7 +429,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(headingMetrics.actionHeight).toBeLessThanOrEqual(34);
 
     await expectMobileNavTarget(page, "Quotes", "#quotes", "Source quotes");
-    await expectMobileNavTarget(page, "Images", "#images", "Source diagrams");
+    await expectMobileNavTarget(page, "Images", "#images", "Tables and diagrams");
     await expectMobileNavTarget(page, "Sources", "#sources", "Source passages");
 
     await page.getByLabel("Open document scope and prompt controls").click();
@@ -391,6 +447,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.overflowY).toBe("auto");
     expect(popoverMetrics.maxHeight).not.toBe("none");
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document search mode lists matching documents and scope actions", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await page.getByRole("button", { name: "Documents" }).click();
+    await expect(page.getByRole("heading", { name: "Document matches" })).toBeVisible();
+
+    const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
+    await questionInput.fill("lithium monitoring");
+    await page.getByRole("button", { name: "Docs" }).click();
+
+    await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
+    await expect(page.getByText("1 tables")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Scope" }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Answer" }).first().click();
+    await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -416,7 +493,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const evidenceBox = await evidence.boundingBox();
     const previewBox = await preview.boundingBox();
     const indexedTextBox = await page.getByText("Indexed page text").boundingBox();
-    const imagesBox = await page.getByText("Images and captions").boundingBox();
+    const imagesBox = await page.getByText("Tables and diagrams").boundingBox();
 
     expect(evidenceBox).not.toBeNull();
     expect(previewBox).not.toBeNull();
@@ -515,7 +592,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
-    await expect(page.getByLabel("Ask a question across indexed guidelines")).toBeVisible();
+    await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
 
     await scrollDashboardToBottom(page);
     const uploadSummary = page.locator("summary").filter({ hasText: "Upload and indexing" }).first();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
+import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -27,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: document, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id")
+      .select("id,owner_id,title,file_name,source_path,import_batch_id,metadata")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
@@ -39,17 +40,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const [chunksResult, imagesResult] = await Promise.all([
         supabase
           .from("document_chunks")
-          .select("id,page_number,chunk_index,section_heading,content")
+          .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata")
           .eq("document_id", id)
           .order("chunk_index", { ascending: true })
-          .limit(24),
+          .limit(1000),
         supabase
           .from("document_images")
-          .select("id,page_number,caption,image_type,labels")
+          .select("id,page_number,caption,image_type,labels,source_kind,clinical_relevance_score,metadata")
           .eq("document_id", id)
           .eq("searchable", true)
           .order("clinical_relevance_score", { ascending: false })
-          .limit(12),
+          .limit(200),
       ]);
 
       if (chunksResult.error) throw new Error(chunksResult.error.message);
@@ -64,7 +65,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         chunks: chunksResult.data,
         images: imagesResult.data ?? [],
       });
-      return NextResponse.json({ mode, enrichment });
+      const deepMemory = await upsertDocumentDeepMemory({
+        supabase,
+        document,
+        chunks: chunksResult.data,
+        images: imagesResult.data ?? [],
+      });
+      return NextResponse.json({
+        mode,
+        enrichment,
+        deepMemory: {
+          sectionCount: deepMemory.sections.length,
+          memoryCardCount: deepMemory.memoryCards.length,
+        },
+      });
     }
 
     const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: id });

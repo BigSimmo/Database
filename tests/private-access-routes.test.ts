@@ -69,6 +69,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  neq(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
   in(column: string, values: unknown[]) {
     this.call.inFilters.push({ column, values });
     return this;
@@ -173,6 +178,8 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, ragMock?: Re
   vi.resetModules();
   vi.doUnmock("@/lib/rag");
   vi.doUnmock("@/lib/openai");
+  vi.doUnmock("@/lib/document-enrichment");
+  vi.doUnmock("@/lib/deep-memory");
   vi.doMock("@/lib/env", () => ({
     env: {
       MAX_UPLOAD_MB: 150,
@@ -185,6 +192,7 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, ragMock?: Re
       RAG_AWAIT_QUERY_LOGS: false,
     },
     isDemoMode: () => false,
+    isLocalNoAuthMode: () => false,
     requireOpenAIEnv: () => undefined,
     requireServerEnv: () => undefined,
   }));
@@ -421,6 +429,200 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
   });
 
+  it("returns first-class document matches for document-focused search", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_labels") {
+        return ok([
+          {
+            id: "label-1",
+            document_id: documentId,
+            label: "agitation",
+            label_type: "topic",
+            source: "generated",
+            confidence: 0.9,
+          },
+        ]);
+      }
+      if (call.table === "document_summaries") {
+        return ok([{ document_id: documentId, summary: "High-yield agitation management guidance." }]);
+      }
+      if (call.table === "document_images") {
+        return ok([
+          { document_id: documentId, source_kind: "table_crop", searchable: true, image_type: "clinical_table" },
+          { document_id: documentId, source_kind: "embedded", searchable: true, image_type: "graph" },
+        ]);
+      }
+      return ok([]);
+    });
+    client.rpc.mockResolvedValue({
+      data: [
+        {
+          document_id: documentId,
+          labels: [
+            {
+              id: "label-1",
+              document_id: documentId,
+              label: "agitation",
+              label_type: "topic",
+              source: "generated",
+              confidence: 0.9,
+            },
+          ],
+          summary: "High-yield agitation management guidance.",
+        },
+      ],
+      error: null,
+    });
+    mockRuntime(client, {
+      searchChunksWithTelemetry: vi.fn(async () => ({
+        results: [
+          {
+            id: "chunk-1",
+            document_id: documentId,
+            title: "Agitation and arousal",
+            file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+            page_number: 3,
+            chunk_index: 0,
+            section_heading: "Management",
+            content: "Agitation management table text.",
+            image_ids: [],
+            similarity: 0.9,
+            hybrid_score: 0.92,
+            images: [],
+          },
+        ],
+        telemetry: {
+          retrieval_strategy: "text",
+          search_cache_hit: false,
+          embedding_skipped: true,
+          embedding_cache_hit: false,
+          text_fast_path_latency_ms: 10,
+          embedding_latency_ms: 0,
+          supabase_rpc_latency_ms: 12,
+          rerank_latency_ms: 1,
+        },
+      })),
+    });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "agitation management tables", mode: "documents", documentLimit: 10 }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.documentMatches).toEqual([
+      expect.objectContaining({
+        document_id: documentId,
+        title: "Agitation and arousal",
+        bestPages: [3],
+        tableCount: 1,
+        imageCount: 2,
+        summarySnippet: "High-yield agitation management guidance.",
+      }),
+    ]);
+    expect(body.relatedDocuments).toHaveLength(1);
+  });
+
+  it("rejects unauthenticated reindex requests", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      request(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toEqual({ error: "Authentication required." });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("runs enrichment-only reindex for owned indexed documents using generic metadata", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Future Uploaded Protocol",
+      file_name: "future-upload.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: { existing: true },
+    };
+    const chunks = [
+      {
+        id: "chunk-1",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Workflow",
+        content: "Future uploaded protocol workflow content.",
+      },
+    ];
+    const images = [
+      {
+        id: imageId,
+        page_number: 1,
+        caption: "Clinical workflow table.",
+        image_type: "clinical_table",
+        labels: ["workflow"],
+      },
+    ];
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "document_chunks") return ok(chunks);
+      if (call.table === "document_images") return ok(images);
+      return ok([]);
+    });
+    const upsertDocumentEnrichment = vi.fn(async () => ({
+      summary: { id: "summary-1", document_id: documentId, summary: "Source-backed summary." },
+      labels: [],
+    }));
+    const upsertDocumentDeepMemory = vi.fn(async () => ({
+      sections: [],
+      memoryCards: [],
+    }));
+    mockRuntime(client);
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document: expect.objectContaining({
+          id: documentId,
+          title: "Future Uploaded Protocol",
+          metadata: { existing: true },
+        }),
+        chunks,
+        images,
+      }),
+    );
+    expect(client.calls[0].selected).toContain("metadata");
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        document: expect.objectContaining({ id: documentId }),
+        chunks,
+        images,
+      }),
+    );
+  });
+
   it("cleans up uploaded storage when document insert fails", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "documents" && call.operation === "insert" ? fail("document insert failed") : ok([]),
@@ -582,15 +784,18 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { DELETE } = await import("../src/app/api/documents/[id]/route");
 
-    const response = await DELETE(
-      authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }),
-      { params: Promise.resolve({ id: documentId }) },
-    );
+    const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
     const body = await payload(response);
     const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
     const documentDelete = client.calls.find((call) => call.table === "documents" && call.operation === "delete");
-    const cleanupInsert = client.calls.find((call) => call.table === "storage_cleanup_jobs" && call.operation === "insert");
-    const cleanupUpdate = client.calls.find((call) => call.table === "storage_cleanup_jobs" && call.operation === "update");
+    const cleanupInsert = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "insert",
+    );
+    const cleanupUpdate = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "update",
+    );
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({ deleted: true, documentId, storageWarnings: [] });
@@ -625,10 +830,9 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { DELETE } = await import("../src/app/api/documents/[id]/route");
 
-    const response = await DELETE(
-      authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }),
-      { params: Promise.resolve({ id: documentId }) },
-    );
+    const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toEqual({
@@ -638,8 +842,8 @@ describe("private document API access", () => {
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
-  it("passes owner scope through search and answer routes", async () => {
-    const searchChunksWithTelemetry = vi.fn(async () => ({
+  it("allows unauthenticated search and answer without owner scope", async () => {
+    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => ({
       results: [],
       telemetry: {
         search_cache_hit: false,
@@ -652,7 +856,7 @@ describe("private document API access", () => {
         retrieval_strategy: "text_fast_path",
       },
     }));
-    const answerQuestionWithScope = vi.fn(async () => ({
+    const answerQuestionWithScope = vi.fn(async (_args: unknown) => ({
       answer: "No owned evidence.",
       grounded: false,
       confidence: "unsupported",
@@ -666,27 +870,84 @@ describe("private document API access", () => {
     const answerRoute = await import("../src/app/api/answer/route");
 
     await searchRoute.POST(
-      authenticatedRequest("/api/search", {
+      request("/api/search", {
         method: "POST",
         body: JSON.stringify({ query: "monitoring", documentIds: [otherDocumentId] }),
       }),
     );
     await answerRoute.POST(
-      authenticatedRequest("/api/answer", {
+      request("/api/answer", {
         method: "POST",
         body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
       }),
     );
 
     expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: userId, documentIds: [otherDocumentId] }),
+      expect.objectContaining({ ownerId: undefined, documentIds: [otherDocumentId] }),
     );
     expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId }),
+      expect.objectContaining({ ownerId: undefined, documentId: otherDocumentId }),
     );
+    expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it("streams answer progress before the final answer with owner scope", async () => {
+  it("rate limits public answer generation without limiting public search", async () => {
+    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
+    const answerQuestionWithScope = vi.fn(async (_args: unknown) => ({
+      answer: "Source-backed answer.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry, answerQuestionWithScope });
+
+    const answerRoute = await import("../src/app/api/answer/route");
+    const searchRoute = await import("../src/app/api/search/route");
+    const answerRequest = () =>
+      request("/api/answer", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.10" },
+        body: JSON.stringify({ query: "monitoring" }),
+      });
+
+    for (let index = 0; index < 30; index += 1) {
+      const response = await answerRoute.POST(answerRequest());
+      expect(response.status).toBe(200);
+    }
+
+    const limited = await answerRoute.POST(answerRequest());
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
+    expect(await payload(limited)).toEqual({ error: "Too many public answer requests. Retry shortly." });
+    expect(answerQuestionWithScope).toHaveBeenCalledTimes(30);
+
+    const searchResponse = await searchRoute.POST(
+      request("/api/search", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.10" },
+        body: JSON.stringify({ query: "monitoring" }),
+      }),
+    );
+
+    expect(searchResponse.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined }));
+  });
+
+  it("streams answer progress before the final answer without auth", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({ stage: "retrieved", message: "Retrieved 2 candidate sources." });
       return {
@@ -702,7 +963,7 @@ describe("private document API access", () => {
     const { POST } = await import("../src/app/api/answer/stream/route");
 
     const response = await POST(
-      authenticatedRequest("/api/answer/stream", {
+      request("/api/answer/stream", {
         method: "POST",
         body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
       }),
@@ -714,8 +975,51 @@ describe("private document API access", () => {
     expect(body.indexOf("event: final")).toBeGreaterThan(body.indexOf("event: progress"));
     expect(body).toContain("Retrieved 2 candidate sources.");
     expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
+      expect.objectContaining({ ownerId: undefined, documentId: otherDocumentId, onProgress: expect.any(Function) }),
     );
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("emits a structured SSE error when public streaming answers are rate limited", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Owned evidence.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+
+    const answerRoute = await import("../src/app/api/answer/route");
+    const streamRoute = await import("../src/app/api/answer/stream/route");
+    const answerRequest = () =>
+      request("/api/answer", {
+        method: "POST",
+        headers: { "x-real-ip": "203.0.113.11" },
+        body: JSON.stringify({ query: "monitoring" }),
+      });
+
+    for (let index = 0; index < 30; index += 1) {
+      const response = await answerRoute.POST(answerRequest());
+      expect(response.status).toBe(200);
+    }
+
+    const response = await streamRoute.POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        headers: { "x-real-ip": "203.0.113.11" },
+        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(body).toContain("event: error");
+    expect(body).toContain('"status":429');
+    expect(body).toContain("Too many public answer requests. Retry shortly.");
+    expect(answerQuestionWithScope).toHaveBeenCalledTimes(30);
   });
 
   it("returns a generic not found response when summarizing an unowned document", async () => {

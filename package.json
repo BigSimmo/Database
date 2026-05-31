@@ -26,6 +26,7 @@
     "eval:search": "tsx scripts/eval-search.ts",
     "cleanup:storage": "tsx scripts/cleanup-storage.ts",
     "purge:query-logs": "tsx scripts/purge-query-logs.ts",
+    "audit:tables": "tsx scripts/audit-tables.ts",
     "samples": "tsx scripts/generate-sample-documents.ts",
     "samples:check": "tsx scripts/check-sample-extraction.ts"
   },

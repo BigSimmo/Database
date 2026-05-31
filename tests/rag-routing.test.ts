@@ -30,12 +30,12 @@ function route(query: string, results: SearchResult[]) {
 }
 
 describe("RAG answer routing", () => {
-  it("uses the extractive route for direct routine questions with strong retrieval", () => {
+  it("uses extractive answers for direct routine document questions with strong retrieval", () => {
     const selected = route("What does the admission information document include?", [source()]);
 
     expect(selected.mode).toBe("extractive");
     expect(selected.model).toBeNull();
-    expect(selected.reason).toBe("strong_source_match_extract");
+    expect(selected.reason).toBe("document_lookup_source_extractive");
   });
 
   it("uses the fast model for broader routine questions with strong retrieval", () => {
@@ -46,12 +46,12 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("strong_routine_retrieval");
   });
 
-  it("uses the extractive route for routine medication questions with strong source support", () => {
+  it("uses extractive answers for routine medication questions with strong source support", () => {
     const selected = route("What clozapine monitoring is required?", [source()]);
 
     expect(selected.mode).toBe("extractive");
     expect(selected.model).toBeNull();
-    expect(selected.reason).toBe("strong_source_match_extract");
+    expect(selected.reason).toBe("high_confidence_source_extractive");
   });
 
   it("uses the strong model for medication or risk-heavy decision questions", () => {
@@ -69,7 +69,7 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("limited_retrieval_strength");
   });
 
-  it("keeps direct title matches on the extractive path when the question is routine", () => {
+  it("keeps direct title matches on the fast synthesis path when the question is routine", () => {
     const selected = chooseAnswerRoute({
       query: "What are NOCC requirements?",
       results: [
@@ -86,7 +86,27 @@ describe("RAG answer routing", () => {
     });
 
     expect(selected.mode).toBe("extractive");
-    expect(selected.reason).toBe("strong_source_match_extract");
+    expect(selected.reason).toBe("high_confidence_source_extractive");
+  });
+
+  it("uses extractive answers for direct table or threshold lookups with strong source support", () => {
+    const selected = route("What ANC threshold should stop clozapine?", [
+      source({
+        title: "Clozapine Prescribing and Monitoring",
+        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        text_rank: 0.08,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("table_or_threshold_source_extractive");
+  });
+
+  it("keeps broad summaries on the fast synthesis path", () => {
+    const selected = route("Summarize the admission information guidance", [source()]);
+
+    expect(selected.mode).toBe("fast");
+    expect(selected.reason).toBe("strong_routine_retrieval");
   });
 
   it("uses the strong model for explicit multi-document comparisons", () => {
@@ -98,7 +118,7 @@ describe("RAG answer routing", () => {
     ]);
 
     expect(selected.mode).toBe("strong");
-    expect(selected.reason).toBe("clinical_risk_or_complex_query");
+    expect(selected.reason).toBe("multi_document_comparison_synthesis");
   });
 
   it("skips generation when retrieval has no plausible support", () => {

@@ -49,7 +49,8 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   if (testCase.supported && !answer.grounded) failures.push("expected grounded answer");
   if (!testCase.supported && answer.grounded) failures.push("expected unsupported answer");
   if (!testCase.allowedRoutes.includes(route)) failures.push(`unexpected route ${route}`);
-  if (answer.citations.length < testCase.minCitations) failures.push(`expected at least ${testCase.minCitations} citations`);
+  if (answer.citations.length < testCase.minCitations)
+    failures.push(`expected at least ${testCase.minCitations} citations`);
   if (testCase.expectedFiles.length > 0 && !expectedHit) failures.push("expected document not in retrieved sources");
   if (testCase.requireVisualEvidence && visualEvidence.length === 0) failures.push("expected visual evidence");
   if (hasInvalidVisualEvidence(visualEvidence)) failures.push("decorative or zero-relevance visual evidence returned");

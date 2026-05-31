@@ -1,8 +1,15 @@
 import { loadEnvConfig } from "@next/env";
+import { pathToFileURL } from "node:url";
 import { buildVisualEvidence } from "@/lib/evidence";
 import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { expectedFileHit, findOwnerIdByEmail, hasInvalidVisualEvidence, loadAdminClient, percentile } from "./eval-utils";
+import {
+  expectedFileHit,
+  findOwnerIdByEmail,
+  hasInvalidVisualEvidence,
+  loadAdminClient,
+  percentile,
+} from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -14,7 +21,7 @@ type EvalArgs = {
   failOnThreshold: boolean;
 };
 
-type SearchEvalResult = {
+export type SearchEvalResult = {
   id: string;
   question: string;
   category: RagEvalCase["category"];
@@ -78,13 +85,14 @@ function validateSearchResult(testCase: RagEvalCase, result: Omit<SearchEvalResu
 
   if (testCase.supported && !result.expectedHitTop3) failures.push("expected document not in top 3");
   if (testCase.supported && result.resultCount === 0) failures.push("expected search results");
-  if (!testCase.supported && result.topScore >= 0.82) failures.push("unsupported control produced high-confidence match");
+  if (!testCase.supported && result.topScore >= 0.82)
+    failures.push("unsupported control produced high-confidence match");
   if (testCase.category === "routine" && result.latencyMs > 1500) failures.push("routine search over 1500ms");
 
   return failures;
 }
 
-function summarizeFailures(results: SearchEvalResult[]) {
+export function summarizeFailures(results: SearchEvalResult[]) {
   const routine = results.filter((result) => result.category === "routine");
   const supported = results.filter((result) => result.supported);
   const unsupported = results.filter((result) => !result.supported);
@@ -94,8 +102,10 @@ function summarizeFailures(results: SearchEvalResult[]) {
   const unsupportedHighConfidence = unsupported.filter((result) => result.topScore >= 0.82).length;
   const failures: string[] = [];
 
-  if (expectedHits < 18) failures.push(`expected document top-3 hit ${expectedHits}/${results.length}`);
-  if (routineLatencies.length > 0 && percentile(routineLatencies, 95) > 1500) failures.push("routine search p95 over 1500ms");
+  if (results.length >= 18 && expectedHits < 18)
+    failures.push(`expected document top-3 hit ${expectedHits}/${results.length}`);
+  if (routineLatencies.length > 0 && percentile(routineLatencies, 95) > 1500)
+    failures.push("routine search p95 over 1500ms");
   if (routine.length > 0 && routineEmbeddingSkipped / routine.length < 0.7) {
     failures.push(`routine embedding skipped ${routineEmbeddingSkipped}/${routine.length}`);
   }
@@ -133,7 +143,6 @@ function printHumanSummary(results: SearchEvalResult[]) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerEmail) throw new Error('Provide --owner-email "you@example.com" or set RAG_EVAL_OWNER_EMAIL.');
 
   const [{ requireOpenAIEnv, requireServerEnv }, { searchChunksWithTelemetry }, supabase] = await Promise.all([
     import("@/lib/env"),
@@ -144,11 +153,12 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
+  const ownerId = args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined;
+  const scope = ownerId ? `owner:${args.ownerEmail}` : "public";
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: SearchEvalResult[] = [];
 
-  if (!args.json) console.log(`Running ${cases.length} search eval case(s).`);
+  if (!args.json) console.log(`Running ${cases.length} search eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
     const startedAt = Date.now();
@@ -160,8 +170,9 @@ async function main() {
       skipCache: true,
     });
     const latencyMs =
-      search.telemetry.supabase_rpc_latency_ms + search.telemetry.embedding_latency_ms + search.telemetry.rerank_latency_ms ||
-      Date.now() - startedAt;
+      search.telemetry.supabase_rpc_latency_ms +
+        search.telemetry.embedding_latency_ms +
+        search.telemetry.rerank_latency_ms || Date.now() - startedAt;
     const visuals = buildVisualEvidence(search.results);
     const baseResult = {
       id: testCase.id,
@@ -198,7 +209,7 @@ async function main() {
   const thresholdFailures = summarizeFailures(results);
 
   if (args.json) {
-    console.log(JSON.stringify({ results, thresholdFailures }, null, 2));
+    console.log(JSON.stringify({ scope, results, thresholdFailures }, null, 2));
   } else {
     printHumanSummary(results);
     if (thresholdFailures.length > 0) {
@@ -209,7 +220,9 @@ async function main() {
   if (args.failOnThreshold && thresholdFailures.length > 0) process.exit(1);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

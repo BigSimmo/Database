@@ -86,12 +86,7 @@ async function readWorkerStatus() {
   const label = "npm run worker running";
 
   if (!requiredSupabaseEnvPresent) {
-    return check(
-      "worker",
-      label,
-      "unknown",
-      "Worker status cannot be inferred until Supabase is configured.",
-    );
+    return check("worker", label, "unknown", "Worker status cannot be inferred until Supabase is configured.");
   }
 
   if (!supabaseProjectCanBeQueried) {
@@ -107,7 +102,10 @@ async function readWorkerStatus() {
     const supabase = createAdminClient();
     const [latestResult, activeResult] = await Promise.all([
       supabase.from("ingestion_jobs").select("status,updated_at").order("updated_at", { ascending: false }).limit(1),
-      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
+      supabase
+        .from("ingestion_jobs")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "processing"]),
     ]);
 
     if (latestResult.error || activeResult.error) {

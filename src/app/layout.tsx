@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import { AuthProvider } from "@/lib/supabase/client";
 import "./globals.css";
 
@@ -30,16 +29,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const themeScript = `
-    (() => {
-      try {
-        const stored = localStorage.getItem("clinical-kb-theme");
-        const dark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.classList.toggle("dark", dark);
-      } catch {}
-    })();
-  `;
-
   return (
     <html
       lang="en"
@@ -47,7 +36,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <Script id="clinical-kb-theme" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeScript }} />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

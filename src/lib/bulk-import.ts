@@ -85,9 +85,7 @@ export function formatExactDuplicateSkip(
   duplicate: ExistingImportDocument,
   options: { dryRun?: boolean } = {},
 ) {
-  const prefix = options.dryRun
-    ? "DRY RUN DUPLICATE exact copy would be skipped"
-    : "DUPLICATE exact copy skipped";
+  const prefix = options.dryRun ? "DRY RUN DUPLICATE exact copy would be skipped" : "DUPLICATE exact copy skipped";
   const matchedSource = duplicate.source_path || duplicate.storage_path;
   return `${prefix} ${file.relativePath} (matches "${duplicate.title}" at ${matchedSource})`;
 }
@@ -116,7 +114,11 @@ export async function hashFile(filePath: string) {
   return hash.digest("hex");
 }
 
-export async function scanImportFiles(root: string, include = "**/*.pdf", limit?: number): Promise<ScannedImportFile[]> {
+export async function scanImportFiles(
+  root: string,
+  include = "**/*.pdf",
+  limit?: number,
+): Promise<ScannedImportFile[]> {
   const rootStat = await stat(root);
   if (!rootStat.isDirectory()) {
     throw new Error(`Import path is not a directory: ${root}`);

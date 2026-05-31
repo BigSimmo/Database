@@ -216,10 +216,12 @@ async function main() {
 
       const documentId = createDocumentId();
       const storagePath = buildImportStoragePath(ownerId, documentId, file.fileName);
-      const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, await readFile(file.absolutePath), {
-        contentType: "application/pdf",
-        upsert: false,
-      });
+      const upload = await supabase.storage
+        .from(env.SUPABASE_DOCUMENT_BUCKET)
+        .upload(storagePath, await readFile(file.absolutePath), {
+          contentType: "application/pdf",
+          upsert: false,
+        });
       if (upload.error) throw new Error(upload.error.message);
 
       const { error: documentError } = await supabase.from("documents").insert({

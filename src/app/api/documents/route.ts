@@ -78,7 +78,11 @@ function ilikePattern(value: string) {
 }
 
 function safeSearchTerm(value: string) {
-  return value.replace(/[,%()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  return value
+    .replace(/[,%()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
 }
 
 export async function GET(request: Request) {

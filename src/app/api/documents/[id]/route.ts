@@ -17,8 +17,56 @@ function safeMetadata(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function compactTableText(value: string | null, limit = 500) {
+  if (!value) return null;
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
+}
+
+function metadataStringArrayRows(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  if (!Array.isArray(value)) return null;
+  const rows = value
+    .filter((row): row is unknown[] => Array.isArray(row))
+    .map((row) => row.map((cell) => String(cell ?? "").trim()));
+  return rows.length ? rows : null;
+}
+
+function metadataStringArray(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  if (!Array.isArray(value)) return null;
+  const items = value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  return items.length ? items : null;
+}
+
+function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
+  const metadata = safeMetadata(image.metadata);
+  const tableText = metadataText(metadata, "table_text") ?? metadataText(metadata, "table_text_snippet");
+  const publicImage = { ...image };
+  delete publicImage.metadata;
+  return {
+    ...publicImage,
+    tableLabel: metadataText(metadata, "table_label"),
+    tableTitle: metadataText(metadata, "table_title"),
+    tableRole: metadataText(metadata, "table_role"),
+    tableTextSnippet: compactTableText(tableText),
+    clinicalUseClass: metadataText(metadata, "clinical_use_class"),
+    clinicalUseReason: metadataText(metadata, "clinical_use_reason"),
+    accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown"),
+    tableRows: metadataStringArrayRows(metadata, "table_rows"),
+    tableColumns: metadataStringArray(metadata, "table_columns"),
+  };
+}
+
 function storageWarningsFrom(error: unknown, label: string) {
-  const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Storage cleanup failed.";
+  const message =
+    error && typeof error === "object" && "message" in error ? String(error.message) : "Storage cleanup failed.";
   return `${label}: ${message}`;
 }
 
@@ -145,10 +193,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { data: images, error: imagesError } = await supabase
       .from("document_images")
       .select(
-        "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels",
+        "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata",
       )
       .eq("document_id", id)
-      .eq("searchable", true)
+      .neq("image_type", "logo_decorative")
+      .or("searchable.eq.true,source_kind.eq.table_crop")
       .order("page_number", { ascending: true });
 
     if (imagesError) throw new Error(imagesError.message);
@@ -181,7 +230,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         summary: summaryResult.data ?? null,
       },
       pages: pages ?? [],
-      images: images ?? [],
+      images: (images ?? []).map(withImageTableMetadata),
       chunks: chunks ?? [],
     });
   } catch (error) {

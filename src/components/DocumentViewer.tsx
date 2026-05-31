@@ -22,6 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AccessibleTable } from "@/components/AccessibleTable";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
   appBackdrop,
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui-primitives";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
@@ -62,8 +64,19 @@ type ImageRow = {
   page_number: number | null;
   caption: string;
   image_type?: string | null;
+  searchable?: boolean | null;
   clinical_relevance_score?: number | null;
   labels?: string[] | null;
+  source_kind?: string | null;
+  tableLabel?: string | null;
+  tableTitle?: string | null;
+  tableRole?: string | null;
+  tableTextSnippet?: string | null;
+  clinicalUseClass?: string | null;
+  clinicalUseReason?: string | null;
+  accessibleTableMarkdown?: string | null;
+  tableRows?: string[][] | null;
+  tableColumns?: string[] | null;
 };
 
 type ChunkRow = {
@@ -136,11 +149,17 @@ function DocumentImage({ image }: { image: ImageRow }) {
     setFailed(true);
   }
 
+  const tableHeading = [image.tableLabel, image.tableTitle].filter(Boolean).join(": ");
+
   return (
     <figure className={cn(sourceCard, "overflow-hidden p-3")}>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
         page {image.page_number ?? "n/a"}
         {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
+        {image.tableRole ? ` · ${image.tableRole}` : ""}
+        {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
+          ? ` · ${image.clinicalUseClass.replaceAll("_", " ")}`
+          : ""}
       </p>
       <div className="mt-2 rounded-lg bg-[color:var(--surface-inset)] p-3">
         {failed ? (
@@ -173,7 +192,21 @@ function DocumentImage({ image }: { image: ImageRow }) {
           </div>
         )}
       </div>
-      <figcaption className="mt-3 text-[15px] leading-6 text-[color:var(--text)]">{image.caption}</figcaption>
+      <figcaption className="mt-3 space-y-2 text-[15px] leading-6 text-[color:var(--text)]">
+        {tableHeading && <p className="font-semibold">{tableHeading}</p>}
+        <p>{image.caption}</p>
+        <AccessibleTable
+          caption={tableHeading || image.caption}
+          markdown={image.accessibleTableMarkdown ?? image.tableTextSnippet}
+          rows={image.tableRows}
+          columns={image.tableColumns}
+          compact
+        />
+        {image.tableTextSnippet && <p className={cn("text-sm leading-6", textMuted)}>{image.tableTextSnippet}</p>}
+        {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence" && image.clinicalUseReason ? (
+          <p className={cn("text-xs leading-5", textMuted)}>{image.clinicalUseReason}</p>
+        ) : null}
+      </figcaption>
       {image.labels?.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {image.labels.slice(0, 5).map((label) => (
@@ -218,6 +251,7 @@ function IndexedTextPanel({
   chunks,
   search,
   idPrefix,
+  selectedChunkId,
   onSearchChange,
 }: {
   loading: boolean;
@@ -225,6 +259,7 @@ function IndexedTextPanel({
   chunks: ChunkRow[];
   search: string;
   idPrefix: string;
+  selectedChunkId?: string;
   onSearchChange: (value: string) => void;
 }) {
   const normalizedSearch = search.trim().toLowerCase();
@@ -270,7 +305,17 @@ function IndexedTextPanel({
             <p className={cn("text-[15px] leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (
-              <article id={`${idPrefix}-${chunk.id}`} key={chunk.id} className={cn(sourceCard, "p-3")}>
+              <article
+                id={`${idPrefix}-${chunk.id}`}
+                key={chunk.id}
+                data-source-chunk-id={chunk.id}
+                className={cn(
+                  sourceCard,
+                  "p-3 transition",
+                  selectedChunkId === chunk.id &&
+                    "border-[color:var(--primary)] bg-[color:var(--primary-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/25",
+                )}
+              >
                 <p className={eyebrowText}>
                   Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
                 </p>
@@ -584,7 +629,9 @@ export function DocumentViewer({
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !isConfigured);
-  const clientDemoMode = serverDemoMode;
+  const localNoAuthMode = isLocalNoAuthMode();
+  const clientDemoMode = localNoAuthMode || serverDemoMode;
+  const canUsePrivateApis = clientDemoMode || authStatus === "authenticated";
 
   useEffect(() => {
     let active = true;
@@ -600,10 +647,10 @@ export function DocumentViewer({
   }, [isConfigured]);
 
   useEffect(() => {
-    if (!clientDemoMode && authStatus === "loading") {
+    if (!canUsePrivateApis && authStatus === "loading") {
       return () => undefined;
     }
-    if (!clientDemoMode && authStatus !== "authenticated") {
+    if (!canUsePrivateApis) {
       return () => undefined;
     }
 
@@ -683,6 +730,7 @@ export function DocumentViewer({
   }, [
     authStatus,
     authorizationHeader,
+    canUsePrivateApis,
     clientDemoMode,
     documentId,
     chunkId,
@@ -703,20 +751,20 @@ export function DocumentViewer({
   }, []);
 
   useEffect(() => {
-    if (clientDemoMode || authStatus !== "loading") {
+    if (canUsePrivateApis || authStatus !== "loading") {
       return () => undefined;
     }
 
     const timeout = window.setTimeout(() => setAuthLoadingTimedOut(true), 3000);
     return () => window.clearTimeout(timeout);
-  }, [authStatus, clientDemoMode]);
+  }, [authStatus, canUsePrivateApis]);
 
   async function summarize() {
     if (!canSummarizeDocument) {
       setSummaryError("Load a source document before summarising.");
       return;
     }
-    if (!clientDemoMode && authStatus !== "authenticated") {
+    if (!canUsePrivateApis) {
       setSummaryError("Sign in before summarising private documents.");
       return;
     }
@@ -739,15 +787,14 @@ export function DocumentViewer({
   }
 
   const authViewerError =
-    !clientDemoMode && authStatus !== "authenticated" && (authStatus !== "loading" || authLoadingTimedOut)
+    !canUsePrivateApis && (authStatus !== "loading" || authLoadingTimedOut)
       ? isConfigured
         ? "Sign in to open private source documents."
         : "Supabase browser authentication is not configured for private source documents."
       : null;
-  const effectiveLoadingDocument =
-    !clientDemoMode && authStatus !== "authenticated"
-      ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
-      : loadingDocument;
+  const effectiveLoadingDocument = !canUsePrivateApis
+    ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
+    : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"
@@ -757,35 +804,45 @@ export function DocumentViewer({
         ? "auth-required"
         : "error";
   const readyDocument = viewerState === "ready" ? document : null;
-  const headerTitle =
-    readyDocument
-      ? readyDocument.title
+  const headerTitle = readyDocument
+    ? readyDocument.title
+    : viewerState === "auth-required"
+      ? "Sign in required"
+      : viewerState === "loading"
+        ? "Document"
+        : "Source unavailable";
+  const headerSubtitle = readyDocument
+    ? `page ${initialPage} · ${readyDocument.file_name}`
+    : viewerState === "loading"
+      ? `page ${initialPage} · loading source`
+      : (effectiveViewerError ?? "Source unavailable");
+  const headerMetadata = readyDocument
+    ? sourceStatusLabel(normalizeSourceMetadata(readyDocument.metadata))
+    : viewerState === "loading"
+      ? "Loading source metadata"
       : viewerState === "auth-required"
-        ? "Sign in required"
-        : viewerState === "loading"
-          ? "Document"
-          : "Source unavailable";
-  const headerSubtitle =
-    readyDocument
-      ? `page ${initialPage} · ${readyDocument.file_name}`
-      : viewerState === "loading"
-        ? `page ${initialPage} · loading source`
-        : (effectiveViewerError ?? "Source unavailable");
-  const headerMetadata =
-    readyDocument
-      ? sourceStatusLabel(normalizeSourceMetadata(readyDocument.metadata))
-      : viewerState === "loading"
-        ? "Loading source metadata"
-        : viewerState === "auth-required"
-          ? "Private source document"
-          : "Source unavailable";
-  const canSummarizeDocument =
-    viewerState === "ready" && !loadingSummary && (clientDemoMode || authStatus === "authenticated");
+        ? "Private source document"
+        : "Source unavailable";
+  const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument
     ? "Generate a source-backed document summary"
     : "Load a source document before summarising";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunks.find((chunk) => chunk.id === chunkId) ?? chunks[0];
+  const clinicalImages = images.filter(
+    (image) => image.searchable !== false && (image.clinicalUseClass ?? "clinical_evidence") === "clinical_evidence",
+  );
+  const auditImages = images.filter(
+    (image) =>
+      image.source_kind === "table_crop" &&
+      (image.searchable === false ||
+        ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
+  );
+  useEffect(() => {
+    if (!chunkId || loadingDocument) return;
+    const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [chunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
     setViewerError(null);
     setPreviewError(null);
@@ -816,9 +873,7 @@ export function DocumentViewer({
             </Link>
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold sm:text-base">{headerTitle}</h1>
-              <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">
-                {headerSubtitle}
-              </p>
+              <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">{headerSubtitle}</p>
               <div className="hidden items-center gap-2 sm:flex">
                 {readyDocument ? (
                   <>
@@ -843,7 +898,7 @@ export function DocumentViewer({
             {readyDocument && (
               <DocumentManagementActions
                 document={readyDocument}
-                disabled={clientDemoMode || authStatus !== "authenticated"}
+                disabled={!canUsePrivateApis}
                 onRenamed={handleDocumentRenamed}
                 onDeleted={handleDocumentDeleted}
               />
@@ -892,6 +947,7 @@ export function DocumentViewer({
                 chunks={chunks}
                 search={sourceSearch}
                 idPrefix="mobile-chunk"
+                selectedChunkId={chunkId}
                 onSearchChange={setSourceSearch}
               />
             </div>
@@ -956,6 +1012,7 @@ export function DocumentViewer({
               chunks={chunks}
               search={sourceSearch}
               idPrefix="desktop-chunk"
+              selectedChunkId={chunkId}
               onSearchChange={setSourceSearch}
             />
           </div>
@@ -999,7 +1056,9 @@ export function DocumentViewer({
                         </p>
                         <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
                           {(items as string[]).slice(0, 5).map((item) => (
-                            <li key={item}>- <SafeBoldText text={item} /></li>
+                            <li key={item}>
+                              - <SafeBoldText text={item} />
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -1024,17 +1083,31 @@ export function DocumentViewer({
           <section className={cn(panel, "p-4")}>
             <PanelHeading
               icon={FileImage}
-              title="Images and captions"
-              description="Indexed diagrams extracted from the source document."
+              title="Tables and diagrams"
+              description="Indexed clinical tables, diagrams, and image captions extracted from the source document."
             />
             <div className="mt-3 space-y-3">
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading indexed images" />
-              ) : images.length === 0 ? (
-                <p className={cn("text-[15px]", textMuted)}>No extracted images have been indexed for this document.</p>
+              ) : clinicalImages.length === 0 ? (
+                <p className={cn("text-[15px]", textMuted)}>
+                  No clinically useful tables or diagrams have been indexed for this document.
+                </p>
               ) : (
-                images.map((image) => <DocumentImage key={image.id} image={image} />)
+                clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
               )}
+              {!effectiveLoadingDocument && auditImages.length > 0 ? (
+                <details className={cn(sourceCard, "p-3")}>
+                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+                    Administrative/reference tables retained for audit ({auditImages.length})
+                  </summary>
+                  <div className="mt-3 grid gap-3">
+                    {auditImages.map((image) => (
+                      <DocumentImage key={image.id} image={image} />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </div>
           </section>
 

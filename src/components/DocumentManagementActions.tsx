@@ -181,9 +181,7 @@ export function DocumentManagementActions({
               </button>
             </div>
 
-            {error && (
-              <div className={cn("mt-4 rounded-lg border p-3 text-sm font-semibold", toneDanger)}>{error}</div>
-            )}
+            {error && <div className={cn("mt-4 rounded-lg border p-3 text-sm font-semibold", toneDanger)}>{error}</div>}
 
             {mode === "rename" ? (
               <form onSubmit={submitRename} className="mt-4 space-y-4">

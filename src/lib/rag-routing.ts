@@ -1,4 +1,5 @@
-import type { ConflictOrGap, RagAnswer, SearchResult } from "@/lib/types";
+import { classifyRagQuery } from "@/lib/clinical-search";
+import type { ConflictOrGap, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 export type AnswerRouteMode = "unsupported" | "extractive" | "fast" | "strong";
 
@@ -56,8 +57,7 @@ function hasTextSupport(results: SearchResult[]) {
 function hasActionableConflictOrGap(conflictsOrGaps: ConflictOrGap[] = []) {
   return conflictsOrGaps.some(
     (item) =>
-      item.type === "conflict" ||
-      /limited-strength|not enough|no indexed|weak support|unsupported/i.test(item.message),
+      item.type === "conflict" || /limited-strength|not enough|no indexed|weak support|unsupported/i.test(item.message),
   );
 }
 
@@ -93,6 +93,7 @@ export function isComplexClinicalQuery(query: string) {
 export function shouldUseExtractiveAnswer(args: {
   query: string;
   results: SearchResult[];
+  queryClass?: RagQueryClass;
   conflictsOrGaps?: ConflictOrGap[];
 }) {
   if (args.results.length === 0) return false;
@@ -100,19 +101,40 @@ export function shouldUseExtractiveAnswer(args: {
   const strongestScore = strongestRetrievalScore(args.results);
   const topTextRank = Math.max(...args.results.map((result) => result.text_rank ?? 0));
   const documents = documentCount(args.results);
+  const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
+  const singleDocumentStrongMatch = documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
 
   if (documents > 1 && comparisonQueryPattern.test(args.query)) return false;
+  if (queryClass === "comparison" || queryClass === "broad_summary") return false;
   if (extractiveBlockPattern.test(args.query) && !directTitleSupport) return false;
   if (!extractiveQuestionPattern.test(args.query) && !directTitleSupport) return false;
 
   if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport && strongestScore < 0.82) return false;
 
-  return strongestScore >= extractiveRetrievalThreshold || topTextRank >= 0.12 || (directTitleSupport && strongestScore >= 0.4);
+  if (queryClass === "table_threshold" && strongestScore >= 0.68 && (topTextRank >= 0.035 || singleDocumentStrongMatch)) {
+    return true;
+  }
+
+  if (queryClass === "document_lookup" && (directTitleSupport || strongestScore >= 0.72)) {
+    return true;
+  }
+
+  if (queryClass === "medication_dose_risk" && singleDocumentStrongMatch && !comparisonQueryPattern.test(args.query)) {
+    return true;
+  }
+
+  return (
+    strongestScore >= extractiveRetrievalThreshold ||
+    singleDocumentStrongMatch ||
+    topTextRank >= 0.12 ||
+    (directTitleSupport && strongestScore >= 0.4)
+  );
 }
 
 export function chooseAnswerRoute(args: {
   query: string;
   results: SearchResult[];
+  queryClass?: RagQueryClass;
   conflictsOrGaps?: ConflictOrGap[];
   fastModel: string;
   strongModel: string;
@@ -120,6 +142,7 @@ export function chooseAnswerRoute(args: {
   const strongestScore = strongestRetrievalScore(args.results);
   const documents = documentCount(args.results);
   const directTitleSupport = hasDirectTitleSupport(args.query, args.results);
+  const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
 
   if (args.results.length === 0) {
     return {
@@ -141,11 +164,27 @@ export function chooseAnswerRoute(args: {
     };
   }
 
-  if (shouldUseExtractiveAnswer(args)) {
+  if (queryClass === "comparison" || (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport)) {
+    return {
+      mode: "strong",
+      model: args.strongModel,
+      reason: "multi_document_comparison_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (shouldUseExtractiveAnswer({ ...args, queryClass })) {
+    const reason =
+      queryClass === "table_threshold"
+        ? "table_or_threshold_source_extractive"
+        : queryClass === "document_lookup"
+          ? "document_lookup_source_extractive"
+          : "high_confidence_source_extractive";
     return {
       mode: "extractive",
       model: null,
-      reason: "strong_source_match_extract",
+      reason,
       strongestScore,
       documentCount: documents,
     };
@@ -166,16 +205,6 @@ export function chooseAnswerRoute(args: {
       mode: "strong",
       model: args.strongModel,
       reason: "limited_retrieval_strength",
-      strongestScore,
-      documentCount: documents,
-    };
-  }
-
-  if (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport) {
-    return {
-      mode: "strong",
-      model: args.strongModel,
-      reason: "multi_document_synthesis",
       strongestScore,
       documentCount: documents,
     };

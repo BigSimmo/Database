@@ -38,7 +38,11 @@ function parseArgs(argv: string[]): CleanupArgs {
   return args;
 }
 
-async function removePaths(args: { supabase: Awaited<ReturnType<typeof loadAdminClient>>; bucket: string; paths: string[] }) {
+async function removePaths(args: {
+  supabase: Awaited<ReturnType<typeof loadAdminClient>>;
+  bucket: string;
+  paths: string[];
+}) {
   let removed = 0;
   const warnings: string[] = [];
   const uniquePaths = Array.from(new Set(args.paths.filter(Boolean)));

@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { generateStructuredTextResponse } from "@/lib/openai";
+import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import type {
   ClinicalDocument,
   DocumentLabel,
   DocumentLabelType,
   DocumentSummary,
+  DocumentMatch,
   RelatedDocument,
   SearchResult,
 } from "@/lib/types";
@@ -21,6 +24,14 @@ const labelTypes = new Set<DocumentLabelType>([
   "service",
   "custom",
 ]);
+
+export const ragEnrichmentVersion = ragDeepMemoryVersion;
+
+function metadataRecord(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? { ...(metadata as Record<string, unknown>) }
+    : {};
+}
 
 const summarySchema = {
   type: "object",
@@ -56,7 +67,17 @@ const summarySchema = {
           label: { type: "string" },
           label_type: {
             type: "string",
-            enum: ["topic", "document_type", "medication", "risk", "setting", "workflow", "population", "service", "custom"],
+            enum: [
+              "topic",
+              "document_type",
+              "medication",
+              "risk",
+              "setting",
+              "workflow",
+              "population",
+              "service",
+              "custom",
+            ],
           },
           confidence: { type: "number" },
         },
@@ -249,10 +270,14 @@ export async function generateDocumentEnrichment(args: {
   chunks: EnrichmentChunk[];
   images?: EnrichmentImage[];
 }) {
-  const raw = await generateStructuredTextResponse(buildEnrichmentPrompt({ ...args, images: args.images ?? [] }), summarySchema, {
-    model: env.OPENAI_FAST_ANSWER_MODEL,
-    maxOutputTokens: 1000,
-  });
+  const raw = await generateStructuredTextResponse(
+    buildEnrichmentPrompt({ ...args, images: args.images ?? [] }),
+    summarySchema,
+    {
+      model: env.OPENAI_FAST_ANSWER_MODEL,
+      maxOutputTokens: 1000,
+    },
+  );
   const parsed = parseGeneratedSummary(raw, args.document);
   const inferred = inferLabels(args.document);
   return {
@@ -263,7 +288,9 @@ export async function generateDocumentEnrichment(args: {
 
 export async function upsertDocumentEnrichment(args: {
   supabase: SupabaseClient;
-  document: Pick<ClinicalDocument, "id" | "owner_id" | "title" | "file_name" | "source_path">;
+  document: Pick<ClinicalDocument, "id" | "owner_id" | "title" | "file_name" | "source_path"> & {
+    metadata?: ClinicalDocument["metadata"];
+  };
   chunks: EnrichmentChunk[];
   images?: EnrichmentImage[];
 }) {
@@ -280,6 +307,14 @@ export async function upsertDocumentEnrichment(args: {
 
   const sourceChunkIds = args.chunks.slice(0, 12).map((chunk) => chunk.id);
   const sourceImageIds = (args.images ?? []).slice(0, 12).map((image) => image.id);
+  const enrichedAt = new Date().toISOString();
+  const generatedMetadata = {
+    generated_by: "local-worker",
+    rag_enrichment_version: ragEnrichmentVersion,
+    rag_indexing_version: ragEnrichmentVersion,
+    rag_memory_version: ragEnrichmentVersion,
+    enriched_at: enrichedAt,
+  };
 
   const { data: summary, error: summaryError } = await args.supabase
     .from("document_summaries")
@@ -292,9 +327,9 @@ export async function upsertDocumentEnrichment(args: {
         source_chunk_ids: sourceChunkIds,
         source_image_ids: sourceImageIds,
         model: env.OPENAI_FAST_ANSWER_MODEL,
-        metadata: { generated_by: "local-worker", label_count: enrichment.labels.length },
-        generated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        metadata: { ...generatedMetadata, label_count: enrichment.labels.length },
+        generated_at: enrichedAt,
+        updated_at: enrichedAt,
       },
       { onConflict: "document_id" },
     )
@@ -311,11 +346,27 @@ export async function upsertDocumentEnrichment(args: {
         owner_id: args.document.owner_id ?? null,
         ...label,
         source: "generated",
-        metadata: { generated_by: "local-worker" },
+        metadata: generatedMetadata,
       })),
     );
     if (labelsError) throw new Error(labelsError.message);
   }
+
+  const { error: documentMetadataError } = await args.supabase
+    .from("documents")
+    .update({
+      metadata: {
+        ...metadataRecord(args.document.metadata),
+        rag_enrichment_version: ragEnrichmentVersion,
+        rag_indexing_version: ragEnrichmentVersion,
+        rag_memory_version: ragEnrichmentVersion,
+        rag_enrichment_updated_at: enrichedAt,
+        generated_label_count: enrichment.labels.length,
+      },
+    })
+    .eq("id", args.document.id);
+
+  if (documentMetadataError) throw new Error(documentMetadataError.message);
 
   return { summary: summary as DocumentSummary, labels: enrichment.labels };
 }
@@ -331,7 +382,10 @@ function tokenSet(text: string) {
 
 function compactSummary(summary?: string | null) {
   if (!summary) return null;
-  const clean = summary.replace(/\s+/g, " ").replace(/^[-*]\s*/g, "").trim();
+  const clean = summary
+    .replace(/\s+/g, " ")
+    .replace(/^[-*]\s*/g, "")
+    .trim();
   return clean.length <= 220 ? clean : `${clean.slice(0, 217).trim()}...`;
 }
 
@@ -341,7 +395,7 @@ type RelatedDocumentMetadataRow = {
   summary: string | null;
 };
 
-async function fetchRelatedDocumentMetadata(args: {
+export async function fetchRelatedDocumentMetadata(args: {
   supabase: SupabaseClient;
   ownerId?: string;
   documentIds: string[];
@@ -424,7 +478,7 @@ export async function fetchRelatedDocuments(args: {
         file_name: result.file_name,
         best_pages: page ? [page] : [],
         best_chunk_ids: [result.id],
-        image_count: result.images?.filter((image) => image.searchable !== false).length ?? 0,
+        image_count: result.images?.filter((image) => isClinicalImageEvidence(image)).length ?? 0,
         score,
       });
       continue;
@@ -432,17 +486,20 @@ export async function fetchRelatedDocuments(args: {
     existing.score = Math.max(existing.score, score);
     if (page && !existing.best_pages.includes(page)) existing.best_pages.push(page);
     if (!existing.best_chunk_ids.includes(result.id)) existing.best_chunk_ids.push(result.id);
-    existing.image_count += result.images?.filter((image) => image.searchable !== false).length ?? 0;
+    existing.image_count += result.images?.filter((image) => isClinicalImageEvidence(image)).length ?? 0;
   }
 
   const documentIds = Array.from(grouped.keys());
   if (documentIds.length === 0) return [];
 
-  const metadataRows = await fetchRelatedDocumentMetadata({
-    supabase: args.supabase,
-    ownerId: args.ownerId,
-    documentIds,
-  });
+  const [metadataRows, visualCounts] = await Promise.all([
+    fetchRelatedDocumentMetadata({
+      supabase: args.supabase,
+      ownerId: args.ownerId,
+      documentIds,
+    }),
+    fetchDocumentVisualCounts(args.supabase, documentIds),
+  ]);
   const labelsByDocument = new Map<string, DocumentLabel[]>();
   const summariesByDocument = new Map<string, string | null>();
 
@@ -458,6 +515,7 @@ export async function fetchRelatedDocuments(args: {
       const docLabels = labelsByDocument.get(document.document_id) ?? [];
       const matchingLabel = docLabels.find((label) => queryTokens.has(label.label.toLowerCase()));
       const summary = summariesByDocument.get(document.document_id) ?? null;
+      const counts = visualCounts.get(document.document_id);
       return {
         document_id: document.document_id,
         title: document.title,
@@ -466,7 +524,8 @@ export async function fetchRelatedDocuments(args: {
         summary: compactSummary(summary),
         best_pages: document.best_pages.slice(0, 5),
         best_chunk_ids: document.best_chunk_ids.slice(0, 5),
-        image_count: document.image_count,
+        image_count: Math.max(document.image_count, counts?.imageCount ?? 0),
+        table_count: counts?.tableCount ?? 0,
         match_reason: matchingLabel
           ? `Matched label: ${matchingLabel.label}`
           : `Matched ${document.best_chunk_ids.length} indexed passage${document.best_chunk_ids.length === 1 ? "" : "s"}`,
@@ -475,4 +534,47 @@ export async function fetchRelatedDocuments(args: {
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, args.limit ?? 6);
+}
+
+export async function fetchDocumentVisualCounts(supabase: SupabaseClient, documentIds: string[]) {
+  const counts = new Map<string, { imageCount: number; tableCount: number }>();
+  const uniqueIds = Array.from(new Set(documentIds));
+  if (uniqueIds.length === 0) return counts;
+
+  const { data, error } = await supabase
+    .from("document_images")
+    .select("document_id,source_kind,searchable,image_type,clinical_relevance_score,metadata")
+    .in("document_id", uniqueIds)
+    .neq("image_type", "logo_decorative");
+
+  if (error) throw new Error(error.message);
+
+  for (const documentId of uniqueIds) counts.set(documentId, { imageCount: 0, tableCount: 0 });
+  for (const row of data ?? []) {
+    const documentId = String(row.document_id);
+    const current = counts.get(documentId) ?? { imageCount: 0, tableCount: 0 };
+    if (isClinicalImageEvidence(row)) {
+      current.imageCount += 1;
+      if (row.source_kind === "table_crop") current.tableCount += 1;
+    }
+    counts.set(documentId, current);
+  }
+
+  return counts;
+}
+
+export function toDocumentMatch(document: RelatedDocument): DocumentMatch {
+  return {
+    document_id: document.document_id,
+    title: document.title,
+    file_name: document.file_name,
+    labels: document.labels,
+    summarySnippet: document.summary,
+    bestPages: document.best_pages,
+    bestChunkIds: document.best_chunk_ids,
+    imageCount: document.image_count,
+    tableCount: document.table_count ?? 0,
+    matchReason: document.match_reason,
+    score: document.score,
+  };
 }
