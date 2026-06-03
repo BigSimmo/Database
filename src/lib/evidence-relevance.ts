@@ -12,10 +12,20 @@ import type {
 const genericQueryTerms = new Set([
   "answer",
   "available",
+  "because",
+  "before",
+  "could",
   "clinical",
+  "consider",
   "document",
+  "does",
   "evidence",
+  "for",
+  "from",
+  "have",
   "guideline",
+  "help",
+  "how",
   "indexed",
   "information",
   "issue",
@@ -29,11 +39,25 @@ const genericQueryTerms = new Set([
   "question",
   "recommendation",
   "review",
+  "reviewed",
+  "reviewing",
   "shown",
+  "should",
   "source",
   "support",
   "table",
   "text",
+  "that",
+  "the",
+  "these",
+  "this",
+  "those",
+  "would",
+  "what",
+  "when",
+  "where",
+  "which",
+  "with",
 ]);
 
 const namedMedicationTerms = new Set([
@@ -168,7 +192,9 @@ function directnessVerdict(args: {
     args.matchedTerms.length > 0 &&
     medicationCovered &&
     hasDoseSupport &&
-    (args.coverageScore >= 0.42 || args.contentMatchedTerms.length >= 2)
+    (args.coverageScore >= 0.5 ||
+      (args.coverageScore >= 0.42 && (args.rankScore >= 0.5 || args.strength === "strong" || args.strength === "moderate")) ||
+      args.contentMatchedTerms.length >= 3)
   ) {
     return "partial" satisfies EvidenceRelevanceVerdict;
   }

@@ -4,6 +4,7 @@ import {
   annotateSearchResults,
   buildEvidenceRelevance,
   buildSourceRelevance,
+  queryCoreTerms,
 } from "../src/lib/evidence-relevance";
 import type { SearchResult } from "../src/lib/types";
 
@@ -27,6 +28,17 @@ function result(overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe("evidence relevance", () => {
+  it("removes generic question words from query coverage", () => {
+    const terms = queryCoreTerms("What toxicity safety-net symptoms should be reviewed for lithium?");
+
+    expect(terms).toContain("lithium");
+    expect(terms).toContain("toxicity");
+    expect(terms).not.toContain("what");
+    expect(terms).not.toContain("should");
+    expect(terms).not.toContain("for");
+    expect(terms).not.toContain("reviewed");
+  });
+
   it("classifies weak lithium-style neighboring sources as nearby, not direct", () => {
     const relevance = buildEvidenceRelevance("What toxicity safety-net symptoms should be reviewed for lithium?", [
       result({
@@ -38,11 +50,21 @@ describe("evidence relevance", () => {
         text_rank: 0,
         source_strength: "limited",
       }),
+      result({
+        id: "limited-lithium-neighbor",
+        title: "Clozapine medication interactions",
+        content: "The document briefly mentions lithium and general symptom review in a broader clozapine section.",
+        similarity: 0.33,
+        hybrid_score: 0.33,
+        text_rank: 0,
+        source_strength: "limited",
+      }),
     ]);
 
     expect(relevance.verdict).toBe("nearby");
     expect(relevance.isSourceBacked).toBe(false);
-    expect(relevance.missingTerms).toContain("lithium");
+    expect(relevance.missingTerms).toContain("safety");
+    expect(relevance.missingTerms).toContain("net");
   });
 
   it("classifies strong direct concept coverage as direct", () => {
