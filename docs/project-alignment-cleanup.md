@@ -7,6 +7,12 @@
 - Added transitive overrides for `postcss`, `tmp`, and `uuid` to remove audit findings from Next and ExcelJS dependency paths while preserving the existing spreadsheet import/export code.
 - Verified ExcelJS still writes and reads an XLSX buffer with the `uuid` override in place.
 
+## Runtime policy
+
+- CI verifies the project on Node.js 22, so local development should also use Node.js 22.x.
+- `.nvmrc`, `.node-version`, and `package.json` `engines` all declare the Node 22 runtime expectation.
+- New cleanup or dependency work should be verified on Node 22 before release, even when local shells happen to use newer Node versions.
+
 ## Stale branch audit
 
 - `temporary` and `codex/spark` contain the same four unique commits covering upload workflow notes, Supabase project checks, and database cleanup hardening.
