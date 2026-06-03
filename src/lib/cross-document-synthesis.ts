@@ -84,7 +84,11 @@ function candidateSentences(result: SearchResult) {
   return sourceTextForModel(`${memoryText}. ${result.section_heading ?? ""}. ${result.content}`)
     .split(/\r?\n|(?<=[.!?])\s+/)
     .map((sentence) => compact(sentence, 260))
-    .filter((sentence) => sentence.length >= 24 && !/\b(?:document owner|authorisation|references|uncontrolled when printed)\b/i.test(sentence));
+    .filter(
+      (sentence) =>
+        sentence.length >= 24 &&
+        !/\b(?:document owner|authorisation|references|uncontrolled when printed)\b/i.test(sentence),
+    );
 }
 
 function bestDocumentPoint(query: string, results: SearchResult[]) {
@@ -93,11 +97,12 @@ function bestDocumentPoint(query: string, results: SearchResult[]) {
     candidateSentences(result).map((sentence) => {
       const normalized = normalizeText(sentence);
       const tokenHits = tokens.filter((token) => normalized.includes(token)).length;
-      const clinicalSignal = /\b(?:must|should|required|monitor|escalat|risk|dose|mg|mcg|threshold|urgent|review|withhold|cease|avoid|baseline|hours?|days?)\b/i.test(
-        sentence,
-      )
-        ? 1.25
-        : 0;
+      const clinicalSignal =
+        /\b(?:must|should|required|monitor|escalat|risk|dose|mg|mcg|threshold|urgent|review|withhold|cease|avoid|baseline|hours?|days?)\b/i.test(
+          sentence,
+        )
+          ? 1.25
+          : 0;
       return {
         result,
         sentence,

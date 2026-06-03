@@ -46,7 +46,9 @@ export function AccessibleTable({
     <div className="overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
       <table className="min-w-full border-collapse text-left text-sm">
         {caption ? (
-          <caption className={cn("caption-top px-3 py-2 text-left text-xs font-semibold", textMuted)}>{caption}</caption>
+          <caption className={cn("caption-top px-3 py-2 text-left text-xs font-semibold", textMuted)}>
+            {caption}
+          </caption>
         ) : null}
         <thead>
           <tr className="bg-[color:var(--surface-subtle)]">
@@ -66,7 +68,10 @@ export function AccessibleTable({
             return (
               <tr key={`${rowIndex}:${row.join("|")}`} className="border-t border-[color:var(--border)]/70">
                 {row.map((cell, cellIndex) => (
-                  <td key={`${rowIndex}:${cellIndex}`} className="px-3 py-2 align-top leading-5 text-[color:var(--text)]">
+                  <td
+                    key={`${rowIndex}:${cellIndex}`}
+                    className="px-3 py-2 align-top leading-5 text-[color:var(--text)]"
+                  >
                     {cell || <span className={textMuted}>-</span>}
                   </td>
                 ))}

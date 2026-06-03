@@ -142,7 +142,9 @@ describe("document enrichment", () => {
       images: [],
     });
 
-    const summaryUpsert = supabase.calls.find((call) => call.table === "document_summaries" && call.operation === "upsert");
+    const summaryUpsert = supabase.calls.find(
+      (call) => call.table === "document_summaries" && call.operation === "upsert",
+    );
     const labelsInsert = supabase.calls.find((call) => call.table === "document_labels" && call.operation === "insert");
     const documentUpdate = supabase.calls.find((call) => call.table === "documents" && call.operation === "update");
 

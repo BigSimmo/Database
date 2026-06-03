@@ -107,7 +107,12 @@ export const demoImages: Array<ChunkImage & { document_id: string; mime_type: st
     tableColumns: ["Domain", "Baseline", "Initiation", "Ongoing"],
     tableRows: [
       ["FBC/ANC", "Record baseline result", "Monitor per protocol", "Continue scheduled monitoring"],
-      ["Myocarditis", "Review cardiac symptoms", "Check symptoms and markers if required", "Escalate concerning symptoms"],
+      [
+        "Myocarditis",
+        "Review cardiac symptoms",
+        "Check symptoms and markers if required",
+        "Escalate concerning symptoms",
+      ],
       ["Metabolic", "Weight, lipids, glucose/HbA1c", "Track early change", "Ongoing metabolic review"],
       ["Constipation", "Document bowel history", "Plan prevention", "Escalate severe constipation"],
     ],

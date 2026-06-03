@@ -80,7 +80,9 @@ function resultTexts(result: SearchResult) {
     content: normalizeText(contentText),
     metadata: normalizeText(metadataText),
     adjacent: normalizeText(result.adjacent_context ?? ""),
-    combined: normalizeText(`${titleText} ${sectionText} ${contentText} ${metadataText} ${result.adjacent_context ?? ""}`),
+    combined: normalizeText(
+      `${titleText} ${sectionText} ${contentText} ${metadataText} ${result.adjacent_context ?? ""}`,
+    ),
   };
 }
 
@@ -198,11 +200,7 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
       ? -0.22
       : 0;
   const titleOnlyDosePenalty =
-    queryClass === "medication_dose_risk" &&
-    titleCoverage >= 0.4 &&
-    !hasDoseEvidenceSupport(result)
-      ? -0.18
-      : 0;
+    queryClass === "medication_dose_risk" && titleCoverage >= 0.4 && !hasDoseEvidenceSupport(result) ? -0.18 : 0;
 
   return clampScore(
     base +

@@ -415,8 +415,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByTestId("answer-grounding-chip")).toBeVisible();
     await expect(page.getByTestId("clinical-action-view")).toBeVisible();
-    await expect(page.getByTestId("clinical-action-view").getByRole("heading", { name: "Action", exact: true })).toBeVisible();
-    await expect(page.getByTestId("clinical-action-view").getByRole("heading", { name: "Thresholds", exact: true })).toBeVisible();
+    await expect(
+      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Action", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Thresholds", exact: true }),
+    ).toBeVisible();
     const rawNarrative = page.getByTestId("raw-answer-narrative");
     await expect(rawNarrative).toBeVisible();
     expect(await rawNarrative.evaluate((element) => element.hasAttribute("open"))).toBe(false);
@@ -502,7 +506,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
     await expect(page.getByText("1 tables")).toBeVisible();
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
-    await page.getByRole("button", { name: /Answer from/i }).first().click();
+    await page
+      .getByRole("button", { name: /Answer from/i })
+      .first()
+      .click();
     await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });

@@ -39,7 +39,9 @@ function hasCurrentMemoryVersion(metadata: unknown, expectedVersion: string) {
 }
 
 function strictEnrichmentVersionRequired() {
-  return process.argv.includes("--strict-enrichment-version") || process.env.RAG_REQUIRE_CURRENT_ENRICHMENT_VERSION === "1";
+  return (
+    process.argv.includes("--strict-enrichment-version") || process.env.RAG_REQUIRE_CURRENT_ENRICHMENT_VERSION === "1"
+  );
 }
 
 async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[]) {
@@ -144,7 +146,10 @@ async function main() {
     labelRowsByDocument.set(label.document_id, [...(labelRowsByDocument.get(label.document_id) ?? []), label]);
   }
   for (const section of deepMemoryRows.sections) {
-    sectionRowsByDocument.set(section.document_id, [...(sectionRowsByDocument.get(section.document_id) ?? []), section]);
+    sectionRowsByDocument.set(section.document_id, [
+      ...(sectionRowsByDocument.get(section.document_id) ?? []),
+      section,
+    ]);
   }
   for (const card of deepMemoryRows.memoryCards) {
     memoryRowsByDocument.set(card.document_id, [...(memoryRowsByDocument.get(card.document_id) ?? []), card]);
@@ -173,7 +178,9 @@ async function main() {
   );
   const documentsWithCurrentEnrichmentVersion = indexedDocuments.filter((document) => {
     const summary = summariesByDocument.get(document.id);
-    const generatedLabels = (labelRowsByDocument.get(document.id) ?? []).filter((label) => label.source === "generated");
+    const generatedLabels = (labelRowsByDocument.get(document.id) ?? []).filter(
+      (label) => label.source === "generated",
+    );
     return (
       hasCurrentEnrichmentVersion(document.metadata, ragEnrichmentVersion) &&
       hasCurrentEnrichmentVersion(summary?.metadata, ragEnrichmentVersion) &&
@@ -257,7 +264,8 @@ async function main() {
     issues.push(`indexed documents missing summaries: ${documentsMissingSummaries.length}`);
   if (documentsMissingGeneratedLabels.length > 0)
     issues.push(`indexed documents missing generated labels: ${documentsMissingGeneratedLabels.length}`);
-  if (documentsMissingSections.length > 0) issues.push(`indexed documents missing sections: ${documentsMissingSections.length}`);
+  if (documentsMissingSections.length > 0)
+    issues.push(`indexed documents missing sections: ${documentsMissingSections.length}`);
   if (documentsMissingMemoryCards.length > 0)
     issues.push(`indexed documents missing memory cards: ${documentsMissingMemoryCards.length}`);
   if (requireCurrentEnrichmentVersion && documentsMissingCurrentEnrichmentVersion > 0) {

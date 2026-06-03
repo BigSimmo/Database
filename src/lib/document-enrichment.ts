@@ -249,13 +249,9 @@ function parseGeneratedSummary(raw: string, document: Pick<ClinicalDocument, "ti
       clinical_specifics: {
         actions: Array.isArray(specifics.actions) ? specifics.actions : [],
         thresholds_timing: Array.isArray(specifics.thresholds_timing) ? specifics.thresholds_timing : [],
-        medication_monitoring: Array.isArray(specifics.medication_monitoring)
-          ? specifics.medication_monitoring
-          : [],
+        medication_monitoring: Array.isArray(specifics.medication_monitoring) ? specifics.medication_monitoring : [],
         risk_escalation: Array.isArray(specifics.risk_escalation) ? specifics.risk_escalation : [],
-        documentation_forms: Array.isArray(specifics.documentation_forms)
-          ? specifics.documentation_forms
-          : [],
+        documentation_forms: Array.isArray(specifics.documentation_forms) ? specifics.documentation_forms : [],
         exceptions_gaps: Array.isArray(specifics.exceptions_gaps) ? specifics.exceptions_gaps : [],
       },
       labels: normalizeGeneratedLabels(parsed.labels),

@@ -115,7 +115,8 @@ export function shouldUseExtractiveAnswer(args: {
   const topTextRank = Math.max(...args.results.map((result) => result.text_rank ?? 0));
   const documents = documentCount(args.results);
   const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
-  const singleDocumentStrongMatch = documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
+  const singleDocumentStrongMatch =
+    documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
 
   if (documents > 1 && comparisonQueryPattern.test(args.query)) return false;
   if (queryClass === "comparison" || queryClass === "broad_summary") return false;
@@ -124,7 +125,11 @@ export function shouldUseExtractiveAnswer(args: {
 
   if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport && strongestScore < 0.82) return false;
 
-  if (queryClass === "table_threshold" && strongestScore >= 0.68 && (topTextRank >= 0.035 || singleDocumentStrongMatch)) {
+  if (
+    queryClass === "table_threshold" &&
+    strongestScore >= 0.68 &&
+    (topTextRank >= 0.035 || singleDocumentStrongMatch)
+  ) {
     return true;
   }
 
@@ -244,7 +249,10 @@ export function chooseAnswerRoute(args: {
     };
   }
 
-  if (queryClass === "comparison" || (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport)) {
+  if (
+    queryClass === "comparison" ||
+    (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport)
+  ) {
     return {
       mode: "strong",
       model: args.strongModel,

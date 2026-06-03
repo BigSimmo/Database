@@ -58,10 +58,11 @@ function looksLikeHeaderContinuation(args: { rawRow: string[]; keptIndexes: numb
   return !/^[A-F]\b/.test(joined);
 }
 
-export function normalizeAccessibleTable(rows: string[][], columns?: string[] | null): NormalizedAccessibleTable | null {
-  const rawRows = rows
-    .map((row) => row.map(compactCell))
-    .filter((row) => row.some((cell) => !isEmptyCell(cell)));
+export function normalizeAccessibleTable(
+  rows: string[][],
+  columns?: string[] | null,
+): NormalizedAccessibleTable | null {
+  const rawRows = rows.map((row) => row.map(compactCell)).filter((row) => row.some((cell) => !isEmptyCell(cell)));
   if (!rawRows.length) return null;
 
   const rawHeader = (columns?.length ? columns : rawRows[0]).map(compactCell);
@@ -75,7 +76,9 @@ export function normalizeAccessibleTable(rows: string[][], columns?: string[] | 
     .map((cell, index) => (isGenericHeader(cell) ? null : index))
     .filter((index): index is number => index !== null);
 
-  const keptIndexes = namedIndexes.length ? namedIndexes : Array.from({ length: sourceColumnCount }, (_, index) => index);
+  const keptIndexes = namedIndexes.length
+    ? namedIndexes
+    : Array.from({ length: sourceColumnCount }, (_, index) => index);
   const targetBySourceIndex = new Map<number, number>();
 
   for (let sourceIndex = 0; sourceIndex < sourceColumnCount; sourceIndex += 1) {

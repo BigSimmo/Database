@@ -49,10 +49,7 @@ The Clozapine monitoring protocol must be followed if a patient's blood test is 
     expect(blocks).toContainEqual(
       expect.objectContaining({
         type: "list",
-        items: [
-          "Amisulpride, Risperidone, Olanzapine > 20mg, Paliperidone - prolactin",
-          "Quetiapine - TSH",
-        ],
+        items: ["Amisulpride, Risperidone, Olanzapine > 20mg, Paliperidone - prolactin", "Quetiapine - TSH"],
       }),
     );
 

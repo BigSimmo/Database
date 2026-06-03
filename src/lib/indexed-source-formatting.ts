@@ -215,7 +215,8 @@ export function parseIndexedSourceText(text: string): IndexedTextBlock[] {
     }
 
     const paragraph = paragraphFrom(paragraphLines);
-    if (paragraph) blocks.push({ type: "paragraph", id: `paragraph:${index}:${paragraph.slice(0, 24)}`, text: paragraph });
+    if (paragraph)
+      blocks.push({ type: "paragraph", id: `paragraph:${index}:${paragraph.slice(0, 24)}`, text: paragraph });
   }
 
   return blocks;

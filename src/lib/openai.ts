@@ -531,7 +531,8 @@ const imageClassificationSchema = {
     clinical_use_class: {
       type: "string",
       enum: ["clinical_evidence", "administrative", "reference", "decorative_or_empty", "ambiguous"],
-      description: "Whether this is useful clinical evidence, document administration, reference material, decorative/empty, or ambiguous.",
+      description:
+        "Whether this is useful clinical evidence, document administration, reference material, decorative/empty, or ambiguous.",
     },
     clinical_use_reason: {
       type: "string",
@@ -539,11 +540,13 @@ const imageClassificationSchema = {
     },
     clinical_signal_score: {
       type: "number",
-      description: "Count-like score from 0 to 10 for patient-care signals such as medication, monitoring, thresholds, risk, escalation, or workflow.",
+      description:
+        "Count-like score from 0 to 10 for patient-care signals such as medication, monitoring, thresholds, risk, escalation, or workflow.",
     },
     admin_signal_score: {
       type: "number",
-      description: "Count-like score from 0 to 10 for authorisation, version, amendment, site/applicability, reference, or document-control signals.",
+      description:
+        "Count-like score from 0 to 10 for authorisation, version, amendment, site/applicability, reference, or document-control signals.",
     },
   },
   required: [
@@ -655,12 +658,11 @@ export async function classifyAndCaptionImageFromBase64(args: {
       clinical_relevance_score: assessment.clinical_relevance_score,
       labels: sanitizeImageLabels(parsed.labels),
       caption: String(parsed.caption || "").trim() || "Extracted source image.",
-      skip_reason:
-        assessment.searchable
-          ? typeof parsed.skip_reason === "string" && parsed.skip_reason.trim()
-            ? parsed.skip_reason.trim()
-            : null
-          : assessment.clinical_use_reason,
+      skip_reason: assessment.searchable
+        ? typeof parsed.skip_reason === "string" && parsed.skip_reason.trim()
+          ? parsed.skip_reason.trim()
+          : null
+        : assessment.clinical_use_reason,
       clinical_use_class: assessment.clinical_use_class,
       clinical_use_reason: assessment.clinical_use_reason,
       clinical_signal_score: assessment.clinical_signal_score,

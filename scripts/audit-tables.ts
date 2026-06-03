@@ -13,7 +13,12 @@ type Args = {
 };
 
 function parseArgs(): Args {
-  const args: Args = { ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL, allOwners: !process.env.RAG_EVAL_OWNER_EMAIL, limit: 200, failOnMissed: false };
+  const args: Args = {
+    ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
+    allOwners: !process.env.RAG_EVAL_OWNER_EMAIL,
+    limit: 200,
+    failOnMissed: false,
+  };
   const tokens = process.argv.slice(2);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
@@ -85,7 +90,10 @@ async function main() {
   if (imagesResult.error) throw new Error(imagesResult.error.message);
   if (pagesResult.error) throw new Error(pagesResult.error.message);
 
-  const counts = new Map<string, { tables: number; clinicalTables: number; adminTables: number; searchableAdminTables: number; images: number }>();
+  const counts = new Map<
+    string,
+    { tables: number; clinicalTables: number; adminTables: number; searchableAdminTables: number; images: number }
+  >();
   for (const documentId of documentIds) {
     counts.set(documentId, { tables: 0, clinicalTables: 0, adminTables: 0, searchableAdminTables: 0, images: 0 });
   }
@@ -98,7 +106,8 @@ async function main() {
       searchableAdminTables: 0,
       images: 0,
     };
-    const metadata = image.metadata && typeof image.metadata === "object" ? (image.metadata as Record<string, unknown>) : {};
+    const metadata =
+      image.metadata && typeof image.metadata === "object" ? (image.metadata as Record<string, unknown>) : {};
     const useClass = String(
       metadata.clinical_use_class ??
         assessClinicalImageUse({
@@ -153,7 +162,9 @@ async function main() {
       possibleMisses.push(`${document.file_name}: table-like text on pages ${markerPages.slice(0, 8).join(", ")}`);
     }
     if (documentCounts.searchableAdminTables > 0) {
-      searchableAdminIssues.push(`${document.file_name}: searchable admin/reference tables=${documentCounts.searchableAdminTables}`);
+      searchableAdminIssues.push(
+        `${document.file_name}: searchable admin/reference tables=${documentCounts.searchableAdminTables}`,
+      );
     }
     console.log(
       [

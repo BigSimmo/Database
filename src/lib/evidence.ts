@@ -109,9 +109,10 @@ function hasDoseSentenceEvidence(sentence: string) {
 }
 
 function lowValueSentencePenalty(sentence: string, query: string) {
-  const isDoseQuery = /\b(?:dose|doses|dosage|dosing|mg|mcg|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|titrate|titration)\b/i.test(
-    query,
-  );
+  const isDoseQuery =
+    /\b(?:dose|doses|dosage|dosing|mg|mcg|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|titrate|titration)\b/i.test(
+      query,
+    );
   let penalty = 0;
   if (
     isDoseQuery &&
@@ -123,7 +124,10 @@ function lowValueSentencePenalty(sentence: string, query: string) {
     penalty += 5;
   }
   if (isDoseQuery && !hasDoseSentenceEvidence(sentence)) penalty += 2;
-  if (/^agitation and arousal:?\s+pharmacological management guideline\b/i.test(sentence) && !hasDoseSentenceEvidence(sentence)) {
+  if (
+    /^agitation and arousal:?\s+pharmacological management guideline\b/i.test(sentence) &&
+    !hasDoseSentenceEvidence(sentence)
+  ) {
     penalty += 3;
   }
   return penalty;
@@ -142,7 +146,11 @@ function tableRowQuoteCandidates(content: string) {
       activeHeader = line;
       continue;
     }
-    if (activeHeader && /\b(?:green|amber|red)\b/i.test(line) && /\b(?:continue|cease|required|blood tests?)\b/i.test(line)) {
+    if (
+      activeHeader &&
+      /\b(?:green|amber|red)\b/i.test(line) &&
+      /\b(?:continue|cease|required|blood tests?)\b/i.test(line)
+    ) {
       candidates.push(`${activeHeader} ${line}`);
     }
   }
@@ -164,7 +172,9 @@ function bestQuoteFromContent(content: string, query: string) {
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
-  const sentences = Array.from(new Set([...tableRowQuoteCandidates(content), ...rawLineCandidates, ...sentenceCandidates]));
+  const sentences = Array.from(
+    new Set([...tableRowQuoteCandidates(content), ...rawLineCandidates, ...sentenceCandidates]),
+  );
 
   const best =
     sentences
@@ -173,8 +183,9 @@ function bestQuoteFromContent(content: string, query: string) {
         const lengthPenalty = sentence.length > 340 ? 6 : sentence.length > 260 ? 1.2 : sentence.length > 180 ? 0.4 : 0;
         return { sentence, score, adjustedScore: score - lengthPenalty - lowValueSentencePenalty(sentence, query) };
       })
-      .sort((a, b) => b.adjustedScore - a.adjustedScore || b.score - a.score || a.sentence.length - b.sentence.length)[0]
-      ?.sentence ?? clean;
+      .sort(
+        (a, b) => b.adjustedScore - a.adjustedScore || b.score - a.score || a.sentence.length - b.sentence.length,
+      )[0]?.sentence ?? clean;
 
   if (best.length <= 340) return best;
   return `${best.slice(0, 337).trim()}...`;

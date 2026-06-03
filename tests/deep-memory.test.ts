@@ -89,13 +89,11 @@ describe("deep RAG memory indexing", () => {
       ],
     });
 
-    expect(cards.map((card) => card.card_type)).toEqual(
-      expect.arrayContaining(["table_row", "threshold", "workflow"]),
-    );
+    expect(cards.map((card) => card.card_type)).toEqual(expect.arrayContaining(["table_row", "threshold", "workflow"]));
     expect(cards.some((card) => card.content.includes("lorazepam 1 mg"))).toBe(true);
-    expect(cards.every((card) => card.source_chunk_ids.includes("chunk-table") || card.card_type === "section_summary")).toBe(
-      true,
-    );
+    expect(
+      cards.every((card) => card.source_chunk_ids.includes("chunk-table") || card.card_type === "section_summary"),
+    ).toBe(true);
     expect(cards.every((card) => card.metadata?.rag_indexing_version === ragDeepMemoryVersion)).toBe(true);
   });
 
@@ -240,9 +238,7 @@ describe("deep RAG memory indexing", () => {
 
     expect(insertedMemoryRows.length).toBeGreaterThan(0);
     expect(insertedMemoryRows.every((row) => !("section_index" in row))).toBe(true);
-    expect(insertedMemoryRows.every((row) => typeof row.section_id === "string" || row.section_id === null)).toBe(
-      true,
-    );
+    expect(insertedMemoryRows.every((row) => typeof row.section_id === "string" || row.section_id === null)).toBe(true);
     expect(supabase.rpc).toHaveBeenCalledWith("stamp_document_deep_memory_version", {
       p_document_id: "doc-1",
       p_version: ragDeepMemoryVersion,

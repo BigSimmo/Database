@@ -25,7 +25,8 @@ function parseArgs(argv: string[]): EnrichArgs {
   const args: EnrichArgs = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
-    allOwners: !process.env.RAG_EVAL_OWNER_EMAIL && !process.env.RAG_EVAL_OWNER_ID && !process.env.LOCAL_NO_AUTH_OWNER_ID,
+    allOwners:
+      !process.env.RAG_EVAL_OWNER_EMAIL && !process.env.RAG_EVAL_OWNER_ID && !process.env.LOCAL_NO_AUTH_OWNER_ID,
     mode: "summaries-labels-images",
     limit: 25,
     includeCurrent: false,

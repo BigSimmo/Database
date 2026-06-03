@@ -41,7 +41,9 @@ describe("source text sanitizer", () => {
 
     expect(viewerText).toContain("Table showing Clozapine dose adjustment");
     expect(viewerText).toContain("Time since last Clozapine dose | Clozapine dose | Blood test monitoring");
-    expect(viewerText).toContain("- <48 hours: Clozapine dose: Restart at normal dose of Clozapine; Blood test monitoring: No changes to monitoring");
+    expect(viewerText).toContain(
+      "- <48 hours: Clozapine dose: Restart at normal dose of Clozapine; Blood test monitoring: No changes to monitoring",
+    );
     expect(viewerText).not.toContain("[[IMAGE_DATA_START]]");
     expect(viewerText).not.toContain("Image ID:");
     expect(viewerText).not.toContain("Source kind:");

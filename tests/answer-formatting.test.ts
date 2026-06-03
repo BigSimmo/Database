@@ -36,7 +36,10 @@ describe("answer display formatting", () => {
 
     expect(parsed.type).toBe("paragraph");
     expect(parsed.mode).toBe("evidence_gap");
-    expect(parsed.lines[0]).toMatchObject({ label: null, text: "The indexed source does not contain enough information." });
+    expect(parsed.lines[0]).toMatchObject({
+      label: null,
+      text: "The indexed source does not contain enough information.",
+    });
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "gap", symbol: "?" });
   });
 
