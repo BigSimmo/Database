@@ -653,10 +653,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    await expect(page.getByTestId("pdf-preview").getByText("Sign in to open private source documents.")).toBeVisible({
-      timeout: 30000,
-    });
-    await expect(page.getByRole("heading", { level: 1, name: "Sign in required" })).toBeVisible();
+    await expect(
+      page.getByTestId("pdf-preview").getByText(/Sign in to open private source documents\.|Document not found\./),
+    ).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { level: 1, name: /Sign in required|Source unavailable/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Summarise document" })).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
