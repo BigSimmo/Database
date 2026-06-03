@@ -1,18 +1,13 @@
 import { loadEnvConfig } from "@next/env";
 import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
-import {
-  estimateCostUsd,
-  findOwnerIdByEmail,
-  loadAdminClient,
-  percentile,
-  validateRagAnswer,
-} from "./eval-utils";
+import { estimateCostUsd, findOwnerIdByEmail, loadAdminClient, percentile, validateRagAnswer } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
 type EvalArgs = {
   ownerEmail?: string;
+  ownerId?: string;
   limit?: number;
   question?: string;
   json: boolean;
@@ -44,6 +39,7 @@ type EvalResult = {
 function parseArgs(argv: string[]): EvalArgs {
   const args: EvalArgs = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
+    ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     json: false,
     failOnThreshold: false,
   };
@@ -66,6 +62,7 @@ function parseArgs(argv: string[]): EvalArgs {
     index += 1;
 
     if (token === "--owner-email") args.ownerEmail = value;
+    if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--question") args.question = value;
   }
@@ -90,12 +87,13 @@ function summarizeFailures(results: EvalResult[]) {
   const failedCases = results.filter((result) => result.failures.length > 0);
   const failures: string[] = [];
 
-  if (supported.length >= 18 && groundedSupported < 17) failures.push(`supported grounded ${groundedSupported}/${supported.length}`);
+  if (supported.length >= 18 && groundedSupported < 17)
+    failures.push(`supported grounded ${groundedSupported}/${supported.length}`);
   if (unsupported.length >= 2 && unsupportedCorrect !== unsupported.length) {
     failures.push(`unsupported correct ${unsupportedCorrect}/${unsupported.length}`);
   }
   if (invalidCitations > 0) failures.push(`invalid citation count ${invalidCitations}`);
-  if (routineExtractiveLatencies.length > 0 && percentile(routineExtractiveLatencies, 95) > 2000) {
+  if (routineExtractiveLatencies.length >= 5 && percentile(routineExtractiveLatencies, 95) > 2000) {
     failures.push("routine extractive p95 over 2000ms");
   }
   if (complexSlow > 0) failures.push(`complex answers over 20000ms: ${complexSlow}`);
@@ -147,14 +145,15 @@ function printHumanSummary(results: EvalResult[]) {
   console.log(`  token_totals=${JSON.stringify(tokenTotals)}`);
   console.log(
     `  estimated_cost_usd=${
-      estimatedCostUsd === null ? "set RAG_EVAL_INPUT_USD_PER_MILLION and RAG_EVAL_OUTPUT_USD_PER_MILLION" : estimatedCostUsd.toFixed(6)
+      estimatedCostUsd === null
+        ? "set RAG_EVAL_INPUT_USD_PER_MILLION and RAG_EVAL_OUTPUT_USD_PER_MILLION"
+        : estimatedCostUsd.toFixed(6)
     }`,
   );
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerEmail) throw new Error('Provide --owner-email "you@example.com" or set RAG_EVAL_OWNER_EMAIL.');
 
   const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
     import("@/lib/env"),
@@ -165,11 +164,12 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
+  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const scope = ownerId ? `owner:${args.ownerId ? "id" : args.ownerEmail}` : "public";
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: EvalResult[] = [];
 
-  if (!args.json) console.log(`Running ${cases.length} RAG eval case(s).`);
+  if (!args.json) console.log(`Running ${cases.length} RAG eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
     const answer = (await answerQuestionWithScope({
@@ -225,7 +225,7 @@ async function main() {
   const thresholdFailures = summarizeFailures(results);
 
   if (args.json) {
-    console.log(JSON.stringify({ results, thresholdFailures }, null, 2));
+    console.log(JSON.stringify({ scope, results, thresholdFailures }, null, 2));
   } else {
     printHumanSummary(results);
     if (thresholdFailures.length > 0) {

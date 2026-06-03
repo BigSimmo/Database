@@ -38,6 +38,25 @@ describe("image-aware chunks", () => {
     expect(tag).toContain("[[IMAGE_DATA_END]]");
   });
 
+  it("preserves table labels, titles, and extracted table text as searchable context", () => {
+    const tag = buildImageTag({
+      id: "table-1",
+      caption: "Agitation management table.",
+      imageType: "clinical_table",
+      sourceKind: "table_crop",
+      tableLabel: "Table 1",
+      tableTitle: "Agitation and arousal rating scale and associated management",
+      tableRole: "clinical",
+      tableTextSnippet: "Score 5 | Highly aroused and violent toward others and/or property",
+    });
+
+    expect(tag).toContain("Source kind: table_crop");
+    expect(tag).toContain("Table label: Table 1");
+    expect(tag).toContain("Table role: clinical");
+    expect(tag).toContain("Agitation and arousal rating scale");
+    expect(tag).toContain("Score 5");
+  });
+
   it("attaches referenced image ids to chunks", () => {
     const chunks = buildChunks([
       {

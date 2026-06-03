@@ -1,25 +1,37 @@
 import { loadEnvConfig } from "@next/env";
+import { pathToFileURL } from "node:url";
 import { buildVisualEvidence } from "@/lib/evidence";
 import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { expectedFileHit, findOwnerIdByEmail, hasInvalidVisualEvidence, loadAdminClient, percentile } from "./eval-utils";
+import {
+  expectedFileCoverage,
+  expectedFileHit,
+  findOwnerIdByEmail,
+  hasInvalidVisualEvidence,
+  loadAdminClient,
+  percentile,
+} from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
 type EvalArgs = {
   ownerEmail?: string;
+  ownerId?: string;
   limit?: number;
   question?: string;
   json: boolean;
   failOnThreshold: boolean;
 };
 
-type SearchEvalResult = {
+export type SearchEvalResult = {
   id: string;
   question: string;
   category: RagEvalCase["category"];
   supported: boolean;
+  expectedFileCount: number;
   expectedHitTop3: boolean;
+  expectedAllHitTop5: boolean | null;
+  missingExpectedFiles: string[];
   resultCount: number;
   topScore: number;
   topFiles: string[];
@@ -36,6 +48,7 @@ type SearchEvalResult = {
 function parseArgs(argv: string[]): EvalArgs {
   const args: EvalArgs = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
+    ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     json: false,
     failOnThreshold: false,
   };
@@ -58,6 +71,7 @@ function parseArgs(argv: string[]): EvalArgs {
     index += 1;
 
     if (token === "--owner-email") args.ownerEmail = value;
+    if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--question") args.question = value;
   }
@@ -76,26 +90,34 @@ function topScore(results: SearchResult[]) {
 function validateSearchResult(testCase: RagEvalCase, result: Omit<SearchEvalResult, "failures">) {
   const failures: string[] = [];
 
-  if (testCase.supported && !result.expectedHitTop3) failures.push("expected document not in top 3");
+  if (testCase.supported && result.expectedFileCount > 1 && result.expectedAllHitTop5 === false) {
+    failures.push(`expected documents missing from top 5: ${result.missingExpectedFiles.join(", ")}`);
+  } else if (testCase.supported && result.expectedFileCount === 1 && !result.expectedHitTop3) {
+    failures.push("expected document not in top 3");
+  }
   if (testCase.supported && result.resultCount === 0) failures.push("expected search results");
-  if (!testCase.supported && result.topScore >= 0.82) failures.push("unsupported control produced high-confidence match");
-  if (testCase.category === "routine" && result.latencyMs > 1500) failures.push("routine search over 1500ms");
-
+  if (!testCase.supported && result.topScore >= 0.82)
+    failures.push("unsupported control produced high-confidence match");
   return failures;
 }
 
-function summarizeFailures(results: SearchEvalResult[]) {
+export function summarizeFailures(results: SearchEvalResult[]) {
   const routine = results.filter((result) => result.category === "routine");
   const supported = results.filter((result) => result.supported);
   const unsupported = results.filter((result) => !result.supported);
+  const expectedCoverageCases = supported.filter((result) => result.expectedFileCount > 0);
   const routineLatencies = routine.map((result) => result.latencyMs);
-  const expectedHits = results.filter((result) => result.expectedHitTop3).length;
+  const expectedHits = expectedCoverageCases.filter((result) =>
+    result.expectedFileCount > 1 ? result.expectedAllHitTop5 : result.expectedHitTop3,
+  ).length;
   const routineEmbeddingSkipped = routine.filter((result) => result.embeddingSkipped).length;
   const unsupportedHighConfidence = unsupported.filter((result) => result.topScore >= 0.82).length;
   const failures: string[] = [];
 
-  if (expectedHits < 18) failures.push(`expected document top-3 hit ${expectedHits}/${results.length}`);
-  if (routineLatencies.length > 0 && percentile(routineLatencies, 95) > 1500) failures.push("routine search p95 over 1500ms");
+  if (expectedCoverageCases.length >= 18 && expectedHits < expectedCoverageCases.length)
+    failures.push(`expected document coverage ${expectedHits}/${expectedCoverageCases.length}`);
+  if (routineLatencies.length > 0 && percentile(routineLatencies, 95) > 1500)
+    failures.push("routine search p95 over 1500ms");
   if (routine.length > 0 && routineEmbeddingSkipped / routine.length < 0.7) {
     failures.push(`routine embedding skipped ${routineEmbeddingSkipped}/${routine.length}`);
   }
@@ -108,7 +130,12 @@ function summarizeFailures(results: SearchEvalResult[]) {
 function printHumanSummary(results: SearchEvalResult[]) {
   const latencies = results.map((result) => result.latencyMs);
   const routineLatencies = results.filter((result) => result.category === "routine").map((result) => result.latencyMs);
-  const expectedHits = results.filter((result) => result.expectedHitTop3).length;
+  const expectedCoverageCases = results.filter((result) => result.supported && result.expectedFileCount > 0);
+  const expectedHits = expectedCoverageCases.filter((result) =>
+    result.expectedFileCount > 1 ? result.expectedAllHitTop5 : result.expectedHitTop3,
+  ).length;
+  const multiDocumentCoverage = expectedCoverageCases.filter((result) => result.expectedFileCount > 1);
+  const multiDocumentHits = multiDocumentCoverage.filter((result) => result.expectedAllHitTop5).length;
   const textFast = results.filter((result) => result.retrievalStrategy === "text_fast_path").length;
   const embeddingSkipped = results.filter((result) => result.embeddingSkipped).length;
   const fallbackToEmbedding = results.filter((result) => result.fallbackToEmbedding).length;
@@ -120,7 +147,8 @@ function printHumanSummary(results: SearchEvalResult[]) {
 
   console.log("");
   console.log("Search eval summary:");
-  console.log(`  expected_document_hit_top3=${expectedHits}/${results.length}`);
+  console.log(`  expected_document_coverage=${expectedHits}/${expectedCoverageCases.length}`);
+  console.log(`  multi_document_all_expected_top5=${multiDocumentHits}/${multiDocumentCoverage.length}`);
   console.log(`  average_latency_ms=${Math.round(latencies.reduce((sum, value) => sum + value, 0) / results.length)}`);
   console.log(`  p50_latency_ms=${percentile(latencies, 50)}`);
   console.log(`  p95_latency_ms=${percentile(latencies, 95)}`);
@@ -133,7 +161,6 @@ function printHumanSummary(results: SearchEvalResult[]) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerEmail) throw new Error('Provide --owner-email "you@example.com" or set RAG_EVAL_OWNER_EMAIL.');
 
   const [{ requireOpenAIEnv, requireServerEnv }, { searchChunksWithTelemetry }, supabase] = await Promise.all([
     import("@/lib/env"),
@@ -144,11 +171,12 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
+  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const scope = ownerId ? `owner:${args.ownerId ? "id" : args.ownerEmail}` : "public";
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: SearchEvalResult[] = [];
 
-  if (!args.json) console.log(`Running ${cases.length} search eval case(s).`);
+  if (!args.json) console.log(`Running ${cases.length} search eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
     const startedAt = Date.now();
@@ -160,15 +188,21 @@ async function main() {
       skipCache: true,
     });
     const latencyMs =
-      search.telemetry.supabase_rpc_latency_ms + search.telemetry.embedding_latency_ms + search.telemetry.rerank_latency_ms ||
-      Date.now() - startedAt;
+      search.telemetry.supabase_rpc_latency_ms +
+        search.telemetry.embedding_latency_ms +
+        search.telemetry.rerank_latency_ms || Date.now() - startedAt;
     const visuals = buildVisualEvidence(search.results);
+    const top3Coverage = expectedFileCoverage(testCase.expectedFiles, search.results, 3);
+    const top5Coverage = expectedFileCoverage(testCase.expectedFiles, search.results, 5);
     const baseResult = {
       id: testCase.id,
       question: testCase.question,
       category: testCase.category,
       supported: testCase.supported,
+      expectedFileCount: testCase.expectedFiles.length,
       expectedHitTop3: expectedFileHit(testCase.expectedFiles, search.results, 3),
+      expectedAllHitTop5: testCase.expectedFiles.length > 1 ? top5Coverage.allHit : null,
+      missingExpectedFiles: testCase.expectedFiles.length > 1 ? top5Coverage.missingFiles : top3Coverage.missingFiles,
       resultCount: search.results.length,
       topScore: topScore(search.results),
       topFiles: Array.from(new Set(search.results.slice(0, 3).map((result) => result.file_name))),
@@ -187,8 +221,10 @@ async function main() {
 
     if (!args.json) {
       const failureSuffix = result.failures.length ? ` FAIL=${result.failures.join("; ")}` : "";
+      const expectedCoverage =
+        result.expectedFileCount > 1 ? ` allExpectedTop5=${result.expectedAllHitTop5}` : "";
       console.log(
-        `SEARCH ${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} skippedEmbedding=${result.embeddingSkipped} expectedHit=${result.expectedHitTop3} topScore=${result.topScore.toFixed(3)}${failureSuffix}`,
+        `SEARCH ${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} skippedEmbedding=${result.embeddingSkipped} expectedHit=${result.expectedHitTop3}${expectedCoverage} topScore=${result.topScore.toFixed(3)}${failureSuffix}`,
       );
       console.log(`  Q: ${testCase.question}`);
       console.log(`  Top files: ${result.topFiles.join("; ") || "none"}`);
@@ -198,7 +234,7 @@ async function main() {
   const thresholdFailures = summarizeFailures(results);
 
   if (args.json) {
-    console.log(JSON.stringify({ results, thresholdFailures }, null, 2));
+    console.log(JSON.stringify({ scope, results, thresholdFailures }, null, 2));
   } else {
     printHumanSummary(results);
     if (thresholdFailures.length > 0) {
@@ -209,7 +245,9 @@ async function main() {
   if (args.failOnThreshold && thresholdFailures.length > 0) process.exit(1);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

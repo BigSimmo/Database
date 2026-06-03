@@ -30,10 +30,35 @@ export function percentile(values: number[], percentileValue: number) {
   return sorted[index];
 }
 
-export function expectedFileHit(expectedFiles: string[], sources: Array<Pick<SearchResult, "file_name">>, limit = 3) {
-  if (expectedFiles.length === 0) return true;
+export type ExpectedFileCoverage = {
+  expectedFiles: string[];
+  matchedFiles: string[];
+  missingFiles: string[];
+  anyHit: boolean;
+  allHit: boolean;
+};
+
+export function expectedFileCoverage(
+  expectedFiles: string[],
+  sources: Array<Pick<SearchResult, "file_name">>,
+  limit = 3,
+): ExpectedFileCoverage {
   const topFiles = sources.slice(0, limit).map((source) => source.file_name.toLowerCase());
-  return expectedFiles.some((expected) => topFiles.some((file) => file.includes(expected.toLowerCase())));
+  const matchedFiles = expectedFiles.filter((expected) =>
+    topFiles.some((file) => file.includes(expected.toLowerCase())),
+  );
+
+  return {
+    expectedFiles,
+    matchedFiles,
+    missingFiles: expectedFiles.filter((expected) => !matchedFiles.includes(expected)),
+    anyHit: matchedFiles.length > 0,
+    allHit: expectedFiles.length > 0 && matchedFiles.length === expectedFiles.length,
+  };
+}
+
+export function expectedFileHit(expectedFiles: string[], sources: Array<Pick<SearchResult, "file_name">>, limit = 3) {
+  return expectedFileCoverage(expectedFiles, sources, limit).anyHit;
 }
 
 export function hasInvalidVisualEvidence(cards: VisualEvidenceCard[] = []) {
@@ -42,22 +67,32 @@ export function hasInvalidVisualEvidence(cards: VisualEvidenceCard[] = []) {
 
 export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   const failures: string[] = [];
-  const expectedHit = expectedFileHit(testCase.expectedFiles, answer.sources);
+  const expectedCoverage = expectedFileCoverage(
+    testCase.expectedFiles,
+    answer.sources,
+    testCase.expectedFiles.length > 1 ? 5 : 3,
+  );
+  const expectedHit = testCase.expectedFiles.length > 1 ? expectedCoverage.allHit : expectedCoverage.anyHit;
   const route = answer.routingMode ?? "unsupported";
   const visualEvidence = answer.visualEvidence ?? [];
 
   if (testCase.supported && !answer.grounded) failures.push("expected grounded answer");
   if (!testCase.supported && answer.grounded) failures.push("expected unsupported answer");
   if (!testCase.allowedRoutes.includes(route)) failures.push(`unexpected route ${route}`);
-  if (answer.citations.length < testCase.minCitations) failures.push(`expected at least ${testCase.minCitations} citations`);
-  if (testCase.expectedFiles.length > 0 && !expectedHit) failures.push("expected document not in retrieved sources");
+  if (answer.citations.length < testCase.minCitations)
+    failures.push(`expected at least ${testCase.minCitations} citations`);
+  if (testCase.expectedFiles.length > 1 && !expectedCoverage.allHit) {
+    failures.push(`expected documents missing from top 5: ${expectedCoverage.missingFiles.join(", ")}`);
+  } else if (testCase.expectedFiles.length === 1 && !expectedCoverage.anyHit) {
+    failures.push("expected document not in retrieved sources");
+  }
   if (testCase.requireVisualEvidence && visualEvidence.length === 0) failures.push("expected visual evidence");
   if (hasInvalidVisualEvidence(visualEvidence)) failures.push("decorative or zero-relevance visual evidence returned");
   if (testCase.category === "complex" && (answer.latencyTimings?.total_latency_ms ?? 0) > testCase.latencyTargetMs) {
     failures.push(`latency over ${testCase.latencyTargetMs}ms`);
   }
 
-  return { expectedHit, failures };
+  return { expectedHit, expectedCoverage, failures };
 }
 
 export function configuredCostRates() {

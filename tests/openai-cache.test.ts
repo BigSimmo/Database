@@ -114,12 +114,16 @@ describe("OpenAI query embedding cache", () => {
     }));
 
     const { generateStructuredTextResult } = await import("../src/lib/openai");
-    const result = await generateStructuredTextResult("Question", { type: "object", properties: {}, required: [] }, {
-      model: "gpt-5.4-mini",
-      operation: "answer",
-      schemaName: "clinical_test",
-      maxOutputTokens: 200,
-    });
+    const result = await generateStructuredTextResult(
+      "Question",
+      { type: "object", properties: {}, required: [] },
+      {
+        model: "gpt-5.4-mini",
+        operation: "answer",
+        schemaName: "clinical_test",
+        maxOutputTokens: 200,
+      },
+    );
 
     expect(result.requestId).toBe("req_123");
     expect(result.usage).toMatchObject({

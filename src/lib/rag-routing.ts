@@ -1,4 +1,5 @@
-import type { ConflictOrGap, RagAnswer, SearchResult } from "@/lib/types";
+import { classifyRagQuery } from "@/lib/clinical-search";
+import type { ConflictOrGap, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 export type AnswerRouteMode = "unsupported" | "extractive" | "fast" | "strong";
 
@@ -15,7 +16,9 @@ const strongRetrievalThreshold = 0.64;
 const extractiveRetrievalThreshold = 0.76;
 const complexClinicalQueryPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|suicid\w*|toxicity|myocarditis|neutropenia|anc|fbc|urgent|escalat\w*|withhold|cease|stop|dose|dosing|prescrib\w*)\b/i;
-const comparisonQueryPattern = /\b(compare|compared|versus|vs|between|across|difference\w*|conflict\w*)\b/i;
+const comparisonQueryPattern = /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b/i;
+const routineCrossDocumentPattern =
+  /\b(?:across|combine|combined|synthesi[sz]e|together|overall|all documents|these documents|different documents|multiple documents|several documents|from the documents)\b/i;
 const extractiveQuestionPattern =
   /\b(what|when|where|which|who|list|include|includes|required|requirements|process|procedure|steps|monitoring|summary|summarise|summarize|show|tell)\b/i;
 const extractiveBlockPattern =
@@ -56,8 +59,18 @@ function hasTextSupport(results: SearchResult[]) {
 function hasActionableConflictOrGap(conflictsOrGaps: ConflictOrGap[] = []) {
   return conflictsOrGaps.some(
     (item) =>
-      item.type === "conflict" ||
-      /limited-strength|not enough|no indexed|weak support|unsupported/i.test(item.message),
+      item.type === "conflict" || /limited-strength|not enough|no indexed|weak support|unsupported/i.test(item.message),
+  );
+}
+
+function hasConflictIntent(query: string) {
+  return /\b(?:conflict|gap|contradict|disagree|inconsisten|versus|vs)\b/i.test(query);
+}
+
+function hasExplicitDocumentLookupIntent(query: string) {
+  return (
+    /\b(?:find|search|lookup|open|show)\b.{0,80}\b(?:document|file|pdf|protocol|guideline|procedure)\b/i.test(query) ||
+    /\bnewly uploaded\b/i.test(query)
   );
 }
 
@@ -93,6 +106,7 @@ export function isComplexClinicalQuery(query: string) {
 export function shouldUseExtractiveAnswer(args: {
   query: string;
   results: SearchResult[];
+  queryClass?: RagQueryClass;
   conflictsOrGaps?: ConflictOrGap[];
 }) {
   if (args.results.length === 0) return false;
@@ -100,19 +114,40 @@ export function shouldUseExtractiveAnswer(args: {
   const strongestScore = strongestRetrievalScore(args.results);
   const topTextRank = Math.max(...args.results.map((result) => result.text_rank ?? 0));
   const documents = documentCount(args.results);
+  const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
+  const singleDocumentStrongMatch = documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
 
   if (documents > 1 && comparisonQueryPattern.test(args.query)) return false;
+  if (queryClass === "comparison" || queryClass === "broad_summary") return false;
   if (extractiveBlockPattern.test(args.query) && !directTitleSupport) return false;
   if (!extractiveQuestionPattern.test(args.query) && !directTitleSupport) return false;
 
   if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport && strongestScore < 0.82) return false;
 
-  return strongestScore >= extractiveRetrievalThreshold || topTextRank >= 0.12 || (directTitleSupport && strongestScore >= 0.4);
+  if (queryClass === "table_threshold" && strongestScore >= 0.68 && (topTextRank >= 0.035 || singleDocumentStrongMatch)) {
+    return true;
+  }
+
+  if (queryClass === "document_lookup" && (directTitleSupport || strongestScore >= 0.72)) {
+    return true;
+  }
+
+  if (queryClass === "medication_dose_risk" && singleDocumentStrongMatch && !comparisonQueryPattern.test(args.query)) {
+    return true;
+  }
+
+  return (
+    strongestScore >= extractiveRetrievalThreshold ||
+    singleDocumentStrongMatch ||
+    topTextRank >= 0.12 ||
+    (directTitleSupport && strongestScore >= 0.4)
+  );
 }
 
 export function chooseAnswerRoute(args: {
   query: string;
   results: SearchResult[];
+  queryClass?: RagQueryClass;
   conflictsOrGaps?: ConflictOrGap[];
   fastModel: string;
   strongModel: string;
@@ -120,6 +155,8 @@ export function chooseAnswerRoute(args: {
   const strongestScore = strongestRetrievalScore(args.results);
   const documents = documentCount(args.results);
   const directTitleSupport = hasDirectTitleSupport(args.query, args.results);
+  const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
+  const topTextRank = Math.max(0, ...args.results.map((result) => result.text_rank ?? 0));
 
   if (args.results.length === 0) {
     return {
@@ -141,11 +178,93 @@ export function chooseAnswerRoute(args: {
     };
   }
 
-  if (shouldUseExtractiveAnswer(args)) {
+  if (
+    queryClass === "document_lookup" &&
+    hasExplicitDocumentLookupIntent(args.query) &&
+    !directTitleSupport &&
+    topTextRank < 0.08
+  ) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "document_lookup_without_title_support",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+    strongestScore < 0.46 &&
+    topTextRank < 0.02 &&
+    !directTitleSupport
+  ) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "weak_complex_query_support",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  const crossDocumentIntent = routineCrossDocumentPattern.test(args.query) || queryClass === "broad_summary";
+  const actionableConflictOrGap = hasActionableConflictOrGap(args.conflictsOrGaps);
+
+  if (
+    documents > 1 &&
+    (queryClass === "comparison" || comparisonQueryPattern.test(args.query)) &&
+    documents <= 3 &&
+    strongestScore >= 0.72 &&
+    !hasConflictIntent(args.query) &&
+    !actionableConflictOrGap
+  ) {
+    return {
+      mode: "fast",
+      model: args.fastModel,
+      reason: "balanced_multi_document_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    documents > 1 &&
+    crossDocumentIntent &&
+    strongestScore >= strongRetrievalThreshold &&
+    !hasConflictIntent(args.query) &&
+    !actionableConflictOrGap
+  ) {
+    return {
+      mode: "fast",
+      model: args.fastModel,
+      reason: "balanced_multi_document_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (queryClass === "comparison" || (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport)) {
+    return {
+      mode: "strong",
+      model: args.strongModel,
+      reason: "multi_document_comparison_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (shouldUseExtractiveAnswer({ ...args, queryClass })) {
+    const reason =
+      queryClass === "table_threshold"
+        ? "table_or_threshold_source_extractive"
+        : queryClass === "document_lookup"
+          ? "document_lookup_source_extractive"
+          : "high_confidence_source_extractive";
     return {
       mode: "extractive",
       model: null,
-      reason: "strong_source_match_extract",
+      reason,
       strongestScore,
       documentCount: documents,
     };
@@ -171,17 +290,7 @@ export function chooseAnswerRoute(args: {
     };
   }
 
-  if (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport) {
-    return {
-      mode: "strong",
-      model: args.strongModel,
-      reason: "multi_document_synthesis",
-      strongestScore,
-      documentCount: documents,
-    };
-  }
-
-  if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport) {
+  if (actionableConflictOrGap && !directTitleSupport) {
     return {
       mode: "strong",
       model: args.strongModel,
