@@ -2,6 +2,7 @@
 
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
 
@@ -17,26 +18,65 @@ type AuthContextValue = {
   markSessionExpired: () => void;
 };
 
+export const AUTH_EMAIL_STORAGE_KEY = "clinical.dashboard.lastAuthEmail";
+
 const AuthContext = createContext<AuthContextValue | null>(null);
+let browserSupabaseClient: SupabaseClient | null | undefined;
+let browserSupabaseClientConfig: string | null = null;
 
 function createBrowserSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return null;
 
-  return createClient(url, key, {
+  if (!url || !key) {
+    browserSupabaseClient = null;
+    browserSupabaseClientConfig = null;
+    return null;
+  }
+
+  const projectCheck = checkSupabaseProjectConfig({ NEXT_PUBLIC_SUPABASE_URL: url });
+  if (projectCheck.status === "mismatch") {
+    console.error(formatSupabaseProjectCheck(projectCheck));
+    browserSupabaseClient = null;
+    browserSupabaseClientConfig = null;
+    return null;
+  }
+
+  const configKey = `${url}:${key}`;
+  if (browserSupabaseClientConfig === configKey) {
+    return browserSupabaseClient ?? null;
+  }
+
+  browserSupabaseClientConfig = configKey;
+  browserSupabaseClient = createClient(url, key, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
     },
   });
+  return browserSupabaseClient;
 }
 
 export function authorizationHeadersForAccessToken(accessToken: string | null | undefined): Record<string, string> {
   const headers: Record<string, string> = {};
   if (accessToken) headers.authorization = `Bearer ${accessToken}`;
   return headers;
+}
+
+function clearLocationHash() {
+  if (typeof window === "undefined") return;
+  if (!window.location.hash) return;
+  window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
+}
+
+function isExpiredOtpError(errorCode: string | null, message: string) {
+  const normalizedMessage = message.toLowerCase();
+  return (
+    errorCode === "otp_expired" ||
+    normalizedMessage.includes("expired") ||
+    normalizedMessage.includes("invalid or has expired")
+  );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -49,9 +89,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!client) return () => undefined;
 
     let active = true;
-    client.auth
-      .getSession()
-      .then(({ data, error: sessionError }) => {
+
+    const initializeSession = async () => {
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+        const callbackParams = new URLSearchParams(hash);
+        const hasCallbackParams =
+          callbackParams.size > 0 &&
+          (callbackParams.has("access_token") ||
+            callbackParams.has("refresh_token") ||
+            callbackParams.has("type") ||
+            callbackParams.has("error") ||
+            callbackParams.has("error_code") ||
+            callbackParams.has("code"));
+
+        if (hasCallbackParams) {
+          const hasCallbackError = callbackParams.has("error") || callbackParams.has("error_code");
+          if (hasCallbackError) {
+            const errorCode = callbackParams.get("error_code");
+            const rawDescription = callbackParams.get("error_description");
+            const message = rawDescription
+              ? decodeURIComponent(rawDescription.replace(/\+/g, " "))
+              : "Sign-in verification failed.";
+            const expired = isExpiredOtpError(errorCode, message);
+            setSession(null);
+            setStatus(expired ? "expired" : "error");
+            setError(expired ? "This sign-in link is invalid or has expired. Send a new one." : message);
+            clearLocationHash();
+            return;
+          }
+
+          type AuthCallbackResult = {
+            data?: {
+              session?: Session | null;
+            };
+            error?: { message?: string } | null;
+          };
+
+          const getSessionFromUrl = (
+            client.auth as {
+              getSessionFromUrl?: () => Promise<AuthCallbackResult>;
+            }
+          ).getSessionFromUrl;
+          const callbackResult = getSessionFromUrl
+            ? await getSessionFromUrl()
+            : await client.auth.setSession({
+                access_token: decodeURIComponent(callbackParams.get("access_token") ?? ""),
+                refresh_token: decodeURIComponent(callbackParams.get("refresh_token") ?? ""),
+              });
+          if (!active) return;
+          clearLocationHash();
+
+          if (!callbackResult || callbackResult.error) {
+            const message = callbackResult?.error?.message ?? "Sign-in verification failed.";
+            const expired = isExpiredOtpError(callbackParams.get("error_code"), message);
+            setSession(null);
+            setStatus(expired ? "expired" : "error");
+            setError(expired ? "This sign-in link is invalid or has expired. Send a new one." : message);
+            return;
+          }
+
+          const callbackSession = callbackResult?.data?.session;
+          if (callbackSession) {
+            setSession(callbackSession);
+            setStatus("authenticated");
+            setError(null);
+            return;
+          }
+
+          setSession(null);
+          setStatus("signed_out");
+          setError("Sign-in verification did not return a session.");
+          return;
+        }
+      }
+
+      try {
+        const { data, error: sessionError } = await client.auth.getSession();
         if (!active) return;
         if (sessionError) {
           setStatus("error");
@@ -61,12 +175,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(data.session);
         setStatus(data.session ? "authenticated" : "signed_out");
         setError(null);
-      })
-      .catch(() => {
+      } catch {
         if (!active) return;
         setStatus("error");
         setError("Session could not be loaded.");
-      });
+      }
+    };
+
+    void initializeSession();
 
     const {
       data: { subscription },
@@ -88,6 +204,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("unconfigured");
         setError("Supabase browser authentication is not configured.");
         return;
+      }
+
+      try {
+        window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, email);
+      } catch {
+        // localStorage may be unavailable in restrictive browser modes.
       }
 
       setStatus("loading");

@@ -37,6 +37,32 @@ describe("evidence helpers", () => {
     expect(quotes[0].page_number).toBe(1);
   });
 
+  it("selects direct cease or discontinue wording for clozapine withhold threshold questions", () => {
+    const quotes = extractQuoteCards(
+      [
+        result({
+          id: "clozapine-threshold",
+          title: "Clozapine Prescribing",
+          content: `Clozapine Prescribing, Administering and Monitoring
+
+State WBC Neutrophil Outcome
+Green >= 3.5 >= 2 Continue with regular blood tests
+Amber >=3.0 and <3.5 >= 1.5 and <2.0 Twice weekly blood tests required
+Red <3 < 1.5 Cease therapy immediately
+
+If the consumer's blood results return in the red range, Clozapine therapy must be discontinued immediately.
+The haematologist can assist with altering WCC and ANC thresholds for specific consumers.`,
+        }),
+      ],
+      "What FBC threshold should withhold clozapine?",
+    );
+
+    expect(quotes[0].quote.toLowerCase()).toMatch(/cease|discontinued/);
+    expect(quotes[0].quote).toContain("State WBC Neutrophil Outcome");
+    expect(quotes[0].quote).toContain("Red <3 < 1.5 Cease therapy immediately");
+    expect(quotes[0].quote.toLowerCase()).not.toContain("haematologist can assist");
+  });
+
   it("uses image descriptions as quotable indexed evidence", () => {
     const quotes = extractQuoteCards(
       [
@@ -86,6 +112,18 @@ describe("evidence helpers", () => {
 
     expect(diversified.map((source) => source.id)).toContain("b1");
     expect(diversified.filter((source) => source.document_id === "doc-a")).toHaveLength(2);
+  });
+
+  it("can preserve upstream clinical ranking while capping document dominance", () => {
+    const sources = [
+      result({ id: "ranked-lower-hybrid", document_id: "doc-a", hybrid_score: 0.6, similarity: 0.6 }),
+      result({ id: "ranked-higher-hybrid", document_id: "doc-b", hybrid_score: 0.9, similarity: 0.9 }),
+    ];
+
+    expect(diversifySearchResults(sources, 2, 4, true).map((source) => source.id)).toEqual([
+      "ranked-lower-hybrid",
+      "ranked-higher-hybrid",
+    ]);
   });
 
   it("falls back to locally extracted exact quotes when proposed quotes are not exact", () => {
@@ -179,6 +217,20 @@ describe("evidence helpers", () => {
             page_number: 3,
             storage_path: "private/path/image.png",
             caption: "A source diagram extracted from the indexed PDF.",
+            searchable: true,
+            image_type: "clinical_table",
+            source_kind: "table_crop",
+            tableLabel: "Table 1",
+            tableTitle: "Agitation and arousal rating scale",
+            tableRole: "clinical",
+            clinicalUseClass: "clinical_evidence",
+            accessibleTableMarkdown: "| Score | Management |\n| --- | --- |\n| 0 | Monitor observations |",
+            tableRows: [
+              ["Score", "Management"],
+              ["0", "Monitor observations"],
+            ],
+            tableColumns: ["Score", "Management"],
+            tableTextSnippet: "Score 0 | Asleep or unconscious",
           },
         ],
       }),
@@ -189,6 +241,41 @@ describe("evidence helpers", () => {
     expect(cards[0].image_id).toBe("img-1");
     expect(cards[0].signed_url_endpoint).toBe("/api/images/img-1/signed-url");
     expect(cards[0].viewer_href).toContain("page=3");
+    expect(cards[0].tableLabel).toBe("Table 1");
+    expect(cards[0].tableTitle).toContain("Agitation");
+    expect(cards[0].tableRole).toBe("clinical");
+    expect(cards[0].clinicalUseClass).toBe("clinical_evidence");
+    expect(cards[0].accessibleTableMarkdown).toContain("Score");
+    expect(cards[0].tableRows?.[1]?.[1]).toContain("Monitor");
     expect(cards[0]).not.toHaveProperty("storage_path");
+  });
+
+  it("excludes administrative tables from visual evidence cards", () => {
+    const cards = buildVisualEvidence([
+      result({
+        id: "admin-image-source",
+        images: [
+          {
+            id: "img-admin",
+            page_number: 3,
+            storage_path: "private/path/admin.png",
+            caption: "Authorisation and publication table.",
+            searchable: true,
+            image_type: "clinical_table",
+            source_kind: "table_crop",
+            tableRole: "admin",
+            clinicalUseClass: "administrative",
+            tableTextSnippet: "Authorised by | Authorisation date | Published date",
+            metadata: {
+              clinical_use_class: "administrative",
+              table_role: "admin",
+              table_text: "Authorised by | Authorisation date | Published date",
+            },
+          },
+        ],
+      }),
+    ]);
+
+    expect(cards).toEqual([]);
   });
 });

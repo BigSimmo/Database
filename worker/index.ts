@@ -2,7 +2,11 @@ import { loadEnvConfig } from "@next/env";
 
 loadEnvConfig(process.cwd());
 
-await import("./main").catch((error) => {
+async function startWorker() {
+  await import("./main");
+}
+
+startWorker().catch((error) => {
   console.error(error);
   process.exit(1);
 });

@@ -1,3 +1,4 @@
+import type { Route } from "playwright-core";
 import { expect, test, type Page } from "playwright/test";
 
 const longTitle =
@@ -119,14 +120,39 @@ function makeStressAnswer() {
   };
 }
 
+function answerStreamBody(payload: unknown) {
+  return [
+    `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
+    `event: final\ndata: ${JSON.stringify(payload)}`,
+    "",
+  ].join("\n\n");
+}
+
+async function fulfillAnswerResponse(route: Route, payload: unknown) {
+  const pathname = new URL(route.request().url()).pathname;
+  if (pathname.endsWith("/stream")) {
+    await route.fulfill({
+      body: answerStreamBody(payload),
+      contentType: "text/event-stream; charset=utf-8",
+      headers: { "Cache-Control": "no-cache, no-transform" },
+    });
+    return;
+  }
+
+  await route.fulfill({ json: payload });
+}
+
 async function mockStressData(page: Page) {
   const documents = Array.from({ length: 24 }, (_, index) => makeDocument(index + 1));
 
   await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { documents, demoMode: true } });
   });
-  await page.route(/\/api\/jobs(?:\?.*)?$/, async (route) => {
+  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { jobs: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { batches: [], demoMode: true } });
   });
   await page.route(/\/api\/setup-status(?:\?.*)?$/, async (route) => {
     await route.fulfill({
@@ -134,6 +160,12 @@ async function mockStressData(page: Page) {
         demoMode: true,
         checks: [
           { id: "env", label: ".env.local configured", status: "needs_setup", detail: "Mocked missing env." },
+          {
+            id: "project",
+            label: "Clinical KB Database target",
+            status: "needs_setup",
+            detail: "Mocked missing Supabase project.",
+          },
           { id: "schema", label: "supabase/schema.sql applied", status: "unknown", detail: "Mocked schema unknown." },
           { id: "openai", label: "OpenAI API key available", status: "needs_setup", detail: "Mocked missing key." },
           { id: "worker", label: "npm run worker running", status: "unknown", detail: "Mocked worker unknown." },
@@ -141,8 +173,8 @@ async function mockStressData(page: Page) {
       },
     });
   });
-  await page.route(/\/api\/answer(?:\?.*)?$/, async (route) => {
-    await route.fulfill({ json: makeStressAnswer() });
+  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+    await fulfillAnswerResponse(route, makeStressAnswer());
   });
 }
 

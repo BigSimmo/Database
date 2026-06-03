@@ -1,7 +1,9 @@
 import io
 import json
 import os
+import re
 import sys
+from statistics import median
 
 try:
     import fitz  # PyMuPDF
@@ -15,11 +17,601 @@ def maybe_ocr_page(page):
         import pytesseract
         from PIL import Image
 
+        tesseract_cmd = os.environ.get("TESSERACT_CMD")
+        if tesseract_cmd:
+            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        elif os.name == "nt":
+            for candidate in (
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            ):
+                if os.path.exists(candidate):
+                    pytesseract.pytesseract.tesseract_cmd = candidate
+                    break
+
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
         image = Image.open(io.BytesIO(pix.tobytes("png")))
         return pytesseract.image_to_string(image)
     except Exception:
         return ""
+
+
+def rect_payload(rect):
+    return [round(rect.x0, 2), round(rect.y0, 2), round(rect.x1, 2), round(rect.y1, 2)]
+
+
+def write_pixmap(pix, path):
+    pix.save(path)
+    return {"width": pix.width, "height": pix.height}
+
+
+def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata):
+    page_rect = page.rect
+    clipped = rect & page_rect
+    if clipped.is_empty:
+        return None
+
+    if clipped.width < 80 or clipped.height < 60:
+        return None
+
+    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clipped, alpha=False)
+    if pix.width < 180 or pix.height < 120:
+        return None
+
+    image_path = os.path.join(output_dir, file_name)
+    dimensions = write_pixmap(pix, image_path)
+    return {
+        "pageNumber": metadata["pageNumber"],
+        "path": image_path,
+        "mimeType": "image/png",
+        "bbox": rect_payload(clipped),
+        "width": dimensions["width"],
+        "height": dimensions["height"],
+        "sourceKind": source_kind,
+        "metadata": metadata,
+    }
+
+
+def expanded_rect(rect, page_rect, x_padding=4, y_padding=4):
+    return fitz.Rect(
+        max(rect.x0 - x_padding, page_rect.x0),
+        max(rect.y0 - y_padding, page_rect.y0),
+        min(rect.x1 + x_padding, page_rect.x1),
+        min(rect.y1 + y_padding, page_rect.y1),
+    )
+
+
+def rect_intersection_ratio(a, b):
+    intersection = a & b
+    if intersection.is_empty:
+        return 0
+    intersection_area = intersection.width * intersection.height
+    smaller_area = max(min(a.width * a.height, b.width * b.height), 1)
+    return intersection_area / smaller_area
+
+
+def merge_rects(rects, page_rect):
+    if not rects:
+        return None
+    x0 = max(min(rect.x0 for rect in rects) - 12, page_rect.x0)
+    y0 = max(min(rect.y0 for rect in rects) - 12, page_rect.y0)
+    x1 = min(max(rect.x1 for rect in rects) + 12, page_rect.x1)
+    y1 = min(max(rect.y1 for rect in rects) + 12, page_rect.y1)
+    return fitz.Rect(x0, y0, x1, y1)
+
+
+def clean_cell(value):
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def table_rows_to_markdown(rows):
+    cleaned = [[clean_cell(cell) for cell in row] for row in rows if any(clean_cell(cell) for cell in row)]
+    if not cleaned:
+        return ""
+
+    column_count = max(len(row) for row in cleaned)
+    padded = [row + [""] * (column_count - len(row)) for row in cleaned]
+    header = padded[0]
+    separator = ["---"] * column_count
+    body = padded[1:]
+
+    def markdown_row(row):
+        escaped = [cell.replace("|", "\\|") for cell in row]
+        return "| " + " | ".join(escaped) + " |"
+
+    return "\n".join([markdown_row(header), markdown_row(separator), *[markdown_row(row) for row in body]])
+
+
+def table_columns_from_rows(rows):
+    cleaned = [[clean_cell(cell) for cell in row] for row in rows if any(clean_cell(cell) for cell in row)]
+    if not cleaned:
+        return []
+    return cleaned[0]
+
+
+def text_grid_rows(text):
+    rows = []
+    for line in (text or "").splitlines():
+        cleaned = re.sub(r"\s+", " ", line).strip()
+        if not cleaned:
+            continue
+        cells = [clean_cell(cell) for cell in re.split(r"\s{2,}|\t|\|", line) if clean_cell(cell)]
+        rows.append(cells if len(cells) > 1 else [cleaned])
+    return rows
+
+
+def extract_table_payload(table):
+    try:
+        rows = table.extract()
+        cleaned = [[clean_cell(cell) for cell in row] for row in rows if any(clean_cell(cell) for cell in row)]
+        column_count = max((len(row) for row in cleaned), default=0)
+        return {
+            "text": table_rows_to_markdown(rows),
+            "rows": cleaned[:80],
+            "columns": table_columns_from_rows(rows)[:24],
+            "accessible_markdown": table_rows_to_markdown(rows),
+            "row_count": len(cleaned),
+            "column_count": column_count,
+        }
+    except Exception:
+        return {"text": "", "rows": [], "columns": [], "accessible_markdown": "", "row_count": 0, "column_count": 0}
+
+
+def extract_table_text(table):
+    return extract_table_payload(table)["text"]
+
+
+def split_table_heading(text):
+    cleaned = re.sub(r"\s+", " ", text or "").strip(" :-\u2013\u2014")
+    if not cleaned:
+        return None, None
+
+    patterns = (
+        r"(?i)\b(table\s+\d+[a-z]?)\s*[:.\-\u2013\u2014]?\s*(.+)",
+        r"(?i)\b(appendix\s+\d+[a-z]?)\s*[:.\-\u2013\u2014]?\s*(.+)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, cleaned)
+        if match:
+            label = re.sub(r"\s+", " ", match.group(1)).title()
+            title = re.sub(r"\s+", " ", match.group(2)).strip(" :-\u2013\u2014")
+            return label, title[:240] if title else None
+
+    section_match = re.search(r"(?i)(?:^|\s)\d+\.?\s+(roles and responsibilities)\b", cleaned)
+    if section_match:
+        return None, section_match.group(1).title()
+
+    if re.fullmatch(r"(?i)roles and responsibilities", cleaned):
+        return None, "Roles and responsibilities"
+
+    known_section_headings = (
+        "recommended pharmacological treatment options",
+        "*maximum dose refers to total maximum oral and im dose (including regular)",
+    )
+    if cleaned.lower() in known_section_headings:
+        return None, cleaned[:180]
+
+    return None, None
+
+
+def nearby_table_heading(page, rect, table_text):
+    blocks = sorted(page.get_text("blocks") or [], key=lambda block: (block[1], block[0]))
+    candidates = []
+    for block in blocks:
+        if len(block) < 5:
+            continue
+        x0, y0, x1, y1, text = block[:5]
+        if y1 > rect.y0 + 16 or y1 < rect.y0 - 140:
+            continue
+        if x1 < rect.x0 - 40 or x0 > rect.x1 + 40:
+            continue
+        cleaned = re.sub(r"\s+", " ", str(text)).strip()
+        if cleaned:
+            candidates.append(cleaned)
+
+    for candidate in reversed(candidates):
+        label, title = split_table_heading(candidate)
+        if label or title:
+            return label, title, candidate
+
+    lowered_table = table_text.lower()
+    if "role" in lowered_table and "responsibility" in lowered_table:
+        return None, "Roles and responsibilities", "Roles and responsibilities"
+    return None, None, ""
+
+
+def clinical_table_score(text):
+    lowered = text.lower()
+    score = 0
+    keywords = (
+        "management",
+        "monitor",
+        "observation",
+        "medication",
+        "dose",
+        "benzodiazepine",
+        "antipsychotic",
+        "intramuscular",
+        "oral",
+        "risk",
+        "escalat",
+        "responsibil",
+        "patient",
+        "score",
+        "frequency",
+        "post im",
+        "post po",
+        "appendix",
+        "table",
+    )
+    for keyword in keywords:
+        if keyword in lowered:
+            score += 1
+    return score
+
+
+def table_text_metrics(table_text):
+    text = table_text or ""
+    lines = [line for line in text.splitlines() if line.strip()]
+    return {
+        "bars": text.count("|"),
+        "line_count": len(lines),
+        "clinical_score": clinical_table_score(text),
+    }
+
+
+def table_role_for_candidate(label, title, table_text):
+    combined = " ".join([label or "", title or "", table_text or ""]).lower()
+    clinical_markers = (
+        "management",
+        "monitor",
+        "observation",
+        "medication",
+        "dose",
+        "benzodiazepine",
+        "antipsychotic",
+        "intramuscular",
+        "oral",
+        "risk",
+        "escalat",
+        "patient",
+        "score",
+        "frequency",
+        "post im",
+        "post po",
+        "treatment",
+        "assessment",
+        "side effect",
+        "contraindicat",
+        "responsibil",
+    )
+    admin_markers = (
+        "authorisation date",
+        "published date",
+        "version control",
+        "document owner",
+        "approval",
+        "endorsed",
+        "review date",
+        "contact person",
+        "policy sponsor",
+        "compliance monitoring",
+        "amendment",
+        "amended",
+        "revision",
+        "reviewed",
+        "superseded",
+        "section 4.0",
+        "section 13",
+    )
+    reference_markers = (
+        "references",
+        "relevant standards",
+        "documents support",
+        "bibliography",
+        "legislation",
+        "associated documents",
+    )
+
+    if title and title.lower() == "roles and responsibilities":
+        return "clinical"
+    if any(marker in combined for marker in reference_markers):
+        return "reference"
+    if any(marker in combined for marker in admin_markers):
+        return "admin"
+    if any(marker in combined for marker in clinical_markers):
+        return "clinical"
+    if label and label.lower().startswith(("table", "appendix")):
+        return "unclear"
+    return "unclear"
+
+
+def table_candidate_confidence(label, title, table_text, row_count=0, column_count=0):
+    metrics = table_text_metrics(table_text)
+    confidence = 0.2
+    if label:
+        confidence += 0.18
+    if title:
+        confidence += 0.14
+    if row_count >= 2:
+        confidence += 0.16
+    if row_count >= 4:
+        confidence += 0.1
+    if column_count >= 2:
+        confidence += 0.16
+    if column_count >= 3:
+        confidence += 0.08
+    if metrics["bars"] >= 8:
+        confidence += 0.12
+    if metrics["line_count"] >= 3:
+        confidence += 0.08
+    if metrics["clinical_score"] >= 3:
+        confidence += 0.08
+    return round(min(confidence, 0.99), 2)
+
+
+def real_table_candidate(label, title, table_text, row_count=0, column_count=0):
+    metrics = table_text_metrics(table_text)
+    combined = " ".join([label or "", title or "", table_text or ""]).lower()
+    known_table_heading = bool(label) or (title or "").lower() in (
+        "roles and responsibilities",
+        "recommended pharmacological treatment options",
+    )
+
+    if known_table_heading and metrics["line_count"] >= 2:
+        return True
+    if row_count >= 2 and column_count >= 2 and metrics["line_count"] >= 2:
+        return True
+    if metrics["bars"] >= 6 and metrics["line_count"] >= 3:
+        return True
+    if "role" in combined and "responsibility" in combined and metrics["line_count"] >= 3:
+        return True
+    if any(marker in combined for marker in ("version control", "authorisation date", "published date")):
+        return metrics["line_count"] >= 3
+    return False
+
+
+def likely_table_candidates(page):
+    candidates = []
+    try:
+        tables = page.find_tables()
+        for index, table in enumerate(tables.tables):
+            rect = fitz.Rect(table.bbox)
+            payload = extract_table_payload(table)
+            table_text = payload["text"]
+            label, title, heading_text = nearby_table_heading(page, rect, table_text)
+            row_count = payload["row_count"]
+            column_count = payload["column_count"]
+            if not real_table_candidate(label, title, table_text, row_count, column_count):
+                continue
+            role = table_role_for_candidate(label, title, table_text)
+            candidates.append(
+                {
+                    "rect": rect,
+                    "table_text": table_text,
+                    "table_label": label,
+                    "table_title": title,
+                    "table_role": role,
+                    "table_confidence": table_candidate_confidence(label, title, table_text, row_count, column_count),
+                    "table_rows": payload.get("rows", []),
+                    "table_columns": payload.get("columns", []),
+                    "accessible_table_markdown": payload.get("accessible_markdown") or table_text,
+                    "row_count": row_count,
+                    "column_count": column_count,
+                    "heading_text": heading_text,
+                    "extraction_method": "pymupdf_find_tables",
+                    "table_index": index + 1,
+                }
+            )
+    except Exception:
+        pass
+
+    return candidates
+
+
+def fallback_table_candidates(page, existing_rects):
+    blocks = sorted(page.get_text("blocks") or [], key=lambda block: (block[1], block[0]))
+    text_blocks = []
+    for block in blocks:
+        if len(block) < 5:
+            continue
+        rect = fitz.Rect(block[:4])
+        raw_text = str(block[4])
+        text = re.sub(r"\s+", " ", raw_text).strip()
+        if not text or rect.height < 10:
+            continue
+        text_blocks.append((rect, text, raw_text))
+
+    candidates = []
+    active = []
+    for rect, text, raw_text in text_blocks:
+        score = clinical_table_score(text)
+        has_columns = raw_text.count("  ") >= 2 or "\t" in raw_text or "|" in raw_text
+        table_role = table_role_for_candidate(None, None, text)
+        if score >= 2 or has_columns or table_role in ("admin", "reference"):
+            active.append((rect, text))
+            continue
+
+        if active:
+            candidates.extend(active)
+            active = []
+    if active:
+        candidates.extend(active)
+
+    if not candidates:
+        return []
+
+    rects = [rect for rect, _ in candidates]
+    region = merge_rects(rects, page.rect)
+    text = "\n".join(text for _, text in candidates)
+    if not region:
+        return []
+    if any(rect_intersection_ratio(region, existing) > 0.45 for existing in existing_rects):
+        return []
+
+    label, title, heading_text = nearby_table_heading(page, region, text)
+    inferred_columns = max((len(re.split(r"\s{2,}|\t|\|", line.strip())) for line in text.splitlines() if line.strip()), default=0)
+    inferred_rows = len([line for line in text.splitlines() if line.strip()])
+    rows = text_grid_rows(text)
+    role = table_role_for_candidate(label, title, text)
+    if not real_table_candidate(label, title, text, inferred_rows, inferred_columns):
+        return []
+    return [
+        {
+            "rect": region,
+            "table_text": text[:8000],
+            "table_label": label,
+            "table_title": title,
+            "table_role": role,
+            "table_confidence": table_candidate_confidence(label, title, text, inferred_rows, inferred_columns),
+            "table_rows": rows[:80],
+            "table_columns": (rows[0] if rows else [])[:24],
+            "accessible_table_markdown": table_rows_to_markdown(rows) if rows and max((len(row) for row in rows), default=0) > 1 else text[:8000],
+            "row_count": inferred_rows,
+            "column_count": inferred_columns,
+            "heading_text": heading_text,
+            "extraction_method": "text_grid_heuristic",
+            "table_index": len(existing_rects) + 1,
+        }
+    ]
+
+
+def merge_related_table_candidates(candidates, page_rect):
+    if len(candidates) < 2:
+        return candidates
+
+    merged = []
+    used = set()
+    for index, candidate in enumerate(candidates):
+        if index in used:
+            continue
+
+        label = (candidate.get("table_label") or "").lower()
+        if not label.startswith("appendix"):
+            merged.append(candidate)
+            continue
+
+        group = [candidate]
+        for other_index, other in enumerate(candidates):
+            if other_index == index or other_index in used:
+                continue
+            title = (other.get("table_title") or "").lower()
+            text = (other.get("table_text") or "").lower()
+            vertical_gap = other["rect"].y0 - candidate["rect"].y1
+            if other["rect"].y0 >= candidate["rect"].y0 and vertical_gap < 160 and (
+                "recommended pharmacological treatment options" in title
+                or "maximum dose" in title
+                or "intramuscular" in text
+                or "benzodiazepine" in text
+            ):
+                group.append(other)
+                used.add(other_index)
+
+        if len(group) > 1:
+            rect = merge_rects([item["rect"] for item in group], page_rect)
+            merged_text = "\n\n".join(item.get("table_text") or "" for item in group).strip()
+            merged_rows = []
+            for item in group:
+                merged_rows.extend(item.get("table_rows") or [])
+            candidate = {
+                **candidate,
+                "rect": rect,
+                "table_text": merged_text,
+                "table_role": table_role_for_candidate(
+                    candidate.get("table_label"),
+                    candidate.get("table_title"),
+                    merged_text,
+                ),
+                "table_confidence": max(item.get("table_confidence") or 0 for item in group),
+                "table_rows": merged_rows[:120],
+                "table_columns": (merged_rows[0] if merged_rows else candidate.get("table_columns") or [])[:24],
+                "accessible_table_markdown": table_rows_to_markdown(merged_rows) if merged_rows else merged_text,
+                "row_count": sum(item.get("row_count") or 0 for item in group),
+                "column_count": max(item.get("column_count") or 0 for item in group),
+                "extraction_method": "merged_appendix_tables",
+            }
+        merged.append(candidate)
+        used.add(index)
+
+    return merged
+
+
+def likely_vector_region(page):
+    drawings = page.get_drawings()
+    rects = []
+    for drawing in drawings:
+        rect = drawing.get("rect")
+        if not rect:
+            continue
+        if rect.width < 40 or rect.height < 20:
+            continue
+        rects.append(rect)
+
+    if len(rects) < 4:
+        return None
+
+    region = merge_rects(rects, page.rect)
+    if not region:
+        return None
+
+    page_area = page.rect.width * page.rect.height
+    region_area = region.width * region.height
+    if region_area < page_area * 0.06 or region_area > page_area * 0.82:
+        return None
+    return region
+
+
+def page_visual_weight(page):
+    drawing_count = len(page.get_drawings())
+    image_count = len(page.get_images(full=True))
+    text_blocks = page.get_text("blocks") or []
+    block_heights = [abs(block[3] - block[1]) for block in text_blocks if len(block) >= 4]
+    tall_blocks = sum(1 for height in block_heights if height > 70)
+    median_block_height = median(block_heights) if block_heights else 0
+    return drawing_count + image_count * 4 + tall_blocks + (2 if median_block_height > 40 else 0)
+
+
+def fallback_visual_region(page):
+    if page_visual_weight(page) < 8:
+        return None
+
+    text = (page.get_text("text", sort=True) or "").lower()
+    admin_markers = (
+        "authorisation",
+        "published date",
+        "document owner",
+        "version control",
+        "relevant standards",
+        "references",
+        "compliance monitoring",
+    )
+    high_value_markers = (
+        "dose",
+        "intramuscular",
+        "benzodiazepine",
+        "antipsychotic",
+        "lorazepam",
+        "olanzapine",
+        "score",
+        "observation",
+        "post im",
+        "post po",
+    )
+    if any(marker in text for marker in ("relevant standards", "references", "document owner", "compliance monitoring")):
+        return None
+    if any(marker in text for marker in admin_markers) and not any(marker in text for marker in high_value_markers):
+        return None
+    if ("version control" in text or "authorisation date" in text) and "recommended pharmacological treatment options" not in text:
+        return None
+
+    top_margin = page.rect.height * 0.08
+    bottom_margin = page.rect.height * 0.08
+    return fitz.Rect(
+        page.rect.x0 + page.rect.width * 0.04,
+        page.rect.y0 + top_margin,
+        page.rect.x1 - page.rect.width * 0.04,
+        page.rect.y1 - bottom_margin,
+    )
 
 
 def extract(pdf_path, output_dir):
@@ -30,7 +622,7 @@ def extract(pdf_path, output_dir):
 
     for page_index, page in enumerate(document):
         page_number = page_index + 1
-        text = page.get_text("text") or ""
+        text = page.get_text("text", sort=True) or ""
         ocr_used = False
 
         if len(text.strip()) < 40:
@@ -47,11 +639,16 @@ def extract(pdf_path, output_dir):
             }
         )
 
+        page_image_count = 0
         for image_index, image_info in enumerate(page.get_images(full=True)):
             xref = image_info[0]
             extracted = document.extract_image(xref)
             ext = extracted.get("ext", "png")
             image_bytes = extracted["image"]
+            width = extracted.get("width")
+            height = extracted.get("height")
+            rects = page.get_image_rects(xref) or []
+            bbox = rect_payload(rects[0]) if rects else None
             image_path = os.path.join(
                 output_dir, f"page-{page_number}-image-{image_index + 1}.{ext}"
             )
@@ -64,16 +661,106 @@ def extract(pdf_path, output_dir):
                     "pageNumber": page_number,
                     "path": image_path,
                     "mimeType": mime,
-                    "bbox": None,
+                    "bbox": bbox,
+                    "width": width,
+                    "height": height,
+                    "sourceKind": "embedded",
+                    "metadata": {
+                        "pageNumber": page_number,
+                        "source_kind": "embedded",
+                        "xref": xref,
+                    },
                 }
             )
+            page_image_count += 1
 
-    return {"pages": pages, "images": images}
+        crop_index = 1
+        table_rects = []
+        table_candidates = likely_table_candidates(page)
+        table_candidates.extend(fallback_table_candidates(page, [candidate["rect"] for candidate in table_candidates]))
+        table_candidates = merge_related_table_candidates(table_candidates, page.rect)
+        for table_candidate in table_candidates:
+            table_rect = expanded_rect(table_candidate["rect"], page.rect, 4, 4)
+            crop = save_page_crop(
+                page,
+                table_rect,
+                output_dir,
+                f"page-{page_number}-table-crop-{crop_index}.png",
+                "table_crop",
+                {
+                    "pageNumber": page_number,
+                    "source_kind": "table_crop",
+                    "candidate_type": "table",
+                    "table_label": table_candidate.get("table_label"),
+                    "table_title": table_candidate.get("table_title"),
+                    "table_text": (table_candidate.get("table_text") or "")[:8000],
+                    "table_role": table_candidate.get("table_role"),
+                    "table_confidence": table_candidate.get("table_confidence"),
+                    "table_rows": table_candidate.get("table_rows") or [],
+                    "table_columns": table_candidate.get("table_columns") or [],
+                    "accessible_table_markdown": (table_candidate.get("accessible_table_markdown") or table_candidate.get("table_text") or "")[:8000],
+                    "row_count": table_candidate.get("row_count"),
+                    "column_count": table_candidate.get("column_count"),
+                    "heading_text": table_candidate.get("heading_text"),
+                    "bbox": rect_payload(table_rect),
+                    "extraction_method": table_candidate.get("extraction_method"),
+                    "table_index": table_candidate.get("table_index"),
+                },
+            )
+            if crop:
+                images.append(crop)
+                table_rects.append(table_rect)
+                crop_index += 1
+
+        vector_region = likely_vector_region(page)
+        if vector_region and not any(rect_intersection_ratio(vector_region, table_rect) > 0.45 for table_rect in table_rects):
+            crop = save_page_crop(
+                page,
+                vector_region,
+                output_dir,
+                f"page-{page_number}-vector-crop-{crop_index}.png",
+                "diagram_crop",
+                {
+                    "pageNumber": page_number,
+                    "source_kind": "diagram_crop",
+                    "candidate_type": "vector_region",
+                },
+            )
+            if crop:
+                images.append(crop)
+                crop_index += 1
+
+        if page_image_count == 0 and crop_index == 1:
+            fallback_region = fallback_visual_region(page)
+            if fallback_region and not any(
+                rect_intersection_ratio(fallback_region, table_rect) > 0.45 for table_rect in table_rects
+            ):
+                crop = save_page_crop(
+                    page,
+                    fallback_region,
+                    output_dir,
+                    f"page-{page_number}-visual-region.png",
+                    "page_region",
+                    {
+                        "pageNumber": page_number,
+                        "source_kind": "page_region",
+                        "candidate_type": "fallback_visual_region",
+                    },
+                )
+                if crop:
+                    images.append(crop)
+
+    return {"pages": pages, "images": images, "warnings": []}
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: extract_pdf_assets.py input.pdf output_dir", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print("Usage: extract_pdf_assets.py input.pdf output_dir [output.json]", file=sys.stderr)
         sys.exit(1)
 
-    print(json.dumps(extract(sys.argv[1], sys.argv[2])))
+    result = extract(sys.argv[1], sys.argv[2])
+    if len(sys.argv) == 4:
+        with open(sys.argv[3], "w", encoding="utf-8") as handle:
+            json.dump(result, handle)
+    else:
+        print(json.dumps(result))

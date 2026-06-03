@@ -1,0 +1,151 @@
+import { z } from "zod";
+import { demoAnswer } from "@/lib/demo-data";
+import { isDemoMode } from "@/lib/env";
+import { PublicApiError, jsonError } from "@/lib/http";
+import { consumePublicAnswerRateLimit, type PublicRateLimitResult } from "@/lib/public-rate-limit";
+import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
+import { classifyRagQuery } from "@/lib/clinical-search";
+import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+
+export const runtime = "nodejs";
+
+const answerSchema = z.object({
+  query: z.string().trim().min(1),
+  documentId: z.string().uuid().optional(),
+  documentIds: z.array(z.string().uuid()).max(25).optional(),
+});
+
+type AnswerBody = z.infer<typeof answerSchema>;
+
+function encodeSse(event: string, data: unknown) {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function rateLimitStream(rateLimit: PublicRateLimitResult) {
+  return new Response(
+    encodeSse("error", {
+      error: "Too many public answer requests. Retry shortly.",
+      status: 429,
+      details: { retryAfterSeconds: rateLimit.retryAfterSeconds, resetAt: rateLimit.resetAt },
+    }),
+    {
+      status: 429,
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+      },
+    },
+  );
+}
+
+function streamErrorPayload(error: unknown) {
+  if (error instanceof PublicApiError) {
+    return { message: error.message, status: error.status, details: error.details };
+  }
+
+  if (error instanceof Error) {
+    return {
+      message: "Answer generation failed. Retry with a narrower question.",
+      status: 503,
+      details: { code: error.name },
+    };
+  }
+
+  return {
+    message: "Search processing is temporarily unavailable.",
+    status: 503,
+  };
+}
+
+function logStreamError(error: unknown) {
+  console.error("Search stream failed", {
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+}
+
+function streamAnswer(body: AnswerBody, ownerId?: string) {
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const send = (event: string, data: unknown) => {
+          controller.enqueue(encoder.encode(encodeSse(event, data)));
+        };
+        const onProgress = (event: AnswerProgressEvent) => send("progress", event);
+
+        try {
+          send("progress", { stage: "retrieving", message: "Searching indexed documents." });
+          const answer = isDemoMode()
+            ? (() => {
+                const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+                const sources = annotateSearchResults(body.query, demo.sources);
+                const relevance = buildEvidenceRelevance(body.query, sources);
+                return {
+                  ...demo,
+                  sources,
+                  relevance,
+                  smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
+                  smartApiPlan: buildSmartRagApiPlan({
+                    query: body.query,
+                    queryClass: classifyRagQuery(body.query).queryClass,
+                    results: sources,
+                    routeMode: demo.routingMode,
+                    retrievalStrategy: "hybrid",
+                  }),
+                  demoMode: true,
+                };
+              })()
+            : await answerQuestionWithScope({
+                query: body.query,
+                documentId: body.documentId,
+                documentIds: body.documentIds,
+                ownerId,
+                onProgress,
+              });
+          send("final", answer);
+        } catch (error) {
+          logStreamError(error);
+          const streamError = streamErrorPayload(error);
+          send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
+        } finally {
+          controller.close();
+        }
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    },
+  );
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = answerSchema.parse(await request.json());
+    if (isDemoMode()) return streamAnswer(body);
+
+    const rateLimit = consumePublicAnswerRateLimit(request.headers);
+    if (rateLimit.limited) return rateLimitStream(rateLimit);
+
+    return streamAnswer(body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return jsonError(error, 400);
+    }
+    if (error instanceof PublicApiError) {
+      return jsonError(error, error.status);
+    }
+    if (error instanceof Error) {
+      return jsonError(new PublicApiError("Answer processing failed.", 500, { code: error.name }), 500);
+    }
+    return jsonError("Answer processing failed.", 500);
+  }
+}

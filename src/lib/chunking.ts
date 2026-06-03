@@ -2,6 +2,16 @@ import { env } from "@/lib/env";
 import type { ChunkInput, DocumentChunk } from "@/lib/types";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
+const paragraphBoundary = /\n{2,}/;
+const metadataNoisePatterns: RegExp[] = [
+  /\b(?:copyright|all rights reserved|document revision|do not distribute|downloaded from|www\.\S+)\b/i,
+  /\b(?:version|revision)\s+\d+\s*$/i,
+];
+const lineNoisePatterns: RegExp[] = [
+  /\b(page|p\.?)\s*\d+\s*(?:\/\s*\d+)?\b/i,
+  /^\s*[-*_]{3,}\s*$/,
+  /^\s*[\u25cf\u25e6\u2022]\s*$/,
+];
 
 export function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -21,14 +31,128 @@ export function detectHeading(text: string) {
   return null;
 }
 
+function normalizeLookupText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(?:table|figure|appendix)\b/g, "")
+    .trim();
+}
+
+function looksLikeMetadataNoise(line: string) {
+  if (!line || line.length <= 2) return true;
+  if (/^\d+$/.test(line)) return true;
+  if (metadataNoisePatterns.some((pattern) => pattern.test(line))) return true;
+  if (lineNoisePatterns.some((pattern) => pattern.test(line))) return true;
+  return false;
+}
+
+function removePageNoise(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line === "" || !looksLikeMetadataNoise(line))
+    .join("\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function extractSectionHeadings(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line || line.length < 4) return false;
+      if (looksLikeMetadataNoise(line)) return false;
+      if (line.length < 90 && /^[A-Z][A-Za-z0-9\s,;:()\/\-\[\]]+$/.test(line)) return true;
+      if (/^\d+\.?\s+[A-Z]/.test(line) && line.length < 110) return true;
+      return false;
+    });
+}
+
+function sectionAnchorId(heading: string | null) {
+  if (!heading) return null;
+  return (
+    heading
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+      .slice(0, 40) || null
+  );
+}
+
+function imageMatchScore(lookupText: string, sourceText: string) {
+  if (!lookupText || !sourceText) return 0;
+  const source = new Set(sourceText.split(/\s+/).filter(Boolean));
+  const hits = lookupText
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((token) => source.has(token)).length;
+  return hits;
+}
+
+function dedupeChunkFingerprint(text: string) {
+  return normalizeLookupText(text).replace(/\s+/g, " ").trim();
+}
+
 export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, overlap = env.CHUNK_OVERLAP) {
-  const clean = text
-    .replace(/\s+\n/g, "\n")
+  const clean = removePageNoise(text)
+    .replace(/[ \t]+\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .trim();
   if (!clean) return [];
   if (clean.length <= chunkSize) return [clean];
 
+  const paragraphs = clean
+    .split(paragraphBoundary)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  if (paragraphs.length > 1) {
+    const chunks: string[] = [];
+    let current = "";
+
+    for (const paragraph of paragraphs) {
+      if (paragraph.length > chunkSize) {
+        if (current) {
+          chunks.push(current.trim());
+          current = "";
+        }
+        chunks.push(...chunkTextBySentence(paragraph, chunkSize, overlap));
+        continue;
+      }
+
+      const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
+      if (candidate.length > chunkSize && current) {
+        chunks.push(current.trim());
+        current = paragraph;
+      } else {
+        current = candidate;
+      }
+    }
+
+    if (current) chunks.push(current.trim());
+    return chunks.filter(Boolean);
+  }
+
+  return chunkTextBySentence(clean, chunkSize, overlap);
+}
+
+function readableOverlapStart(clean: string, end: number, overlap: number) {
+  if (overlap <= 0) return end;
+  let start = Math.max(0, end - overlap);
+
+  while (start > 0 && start < end && /\S/.test(clean[start - 1] ?? "") && /\S/.test(clean[start] ?? "")) {
+    start -= 1;
+  }
+  while (start < end && /\s/.test(clean[start] ?? "")) {
+    start += 1;
+  }
+
+  return start < end ? start : Math.max(0, end - overlap);
+}
+
+function chunkTextBySentence(clean: string, chunkSize: number, overlap: number) {
   const chunks: string[] = [];
   let start = 0;
 
@@ -47,30 +171,91 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
     const chunk = clean.slice(start, end).trim();
     if (chunk) chunks.push(chunk);
     if (end >= clean.length) break;
-    start = Math.max(0, end - overlap);
+    start = readableOverlapStart(clean, end, overlap);
   }
 
   return chunks;
 }
 
-export function buildImageTag(image: { id: string; caption: string }) {
-  return `[[IMAGE_DATA_START]] Image ID: ${image.id}; Description: ${image.caption} [[IMAGE_DATA_END]]`;
+function compactImageText(value: string | null | undefined, limit = 900) {
+  const text = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "";
+  return text.length > limit ? `${text.slice(0, limit - 3).trim()}...` : text;
+}
+
+export function buildImageTag(image: {
+  id: string;
+  caption: string;
+  imageType?: string | null;
+  sourceKind?: string | null;
+  tableLabel?: string | null;
+  tableTitle?: string | null;
+  tableRole?: string | null;
+  tableTextSnippet?: string | null;
+}) {
+  const parts = [
+    `Image ID: ${image.id}`,
+    image.sourceKind ? `Source kind: ${image.sourceKind}` : "",
+    image.imageType ? `Image type: ${image.imageType}` : "",
+    image.tableLabel ? `Table label: ${image.tableLabel}` : "",
+    image.tableTitle ? `Table title: ${image.tableTitle}` : "",
+    image.tableRole ? `Table role: ${image.tableRole}` : "",
+    image.tableTextSnippet ? `Table text: ${compactImageText(image.tableTextSnippet)}` : "",
+    `Description: ${image.caption}`,
+  ].filter(Boolean);
+  return `[[IMAGE_DATA_START]] ${parts.join("; ")} [[IMAGE_DATA_END]]`;
 }
 
 export function buildChunks(inputs: ChunkInput[]) {
   const chunks: DocumentChunk[] = [];
+  const chunkFingerprint = new Map<string, number>();
 
   for (const input of inputs) {
     const pageImages = input.images ?? [];
     const imageContext = pageImages.map(buildImageTag).join("\n");
-    const pageText = [input.pageText, imageContext].filter(Boolean).join("\n\n");
+    const sectionPath = extractSectionHeadings(input.pageText);
+    const pageText = [removePageNoise(input.pageText), imageContext].filter(Boolean).join("\n\n");
+    const pageLookupText = normalizeLookupText(input.pageText);
     const pageChunks = chunkTextWithOverlap(pageText);
 
     pageChunks.forEach((content, pageChunkIndex) => {
+      const contentLookup = normalizeLookupText(content);
+      const heading = detectHeading(content);
+      const sectionContext = sectionPath.includes(heading ?? "") ? sectionPath : [...sectionPath];
+      const sectionAnchor = sectionAnchorId(heading);
       const referencedImageIds = pageImages
-        .filter((image) => content.includes(image.id) || content.includes(image.caption))
+        .filter((image) => {
+          const label = normalizeLookupText(image.tableLabel ?? "");
+          const title = normalizeLookupText(image.tableTitle ?? "");
+          const caption = normalizeLookupText(image.caption);
+          const imageText = [label, title, caption]
+            .filter(Boolean)
+            .flatMap((value) => value.split(/\s+/).filter(Boolean));
+          const imageLookup = imageText.join(" ");
+          const headerBoost =
+            heading && imageText.some((token) => normalizeLookupText(heading).includes(token)) ? 1 : 0;
+          const direct =
+            imageMatchScore(caption, contentLookup) >= 1 || imageMatchScore(imageLookup, contentLookup) >= 2;
+          const pathHit =
+            sectionContext.some((candidate) =>
+              normalizeLookupText(candidate)
+                .split(/\s+/)
+                .some((token) => imageLookup.includes(token)),
+            ) && image.sourceKind !== "embedded";
+          return direct || pathHit || (image.sourceKind === "table_crop" && headerBoost > 0) || headerBoost >= 1;
+        })
         .map((image) => image.id);
 
+      const fingerprint = dedupeChunkFingerprint(content);
+      if (fingerprint && chunkFingerprint.has(fingerprint)) {
+        return;
+      }
+
+      if (fingerprint) {
+        chunkFingerprint.set(fingerprint, chunks.length);
+      }
       chunks.push({
         document_id: input.documentId,
         page_number: input.pageNumber,
@@ -79,7 +264,15 @@ export function buildChunks(inputs: ChunkInput[]) {
         content,
         token_estimate: estimateTokens(content),
         image_ids: referencedImageIds,
-        metadata: { page_chunk_index: pageChunkIndex },
+        metadata: {
+          ...(input.metadata ?? {}),
+          page_chunk_index: pageChunkIndex,
+          page_start: input.pageNumber,
+          page_end: input.pageNumber,
+          heading_lookup: pageLookupText,
+          subsection_path: sectionContext,
+          section_anchor: sectionAnchor,
+        },
       });
     });
   }
