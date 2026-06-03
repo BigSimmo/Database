@@ -3,12 +3,14 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Minimize2,
   ExternalLink,
   FileImage,
   FileText,
@@ -19,8 +21,10 @@ import {
   Quote,
   RefreshCw,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AccessibleTable } from "@/components/AccessibleTable";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
   appBackdrop,
@@ -44,9 +48,18 @@ import {
 } from "@/components/ui-primitives";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import { DocumentManagementActions } from "@/components/DocumentManagementActions";
 import type { ClinicalDocument, RagAnswer } from "@/lib/types";
+import {
+  cleanClinicalSummaryText,
+  sourceTextForDocumentViewer,
+  sourceTextForIndexedPage,
+} from "@/lib/source-text-sanitizer";
+import { smartEvidenceTags } from "@/lib/evidence-tags";
+import { parseIndexedSourceText } from "@/lib/indexed-source-formatting";
 
 type PageRow = {
   id: string;
@@ -55,13 +68,47 @@ type PageRow = {
   ocr_used: boolean;
 };
 
+type LocalProjectIdentityPayload = {
+  localServer?: {
+    projectPortStart?: number;
+    projectPortEnd?: number;
+    safeLocalOrigin?: boolean;
+  };
+};
+
+async function readLocalProjectIdentity() {
+  const response = await fetch("/api/local-project-id", { cache: "no-store" });
+  if (!response.ok) return null;
+  return (await response.json()) as LocalProjectIdentityPayload;
+}
+
+function unsafeLocalProjectMessage(identity: LocalProjectIdentityPayload | null) {
+  const range =
+    typeof identity?.localServer?.projectPortStart === "number" &&
+    typeof identity.localServer.projectPortEnd === "number"
+      ? ` Use the URL printed by npm run ensure; managed ports are ${identity.localServer.projectPortStart}-${identity.localServer.projectPortEnd}.`
+      : " Use the URL printed by npm run ensure.";
+  return `This tab is not using the guarded Clinical KB local URL.${range}`;
+}
+
 type ImageRow = {
   id: string;
   page_number: number | null;
   caption: string;
   image_type?: string | null;
+  searchable?: boolean | null;
   clinical_relevance_score?: number | null;
   labels?: string[] | null;
+  source_kind?: string | null;
+  tableLabel?: string | null;
+  tableTitle?: string | null;
+  tableRole?: string | null;
+  tableTextSnippet?: string | null;
+  clinicalUseClass?: string | null;
+  clinicalUseReason?: string | null;
+  accessibleTableMarkdown?: string | null;
+  tableRows?: string[][] | null;
+  tableColumns?: string[] | null;
 };
 
 type ChunkRow = {
@@ -88,16 +135,56 @@ function SourceMetadataSummary({ metadata }: { metadata?: unknown }) {
   );
 }
 
+function looksLikeTableText(value?: string | null) {
+  return Boolean(value?.includes("|") && value.split("|").filter((cell) => cell.trim()).length >= 3);
+}
+
 function DocumentImage({ image }: { image: ImageRow }) {
   const endpoint = `/api/images/${image.id}/signed-url`;
   const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
+  const figureRef = useRef<HTMLElement | null>(null);
   const { authorizationHeader, markSessionExpired } = useAuthSession();
 
   useEffect(() => {
+    if (shouldLoad) return () => undefined;
+
+    const element = figureRef.current;
+    if (!element || !("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return () => undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "640px 0px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  useEffect(() => {
+    if (!shouldLoad) return () => undefined;
+
     const cached = getCachedSignedUrl(endpoint);
-    if (cached) return () => undefined;
+    if (cached) {
+      let active = true;
+      window.requestAnimationFrame(() => {
+        if (!active) return;
+        setUrl(cached.url);
+        setFailed(false);
+      });
+      return () => {
+        active = false;
+      };
+    }
 
     let active = true;
     fetch(endpoint, { headers: authorizationHeader })
@@ -120,12 +207,13 @@ function DocumentImage({ image }: { image: ImageRow }) {
     return () => {
       active = false;
     };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired]);
+  }, [attempt, authorizationHeader, endpoint, markSessionExpired, shouldLoad]);
 
   function retryImage() {
     clearCachedSignedUrl(endpoint);
     setUrl(null);
     setFailed(false);
+    setShouldLoad(true);
     setAttempt((current) => current + 1);
   }
 
@@ -134,11 +222,29 @@ function DocumentImage({ image }: { image: ImageRow }) {
     setFailed(true);
   }
 
+  const tableHeading = [image.tableLabel, image.tableTitle].filter(Boolean).join(": ");
+  const tableMarkdown = image.accessibleTableMarkdown?.trim()
+    ? image.accessibleTableMarkdown
+    : looksLikeTableText(image.tableTextSnippet)
+      ? image.tableTextSnippet
+      : null;
+  const hasStructuredTable = Boolean(
+    tableMarkdown || image.tableRows?.length || image.tableColumns?.length,
+  );
+  const displayLabels = smartEvidenceTags(
+    image.labels,
+    [tableHeading, image.caption, image.tableTextSnippet].filter(Boolean).join(" "),
+  );
+
   return (
-    <figure className={cn(sourceCard, "overflow-hidden p-3")}>
+    <figure ref={figureRef} className={cn(sourceCard, "overflow-hidden p-3")}>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
         page {image.page_number ?? "n/a"}
         {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
+        {image.tableRole ? ` · ${image.tableRole}` : ""}
+        {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
+          ? ` · ${image.clinicalUseClass.replaceAll("_", " ")}`
+          : ""}
       </p>
       <div className="mt-2 rounded-lg bg-[color:var(--surface-inset)] p-3">
         {failed ? (
@@ -164,17 +270,37 @@ function DocumentImage({ image }: { image: ImageRow }) {
             onError={handleImageError}
             className="max-h-52 w-full rounded-lg object-contain"
           />
-        ) : (
+        ) : shouldLoad ? (
           <div className="grid h-32 place-items-center rounded-lg text-xs font-semibold text-[color:var(--text-muted)]">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading image
           </div>
+        ) : (
+          <div className="grid h-32 place-items-center rounded-lg border border-dashed border-[color:var(--border)] text-center text-xs font-semibold text-[color:var(--text-muted)]">
+            Image preview will load when visible
+          </div>
         )}
       </div>
-      <figcaption className="mt-3 text-[15px] leading-6 text-[color:var(--text)]">{image.caption}</figcaption>
-      {image.labels?.length ? (
+      <figcaption className="mt-3 space-y-2 text-[15px] leading-6 text-[color:var(--text)]">
+        {tableHeading && <p className="font-semibold">{tableHeading}</p>}
+        <p>{image.caption}</p>
+        <AccessibleTable
+          caption={tableHeading || image.caption}
+          markdown={tableMarkdown}
+          rows={image.tableRows}
+          columns={image.tableColumns}
+          compact
+        />
+        {!hasStructuredTable && image.tableTextSnippet ? (
+          <p className={cn("text-sm leading-6", textMuted)}>{image.tableTextSnippet}</p>
+        ) : null}
+        {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence" && image.clinicalUseReason ? (
+          <p className={cn("text-xs leading-5", textMuted)}>{image.clinicalUseReason}</p>
+        ) : null}
+      </figcaption>
+      {displayLabels.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {image.labels.slice(0, 5).map((label) => (
+          {displayLabels.map((label) => (
             <span
               key={`${image.id}:${label}`}
               className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[10px] font-semibold text-[color:var(--text-muted)]"
@@ -188,18 +314,97 @@ function DocumentImage({ image }: { image: ImageRow }) {
   );
 }
 
-function PinnedSourceEvidence({ loading, chunk }: { loading: boolean; chunk: ChunkRow | undefined }) {
+function DocumentViewerAnchors({
+  evidenceHref,
+  className,
+}: {
+  evidenceHref: "#source-evidence" | "#source-evidence-rail";
+  className?: string;
+}) {
+  const anchors = [
+    { label: "Evidence", href: evidenceHref },
+    { label: "PDF", href: "#pdf-preview-section" },
+    { label: "Summary", href: "#source-summary" },
+    { label: "Images", href: "#source-images" },
+  ];
+
   return (
-    <section data-testid="pinned-source-evidence" className={cn(evidenceSurface, "p-4")}>
+    <nav
+      aria-label="Document viewer sections"
+      className={cn("flex gap-2 overflow-x-auto pb-1 polished-scroll", className)}
+    >
+      {anchors.map((anchor) => (
+        <a
+          key={anchor.href}
+          href={anchor.href}
+          className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--primary)] shadow-[var(--shadow-tight)]"
+        >
+          {anchor.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function PinnedSourceEvidence({
+  loading,
+  chunk,
+  compact = false,
+  sectionId = "source-evidence",
+}: {
+  loading: boolean;
+  chunk: ChunkRow | undefined;
+  compact?: boolean;
+  sectionId?: "source-evidence" | "source-evidence-rail";
+}) {
+  const displayContent = chunk ? sourceTextForDocumentViewer(chunk.content) : "";
+  const previewLimit = 300;
+  const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null);
+  const isLong = displayContent.length > previewLimit;
+  const expanded = !compact || (chunk?.id ? expandedChunkId === chunk.id : false);
+  const showingPreview = compact && isLong && !expanded;
+  const visibleContent = showingPreview ? `${displayContent.slice(0, previewLimit).trim()}...` : displayContent;
+
+  return (
+    <section id={sectionId} data-testid="pinned-source-evidence" className={cn(evidenceSurface, "scroll-mt-24 p-4")}>
       <PanelHeading icon={Quote} title="Pinned source evidence" />
       {loading ? (
         <LoadingPanel label="Loading pinned source evidence" />
       ) : chunk ? (
-        <div className={cn(sourceCard, "mt-3 p-3 text-[15px] leading-7 text-[color:var(--text-muted)]")}>
+        <div
+          data-testid="highlighted-source-passage"
+          className={cn(
+            sourceCard,
+            "mt-3 border-[color:var(--primary)] bg-[color:var(--primary-soft)]/35 p-3 text-[15px] leading-7 text-[color:var(--text-muted)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/20",
+          )}
+        >
+          <p className="mb-2 inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[color:var(--primary)] px-2 text-xs font-bold text-[color:var(--primary-contrast)]">
+            <Target className="h-3.5 w-3.5" />
+            Highlighted source passage
+          </p>
           {chunk.section_heading && (
             <p className="mb-2 font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
           )}
-          <p className="whitespace-pre-wrap">{chunk.content}</p>
+          <p className="whitespace-pre-wrap">
+            {visibleContent || "No displayable clinical text was available for this indexed passage."}
+          </p>
+          {compact && isLong ? (
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))
+              }
+              className={cn(secondaryButton, "mt-3 min-h-9 px-3 text-xs")}
+              data-testid="toggle-full-passage"
+            >
+              {expanded ? "Show passage preview" : "Show full passage"}
+            </button>
+          ) : null}
+          {compact ? (
+            <p className={cn("mt-2 text-xs leading-5", textMuted)}>
+              Full indexed page text remains available in the source text section.
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="mt-3 text-[15px] leading-6 text-[color:var(--primary)]">
@@ -210,12 +415,93 @@ function PinnedSourceEvidence({ loading, chunk }: { loading: boolean; chunk: Chu
   );
 }
 
+function IndexedSourceText({
+  text,
+  emptyText,
+  compact = false,
+}: {
+  text: string;
+  emptyText: string;
+  compact?: boolean;
+}) {
+  const blocks = parseIndexedSourceText(text);
+  if (blocks.length === 0) {
+    return <p className={cn("mt-4 text-[15px] leading-6", textMuted)}>{emptyText}</p>;
+  }
+
+  return (
+    <div className={cn("mt-4 grid", compact ? "gap-2" : "gap-3")}>
+      {blocks.map((block) => {
+        if (block.type === "heading") {
+          return block.level === "title" ? (
+            <h3
+              key={block.id}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-center text-sm font-semibold text-[color:var(--text)]"
+            >
+              {block.text}
+            </h3>
+          ) : (
+            <h4
+              key={block.id}
+              className="mt-1 border-l-4 border-[color:var(--primary)] pl-3 text-[15px] font-bold text-[color:var(--text-heading)]"
+            >
+              {block.text}
+            </h4>
+          );
+        }
+
+        if (block.type === "list") {
+          return (
+            <ul
+              key={block.id}
+              className={cn(
+                "space-y-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-3 text-[15px] leading-6 text-[color:var(--text-muted)]",
+                compact && "px-4 py-2 text-sm leading-6",
+              )}
+            >
+              {block.items.map((item) => (
+                <li key={item} className="list-disc">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.type === "table") {
+          return (
+            <AccessibleTable
+              key={block.id}
+              caption={block.caption}
+              rows={block.rows}
+              compact={compact}
+            />
+          );
+        }
+
+        return (
+          <p
+            key={block.id}
+            className={cn(
+              "text-[15px] leading-7 text-[color:var(--text-muted)]",
+              compact && "text-sm leading-6",
+            )}
+          >
+            {block.text}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function IndexedTextPanel({
   loading,
   selectedPage,
   chunks,
   search,
   idPrefix,
+  selectedChunkId,
   onSearchChange,
 }: {
   loading: boolean;
@@ -223,14 +509,20 @@ function IndexedTextPanel({
   chunks: ChunkRow[];
   search: string;
   idPrefix: string;
+  selectedChunkId?: string;
   onSearchChange: (value: string) => void;
 }) {
   const normalizedSearch = search.trim().toLowerCase();
+  const displayChunks = chunks.map((chunk) => ({
+    ...chunk,
+    displayContent: sourceTextForDocumentViewer(chunk.content),
+  }));
   const visibleChunks = normalizedSearch
-    ? chunks.filter((chunk) =>
-        `${chunk.section_heading ?? ""} ${chunk.content}`.toLowerCase().includes(normalizedSearch),
+    ? displayChunks.filter((chunk) =>
+        `${chunk.section_heading ?? ""} ${chunk.displayContent}`.toLowerCase().includes(normalizedSearch),
       )
-    : chunks.slice(0, 8);
+    : displayChunks.slice(0, 8);
+  const selectedPageText = selectedPage ? sourceTextForIndexedPage(selectedPage.text) : "";
 
   return (
     <section className={cn(panel, "p-5 source-print")}>
@@ -255,9 +547,10 @@ function IndexedTextPanel({
       {loading ? (
         <LoadingPanel label="Loading indexed source text" />
       ) : selectedPage ? (
-        <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[color:var(--text-muted)]">
-          {selectedPage.text}
-        </p>
+        <IndexedSourceText
+          text={selectedPageText}
+          emptyText="No displayable extracted text has been indexed for this page yet."
+        />
       ) : (
         <p className={cn("mt-4 text-[15px]", textMuted)}>No extracted text has been indexed for this page yet.</p>
       )}
@@ -268,16 +561,34 @@ function IndexedTextPanel({
             <p className={cn("text-[15px] leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (
-              <article id={`${idPrefix}-${chunk.id}`} key={chunk.id} className={cn(sourceCard, "p-3")}>
+              <article
+                id={`${idPrefix}-${chunk.id}`}
+                key={chunk.id}
+                data-testid={selectedChunkId === chunk.id ? "highlighted-indexed-source-chunk" : undefined}
+                data-source-chunk-id={chunk.id}
+                className={cn(
+                  sourceCard,
+                  "p-3 transition",
+                  selectedChunkId === chunk.id &&
+                    "border-[color:var(--primary)] bg-[color:var(--primary-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/25",
+                )}
+              >
+                {selectedChunkId === chunk.id ? (
+                  <p className="mb-2 inline-flex min-h-6 items-center rounded-md bg-[color:var(--primary-soft)] px-2 text-xs font-bold text-[color:var(--primary)]">
+                    Highlighted quoted passage
+                  </p>
+                ) : null}
                 <p className={eyebrowText}>
                   Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
                 </p>
                 {chunk.section_heading && (
                   <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
                 )}
-                <p className="mt-2 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
-                  {chunk.content}
-                </p>
+                <IndexedSourceText
+                  text={chunk.displayContent}
+                  emptyText="No displayable clinical text was available for this indexed passage."
+                  compact
+                />
               </article>
             ))
           )}
@@ -288,6 +599,7 @@ function IndexedTextPanel({
 }
 
 function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
+  const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -301,6 +613,8 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenFallback, setFullscreenFallback] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -357,6 +671,28 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
   }, []);
 
   useEffect(() => {
+    function updateFullscreenState() {
+      const active = document.fullscreenElement === fullscreenRootRef.current;
+      setIsFullscreen(active);
+      if (active) setFullscreenFallback(false);
+    }
+
+    document.addEventListener("fullscreenchange", updateFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreenState);
+  }, []);
+
+  useEffect(() => {
+    if (!fullscreenFallback) return;
+
+    function exitOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setFullscreenFallback(false);
+    }
+
+    window.addEventListener("keydown", exitOnEscape);
+    return () => window.removeEventListener("keydown", exitOnEscape);
+  }, [fullscreenFallback]);
+
+  useEffect(() => {
     if (!pdf || !canvasRef.current || !holderRef.current) return;
     const activePdf = pdf;
     let cancelled = false;
@@ -406,10 +742,50 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
     setPageInput(String(bounded));
   }
 
+  async function enterFullscreenFitView() {
+    setFitWidth(true);
+    const element = fullscreenRootRef.current;
+    if (!element) return;
+
+    try {
+      if (document.fullscreenElement === element) {
+        setIsFullscreen(true);
+        return;
+      }
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+        setIsFullscreen(true);
+        return;
+      }
+    } catch {
+      // Fall back to a fixed in-app fullscreen surface when native fullscreen is unavailable.
+    }
+
+    setFullscreenFallback(true);
+    setIsFullscreen(true);
+  }
+
+  async function exitFullscreenView() {
+    if (document.fullscreenElement === fullscreenRootRef.current && document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
+    setFullscreenFallback(false);
+    setIsFullscreen(false);
+  }
+
   const pagesReady = Boolean(pdf && totalPages > 0 && !loading);
+  const fullscreenActive = isFullscreen || fullscreenFallback;
 
   return (
-    <div className="bg-[color:var(--surface-inset)]">
+    <div
+      ref={fullscreenRootRef}
+      data-testid="pdf-fullscreen-root"
+      className={cn(
+        "bg-[color:var(--surface-inset)]",
+        fullscreenActive &&
+          "fixed inset-0 z-[80] flex flex-col overflow-hidden bg-[color:var(--surface)] supports-[selector(:fullscreen)]:fixed",
+      )}
+    >
       <div
         data-testid="pdf-toolbar"
         className="z-10 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-[69px] sm:flex sm:flex-wrap sm:p-3"
@@ -467,13 +843,13 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             <Minus className="h-4 w-4" />
           </button>
           <button
-            onClick={() => setFitWidth(true)}
+            onClick={enterFullscreenFitView}
             disabled={!pagesReady}
-            aria-label="Fit page width"
+            aria-label="Fit page width and enter fullscreen"
             className={cn(
               "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
-              fitWidth
+              fitWidth || fullscreenActive
                 ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
             )}
@@ -492,6 +868,17 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           >
             <Plus className="h-4 w-4" />
           </button>
+          {fullscreenActive ? (
+            <button
+              onClick={exitFullscreenView}
+              className={cn(iconButton, "col-span-3 sm:col-span-1")}
+              aria-label="Exit fullscreen document view"
+              type="button"
+            >
+              <Minimize2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Exit</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -500,6 +887,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         ref={holderRef}
         className={cn(
           "polished-scroll relative flex min-h-[46vh] w-full min-w-0 max-w-full justify-center overscroll-contain p-2 [-webkit-overflow-scrolling:touch] sm:min-h-[62vh] sm:p-4",
+          fullscreenActive && "min-h-0 flex-1 sm:min-h-0",
           fitWidth
             ? "overflow-x-hidden overflow-y-auto [touch-action:pan-y]"
             : "overflow-auto [touch-action:pan-x_pan-y]",
@@ -564,6 +952,7 @@ export function DocumentViewer({
   initialPage: number;
   chunkId?: string;
 }) {
+  const router = useRouter();
   const [document, setDocument] = useState<ClinicalDocument | null>(null);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [images, setImages] = useState<ImageRow[]>([]);
@@ -579,14 +968,29 @@ export function DocumentViewer({
   const [sourceSearch, setSourceSearch] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
+  const [localProjectReady, setLocalProjectReady] = useState(true);
+  const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !isConfigured);
-  const clientDemoMode = serverDemoMode;
+  const localNoAuthMode = isLocalNoAuthMode();
+  const clientDemoMode = localNoAuthMode || serverDemoMode;
+  const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
 
   useEffect(() => {
     let active = true;
-    fetch("/api/setup-status")
-      .then((response) => (response.ok ? response.json() : null))
+    readLocalProjectIdentity()
+      .then((identity) => {
+        if (!active) return null;
+        if (!identity?.localServer?.safeLocalOrigin) {
+          setLocalProjectReady(false);
+          setViewerError(unsafeLocalProjectMessage(identity));
+          setLoadingDocument(false);
+          return null;
+        }
+        setLocalProjectReady(true);
+        return fetch("/api/setup-status");
+      })
+      .then((response) => (response?.ok ? response.json() : null))
       .then((payload) => {
         if (active && typeof payload?.demoMode === "boolean") setServerDemoMode(payload.demoMode);
       })
@@ -597,10 +1001,10 @@ export function DocumentViewer({
   }, [isConfigured]);
 
   useEffect(() => {
-    if (!clientDemoMode && authStatus === "loading") {
+    if (!canUsePrivateApis && authStatus === "loading") {
       return () => undefined;
     }
-    if (!clientDemoMode && authStatus !== "authenticated") {
+    if (!canUsePrivateApis) {
       return () => undefined;
     }
 
@@ -614,26 +1018,35 @@ export function DocumentViewer({
       }
     }, 0);
     const detailUrl = `/api/documents/${documentId}${chunkId ? `?chunk=${chunkId}` : ""}`;
-    const detailRequest = fetch(detailUrl, {
-      signal: controller.signal,
-      headers: clientDemoMode ? undefined : authorizationHeader,
-    }).then(async (response) => {
-      const payload = await response.json();
-      if (response.status === 401) markSessionExpired();
-      if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
-      return payload;
-    });
-    const signedUrlRequest = fetch(`/api/documents/${documentId}/signed-url`, {
-      signal: controller.signal,
-      headers: clientDemoMode ? undefined : authorizationHeader,
-    }).then(async (response) => {
-      const payload = await response.json();
-      if (response.status === 401) markSessionExpired();
-      if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
-      return payload;
-    });
+    readLocalProjectIdentity()
+      .then((identity) => {
+        if (!identity?.localServer?.safeLocalOrigin) {
+          setLocalProjectReady(false);
+          throw new Error(unsafeLocalProjectMessage(identity));
+        }
+        setLocalProjectReady(true);
 
-    Promise.allSettled([detailRequest, signedUrlRequest])
+        const detailRequest = fetch(detailUrl, {
+          signal: controller.signal,
+          headers: clientDemoMode ? undefined : authorizationHeader,
+        }).then(async (response) => {
+          const payload = await response.json();
+          if (response.status === 401) markSessionExpired();
+          if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
+          return payload;
+        });
+        const signedUrlRequest = fetch(`/api/documents/${documentId}/signed-url`, {
+          signal: controller.signal,
+          headers: clientDemoMode ? undefined : authorizationHeader,
+        }).then(async (response) => {
+          const payload = await response.json();
+          if (response.status === 401) markSessionExpired();
+          if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
+          return payload;
+        });
+
+        return Promise.allSettled([detailRequest, signedUrlRequest]);
+      })
       .then(([detailResult, signedUrlResult]) => {
         if (controller.signal.aborted) return;
 
@@ -680,6 +1093,7 @@ export function DocumentViewer({
   }, [
     authStatus,
     authorizationHeader,
+    canUsePrivateApis,
     clientDemoMode,
     documentId,
     chunkId,
@@ -700,20 +1114,20 @@ export function DocumentViewer({
   }, []);
 
   useEffect(() => {
-    if (clientDemoMode || authStatus !== "loading") {
+    if (canUsePrivateApis || authStatus !== "loading") {
       return () => undefined;
     }
 
     const timeout = window.setTimeout(() => setAuthLoadingTimedOut(true), 3000);
     return () => window.clearTimeout(timeout);
-  }, [authStatus, clientDemoMode]);
+  }, [authStatus, canUsePrivateApis]);
 
   async function summarize() {
     if (!canSummarizeDocument) {
       setSummaryError("Load a source document before summarising.");
       return;
     }
-    if (!clientDemoMode && authStatus !== "authenticated") {
+    if (!canUsePrivateApis) {
       setSummaryError("Sign in before summarising private documents.");
       return;
     }
@@ -727,7 +1141,10 @@ export function DocumentViewer({
       const payload = await response.json();
       if (response.status === 401) markSessionExpired();
       if (!response.ok) throw new Error(payload.error || "Summary could not be generated.");
-      setSummary(payload);
+      setSummary({ ...payload, answer: cleanClinicalSummaryText(String(payload.answer ?? "")) });
+      window.requestAnimationFrame(() => {
+        generatedSummaryRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
     } catch (error) {
       setSummaryError(error instanceof Error ? error.message : "Summary could not be generated.");
     } finally {
@@ -736,15 +1153,14 @@ export function DocumentViewer({
   }
 
   const authViewerError =
-    !clientDemoMode && authStatus !== "authenticated" && (authStatus !== "loading" || authLoadingTimedOut)
+    !canUsePrivateApis && (authStatus !== "loading" || authLoadingTimedOut)
       ? isConfigured
         ? "Sign in to open private source documents."
         : "Supabase browser authentication is not configured for private source documents."
       : null;
-  const effectiveLoadingDocument =
-    !clientDemoMode && authStatus !== "authenticated"
-      ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
-      : loadingDocument;
+  const effectiveLoadingDocument = !canUsePrivateApis
+    ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
+    : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"
@@ -754,40 +1170,57 @@ export function DocumentViewer({
         ? "auth-required"
         : "error";
   const readyDocument = viewerState === "ready" ? document : null;
-  const headerTitle =
-    readyDocument
-      ? readyDocument.title
+  const headerTitle = readyDocument
+    ? readyDocument.title
+    : viewerState === "auth-required"
+      ? "Sign in required"
+      : viewerState === "loading"
+        ? "Document"
+        : "Source unavailable";
+  const headerSubtitle = readyDocument
+    ? `page ${initialPage} · ${readyDocument.file_name}`
+    : viewerState === "loading"
+      ? `page ${initialPage} · loading source`
+      : (effectiveViewerError ?? "Source unavailable");
+  const headerMetadata = readyDocument
+    ? sourceStatusLabel(normalizeSourceMetadata(readyDocument.metadata))
+    : viewerState === "loading"
+      ? "Loading source metadata"
       : viewerState === "auth-required"
-        ? "Sign in required"
-        : viewerState === "loading"
-          ? "Document"
-          : "Source unavailable";
-  const headerSubtitle =
-    readyDocument
-      ? `page ${initialPage} · ${readyDocument.file_name}`
-      : viewerState === "loading"
-        ? `page ${initialPage} · loading source`
-        : (effectiveViewerError ?? "Source unavailable");
-  const headerMetadata =
-    readyDocument
-      ? sourceStatusLabel(normalizeSourceMetadata(readyDocument.metadata))
-      : viewerState === "loading"
-        ? "Loading source metadata"
-        : viewerState === "auth-required"
-          ? "Private source document"
-          : "Source unavailable";
-  const canSummarizeDocument =
-    viewerState === "ready" && !loadingSummary && (clientDemoMode || authStatus === "authenticated");
+        ? "Private source document"
+        : "Source unavailable";
+  const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument
     ? "Generate a source-backed document summary"
     : "Load a source document before summarising";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
-  const selectedChunk = chunks.find((chunk) => chunk.id === chunkId) ?? chunks[0];
+  const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
+  const clinicalImages = images.filter(
+    (image) => image.searchable !== false && (image.clinicalUseClass ?? "clinical_evidence") === "clinical_evidence",
+  );
+  const auditImages = images.filter(
+    (image) =>
+      image.source_kind === "table_crop" &&
+      (image.searchable === false ||
+        ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
+  );
+  const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
+  useEffect(() => {
+    if (!chunkId || loadingDocument) return;
+    const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [chunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
     setViewerError(null);
     setPreviewError(null);
     setLoadingDocument(true);
     setPreviewAttempt((current) => current + 1);
+  };
+  const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
+    setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
+  };
+  const handleDocumentDeleted = () => {
+    router.push("/");
   };
 
   return (
@@ -807,9 +1240,7 @@ export function DocumentViewer({
             </Link>
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold sm:text-base">{headerTitle}</h1>
-              <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">
-                {headerSubtitle}
-              </p>
+              <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">{headerSubtitle}</p>
               <div className="hidden items-center gap-2 sm:flex">
                 {readyDocument ? (
                   <>
@@ -830,23 +1261,62 @@ export function DocumentViewer({
               </p>
             </div>
           </div>
-          <button
-            onClick={summarize}
-            disabled={!canSummarizeDocument}
-            title={summarizeTitle}
-            className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
-            aria-label="Summarise document"
-          >
-            {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            <span className="hidden sm:inline">Summarise</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {readyDocument && (
+              <DocumentManagementActions
+                document={readyDocument}
+                disabled={!canUsePrivateApis}
+                onRenamed={handleDocumentRenamed}
+                onDeleted={handleDocumentDeleted}
+              />
+            )}
+            <button
+              onClick={summarize}
+              disabled={!canSummarizeDocument}
+              title={summarizeTitle}
+              className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
+              aria-label="Summarise document"
+            >
+              {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <span className="hidden sm:inline">Summarise</span>
+            </button>
+          </div>
         </div>
       </header>
 
       <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 pb-24 sm:gap-5 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+        {(summary || summaryError) && (
+          <div className="min-w-0 space-y-3 lg:col-span-2">
+            {summary && (
+              <section ref={generatedSummaryRef} data-testid="generated-clinical-summary" className={cn(panel, "p-4 source-print")}>
+                <PanelHeading
+                  icon={Sparkles}
+                  title="Clinical summary"
+                  description="Generated from indexed source passages and cleaned for practical review."
+                />
+                <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
+                  <SafeBoldText text={generatedSummaryText} />
+                </p>
+              </section>
+            )}
+            {summaryError && (
+              <section className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-4 text-sm font-medium text-[color:var(--danger)]">
+                <AlertCircle className="mr-2 inline h-4 w-4" />
+                {summaryError}
+              </section>
+            )}
+          </div>
+        )}
+
         <div className="min-w-0 space-y-4 sm:space-y-5">
           <div className="lg:hidden">
-            <PinnedSourceEvidence loading={effectiveLoadingDocument} chunk={selectedChunk} />
+            <DocumentViewerAnchors evidenceHref="#source-evidence" className="mb-3" />
+            <PinnedSourceEvidence
+              loading={effectiveLoadingDocument}
+              chunk={selectedChunk}
+              compact
+              sectionId="source-evidence"
+            />
           </div>
 
           <details className={cn("group lg:hidden", panel)}>
@@ -873,18 +1343,24 @@ export function DocumentViewer({
                 chunks={chunks}
                 search={sourceSearch}
                 idPrefix="mobile-chunk"
+                selectedChunkId={chunkId}
                 onSearchChange={setSourceSearch}
               />
             </div>
           </details>
 
-          <div className={cn(panel, "overflow-hidden")}>
+          <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--primary-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
-                  <div>
+                  <div className="max-w-sm">
                     <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--primary)]" />
-                    <p>Loading source document</p>
+                    <p>Preparing PDF preview</p>
+                    <ul className="mt-3 space-y-1 text-left text-xs font-medium text-[color:var(--text-muted)]">
+                      <li>Loading source metadata</li>
+                      <li>Preparing PDF preview</li>
+                      <li>Loading extracted tables</li>
+                    </ul>
                     {signedUrl && (
                       <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "mt-3")}>
                         <ExternalLink className="h-4 w-4" />
@@ -937,6 +1413,7 @@ export function DocumentViewer({
               chunks={chunks}
               search={sourceSearch}
               idPrefix="desktop-chunk"
+              selectedChunkId={chunkId}
               onSearchChange={setSourceSearch}
             />
           </div>
@@ -944,10 +1421,16 @@ export function DocumentViewer({
 
         <aside className="min-w-0 space-y-4 sm:space-y-5">
           <div className="hidden lg:block">
-            <PinnedSourceEvidence loading={effectiveLoadingDocument} chunk={selectedChunk} />
+            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" className="mb-3" />
+            <PinnedSourceEvidence
+              loading={effectiveLoadingDocument}
+              chunk={selectedChunk}
+              compact
+              sectionId="source-evidence-rail"
+            />
           </div>
 
-          <section className={cn(panel, "p-4 source-print")}>
+          <section id="source-summary" className={cn(panel, "scroll-mt-24 p-4 source-print")}>
             <PanelHeading
               icon={FileText}
               title="Source status"
@@ -980,7 +1463,9 @@ export function DocumentViewer({
                         </p>
                         <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
                           {(items as string[]).slice(0, 5).map((item) => (
-                            <li key={item}>- <SafeBoldText text={item} /></li>
+                            <li key={item}>
+                              - <SafeBoldText text={item} />
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -1002,37 +1487,37 @@ export function DocumentViewer({
             </section>
           ) : null}
 
-          <section className={cn(panel, "p-4")}>
+          <section id="source-images" className={cn(panel, "scroll-mt-24 p-4")}>
             <PanelHeading
               icon={FileImage}
-              title="Images and captions"
-              description="Indexed diagrams extracted from the source document."
+              title="Tables and diagrams"
+              description="Indexed clinical tables, diagrams, and image captions extracted from the source document."
             />
             <div className="mt-3 space-y-3">
               {effectiveLoadingDocument ? (
-                <LoadingPanel label="Loading indexed images" />
-              ) : images.length === 0 ? (
-                <p className={cn("text-[15px]", textMuted)}>No extracted images have been indexed for this document.</p>
+                <LoadingPanel label="Loading extracted tables" />
+              ) : clinicalImages.length === 0 ? (
+                <p className={cn("text-[15px]", textMuted)}>
+                  No clinically useful tables or diagrams have been indexed for this document.
+                </p>
               ) : (
-                images.map((image) => <DocumentImage key={image.id} image={image} />)
+                clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
               )}
+              {!effectiveLoadingDocument && auditImages.length > 0 ? (
+                <details className={cn(sourceCard, "p-3")}>
+                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+                    Administrative/reference tables retained for audit ({auditImages.length})
+                  </summary>
+                  <div className="mt-3 grid gap-3">
+                    {auditImages.map((image) => (
+                      <DocumentImage key={image.id} image={image} />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </div>
           </section>
 
-          {summary && (
-            <section className={cn(panel, "p-4")}>
-              <PanelHeading icon={Sparkles} title="Clinical summary" />
-              <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
-                {summary.answer}
-              </p>
-            </section>
-          )}
-          {summaryError && (
-            <section className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-4 text-sm font-medium text-[color:var(--danger)]">
-              <AlertCircle className="mr-2 inline h-4 w-4" />
-              {summaryError}
-            </section>
-          )}
         </aside>
       </section>
     </main>

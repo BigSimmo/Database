@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { assertAllowedFile, jsonError } from "@/lib/http";
+import { planDocumentName, type SupabaseLike } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -54,7 +55,15 @@ export async function POST(request: Request) {
     if (upload.error) throw new Error(upload.error.message);
     uploadedPath = storagePath;
 
-    const title = String(formData.get("title") || file.name.replace(/\.[^.]+$/, ""));
+    const namingSupabase = supabase as unknown as SupabaseLike;
+    const namePlan = await planDocumentName({
+      supabase: namingSupabase,
+      ownerId: user.id,
+      fileName: file.name,
+      requestedTitle: formData.get("title") ? String(formData.get("title")) : null,
+      contentHash,
+    });
+    const title = namePlan.title;
     const description = formData.get("description") ? String(formData.get("description")) : null;
     const uploadedAt = new Date().toISOString();
 
@@ -81,6 +90,12 @@ export async function POST(request: Request) {
           uploaded_at: uploadedAt,
           indexed_at: null,
           uploaded_by: user.id,
+          original_file_name: namePlan.originalFileName,
+          original_title: namePlan.originalTitle,
+          smart_title_base: namePlan.baseTitle,
+          smart_title_group_key: namePlan.duplicateGroupKey,
+          smart_title_duplicate_index: namePlan.duplicateIndex,
+          smart_title_duplicate_reason: namePlan.duplicateReason,
           document_status: "unknown",
           clinical_validation_status: "unverified",
           extraction_quality: "unknown",

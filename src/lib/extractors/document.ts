@@ -10,9 +10,10 @@ import type { ExtractedDocument } from "@/lib/types";
 
 function runPythonPdfExtractor(filePath: string, outputDir: string) {
   const scriptPath = path.join(process.cwd(), "worker", "python", "extract_pdf_assets.py");
+  const outputJsonPath = path.join(outputDir, "extract.json");
 
   return new Promise<ExtractedDocument>((resolve, reject) => {
-    const child = spawn(process.env.PYTHON_BIN || "python", [scriptPath, filePath, outputDir], {
+    const child = spawn(process.env.PYTHON_BIN || "python", [scriptPath, filePath, outputDir, outputJsonPath], {
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -25,19 +26,27 @@ function runPythonPdfExtractor(filePath: string, outputDir: string) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.on("close", (code) => {
+    child.on("close", async (code) => {
       if (code !== 0) {
         reject(new Error(stderr || `PDF extractor exited with code ${code}`));
         return;
       }
 
       try {
-        resolve(JSON.parse(stdout) as ExtractedDocument);
+        const jsonPayload = await readFile(outputJsonPath, "utf8").catch(() => extractJsonFromStdout(stdout));
+        resolve(JSON.parse(jsonPayload) as ExtractedDocument);
       } catch (error) {
         reject(error);
       }
     });
   });
+}
+
+function extractJsonFromStdout(stdout: string) {
+  const start = stdout.indexOf("{");
+  const end = stdout.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return stdout;
+  return stdout.slice(start, end + 1);
 }
 
 async function extractPdf(buffer: Buffer) {

@@ -8,8 +8,8 @@ import {
   type ExistingImportDocument,
   parseImportCliArgs,
   scanImportFiles,
-  titleFromFileName,
 } from "@/lib/bulk-import";
+import { planDocumentName } from "@/lib/document-naming";
 
 loadEnvConfig(process.cwd());
 
@@ -118,7 +118,15 @@ async function main() {
   if (!files.length) return;
   if (args.dryRun) {
     let existing = new Map<string, ExistingImportDocument>();
-    if (args.ownerEmail) {
+    const dryRunOwnerId = args.ownerId ?? process.env.LOCAL_NO_AUTH_OWNER_ID;
+    if (dryRunOwnerId) {
+      const supabase = await loadAdminClient();
+      existing = await existingDocumentsByHash(
+        supabase,
+        dryRunOwnerId,
+        Array.from(new Set(files.map((file) => file.contentHash))),
+      );
+    } else if (args.ownerEmail) {
       const supabase = await loadAdminClient();
       const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
       existing = await existingDocumentsByHash(
@@ -138,7 +146,7 @@ async function main() {
       );
     }
     if (files.length > 20) console.log(`DRY RUN omitted ${files.length - 20} additional file(s).`);
-    if (args.ownerEmail) {
+    if (dryRunOwnerId || args.ownerEmail) {
       console.log(
         `DRY RUN duplicate check: would_queue=${files.length - exactCopyCount}, exact_copies=${exactCopyCount}, total=${files.length}`,
       );
@@ -147,11 +155,12 @@ async function main() {
   }
 
   const [{ env }, supabase] = await Promise.all([import("@/lib/env"), loadAdminClient()]);
-  if (!args.ownerEmail && !args.resume) {
-    throw new Error("Provide --owner-email for a new import batch.");
+  const configuredOwnerId = args.ownerId ?? process.env.LOCAL_NO_AUTH_OWNER_ID;
+  if (!configuredOwnerId && !args.ownerEmail && !args.resume) {
+    throw new Error("Provide --owner-id, set LOCAL_NO_AUTH_OWNER_ID, or provide --owner-email for a new import batch.");
   }
 
-  const requestedOwnerId = args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined;
+  const requestedOwnerId = configuredOwnerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
   const batch = await loadOrCreateBatch({
     supabase,
     ownerId: requestedOwnerId,
@@ -216,16 +225,25 @@ async function main() {
 
       const documentId = createDocumentId();
       const storagePath = buildImportStoragePath(ownerId, documentId, file.fileName);
-      const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, await readFile(file.absolutePath), {
-        contentType: "application/pdf",
-        upsert: false,
+      const namePlan = await planDocumentName({
+        supabase: supabase as never,
+        ownerId,
+        fileName: file.fileName,
+        requestedTitle: null,
+        contentHash: file.contentHash,
       });
+      const upload = await supabase.storage
+        .from(env.SUPABASE_DOCUMENT_BUCKET)
+        .upload(storagePath, await readFile(file.absolutePath), {
+          contentType: "application/pdf",
+          upsert: false,
+        });
       if (upload.error) throw new Error(upload.error.message);
 
       const { error: documentError } = await supabase.from("documents").insert({
         id: documentId,
         owner_id: ownerId,
-        title: titleFromFileName(file.fileName),
+        title: namePlan.title,
         description: null,
         file_name: file.fileName,
         file_type: "application/pdf",
@@ -236,7 +254,7 @@ async function main() {
         import_batch_id: batch.id,
         status: "queued",
         metadata: {
-          source_title: titleFromFileName(file.fileName),
+          source_title: namePlan.title,
           publisher: null,
           jurisdiction: "Australia/WA",
           version: null,
@@ -245,6 +263,12 @@ async function main() {
           uploaded_at: new Date().toISOString(),
           indexed_at: null,
           uploaded_by: ownerId,
+          original_file_name: namePlan.originalFileName,
+          original_title: namePlan.originalTitle,
+          smart_title_base: namePlan.baseTitle,
+          smart_title_group_key: namePlan.duplicateGroupKey,
+          smart_title_duplicate_index: namePlan.duplicateIndex,
+          smart_title_duplicate_reason: namePlan.duplicateReason,
           document_status: "unknown",
           clinical_validation_status: "unverified",
           extraction_quality: "unknown",

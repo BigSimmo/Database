@@ -55,12 +55,58 @@ describe("ward output helpers", () => {
     const sections = buildClinicalOutputSections(answer);
 
     expect(sections.map((section) => section.id)).toEqual([
-      "key-actions",
-      "monitoring-checklist",
-      "escalation-triggers",
+      "action",
+      "monitoring",
+      "thresholds",
+      "escalation",
+      "verify-source",
     ]);
     expect(sections[1].items[0]).toContain("renal function");
-    expect(sections[2].items[0]).toContain("vomiting");
+    expect(sections[2].items[0]).toContain("lithium level");
+    expect(sections[3].items[0]).toContain("vomiting");
+    expect(sections[4].items[0]).toContain("1 linked citation");
+  });
+
+  it("places extracted threshold tables before threshold prose", () => {
+    const thresholdAnswer: RagAnswer = {
+      ...answer,
+      answer: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+      answerSections: [
+        {
+          heading: "Threshold",
+          body: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "image-1",
+          image_id: "image-1",
+          signed_url_endpoint: "/api/images/image-1/signed-url",
+          caption: "FBC/ANC monitoring thresholds",
+          document_id: "doc-1",
+          title: "Clozapine source",
+          file_name: "clozapine.pdf",
+          page_number: 2,
+          source_chunk_id: "chunk-1",
+          chunk_index: 0,
+          viewer_href: "/documents/doc-1?page=2&chunk=chunk-1",
+          tableLabel: "Table 1",
+          tableTitle: "FBC/ANC thresholds",
+          tableRows: [
+            ["ANC", "Action"],
+            ["Below threshold", "Withhold clozapine and review"],
+          ],
+          tableColumns: ["Threshold", "Action"],
+        },
+      ],
+    };
+
+    const thresholds = buildClinicalOutputSections(thresholdAnswer).find((section) => section.id === "thresholds");
+
+    expect(thresholds?.tables).toHaveLength(1);
+    expect(thresholds?.tables?.[0].caption).toContain("FBC/ANC");
+    expect(thresholds?.items[0]).toContain("Withhold clozapine");
   });
 
   it("formats copyable answer and quote text with citations", () => {
@@ -82,6 +128,7 @@ describe("ward output helpers", () => {
 
   it("pauses polling in demo mode or hidden tabs", () => {
     expect(shouldPollForUpdates(false, "visible")).toBe(true);
+    expect(shouldPollForUpdates(false, "visible", false)).toBe(false);
     expect(shouldPollForUpdates(true, "visible")).toBe(false);
     expect(shouldPollForUpdates(false, "hidden")).toBe(false);
   });

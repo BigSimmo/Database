@@ -10,9 +10,17 @@ export type ImageEvidenceCategory =
   | "medication_chart"
   | "graph"
   | "screenshot_ui"
+  | "cover_page"
   | "photo"
   | "logo_decorative"
   | "unclear";
+
+export type ClinicalImageUseClass =
+  | "clinical_evidence"
+  | "administrative"
+  | "reference"
+  | "decorative_or_empty"
+  | "ambiguous";
 
 export type DocumentLabelType =
   | "topic"
@@ -111,7 +119,18 @@ export type ChunkImage = {
   searchable?: boolean;
   clinical_relevance_score?: number;
   source_kind?: string | null;
+  sourceKind?: string | null;
+  tableLabel?: string | null;
+  tableTitle?: string | null;
+  tableRole?: string | null;
+  tableTextSnippet?: string | null;
+  clinicalUseClass?: ClinicalImageUseClass | null;
+  clinicalUseReason?: string | null;
+  accessibleTableMarkdown?: string | null;
+  tableRows?: string[][] | null;
+  tableColumns?: string[] | null;
   labels?: string[];
+  metadata?: Record<string, unknown> | null;
 };
 
 export type SearchResult = {
@@ -127,9 +146,32 @@ export type SearchResult = {
   similarity: number;
   text_rank?: number;
   hybrid_score?: number;
+  rrf_score?: number;
+  score_explanation?: SearchScoreExplanation;
   source_strength?: SourceStrength;
   source_metadata?: ClinicalSourceMetadata | null;
+  document_labels?: DocumentLabel[];
+  document_summary?: string | null;
+  adjacent_context?: string | null;
+  memory_cards?: DocumentMemoryCard[];
+  memory_score?: number;
+  relevance?: SourceEvidenceRelevance;
   images: ChunkImage[];
+};
+
+export type SearchScoreExplanation = {
+  vectorScore: number;
+  textRank: number;
+  weightedHybridScore: number;
+  rrfScore: number | null;
+  memoryBoost: number;
+  titleBoost: number;
+  metadataBoost: number;
+  clinicalSignalBoost: number;
+  penalty: number;
+  finalScore: number;
+  finalRank?: number;
+  strategy: "weighted_hybrid_served_rrf_telemetry";
 };
 
 export type Citation = {
@@ -151,6 +193,29 @@ export type QuoteCard = Citation & {
 
 export type SourceStrength = "strong" | "moderate" | "limited";
 
+export type EvidenceRelevanceVerdict = "direct" | "partial" | "nearby" | "none";
+
+export type EvidenceRelevance = {
+  verdict: EvidenceRelevanceVerdict;
+  label: string;
+  matchedTerms: string[];
+  missingTerms: string[];
+  directSourceCount: number;
+  weakSourceCount: number;
+  score: number;
+  supportReason: string;
+  isSourceBacked: boolean;
+};
+
+export type SourceEvidenceRelevance = EvidenceRelevance & {
+  coverageScore: number;
+  rankScore: number;
+  titleMatchedTerms: string[];
+  contentMatchedTerms: string[];
+  metadataMatchedTerms: string[];
+  chips: string[];
+};
+
 export type VisualEvidenceCard = {
   id: string;
   image_id: string;
@@ -165,7 +230,18 @@ export type VisualEvidenceCard = {
   viewer_href: string;
   image_type?: ImageEvidenceCategory;
   clinical_relevance_score?: number;
+  source_kind?: string | null;
+  tableLabel?: string | null;
+  tableTitle?: string | null;
+  tableRole?: string | null;
+  tableTextSnippet?: string | null;
+  clinicalUseClass?: ClinicalImageUseClass | null;
+  clinicalUseReason?: string | null;
+  accessibleTableMarkdown?: string | null;
+  tableRows?: string[][] | null;
+  tableColumns?: string[] | null;
   labels?: string[];
+  relevance?: SourceEvidenceRelevance;
 };
 
 export type DocumentLabel = {
@@ -204,6 +280,73 @@ export type DocumentSummary = {
   updated_at?: string;
 };
 
+export type RagIndexingVersion = "rag-universal-v1" | "rag-deep-memory-v1";
+
+export type DocumentIndexQuality = {
+  indexingVersion?: RagIndexingVersion | string | null;
+  memoryVersion?: RagIndexingVersion | string | null;
+  extractionQuality?: ClinicalSourceMetadata["extraction_quality"];
+  sectionCount?: number;
+  memoryCardCount?: number;
+  missingEmbeddings?: number;
+  stale?: boolean;
+};
+
+export type DocumentSectionMemory = {
+  id?: string;
+  document_id: string;
+  owner_id?: string | null;
+  section_index: number;
+  heading: string;
+  heading_path: string[];
+  page_start: number | null;
+  page_end: number | null;
+  chunk_ids: string[];
+  summary: string;
+  tags: string[];
+  extraction_quality: ClinicalSourceMetadata["extraction_quality"];
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DocumentMemoryCardType =
+  | "section_summary"
+  | "table_row"
+  | "threshold"
+  | "medication"
+  | "risk"
+  | "workflow"
+  | "definition"
+  | "citation_anchor";
+
+export type DocumentMemoryCard = {
+  id?: string;
+  document_id: string;
+  owner_id?: string | null;
+  section_id?: string | null;
+  card_type: DocumentMemoryCardType;
+  title: string;
+  content: string;
+  normalized_terms: string[];
+  page_number: number | null;
+  source_chunk_ids: string[];
+  source_image_ids: string[];
+  confidence: number;
+  metadata?: Record<string, unknown>;
+  embedding?: number[];
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type RagQueryClass =
+  | "document_lookup"
+  | "table_threshold"
+  | "medication_dose_risk"
+  | "comparison"
+  | "broad_summary"
+  | "unsupported_or_general";
+
 export type RelatedDocument = {
   document_id: string;
   title: string;
@@ -213,8 +356,24 @@ export type RelatedDocument = {
   best_pages: number[];
   best_chunk_ids: string[];
   image_count: number;
+  table_count?: number;
   match_reason: string;
   score: number;
+};
+
+export type DocumentMatch = {
+  document_id: string;
+  title: string;
+  file_name: string;
+  labels: DocumentLabel[];
+  summarySnippet: string | null;
+  bestPages: number[];
+  bestChunkIds: string[];
+  imageCount: number;
+  tableCount: number;
+  matchReason: string;
+  score: number;
+  relevance?: SourceEvidenceRelevance;
 };
 
 export type DocumentBreakdown = {
@@ -237,6 +396,7 @@ export type BestSourceRecommendation = Citation & {
   section_heading: string | null;
   image_count: number;
   viewer_href: string;
+  relevance?: SourceEvidenceRelevance;
 };
 
 export type EvidenceSummary = {
@@ -287,6 +447,52 @@ export type SmartPanel = {
   sourceCoverage: SourceCoverage;
   conflictsOrGaps: ConflictOrGap[];
   relatedDocuments?: RelatedDocument[];
+  relevance?: EvidenceRelevance;
+};
+
+export type SmartRagSourceLink = {
+  id: string;
+  label: string;
+  href: string;
+  document_id: string;
+  chunk_id: string;
+  title: string;
+  file_name: string;
+  page_number: number | null;
+  source_strength: SourceStrength;
+  reason: string;
+  snippet: string;
+};
+
+export type SmartRagApiPlan = {
+  query: string;
+  queryClass: RagQueryClass;
+  intent:
+    | "find_document"
+    | "find_threshold_or_table"
+    | "medication_or_risk_answer"
+    | "compare_sources"
+    | "summarize_sources"
+    | "general_or_unsupported";
+  responseMode:
+    | "document_lookup"
+    | "extractive_answer"
+    | "fast_grounded_answer"
+    | "strong_synthesis"
+    | "multi_document_synthesis"
+    | "unsupported";
+  retrievalStrategy:
+    | "search_cache"
+    | "text_fast_path"
+    | "document_lookup_fast_path"
+    | "hybrid"
+    | "vector_fallback"
+    | "unknown";
+  latencyPlan: "cache_or_text_first" | "balanced_hybrid" | "strong_generation" | "no_supported_answer";
+  answerFocus: string;
+  sourceLinkCount: number;
+  coreSourceLinks: SmartRagSourceLink[];
+  streamPlan: string[];
 };
 
 export type RagAnswer = {
@@ -298,6 +504,7 @@ export type RagAnswer = {
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;
+  queryClass?: RagQueryClass;
   latencyTimings?: {
     search_cache_hit?: boolean;
     text_fast_path_latency_ms?: number;
@@ -306,6 +513,7 @@ export type RagAnswer = {
     embedding_cache_hit?: boolean;
     supabase_rpc_latency_ms?: number;
     rerank_latency_ms?: number;
+    context_pack_latency_ms?: number;
     search_latency_ms?: number;
     generation_latency_ms?: number;
     total_latency_ms?: number;
@@ -322,6 +530,17 @@ export type RagAnswer = {
   documentBreakdown?: DocumentBreakdown[];
   smartPanel?: SmartPanel;
   relatedDocuments?: RelatedDocument[];
+  relevance?: EvidenceRelevance;
+  memoryCardsUsed?: DocumentMemoryCard[];
+  indexingVersion?: RagIndexingVersion | string | null;
+  indexingQuality?: DocumentIndexQuality;
+  smartApiPlan?: SmartRagApiPlan;
+  scoreExplanations?: Array<{
+    chunk_id: string;
+    document_id: string;
+    finalScore: number;
+    score_explanation?: SearchScoreExplanation;
+  }>;
 };
 
 export type ExtractedPage = {
@@ -337,7 +556,7 @@ export type ExtractedImage = {
   bbox?: [number, number, number, number] | null;
   width?: number | null;
   height?: number | null;
-  sourceKind?: "embedded" | "diagram_crop" | "page_region" | "fallback";
+  sourceKind?: "embedded" | "table_crop" | "diagram_crop" | "page_region" | "fallback" | "cover_page";
   metadata?: Record<string, unknown>;
 };
 
@@ -351,7 +570,18 @@ export type ChunkInput = {
   documentId: string;
   pageNumber: number | null;
   pageText: string;
-  images?: Array<{ id: string; caption: string; pageNumber: number | null }>;
+  images?: Array<{
+    id: string;
+    caption: string;
+    pageNumber: number | null;
+    imageType?: ImageEvidenceCategory;
+    sourceKind?: string | null;
+    labels?: string[];
+    tableLabel?: string | null;
+    tableTitle?: string | null;
+    tableRole?: string | null;
+    tableTextSnippet?: string | null;
+  }>;
   metadata?: Record<string, unknown>;
 };
 

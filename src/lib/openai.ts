@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env, requireOpenAIEnv } from "@/lib/env";
+import { assessClinicalImageUse } from "@/lib/image-filtering";
 import { PublicApiError } from "@/lib/http";
 import type { ImageEvidenceCategory, OpenAITokenUsage } from "@/lib/types";
 
@@ -145,7 +146,9 @@ function defaultReasoningEffort(operation: OpenAIOperation, model: string): Open
   if (!model.startsWith("gpt-5")) return "none";
   switch (operation) {
     case "answer":
-      return model === env.OPENAI_STRONG_ANSWER_MODEL ? env.OPENAI_STRONG_REASONING_EFFORT : env.OPENAI_FAST_REASONING_EFFORT;
+      return model === env.OPENAI_STRONG_ANSWER_MODEL
+        ? env.OPENAI_STRONG_REASONING_EFFORT
+        : env.OPENAI_FAST_REASONING_EFFORT;
     case "summary":
       return env.OPENAI_SUMMARY_REASONING_EFFORT;
     case "vision_caption":
@@ -189,7 +192,8 @@ function responseBody(
     prompt_cache_key: resolved.promptCacheKey ?? promptCacheKeyFor(operation),
     prompt_cache_retention: promptCacheRetention,
     metadata: { operation },
-    reasoning: supportsReasoning(resolved.model) && reasoningEffort !== "none" ? { effort: reasoningEffort } : undefined,
+    reasoning:
+      supportsReasoning(resolved.model) && reasoningEffort !== "none" ? { effort: reasoningEffort } : undefined,
     text: Object.keys(textConfig).length > 0 ? textConfig : undefined,
   };
 }
@@ -268,7 +272,7 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
   const requestId = getRequestId(error);
 
   if (isTimeoutError(error) || status === 408) {
-    return new PublicApiError("OpenAI timed out. Retry with a narrower question or fewer selected documents.", 504, {
+    return new PublicApiError("OpenAI timed out. Trying source-only fallback response.", 504, {
       code,
       requestId,
     });
@@ -286,10 +290,14 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
   }
 
   if (code.startsWith("invalid_image") || code === "image_too_large" || code === "unsupported_image_media_type") {
-    return new PublicApiError("OpenAI could not read one of the extracted images. Inspect the source file and retry.", 502, {
-      code,
-      requestId,
-    });
+    return new PublicApiError(
+      "OpenAI could not read one of the extracted images. Inspect the source file and retry.",
+      502,
+      {
+        code,
+        requestId,
+      },
+    );
   }
 
   if (status === 400) {
@@ -520,14 +528,47 @@ const imageClassificationSchema = {
       type: ["string", "null"],
       description: "Reason the image is not searchable, or null when searchable.",
     },
+    clinical_use_class: {
+      type: "string",
+      enum: ["clinical_evidence", "administrative", "reference", "decorative_or_empty", "ambiguous"],
+      description: "Whether this is useful clinical evidence, document administration, reference material, decorative/empty, or ambiguous.",
+    },
+    clinical_use_reason: {
+      type: "string",
+      description: "Short reason for the usefulness class based only on visible/extracted content.",
+    },
+    clinical_signal_score: {
+      type: "number",
+      description: "Count-like score from 0 to 10 for patient-care signals such as medication, monitoring, thresholds, risk, escalation, or workflow.",
+    },
+    admin_signal_score: {
+      type: "number",
+      description: "Count-like score from 0 to 10 for authorisation, version, amendment, site/applicability, reference, or document-control signals.",
+    },
   },
-  required: ["image_type", "searchable", "clinical_relevance_score", "labels", "caption", "skip_reason"],
+  required: [
+    "image_type",
+    "searchable",
+    "clinical_relevance_score",
+    "labels",
+    "caption",
+    "skip_reason",
+    "clinical_use_class",
+    "clinical_use_reason",
+    "clinical_signal_score",
+    "admin_signal_score",
+  ],
 };
 
 function sanitizeImageLabels(labels: unknown) {
   if (!Array.isArray(labels)) return [];
   return labels
-    .map((label) => String(label).trim().toLowerCase().replace(/[^\w -]+/g, ""))
+    .map((label) =>
+      String(label)
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w -]+/g, ""),
+    )
     .filter((label) => label.length > 1)
     .slice(0, 6);
 }
@@ -536,14 +577,31 @@ export async function classifyAndCaptionImageFromBase64(args: {
   base64: string;
   mimeType: string;
   nearbyText?: string;
+  sourceKind?: string | null;
+  candidateType?: string | null;
+  tableLabel?: string | null;
+  tableTitle?: string | null;
+  tableRole?: string | null;
+  tableText?: string | null;
 }) {
+  const extractionContext = [
+    `Source kind: ${args.sourceKind ?? "unknown"}`,
+    args.candidateType ? `Candidate type: ${args.candidateType}` : null,
+    args.tableLabel ? `Table label: ${args.tableLabel}` : null,
+    args.tableTitle ? `Table title: ${args.tableTitle}` : null,
+    args.tableRole ? `Extractor table role: ${args.tableRole}` : null,
+    args.tableText ? `Extracted table text:\n${args.tableText.slice(0, 2500)}` : null,
+    `Nearby page text:\n${(args.nearbyText ?? "not available").slice(0, 3500)}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   const input = [
     {
       role: "user",
       content: [
         {
           type: "input_text",
-          text: `Nearby page text:\n${args.nearbyText ?? "not available"}`,
+          text: extractionContext,
         },
         {
           type: "input_image",
@@ -561,7 +619,12 @@ export async function classifyAndCaptionImageFromBase64(args: {
     schemaName: "clinical_image_classification",
     instructions:
       "Classify an extracted clinical guideline image and write a concise caption. " +
+      "Use searchable=true only when the image/table directly supports patient care, assessment, medication, dose, monitoring, observations, thresholds, risks, escalation, workflow, or clinical responsibilities. " +
+      "Set clinical_use_class=administrative and searchable=false for authorisation/publication/version/effective-date/amendment/site/operational-area/applicable-to document-control tables, even when they mention mental health. " +
+      "Set clinical_use_class=reference and searchable=false for bibliography, references, legislation, standards, or associated-document lists. " +
+      "Role/responsibility tables are clinical only when the duties affect patient care, medication, monitoring, assessment, escalation, or clinical workflow; purely governance/service-director/document-control responsibility tables are administrative. " +
       "Set searchable false for logos, repeated decorative marks, empty crops, or images without clinical information. " +
+      "Do not mark a text-heavy table crop as decorative solely because it has no illustration. " +
       "Do not infer patient-specific advice.",
     reasoningEffort: env.OPENAI_VISION_REASONING_EFFORT,
   });
@@ -572,24 +635,60 @@ export async function classifyAndCaptionImageFromBase64(args: {
       ? (parsed.image_type as ImageEvidenceCategory)
       : "unclear";
     const clinicalScore = Number(parsed.clinical_relevance_score);
-    const searchable = Boolean(parsed.searchable) && imageType !== "logo_decorative";
+    const assessment = assessClinicalImageUse({
+      imageType,
+      searchable: Boolean(parsed.searchable),
+      clinicalRelevanceScore: clinicalScore,
+      sourceKind: args.sourceKind,
+      tableRole: args.tableRole,
+      tableText: args.tableText,
+      tableTitle: args.tableTitle,
+      tableLabel: args.tableLabel,
+      caption: typeof parsed.caption === "string" ? parsed.caption : null,
+      labels: sanitizeImageLabels(parsed.labels),
+      skipReason: typeof parsed.skip_reason === "string" ? parsed.skip_reason : null,
+    });
 
     return {
       image_type: imageType,
-      searchable,
-      clinical_relevance_score: Number.isFinite(clinicalScore) ? Math.min(Math.max(clinicalScore, 0), 1) : 0.4,
+      searchable: assessment.searchable && imageType !== "logo_decorative",
+      clinical_relevance_score: assessment.clinical_relevance_score,
       labels: sanitizeImageLabels(parsed.labels),
       caption: String(parsed.caption || "").trim() || "Extracted source image.",
-      skip_reason: typeof parsed.skip_reason === "string" && parsed.skip_reason.trim() ? parsed.skip_reason.trim() : null,
+      skip_reason:
+        assessment.searchable
+          ? typeof parsed.skip_reason === "string" && parsed.skip_reason.trim()
+            ? parsed.skip_reason.trim()
+            : null
+          : assessment.clinical_use_reason,
+      clinical_use_class: assessment.clinical_use_class,
+      clinical_use_reason: assessment.clinical_use_reason,
+      clinical_signal_score: assessment.clinical_signal_score,
+      admin_signal_score: assessment.admin_signal_score,
     };
   } catch {
+    const assessment = assessClinicalImageUse({
+      imageType: "unclear",
+      searchable: true,
+      clinicalRelevanceScore: 0.4,
+      sourceKind: args.sourceKind,
+      tableRole: args.tableRole,
+      tableText: args.tableText,
+      tableTitle: args.tableTitle,
+      tableLabel: args.tableLabel,
+      caption: response.text,
+    });
     return {
       image_type: "unclear" as const,
-      searchable: true,
-      clinical_relevance_score: 0.4,
+      searchable: assessment.searchable,
+      clinical_relevance_score: assessment.clinical_relevance_score,
       labels: [],
       caption: response.text.trim() || "Extracted source image.",
-      skip_reason: null,
+      skip_reason: assessment.searchable ? null : assessment.clinical_use_reason,
+      clinical_use_class: assessment.clinical_use_class,
+      clinical_use_reason: assessment.clinical_use_reason,
+      clinical_signal_score: assessment.clinical_signal_score,
+      admin_signal_score: assessment.admin_signal_score,
     };
   }
 }

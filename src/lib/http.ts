@@ -24,8 +24,17 @@ function publicErrorMessage(error: unknown, status: number) {
 function logSafeError(error: unknown, status: number) {
   if (process.env.NODE_ENV === "test") return;
   const name = error instanceof Error ? error.name : typeof error;
+  const message = error instanceof Error ? error.message : String(error);
+  const stack = error instanceof Error ? error.stack : undefined;
   const details = error instanceof PublicApiError ? error.details : undefined;
-  console.error("API request failed", { status, name, code: details?.code, requestId: details?.requestId });
+  console.error("API request failed", {
+    status,
+    name,
+    message,
+    code: details?.code,
+    requestId: details?.requestId,
+    stack,
+  });
 }
 
 export function jsonError(error: unknown, status = 500) {

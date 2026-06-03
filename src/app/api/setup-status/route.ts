@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
+import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -16,15 +17,37 @@ type SetupCheck = {
   detail: string;
 };
 
+type WorkerStatus = {
+  check: SetupCheck;
+  activeWork: boolean;
+};
+
+type SetupStatusPayload = {
+  demoMode: boolean;
+  checks: SetupCheck[];
+  indexingActive: boolean;
+  pollAfterMs: number | null;
+  generatedAt: string;
+};
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
 const requiredSupabaseEnvPresent = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 const supabaseProjectCheck = checkSupabaseProjectConfig(env, { requireMetadata: true });
 const supabaseProjectCanBeQueried = requiredSupabaseEnvPresent && supabaseProjectCheck.status !== "mismatch";
+const ACTIVE_INDEXING_POLL_MS = Math.max(3_000, Math.min(env.WORKER_POLL_MS, 15_000));
+const SETUP_RECHECK_POLL_MS = 60_000;
+const SETUP_STATUS_ACTIVE_CACHE_MS = Math.max(2_000, Math.min(ACTIVE_INDEXING_POLL_MS, 5_000));
+const SETUP_STATUS_IDLE_CACHE_MS = 30_000;
+
+let setupStatusCache: { expiresAt: number; payload: SetupStatusPayload } | null = null;
+let setupStatusInFlight: Promise<SetupStatusPayload> | null = null;
 
 function check(id: SetupCheckId, label: string, status: SetupCheckStatus, detail: string): SetupCheck {
   return { id, label, status, detail };
 }
 
-async function readSchemaStatus() {
+async function readSchemaStatus(supabase: AdminClient | null) {
   if (!requiredSupabaseEnvPresent) {
     return check(
       "schema",
@@ -44,7 +67,9 @@ async function readSchemaStatus() {
   }
 
   try {
-    const supabase = createAdminClient();
+    if (!supabase) {
+      throw new Error("Supabase admin client is unavailable.");
+    }
     const [documents, jobs, batches, buckets] = await Promise.all([
       supabase.from("documents").select("id,content_hash,import_batch_id").limit(1),
       supabase.from("ingestion_jobs").select("id,attempt_count,max_attempts,locked_at").limit(1),
@@ -82,94 +107,177 @@ async function readSchemaStatus() {
   }
 }
 
-async function readWorkerStatus() {
+async function readWorkerStatus(supabase: AdminClient | null): Promise<WorkerStatus> {
   const label = "npm run worker running";
 
   if (!requiredSupabaseEnvPresent) {
-    return check(
-      "worker",
-      label,
-      "unknown",
-      "Worker status cannot be inferred until Supabase is configured.",
-    );
+    return {
+      check: check("worker", label, "unknown", "Worker status cannot be inferred until Supabase is configured."),
+      activeWork: false,
+    };
   }
 
   if (!supabaseProjectCanBeQueried) {
-    return check(
-      "worker",
-      label,
-      "unknown",
-      "Worker status cannot be inferred while Supabase points at the wrong project.",
-    );
+    return {
+      check: check(
+        "worker",
+        label,
+        "unknown",
+        "Worker status cannot be inferred while Supabase points at the wrong project.",
+      ),
+      activeWork: false,
+    };
   }
 
   try {
-    const supabase = createAdminClient();
+    if (!supabase) {
+      throw new Error("Supabase admin client is unavailable.");
+    }
     const [latestResult, activeResult] = await Promise.all([
       supabase.from("ingestion_jobs").select("status,updated_at").order("updated_at", { ascending: false }).limit(1),
-      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
+      supabase
+        .from("ingestion_jobs")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "processing"]),
     ]);
 
     if (latestResult.error || activeResult.error) {
-      return check("worker", label, "unknown", "Ingestion jobs could not be checked.");
+      return {
+        check: check("worker", label, "unknown", "Ingestion jobs could not be checked."),
+        activeWork: false,
+      };
     }
 
     const latest = latestResult.data?.[0];
+    const activeWork = (activeResult.count ?? 0) > 0;
     if (!latest?.updated_at) {
-      return check("worker", label, "unknown", "No ingestion activity has been recorded yet.");
+      return {
+        check: check("worker", label, "unknown", "No ingestion activity has been recorded yet."),
+        activeWork,
+      };
     }
 
     const updatedAt = new Date(latest.updated_at).getTime();
     const recentWindowMs = Math.max(env.WORKER_POLL_MS * 6, 60_000);
     if (Number.isFinite(updatedAt) && Date.now() - updatedAt <= recentWindowMs) {
-      return check("worker", label, "ready", "Recent ingestion activity was detected.");
+      return {
+        check: check("worker", label, "ready", "Recent ingestion activity was detected."),
+        activeWork,
+      };
     }
 
     if ((activeResult.count ?? 0) === 0 && latest.status === "completed") {
-      return check("worker", label, "ready", "No queued ingestion work is waiting; the latest job completed.");
+      return {
+        check: check("worker", label, "ready", "No queued ingestion work is waiting; the latest job completed."),
+        activeWork: false,
+      };
     }
 
-    return check(
-      "worker",
-      label,
-      "unknown",
-      "Queued or processing ingestion work exists, but no recent activity proves the worker is active.",
-    );
+    return {
+      check: check(
+        "worker",
+        label,
+        "unknown",
+        "Queued or processing ingestion work exists, but no recent activity proves the worker is active.",
+      ),
+      activeWork,
+    };
   } catch {
-    return check("worker", label, "unknown", "Worker status could not be inferred.");
+    return {
+      check: check("worker", label, "unknown", "Worker status could not be inferred."),
+      activeWork: false,
+    };
   }
 }
 
-export async function GET() {
-  const [schema, worker] = await Promise.all([readSchemaStatus(), readWorkerStatus()]);
+function setupStatusCacheTtl(payload: SetupStatusPayload) {
+  return payload.indexingActive ? SETUP_STATUS_ACTIVE_CACHE_MS : SETUP_STATUS_IDLE_CACHE_MS;
+}
 
-  return NextResponse.json({
-    demoMode: isDemoMode(),
-    checks: [
-      check(
-        "env",
-        ".env.local configured",
-        requiredSupabaseEnvPresent ? "ready" : "needs_setup",
-        requiredSupabaseEnvPresent
-          ? "Required Supabase server environment variables are present."
-          : "Set the required Supabase URL and server key.",
-      ),
-      check(
-        "project",
-        "Clinical KB Database target",
-        supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
-        formatSupabaseProjectCheck(supabaseProjectCheck),
-      ),
-      schema,
-      check(
-        "openai",
-        "OpenAI API key available",
-        env.OPENAI_API_KEY ? "ready" : "needs_setup",
-        env.OPENAI_API_KEY
-          ? "OPENAI_API_KEY is present for answers, embeddings, and captions."
-          : "Set OPENAI_API_KEY before real indexing or answers.",
-      ),
-      worker,
-    ],
+function setupStatusResponse(payload: SetupStatusPayload) {
+  return NextResponse.json(payload, {
+    headers: {
+      "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+      "X-Poll-After-Ms": String(payload.pollAfterMs ?? ""),
+    },
   });
+}
+
+async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
+  const supabase = supabaseProjectCanBeQueried ? createAdminClient() : null;
+  const [schema, worker] = await Promise.all([readSchemaStatus(supabase), readWorkerStatus(supabase)]);
+
+  const checks = [
+    check(
+      "env",
+      ".env.local configured",
+      requiredSupabaseEnvPresent ? "ready" : "needs_setup",
+      requiredSupabaseEnvPresent
+        ? "Required Supabase server environment variables are present."
+        : "Set the required Supabase URL and server key.",
+    ),
+    check(
+      "project",
+      "Clinical KB Database target",
+      supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+      formatSupabaseProjectCheck(supabaseProjectCheck),
+    ),
+    schema,
+    check(
+      "openai",
+      "OpenAI API key available",
+      env.OPENAI_API_KEY ? "ready" : "needs_setup",
+      env.OPENAI_API_KEY
+        ? "OPENAI_API_KEY is present for answers, embeddings, and captions."
+        : "Set OPENAI_API_KEY before real indexing or answers.",
+    ),
+    worker.check,
+  ];
+  const setupSettled = checks.every((item) => item.status === "ready");
+  const pollAfterMs = worker.activeWork ? ACTIVE_INDEXING_POLL_MS : setupSettled ? null : SETUP_RECHECK_POLL_MS;
+
+  return {
+    demoMode: isDemoMode(),
+    checks,
+    indexingActive: worker.activeWork,
+    pollAfterMs,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+async function readSetupStatusPayload() {
+  const now = Date.now();
+  if (setupStatusCache && setupStatusCache.expiresAt > now) {
+    return setupStatusCache.payload;
+  }
+
+  if (setupStatusInFlight) {
+    return setupStatusInFlight;
+  }
+
+  const promise = buildSetupStatusPayload().then((payload) => {
+    setupStatusCache = {
+      expiresAt: Date.now() + setupStatusCacheTtl(payload),
+      payload,
+    };
+    return payload;
+  });
+  setupStatusInFlight = promise;
+
+  try {
+    return await promise;
+  } finally {
+    if (setupStatusInFlight === promise) {
+      setupStatusInFlight = null;
+    }
+  }
+}
+
+export async function GET(request: Request) {
+  const identity = localProjectRequestIdentityPayload(request);
+  if (!identity.localServer.safeLocalOrigin) {
+    return unsafeLocalProjectResponse(identity);
+  }
+
+  return setupStatusResponse(await readSetupStatusPayload());
 }

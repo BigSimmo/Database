@@ -2,10 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { smartDocumentTitle } from "@/lib/document-naming";
 
 export type ImportCliArgs = {
   path: string;
   ownerEmail?: string;
+  ownerId?: string;
   batchName?: string;
   include: string;
   limit?: number;
@@ -59,6 +61,7 @@ export function parseImportCliArgs(argv: string[]): ImportCliArgs {
   return {
     path: args.path,
     ownerEmail: typeof args.ownerEmail === "string" ? args.ownerEmail : undefined,
+    ownerId: typeof args.ownerId === "string" ? args.ownerId : undefined,
     batchName: typeof args.batchName === "string" ? args.batchName : undefined,
     include: typeof args.include === "string" ? args.include : "**/*.pdf",
     limit: typeof args.limit === "string" ? Number.parseInt(args.limit, 10) : undefined,
@@ -73,7 +76,7 @@ export function safeFileName(fileName: string) {
 }
 
 export function titleFromFileName(fileName: string) {
-  return fileName.replace(/\.[^.]+$/, "");
+  return smartDocumentTitle(fileName);
 }
 
 export function buildImportStoragePath(ownerId: string, documentId: string, fileName: string) {
@@ -85,9 +88,7 @@ export function formatExactDuplicateSkip(
   duplicate: ExistingImportDocument,
   options: { dryRun?: boolean } = {},
 ) {
-  const prefix = options.dryRun
-    ? "DRY RUN DUPLICATE exact copy would be skipped"
-    : "DUPLICATE exact copy skipped";
+  const prefix = options.dryRun ? "DRY RUN DUPLICATE exact copy would be skipped" : "DUPLICATE exact copy skipped";
   const matchedSource = duplicate.source_path || duplicate.storage_path;
   return `${prefix} ${file.relativePath} (matches "${duplicate.title}" at ${matchedSource})`;
 }
@@ -116,7 +117,11 @@ export async function hashFile(filePath: string) {
   return hash.digest("hex");
 }
 
-export async function scanImportFiles(root: string, include = "**/*.pdf", limit?: number): Promise<ScannedImportFile[]> {
+export async function scanImportFiles(
+  root: string,
+  include = "**/*.pdf",
+  limit?: number,
+): Promise<ScannedImportFile[]> {
   const rootStat = await stat(root);
   if (!rootStat.isDirectory()) {
     throw new Error(`Import path is not a directory: ${root}`);

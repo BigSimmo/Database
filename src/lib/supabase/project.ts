@@ -88,9 +88,7 @@ export function checkSupabaseProjectConfig(
   }
 
   if (!urlRef) {
-    problems.push(
-      `NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL for ${expectedSupabaseProject.name}.`,
-    );
+    problems.push(`NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL for ${expectedSupabaseProject.name}.`);
   } else if (urlRef !== expectedSupabaseProject.ref) {
     problems.push(
       `NEXT_PUBLIC_SUPABASE_URL points to Supabase ref ${urlRef}; expected ${expectedSupabaseProject.ref} (${expectedSupabaseProject.name}).`,
