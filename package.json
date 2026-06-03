@@ -2,6 +2,10 @@
   "name": "prompt-for-codex-medical-knowledge-base",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "node scripts/dev-free-port.mjs",
     "ensure": "node scripts/ensure-local-server.mjs",

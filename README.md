@@ -7,8 +7,10 @@ questions with source citations that link back to the original PDF/document.
 
 ## Setup
 
-1. Copy `.env.example` to `.env.local` and fill in Supabase and OpenAI values.
-2. Confirm the Supabase target:
+1. Use Node.js 22.x. CI runs on Node 22, and `.nvmrc` / `.node-version`
+   pin the same runtime for local version managers.
+2. Copy `.env.example` to `.env.local` and fill in Supabase and OpenAI values.
+3. Confirm the Supabase target:
 
 ```bash
 npm run check:supabase-project
@@ -26,15 +28,15 @@ Do not use the older unused Supabase project `Database`
 (`qjgitjyhxrwxsrydablr`). Local checks and runtime guards warn or fall back to
 demo mode if that stale ref appears in `.env.local`.
 
-3. Run `supabase/schema.sql` in the `Clinical KB Database` Supabase project SQL
+4. Run `supabase/schema.sql` in the `Clinical KB Database` Supabase project SQL
    editor.
-4. Install optional PDF/OCR worker dependencies:
+5. Install optional PDF/OCR worker dependencies:
 
 ```bash
 python -m pip install -r worker/python/requirements.txt
 ```
 
-5. Start the app:
+6. Start the app:
 
 ```bash
 npm run dev
@@ -57,7 +59,7 @@ belongs to this project, and starts the dev server in the background if needed.
 When you say `run` in this chat, Codex should use this command and return the
 printed URL.
 
-6. In a second terminal, start the local ingestion worker:
+7. In a second terminal, start the local ingestion worker:
 
 ```bash
 npm run worker
@@ -141,3 +143,8 @@ Run `npm run samples` to generate synthetic documents under
 a scanned-style PDF for OCR fallback testing. Upload those files through the UI
 and start `npm run worker` to index them. The sample content is deliberately
 synthetic and must not be used as clinical guidance.
+
+`sample-documents/` is generated local test output and is intentionally ignored
+by Git. The smaller `public/demo-documents/` set is tracked because the app uses
+it for demo-mode source and image rendering when live Supabase setup is
+unavailable.

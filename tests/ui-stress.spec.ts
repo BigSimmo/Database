@@ -198,14 +198,17 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
 
       await expect(
-        page.getByText(viewport.name === "mobile" ? "24 documents" : "24 indexed documents available"),
+        page
+          .locator("#sources")
+          .getByText(viewport.name === "mobile" ? "24 documents" : "24 indexed documents available")
+          .first(),
       ).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
 
       await page
-        .getByLabel("Ask a question across indexed guidelines")
+        .getByLabel("Search indexed guidelines by question or keyword")
         .fill("Show all stress citations and source cards");
-      await page.getByRole("button", { name: /Ask|Answer/ }).click();
+      await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByText("10 exact quotes")).toBeVisible();
