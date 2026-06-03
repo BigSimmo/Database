@@ -1,23 +1,8 @@
 import { NextResponse } from "next/server";
+import type { LocalProjectIdentityPayload } from "@/lib/local-project-identity";
 import { appName, localProjectId, projectPortEnd, projectPortStart } from "../../scripts/local-server-utils.mjs";
 
 const localHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-
-export type LocalProjectIdentityPayload = {
-  appName: string;
-  projectId: string;
-  identityPath: "/api/local-project-id";
-  localServer: {
-    currentUrl: string | null;
-    currentPort: number | null;
-    projectPortStart: number;
-    projectPortEnd: number;
-    safeLocalOrigin: boolean;
-    requestOrigin: string | null;
-    requestReferer: string | null;
-    unsafeLocalCaller: string | null;
-  };
-};
 
 function portFor(url: URL) {
   const explicit = Number.parseInt(url.port, 10);
