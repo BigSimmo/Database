@@ -146,6 +146,8 @@ export type SearchResult = {
   similarity: number;
   text_rank?: number;
   hybrid_score?: number;
+  rrf_score?: number;
+  score_explanation?: SearchScoreExplanation;
   source_strength?: SourceStrength;
   source_metadata?: ClinicalSourceMetadata | null;
   document_labels?: DocumentLabel[];
@@ -153,7 +155,23 @@ export type SearchResult = {
   adjacent_context?: string | null;
   memory_cards?: DocumentMemoryCard[];
   memory_score?: number;
+  relevance?: SourceEvidenceRelevance;
   images: ChunkImage[];
+};
+
+export type SearchScoreExplanation = {
+  vectorScore: number;
+  textRank: number;
+  weightedHybridScore: number;
+  rrfScore: number | null;
+  memoryBoost: number;
+  titleBoost: number;
+  metadataBoost: number;
+  clinicalSignalBoost: number;
+  penalty: number;
+  finalScore: number;
+  finalRank?: number;
+  strategy: "weighted_hybrid_served_rrf_telemetry";
 };
 
 export type Citation = {
@@ -174,6 +192,29 @@ export type QuoteCard = Citation & {
 };
 
 export type SourceStrength = "strong" | "moderate" | "limited";
+
+export type EvidenceRelevanceVerdict = "direct" | "partial" | "nearby" | "none";
+
+export type EvidenceRelevance = {
+  verdict: EvidenceRelevanceVerdict;
+  label: string;
+  matchedTerms: string[];
+  missingTerms: string[];
+  directSourceCount: number;
+  weakSourceCount: number;
+  score: number;
+  supportReason: string;
+  isSourceBacked: boolean;
+};
+
+export type SourceEvidenceRelevance = EvidenceRelevance & {
+  coverageScore: number;
+  rankScore: number;
+  titleMatchedTerms: string[];
+  contentMatchedTerms: string[];
+  metadataMatchedTerms: string[];
+  chips: string[];
+};
 
 export type VisualEvidenceCard = {
   id: string;
@@ -200,6 +241,7 @@ export type VisualEvidenceCard = {
   tableRows?: string[][] | null;
   tableColumns?: string[] | null;
   labels?: string[];
+  relevance?: SourceEvidenceRelevance;
 };
 
 export type DocumentLabel = {
@@ -331,6 +373,7 @@ export type DocumentMatch = {
   tableCount: number;
   matchReason: string;
   score: number;
+  relevance?: SourceEvidenceRelevance;
 };
 
 export type DocumentBreakdown = {
@@ -353,6 +396,7 @@ export type BestSourceRecommendation = Citation & {
   section_heading: string | null;
   image_count: number;
   viewer_href: string;
+  relevance?: SourceEvidenceRelevance;
 };
 
 export type EvidenceSummary = {
@@ -403,6 +447,52 @@ export type SmartPanel = {
   sourceCoverage: SourceCoverage;
   conflictsOrGaps: ConflictOrGap[];
   relatedDocuments?: RelatedDocument[];
+  relevance?: EvidenceRelevance;
+};
+
+export type SmartRagSourceLink = {
+  id: string;
+  label: string;
+  href: string;
+  document_id: string;
+  chunk_id: string;
+  title: string;
+  file_name: string;
+  page_number: number | null;
+  source_strength: SourceStrength;
+  reason: string;
+  snippet: string;
+};
+
+export type SmartRagApiPlan = {
+  query: string;
+  queryClass: RagQueryClass;
+  intent:
+    | "find_document"
+    | "find_threshold_or_table"
+    | "medication_or_risk_answer"
+    | "compare_sources"
+    | "summarize_sources"
+    | "general_or_unsupported";
+  responseMode:
+    | "document_lookup"
+    | "extractive_answer"
+    | "fast_grounded_answer"
+    | "strong_synthesis"
+    | "multi_document_synthesis"
+    | "unsupported";
+  retrievalStrategy:
+    | "search_cache"
+    | "text_fast_path"
+    | "document_lookup_fast_path"
+    | "hybrid"
+    | "vector_fallback"
+    | "unknown";
+  latencyPlan: "cache_or_text_first" | "balanced_hybrid" | "strong_generation" | "no_supported_answer";
+  answerFocus: string;
+  sourceLinkCount: number;
+  coreSourceLinks: SmartRagSourceLink[];
+  streamPlan: string[];
 };
 
 export type RagAnswer = {
@@ -440,9 +530,17 @@ export type RagAnswer = {
   documentBreakdown?: DocumentBreakdown[];
   smartPanel?: SmartPanel;
   relatedDocuments?: RelatedDocument[];
+  relevance?: EvidenceRelevance;
   memoryCardsUsed?: DocumentMemoryCard[];
   indexingVersion?: RagIndexingVersion | string | null;
   indexingQuality?: DocumentIndexQuality;
+  smartApiPlan?: SmartRagApiPlan;
+  scoreExplanations?: Array<{
+    chunk_id: string;
+    document_id: string;
+    finalScore: number;
+    score_explanation?: SearchScoreExplanation;
+  }>;
 };
 
 export type ExtractedPage = {

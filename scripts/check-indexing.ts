@@ -3,6 +3,25 @@ import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 type MetadataRow = { document_id: string; metadata?: unknown; source?: string | null };
+type QueryResponse<T = unknown> = {
+  data: T[] | null;
+  error: { message: string } | null;
+  count?: number | null;
+};
+type QueryBuilder<T = unknown> = PromiseLike<QueryResponse<T>> & {
+  eq(column: string, value: unknown): QueryBuilder<T>;
+  gt(column: string, value: unknown): QueryBuilder<T>;
+  in(column: string, values: unknown[]): QueryBuilder<T>;
+  is(column: string, value: unknown): QueryBuilder<T>;
+  order(column: string, options?: Record<string, unknown>): QueryBuilder<T>;
+  range(from: number, to: number): PromiseLike<QueryResponse<T>>;
+  limit(count: number): PromiseLike<QueryResponse<T>>;
+};
+type SupabaseLike = {
+  from(table: string): {
+    select<T = unknown>(columns: string, options?: Record<string, unknown>): QueryBuilder<T>;
+  };
+};
 
 function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
@@ -23,7 +42,7 @@ function strictEnrichmentVersionRequired() {
   return process.argv.includes("--strict-enrichment-version") || process.env.RAG_REQUIRE_CURRENT_ENRICHMENT_VERSION === "1";
 }
 
-async function loadEnrichmentRows(supabase: any, documentIds: string[]) {
+async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[]) {
   const summaries: MetadataRow[] = [];
   const labels: MetadataRow[] = [];
 
@@ -43,7 +62,7 @@ async function loadEnrichmentRows(supabase: any, documentIds: string[]) {
   return { summaries, labels };
 }
 
-async function loadRowsForDocuments(supabase: any, table: string, select: string, documentIds: string[]) {
+async function loadRowsForDocuments(supabase: SupabaseLike, table: string, select: string, documentIds: string[]) {
   const rows: MetadataRow[] = [];
   for (let start = 0; start < documentIds.length; start += 100) {
     const ids = documentIds.slice(start, start + 100);
@@ -61,7 +80,7 @@ async function loadRowsForDocuments(supabase: any, table: string, select: string
   return rows;
 }
 
-async function loadDeepMemoryRows(supabase: any, documentIds: string[]) {
+async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[]) {
   const [sections, memoryCards, chunks] = await Promise.all([
     loadRowsForDocuments(supabase, "document_sections", "document_id,metadata", documentIds),
     loadRowsForDocuments(supabase, "document_memory_cards", "document_id,metadata", documentIds),
@@ -106,13 +125,14 @@ async function main() {
     .select("id,owner_id,title,content_hash,status,page_count,chunk_count,metadata");
   if (documentsError) throw new Error(documentsError.message);
 
+  const supabaseForChecks = supabase as unknown as SupabaseLike;
   const indexedDocuments = (documents ?? []).filter((document) => document.status === "indexed");
   const enrichmentRows = await loadEnrichmentRows(
-    supabase,
+    supabaseForChecks,
     indexedDocuments.map((document) => document.id),
   );
   const deepMemoryRows = await loadDeepMemoryRows(
-    supabase,
+    supabaseForChecks,
     indexedDocuments.map((document) => document.id),
   );
   const summariesByDocument = new Map(enrichmentRows.summaries.map((row) => [row.document_id, row]));
@@ -143,6 +163,9 @@ async function main() {
   const emptyIndexedDocuments = (documents ?? []).filter(
     (document) =>
       document.status === "indexed" && ((document.page_count ?? 0) === 0 || (document.chunk_count ?? 0) === 0),
+  );
+  const documentsWithChunkCountMismatch = indexedDocuments.filter(
+    (document) => (chunkRowsByDocument.get(document.id) ?? []).length !== (document.chunk_count ?? 0),
   );
   const documentsMissingSummaries = indexedDocuments.filter((document) => !summariesByDocument.has(document.id));
   const documentsMissingGeneratedLabels = indexedDocuments.filter((document) =>
@@ -228,6 +251,8 @@ async function main() {
   if ((missingEmbeddingResult.count ?? 0) > 0)
     issues.push(`chunks missing embeddings: ${missingEmbeddingResult.count}`);
   if (emptyIndexedDocuments.length > 0) issues.push(`empty indexed documents: ${emptyIndexedDocuments.length}`);
+  if (documentsWithChunkCountMismatch.length > 0)
+    issues.push(`indexed document chunk-count mismatches: ${documentsWithChunkCountMismatch.length}`);
   if (documentsMissingSummaries.length > 0)
     issues.push(`indexed documents missing summaries: ${documentsMissingSummaries.length}`);
   if (documentsMissingGeneratedLabels.length > 0)
@@ -254,6 +279,7 @@ async function main() {
   console.log(`Embedding model: ${env.OPENAI_EMBEDDING_MODEL}`);
   console.log(`Worker concurrency: ${env.WORKER_CONCURRENCY}`);
   console.log(`Documents: ${(documents ?? []).length}; empty indexed: ${emptyIndexedDocuments.length}`);
+  console.log(`Chunk-count mismatches: ${documentsWithChunkCountMismatch.length}`);
   console.log(
     `Enrichment coverage: summaries missing=${documentsMissingSummaries.length}; generated labels missing=${documentsMissingGeneratedLabels.length}`,
   );

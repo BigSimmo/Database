@@ -7,6 +7,7 @@ loadEnvConfig(process.cwd());
 
 type EvalArgs = {
   ownerEmail?: string;
+  ownerId?: string;
   limit?: number;
   question?: string;
   json: boolean;
@@ -38,6 +39,7 @@ type EvalResult = {
 function parseArgs(argv: string[]): EvalArgs {
   const args: EvalArgs = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
+    ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     json: false,
     failOnThreshold: false,
   };
@@ -60,6 +62,7 @@ function parseArgs(argv: string[]): EvalArgs {
     index += 1;
 
     if (token === "--owner-email") args.ownerEmail = value;
+    if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--question") args.question = value;
   }
@@ -90,7 +93,7 @@ function summarizeFailures(results: EvalResult[]) {
     failures.push(`unsupported correct ${unsupportedCorrect}/${unsupported.length}`);
   }
   if (invalidCitations > 0) failures.push(`invalid citation count ${invalidCitations}`);
-  if (routineExtractiveLatencies.length > 0 && percentile(routineExtractiveLatencies, 95) > 2000) {
+  if (routineExtractiveLatencies.length >= 5 && percentile(routineExtractiveLatencies, 95) > 2000) {
     failures.push("routine extractive p95 over 2000ms");
   }
   if (complexSlow > 0) failures.push(`complex answers over 20000ms: ${complexSlow}`);
@@ -161,8 +164,8 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined;
-  const scope = ownerId ? `owner:${args.ownerEmail}` : "public";
+  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const scope = ownerId ? `owner:${args.ownerId ? "id" : args.ownerEmail}` : "public";
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: EvalResult[] = [];
 

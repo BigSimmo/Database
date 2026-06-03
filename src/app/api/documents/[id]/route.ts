@@ -47,7 +47,8 @@ function metadataStringArray(metadata: Record<string, unknown>, key: string) {
 
 function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
   const metadata = safeMetadata(image.metadata);
-  const tableText = metadataText(metadata, "table_text") ?? metadataText(metadata, "table_text_snippet");
+  const rawTableText = metadataText(metadata, "table_text");
+  const tableText = rawTableText ?? metadataText(metadata, "table_text_snippet");
   const publicImage = { ...image };
   delete publicImage.metadata;
   return {
@@ -58,7 +59,7 @@ function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
     tableTextSnippet: compactTableText(tableText),
     clinicalUseClass: metadataText(metadata, "clinical_use_class"),
     clinicalUseReason: metadataText(metadata, "clinical_use_reason"),
-    accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown"),
+    accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
     tableRows: metadataStringArrayRows(metadata, "table_rows"),
     tableColumns: metadataStringArray(metadata, "table_columns"),
   };

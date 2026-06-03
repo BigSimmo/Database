@@ -67,6 +67,10 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("owner_filter uuid default null");
     expect(schema).toContain("and (owner_filter is null or d.owner_id = owner_filter)");
     expect(schema).toContain("create or replace function public.match_document_chunks_text");
+    expect(schema).toContain("create or replace function public.match_document_chunks_hybrid");
+    expect(schema).toContain("rrf_score double precision");
+    expect(schema).toContain("create or replace function public.match_document_memory_cards_hybrid");
+    expect(schema).toContain("create or replace function public.match_documents_for_query");
     expect(schema).toContain("c.search_tsv @@ query.tsq");
     expect(schema).toContain(
       "create index if not exists documents_search_idx on public.documents using gin(search_tsv)",

@@ -5,7 +5,7 @@ import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
   expandClinicalQuery,
-  normalizedClinicalSearchTokens,
+  hasDoseEvidenceSupport,
   rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env } from "@/lib/env";
@@ -19,6 +19,14 @@ import {
   rankAnswerEvidence,
 } from "@/lib/answer-ranking";
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
+import { cleanClinicalSummaryText, sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
+import {
+  buildCrossDocumentFusionBrief,
+  buildCrossDocumentSourceGuide,
+  buildCrossDocumentSynthesisPlan,
+} from "@/lib/cross-document-synthesis";
+import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { z } from "zod";
 import {
   buildDocumentBreakdown,
@@ -40,12 +48,14 @@ import type {
   ConflictOrGap,
   DocumentIndexQuality,
   DocumentMemoryCard,
+  EvidenceRelevance,
   RelatedDocument,
   OpenAITokenUsage,
   QuoteCard,
   RagQueryClass,
   RagAnswer,
   SearchResult,
+  SmartRagApiPlan,
 } from "@/lib/types";
 
 const answerJsonOutputSchema = {
@@ -241,7 +251,7 @@ function sanitizeStructuredText(
   options: { minLength?: number; minTokens?: number; keepLeading?: boolean } = {},
 ) {
   const { minLength = 2, minTokens = 1, keepLeading = false } = options;
-  const normalized = normalizeSectionText(value);
+  const normalized = normalizeSectionText(sourceTextForDisplay(value));
   if (!normalized) return "";
 
   const trimmed =
@@ -283,9 +293,15 @@ export type AnswerProgressEvent = {
   stage: "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
   message: string;
   resultCount?: number;
+  visibleSourceCount?: number;
+  directSourceCount?: number;
+  weakSourceCount?: number;
+  timingMs?: number;
+  relevance?: EvidenceRelevance;
   mode?: RagAnswer["routingMode"];
   model?: string | null;
   reason?: string;
+  smartApiPlan?: SmartRagApiPlan;
 };
 
 export type SearchTelemetry = {
@@ -299,8 +315,17 @@ export type SearchTelemetry = {
   rerank_latency_ms: number;
   memory_card_count?: number;
   memory_top_score?: number;
+  weighted_top_score?: number;
+  rrf_top_score?: number;
   retrieval_strategy?: "search_cache" | "text_fast_path" | "document_lookup_fast_path" | "hybrid" | "vector_fallback";
 };
+
+function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
+  telemetry.weighted_top_score = Number(
+    Math.max(0, ...results.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4),
+  );
+  telemetry.rrf_top_score = Number(Math.max(0, ...results.map((result) => result.rrf_score ?? 0)).toFixed(4));
+}
 
 const citationSchema = z.object({
   chunk_id: z.string(),
@@ -665,13 +690,18 @@ function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) 
   return Array.from(merged.values());
 }
 
-const documentLookupStopWords = new Set(["find", "search", "lookup", "document", "documents", "file", "pdf", "page", "section"]);
-
 type DocumentLookupRow = {
   id: string;
+  owner_id?: string | null;
   title: string;
   file_name: string;
+  status?: string;
+  page_count?: number;
+  chunk_count?: number;
+  image_count?: number;
   metadata?: unknown;
+  text_rank?: number;
+  match_reason?: string;
 };
 
 type DocumentLookupChunkRow = {
@@ -684,48 +714,26 @@ type DocumentLookupChunkRow = {
   image_ids: string[] | null;
 };
 
-function documentLookupTokens(query: string) {
-  return normalizedClinicalSearchTokens(query).filter((token) => !documentLookupStopWords.has(token));
-}
-
-function scoreDocumentLookup(query: string, document: Pick<DocumentLookupRow, "title" | "file_name">) {
-  const queryTokens = documentLookupTokens(query);
-  if (queryTokens.length === 0) return 0;
-
-  const title = `${document.title} ${document.file_name}`
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ");
-  const titleTokens = new Set(title.split(/\s+/).filter(Boolean));
-  const hits = queryTokens.filter((token) => titleTokens.has(token) || title.includes(token));
-  const exactAcronymHit = queryTokens.some((token) => token.length <= 5 && titleTokens.has(token));
-
-  if (hits.length === 0) return 0;
-  return Math.min(0.34, hits.length * 0.1 + (hits.length / queryTokens.length) * 0.14 + (exactAcronymHit ? 0.1 : 0));
-}
-
 async function searchDocumentLookupFastPath(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   ownerId?: string;
+  documentIds?: string[];
   matchCount: number;
 }) {
-  let documentsQuery = args.supabase
-    .from("documents")
-    .select("id,title,file_name,metadata")
-    .eq("status", "indexed")
-    .order("updated_at", { ascending: false })
-    .limit(250);
-
-  if (args.ownerId) documentsQuery = documentsQuery.eq("owner_id", args.ownerId);
-
-  const { data: documents, error: documentsError } = await documentsQuery;
+  const { data: documents, error: documentsError } = await args.supabase.rpc("match_documents_for_query", {
+    query_text: buildClinicalTextSearchQuery(args.query),
+    match_count: 12,
+    owner_filter: args.ownerId ?? null,
+  });
   if (documentsError || !documents?.length) return [];
 
+  const allowedDocuments = args.documentIds?.length ? new Set(args.documentIds) : null;
   const rankedDocuments = (documents as DocumentLookupRow[])
+    .filter((document) => !allowedDocuments || allowedDocuments.has(document.id))
     .map((document) => ({
       document,
-      score: scoreDocumentLookup(args.query, document),
+      score: Math.min(0.34, Number(document.text_rank ?? 0)),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -763,12 +771,12 @@ async function searchDocumentLookupFastPath(args: {
       section_heading: chunk.section_heading,
       content: chunk.content,
       image_ids: chunk.image_ids ?? [],
-      source_metadata: normalizeSourceMetadata(document.metadata),
-      similarity,
-      text_rank: documentScore,
-      hybrid_score: Math.min(0.94, similarity + 0.02),
-      images: [],
-    });
+        source_metadata: normalizeSourceMetadata(document.metadata),
+        similarity,
+        text_rank: documentScore,
+        hybrid_score: Math.min(0.94, similarity + 0.02),
+        images: [],
+      });
   }
 
   return results
@@ -809,6 +817,42 @@ function buildIndexingQuality(results: SearchResult[], memoryCards: DocumentMemo
   };
 }
 
+function buildAnswerScoreExplanations(results: SearchResult[], limit = 8): NonNullable<RagAnswer["scoreExplanations"]> {
+  return results.slice(0, limit).map((result) => ({
+    chunk_id: result.id,
+    document_id: result.document_id,
+    finalScore: Number((result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0).toFixed(4)),
+    score_explanation: result.score_explanation,
+  }));
+}
+
+function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["scoreExplanations"]>) {
+  return {
+    score_explanation_count: scoreExplanations.length,
+    top_cited_score_explanations: scoreExplanations.slice(0, 8).map((entry) => ({
+      chunk_id: entry.chunk_id,
+      document_id: entry.document_id,
+      final_score: entry.finalScore,
+      vector_score: entry.score_explanation?.vectorScore ?? null,
+      text_rank: entry.score_explanation?.textRank ?? null,
+      weighted_hybrid_score: entry.score_explanation?.weightedHybridScore ?? null,
+      rrf_score: entry.score_explanation?.rrfScore ?? null,
+      memory_boost: entry.score_explanation?.memoryBoost ?? null,
+      title_boost: entry.score_explanation?.titleBoost ?? null,
+      metadata_boost: entry.score_explanation?.metadataBoost ?? null,
+      clinical_signal_boost: entry.score_explanation?.clinicalSignalBoost ?? null,
+      penalty: entry.score_explanation?.penalty ?? null,
+      final_rank: entry.score_explanation?.finalRank ?? null,
+    })),
+  };
+}
+
+function memoryCardChunkScore(card: DocumentMemoryCard) {
+  const hybridScore = Number(card.metadata?.memory_hybrid_score);
+  if (Number.isFinite(hybridScore) && hybridScore > 0) return Math.min(1, hybridScore);
+  return Math.min(1, card.confidence ?? 0.5);
+}
+
 async function loadChunksForMemoryCards(
   supabase: ReturnType<typeof createAdminClient>,
   cards: DocumentMemoryCard[],
@@ -835,7 +879,7 @@ async function loadChunksForMemoryCards(
   for (const card of cards) {
     for (const chunkId of card.source_chunk_ids ?? []) {
       const existing = bestCardByChunk.get(chunkId);
-      if (!existing || (card.confidence ?? 0) > (existing.confidence ?? 0)) bestCardByChunk.set(chunkId, card);
+      if (!existing || memoryCardChunkScore(card) > memoryCardChunkScore(existing)) bestCardByChunk.set(chunkId, card);
     }
   }
 
@@ -869,6 +913,7 @@ async function withMemoryBoostedCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   candidates: SearchResult[];
+  queryEmbedding?: number[];
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
@@ -876,6 +921,7 @@ async function withMemoryBoostedCandidates(args: {
   const cards = await fetchMemoryCardsForQuery({
     supabase: args.supabase,
     query: args.query,
+    queryEmbedding: args.queryEmbedding,
     ownerId: args.ownerId,
     documentIds: args.documentIds,
     matchCount: Math.max(args.matchCount, 48),
@@ -923,8 +969,9 @@ async function packAdjacentSourceContext(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   queryClass: RagQueryClass,
+  options: { crossDocument?: boolean } = {},
 ) {
-  const contextLimit = queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 5;
+  const contextLimit = options.crossDocument || queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 5;
   const targetResults = results.slice(0, contextLimit);
   const documentIds = Array.from(new Set(targetResults.map((result) => result.document_id)));
   const chunkIndexes = Array.from(
@@ -1005,7 +1052,8 @@ async function attachPageVisualEvidence(
   const imagesByPage = new Map<string, ChunkImage[]>();
   for (const image of data) {
     const metadata = safeRecord(image.metadata);
-    const tableText = metadataText(metadata, "table_text_snippet") ?? metadataText(metadata, "table_text");
+    const rawTableText = metadataText(metadata, "table_text");
+    const tableText = metadataText(metadata, "table_text_snippet") ?? rawTableText;
     const publicImage: ChunkImage = {
       id: image.id,
       page_number: image.page_number,
@@ -1027,7 +1075,7 @@ async function attachPageVisualEvidence(
       clinicalUseReason:
         typeof metadata.clinical_use_reason === "string" ? metadata.clinical_use_reason : null,
       accessibleTableMarkdown:
-        typeof metadata.accessible_table_markdown === "string" ? metadata.accessible_table_markdown : null,
+        typeof metadata.accessible_table_markdown === "string" ? metadata.accessible_table_markdown : rawTableText,
       tableRows: Array.isArray(metadata.table_rows) ? (metadata.table_rows as string[][]) : null,
       tableColumns: Array.isArray(metadata.table_columns) ? (metadata.table_columns as string[]) : null,
       tableTextSnippet: tableText ? compactContextText(tableText, 500) : null,
@@ -1052,6 +1100,9 @@ function shouldReturnTextFastPath(query: string, results: SearchResult[]) {
 
   const queryClass = classifyRagQuery(query).queryClass;
   if (queryClass === "comparison") return false;
+  if (queryClass === "medication_dose_risk" && !results.slice(0, 5).some((result) => hasDoseEvidenceSupport(result))) {
+    return false;
+  }
 
   const strongestScore = results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
   const topTextRank = Math.max(...results.map((result) => result.text_rank ?? 0));
@@ -1067,6 +1118,10 @@ function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
   return queryClass === "document_lookup" || queryClass === "table_threshold";
 }
 
+function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
+  return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
+}
+
 function memoryCardAnswerLabel(card: DocumentMemoryCard) {
   if (card.card_type === "table_row") return "Table evidence";
   if (card.card_type === "threshold") return "Threshold/action";
@@ -1075,6 +1130,50 @@ function memoryCardAnswerLabel(card: DocumentMemoryCard) {
   if (card.card_type === "workflow") return "Workflow step";
   if (card.card_type === "section_summary") return "Section summary";
   return "Source point";
+}
+
+function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryClass: RagQueryClass) {
+  const content = sourceTextForDisplay(card.content);
+  if (!content) return -1;
+  const hasSpecificDoseEvidence =
+    /\b(?:mg|mcg|microgram|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|repeat(?:ing)? doses?|dose may be repeated|maximum \d|administer|titration|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
+      content,
+    );
+  if (
+    queryClass === "medication_dose_risk" &&
+    /\b(?:supporting information|relevant standards|references|document owner|authorisation|authorised by|published date|effective from|amendment|polypharmacy and high dose antipsychotic prescribing procedure)\b/i.test(
+      content,
+    ) &&
+    !hasSpecificDoseEvidence
+  ) {
+    return -1;
+  }
+  const normalizedContentTokens = new Set(splitBalancedWords(`${card.title} ${content}`));
+  const queryTokens = splitBalancedWords(query).filter((token) => token.length > 3);
+  const tokenHits = queryTokens.filter((token) => normalizedContentTokens.has(token)).length;
+  const typeBoost =
+    queryClass === "medication_dose_risk" && ["medication", "threshold", "table_row", "risk", "workflow"].includes(card.card_type)
+      ? 0.38
+      : queryClass === "table_threshold" && ["table_row", "threshold"].includes(card.card_type)
+        ? 0.32
+        : card.card_type === "section_summary"
+          ? 0.02
+          : 0.12;
+  const doseBoost =
+    queryClass === "medication_dose_risk" &&
+    /\b(?:dose|dosage|dosing|mg|mcg|microgram|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|route|titration|administer|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
+      content,
+    )
+      ? 0.42
+      : 0;
+  const lowValueTitlePenalty =
+    queryClass === "medication_dose_risk" &&
+    card.card_type === "section_summary" &&
+    !hasSpecificDoseEvidence
+      ? -0.35
+      : 0;
+
+  return tokenHits * 0.08 + typeBoost + doseBoost + (card.confidence ?? 0) * 0.08 + lowValueTitlePenalty;
 }
 
 function selectDiverseMemoryCards(cards: DocumentMemoryCard[], limit: number) {
@@ -1091,6 +1190,231 @@ function selectDiverseMemoryCards(cards: DocumentMemoryCard[], limit: number) {
     if (selected.length >= limit) break;
   }
   return selected.map((item) => item.card);
+}
+
+function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: string, queryClass: RagQueryClass) {
+  return [...cards]
+    .map((card, index) => ({
+      card,
+      index,
+      score: memoryCardAnswerScore(card, query, queryClass),
+    }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.card);
+}
+
+type ExtractiveAnswerPoint = {
+  label: string;
+  text: string;
+  citationChunkIds: string[];
+  source: "dose" | "memory" | "quote";
+};
+
+function cleanExtractiveLine(line: string) {
+  return sourceTextForDisplay(line)
+    .replace(/^[-•]\s*/, "")
+    .replace(/^Agitation and Arousal:?\s+Pharmacological Management Guideline\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const extractiveLabelPattern =
+  /\b(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Dose detail|Monitoring)\s*:\s*/gi;
+
+function cleanExtractivePointText(value: string) {
+  return sourceTextForDisplay(value)
+    .replace(extractiveLabelPattern, " ")
+    .replace(/^[\s\-•:]+/, "")
+    .replace(/\s+[•]\s+/g, ". ")
+    .replace(/\s+-\s+(?=[A-Z][a-z])|(?:\s+-\s*)?(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point)\s*:\s*/gi, ". ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/(?:\.\s*){2,}/g, ". ")
+    .trim();
+}
+
+function sourcePointClauses(value: string, query: string) {
+  const tokens = splitBalancedWords(query).filter((token) => token.length > 3);
+  const clauses = cleanExtractivePointText(value)
+    .split(/(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
+    .map((clause) => cleanExtractivePointText(clause))
+    .filter((clause) => clause.length >= 18 && !looksLikeJsonArtifact(clause));
+
+  return clauses
+    .map((clause, index) => {
+      const lower = clause.toLowerCase();
+      const tokenHits = tokens.filter((token) => lower.includes(token)).length;
+      const clinicalSignal = /\b(?:monitor|blood test|fbc|anc|level|baseline|review|urgent|escalat|dose|mg|withhold|cease|form|consent|commence|annual)\b/i.test(
+        clause,
+      )
+        ? 1
+        : 0;
+      const lengthPenalty = clause.length > 260 ? 0.8 : clause.length > 190 ? 0.25 : 0;
+      return { clause, score: tokenHits + clinicalSignal - lengthPenalty, index };
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => (item.clause.length <= 240 ? item.clause : `${item.clause.slice(0, 237).trim()}...`));
+}
+
+function bestNaturalSourcePoint(value: string, query: string) {
+  return sourcePointClauses(value, query)[0] ?? "";
+}
+
+function uniqueExtractivePoints(points: ExtractiveAnswerPoint[], limit: number) {
+  const seen = new Set<string>();
+  const selected: ExtractiveAnswerPoint[] = [];
+  for (const point of points) {
+    const normalized = cleanExtractivePointText(point.text).toLowerCase();
+    const key = normalized.slice(0, 140);
+    if (!normalized || seen.has(key)) continue;
+    seen.add(key);
+    selected.push({ ...point, text: cleanExtractivePointText(point.text) });
+    if (selected.length >= limit) break;
+  }
+  return selected;
+}
+
+function extractMedicationDosePoints(results: SearchResult[], query: string, limit = 4): ExtractiveAnswerPoint[] {
+  const seen = new Set<string>();
+  const points: ExtractiveAnswerPoint[] = [];
+  const coreQueryTokens = splitBalancedWords(query).filter(
+    (token) =>
+      token.length > 3 &&
+      !["dose", "dosing", "dosage", "medication", "medicine", "patient", "patients", "please"].includes(token),
+  );
+
+  for (const result of results) {
+    const resultText = `${result.title} ${result.content}`.toLowerCase();
+    if (coreQueryTokens.length && !coreQueryTokens.some((token) => resultText.includes(token))) continue;
+    const lines = sourceTextForDisplay(result.content)
+      .split(/\r?\n+/)
+      .map(cleanExtractiveLine)
+      .filter((line) => line.length >= 24);
+    const candidates = lines.flatMap((line) => {
+      if (/\b(?:supporting information|relevant standards|references|document owner|authorisation|published date|amendment)\b/i.test(line))
+        return [];
+      if (/\b(?:warnings? on the use|black box warning|food and drug administration|ann emerg med)\b/i.test(line)) return [];
+      const isMonitoring = /\b(?:monitor(?:ing)?|observations?|ecg|respiratory|every \d+|minutes?|hours?)\b/i.test(line);
+      const doseAnchor = line.search(
+        /\b(?:lorazepam|clonazepam|midazolam|risperidone|haloperidol|olanzapine|quetiapine|chlorpromazine|droperidol|promethazine|diazepam|\d+(?:\.\d+)?\s?mg|maximum\s+\d)/i,
+      );
+      const hasDoseAction = /\b(?:repeat(?:ing)? doses?|first dose|second dose|oral medication|im medication|maximum doses?|post im dose)\b/i.test(
+        line,
+      );
+      if (doseAnchor < 0 && !isMonitoring && !hasDoseAction) return [];
+      const headingMatch = [...line.matchAll(/\b(?:Recommended pharmacological treatment options|Repeating doses|Reviewing response|Monitoring|Oral Intramuscular)\s*:/gi)]
+        .filter((match) => (match.index ?? 0) < Math.max(doseAnchor, 0))
+        .at(-1);
+      const focused =
+        headingMatch?.index !== undefined
+          ? line.slice(headingMatch.index)
+          : doseAnchor > 80
+            ? line.slice(Math.max(0, doseAnchor - 60))
+            : line;
+      return [focused.replace(/^[^A-Za-z0-9]*(?:Appendix|Step)\s*\d*:?[^A-Za-z0-9]*/i, "").trim()];
+    });
+
+    for (const candidate of candidates) {
+      for (const clause of sourcePointClauses(candidate, query).slice(0, 3)) {
+        const text = clause.length <= 280 ? clause : `${clause.slice(0, 277).trim()}...`;
+        const key = text.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const hasDrugDose = /\b(?:lorazepam|clonazepam|midazolam|risperidone|haloperidol|olanzapine|quetiapine|chlorpromazine|droperidol|promethazine|diazepam|\d+(?:\.\d+)?\s?mg|maximum\s+\d)\b/i.test(
+          text,
+        );
+        const label =
+          !hasDrugDose && /\b(?:monitor|observe|ecg|physiological|respiratory|minutes?|hours?)\b/i.test(text)
+            ? "Monitoring"
+            : "Dose detail";
+        points.push({ label, text, citationChunkIds: [result.id], source: "dose" });
+        if (points.length >= limit) return points;
+      }
+    }
+  }
+
+  return points;
+}
+
+function memoryCardToExtractivePoint(card: DocumentMemoryCard, query: string): ExtractiveAnswerPoint | null {
+  const text = bestNaturalSourcePoint(card.content, query);
+  if (!text) return null;
+  return {
+    label: memoryCardAnswerLabel(card),
+    text,
+    citationChunkIds: card.source_chunk_ids ?? [],
+    source: "memory",
+  };
+}
+
+function quoteToExtractivePoint(quote: QuoteCard, query: string): ExtractiveAnswerPoint | null {
+  const text = bestNaturalSourcePoint(`${quote.section_heading ? `${quote.section_heading}: ` : ""}${quote.quote}`, query);
+  if (!text) return null;
+  return {
+    label: quote.section_heading ?? "Source quote",
+    text,
+    citationChunkIds: [quote.chunk_id],
+    source: "quote",
+  };
+}
+
+function naturalAnswerLead(query: string, queryClass: RagQueryClass, points: ExtractiveAnswerPoint[]) {
+  if (/\bclozapine\b/i.test(query) && /\bmonitor/i.test(query)) {
+    return "The retrieved clozapine sources support a monitoring-focused answer, but the selected excerpts are strongest for specific source points rather than a full monitoring schedule.";
+  }
+  if (queryClass === "medication_dose_risk") {
+    return "The retrieved medication/risk sources support these practical points.";
+  }
+  if (queryClass === "table_threshold") {
+    return "The retrieved table or threshold evidence supports these points.";
+  }
+  if (points.length === 1) return "The strongest retrieved source supports this point.";
+  return "The strongest retrieved sources support these points.";
+}
+
+function formatNaturalPoint(point: ExtractiveAnswerPoint) {
+  const text = cleanExtractivePointText(point.text).replace(/[.;,\s]+$/, "");
+  if (!text) return "";
+  if (/^(the|this|these|there|monitor|review|ensure|commence|copy|prescribe|annual|time since|blood test)\b/i.test(text)) {
+    return `${text}.`;
+  }
+  if (point.label === "Monitoring") return `Monitoring evidence: ${text}.`;
+  if (point.label === "Dose detail") return `Dose evidence: ${text}.`;
+  return `${text}.`;
+}
+
+function buildNaturalExtractiveAnswer(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  points: ExtractiveAnswerPoint[];
+  sourceCount: number;
+}) {
+  const points = uniqueExtractivePoints(args.points, 3);
+  if (!points.length) {
+    return {
+      answer:
+        "The indexed source passages matched the question, but no concise source sentence could be extracted. Open the cited sources before relying on this result.",
+      body:
+        "No concise source sentence could be extracted from the selected passages. Use the linked citations to inspect the source text.",
+      citationChunkIds: [] as string[],
+    };
+  }
+
+  const lead = naturalAnswerLead(args.query, args.queryClass, points);
+  const pointSentences = points.map(formatNaturalPoint).filter(Boolean);
+  const caveat =
+    args.queryClass === "medication_dose_risk" && /\bmonitor/i.test(args.query)
+      ? "If you need the complete monitoring schedule, open the linked source pages and check the surrounding table or section."
+      : "";
+  const answer = [lead, ...pointSentences, caveat].filter(Boolean).join(" ");
+  const body = [lead, ...pointSentences].filter(Boolean).join(" ");
+
+  return {
+    answer: boldHighYieldClinicalText(answer, args.query),
+    body: boldHighYieldClinicalText(body, args.query),
+    citationChunkIds: Array.from(new Set(points.flatMap((point) => point.citationChunkIds))),
+  };
 }
 
 function buildExtractiveAnswer(args: {
@@ -1112,7 +1436,7 @@ function buildExtractiveAnswer(args: {
   const quoteCards = args.quoteCards.length
     ? args.quoteCards.slice(0, 5)
     : extractQuoteCards(args.results, args.query, 5);
-  const memoryCards = collectMemoryCards(args.results, 10);
+  const memoryCards = rankMemoryCardsForAnswer(collectMemoryCards(args.results, 16), args.query, args.queryClass).slice(0, 10);
   const citations = compactCitations(args.results).slice(0, Math.max(quoteCards.length, 1));
   const citationIds = new Set(citations.map((citation) => citation.chunk_id));
   const resultById = new Map(args.results.map((result) => [result.id, result]));
@@ -1131,22 +1455,26 @@ function buildExtractiveAnswer(args: {
     citationIds.add(quote.chunk_id);
   }
 
-  const memoryBulletLimit = memoryCards.length >= 4 ? 5 : 3;
-  const memoryBullets = selectDiverseMemoryCards(memoryCards, memoryBulletLimit).map((card) => {
-    return `- ${boldHighYieldClinicalText(`${memoryCardAnswerLabel(card)}: ${card.content}`, args.query)}`;
+  const dosePoints =
+    args.queryClass === "medication_dose_risk" ? extractMedicationDosePoints(args.results, args.query, 4) : [];
+  const remainingPointSlots = Math.max(0, 5 - dosePoints.length);
+  const memoryPointLimit = Math.min(remainingPointSlots, memoryCards.length >= 4 ? 3 : 2);
+  const memoryPoints = selectDiverseMemoryCards(memoryCards, memoryPointLimit)
+    .map((card) => memoryCardToExtractivePoint(card, args.query))
+    .filter((point): point is ExtractiveAnswerPoint => Boolean(point));
+  const quotePoints = quoteCards
+    .slice(0, Math.max(0, 5 - dosePoints.length - memoryPoints.length))
+    .map((quote) => quoteToExtractivePoint(quote, args.query))
+    .filter((point): point is ExtractiveAnswerPoint => Boolean(point));
+  const naturalAnswer = buildNaturalExtractiveAnswer({
+    query: args.query,
+    queryClass: args.queryClass,
+    points: [...dosePoints, ...memoryPoints, ...quotePoints],
+    sourceCount: args.results.length,
   });
-  const quoteBullets = quoteCards.slice(0, Math.max(0, 5 - memoryBullets.length)).map((quote) => {
-    const section = quote.section_heading ? `${quote.section_heading}: ` : "";
-    return `- ${boldHighYieldClinicalText(`${section}${quote.quote}`, args.query)}`;
-  });
-  const bullets = [...memoryBullets, ...quoteBullets].slice(0, 5);
-
-  const answer = bullets.length
-    ? bullets.join("\n")
-    : "The indexed source passages matched the question, but no concise source sentence could be extracted. Open the cited sources before relying on this result.";
 
   return {
-    answer,
+    answer: naturalAnswer.answer,
     grounded: citations.length > 0,
     confidence: deriveConfidence(args.results, citations.length),
     citations: citations.slice(0, 5),
@@ -1156,14 +1484,12 @@ function buildExtractiveAnswer(args: {
     routingReason: args.routeReason,
     queryClass: args.queryClass,
     latencyTimings: args.timings,
-    answerSections: bullets.length
+    answerSections: naturalAnswer.citationChunkIds.length
       ? [
           {
-            heading: "High-yield source points",
-            body: bullets.join("\n"),
-            citation_chunk_ids: Array.from(
-              new Set([...memoryCards.flatMap((card) => card.source_chunk_ids ?? []), ...quoteCards.map((quote) => quote.chunk_id)]),
-            ),
+            heading: "Direct source-backed answer",
+            body: naturalAnswer.body,
+            citation_chunk_ids: naturalAnswer.citationChunkIds,
           },
         ]
       : [],
@@ -1179,6 +1505,7 @@ function buildExtractiveAnswer(args: {
     memoryCardsUsed: memoryCards,
     indexingVersion: ragDeepMemoryVersion,
     indexingQuality: buildIndexingQuality(args.results, memoryCards),
+    scoreExplanations: buildAnswerScoreExplanations(args.results),
   } satisfies RagAnswer;
 }
 
@@ -1212,6 +1539,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     rerank_latency_ms: 0,
     memory_card_count: 0,
     memory_top_score: 0,
+    weighted_top_score: 0,
+    rrf_top_score: 0,
   };
 
   const expandedQuery = expandClinicalQuery(args.query);
@@ -1219,6 +1548,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const candidateMultiplier = queryClassification.queryClass === "comparison" ? 7 : 5;
   const candidateFloor = queryClassification.queryClass === "comparison" ? 72 : 48;
   const candidateCount = Math.max((args.topK ?? 8) * candidateMultiplier, candidateFloor);
+  const maxResultsPerDocument = queryClassification.queryClass === "comparison" ? 2 : 4;
   const minSimilarity = args.minSimilarity ?? 0.15;
 
   let textFastResults: SearchResult[] = [];
@@ -1235,6 +1565,23 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   if (!textError && textData?.length) {
     const rerankStartedAt = Date.now();
     const textCandidates = await attachDocumentRankingMetadata(supabase, textData as SearchResult[], args.ownerId);
+    const baseTextResults = diversifySearchResults(
+      rankClinicalResults(args.query, textCandidates),
+      args.topK ?? 8,
+      maxResultsPerDocument,
+      true,
+    );
+
+    if (shouldReturnTextFastPath(args.query, baseTextResults) && !shouldUseMemoryBeforeFastPath(queryClassification.queryClass)) {
+      textFastResults = await attachPageVisualEvidence(supabase, baseTextResults);
+      telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
+      telemetry.embedding_skipped = true;
+      telemetry.retrieval_strategy = "text_fast_path";
+      recordSearchScoreTelemetry(telemetry, textFastResults);
+      setCachedSearch(args, textFastResults, telemetry);
+      return { results: textFastResults, telemetry };
+    }
+
     const memoryBoost = await withMemoryBoostedCandidates({
       supabase,
       query: args.query,
@@ -1244,11 +1591,11 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       matchCount: candidateCount,
     });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
-    telemetry.memory_top_score = Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map((card) => card.confidence ?? 0));
+    telemetry.memory_top_score = Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore));
     textFastResults = diversifySearchResults(
       rankClinicalResults(args.query, memoryBoost.results),
       args.topK ?? 8,
-      4,
+      maxResultsPerDocument,
       true,
     );
     textFastResults = await attachPageVisualEvidence(supabase, textFastResults);
@@ -1257,6 +1604,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (shouldReturnTextFastPath(args.query, textFastResults)) {
       telemetry.embedding_skipped = true;
       telemetry.retrieval_strategy = "text_fast_path";
+      recordSearchScoreTelemetry(telemetry, textFastResults);
       setCachedSearch(args, textFastResults, telemetry);
       return { results: textFastResults, telemetry };
     }
@@ -1268,6 +1616,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       supabase,
       query: args.query,
       ownerId: args.ownerId,
+      documentIds: documentFilterList,
       matchCount: candidateCount,
     });
     telemetry.supabase_rpc_latency_ms += Date.now() - documentLookupStartedAt;
@@ -1290,17 +1639,18 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
       telemetry.memory_top_score = Math.max(
         telemetry.memory_top_score ?? 0,
-        ...memoryBoost.cards.map((card) => card.confidence ?? 0),
+        ...memoryBoost.cards.map(memoryCardChunkScore),
       );
       const documentLookupResults = await attachPageVisualEvidence(
         supabase,
-        diversifySearchResults(rankClinicalResults(args.query, memoryBoost.results), args.topK ?? 8, 4, true),
+        diversifySearchResults(rankClinicalResults(args.query, memoryBoost.results), args.topK ?? 8, maxResultsPerDocument, true),
       );
       telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
 
       if (shouldReturnTextFastPath(args.query, documentLookupResults)) {
         telemetry.embedding_skipped = true;
         telemetry.retrieval_strategy = "document_lookup_fast_path";
+        recordSearchScoreTelemetry(telemetry, documentLookupResults);
         setCachedSearch(args, documentLookupResults, telemetry);
         return { results: documentLookupResults, telemetry };
       }
@@ -1332,18 +1682,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       supabase,
       query: args.query,
       candidates: mergedWithMetadata,
+      queryEmbedding: embedding,
       ownerId: args.ownerId,
       documentIds: documentFilterList,
       matchCount: candidateCount,
     });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
-    telemetry.memory_top_score = Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map((card) => card.confidence ?? 0));
+    telemetry.memory_top_score = Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore));
     const results = await attachPageVisualEvidence(
       supabase,
-      diversifySearchResults(rankClinicalResults(args.query, memoryBoost.results), args.topK ?? 8, 4, true),
+      diversifySearchResults(rankClinicalResults(args.query, memoryBoost.results), args.topK ?? 8, maxResultsPerDocument, true),
     );
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
+    recordSearchScoreTelemetry(telemetry, results);
     setCachedSearch(args, results, telemetry);
     return { results, telemetry };
   }
@@ -1377,18 +1729,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     supabase,
     query: args.query,
     candidates: mergedWithMetadata,
+    queryEmbedding: embedding,
     ownerId: args.ownerId,
     documentIds: documentFilterList,
     matchCount: candidateCount,
   });
   telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
-  telemetry.memory_top_score = Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map((card) => card.confidence ?? 0));
+  telemetry.memory_top_score = Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore));
   const results = await attachPageVisualEvidence(
     supabase,
-    diversifySearchResults(rankClinicalResults(args.query, memoryBoost.results), args.topK ?? 8, 4, true),
+    diversifySearchResults(rankClinicalResults(args.query, memoryBoost.results), args.topK ?? 8, maxResultsPerDocument, true),
   );
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
+  recordSearchScoreTelemetry(telemetry, results);
   setCachedSearch(args, results, telemetry);
   return { results, telemetry };
 }
@@ -1412,7 +1766,7 @@ export async function searchChunks(args: SearchChunksArgs) {
 }
 
 function compactContextText(text: string, limit: number) {
-  const compact = text.replace(/\s+/g, " ").trim();
+  const compact = sourceTextForModel(text).replace(/\s+/g, " ").trim();
   if (compact.length <= limit) return compact;
   return `${compact.slice(0, limit - 3).trim()}...`;
 }
@@ -1509,14 +1863,26 @@ export async function answerQuestionWithScope(args: {
   const startedAt = Date.now();
   const cachedAnswer = getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
+    const cachedSources = annotateSearchResults(args.query, cachedAnswer.sources ?? []);
+    const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(args.query, cachedSources);
     await args.onProgress?.({
       stage: "cached",
       message: "Using a recent cited answer for this exact query and document scope.",
       mode: cachedAnswer.routingMode,
       model: cachedAnswer.modelUsed,
       reason: cachedAnswer.routingReason,
+      resultCount: cachedSources.length,
+      visibleSourceCount: cachedSources.length,
+      directSourceCount: cachedRelevance.directSourceCount,
+      weakSourceCount: cachedRelevance.weakSourceCount,
+      relevance: cachedRelevance,
     });
-    return cachedAnswer;
+    return {
+      ...cachedAnswer,
+      sources: cachedSources,
+      relevance: cachedRelevance,
+      smartPanel: cachedAnswer.smartPanel ? { ...cachedAnswer.smartPanel, relevance: cachedRelevance } : cachedAnswer.smartPanel,
+    };
   }
 
   const searchStartedAt = Date.now();
@@ -1531,33 +1897,48 @@ export async function answerQuestionWithScope(args: {
   });
   const queryClass = search.telemetry.query_class ?? classifyRagQuery(args.query).queryClass;
   const answerRanking = rankAnswerEvidence(args.query, normalizeSearchResults(search.results), queryClass);
-  const results = answerRanking.rankedResults;
+  const results = annotateSearchResults(args.query, answerRanking.rankedResults);
+  const crossDocumentPlan = buildCrossDocumentSynthesisPlan(args.query, results, queryClass);
+  const answerInputResults = crossDocumentPlan.enabled ? crossDocumentPlan.results : results;
+  const relevance = buildEvidenceRelevance(args.query, answerInputResults);
+  const crossDocumentFusionBrief = crossDocumentPlan.enabled
+    ? buildCrossDocumentFusionBrief(args.query, answerInputResults)
+    : null;
   const answerRankMetadata = {
     answer_rank_top_score: answerRanking.topScore,
     answer_ranked_source_count: answerRanking.rankedSourceCount,
     answer_rank_strategy: answerRanking.strategy,
     answer_rank_query_class: answerRanking.queryClass,
+    cross_document_synthesis: crossDocumentPlan.enabled,
+    cross_document_reason: crossDocumentPlan.reason,
+    cross_document_count: crossDocumentPlan.documentCount,
+    cross_document_selected_count: crossDocumentPlan.selectedDocumentCount,
+    cross_document_selected_source_count: crossDocumentPlan.selectedSourceCount,
+    cross_document_fusion_bullets: crossDocumentFusionBrief?.bulletCount ?? 0,
+    cross_document_fusion_source_chunk_ids: crossDocumentFusionBrief?.sourceChunkIds ?? [],
   };
   const searchLatencyMs = Date.now() - searchStartedAt;
-  const quoteCards = extractQuoteCards(results, args.query);
-  const documentBreakdown = buildDocumentBreakdown(results, quoteCards);
-  const smartPanel = buildSmartPanel(args.query, results);
-  const evidenceSummary = buildEvidenceSummary(results, quoteCards);
-  const sourceCoverage = buildSourceCoverage(results);
-  const conflictsOrGaps = detectConflictsOrGaps(results);
-  const visualEvidence = buildVisualEvidence(results);
-  const bestSource = selectBestSourceRecommendation(results, quoteCards);
-  const memoryCardsUsed = collectMemoryCards(results);
-  const indexingQuality = buildIndexingQuality(results, memoryCardsUsed);
+  const quoteCards = extractQuoteCards(answerInputResults, args.query);
+  const documentBreakdown = buildDocumentBreakdown(answerInputResults, quoteCards);
+  const smartPanel = buildSmartPanel(args.query, answerInputResults);
+  const evidenceSummary = buildEvidenceSummary(answerInputResults, quoteCards);
+  const sourceCoverage = buildSourceCoverage(answerInputResults);
+  const conflictsOrGaps = detectConflictsOrGaps(answerInputResults);
+  const visualEvidence = buildVisualEvidence(answerInputResults);
+  const bestSource = selectBestSourceRecommendation(answerInputResults, quoteCards);
+  const memoryCardsUsed = collectMemoryCards(answerInputResults);
+  const indexingQuality = buildIndexingQuality(answerInputResults, memoryCardsUsed);
   const memoryLogMetadata = {
     memory_card_count: memoryCardsUsed.length,
     memory_top_score: Number(
-      Math.max(0, ...results.map((result) => result.memory_score ?? 0), ...memoryCardsUsed.map((card) => card.confidence ?? 0)).toFixed(4),
+      Math.max(0, ...results.map((result) => result.memory_score ?? 0), ...memoryCardsUsed.map(memoryCardChunkScore)).toFixed(4),
     ),
     indexing_version: ragDeepMemoryVersion,
     indexing_extraction_quality: indexingQuality.extractionQuality,
     indexing_stale: indexingQuality.stale,
   };
+  const answerScoreExplanations = buildAnswerScoreExplanations(answerInputResults);
+  const scoreLogMetadata = scoreExplanationLogMetadata(answerScoreExplanations);
   const emptyPanel = buildSmartPanel(args.query, []);
   const relatedDocumentsPromise = buildRelatedDocumentsSafe({
     query: args.query,
@@ -1566,16 +1947,41 @@ export async function answerQuestionWithScope(args: {
   });
   const route = chooseAnswerRoute({
     query: args.query,
-    results,
+    results: answerInputResults,
     queryClass,
     conflictsOrGaps,
     fastModel: env.OPENAI_FAST_ANSWER_MODEL,
     strongModel: env.OPENAI_STRONG_ANSWER_MODEL,
   });
+  const buildCurrentSmartApiPlan = (
+    mode: RagAnswer["routingMode"] = route.mode,
+    reason = route.reason,
+    planResults = answerInputResults,
+  ) =>
+    buildSmartRagApiPlan({
+      query: args.query,
+      queryClass,
+      results: planResults,
+      routeMode: mode,
+      routeReason: reason,
+      retrievalStrategy: search.telemetry.retrieval_strategy,
+    });
+  const smartApiPlan = buildCurrentSmartApiPlan();
+  const smartApiLogMetadata = (plan: SmartRagApiPlan) => ({
+    smart_api_intent: plan.intent,
+    smart_api_response_mode: plan.responseMode,
+    smart_api_latency_plan: plan.latencyPlan,
+    smart_api_source_link_count: plan.sourceLinkCount,
+  });
   await args.onProgress?.({
     stage: "retrieved",
-    message: `Retrieved ${results.length} candidate source${results.length === 1 ? "" : "s"}.`,
+    message: `${relevance.label}: retrieved ${results.length} candidate source${results.length === 1 ? "" : "s"}.`,
     resultCount: results.length,
+    visibleSourceCount: answerInputResults.length,
+    directSourceCount: relevance.directSourceCount,
+    weakSourceCount: relevance.weakSourceCount,
+    timingMs: searchLatencyMs,
+    relevance,
   });
   await args.onProgress?.({
     stage: "routing",
@@ -1586,6 +1992,7 @@ export async function answerQuestionWithScope(args: {
     mode: route.mode,
     model: route.model,
     reason: route.reason,
+    smartApiPlan,
   });
 
   if (route.mode === "unsupported") {
@@ -1625,12 +2032,15 @@ export async function answerQuestionWithScope(args: {
       sourceCoverage: unsupportedWithNearbySources ? sourceCoverage : emptyPanel.sourceCoverage,
       conflictsOrGaps,
       smartPanel: unsupportedWithNearbySources
-        ? { ...smartPanel, bestSource, relatedDocuments }
-        : { ...emptyPanel, relatedDocuments },
+        ? { ...smartPanel, relevance, bestSource, relatedDocuments }
+        : { ...emptyPanel, relevance, relatedDocuments },
       relatedDocuments,
+      relevance,
       memoryCardsUsed: unsupportedWithNearbySources ? memoryCardsUsed : [],
       indexingVersion: ragDeepMemoryVersion,
       indexingQuality,
+      smartApiPlan,
+      scoreExplanations: answerScoreExplanations,
     } satisfies RagAnswer;
 
     if (args.logQuery !== false)
@@ -1638,7 +2048,7 @@ export async function answerQuestionWithScope(args: {
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: answer.answer,
-        source_chunk_ids: results.map((result) => result.id),
+        source_chunk_ids: answerInputResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
@@ -1651,8 +2061,10 @@ export async function answerQuestionWithScope(args: {
           fallback_reason: fallbackReasonFromRouting(route.reason),
           model_used: null,
           retrieved_candidate_count: results.length,
+          ...smartApiLogMetadata(smartApiPlan),
           ...answerRankMetadata,
           ...memoryLogMetadata,
+          ...scoreLogMetadata,
           cited_chunk_count: 0,
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
@@ -1664,6 +2076,8 @@ export async function answerQuestionWithScope(args: {
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           retrieval_strategy: search.telemetry.retrieval_strategy,
+          weighted_top_score: search.telemetry.weighted_top_score,
+          rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
           total_latency_ms: answer.latencyTimings.total_latency_ms,
@@ -1679,10 +2093,10 @@ export async function answerQuestionWithScope(args: {
 
   if (route.mode === "extractive") {
     const relatedDocuments = await relatedDocumentsPromise;
-    const answer = buildExtractiveAnswer({
+    const answer: RagAnswer = buildExtractiveAnswer({
       query: args.query,
       queryClass,
-      results,
+      results: answerInputResults,
       quoteCards,
       documentBreakdown,
       evidenceSummary,
@@ -1690,7 +2104,7 @@ export async function answerQuestionWithScope(args: {
       conflictsOrGaps,
       visualEvidence,
       bestSource,
-      smartPanel: { ...smartPanel, bestSource, relatedDocuments },
+      smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
       relatedDocuments,
       routeReason: route.reason,
       timings: {
@@ -1707,13 +2121,17 @@ export async function answerQuestionWithScope(args: {
         total_latency_ms: Date.now() - startedAt,
       },
     });
+    answer.relevance = relevance;
+    answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
+    answer.smartApiPlan = smartApiPlan;
+    answer.scoreExplanations = answerScoreExplanations;
 
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: answer.answer,
-        source_chunk_ids: results.map((result) => result.id),
+        source_chunk_ids: answerInputResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
@@ -1726,8 +2144,10 @@ export async function answerQuestionWithScope(args: {
           fallback_reason: fallbackReasonFromRouting(answer.routingReason),
           model_used: null,
           retrieved_candidate_count: results.length,
+          ...smartApiLogMetadata(smartApiPlan),
           ...answerRankMetadata,
           ...memoryLogMetadata,
+          ...scoreLogMetadata,
           cited_chunk_count: answer.citations.length,
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
@@ -1740,6 +2160,8 @@ export async function answerQuestionWithScope(args: {
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           retrieval_strategy: search.telemetry.retrieval_strategy,
+          weighted_top_score: search.telemetry.weighted_top_score,
+          rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
           total_latency_ms: answer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
@@ -1769,6 +2191,10 @@ Rules:
 - Include clinically practical details and caveats only when supported.
 - Use only the strongest 3-5 citations, not every source.
 - Sources are ordered by answer relevance. Prioritize earlier sources unless a later source directly resolves a conflict or gap.
+- When sources come from multiple documents, synthesize by clinical theme/action. Do not list each document separately unless the question asks for a comparison.
+- For multi-document answers, merge overlapping guidance once, then call out document-specific differences, conflicts, or gaps only when supported.
+- Keep multi-document answers fast and focused: use the fused source brief and balanced source guide to cite at least two documents when the answer combines them.
+- Treat the fused source brief as an orientation layer only. Verify every claim against the raw source excerpts below it.
 - Structured memory lines are indexing-time source facts mapped back to source chunks. Use them to focus the answer, but cite the original chunks.
 - Start with the direct answer. Omit tangential background even when it appears in retrieved sources.
 - Bold only source-supported high-yield details using **bold**: medications, thresholds, timing, escalation triggers, required actions, contraindications, and terms central to the question.
@@ -1780,10 +2206,14 @@ Rules:
 - Return data matching the supplied structured output schema.`;
 
   function buildAnswerInput(contextResults: SearchResult[]) {
+    const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
+    const fusedBrief = crossDocumentFusionBrief?.text ?? "";
+    const crossDocumentContext = [sourceGuide, fusedBrief].filter(Boolean).join("\n\n");
     return `Question:
 ${args.query}
 
 Sources:
+${crossDocumentContext ? `${crossDocumentContext}\n\n` : ""}
 ${buildRagSourceBlock(contextResults)}`;
   }
 
@@ -1829,13 +2259,13 @@ ${buildRagSourceBlock(contextResults)}`;
     error: unknown,
     relatedDocuments: RelatedDocument[],
   ): Promise<RagAnswer> {
-    const hasSources = results.length > 0;
-    const fallbackCitations = compactCitations(results);
+    const hasSources = answerInputResults.length > 0;
+    const fallbackCitations = compactCitations(answerInputResults);
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    const fallbackBestSource = hasSources ? (selectBestSourceRecommendation(results, quoteCards) ?? bestSource) : null;
+    const fallbackBestSource = hasSources ? (selectBestSourceRecommendation(answerInputResults, quoteCards) ?? bestSource) : null;
     const fallbackSmartPanel = hasSources
-      ? { ...smartPanel, bestSource: fallbackBestSource, relatedDocuments }
-      : { ...emptyPanel, relatedDocuments };
+      ? { ...smartPanel, relevance, bestSource: fallbackBestSource, relatedDocuments }
+      : { ...emptyPanel, relevance, relatedDocuments };
 
     return {
       answer: boldHighYieldClinicalText(
@@ -1845,9 +2275,9 @@ ${buildRagSourceBlock(contextResults)}`;
         args.query,
       ),
       grounded: false,
-      confidence: hasSources ? deriveConfidence(results, fallbackCitations.length) : "unsupported",
+      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations.length) : "unsupported",
       citations: hasSources ? fallbackCitations : [],
-      sources: results,
+      sources: answerInputResults,
       modelUsed: null,
       routingMode: "unsupported",
       routingReason: `${route.reason}; generation_fallback:${sanitizedReason}`,
@@ -1866,7 +2296,7 @@ ${buildRagSourceBlock(contextResults)}`;
         total_latency_ms: Date.now() - startedAt,
       },
       answerSections: [],
-      quoteCards: hasSources ? reconcileQuoteCards(quoteCards, results, args.query) : [],
+      quoteCards: hasSources ? reconcileQuoteCards(quoteCards, answerInputResults, args.query) : [],
       visualEvidence: hasSources ? visualEvidence : [],
       bestSource: hasSources ? fallbackBestSource : null,
       documentBreakdown: hasSources ? documentBreakdown : [],
@@ -1875,13 +2305,17 @@ ${buildRagSourceBlock(contextResults)}`;
       conflictsOrGaps: hasSources ? conflictsOrGaps : [],
       smartPanel: fallbackSmartPanel,
       relatedDocuments,
+      relevance,
       memoryCardsUsed: hasSources ? memoryCardsUsed : [],
       indexingVersion: ragDeepMemoryVersion,
       indexingQuality,
+      smartApiPlan: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`),
+      scoreExplanations: answerScoreExplanations,
     } satisfies RagAnswer;
   }
 
-  const fastContextResults = route.mode === "fast" ? results.slice(0, 4) : results;
+  const fastContextResults =
+    route.mode === "fast" && !crossDocumentPlan.enabled ? answerInputResults.slice(0, 4) : answerInputResults;
   try {
     await args.onProgress?.({
       stage: "generating",
@@ -1891,11 +2325,13 @@ ${buildRagSourceBlock(contextResults)}`;
       reason: route.reason,
     });
     const contextPackStartedAt = Date.now();
-    let packedContextResults = await packAdjacentSourceContext(createAdminClient(), fastContextResults, queryClass);
+    let packedContextResults = await packAdjacentSourceContext(createAdminClient(), fastContextResults, queryClass, {
+      crossDocument: crossDocumentPlan.enabled,
+    });
     contextPackLatencyMs += Date.now() - contextPackStartedAt;
     let generated = await generateWithModel(route.model!, packedContextResults);
     let answer = parseAnswerJson(generated.text, packedContextResults, args.query);
-    if (shouldRetryWithStrongAfterFast({ route, answer, results })) {
+    if (shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults })) {
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
       routingReason = `${route.reason}; fast_unsupported_retry_strong`;
       retriedWithStrong = true;
@@ -1907,7 +2343,9 @@ ${buildRagSourceBlock(contextResults)}`;
         reason: routingReason,
       });
       const retryContextPackStartedAt = Date.now();
-      packedContextResults = await packAdjacentSourceContext(createAdminClient(), results, queryClass);
+      packedContextResults = await packAdjacentSourceContext(createAdminClient(), answerInputResults, queryClass, {
+        crossDocument: crossDocumentPlan.enabled,
+      });
       contextPackLatencyMs += Date.now() - retryContextPackStartedAt;
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults);
       answer = parseAnswerJson(generated.text, packedContextResults, args.query);
@@ -1933,7 +2371,7 @@ ${buildRagSourceBlock(contextResults)}`;
       answer = buildExtractiveAnswer({
         query: args.query,
         queryClass,
-        results,
+        results: answerInputResults,
         quoteCards,
         documentBreakdown,
         evidenceSummary,
@@ -1941,7 +2379,7 @@ ${buildRagSourceBlock(contextResults)}`;
         conflictsOrGaps,
         visualEvidence,
         bestSource,
-        smartPanel: { ...smartPanel, bestSource, relatedDocuments },
+        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
         relatedDocuments,
         routeReason: `${routingReason}; structured_output_fallback`,
         timings: answerTimings,
@@ -1949,16 +2387,16 @@ ${buildRagSourceBlock(contextResults)}`;
       answer.modelUsed = modelUsed;
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
-      answer.sources = results;
-      answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, args.query);
+      answer.sources = answerInputResults;
+      answer.quoteCards = reconcileQuoteCards(answer.quoteCards, answerInputResults, args.query);
       answer.documentBreakdown = documentBreakdown;
       answer.evidenceSummary = evidenceSummary;
       answer.sourceCoverage = sourceCoverage;
       answer.conflictsOrGaps = answer.conflictsOrGaps?.length ? answer.conflictsOrGaps : conflictsOrGaps;
       answer.visualEvidence = visualEvidence;
-      answer.bestSource = selectBestSourceRecommendation(results, answer.quoteCards) ?? bestSource;
+      answer.bestSource = selectBestSourceRecommendation(answerInputResults, answer.quoteCards) ?? bestSource;
       answer.relatedDocuments = relatedDocuments;
-      answer.smartPanel = { ...smartPanel, bestSource: answer.bestSource, relatedDocuments };
+      answer.smartPanel = { ...smartPanel, relevance, bestSource: answer.bestSource, relatedDocuments };
       answer.routingMode = retriedWithStrong ? "strong" : route.mode;
       answer.routingReason = routingReason;
     }
@@ -1970,13 +2408,17 @@ ${buildRagSourceBlock(contextResults)}`;
     answer.memoryCardsUsed = memoryCardsUsed;
     answer.indexingVersion = ragDeepMemoryVersion;
     answer.indexingQuality = indexingQuality;
+    answer.smartApiPlan = buildCurrentSmartApiPlan(answer.routingMode, answer.routingReason);
+    answer.scoreExplanations = answerScoreExplanations;
+    answer.relevance = relevance;
+    answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
 
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: answer.answer,
-        source_chunk_ids: results.map((result) => result.id),
+        source_chunk_ids: answerInputResults.map((result) => result.id),
         model: modelUsed,
         metadata: {
           document_id: args.documentId ?? null,
@@ -1991,8 +2433,10 @@ ${buildRagSourceBlock(contextResults)}`;
           fast_model: env.OPENAI_FAST_ANSWER_MODEL,
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,
+          ...smartApiLogMetadata(answer.smartApiPlan),
           ...answerRankMetadata,
           ...memoryLogMetadata,
+          ...scoreLogMetadata,
           cited_chunk_count: answer.citations.length,
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
@@ -2006,6 +2450,8 @@ ${buildRagSourceBlock(contextResults)}`;
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           context_pack_latency_ms: contextPackLatencyMs,
           retrieval_strategy: search.telemetry.retrieval_strategy,
+          weighted_top_score: search.telemetry.weighted_top_score,
+          rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: generationLatencyMs,
           total_latency_ms: answer.latencyTimings.total_latency_ms,
@@ -2032,7 +2478,7 @@ ${buildRagSourceBlock(contextResults)}`;
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: fallbackAnswer.answer,
-        source_chunk_ids: results.map((result) => result.id),
+        source_chunk_ids: answerInputResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
@@ -2047,8 +2493,10 @@ ${buildRagSourceBlock(contextResults)}`;
           fast_model: env.OPENAI_FAST_ANSWER_MODEL,
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,
+          ...(fallbackAnswer.smartApiPlan ? smartApiLogMetadata(fallbackAnswer.smartApiPlan) : {}),
           ...answerRankMetadata,
           ...memoryLogMetadata,
+          ...scoreLogMetadata,
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
@@ -2062,6 +2510,8 @@ ${buildRagSourceBlock(contextResults)}`;
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           context_pack_latency_ms: contextPackLatencyMs,
           retrieval_strategy: "generation_fallback",
+          weighted_top_score: search.telemetry.weighted_top_score,
+          rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: generationLatencyMs,
           total_latency_ms: fallbackAnswer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
@@ -2118,7 +2568,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
   })) as SearchResult[];
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
-Use only the excerpts provided. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, and citations.
+Use only the excerpts provided. Start directly with the most useful clinical point; do not prefix the answer with "Summary", "Key practical points", or similar labels. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, and citations. Exclude administrative document-control details unless they change clinical action.
 Return data matching the supplied structured output schema.`;
   const summaryInput = `Document:
 ${document.title}
@@ -2136,6 +2586,7 @@ ${buildRagSourceBlock(results)}`;
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
+  answer.answer = cleanClinicalSummaryText(answer.answer);
   answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, "summary");
   answer.documentBreakdown = buildDocumentBreakdown(results, answer.quoteCards);
   answer.evidenceSummary = buildEvidenceSummary(results, answer.quoteCards);

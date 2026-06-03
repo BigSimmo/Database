@@ -1,4 +1,6 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
+import { queryCoreTerms } from "@/lib/evidence-relevance";
+import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
 export type SafetyFindingKind =
@@ -62,7 +64,7 @@ function normalizeText(text: string) {
 }
 
 function conciseSourceText(text: string) {
-  const normalized = normalizeText(text);
+  const normalized = normalizeText(sourceTextForDisplay(text));
   if (normalized.length <= 260) return normalized;
   return `${normalized.slice(0, 257).trim()}...`;
 }
@@ -80,19 +82,38 @@ function citationFromSource(source: SearchResult): Citation {
   };
 }
 
+function hasQueryConceptOverlap(text: string, terms: string[]) {
+  if (terms.length === 0) return true;
+  const haystack = text.toLowerCase();
+  return terms.some((term) => haystack.includes(term.toLowerCase()));
+}
+
 export function extractSafetyFindings(answer: RagAnswer | null | undefined, limit = 5): SafetyFinding[] {
   if (!answer?.grounded) return [];
+  if (answer.relevance && !answer.relevance.isSourceBacked) return [];
+
+  const sourceByChunkId = new Map((answer.sources ?? []).map((source) => [source.id, source]));
+  const queryTerms = queryCoreTerms(answer.smartPanel?.query ?? "");
+  const relevanceTerms = answer.relevance?.matchedTerms ?? [];
+  const coreTerms = queryTerms.length ? queryTerms : relevanceTerms;
 
   const candidates = [
-    ...(answer.quoteCards ?? []).map((quote) => ({
-      id: quote.chunk_id,
-      text: quote.quote,
-      citation: quote,
-    })),
+    ...(answer.quoteCards ?? []).map((quote) => {
+      const source = sourceByChunkId.get(quote.chunk_id);
+      return {
+        id: quote.chunk_id,
+        text: quote.quote,
+        citation: quote,
+        source,
+        sourceStrength: quote.source_strength ?? source?.source_strength,
+      };
+    }),
     ...(answer.sources ?? []).map((source) => ({
       id: source.id,
       text: source.content,
       citation: citationFromSource(source),
+      source,
+      sourceStrength: source.source_strength,
     })),
   ];
 
@@ -102,6 +123,13 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
   for (const candidate of candidates) {
     const text = conciseSourceText(candidate.text);
     if (!text) continue;
+    if (answer.relevance) {
+      const sourceBacked = candidate.source?.relevance?.isSourceBacked;
+      const moderateOrStrong =
+        candidate.sourceStrength === "strong" || candidate.sourceStrength === "moderate";
+      const overlapsQuery = hasQueryConceptOverlap(text, coreTerms);
+      if (!sourceBacked && !(moderateOrStrong && overlapsQuery)) continue;
+    }
 
     const match = safetyPatterns.find((item) => item.pattern.test(text));
     if (!match) continue;

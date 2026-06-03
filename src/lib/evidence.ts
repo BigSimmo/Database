@@ -1,5 +1,7 @@
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
+import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
   BestSourceRecommendation,
   ConflictOrGap,
@@ -14,24 +16,8 @@ import type {
 } from "@/lib/types";
 import type { ClinicalImageUseClass } from "@/lib/types";
 
-const imageTagPattern = /\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g;
-
 export function normalizeEvidenceText(text: string) {
-  return text
-    .replace(imageTagPattern, (tag) => {
-      const title = tag.match(/Table title:\s*([\s\S]*?)(?:;\s*[A-Z][^:]{1,32}:|\s*\[\[IMAGE_DATA_END\]\])/)?.[1];
-      const tableText = tag.match(/Table text:\s*([\s\S]*?)(?:;\s*Description:|\s*\[\[IMAGE_DATA_END\]\])/)?.[1];
-      const description = tag.match(/Description:\s*([\s\S]*?)\s*\[\[IMAGE_DATA_END\]\]/)?.[1];
-      return [
-        title ? `Table: ${title.trim()}` : "",
-        tableText ? `Table text: ${tableText.trim()}` : "",
-        description ? `Image evidence: ${description.trim()}` : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-    })
-    .replace(/\s+/g, " ")
-    .trim();
+  return sourceTextForModel(text);
 }
 
 function imageMetadata(image: { metadata?: Record<string, unknown> | null }) {
@@ -71,6 +57,30 @@ function queryTokens(query: string) {
       expanded.add(token),
     );
   }
+  if (tokens.some((token) => ["dose", "dosing", "dosage", "titrate", "titration", "mg", "route"].includes(token))) {
+    [
+      "dose",
+      "doses",
+      "dosing",
+      "medication",
+      "oral",
+      "intramuscular",
+      "im",
+      "po",
+      "prn",
+      "maximum",
+      "repeat",
+      "frequency",
+      "benzodiazepine",
+      "antipsychotic",
+      "olanzapine",
+      "lorazepam",
+      "haloperidol",
+      "droperidol",
+      "promethazine",
+      "diazepam",
+    ].forEach((token) => expanded.add(token));
+  }
   if (tokens.some((token) => ["withhold", "withholding", "cease", "stop", "stopping"].includes(token))) {
     ["cease", "ceased", "discontinue", "discontinued", "interrupt", "interruption", "red"].forEach((token) =>
       expanded.add(token),
@@ -90,6 +100,33 @@ function sentenceScore(sentence: string, tokens: Set<string>) {
     if (lowered.includes(token)) score += 1;
   }
   return score;
+}
+
+function hasDoseSentenceEvidence(sentence: string) {
+  return /\b(?:dose|doses|dosage|dosing|mg|mcg|microgram|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|route|frequency|repeat|maximum|benzodiazepine|antipsychotic|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam|administer)\b/i.test(
+    sentence,
+  );
+}
+
+function lowValueSentencePenalty(sentence: string, query: string) {
+  const isDoseQuery = /\b(?:dose|doses|dosage|dosing|mg|mcg|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|titrate|titration)\b/i.test(
+    query,
+  );
+  let penalty = 0;
+  if (
+    isDoseQuery &&
+    /\b(?:supporting information|relevant standards|references|document owner|authorisation|authorised by|published date|effective from|amendment|polypharmacy and high dose antipsychotic prescribing procedure)\b/i.test(
+      sentence,
+    ) &&
+    !/\b(?:mg|mcg|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|repeat|maximum|administer|monitoring:)\b/i.test(sentence)
+  ) {
+    penalty += 5;
+  }
+  if (isDoseQuery && !hasDoseSentenceEvidence(sentence)) penalty += 2;
+  if (/^agitation and arousal:?\s+pharmacological management guideline\b/i.test(sentence) && !hasDoseSentenceEvidence(sentence)) {
+    penalty += 3;
+  }
+  return penalty;
 }
 
 function tableRowQuoteCandidates(content: string) {
@@ -118,7 +155,8 @@ function bestQuoteFromContent(content: string, query: string) {
   if (!clean) return "";
 
   const tokens = queryTokens(query);
-  const rawLineCandidates = content
+  const displayContent = sourceTextForDisplay(content) || clean;
+  const rawLineCandidates = displayContent
     .split(/\r?\n+/)
     .map((line) => normalizeText(line))
     .filter((line) => line.split(/\s+/).length >= 3);
@@ -133,7 +171,7 @@ function bestQuoteFromContent(content: string, query: string) {
       .map((sentence) => {
         const score = sentenceScore(sentence, tokens);
         const lengthPenalty = sentence.length > 340 ? 6 : sentence.length > 260 ? 1.2 : sentence.length > 180 ? 0.4 : 0;
-        return { sentence, score, adjustedScore: score - lengthPenalty };
+        return { sentence, score, adjustedScore: score - lengthPenalty - lowValueSentencePenalty(sentence, query) };
       })
       .sort((a, b) => b.adjustedScore - a.adjustedScore || b.score - a.score || a.sentence.length - b.sentence.length)[0]
       ?.sentence ?? clean;
@@ -210,6 +248,7 @@ export function buildSmartPanel(query: string, results: SearchResult[]) {
   const documentBreakdown = buildDocumentBreakdown(results, quoteCards);
   const visualEvidence = buildVisualEvidence(results);
   const bestSource = selectBestSourceRecommendation(results, quoteCards);
+  const relevance = buildEvidenceRelevance(query, results);
 
   return {
     query,
@@ -222,6 +261,7 @@ export function buildSmartPanel(query: string, results: SearchResult[]) {
     evidenceSummary: buildEvidenceSummary(results, quoteCards),
     sourceCoverage: buildSourceCoverage(results),
     conflictsOrGaps: detectConflictsOrGaps(results),
+    relevance,
   } satisfies SmartPanel;
 }
 
@@ -231,8 +271,11 @@ export function selectBestSourceRecommendation(
 ): BestSourceRecommendation | null {
   if (results.length === 0) return null;
 
-  let best = results[0];
-  for (const result of results.slice(1)) {
+  const candidates = results.some((result) => result.relevance?.isSourceBacked)
+    ? results.filter((result) => result.relevance?.isSourceBacked)
+    : results;
+  let best = candidates[0];
+  for (const result of candidates.slice(1)) {
     const bestScore = best.hybrid_score ?? best.similarity;
     const resultScore = result.hybrid_score ?? result.similarity;
     if (resultScore > bestScore || (resultScore === bestScore && result.similarity > best.similarity)) {
@@ -255,6 +298,7 @@ export function selectBestSourceRecommendation(
     section_heading: best.section_heading,
     image_count: (best.images ?? []).filter((image) => isClinicalImageEvidence(image)).length,
     viewer_href: documentCitationHref(citation),
+    relevance: best.relevance,
   };
 }
 
@@ -295,13 +339,20 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
       seen.add(image.id);
       const pageNumber = image.page_number ?? result.page_number;
       const metadata = imageMetadata(image);
-      const tableText =
-        image.tableTextSnippet ?? metadataText(metadata, "table_text") ?? metadataText(metadata, "table_text_snippet");
+      const rawTableText = metadataText(metadata, "table_text") ?? image.accessibleTableMarkdown ?? null;
+      const tableText = image.tableTextSnippet ?? rawTableText ?? metadataText(metadata, "table_text_snippet");
       const sourceKind = image.sourceKind ?? image.source_kind ?? metadataText(metadata, "source_kind");
       const tableRole = image.tableRole ?? metadataText(metadata, "table_role");
       const priority =
         (sourceKind === "table_crop" ? 40 : 0) +
         (tableRole === "clinical" ? 30 : tableRole === "admin" || tableRole === "reference" ? 8 : 0) +
+        (result.relevance?.verdict === "direct"
+          ? 36
+          : result.relevance?.verdict === "partial"
+            ? 18
+            : result.relevance?.verdict === "nearby"
+              ? -10
+              : 0) +
         (image.clinical_relevance_score ?? 0) * 20;
       cards.push({
         id: `${result.id}:${image.id}`,
@@ -332,13 +383,14 @@ export function buildVisualEvidence(results: SearchResult[], limit = 8) {
         accessibleTableMarkdown:
           typeof metadata.accessible_table_markdown === "string"
             ? metadata.accessible_table_markdown
-            : (image.accessibleTableMarkdown ?? null),
+            : (image.accessibleTableMarkdown ?? rawTableText),
         tableRows: Array.isArray(metadata.table_rows) ? (metadata.table_rows as string[][]) : (image.tableRows ?? null),
         tableColumns: Array.isArray(metadata.table_columns)
           ? (metadata.table_columns as string[])
           : (image.tableColumns ?? null),
         tableTextSnippet: compactText(tableText),
         labels: image.labels,
+        relevance: result.relevance,
         priority,
       });
     }

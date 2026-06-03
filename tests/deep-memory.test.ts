@@ -114,6 +114,23 @@ describe("deep RAG memory indexing", () => {
     expect(cards.some((card) => card.source_chunk_ids.includes("chunk-low-signal"))).toBe(true);
   });
 
+  it("does not cap persisted memory cards for large high-yield documents", () => {
+    const cards = buildDocumentMemoryCards({
+      document,
+      chunks: Array.from({ length: 140 }, (_, index) =>
+        chunk({
+          id: `chunk-risk-${index}`,
+          chunk_index: index,
+          page_number: index + 1,
+          content: `Risk workflow ${index}: urgent review is required within ${index + 1} hours and medication monitoring must be documented.`,
+        }),
+      ),
+    });
+
+    expect(cards.length).toBeGreaterThan(120);
+    expect(cards.some((card) => card.source_chunk_ids.includes("chunk-risk-139"))).toBe(true);
+  });
+
   it("boosts direct memory evidence above a higher raw-score generic chunk", () => {
     const boosted = applyMemoryCardBoosts(
       "ANC threshold stop clozapine",
@@ -151,6 +168,39 @@ describe("deep RAG memory indexing", () => {
     const ranked = rankClinicalResults("ANC threshold stop clozapine", boosted);
     expect(ranked[0].id).toBe("direct-threshold");
     expect(ranked[0].memory_cards?.[0]?.id).toBe("card-1");
+  });
+
+  it("uses hybrid memory-card scores when mapping memory evidence back to chunks", () => {
+    const boosted = applyMemoryCardBoosts(
+      "table threshold monitoring",
+      [
+        result({
+          id: "table-threshold",
+          hybrid_score: 0.5,
+          content: "Table row: monitoring threshold requires escalation.",
+        }),
+      ],
+      [
+        {
+          id: "card-hybrid",
+          document_id: "doc-1",
+          owner_id: "user-1",
+          section_id: null,
+          card_type: "table_row",
+          title: "Monitoring threshold table row",
+          content: "Monitoring threshold requires escalation.",
+          normalized_terms: ["monitoring", "threshold"],
+          page_number: 1,
+          source_chunk_ids: ["table-threshold"],
+          source_image_ids: [],
+          confidence: 0.2,
+          metadata: { memory_hybrid_score: 0.9 },
+        } satisfies DocumentMemoryCard,
+      ],
+    );
+
+    expect(boosted[0].memory_score).toBe(0.9);
+    expect(boosted[0].hybrid_score).toBeGreaterThan(0.7);
   });
 
   it("persists memory cards without leaking internal section indexes into inserts", async () => {

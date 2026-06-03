@@ -5,6 +5,7 @@ loadEnvConfig(process.cwd());
 
 type EnrichArgs = {
   ownerEmail?: string;
+  ownerId?: string;
   allOwners: boolean;
   mode: string;
   limit: number;
@@ -23,7 +24,8 @@ async function loadAdminClient() {
 function parseArgs(argv: string[]): EnrichArgs {
   const args: EnrichArgs = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
-    allOwners: !process.env.RAG_EVAL_OWNER_EMAIL,
+    ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
+    allOwners: !process.env.RAG_EVAL_OWNER_EMAIL && !process.env.RAG_EVAL_OWNER_ID && !process.env.LOCAL_NO_AUTH_OWNER_ID,
     mode: "summaries-labels-images",
     limit: 25,
     includeCurrent: false,
@@ -45,6 +47,7 @@ function parseArgs(argv: string[]): EnrichArgs {
     index += 1;
 
     if (token === "--owner-email") args.ownerEmail = value;
+    if (token === "--owner-id") args.ownerId = value;
     if (token === "--mode") args.mode = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--document-id") args.documentId = value;
@@ -153,25 +156,35 @@ async function loadDeepMemoryCoverage(supabase: SupabaseAdmin, documentIds: stri
 }
 
 async function loadEvidence(supabase: SupabaseAdmin, documentId: string) {
-  const [chunksResult, imagesResult] = await Promise.all([
-    supabase
+  const chunks = [];
+  const images = [];
+
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
       .from("document_chunks")
       .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata")
       .eq("document_id", documentId)
       .order("chunk_index", { ascending: true })
-      .limit(1000),
-    supabase
+      .range(start, start + 999);
+    if (error) throw new Error(error.message);
+    chunks.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
       .from("document_images")
       .select("id,page_number,caption,image_type,labels,source_kind,clinical_relevance_score,metadata")
       .eq("document_id", documentId)
       .eq("searchable", true)
       .order("clinical_relevance_score", { ascending: false })
-      .limit(200),
-  ]);
+      .range(start, start + 999);
+    if (error) throw new Error(error.message);
+    images.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
 
-  if (chunksResult.error) throw new Error(chunksResult.error.message);
-  if (imagesResult.error) throw new Error(imagesResult.error.message);
-  return { chunks: chunksResult.data ?? [], images: imagesResult.data ?? [] };
+  return { chunks, images };
 }
 
 function hashBytes(bytes: Buffer) {
@@ -209,9 +222,13 @@ function needsEnrichmentBackfill(args: {
   const generatedLabels = args.coverage?.labels.filter((label) => label.source === "generated") ?? [];
   const sections = args.memoryCoverage?.sections ?? [];
   const memoryCards = args.memoryCoverage?.memoryCards ?? [];
+  const summaryMetadata = metadataRecord(args.coverage?.summary?.metadata);
+  const documentMetadata = metadataRecord(args.document.metadata);
   return (
     !args.coverage?.summary ||
     generatedLabels.length === 0 ||
+    !summaryMetadata.coverage_profile ||
+    !documentMetadata.coverage_profile ||
     !hasCurrentEnrichmentVersion(args.document.metadata, args.ragEnrichmentVersion) ||
     !hasCurrentEnrichmentVersion(args.coverage.summary?.metadata, args.ragEnrichmentVersion) ||
     generatedLabels.every((label) => !hasCurrentEnrichmentVersion(label.metadata, args.ragEnrichmentVersion)) ||
@@ -443,8 +460,10 @@ async function stampExistingEnrichmentVersion(args: {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerEmail && !args.allOwners) {
-    throw new Error('Provide --owner-email "you@example.com", set RAG_EVAL_OWNER_EMAIL, or pass --all-owners.');
+  if (!args.ownerId && !args.ownerEmail && !args.allOwners) {
+    throw new Error(
+      'Provide --owner-id, set LOCAL_NO_AUTH_OWNER_ID or RAG_EVAL_OWNER_ID, provide --owner-email "you@example.com", or pass --all-owners.',
+    );
   }
   if (!["summaries-labels-images", "metadata-stamp", "deep-memory"].includes(args.mode)) {
     throw new Error("--mode supports summaries-labels-images, deep-memory, or metadata-stamp.");
@@ -464,7 +483,12 @@ async function main() {
   requireServerEnv();
   if (args.mode === "summaries-labels-images" || args.mode === "deep-memory") requireOpenAIEnv();
 
-  const ownerId = args.ownerEmail && !args.allOwners ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined;
+  const ownerId =
+    !args.allOwners && args.ownerId
+      ? args.ownerId
+      : args.ownerEmail && !args.allOwners
+        ? await findOwnerIdByEmail(supabase, args.ownerEmail)
+        : undefined;
   const loadedDocuments = await loadDocuments(supabase, args, ownerId);
   const coverage = await loadEnrichmentCoverage(
     supabase,
