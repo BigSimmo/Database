@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
-import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
   appBackdrop,
   clinicalDivider,
@@ -618,7 +618,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
 
   useEffect(() => {
     let active = true;
-    let loadedPdf: PDFDocumentProxy | null = null;
+    let loadTask: PDFDocumentLoadingTask | null = null;
 
     async function loadPdf() {
       setLoading(true);
@@ -631,8 +631,8 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           "pdfjs-dist/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
-        const task = pdfjs.getDocument(url);
-        loadedPdf = await task.promise;
+        loadTask = pdfjs.getDocument({ url });
+        const loadedPdf = await loadTask.promise;
         if (!active) return;
         setPdf(loadedPdf);
         setTotalPages(loadedPdf.numPages);
@@ -650,7 +650,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
     return () => {
       active = false;
       setPdf(null);
-      loadedPdf?.destroy();
+      void loadTask?.destroy();
     };
   }, [loadAttempt, url]);
 
