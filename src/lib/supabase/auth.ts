@@ -115,11 +115,11 @@ async function resolveLocalNoAuthUser(supabase: AdminClient): Promise<Authentica
 }
 
 async function resolveLocalNoAuthOwnerId(supabase: AdminClient, configuredOwnerEmail?: string) {
-  const fallbackOwnerId = await resolveOwnerFromDocuments(supabase);
-  if (fallbackOwnerId) return fallbackOwnerId;
-
   const ownerIdFromEmail = await resolveOwnerByEmail(supabase, configuredOwnerEmail);
   if (ownerIdFromEmail) return ownerIdFromEmail;
+
+  const fallbackOwnerId = await resolveOwnerFromDocuments(supabase);
+  if (fallbackOwnerId) return fallbackOwnerId;
 
   throw new Error(
     "Local no-auth mode is enabled, but no owner could be resolved. Set LOCAL_NO_AUTH_OWNER_ID or " +

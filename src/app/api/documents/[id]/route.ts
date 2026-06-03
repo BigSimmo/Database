@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { invalidateRagCachesForOwner } from "@/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -13,8 +13,36 @@ const renameSchema = z.object({
   title: z.string().trim().min(1).max(180),
 });
 
+const cleanupPageSize = 1000;
+
 function safeMetadata(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function isNonEmptyString(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+async function selectDocumentRowsInPages<T>(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  table: "document_images" | "document_chunks";
+  select: string;
+  documentId: string;
+}) {
+  const rows: T[] = [];
+  for (let offset = 0; ; offset += cleanupPageSize) {
+    const { data, error } = await args.supabase
+      .from(args.table)
+      .select(args.select)
+      .eq("document_id", args.documentId)
+      .range(offset, offset + cleanupPageSize - 1);
+    if (error) throw new Error(error.message);
+
+    const page = (data ?? []) as T[];
+    rows.push(...page);
+    if (page.length < cleanupPageSize) break;
+  }
+  return rows;
 }
 
 function metadataText(metadata: Record<string, unknown>, key: string) {
@@ -287,7 +315,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (updateError) throw new Error(updateError.message);
-    invalidateRagCachesForOwner(user.id);
+    invalidateRagCachesForDocumentMutation(user.id);
     return NextResponse.json({ document: updated });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -328,16 +356,23 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       throw new PublicApiError("Document is currently indexing. Stop or wait for the worker before deleting.", 409);
     }
 
-    const [{ data: images, error: imagesError }, { data: chunks, error: chunksError }] = await Promise.all([
-      supabase.from("document_images").select("storage_path").eq("document_id", id),
-      supabase.from("document_chunks").select("id").eq("document_id", id),
+    const [images, chunks] = await Promise.all([
+      selectDocumentRowsInPages<{ storage_path: string | null }>({
+        supabase,
+        table: "document_images",
+        select: "storage_path",
+        documentId: id,
+      }),
+      selectDocumentRowsInPages<{ id: string | null }>({
+        supabase,
+        table: "document_chunks",
+        select: "id",
+        documentId: id,
+      }),
     ]);
 
-    if (imagesError) throw new Error(imagesError.message);
-    if (chunksError) throw new Error(chunksError.message);
-
-    const chunkIds = (chunks ?? []).map((chunk) => chunk.id).filter(Boolean);
-    const imagePaths = (images ?? []).map((image) => image.storage_path).filter(Boolean);
+    const chunkIds = chunks.map((chunk) => chunk.id).filter(isNonEmptyString);
+    const imagePaths = images.map((image) => image.storage_path).filter(isNonEmptyString);
     const cleanupJobId = await createStorageCleanupJob({
       supabase,
       ownerId: user.id,
@@ -351,7 +386,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       const { error: queryDeleteError } = await supabase
         .from("rag_queries")
         .delete()
-        .eq("owner_id", user.id)
         .overlaps("source_chunk_ids", chunkIds);
       if (queryDeleteError) {
         const ledgerWarning = await updateStorageCleanupJob({
@@ -391,7 +425,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     });
     if (ledgerWarning) cleanup.storageWarnings.push(ledgerWarning);
 
-    invalidateRagCachesForOwner(user.id);
+    invalidateRagCachesForDocumentMutation(user.id);
     return NextResponse.json({
       deleted: true,
       documentId: id,

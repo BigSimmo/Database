@@ -132,6 +132,12 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
 function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
   const calls: QueryCall[] = [];
+  const listUsers = vi.fn(
+    async (): Promise<{
+      data: { users: Array<{ id: string; email?: string | null }>; nextPage: number };
+      error: QueryError | null;
+    }> => ({ data: { users: [], nextPage: 0 }, error: null }),
+  );
   const upload = vi.fn(async (...args: [string, unknown, Record<string, unknown>]) => {
     void args;
     return {
@@ -155,7 +161,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
   );
   const rpc = vi.fn(async () => ok([]));
   const client = {
-    auth: { getUser },
+    auth: { getUser, admin: { listUsers } },
     calls,
     from: vi.fn((table: string) => {
       const call: QueryCall = {
@@ -182,7 +188,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
 function mockRuntime(
   client: ReturnType<typeof createSupabaseMock>,
   ragMock?: Record<string, unknown>,
-  options: { localNoAuth?: boolean } = {},
+  options: { localNoAuth?: boolean; localOwnerEmail?: string } = {},
 ) {
   vi.resetModules();
   vi.doUnmock("@/lib/rag");
@@ -199,6 +205,7 @@ function mockRuntime(
       RAG_ANSWER_CACHE_TTL_MS: 0,
       RAG_ANSWER_CACHE_SIZE: 0,
       RAG_AWAIT_QUERY_LOGS: false,
+      LOCAL_NO_AUTH_OWNER_EMAIL: options.localOwnerEmail,
     },
     isDemoMode: () => false,
     isLocalNoAuthMode: () => Boolean(options.localNoAuth),
@@ -292,6 +299,36 @@ describe("private document API access", () => {
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.calls[0]).toMatchObject({ table: "documents", selected: "owner_id" });
+  });
+
+  it("resolves configured local no-auth owner email before document fallback", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Configured owner document" }];
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.selected === "owner_id") {
+        return ok({ owner_id: otherUserId });
+      }
+      if (call.table === "documents") {
+        return ok(documents);
+      }
+      return ok([]);
+    });
+    client.auth.admin.listUsers.mockResolvedValueOnce({
+      data: { users: [{ id: userId, email: "clinician@example.test" }], nextPage: 0 },
+      error: null,
+    });
+    mockRuntime(client, undefined, { localNoAuth: true, localOwnerEmail: "clinician@example.test" });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(localPortRequest(4298, "/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(client.auth.admin.listUsers.mock.invocationCallOrder[0]).toBeLessThan(
+      client.from.mock.invocationCallOrder[0],
+    );
+    expect(client.calls.some((call) => call.selected === "owner_id")).toBe(false);
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
   });
 
   it("rejects unauthenticated document listing", async () => {
@@ -741,6 +778,106 @@ describe("private document API access", () => {
     );
   });
 
+  it("paginates enrichment-only reindex chunks and images for deep memory rebuilds", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Large Protocol",
+      file_name: "large.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: {},
+    };
+    const firstChunkPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `chunk-${index}`,
+      document_id: documentId,
+      page_number: 1,
+      chunk_index: index,
+      section_heading: "Large section",
+      content: `Content ${index}`,
+      image_ids: [],
+      metadata: {},
+    }));
+    const finalChunk = {
+      id: "chunk-final",
+      document_id: documentId,
+      page_number: 2,
+      chunk_index: 1000,
+      section_heading: "Final section",
+      content: "Final content",
+      image_ids: [],
+      metadata: {},
+    };
+    const firstImagePage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `image-${index}`,
+      page_number: 1,
+      caption: `Image ${index}`,
+      image_type: "clinical_table",
+      labels: [],
+      source_kind: "table_crop",
+      clinical_relevance_score: 0.5,
+      metadata: {},
+    }));
+    const finalImage = {
+      id: "image-final",
+      page_number: 2,
+      caption: "Final image",
+      image_type: "clinical_table",
+      labels: [],
+      source_kind: "table_crop",
+      clinical_relevance_score: 0.95,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "document_chunks") {
+        return call.range?.from === 0 ? ok(firstChunkPage) : ok([finalChunk]);
+      }
+      if (call.table === "document_images") {
+        return call.range?.from === 0 ? ok(firstImagePage) : ok([finalImage]);
+      }
+      return ok([]);
+    });
+    const upsertDocumentEnrichment = vi.fn(async () => ({
+      summary: { id: "summary-1", document_id: documentId, summary: "Source-backed summary." },
+      labels: [],
+    }));
+    const upsertDocumentDeepMemory = vi.fn(async () => ({
+      sections: [],
+      memoryCards: [],
+    }));
+    mockRuntime(client);
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const chunkSelects = client.calls.filter((call) => call.table === "document_chunks");
+    const imageSelects = client.calls.filter((call) => call.table === "document_images");
+
+    expect(response.status).toBe(200);
+    expect(chunkSelects.map((call) => call.range)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
+    expect(imageSelects.map((call) => call.range)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
+    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: expect.arrayContaining([expect.objectContaining({ id: "chunk-final" })]),
+        images: expect.arrayContaining([expect.objectContaining({ id: "image-final" })]),
+      }),
+    );
+  });
+
   it("cleans up uploaded storage when document insert fails", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "documents" && call.operation === "insert" ? fail("document insert failed") : ok([]),
@@ -823,7 +960,8 @@ describe("private document API access", () => {
       }
       return ok([]);
     });
-    mockRuntime(client);
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
     const { PATCH } = await import("../src/app/api/documents/[id]/route");
 
     const response = await PATCH(
@@ -844,6 +982,7 @@ describe("private document API access", () => {
     expect(update).not.toHaveProperty("storage_path");
     expect(update).not.toHaveProperty("content_hash");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
   });
 
   it("rejects invalid document rename titles", async () => {
@@ -925,7 +1064,7 @@ describe("private document API access", () => {
       status: "pending",
     });
     expect(cleanupUpdate?.updatePayload).toMatchObject({ status: "completed", storage_removed: 0 });
-    expect(ragDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(ragDelete?.filters).not.toContainEqual({ column: "owner_id", value: userId });
     expect(ragDelete?.overlapsFilters).toContainEqual({ column: "source_chunk_ids", values: [chunkId] });
     expect(documentDelete?.filters).toContainEqual({ column: "id", value: documentId });
     expect(documentDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
@@ -933,6 +1072,54 @@ describe("private document API access", () => {
     expect(client.storageMocks.storageFrom).toHaveBeenCalledWith("clinical-images");
     expect(client.storageMocks.remove).toHaveBeenCalledWith([sourcePath]);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([imagePath]);
+  });
+
+  it("paginates delete cleanup rows before removing the document", async () => {
+    const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
+    const firstImagePage = Array.from({ length: 1000 }, (_, index) => ({
+      storage_path: `${userId}/images/${index}.png`,
+    }));
+    const finalImage = { storage_path: `${userId}/images/final.png` };
+    const firstChunkPage = Array.from({ length: 1000 }, (_, index) => ({ id: `chunk-${index}` }));
+    const finalChunk = { id: "chunk-final" };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: sourcePath });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "document_images" && call.operation === "select") {
+        return call.range?.from === 0 ? ok(firstImagePage) : ok([finalImage]);
+      }
+      if (call.table === "document_chunks" && call.operation === "select") {
+        return call.range?.from === 0 ? ok(firstChunkPage) : ok([finalChunk]);
+      }
+      if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
+      if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
+      if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
+      if (call.table === "documents" && call.operation === "delete") return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { DELETE } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const imageSelects = client.calls.filter((call) => call.table === "document_images" && call.operation === "select");
+    const chunkSelects = client.calls.filter((call) => call.table === "document_chunks" && call.operation === "select");
+    const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
+
+    expect(response.status).toBe(200);
+    expect(imageSelects.map((call) => call.range)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
+    expect(chunkSelects.map((call) => call.range)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
+    expect(ragDelete?.overlapsFilters[0]?.values).toContain("chunk-final");
+    expect(client.storageMocks.remove).toHaveBeenCalledWith(expect.arrayContaining([finalImage.storage_path]));
   });
 
   it("blocks permanent delete while a document is actively indexing", async () => {
@@ -961,7 +1148,7 @@ describe("private document API access", () => {
   });
 
   it("allows unauthenticated search and answer without owner scope", async () => {
-    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => ({
+    const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
         search_cache_hit: false,
@@ -974,7 +1161,7 @@ describe("private document API access", () => {
         retrieval_strategy: "text_fast_path",
       },
     }));
-    const answerQuestionWithScope = vi.fn(async (_args: unknown) => ({
+    const answerQuestionWithScope = vi.fn(async () => ({
       answer: "No owned evidence.",
       grounded: false,
       confidence: "unsupported",
@@ -1010,7 +1197,7 @@ describe("private document API access", () => {
   });
 
   it("rate limits public answer generation without limiting public search", async () => {
-    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => ({
+    const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
         search_cache_hit: false,
@@ -1023,7 +1210,7 @@ describe("private document API access", () => {
         retrieval_strategy: "text_fast_path",
       },
     }));
-    const answerQuestionWithScope = vi.fn(async (_args: unknown) => ({
+    const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Source-backed answer.",
       grounded: true,
       confidence: "medium",
@@ -1066,7 +1253,7 @@ describe("private document API access", () => {
   });
 
   it("rate limits abnormal public search bursts with retry metadata", async () => {
-    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => ({
+    const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
         search_cache_hit: false,
@@ -1084,9 +1271,7 @@ describe("private document API access", () => {
     const client = createSupabaseMock();
     mockRuntime(client, { searchChunksWithTelemetry });
     vi.doMock("@/lib/public-rate-limit", async () => {
-      const actual = await vi.importActual<typeof import("../src/lib/public-rate-limit")>(
-        "@/lib/public-rate-limit",
-      );
+      const actual = await vi.importActual<typeof import("../src/lib/public-rate-limit")>("@/lib/public-rate-limit");
       return {
         ...actual,
         consumePublicSearchRateLimit: (headers: Headers) =>
@@ -1119,7 +1304,7 @@ describe("private document API access", () => {
     const searchGate = new Promise<void>((resolve) => {
       releaseSearch = resolve;
     });
-    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => {
+    const searchChunksWithTelemetry = vi.fn(async () => {
       await searchGate;
       return {
         results: [],
