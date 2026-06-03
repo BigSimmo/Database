@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
+  clinicalRankExplanation,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "../src/lib/clinical-search";
@@ -32,6 +33,9 @@ describe("clinical search query normalization", () => {
     expect(classifyRagQuery("How are long acting injectable medications managed?").queryClass).toBe(
       "medication_dose_risk",
     );
+    expect(classifyRagQuery("agitation and arousal dosing in psychiatric patients").queryClass).toBe(
+      "medication_dose_risk",
+    );
     expect(classifyRagQuery("Compare admission and discharge requirements").queryClass).toBe("comparison");
     expect(classifyRagQuery("Summarize the discharge guidance").queryClass).toBe("broad_summary");
   });
@@ -47,6 +51,9 @@ describe("clinical search query normalization", () => {
   it("uses AND-style websearch text to avoid broad unsupported OR matches", () => {
     expect(buildClinicalTextSearchQuery("What antibiotic dose is recommended for community-acquired pneumonia?")).toBe(
       "antibiotic dose recommended community acquired pneumonia",
+    );
+    expect(buildClinicalTextSearchQuery("Please can you find agitation and arousal dosing for me?")).toBe(
+      "agitation arousal dosing",
     );
   });
 
@@ -205,5 +212,59 @@ describe("clinical search query normalization", () => {
     ]);
 
     expect(ranked[0].id).toBe("chunk-match");
+  });
+
+  it("attaches score explanations while keeping weighted hybrid ranking as the served default", () => {
+    const ranked = rankClinicalResults("monitoring requirements", [
+      result({
+        id: "weighted-winner",
+        title: "Monitoring Requirements",
+        file_name: "monitoring.pdf",
+        content: "Monitoring requirements are documented here.",
+        hybrid_score: 0.72,
+        similarity: 0.7,
+        text_rank: 0.4,
+        rrf_score: 0.01,
+      }),
+      result({
+        id: "rrf-only-contender",
+        title: "Monitoring Requirements",
+        file_name: "monitoring-alt.pdf",
+        content: "Monitoring requirements are documented here.",
+        hybrid_score: 0.64,
+        similarity: 0.62,
+        text_rank: 0.4,
+        rrf_score: 0.5,
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("weighted-winner");
+    expect(ranked[0].score_explanation).toMatchObject({
+      rrfScore: 0.01,
+      strategy: "weighted_hybrid_served_rrf_telemetry",
+      finalRank: 1,
+    });
+  });
+
+  it("produces stable score-explanation components", () => {
+    const explanation = clinicalRankExplanation(
+      "ANC threshold stop clozapine",
+      result({
+        title: "Clozapine Prescribing and Monitoring",
+        file_name: "clozapine.pdf",
+        content: "If ANC is below threshold, stop clozapine and urgently review monitoring.",
+        similarity: 0.71,
+        hybrid_score: 0.74,
+        text_rank: 0.6,
+        rrf_score: 0.2,
+        memory_score: 0.8,
+      }),
+    );
+
+    expect(explanation.vectorScore).toBe(0.71);
+    expect(explanation.weightedHybridScore).toBe(0.74);
+    expect(explanation.rrfScore).toBe(0.2);
+    expect(explanation.memoryBoost).toBeGreaterThan(0);
+    expect(explanation.finalScore).toBeGreaterThan(0.74);
   });
 });

@@ -6,9 +6,41 @@ import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } f
 
 export const runtime = "nodejs";
 
+const ACTIVE_BATCH_STATUSES = new Set(["queued", "processing"]);
+const ACTIVE_INDEXING_POLL_MS = 5_000;
+
+type BatchRow = Record<string, unknown> & { status?: string | null };
+
+function batchesIndexingState(batches: BatchRow[]) {
+  const activeBatchCount = batches.filter((batch) => ACTIVE_BATCH_STATUSES.has(String(batch.status ?? ""))).length;
+  return {
+    activeBatchCount,
+    hasActiveBatches: activeBatchCount > 0,
+    pollAfterMs: activeBatchCount > 0 ? ACTIVE_INDEXING_POLL_MS : null,
+  };
+}
+
+function batchesResponse(batches: BatchRow[], extra: Record<string, unknown> = {}) {
+  const indexing = batchesIndexingState(batches);
+  return NextResponse.json(
+    {
+      batches,
+      ...indexing,
+      ...extra,
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        "X-Indexing-Active": String(indexing.hasActiveBatches),
+        "X-Poll-After-Ms": String(indexing.pollAfterMs ?? ""),
+      },
+    },
+  );
+}
+
 export async function GET(request: Request) {
   try {
-    if (isDemoMode()) return NextResponse.json({ batches: [], demoMode: true });
+    if (isDemoMode()) return batchesResponse([], { demoMode: true });
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
@@ -20,7 +52,7 @@ export async function GET(request: Request) {
       .limit(20);
 
     if (error) throw new Error(error.message);
-    return NextResponse.json({ batches: data ?? [] });
+    return batchesResponse((data ?? []) as unknown as BatchRow[]);
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);

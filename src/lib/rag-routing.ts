@@ -16,7 +16,9 @@ const strongRetrievalThreshold = 0.64;
 const extractiveRetrievalThreshold = 0.76;
 const complexClinicalQueryPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|suicid\w*|toxicity|myocarditis|neutropenia|anc|fbc|urgent|escalat\w*|withhold|cease|stop|dose|dosing|prescrib\w*)\b/i;
-const comparisonQueryPattern = /\b(compare|compared|versus|vs|between|across|difference\w*|conflict\w*)\b/i;
+const comparisonQueryPattern = /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b/i;
+const routineCrossDocumentPattern =
+  /\b(?:across|combine|combined|synthesi[sz]e|together|overall|all documents|these documents|different documents|multiple documents|several documents|from the documents)\b/i;
 const extractiveQuestionPattern =
   /\b(what|when|where|which|who|list|include|includes|required|requirements|process|procedure|steps|monitoring|summary|summarise|summarize|show|tell)\b/i;
 const extractiveBlockPattern =
@@ -58,6 +60,17 @@ function hasActionableConflictOrGap(conflictsOrGaps: ConflictOrGap[] = []) {
   return conflictsOrGaps.some(
     (item) =>
       item.type === "conflict" || /limited-strength|not enough|no indexed|weak support|unsupported/i.test(item.message),
+  );
+}
+
+function hasConflictIntent(query: string) {
+  return /\b(?:conflict|gap|contradict|disagree|inconsisten|versus|vs)\b/i.test(query);
+}
+
+function hasExplicitDocumentLookupIntent(query: string) {
+  return (
+    /\b(?:find|search|lookup|open|show)\b.{0,80}\b(?:document|file|pdf|protocol|guideline|procedure)\b/i.test(query) ||
+    /\bnewly uploaded\b/i.test(query)
   );
 }
 
@@ -143,6 +156,7 @@ export function chooseAnswerRoute(args: {
   const documents = documentCount(args.results);
   const directTitleSupport = hasDirectTitleSupport(args.query, args.results);
   const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
+  const topTextRank = Math.max(0, ...args.results.map((result) => result.text_rank ?? 0));
 
   if (args.results.length === 0) {
     return {
@@ -159,6 +173,72 @@ export function chooseAnswerRoute(args: {
       mode: "unsupported",
       model: null,
       reason: "no_plausible_source_support",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    queryClass === "document_lookup" &&
+    hasExplicitDocumentLookupIntent(args.query) &&
+    !directTitleSupport &&
+    topTextRank < 0.08
+  ) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "document_lookup_without_title_support",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+    strongestScore < 0.46 &&
+    topTextRank < 0.02 &&
+    !directTitleSupport
+  ) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "weak_complex_query_support",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  const crossDocumentIntent = routineCrossDocumentPattern.test(args.query) || queryClass === "broad_summary";
+  const actionableConflictOrGap = hasActionableConflictOrGap(args.conflictsOrGaps);
+
+  if (
+    documents > 1 &&
+    (queryClass === "comparison" || comparisonQueryPattern.test(args.query)) &&
+    documents <= 3 &&
+    strongestScore >= 0.72 &&
+    !hasConflictIntent(args.query) &&
+    !actionableConflictOrGap
+  ) {
+    return {
+      mode: "fast",
+      model: args.fastModel,
+      reason: "balanced_multi_document_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    documents > 1 &&
+    crossDocumentIntent &&
+    strongestScore >= strongRetrievalThreshold &&
+    !hasConflictIntent(args.query) &&
+    !actionableConflictOrGap
+  ) {
+    return {
+      mode: "fast",
+      model: args.fastModel,
+      reason: "balanced_multi_document_synthesis",
       strongestScore,
       documentCount: documents,
     };
@@ -210,7 +290,7 @@ export function chooseAnswerRoute(args: {
     };
   }
 
-  if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport) {
+  if (actionableConflictOrGap && !directTitleSupport) {
     return {
       mode: "strong",
       model: args.strongModel,

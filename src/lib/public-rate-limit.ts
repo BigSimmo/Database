@@ -12,9 +12,15 @@ export type PublicRateLimitResult = {
 };
 
 const answerBuckets = new Map<string, RateLimitBucket>();
+const searchBuckets = new Map<string, RateLimitBucket>();
 
 export const publicAnswerRateLimitDefaults = {
   limit: 30,
+  windowMs: 60_000,
+} as const;
+
+export const publicSearchRateLimitDefaults = {
+  limit: 240,
   windowMs: 60_000,
 } as const;
 
@@ -26,15 +32,16 @@ export function publicRateLimitKey(headers: Headers) {
   return realIp || "unknown";
 }
 
-export function consumePublicAnswerRateLimit(
+function consumePublicRateLimit(
+  buckets: Map<string, RateLimitBucket>,
   headers: Headers,
   now = Date.now(),
-  options: { limit?: number; windowMs?: number } = {},
+  options: { limit: number; windowMs: number },
 ): PublicRateLimitResult {
-  const limit = options.limit ?? publicAnswerRateLimitDefaults.limit;
-  const windowMs = options.windowMs ?? publicAnswerRateLimitDefaults.windowMs;
+  const limit = options.limit;
+  const windowMs = options.windowMs;
   const key = publicRateLimitKey(headers);
-  const existing = answerBuckets.get(key);
+  const existing = buckets.get(key);
   const bucket =
     existing && existing.resetAt > now
       ? existing
@@ -44,7 +51,7 @@ export function consumePublicAnswerRateLimit(
         };
 
   bucket.count += 1;
-  answerBuckets.set(key, bucket);
+  buckets.set(key, bucket);
 
   const retryAfterSeconds = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
   const remaining = Math.max(0, limit - bucket.count);
@@ -58,6 +65,32 @@ export function consumePublicAnswerRateLimit(
   };
 }
 
+export function consumePublicAnswerRateLimit(
+  headers: Headers,
+  now = Date.now(),
+  options: { limit?: number; windowMs?: number } = {},
+): PublicRateLimitResult {
+  return consumePublicRateLimit(answerBuckets, headers, now, {
+    limit: options.limit ?? publicAnswerRateLimitDefaults.limit,
+    windowMs: options.windowMs ?? publicAnswerRateLimitDefaults.windowMs,
+  });
+}
+
+export function consumePublicSearchRateLimit(
+  headers: Headers,
+  now = Date.now(),
+  options: { limit?: number; windowMs?: number } = {},
+): PublicRateLimitResult {
+  return consumePublicRateLimit(searchBuckets, headers, now, {
+    limit: options.limit ?? publicSearchRateLimitDefaults.limit,
+    windowMs: options.windowMs ?? publicSearchRateLimitDefaults.windowMs,
+  });
+}
+
 export function resetPublicAnswerRateLimitForTests() {
   answerBuckets.clear();
+}
+
+export function resetPublicSearchRateLimitForTests() {
+  searchBuckets.clear();
 }

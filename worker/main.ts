@@ -567,28 +567,35 @@ function extractionMetrics(
 }
 
 async function loadEnrichmentRows(documentId: string) {
-  const [chunksResult, imagesResult] = await Promise.all([
-    supabase
+  const chunks = [];
+  const images = [];
+
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
       .from("document_chunks")
       .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata")
       .eq("document_id", documentId)
       .order("chunk_index", { ascending: true })
-      .limit(1000),
-    supabase
+      .range(start, start + 999);
+    if (error) throw new Error(error.message);
+    chunks.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
       .from("document_images")
       .select("id,page_number,caption,image_type,labels,source_kind,clinical_relevance_score,metadata")
       .eq("document_id", documentId)
       .eq("searchable", true)
       .order("clinical_relevance_score", { ascending: false })
-      .limit(200),
-  ]);
+      .range(start, start + 999);
+    if (error) throw new Error(error.message);
+    images.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
 
-  if (chunksResult.error) throw new Error(chunksResult.error.message);
-  if (imagesResult.error) throw new Error(imagesResult.error.message);
-  return {
-    chunks: chunksResult.data ?? [],
-    images: imagesResult.data ?? [],
-  };
+  return { chunks, images };
 }
 
 async function processJob(job: JobRow) {

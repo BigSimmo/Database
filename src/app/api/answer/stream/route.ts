@@ -4,6 +4,9 @@ import { isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import { consumePublicAnswerRateLimit, type PublicRateLimitResult } from "@/lib/public-rate-limit";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
+import { classifyRagQuery } from "@/lib/clinical-search";
+import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 
 export const runtime = "nodejs";
 
@@ -78,7 +81,25 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
         try {
           send("progress", { stage: "retrieving", message: "Searching indexed documents." });
           const answer = isDemoMode()
-            ? { ...demoAnswer(body.query, body.documentId, body.documentIds), demoMode: true }
+            ? (() => {
+                const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+                const sources = annotateSearchResults(body.query, demo.sources);
+                const relevance = buildEvidenceRelevance(body.query, sources);
+                return {
+                  ...demo,
+                  sources,
+                  relevance,
+                  smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
+                  smartApiPlan: buildSmartRagApiPlan({
+                    query: body.query,
+                    queryClass: classifyRagQuery(body.query).queryClass,
+                    results: sources,
+                    routeMode: demo.routingMode,
+                    retrievalStrategy: "hybrid",
+                  }),
+                  demoMode: true,
+                };
+              })()
             : await answerQuestionWithScope({
                 query: body.query,
                 documentId: body.documentId,

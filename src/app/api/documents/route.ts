@@ -58,7 +58,10 @@ const SUMMARY_LIST_COLUMNS = [
 ].join(",");
 
 const VALID_STATUSES = new Set(["queued", "processing", "indexed", "failed"]);
-type DocumentListRow = Record<string, unknown> & { id: string };
+const ACTIVE_DOCUMENT_STATUSES = new Set(["queued", "processing"]);
+const ACTIVE_INDEXING_POLL_MS = 5_000;
+
+type DocumentListRow = Record<string, unknown> & { id: string; status?: string | null };
 type LabelListRow = Record<string, unknown> & { document_id: string };
 type SummaryListRow = Record<string, unknown> & { document_id: string };
 
@@ -85,10 +88,34 @@ function safeSearchTerm(value: string) {
     .slice(0, 120);
 }
 
+function indexingState(documents: DocumentListRow[]) {
+  const active = documents.some((document) => ACTIVE_DOCUMENT_STATUSES.has(String(document.status ?? "")));
+  return {
+    active,
+    pollAfterMs: active ? ACTIVE_INDEXING_POLL_MS : null,
+  };
+}
+
+function documentsResponse(payload: Record<string, unknown>, indexing: ReturnType<typeof indexingState>) {
+  return NextResponse.json(
+    {
+      ...payload,
+      indexing,
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        "X-Indexing-Active": String(indexing.active),
+        "X-Poll-After-Ms": String(indexing.pollAfterMs ?? ""),
+      },
+    },
+  );
+}
+
 export async function GET(request: Request) {
   try {
     if (isDemoMode()) {
-      return NextResponse.json({ documents: demoDocuments, demoMode: true });
+      return documentsResponse({ documents: demoDocuments, demoMode: true }, { active: false, pollAfterMs: null });
     }
 
     const url = new URL(request.url);
@@ -120,6 +147,7 @@ export async function GET(request: Request) {
     if (error) throw new Error(error.message);
     const documents = (data ?? []) as unknown as DocumentListRow[];
     const documentIds = documents.map((document) => document.id);
+    const indexing = indexingState(documents);
 
     const pagination = {
       limit,
@@ -130,7 +158,7 @@ export async function GET(request: Request) {
     };
 
     if (documentIds.length === 0 || !includeMeta) {
-      return NextResponse.json({ documents, pagination });
+      return documentsResponse({ documents, pagination }, indexing);
     }
 
     const [labelsResult, summariesResult] = await Promise.all([
@@ -151,14 +179,17 @@ export async function GET(request: Request) {
       ((summariesResult.data ?? []) as unknown as SummaryListRow[]).map((summary) => [summary.document_id, summary]),
     );
 
-    return NextResponse.json({
-      documents: documents.map((document) => ({
-        ...document,
-        labels: labelsByDocument.get(document.id) ?? [],
-        summary: summariesByDocument.get(document.id) ?? null,
-      })),
-      pagination,
-    });
+    return documentsResponse(
+      {
+        documents: documents.map((document) => ({
+          ...document,
+          labels: labelsByDocument.get(document.id) ?? [],
+          summary: summariesByDocument.get(document.id) ?? null,
+        })),
+        pagination,
+      },
+      indexing,
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

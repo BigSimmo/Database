@@ -1,0 +1,132 @@
+import { describe, expect, it } from "vitest";
+import { buildVisualEvidence } from "../src/lib/evidence";
+import {
+  annotateSearchResults,
+  buildEvidenceRelevance,
+  buildSourceRelevance,
+} from "../src/lib/evidence-relevance";
+import type { SearchResult } from "../src/lib/types";
+
+function result(overrides: Partial<SearchResult> = {}): SearchResult {
+  return {
+    id: "chunk-1",
+    document_id: "doc-1",
+    title: "Clinical source",
+    file_name: "source.pdf",
+    page_number: 1,
+    chunk_index: 0,
+    section_heading: "Monitoring",
+    content: "Clozapine monitoring requires FBC, ANC, myocarditis review, metabolic review, and constipation planning.",
+    image_ids: [],
+    similarity: 0.88,
+    hybrid_score: 0.88,
+    source_strength: "strong",
+    images: [],
+    ...overrides,
+  };
+}
+
+describe("evidence relevance", () => {
+  it("classifies weak lithium-style neighboring sources as nearby, not direct", () => {
+    const relevance = buildEvidenceRelevance("What toxicity safety-net symptoms should be reviewed for lithium?", [
+      result({
+        id: "clozapine-neighbor",
+        title: "Clozapine monitoring",
+        content: "Monitor for toxicity symptoms, red flags, and urgent review during clozapine treatment.",
+        similarity: 0.37,
+        hybrid_score: 0.37,
+        text_rank: 0,
+        source_strength: "limited",
+      }),
+    ]);
+
+    expect(relevance.verdict).toBe("nearby");
+    expect(relevance.isSourceBacked).toBe(false);
+    expect(relevance.missingTerms).toContain("lithium");
+  });
+
+  it("classifies strong direct concept coverage as direct", () => {
+    const relevance = buildEvidenceRelevance("clozapine monitoring", [result()]);
+
+    expect(relevance.verdict).toBe("direct");
+    expect(relevance.isSourceBacked).toBe(true);
+    expect(relevance.directSourceCount).toBe(1);
+  });
+
+  it("exposes missing terms for partial support", () => {
+    const relevance = buildEvidenceRelevance("lithium toxicity vomiting dehydration advice", [
+      result({
+        title: "Lithium toxicity",
+        content: "Lithium toxicity symptoms include vomiting and dehydration.",
+        similarity: 0.86,
+        hybrid_score: 0.86,
+      }),
+    ]);
+
+    expect(relevance.verdict).toBe("partial");
+    expect(relevance.isSourceBacked).toBe(true);
+    expect(relevance.missingTerms).toContain("advice");
+  });
+
+  it("adds concise query coverage chips to source results", () => {
+    const [source] = annotateSearchResults("lithium toxicity advice", [
+      result({
+        title: "Lithium toxicity",
+        content: "Lithium toxicity symptoms are described.",
+      }),
+    ]);
+
+    expect(source.relevance?.chips.join(" ")).toContain("matched:");
+    expect(source.relevance?.chips.join(" ")).toContain("missing:");
+  });
+
+  it("prioritizes direct or partial visual evidence above nearby-only images", () => {
+    const direct = result({
+      id: "direct",
+      document_id: "doc-direct",
+      title: "Clozapine monitoring",
+      content: "Clozapine monitoring table.",
+      relevance: buildSourceRelevance("clozapine monitoring", result({ title: "Clozapine monitoring" })),
+      images: [
+        {
+          id: "img-direct",
+          page_number: 1,
+          storage_path: "private/direct.png",
+          caption: "Direct clozapine monitoring table.",
+          searchable: true,
+          image_type: "clinical_table",
+          source_kind: "table_crop",
+          tableRole: "clinical",
+          clinicalUseClass: "clinical_evidence",
+          clinical_relevance_score: 0.1,
+        },
+      ],
+    });
+    const nearby = result({
+      id: "nearby",
+      document_id: "doc-nearby",
+      title: "Generic safety",
+      content: "Safety monitoring table.",
+      relevance: buildSourceRelevance("clozapine monitoring", result({ title: "Generic safety", content: "Safety monitoring table." })),
+      images: [
+        {
+          id: "img-nearby",
+          page_number: 1,
+          storage_path: "private/nearby.png",
+          caption: "Nearby safety monitoring table.",
+          searchable: true,
+          image_type: "clinical_table",
+          source_kind: "table_crop",
+          tableRole: "clinical",
+          clinicalUseClass: "clinical_evidence",
+          clinical_relevance_score: 1,
+        },
+      ],
+    });
+
+    const cards = buildVisualEvidence([nearby, direct], 2);
+
+    expect(cards[0].image_id).toBe("img-direct");
+    expect(cards[1].relevance?.isSourceBacked).toBe(false);
+  });
+});

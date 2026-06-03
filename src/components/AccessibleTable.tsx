@@ -1,6 +1,7 @@
 "use client";
 
 import { cn, textMuted } from "@/components/ui-primitives";
+import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
 
 function parseMarkdownTable(markdown?: string | null) {
   if (!markdown) return null;
@@ -35,10 +36,10 @@ export function AccessibleTable({
   const parsed = rows?.length ? rows : parseMarkdownTable(markdown);
   if (!parsed?.length) return null;
 
-  const header = columns?.length ? columns : parsed[0];
-  const body = columns?.length ? parsed : parsed.slice(1);
-  const columnCount = Math.max(header.length, ...body.map((row) => row.length), 1);
-  const paddedHeader = [...header, ...Array.from({ length: Math.max(0, columnCount - header.length) }, () => "")];
+  const normalized = normalizeAccessibleTable(parsed, columns);
+  if (!normalized) return null;
+
+  const { header, body } = normalized;
   const visibleBody = body.slice(0, compact ? 6 : 20);
 
   return (
@@ -49,23 +50,22 @@ export function AccessibleTable({
         ) : null}
         <thead>
           <tr className="bg-[color:var(--surface-subtle)]">
-            {paddedHeader.map((cell, index) => (
+            {header.map((cell, index) => (
               <th
-                key={`${cell || "column"}:${index}`}
+                key={`${cell}:${index}`}
                 scope="col"
                 className="border-b border-[color:var(--border)] px-3 py-2 align-top text-xs font-semibold text-[color:var(--text)]"
               >
-                {cell || `Column ${index + 1}`}
+                {cell}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {visibleBody.map((row, rowIndex) => {
-            const padded = [...row, ...Array.from({ length: Math.max(0, columnCount - row.length) }, () => "")];
             return (
-              <tr key={`${rowIndex}:${padded.join("|")}`} className="border-t border-[color:var(--border)]/70">
-                {padded.map((cell, cellIndex) => (
+              <tr key={`${rowIndex}:${row.join("|")}`} className="border-t border-[color:var(--border)]/70">
+                {row.map((cell, cellIndex) => (
                   <td key={`${rowIndex}:${cellIndex}`} className="px-3 py-2 align-top leading-5 text-[color:var(--text)]">
                     {cell || <span className={textMuted}>-</span>}
                   </td>

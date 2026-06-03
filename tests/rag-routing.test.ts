@@ -89,6 +89,23 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("high_confidence_source_extractive");
   });
 
+  it("skips generation for document lookups without direct title support", () => {
+    const selected = route("Find the newly uploaded Future Synthetic Ketamine Sedation Protocol.", [
+      source({
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        content: "Ketamine sedation may be discussed in a table row.",
+        similarity: 0.5,
+        hybrid_score: 0.42,
+        text_rank: 0.01,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("document_lookup_without_title_support");
+    expect(selected.model).toBeNull();
+  });
+
   it("uses extractive answers for direct table or threshold lookups with strong source support", () => {
     const selected = route("What ANC threshold should stop clozapine?", [
       source({
@@ -121,12 +138,50 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("multi_document_comparison_synthesis");
   });
 
+  it("uses the fast model for routine balanced multi-document synthesis", () => {
+    const selected = route("Summarize monitoring issues across these documents", [
+      source({ id: "chunk-1", document_id: "doc-1", title: "Lithium" }),
+      source({ id: "chunk-2", document_id: "doc-2", title: "Clozapine" }),
+    ]);
+
+    expect(selected.mode).toBe("fast");
+    expect(selected.model).toBe("fast-model");
+    expect(selected.reason).toBe("balanced_multi_document_synthesis");
+  });
+
+  it("uses fast synthesis for simple two-document comparisons with strong support", () => {
+    const selected = route("Compare admission and discharge requirements", [
+      source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
+      source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
+    ]);
+
+    expect(selected.mode).toBe("fast");
+    expect(selected.reason).toBe("balanced_multi_document_synthesis");
+  });
+
   it("skips generation when retrieval has no plausible support", () => {
     const selected = route("How do I configure an unrelated router?", [
       source({ similarity: 0.18, hybrid_score: 0.2, text_rank: 0 }),
     ]);
 
     expect(selected.mode).toBe("unsupported");
+    expect(selected.model).toBeNull();
+  });
+
+  it("skips generation for weak off-topic medication dose retrieval", () => {
+    const selected = route("What antibiotic dose is recommended for community-acquired pneumonia?", [
+      source({
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        content: "Agitation dose guidance for mental health inpatients.",
+        similarity: 0.35,
+        hybrid_score: 0.36,
+        text_rank: 0,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("weak_complex_query_support");
     expect(selected.model).toBeNull();
   });
 

@@ -74,6 +74,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  not(column: string, _operator: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
   in(column: string, values: unknown[]) {
     this.call.inFilters.push({ column, values });
     return this;
@@ -174,7 +179,11 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
   return client;
 }
 
-function mockRuntime(client: ReturnType<typeof createSupabaseMock>, ragMock?: Record<string, unknown>) {
+function mockRuntime(
+  client: ReturnType<typeof createSupabaseMock>,
+  ragMock?: Record<string, unknown>,
+  options: { localNoAuth?: boolean } = {},
+) {
   vi.resetModules();
   vi.doUnmock("@/lib/rag");
   vi.doUnmock("@/lib/openai");
@@ -192,7 +201,7 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, ragMock?: Re
       RAG_AWAIT_QUERY_LOGS: false,
     },
     isDemoMode: () => false,
-    isLocalNoAuthMode: () => false,
+    isLocalNoAuthMode: () => Boolean(options.localNoAuth),
     requireOpenAIEnv: () => undefined,
     requireServerEnv: () => undefined,
   }));
@@ -206,6 +215,10 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, ragMock?: Re
 
 function request(path: string, init?: RequestInit) {
   return new Request(`http://localhost${path}`, init);
+}
+
+function localPortRequest(port: number, path: string, init?: RequestInit) {
+  return new Request(`http://localhost:${port}${path}`, init);
 }
 
 function authenticatedRequest(path: string, init?: RequestInit) {
@@ -228,6 +241,59 @@ afterEach(() => {
 });
 
 describe("private document API access", () => {
+  it("rejects local no-auth private calls from unmanaged localhost ports before Supabase access", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(localPortRequest(3000, "/api/documents"));
+
+    expect(response.status).toBe(401);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects managed-port private calls with stale localhost referers before Supabase access", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(
+      localPortRequest(4298, "/api/documents", {
+        headers: {
+          referer: "http://localhost:3000/",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("resolves local no-auth owner from documents before listing auth users", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.selected === "owner_id") {
+        return ok({ owner_id: userId });
+      }
+      if (call.table === "documents") {
+        return ok(documents);
+      }
+      return ok([]);
+    });
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(localPortRequest(4298, "/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.calls[0]).toMatchObject({ table: "documents", selected: "owner_id" });
+  });
+
   it("rejects unauthenticated document listing", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);
@@ -392,6 +458,44 @@ describe("private document API access", () => {
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
+  it("assigns a smart unique title when a different document has the same upload name", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) {
+        return ok(null);
+      }
+      if (call.table === "documents" && call.operation === "select") {
+        return ok([{ id: "existing-doc", title: "Guideline", file_name: "guideline.pdf", content_hash: "other-hash" }]);
+      }
+      if (call.table === "documents" && call.operation === "insert") {
+        const inserted = call.insertPayload as { id: string; title: string; metadata: Record<string, unknown> };
+        return ok({ id: inserted.id, title: inserted.title, metadata: inserted.metadata });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        return ok({ id: "job-1", document_id: documentId });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7 revised"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    const documentInsert = client.calls.find((call) => call.table === "documents" && call.operation === "insert");
+    const inserted = documentInsert?.insertPayload as { title: string; metadata: Record<string, unknown> };
+
+    expect(response.status).toBe(201);
+    expect(inserted.title).toBe("Guideline (Copy 2)");
+    expect(inserted.metadata.smart_title_base).toBe("Guideline");
+    expect(inserted.metadata.smart_title_duplicate_reason).toBe("same_title_or_filename");
+    expect(inserted.metadata.smart_title_duplicate_index).toBe(2);
+  });
+
   it("alerts on exact-copy uploads without storing or queueing a duplicate", async () => {
     const duplicate = {
       id: documentId,
@@ -448,8 +552,22 @@ describe("private document API access", () => {
       }
       if (call.table === "document_images") {
         return ok([
-          { document_id: documentId, source_kind: "table_crop", searchable: true, image_type: "clinical_table" },
-          { document_id: documentId, source_kind: "embedded", searchable: true, image_type: "graph" },
+          {
+            document_id: documentId,
+            source_kind: "table_crop",
+            searchable: true,
+            image_type: "clinical_table",
+            clinical_relevance_score: 0.9,
+            metadata: { clinical_use_class: "clinical_evidence" },
+          },
+          {
+            document_id: documentId,
+            source_kind: "embedded",
+            searchable: true,
+            image_type: "graph",
+            clinical_relevance_score: 0.82,
+            metadata: { clinical_use_class: "clinical_evidence" },
+          },
         ]);
       }
       return ok([]);
@@ -947,6 +1065,106 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined }));
   });
 
+  it("rate limits abnormal public search bursts with retry metadata", async () => {
+    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+        weighted_top_score: 0,
+        rrf_top_score: 0,
+      },
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    vi.doMock("@/lib/public-rate-limit", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/public-rate-limit")>(
+        "@/lib/public-rate-limit",
+      );
+      return {
+        ...actual,
+        consumePublicSearchRateLimit: (headers: Headers) =>
+          actual.consumePublicSearchRateLimit(headers, Date.now(), { limit: 2, windowMs: 60_000 }),
+      };
+    });
+    const searchRoute = await import("../src/app/api/search/route");
+    const searchRequest = () =>
+      request("/api/search", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.20" },
+        body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
+      });
+
+    expect((await searchRoute.POST(searchRequest())).status).toBe(200);
+    expect((await searchRoute.POST(searchRequest())).status).toBe(200);
+
+    const limited = await searchRoute.POST(searchRequest());
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
+    expect(await payload(limited)).toEqual({
+      error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
+      retryAfterSeconds: 60,
+    });
+    expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(2);
+  });
+
+  it("coalesces identical in-flight public search requests", async () => {
+    let releaseSearch!: () => void;
+    const searchGate = new Promise<void>((resolve) => {
+      releaseSearch = resolve;
+    });
+    const searchChunksWithTelemetry = vi.fn(async (_args: unknown) => {
+      await searchGate;
+      return {
+        results: [],
+        telemetry: {
+          search_cache_hit: false,
+          text_fast_path_latency_ms: 0,
+          embedding_skipped: true,
+          embedding_latency_ms: 0,
+          embedding_cache_hit: false,
+          supabase_rpc_latency_ms: 0,
+          rerank_latency_ms: 0,
+          retrieval_strategy: "text_fast_path",
+          weighted_top_score: 0,
+          rrf_top_score: 0,
+        },
+      };
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const searchRequest = () =>
+      request("/api/search", {
+        method: "POST",
+        headers: { "x-real-ip": "203.0.113.21" },
+        body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
+      });
+
+    const first = searchRoute.POST(searchRequest());
+    const second = searchRoute.POST(searchRequest());
+    for (let index = 0; index < 10 && searchChunksWithTelemetry.mock.calls.length === 0; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(1);
+
+    releaseSearch();
+    const [firstResponse, secondResponse] = await Promise.all([first, second]);
+    const firstPayload = await payload(firstResponse);
+    const secondPayload = await payload(secondResponse);
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(firstPayload.telemetry).toMatchObject({ coalesced: false });
+    expect(secondPayload.telemetry).toMatchObject({ coalesced: true });
+  });
+
   it("streams answer progress before the final answer without auth", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({ stage: "retrieved", message: "Retrieved 2 candidate sources." });
@@ -1067,6 +1285,31 @@ describe("private document API access", () => {
       expect.objectContaining({
         owner_filter: userId,
         document_filters: [otherDocumentId],
+      }),
+    );
+  });
+
+  it("uses the DB-backed document lookup RPC with owner scope", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateTextResponse: vi.fn(),
+      generateStructuredTextResponse: vi.fn(),
+      generateStructuredTextResult: vi.fn(),
+    }));
+    const { searchChunks } = await import("../src/lib/rag");
+
+    await searchChunks({
+      query: "Find the NOCC document",
+      ownerId: userId,
+    });
+
+    expect(client.rpc).toHaveBeenCalledWith(
+      "match_documents_for_query",
+      expect.objectContaining({
+        owner_filter: userId,
       }),
     );
   });

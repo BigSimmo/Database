@@ -111,6 +111,28 @@ describe("answer evidence ranking", () => {
       ]).topScore,
     ).toBeLessThan(0.45);
   });
+
+  it("does not let agitation title repetition outrank direct dosing evidence", () => {
+    const ranking = rankAnswerEvidence("agitation and arousal dosing in psychiatric patients", [
+      result({
+        id: "title-repeat",
+        title: "Agitation and Arousal Pharmacological Management Guideline",
+        content:
+          "Agitation and Arousal: Pharmacological Management Guideline - Agitation and Arousal pharmacological management for adult mental health inpatients.",
+        hybrid_score: 0.94,
+      }),
+      result({
+        id: "dosing-table",
+        title: "Agitation and Arousal Pharmacological Management Guideline",
+        section_heading: "Medication dose details",
+        content:
+          "Medication options include oral olanzapine or lorazepam, intramuscular medication when oral options are not appropriate, dose escalation limits, and monitoring after administration.",
+        hybrid_score: 0.62,
+      }),
+    ]);
+
+    expect(ranking.rankedResults[0].id).toBe("dosing-table");
+  });
 });
 
 describe("high-yield answer bolding", () => {

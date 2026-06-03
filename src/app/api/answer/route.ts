@@ -5,6 +5,8 @@ import { isDemoMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { consumePublicAnswerRateLimit } from "@/lib/public-rate-limit";
+import { classifyRagQuery } from "@/lib/clinical-search";
+import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 
 export const runtime = "nodejs";
 
@@ -18,8 +20,16 @@ export async function POST(request: Request) {
   try {
     const body = answerSchema.parse(await request.json());
     if (isDemoMode()) {
+      const answer = demoAnswer(body.query, body.documentId, body.documentIds);
       return NextResponse.json({
-        ...demoAnswer(body.query, body.documentId, body.documentIds),
+        ...answer,
+        smartApiPlan: buildSmartRagApiPlan({
+          query: body.query,
+          queryClass: classifyRagQuery(body.query).queryClass,
+          results: answer.sources,
+          routeMode: answer.routingMode,
+          retrievalStrategy: "hybrid",
+        }),
         demoMode: true,
       });
     }

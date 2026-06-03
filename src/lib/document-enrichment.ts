@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import {
+  buildCoveragePromptNote,
+  buildIndexingCoverageProfile,
+  compactPromptChunk,
+  selectCoverageAwarePromptChunks,
+} from "@/lib/indexing-coverage";
 import { generateStructuredTextResponse } from "@/lib/openai";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import type {
@@ -186,29 +192,25 @@ function inferLabels(document: Pick<ClinicalDocument, "title" | "file_name" | "s
   return labels;
 }
 
-function trimChunk(content: string) {
-  return content.replace(/\s+/g, " ").trim().slice(0, 1100);
-}
-
 function buildEnrichmentPrompt(args: {
   document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">;
   chunks: EnrichmentChunk[];
   images: EnrichmentImage[];
 }) {
-  const sourceBlock = args.chunks
-    .slice(0, 18)
+  const selected = selectCoverageAwarePromptChunks(args.chunks);
+  const coverage = buildIndexingCoverageProfile({ chunks: args.chunks, images: args.images });
+  const sourceBlock = selected.chunks
     .map((chunk) => {
       const page = chunk.page_number ? `page ${chunk.page_number}` : "page unavailable";
       return [
         `chunk_id: ${chunk.id}`,
         `${page}; chunk ${chunk.chunk_index}; heading: ${chunk.section_heading ?? "none"}`,
-        trimChunk(chunk.content),
+        compactPromptChunk(chunk.content),
       ].join("\n");
     })
     .join("\n\n---\n\n");
 
   const imageBlock = args.images
-    .slice(0, 12)
     .map((image) => {
       const labels = image.labels?.length ? ` labels=${image.labels.join(", ")}` : "";
       return `image_id: ${image.id}; page ${image.page_number ?? "n/a"}; type=${image.image_type ?? "unclear"};${labels} caption=${image.caption ?? ""}`;
@@ -225,6 +227,8 @@ File: ${args.document.file_name}
 Source path: ${args.document.source_path ?? "unknown"}
 
 Text excerpts:
+${buildCoveragePromptNote({ profile: coverage, selectedChunkIds: selected.chunks.map((chunk) => chunk.id) })}
+
 ${sourceBlock || "No source text available."}
 
 Image evidence:
@@ -243,16 +247,16 @@ function parseGeneratedSummary(raw: string, document: Pick<ClinicalDocument, "ti
     return {
       summary: summary || `- ${document.title}: indexed source text is available for source-backed review.`,
       clinical_specifics: {
-        actions: Array.isArray(specifics.actions) ? specifics.actions.slice(0, 8) : [],
-        thresholds_timing: Array.isArray(specifics.thresholds_timing) ? specifics.thresholds_timing.slice(0, 8) : [],
+        actions: Array.isArray(specifics.actions) ? specifics.actions : [],
+        thresholds_timing: Array.isArray(specifics.thresholds_timing) ? specifics.thresholds_timing : [],
         medication_monitoring: Array.isArray(specifics.medication_monitoring)
-          ? specifics.medication_monitoring.slice(0, 8)
+          ? specifics.medication_monitoring
           : [],
-        risk_escalation: Array.isArray(specifics.risk_escalation) ? specifics.risk_escalation.slice(0, 8) : [],
+        risk_escalation: Array.isArray(specifics.risk_escalation) ? specifics.risk_escalation : [],
         documentation_forms: Array.isArray(specifics.documentation_forms)
-          ? specifics.documentation_forms.slice(0, 8)
+          ? specifics.documentation_forms
           : [],
-        exceptions_gaps: Array.isArray(specifics.exceptions_gaps) ? specifics.exceptions_gaps.slice(0, 8) : [],
+        exceptions_gaps: Array.isArray(specifics.exceptions_gaps) ? specifics.exceptions_gaps : [],
       },
       labels: normalizeGeneratedLabels(parsed.labels),
     } satisfies GeneratedSummary;
@@ -305,8 +309,10 @@ export async function upsertDocumentEnrichment(args: {
     };
   }
 
-  const sourceChunkIds = args.chunks.slice(0, 12).map((chunk) => chunk.id);
-  const sourceImageIds = (args.images ?? []).slice(0, 12).map((image) => image.id);
+  const selectedPromptChunks = selectCoverageAwarePromptChunks(args.chunks);
+  const coverageProfile = buildIndexingCoverageProfile({ chunks: args.chunks, images: args.images ?? [] });
+  const sourceChunkIds = args.chunks.map((chunk) => chunk.id);
+  const sourceImageIds = (args.images ?? []).map((image) => image.id);
   const enrichedAt = new Date().toISOString();
   const generatedMetadata = {
     generated_by: "local-worker",
@@ -314,6 +320,11 @@ export async function upsertDocumentEnrichment(args: {
     rag_indexing_version: ragEnrichmentVersion,
     rag_memory_version: ragEnrichmentVersion,
     enriched_at: enrichedAt,
+  };
+  const coverageMetadata = {
+    coverage_profile: coverageProfile,
+    enrichment_prompt_strategy: selectedPromptChunks.strategy,
+    enrichment_prompt_chunk_ids: selectedPromptChunks.chunks.map((chunk) => chunk.id),
   };
 
   const { data: summary, error: summaryError } = await args.supabase
@@ -327,7 +338,7 @@ export async function upsertDocumentEnrichment(args: {
         source_chunk_ids: sourceChunkIds,
         source_image_ids: sourceImageIds,
         model: env.OPENAI_FAST_ANSWER_MODEL,
-        metadata: { ...generatedMetadata, label_count: enrichment.labels.length },
+        metadata: { ...generatedMetadata, ...coverageMetadata, label_count: enrichment.labels.length },
         generated_at: enrichedAt,
         updated_at: enrichedAt,
       },
@@ -362,6 +373,7 @@ export async function upsertDocumentEnrichment(args: {
         rag_memory_version: ragEnrichmentVersion,
         rag_enrichment_updated_at: enrichedAt,
         generated_label_count: enrichment.labels.length,
+        ...coverageMetadata,
       },
     })
     .eq("id", args.document.id);

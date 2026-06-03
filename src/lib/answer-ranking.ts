@@ -1,5 +1,6 @@
-import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import { classifyRagQuery, hasDoseEvidenceSupport, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 const answerRankStrategy = "query_focused_answer_evidence_v1";
@@ -72,7 +73,7 @@ function resultTexts(result: SearchResult) {
   const metadataText = `${labels} ${result.document_summary ?? ""}`;
   const titleText = `${result.title} ${result.file_name}`;
   const sectionText = result.section_heading ?? "";
-  const contentText = `${result.content} ${imageEvidenceText(result)}`;
+  const contentText = `${sourceTextForModel(result.content)} ${imageEvidenceText(result)}`;
   return {
     title: normalizeText(titleText),
     section: normalizeText(sectionText),
@@ -128,11 +129,11 @@ function classSignalScore(queryClass: RagQueryClass, result: SearchResult, combi
     );
   }
   if (queryClass === "medication_dose_risk") {
-    return /\b(?:dose|dosage|mg|mcg|route|oral|intramuscular|medication|antipsychotic|benzodiazepine|risk|toxicity|side effect|monitor)\b/i.test(
-      combinedText,
-    )
-      ? 0.14
-      : 0;
+    return hasDoseEvidenceSupport(result)
+      ? 0.2
+      : /\b(?:risk|toxicity|side effect|monitor)\b/i.test(combinedText)
+        ? 0.06
+        : 0;
   }
   if (queryClass === "document_lookup") {
     return /\b(?:document|guideline|procedure|protocol|form|section|appendix)\b/i.test(combinedText) ? 0.08 : 0;
@@ -174,6 +175,34 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
   const weakOverlapPenalty = combinedCoverage < 0.2 ? -0.18 : combinedCoverage < 0.34 ? -0.07 : 0;
   const adjacentOnlyPenalty = contentCoverage < 0.16 && adjacentCoverage > contentCoverage ? -0.08 : 0;
   const boilerplatePenalty = answerBoilerplatePattern.test(result.content) && contentCoverage < 0.35 ? -0.08 : 0;
+  const coreConceptTokens = tokens.filter(
+    (token) =>
+      ![
+        "dose",
+        "dosing",
+        "dosage",
+        "medication",
+        "medicine",
+        "route",
+        "oral",
+        "intramuscular",
+        "monitor",
+        "monitoring",
+        "risk",
+      ].includes(token),
+  );
+  const missingCoreConceptPenalty =
+    queryClass === "medication_dose_risk" &&
+    coreConceptTokens.length > 0 &&
+    !coreConceptTokens.some((token) => texts.combined.includes(token))
+      ? -0.22
+      : 0;
+  const titleOnlyDosePenalty =
+    queryClass === "medication_dose_risk" &&
+    titleCoverage >= 0.4 &&
+    !hasDoseEvidenceSupport(result)
+      ? -0.18
+      : 0;
 
   return clampScore(
     base +
@@ -183,7 +212,9 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
       sourceQualityScore(result) +
       weakOverlapPenalty +
       adjacentOnlyPenalty +
-      boilerplatePenalty,
+      boilerplatePenalty +
+      titleOnlyDosePenalty +
+      missingCoreConceptPenalty,
   );
 }
 

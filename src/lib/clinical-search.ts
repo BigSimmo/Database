@@ -1,5 +1,5 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
-import type { RagQueryClass, SearchResult } from "@/lib/types";
+import type { RagQueryClass, SearchResult, SearchScoreExplanation } from "@/lib/types";
 
 type SearchIntent = "definition" | "protocol" | "drug_dosing" | "escalation_risk" | "document_lookup" | "general";
 
@@ -21,12 +21,20 @@ export const intentSignalWords = {
   dosing: [
     "dose",
     "dosage",
+    "dosing",
     "titrate",
     "titration",
     "mg",
     "mcg",
     "frequency",
     "route",
+    "oral",
+    "intramuscular",
+    "im",
+    "po",
+    "prn",
+    "administer",
+    "administration",
     "tablet",
     "start",
     "increase",
@@ -45,6 +53,18 @@ const textSearchStopWords = new Set([
   "where",
   "which",
   "how",
+  "please",
+  "can",
+  "you",
+  "me",
+  "about",
+  "find",
+  "search",
+  "look",
+  "lookup",
+  "now",
+  "today",
+  "exactly",
   "the",
   "and",
   "with",
@@ -85,6 +105,9 @@ const textSearchStopWords = new Set([
   "patients",
   "pts",
   "clinical",
+  "psychiatric",
+  "mental",
+  "health",
 ]);
 
 const synonymGroups = [
@@ -92,7 +115,7 @@ const synonymGroups = [
   ["contraindication", "avoid", "do not use", "caution", "exclusion"],
   ["escalation", "urgent", "senior review", "specialist review", "red flag"],
   ["adverse effect", "side effect", "toxicity", "safety-net", "warning"],
-  ["dose", "dose limit", "maximum dose", "frequency", "route"],
+  ["dose", "dosing", "dose limit", "maximum dose", "frequency", "route", "oral", "intramuscular", "IM", "PRN"],
 ];
 
 const intentPatterns: Array<{
@@ -115,7 +138,7 @@ const intentPatterns: Array<{
   },
   {
     intent: "drug_dosing",
-    pattern: /dose|dosage|titrate|mg|mcg|frequency|route|oral|intramuscular|table|chart|monitor/i,
+    pattern: /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer|table|chart|monitor/i,
     imageEvidenceFocus: true,
     sectionedLookup: false,
   },
@@ -133,11 +156,11 @@ const intentPatterns: Array<{
   },
 ];
 
-const comparisonPattern = /\b(compare|compared|versus|vs|between|across|difference\w*|conflict\w*)\b/i;
+const comparisonPattern = /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b/i;
 const tableThresholdPattern =
   /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b/i;
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|mg|mcg|titrate|route|clozapine|lithium|neuroleptic|antipsychotic|injectable|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectable|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
 const documentLookupPattern =
   /\b(search|lookup|find|where|which document|documents?|document title|document id|file|pdf|page|section|guideline|procedure|protocol|form)\b/i;
 const broadSummaryPattern = /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b/i;
@@ -200,6 +223,18 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
   const lookup = new Set(haystack);
   const hits = tokens.filter((token) => lookup.has(token)).length;
   return Math.min(0.1, hits * 0.028);
+}
+
+export function hasDoseEvidenceSupport(result: SearchResult) {
+  const haystack =
+    `${result.section_heading ?? ""} ${result.content} ${(result.memory_cards ?? [])
+      .map((card) => `${card.title} ${card.content}`)
+      .join(" ")} ${(result.images ?? [])
+      .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
+      .join(" ")}`.toLowerCase();
+  return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
+    haystack,
+  );
 }
 
 function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string | null) {
@@ -393,7 +428,11 @@ export function expandClinicalQuery(query: string) {
   return `${query} ${Array.from(additions).join(" ")}`;
 }
 
-export function clinicalRankScore(query: string, result: SearchResult) {
+function roundScore(value: number) {
+  return Number(value.toFixed(4));
+}
+
+export function clinicalRankExplanation(query: string, result: SearchResult): SearchScoreExplanation {
   const queryTokens = tokens(query);
   const querySignal = classifyQueryIntent(query);
   const queryClass = classifyRagQuery(query).queryClass;
@@ -440,10 +479,24 @@ export function clinicalRankScore(query: string, result: SearchResult) {
   const extractionBoost = extractionQualityScore(result);
   const dosingBoost =
     querySignal.hasDosingSignals &&
-    /(dose|dose|dosage|mg|mcg|increase|decrease|route|frequency|medication|start|taper)/i.test(
-      `${result.section_heading ?? ""} ${haystack}`,
+    hasDoseEvidenceSupport(result)
+      ? 0.09
+      : 0;
+  const titleOnlyDosePenalty =
+    queryClass === "medication_dose_risk" &&
+    titleCoverageBoost >= 0.09 &&
+    !hasDoseEvidenceSupport(result)
+      ? -0.42
+      : 0;
+  const administrativeDoseQueryPenalty =
+    queryClass === "medication_dose_risk" &&
+    /\b(?:supporting information|relevant standards|references|document owner|review|authorisation|authorised by|published date|effective from|amendment)\b/i.test(
+      result.content,
+    ) &&
+    !/\b(?:mg|mcg|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|maximum dose|repeat(?:ing)? doses?|dose may be repeated|monitoring:)\b/i.test(
+      result.content,
     )
-      ? 0.05
+      ? -0.3
       : 0;
   const protocolBoost =
     querySignal.intent === "protocol" && /(protocol|process|procedure|workflow|pathway|algorithm)/i.test(haystack)
@@ -456,6 +509,28 @@ export function clinicalRankScore(query: string, result: SearchResult) {
   const definitionBoost =
     querySignal.intent === "definition" && /(definition|meaning|term|describe|what is)/i.test(haystack) ? 0.05 : 0;
   const evidenceBoost = evidenceDensityBoost(result, normalizedTokens);
+  const coreConceptTokens = normalizedTokens.filter(
+    (token) =>
+      ![
+        "dose",
+        "dosing",
+        "dosage",
+        "medication",
+        "medicine",
+        "route",
+        "oral",
+        "intramuscular",
+        "monitor",
+        "monitoring",
+        "risk",
+      ].includes(token),
+  );
+  const coreConceptPenalty =
+    queryClass === "medication_dose_risk" &&
+    coreConceptTokens.length > 0 &&
+    !coreConceptTokens.some((token) => haystack.includes(token))
+      ? -0.36
+      : 0;
   const sectionDepth = sectionDepthSignal(querySignal, result.section_heading);
   const metadataBoost = documentMetadataBoost(query, result, normalizedTokens);
   const tableThresholdBoost =
@@ -471,16 +546,11 @@ export function clinicalRankScore(query: string, result: SearchResult) {
     return 0;
   })();
 
-  return (
-    clamp(base) +
-    exactTitleBoost +
-    titleCoverageBoost +
-    titlePhraseBoost +
+  const titleBoost = exactTitleBoost + titleCoverageBoost + titlePhraseBoost;
+  const metadataSignals =
+    statusBoost + validationBoost + freshnessBoost + reviewBoost + extractionBoost + metadataBoost + routeSignal;
+  const clinicalSignalBoost =
     safetyContentBoost +
-    statusBoost +
-    validationBoost +
-    freshnessBoost +
-    reviewBoost +
     imageBoost +
     sectionBoost +
     sectionedLookupBoost +
@@ -488,14 +558,30 @@ export function clinicalRankScore(query: string, result: SearchResult) {
     protocolBoost +
     escalationBoost +
     definitionBoost +
-    extractionBoost +
     evidenceBoost +
-    metadataBoost +
     tableThresholdBoost +
     comparisonCoverageBoost +
-    sectionDepth +
-    routeSignal
-  );
+    sectionDepth;
+  const penalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
+  const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + penalty;
+
+  return {
+    vectorScore: roundScore(clamp(result.similarity)),
+    textRank: roundScore(result.text_rank ?? 0),
+    weightedHybridScore: roundScore(clamp(base)),
+    rrfScore: typeof result.rrf_score === "number" ? roundScore(result.rrf_score) : null,
+    memoryBoost: roundScore(result.memory_score ? Math.min(0.24, result.memory_score * 0.24) : 0),
+    titleBoost: roundScore(titleBoost),
+    metadataBoost: roundScore(metadataSignals),
+    clinicalSignalBoost: roundScore(clinicalSignalBoost),
+    penalty: roundScore(penalty),
+    finalScore: roundScore(finalScore),
+    strategy: "weighted_hybrid_served_rrf_telemetry",
+  };
+}
+
+export function clinicalRankScore(query: string, result: SearchResult) {
+  return clinicalRankExplanation(query, result).finalScore;
 }
 
 export function rankClinicalResults(query: string, results: SearchResult[]) {
@@ -503,15 +589,28 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
   const wantsImageEvidence = hasImageEvidenceNeed(query) || intent.imageEvidenceFocus;
   const ranked = [...results]
     .map((result) => {
-      const score = clinicalRankScore(query, result);
+      const explanation = clinicalRankExplanation(query, result);
       const hasImageEvidence = (result.images ?? []).some((image) => isClinicalImageEvidence(image));
+      const imageEvidencePenalty = wantsImageEvidence && !hasImageEvidence ? -0.04 : 0;
+      const score = explanation.finalScore + imageEvidencePenalty;
       return {
         result,
-        score: score + (wantsImageEvidence && !hasImageEvidence ? -0.04 : 0),
+        explanation: {
+          ...explanation,
+          penalty: roundScore(explanation.penalty + imageEvidencePenalty),
+          finalScore: roundScore(score),
+        },
+        score,
       };
     })
     .sort((a, b) => b.score - a.score)
-    .map((entry) => entry.result);
+    .map((entry, index) => ({
+      ...entry.result,
+      score_explanation: {
+        ...entry.explanation,
+        finalRank: index + 1,
+      },
+    }));
 
   return ranked;
 }

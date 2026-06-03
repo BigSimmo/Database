@@ -14,7 +14,7 @@ vi.mock("@/lib/openai", () => ({
   generateStructuredTextResponse: mocks.generateStructuredTextResponse,
 }));
 
-import { ragEnrichmentVersion, upsertDocumentEnrichment } from "@/lib/document-enrichment";
+import { generateDocumentEnrichment, ragEnrichmentVersion, upsertDocumentEnrichment } from "@/lib/document-enrichment";
 
 type QueryResult = { data: unknown; error: { message: string } | null };
 type QueryCall = {
@@ -150,6 +150,7 @@ describe("document enrichment", () => {
       generated_by: "local-worker",
       rag_enrichment_version: ragEnrichmentVersion,
       label_count: expect.any(Number),
+      coverage_profile: expect.objectContaining({ chunk_count: 1 }),
     });
     expect(labelsInsert?.payload).toEqual(
       expect.arrayContaining([
@@ -164,7 +165,34 @@ describe("document enrichment", () => {
       existing: true,
       rag_enrichment_version: ragEnrichmentVersion,
       generated_label_count: expect.any(Number),
+      coverage_profile: expect.objectContaining({ chunk_count: 1 }),
     });
     expect(documentUpdate?.filters).toContainEqual({ column: "id", value: "doc-future" });
+  });
+
+  it("uses coverage-aware source excerpts instead of only the first chunks for large documents", async () => {
+    await generateDocumentEnrichment({
+      document: {
+        title: "Large Clozapine Protocol",
+        file_name: "large-clozapine.pdf",
+        source_path: null,
+      },
+      chunks: Array.from({ length: 60 }, (_, index) => ({
+        id: `chunk-${index}`,
+        page_number: index + 1,
+        chunk_index: index,
+        section_heading: index % 10 === 0 ? `Section ${index}` : null,
+        content:
+          index === 52
+            ? "If ANC is < 1.5, stop clozapine and seek urgent specialist review."
+            : `Routine source content ${index}.`,
+      })),
+      images: [],
+    });
+
+    const prompt = String(mocks.generateStructuredTextResponse.mock.calls.at(-1)?.[0] ?? "");
+    expect(prompt).toContain("Coverage: 60 indexed chunks");
+    expect(prompt).toContain("chunk_id: chunk-52");
+    expect(prompt).toContain("remain indexed and retrievable");
   });
 });

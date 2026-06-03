@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { embedTexts } from "@/lib/openai";
+import { sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
   ClinicalDocument,
   DocumentMemoryCard,
@@ -58,10 +59,7 @@ function metadataRecord(metadata: unknown): Record<string, unknown> {
 }
 
 function compactText(value: string | null | undefined, limit = 420) {
-  const clean = String(value ?? "")
-    .replace(/\[\[IMAGE_DATA_START\]\]|\[\[IMAGE_DATA_END\]\]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const clean = sourceTextForModel(String(value ?? ""));
   if (!clean) return "";
   return clean.length <= limit ? clean : `${clean.slice(0, limit - 3).trim()}...`;
 }
@@ -178,7 +176,7 @@ function imageTextForCards(images: MemoryImage[]) {
 }
 
 function splitCandidateStatements(text: string) {
-  const withoutImageBlocks = text.replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, " ");
+  const withoutImageBlocks = sourceTextForDisplay(text);
   return withoutImageBlocks
     .split(/\r?\n|(?<=[.!?])\s+/)
     .map((line) => compactText(line, 360))
@@ -394,9 +392,7 @@ export function buildDocumentMemoryCards(args: {
     );
   }
 
-  return dedupeCards(cards)
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 120);
+  return dedupeCards(cards).sort((a, b) => b.confidence - a.confidence);
 }
 
 function embeddingText(card: BuiltMemoryCard) {
@@ -478,14 +474,53 @@ function scoreMemoryCardForQuery(query: string, card: Pick<DocumentMemoryCard, "
   return Math.min(1, coverage * 0.62 + (card.confidence ?? 0.5) * 0.2 + classBoost);
 }
 
+function memoryCardRetrievalScore(card: DocumentMemoryCard) {
+  const hybridScore = Number(card.metadata?.memory_hybrid_score);
+  if (Number.isFinite(hybridScore) && hybridScore > 0) return Math.min(1, hybridScore);
+  return Math.min(1, card.confidence ?? 0.5);
+}
+
 export async function fetchMemoryCardsForQuery(args: {
   supabase: SupabaseClient;
   query: string;
+  queryEmbedding?: number[];
   ownerId?: string;
   documentIds?: string[];
   matchCount?: number;
 }) {
   try {
+    if (args.queryEmbedding?.length) {
+      const { data, error } = await args.supabase.rpc("match_document_memory_cards_hybrid", {
+        query_embedding: args.queryEmbedding,
+        query_text: buildClinicalTextSearchQuery(args.query),
+        match_count: args.matchCount ?? 32,
+        min_similarity: 0.1,
+        document_filters: args.documentIds?.length ? args.documentIds : null,
+        owner_filter: args.ownerId ?? null,
+      });
+
+      if (!error && data?.length) {
+        return ((data ?? []) as Array<DocumentMemoryCard & {
+          similarity?: number;
+          text_rank?: number;
+          hybrid_score?: number;
+          rrf_score?: number;
+        }>)
+          .map((card) => ({
+            ...card,
+            confidence: Number(card.confidence ?? 0.5),
+            metadata: {
+              ...(card.metadata ?? {}),
+              memory_similarity: card.similarity,
+              memory_text_rank: card.text_rank,
+              memory_hybrid_score: card.hybrid_score,
+              memory_rrf_score: card.rrf_score,
+            },
+          }))
+          .slice(0, args.matchCount ?? 32);
+      }
+    }
+
     let queryBuilder = args.supabase
       .from("document_memory_cards")
       .select(
@@ -522,14 +557,20 @@ export function applyMemoryCardBoosts(query: string, results: SearchResult[], ca
   return results.map((result) => {
     const relatedCards = cardsByChunk.get(result.id) ?? [];
     if (relatedCards.length === 0) return result;
-    const memoryScore = Math.max(...relatedCards.map((card) => scoreMemoryCardForQuery(query, card)));
+    const memoryScore = Math.max(
+      ...relatedCards.map((card) => Math.max(scoreMemoryCardForQuery(query, card), memoryCardRetrievalScore(card))),
+    );
     const base = result.hybrid_score ?? result.similarity;
     return {
       ...result,
       hybrid_score: Math.min(0.99, base + Math.min(0.24, memoryScore * 0.24)),
       memory_score: Number(memoryScore.toFixed(4)),
       memory_cards: relatedCards
-        .sort((a, b) => scoreMemoryCardForQuery(query, b) - scoreMemoryCardForQuery(query, a))
+        .sort(
+          (a, b) =>
+            Math.max(scoreMemoryCardForQuery(query, b), memoryCardRetrievalScore(b)) -
+            Math.max(scoreMemoryCardForQuery(query, a), memoryCardRetrievalScore(a)),
+        )
         .slice(0, 4),
     };
   });
