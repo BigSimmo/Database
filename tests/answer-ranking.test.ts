@@ -107,7 +107,11 @@ describe("answer evidence ranking", () => {
 
     expect(
       rankAnswerEvidence("What is the diabetic ketoacidosis insulin protocol?", [
-        result({ id: "nearby", content: "Long acting injectable antipsychotic appointment process.", hybrid_score: 0.33 }),
+        result({
+          id: "nearby",
+          content: "Long acting injectable antipsychotic appointment process.",
+          hybrid_score: 0.33,
+        }),
       ]).topScore,
     ).toBeLessThan(0.45);
   });

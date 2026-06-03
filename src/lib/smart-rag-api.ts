@@ -97,7 +97,8 @@ function responseMode(
   if (args.routeMode === "strong") return "strong_synthesis";
   if (
     args.queryClass === "comparison" ||
-    (uniqueDocumentCount(args.results) > 1 && (args.queryClass === "broad_summary" || crossDocumentPattern.test(args.query)))
+    (uniqueDocumentCount(args.results) > 1 &&
+      (args.queryClass === "broad_summary" || crossDocumentPattern.test(args.query)))
   ) {
     return "multi_document_synthesis";
   }
@@ -110,7 +111,11 @@ function latencyPlan(
 ): SmartRagApiPlan["latencyPlan"] {
   if (mode === "unsupported") return "no_supported_answer";
   if (mode === "strong_synthesis") return "strong_generation";
-  if (retrievalStrategy === "search_cache" || retrievalStrategy === "text_fast_path" || retrievalStrategy === "document_lookup_fast_path") {
+  if (
+    retrievalStrategy === "search_cache" ||
+    retrievalStrategy === "text_fast_path" ||
+    retrievalStrategy === "document_lookup_fast_path"
+  ) {
     return "cache_or_text_first";
   }
   return "balanced_hybrid";
@@ -122,22 +127,33 @@ function answerFocus(args: {
   documentCount: number;
   linkCount: number;
 }) {
-  if (args.mode === "unsupported" || args.linkCount === 0) return "Report that the indexed sources do not support a reliable answer.";
-  if (args.mode === "document_lookup") return "Open with the best matching document and page, then show the strongest source link.";
+  if (args.mode === "unsupported" || args.linkCount === 0)
+    return "Report that the indexed sources do not support a reliable answer.";
+  if (args.mode === "document_lookup")
+    return "Open with the best matching document and page, then show the strongest source link.";
   if (args.mode === "multi_document_synthesis") {
     return `Merge overlapping guidance across ${args.documentCount} documents, cite the strongest links, and call out conflicts or gaps only when supported.`;
   }
-  if (args.queryClass === "table_threshold") return "Lead with the exact threshold, table row, or monitoring rule and cite the source section.";
-  if (args.queryClass === "medication_dose_risk") return "Lead with medication, dose, monitoring, escalation, and risk details that directly answer the question.";
-  if (args.queryClass === "broad_summary") return "Give a concise source-backed summary and avoid tangential background.";
+  if (args.queryClass === "table_threshold")
+    return "Lead with the exact threshold, table row, or monitoring rule and cite the source section.";
+  if (args.queryClass === "medication_dose_risk")
+    return "Lead with medication, dose, monitoring, escalation, and risk details that directly answer the question.";
+  if (args.queryClass === "broad_summary")
+    return "Give a concise source-backed summary and avoid tangential background.";
   return "Answer directly using the highest-ranked source links.";
 }
 
 function streamPlan(mode: SmartRagApiPlan["responseMode"], retrievalStrategy: SmartRagApiPlan["retrievalStrategy"]) {
-  if (mode === "unsupported") return ["Search indexed sources", "Report unsupported evidence", "Show nearby source links if available"];
+  if (mode === "unsupported")
+    return ["Search indexed sources", "Report unsupported evidence", "Show nearby source links if available"];
   if (mode === "document_lookup") return ["Match document metadata", "Rank matching pages", "Return document links"];
   if (mode === "multi_document_synthesis") {
-    return ["Classify query intent", "Balance sources across documents", "Fuse strongest points", "Generate cited answer"];
+    return [
+      "Classify query intent",
+      "Balance sources across documents",
+      "Fuse strongest points",
+      "Generate cited answer",
+    ];
   }
   if (retrievalStrategy === "text_fast_path" || retrievalStrategy === "search_cache") {
     return ["Use fast retrieval", "Rank source evidence", "Return cited answer"];

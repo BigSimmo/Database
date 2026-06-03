@@ -54,7 +54,10 @@ describe("indexing coverage", () => {
   });
 
   it("makes prompt truncation explicit as excerpt selection, not lost indexing", () => {
-    const profile = buildIndexingCoverageProfile({ pageCount: 20, chunks: Array.from({ length: 20 }, (_, index) => chunk(index + 1)) });
+    const profile = buildIndexingCoverageProfile({
+      pageCount: 20,
+      chunks: Array.from({ length: 20 }, (_, index) => chunk(index + 1)),
+    });
     const note = buildCoveragePromptNote({
       profile,
       selectedChunkIds: ["chunk-1", "chunk-10", "chunk-20"],

@@ -160,7 +160,8 @@ async function main() {
     throw new Error("Provide --owner-id, set LOCAL_NO_AUTH_OWNER_ID, or provide --owner-email for a new import batch.");
   }
 
-  const requestedOwnerId = configuredOwnerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const requestedOwnerId =
+    configuredOwnerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
   const batch = await loadOrCreateBatch({
     supabase,
     ownerId: requestedOwnerId,

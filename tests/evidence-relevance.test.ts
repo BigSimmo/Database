@@ -129,7 +129,10 @@ describe("evidence relevance", () => {
       document_id: "doc-nearby",
       title: "Generic safety",
       content: "Safety monitoring table.",
-      relevance: buildSourceRelevance("clozapine monitoring", result({ title: "Generic safety", content: "Safety monitoring table." })),
+      relevance: buildSourceRelevance(
+        "clozapine monitoring",
+        result({ title: "Generic safety", content: "Safety monitoring table." }),
+      ),
       images: [
         {
           id: "img-nearby",

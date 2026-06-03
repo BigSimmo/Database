@@ -87,7 +87,9 @@ function readableImageBlockForViewer(block: string) {
   const description = extractImageBlockField(block, "Description");
   const caption = extractImageBlockField(block, "Caption");
   const tableText = extractImageBlockField(block, "Table text");
-  const intro = compactWhitespace([title || label ? `Clinical table: ${title || label}` : "", description || caption].filter(Boolean).join(". "));
+  const intro = compactWhitespace(
+    [title || label ? `Clinical table: ${title || label}` : "", description || caption].filter(Boolean).join(". "),
+  );
   const table = readableTableRows(tableText);
 
   return readableWhitespace([intro, table].filter(Boolean).join("\n\n"));

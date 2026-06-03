@@ -125,8 +125,7 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
     if (!text) continue;
     if (answer.relevance) {
       const sourceBacked = candidate.source?.relevance?.isSourceBacked;
-      const moderateOrStrong =
-        candidate.sourceStrength === "strong" || candidate.sourceStrength === "moderate";
+      const moderateOrStrong = candidate.sourceStrength === "strong" || candidate.sourceStrength === "moderate";
       const overlapsQuery = hasQueryConceptOverlap(text, coreTerms);
       if (!sourceBacked && !(moderateOrStrong && overlapsQuery)) continue;
     }

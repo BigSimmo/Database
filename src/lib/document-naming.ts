@@ -1,7 +1,10 @@
 export type SupabaseLike = {
   from: (table: string) => {
     select: (columns?: string) => {
-      eq: (column: string, value: unknown) => {
+      eq: (
+        column: string,
+        value: unknown,
+      ) => {
         limit: (count: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
       };
     };
@@ -58,9 +61,7 @@ function stripExtension(fileName: string) {
 }
 
 function splitCamelCase(value: string) {
-  return value
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+  return value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
 }
 
 function cleanTitleInput(value: string) {
@@ -97,10 +98,7 @@ export function smartDocumentTitle(input: string) {
     .split(/(\s+-\s+|[()[\]&+,.:-])/)
     .map((part) => {
       if (!part.trim() || /^[()[\]&+,.:-]$/.test(part) || /^\s+-\s+$/.test(part)) return part;
-      return part
-        .split(/\s+/)
-        .map(smartenWord)
-        .join(" ");
+      return part.split(/\s+/).map(smartenWord).join(" ");
     })
     .join("")
     .replace(/\s+/g, " ")
@@ -147,7 +145,12 @@ function duplicateSuffixFromFileName(fileName: string) {
   return null;
 }
 
-function uniqueTitle(baseTitle: string, existingTitles: Set<string>, preferredSuffix: string | null, duplicateIndex: number) {
+function uniqueTitle(
+  baseTitle: string,
+  existingTitles: Set<string>,
+  preferredSuffix: string | null,
+  duplicateIndex: number,
+) {
   const preferred = preferredSuffix ? `${baseTitle} (${preferredSuffix})` : `${baseTitle} (Copy ${duplicateIndex})`;
   if (!existingTitles.has(exactTitleKey(preferred))) return preferred;
 

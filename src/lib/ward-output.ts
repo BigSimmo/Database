@@ -172,12 +172,16 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
   sections.push({
     id: "action",
     title: "Action",
-    items: actions.length ? actions : ["Use the source-backed answer as the starting action and verify citations first."],
+    items: actions.length
+      ? actions
+      : ["Use the source-backed answer as the starting action and verify citations first."],
   });
   sections.push({
     id: "monitoring",
     title: "Monitoring",
-    items: monitoring.length ? monitoring : ["No explicit monitoring schedule was extracted from the answer or quotes."],
+    items: monitoring.length
+      ? monitoring
+      : ["No explicit monitoring schedule was extracted from the answer or quotes."],
   });
   sections.push({
     id: "thresholds",

@@ -228,9 +228,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
     : looksLikeTableText(image.tableTextSnippet)
       ? image.tableTextSnippet
       : null;
-  const hasStructuredTable = Boolean(
-    tableMarkdown || image.tableRows?.length || image.tableColumns?.length,
-  );
+  const hasStructuredTable = Boolean(tableMarkdown || image.tableRows?.length || image.tableColumns?.length);
   const displayLabels = smartEvidenceTags(
     image.labels,
     [tableHeading, image.caption, image.tableTextSnippet].filter(Boolean).join(" "),
@@ -391,9 +389,7 @@ function PinnedSourceEvidence({
           {compact && isLong ? (
             <button
               type="button"
-              onClick={() =>
-                setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))
-              }
+              onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
               className={cn(secondaryButton, "mt-3 min-h-9 px-3 text-xs")}
               data-testid="toggle-full-passage"
             >
@@ -469,23 +465,13 @@ function IndexedSourceText({
         }
 
         if (block.type === "table") {
-          return (
-            <AccessibleTable
-              key={block.id}
-              caption={block.caption}
-              rows={block.rows}
-              compact={compact}
-            />
-          );
+          return <AccessibleTable key={block.id} caption={block.caption} rows={block.rows} compact={compact} />;
         }
 
         return (
           <p
             key={block.id}
-            className={cn(
-              "text-[15px] leading-7 text-[color:var(--text-muted)]",
-              compact && "text-sm leading-6",
-            )}
+            className={cn("text-[15px] leading-7 text-[color:var(--text-muted)]", compact && "text-sm leading-6")}
           >
             {block.text}
           </p>
@@ -1288,7 +1274,11 @@ export function DocumentViewer({
         {(summary || summaryError) && (
           <div className="min-w-0 space-y-3 lg:col-span-2">
             {summary && (
-              <section ref={generatedSummaryRef} data-testid="generated-clinical-summary" className={cn(panel, "p-4 source-print")}>
+              <section
+                ref={generatedSummaryRef}
+                data-testid="generated-clinical-summary"
+                className={cn(panel, "p-4 source-print")}
+              >
                 <PanelHeading
                   icon={Sparkles}
                   title="Clinical summary"
@@ -1517,7 +1507,6 @@ export function DocumentViewer({
               ) : null}
             </div>
           </section>
-
         </aside>
       </section>
     </main>

@@ -130,13 +130,21 @@ function inferPresentation(label: string | null, text: string): AnswerLinePresen
   if (/\b(?:gap|insufficient|unsupported|not contain|not enough|unclear|missing)\b/.test(combined)) {
     return { tone: "gap", symbol: "?", label: label ?? "Source gap" };
   }
-  if (/\b(?:risk|escalat|urgent|immediate|red flag|cease|withhold|stop|contraindicat|avoid|emergency)\b/.test(combined)) {
+  if (
+    /\b(?:risk|escalat|urgent|immediate|red flag|cease|withhold|stop|contraindicat|avoid|emergency)\b/.test(combined)
+  ) {
     return { tone: "risk", symbol: "!", label: label ?? "Risk" };
   }
-  if (/\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|anc|fbc|wbc|blood test|threshold|level)\b/.test(combined)) {
+  if (
+    /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|anc|fbc|wbc|blood test|threshold|level)\b/.test(combined)
+  ) {
     return { tone: "monitoring", symbol: "⏱", label: label ?? "Monitoring" };
   }
-  if (/\b(?:dose|mg|mcg|route|oral|intramuscular|im\b|po\b|clozapine|lithium|lorazepam|haloperidol|olanzapine|medication)\b/.test(combined)) {
+  if (
+    /\b(?:dose|mg|mcg|route|oral|intramuscular|im\b|po\b|clozapine|lithium|lorazepam|haloperidol|olanzapine|medication)\b/.test(
+      combined,
+    )
+  ) {
     return { tone: "medication", symbol: "Rx", label: label ?? "Medication" };
   }
   if (/\b(?:document|form|record|audit|consent|register|file|note)\b/.test(combined)) {

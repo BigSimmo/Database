@@ -95,14 +95,7 @@ const referencePatterns = [
 ];
 
 function combinedText(input: ImageUseAssessmentInput) {
-  return [
-    input.tableRole,
-    input.tableLabel,
-    input.tableTitle,
-    input.tableText,
-    input.caption,
-    ...(input.labels ?? []),
-  ]
+  return [input.tableRole, input.tableLabel, input.tableTitle, input.tableText, input.caption, ...(input.labels ?? [])]
     .filter(Boolean)
     .join("\n")
     .replace(/\s+/g, " ")
@@ -119,7 +112,8 @@ function clampedScore(value: unknown, fallback = 0) {
 }
 
 function reasonForClass(useClass: ClinicalImageUseClass, clinicalScore: number, adminScore: number) {
-  if (useClass === "clinical_evidence") return `clinical signals=${clinicalScore}; admin/reference signals=${adminScore}`;
+  if (useClass === "clinical_evidence")
+    return `clinical signals=${clinicalScore}; admin/reference signals=${adminScore}`;
   if (useClass === "administrative") return `document-control/admin table signals=${adminScore}`;
   if (useClass === "reference") return "reference or bibliography material";
   if (useClass === "decorative_or_empty") return "decorative, empty, or explicitly non-searchable image";
@@ -138,7 +132,10 @@ export function assessClinicalImageUse(input: ImageUseAssessmentInput): ImageUse
   const modelSearchable = input.searchable !== false;
 
   let useClass: ClinicalImageUseClass = "ambiguous";
-  if (imageType === "logo_decorative" || /logo|decorative|duplicate|tiny|header|footer|empty|small/i.test(input.skipReason ?? "")) {
+  if (
+    imageType === "logo_decorative" ||
+    /logo|decorative|duplicate|tiny|header|footer|empty|small/i.test(input.skipReason ?? "")
+  ) {
     useClass = "decorative_or_empty";
   } else if (tableRole === "reference" || (referenceScore > 0 && clinicalScore < 2)) {
     useClass = "reference";

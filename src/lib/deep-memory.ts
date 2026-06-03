@@ -45,12 +45,18 @@ type BuiltMemoryCard = Omit<DocumentMemoryCard, "id" | "embedding" | "created_at
 
 type SectionInsertRow = Omit<DocumentSectionMemory, "id" | "created_at" | "updated_at">;
 
-const highYieldTerms = /\b(?:must|should|required|immediate|urgent|escalat\w*|withhold|cease|stop|discontinue\w*|contraindicat\w*|avoid|monitor\w*|dose|mg|mcg|mmol\/l|anc|fbc|wbc|neutrophil|clozapine|lithium|antipsychotic|benzodiazepine|risk|red flag|baseline|weekly|monthly|hours?|days?|weeks?)\b/i;
-const thresholdTerms = /\b(?:threshold|level|range|score|rating|criteria|anc|fbc|wbc|neutrophil|cease|withhold|stop|<|>|≤|≥)\b/i;
-const medicationTerms = /\b(?:clozapine|lithium|antipsychotic|benzodiazepine|olanzapine|lorazepam|diazepam|haloperidol|neuroleptic|dose|mg|mcg|oral|intramuscular|im\b|po\b|route|titrate)\b/i;
-const riskTerms = /\b(?:risk|urgent|escalat\w*|red flag|toxicity|adverse|side effect|contraindicat\w*|avoid|senior|specialist|crisis|emergency)\b/i;
-const workflowTerms = /\b(?:workflow|pathway|process|procedure|step|refer|review|document|record|complete|form|responsib\w*|follow up|appointment)\b/i;
-const boilerplateTerms = /\b(?:uncontrolled when printed|document control|version control|authorisation date|copyright|all rights reserved)\b/i;
+const highYieldTerms =
+  /\b(?:must|should|required|immediate|urgent|escalat\w*|withhold|cease|stop|discontinue\w*|contraindicat\w*|avoid|monitor\w*|dose|mg|mcg|mmol\/l|anc|fbc|wbc|neutrophil|clozapine|lithium|antipsychotic|benzodiazepine|risk|red flag|baseline|weekly|monthly|hours?|days?|weeks?)\b/i;
+const thresholdTerms =
+  /\b(?:threshold|level|range|score|rating|criteria|anc|fbc|wbc|neutrophil|cease|withhold|stop|<|>|≤|≥)\b/i;
+const medicationTerms =
+  /\b(?:clozapine|lithium|antipsychotic|benzodiazepine|olanzapine|lorazepam|diazepam|haloperidol|neuroleptic|dose|mg|mcg|oral|intramuscular|im\b|po\b|route|titrate)\b/i;
+const riskTerms =
+  /\b(?:risk|urgent|escalat\w*|red flag|toxicity|adverse|side effect|contraindicat\w*|avoid|senior|specialist|crisis|emergency)\b/i;
+const workflowTerms =
+  /\b(?:workflow|pathway|process|procedure|step|refer|review|document|record|complete|form|responsib\w*|follow up|appointment)\b/i;
+const boilerplateTerms =
+  /\b(?:uncontrolled when printed|document control|version control|authorisation date|copyright|all rights reserved)\b/i;
 
 function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
@@ -104,10 +110,7 @@ function sectionHeadingForChunk(chunk: MemoryChunk) {
   return chunk.section_heading || headingFromContent(chunk.content) || `Page ${chunk.page_number ?? "unknown"}`;
 }
 
-export function buildDocumentSections(args: {
-  document: MemoryDocument;
-  chunks: MemoryChunk[];
-}): SectionInsertRow[] {
+export function buildDocumentSections(args: { document: MemoryDocument; chunks: MemoryChunk[] }): SectionInsertRow[] {
   const sorted = [...args.chunks].sort((a, b) => a.chunk_index - b.chunk_index);
   const groups: MemoryChunk[][] = [];
 
@@ -453,7 +456,10 @@ export async function upsertDocumentDeepMemory(args: {
   return { sections, memoryCards: cards };
 }
 
-function scoreMemoryCardForQuery(query: string, card: Pick<DocumentMemoryCard, "title" | "content" | "normalized_terms" | "card_type" | "confidence">) {
+function scoreMemoryCardForQuery(
+  query: string,
+  card: Pick<DocumentMemoryCard, "title" | "content" | "normalized_terms" | "card_type" | "confidence">,
+) {
   const queryTokens = normalizedTerms(query);
   if (queryTokens.length === 0) return 0;
   const termSet = new Set(card.normalized_terms ?? []);
@@ -500,12 +506,16 @@ export async function fetchMemoryCardsForQuery(args: {
       });
 
       if (!error && data?.length) {
-        return ((data ?? []) as Array<DocumentMemoryCard & {
-          similarity?: number;
-          text_rank?: number;
-          hybrid_score?: number;
-          rrf_score?: number;
-        }>)
+        return (
+          (data ?? []) as Array<
+            DocumentMemoryCard & {
+              similarity?: number;
+              text_rank?: number;
+              hybrid_score?: number;
+              rrf_score?: number;
+            }
+          >
+        )
           .map((card) => ({
             ...card,
             confidence: Number(card.confidence ?? 0.5),

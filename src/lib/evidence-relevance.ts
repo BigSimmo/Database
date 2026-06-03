@@ -116,7 +116,9 @@ function textIncludesTerm(text: string, term: string) {
 }
 
 function normalizeSearchText(value: string) {
-  return sourceTextForDisplay(value).toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  return sourceTextForDisplay(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ");
 }
 
 function labelsText(labels?: Array<{ label?: string | null; label_type?: string | null }>) {
@@ -149,7 +151,10 @@ function sourceTextBlocks(source: SearchResult) {
 }
 
 function baseRankScore(source: SearchResult | DocumentMatch) {
-  const raw = "score" in source ? source.score : (source.score_explanation?.finalScore ?? source.hybrid_score ?? source.similarity ?? 0);
+  const raw =
+    "score" in source
+      ? source.score
+      : (source.score_explanation?.finalScore ?? source.hybrid_score ?? source.similarity ?? 0);
   return clamp(Number.isFinite(raw) ? raw : 0);
 }
 
@@ -193,7 +198,8 @@ function directnessVerdict(args: {
     medicationCovered &&
     hasDoseSupport &&
     (args.coverageScore >= 0.5 ||
-      (args.coverageScore >= 0.42 && (args.rankScore >= 0.5 || args.strength === "strong" || args.strength === "moderate")) ||
+      (args.coverageScore >= 0.42 &&
+        (args.rankScore >= 0.5 || args.strength === "strong" || args.strength === "moderate")) ||
       args.contentMatchedTerms.length >= 3)
   ) {
     return "partial" satisfies EvidenceRelevanceVerdict;
@@ -203,7 +209,9 @@ function directnessVerdict(args: {
   return "none" satisfies EvidenceRelevanceVerdict;
 }
 
-function supportReason(relevance: Pick<SourceEvidenceRelevance, "verdict" | "matchedTerms" | "missingTerms" | "rankScore">) {
+function supportReason(
+  relevance: Pick<SourceEvidenceRelevance, "verdict" | "matchedTerms" | "missingTerms" | "rankScore">,
+) {
   if (relevance.verdict === "direct") {
     return `Matched core concepts: ${relevance.matchedTerms.slice(0, 4).join(", ")}.`;
   }
@@ -244,9 +252,10 @@ export function buildSourceRelevance(query: string, source: SearchResult): Sourc
   const coverageScore = coreTerms.length ? matchedTerms.length / coreTerms.length : 0;
   const contentCoverage = coreTerms.length ? contentMatchedTerms.length / coreTerms.length : 0;
   const rankScore = baseRankScore(source);
-  const doseQuery = /\b(?:dose|dosing|dosage|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|titrate|titration|maximum)\b/i.test(
-    query,
-  );
+  const doseQuery =
+    /\b(?:dose|dosing|dosage|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|titrate|titration|maximum)\b/i.test(
+      query,
+    );
   const verdict = directnessVerdict({
     coreTerms,
     medicationTerms,
@@ -258,7 +267,9 @@ export function buildSourceRelevance(query: string, source: SearchResult): Sourc
     doseQuery,
     hasDoseEvidence: hasDoseEvidenceSupport(source),
   });
-  const score = clamp(coverageScore * 0.52 + contentCoverage * 0.23 + rankScore * 0.2 + sourceStrengthBonus(source.source_strength));
+  const score = clamp(
+    coverageScore * 0.52 + contentCoverage * 0.23 + rankScore * 0.2 + sourceStrengthBonus(source.source_strength),
+  );
   const partial: SourceEvidenceRelevance = {
     verdict,
     label: verdictLabels[verdict],
@@ -307,7 +318,10 @@ export function buildEvidenceRelevance(query: string, results: SearchResult[]): 
   const directSourceCount = annotated.filter((item) => item.verdict === "direct").length;
   const partialSourceCount = annotated.filter((item) => item.verdict === "partial").length;
   const weakSourceCount = annotated.filter((item) => item.verdict === "nearby" || item.verdict === "none").length;
-  const matchedTerms = uniq(annotated.flatMap((item) => item.matchedTerms), 10);
+  const matchedTerms = uniq(
+    annotated.flatMap((item) => item.matchedTerms),
+    10,
+  );
   const coreTerms = queryCoreTerms(query);
   const missingTerms = coreTerms.filter((term) => !matchedTerms.includes(term));
   const topScore = Math.max(0, ...annotated.map((item) => item.score));
@@ -405,9 +419,14 @@ function combineDocumentSourceRelevance(query: string, document: DocumentMatch, 
   const sourceRelevances = sources.map((source) => source.relevance ?? buildSourceRelevance(query, source));
   const directSourceCount = sourceRelevances.filter((item) => item.verdict === "direct").length;
   const partialSourceCount = sourceRelevances.filter((item) => item.verdict === "partial").length;
-  const weakSourceCount = sourceRelevances.filter((item) => item.verdict === "nearby" || item.verdict === "none").length;
+  const weakSourceCount = sourceRelevances.filter(
+    (item) => item.verdict === "nearby" || item.verdict === "none",
+  ).length;
   const coreTerms = queryCoreTerms(query);
-  const matchedTerms = uniq(sourceRelevances.flatMap((item) => item.matchedTerms), 10);
+  const matchedTerms = uniq(
+    sourceRelevances.flatMap((item) => item.matchedTerms),
+    10,
+  );
   const missingTerms = coreTerms.filter((term) => !matchedTerms.includes(term));
   const score = Number(Math.max(document.score, ...sourceRelevances.map((item) => item.score)).toFixed(3));
   const verdict: EvidenceRelevanceVerdict =
@@ -430,9 +449,18 @@ function combineDocumentSourceRelevance(query: string, document: DocumentMatch, 
     isSourceBacked: verdict === "direct" || verdict === "partial",
     coverageScore: coreTerms.length ? Number((matchedTerms.length / coreTerms.length).toFixed(3)) : 0,
     rankScore: Number(document.score.toFixed(3)),
-    titleMatchedTerms: uniq(sourceRelevances.flatMap((item) => item.titleMatchedTerms), 6),
-    contentMatchedTerms: uniq(sourceRelevances.flatMap((item) => item.contentMatchedTerms), 6),
-    metadataMatchedTerms: uniq(sourceRelevances.flatMap((item) => item.metadataMatchedTerms), 6),
+    titleMatchedTerms: uniq(
+      sourceRelevances.flatMap((item) => item.titleMatchedTerms),
+      6,
+    ),
+    contentMatchedTerms: uniq(
+      sourceRelevances.flatMap((item) => item.contentMatchedTerms),
+      6,
+    ),
+    metadataMatchedTerms: uniq(
+      sourceRelevances.flatMap((item) => item.metadataMatchedTerms),
+      6,
+    ),
     chips: [],
   };
   relevance.supportReason = supportReason(relevance);

@@ -57,8 +57,7 @@ export function buildIndexingCoverageProfile(args: {
     new Set(sortedChunks.map((chunk) => chunk.page_number).filter((page): page is number => Number.isFinite(page))),
   ).sort((a, b) => a - b);
   const expectedPages = Array.from({ length: Math.max(0, Number(args.pageCount ?? 0)) }, (_, index) => index + 1);
-  const missingPages =
-    expectedPages.length > 0 ? expectedPages.filter((page) => !pagesWithChunks.includes(page)) : [];
+  const missingPages = expectedPages.length > 0 ? expectedPages.filter((page) => !pagesWithChunks.includes(page)) : [];
   const contentCharacters = sortedChunks.reduce((sum, chunk) => sum + chunk.content.length, 0);
   const sectionHeadings = Array.from(new Set(sortedChunks.map((chunk) => chunk.section_heading).filter(Boolean)));
 

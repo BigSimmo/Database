@@ -138,7 +138,8 @@ const intentPatterns: Array<{
   },
   {
     intent: "drug_dosing",
-    pattern: /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer|table|chart|monitor/i,
+    pattern:
+      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer|table|chart|monitor/i,
     imageEvidenceFocus: true,
     sectionedLookup: false,
   },
@@ -163,7 +164,8 @@ const medicationDoseRiskPattern =
   /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectable|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
 const documentLookupPattern =
   /\b(search|lookup|find|where|which document|documents?|document title|document id|file|pdf|page|section|guideline|procedure|protocol|form)\b/i;
-const broadSummaryPattern = /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b/i;
+const broadSummaryPattern =
+  /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b/i;
 
 function tokens(text: string) {
   return text
@@ -226,12 +228,11 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
 }
 
 export function hasDoseEvidenceSupport(result: SearchResult) {
-  const haystack =
-    `${result.section_heading ?? ""} ${result.content} ${(result.memory_cards ?? [])
-      .map((card) => `${card.title} ${card.content}`)
-      .join(" ")} ${(result.images ?? [])
-      .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
-      .join(" ")}`.toLowerCase();
+  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.memory_cards ?? [])
+    .map((card) => `${card.title} ${card.content}`)
+    .join(" ")} ${(result.images ?? [])
+    .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
+    .join(" ")}`.toLowerCase();
   return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
     haystack,
   );
@@ -391,7 +392,9 @@ function documentMetadataBoost(query: string, result: SearchResult, normalizedTo
           ? 0.035
           : 0;
 
-  return Math.min(0.18, tokenHits * 0.018 + highConfidenceLabelHits * 0.035 + (exactMetadataPhrase ? 0.05 : 0)) + classBoost;
+  return (
+    Math.min(0.18, tokenHits * 0.018 + highConfidenceLabelHits * 0.035 + (exactMetadataPhrase ? 0.05 : 0)) + classBoost
+  );
 }
 
 export function normalizedClinicalSearchTokens(query: string) {
@@ -477,17 +480,9 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const sectionBoost = sectionMatchBoost(query, result);
   const sectionedLookupBoost = querySignal.sectionedLookup ? 0.02 : 0;
   const extractionBoost = extractionQualityScore(result);
-  const dosingBoost =
-    querySignal.hasDosingSignals &&
-    hasDoseEvidenceSupport(result)
-      ? 0.09
-      : 0;
+  const dosingBoost = querySignal.hasDosingSignals && hasDoseEvidenceSupport(result) ? 0.09 : 0;
   const titleOnlyDosePenalty =
-    queryClass === "medication_dose_risk" &&
-    titleCoverageBoost >= 0.09 &&
-    !hasDoseEvidenceSupport(result)
-      ? -0.42
-      : 0;
+    queryClass === "medication_dose_risk" && titleCoverageBoost >= 0.09 && !hasDoseEvidenceSupport(result) ? -0.42 : 0;
   const administrativeDoseQueryPenalty =
     queryClass === "medication_dose_risk" &&
     /\b(?:supporting information|relevant standards|references|document owner|review|authorisation|authorised by|published date|effective from|amendment)\b/i.test(

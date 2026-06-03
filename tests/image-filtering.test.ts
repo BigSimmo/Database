@@ -75,7 +75,8 @@ describe("smart image filtering", () => {
         searchable: true,
         clinicalRelevanceScore: 0.7,
         sourceKind: "table_crop",
-        tableText: "| Version | Effective from | Effective to | Amendment(s) |\n| V5.0 | 13/11/2024 | 13/11/2027 | Link added |",
+        tableText:
+          "| Version | Effective from | Effective to | Amendment(s) |\n| V5.0 | 13/11/2024 | 13/11/2027 | Link added |",
       }).clinical_use_class,
     ).toBe("administrative");
   });
@@ -99,7 +100,8 @@ describe("smart image filtering", () => {
       assessClinicalImageUse({
         imageType: "clinical_table",
         sourceKind: "table_crop",
-        tableText: "| Role | Responsibility |\n| Service Director | Overall responsibility for policy governance and compliance |",
+        tableText:
+          "| Role | Responsibility |\n| Service Director | Overall responsibility for policy governance and compliance |",
       }).clinical_use_class,
     ).not.toBe("clinical_evidence");
 

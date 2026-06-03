@@ -73,8 +73,7 @@ export function localProjectRequestIdentityPayload(request: Request): LocalProje
   const payload = localProjectIdentityPayload(request.url);
   const requestOrigin = request.headers.get("origin");
   const requestReferer = request.headers.get("referer");
-  const unsafeLocalCaller =
-    unsafeLocalCallerFromHeader(requestOrigin) ?? unsafeLocalCallerFromHeader(requestReferer);
+  const unsafeLocalCaller = unsafeLocalCallerFromHeader(requestOrigin) ?? unsafeLocalCallerFromHeader(requestReferer);
 
   return {
     ...payload,

@@ -35,7 +35,8 @@ function canonicalTag(label: string, context: string) {
   if (normalized === "administration clerical" || normalized === "administration") return "Clinic administration";
   if (normalized === "blood test" || normalized === "blood tests") return "Blood test monitoring";
   if (normalized === "dose" || normalized === "dosing") return "Dose adjustment";
-  if (normalized === "monitoring") return normalizedContext.includes("clozapine") ? "Clozapine monitoring" : "Monitoring";
+  if (normalized === "monitoring")
+    return normalizedContext.includes("clozapine") ? "Clozapine monitoring" : "Monitoring";
 
   return titleCase(normalized);
 }
@@ -72,4 +73,3 @@ export function smartEvidenceTags(
     .slice(0, limit)
     .map((item) => item.tag);
 }
-

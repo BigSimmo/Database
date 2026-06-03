@@ -221,8 +221,7 @@ async function main() {
 
     if (!args.json) {
       const failureSuffix = result.failures.length ? ` FAIL=${result.failures.join("; ")}` : "";
-      const expectedCoverage =
-        result.expectedFileCount > 1 ? ` allExpectedTop5=${result.expectedAllHitTop5}` : "";
+      const expectedCoverage = result.expectedFileCount > 1 ? ` allExpectedTop5=${result.expectedAllHitTop5}` : "";
       console.log(
         `SEARCH ${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} skippedEmbedding=${result.embeddingSkipped} expectedHit=${result.expectedHitTop3}${expectedCoverage} topScore=${result.topScore.toFixed(3)}${failureSuffix}`,
       );

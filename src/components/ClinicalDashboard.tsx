@@ -751,7 +751,10 @@ function SectionHeading({
   );
 }
 
-function relevanceChipLabel(relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined, grounded = false) {
+function relevanceChipLabel(
+  relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined,
+  grounded = false,
+) {
   if (!relevance) return grounded ? "Source-backed" : "No direct support";
   if (relevance.verdict === "direct") return "Source-backed";
   if (relevance.verdict === "partial") return "Partial support";
@@ -759,7 +762,10 @@ function relevanceChipLabel(relevance: EvidenceRelevance | SourceEvidenceRelevan
   return "No direct support";
 }
 
-function relevanceChipClasses(relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined, grounded = false) {
+function relevanceChipClasses(
+  relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined,
+  grounded = false,
+) {
   const verdict = relevance?.verdict ?? (grounded ? "direct" : "none");
   if (verdict === "direct") {
     return "border-[color:var(--success)]/20 bg-[color:var(--success-soft)]/45 text-[color:var(--success)]";
@@ -770,7 +776,10 @@ function relevanceChipClasses(relevance: EvidenceRelevance | SourceEvidenceRelev
   return "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
 }
 
-function hasStrongRelevanceIcon(relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined, grounded = false) {
+function hasStrongRelevanceIcon(
+  relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined,
+  grounded = false,
+) {
   const verdict = relevance?.verdict ?? (grounded ? "direct" : "none");
   return verdict === "direct" || verdict === "partial";
 }
@@ -905,7 +914,9 @@ function MasterSearchHeader({
   const trimmedQuery = query.trim();
   const canAsk = trimmedQuery.length >= 1 && !loading && realDataReady;
   const compactMobile = hasAnswer;
-  const selectedDocuments = selectedDocumentIds.map((id) => documents.find((document) => document.id === id)).filter(Boolean);
+  const selectedDocuments = selectedDocumentIds
+    .map((id) => documents.find((document) => document.id === id))
+    .filter(Boolean);
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
   const scopePreview = selectedDocuments
     .slice(0, 2)
@@ -1066,9 +1077,7 @@ function MasterSearchHeader({
                       : "text-slate-200 hover:bg-white/10 hover:text-white",
                   )}
                   aria-pressed={active}
-                  aria-label={
-                    item.mode === "answer" ? "Switch to answer mode" : "Switch to document search mode"
-                  }
+                  aria-label={item.mode === "answer" ? "Switch to answer mode" : "Switch to document search mode"}
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
@@ -1167,7 +1176,9 @@ function MasterSearchHeader({
               <Filter className="h-4 w-4 shrink-0" />
               <span className="shrink-0">Scope & prompts</span>
               <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] text-slate-300">{scopeSummary}</span>
-              {scopePreview ? <span className="truncate text-xs font-medium text-slate-400">{scopePreview}</span> : null}
+              {scopePreview ? (
+                <span className="truncate text-xs font-medium text-slate-400">{scopePreview}</span>
+              ) : null}
             </span>
             <span className="inline-flex shrink-0 items-center gap-2 text-xs text-slate-400">
               <span>{documents.length} documents</span>
@@ -1635,7 +1646,9 @@ function EvidenceGapPanel({
           <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{found}</p>
         </article>
         <article className={cn(sourceCard, "p-3")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">What was not found</p>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            What was not found
+          </p>
           <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{missing}</p>
         </article>
         <article className={cn(sourceCard, "p-3 md:col-span-2")}>
@@ -1803,7 +1816,9 @@ function ClinicalOutputPanel({
         icon={ListChecks}
         title="Clinical action view"
         description="Structured from retrieved answer text, exact quotes, citations, and extracted tables."
-        action={<CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedWardNote} onClick={onCopyWardNote} />}
+        action={
+          <CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedWardNote} onClick={onCopyWardNote} />
+        }
         hideDescriptionOnMobile
         compactMobile
       />
@@ -1823,11 +1838,7 @@ function ClinicalOutputPanel({
           >
             <div className="flex items-start gap-2">
               <span className={cn(iconTilePremium, "h-8 w-8")}>
-                {section.id === "verify-source" ? (
-                  <Target className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
+                {section.id === "verify-source" ? <Target className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
               </span>
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
@@ -4037,7 +4048,9 @@ export function ClinicalDashboard() {
                     <AnswerHeaderActions
                       bestSource={bestSource}
                       grounded={
-                        answer.grounded && answer.confidence !== "unsupported" && currentRelevance?.isSourceBacked !== false
+                        answer.grounded &&
+                        answer.confidence !== "unsupported" &&
+                        currentRelevance?.isSourceBacked !== false
                       }
                       relevance={currentRelevance}
                     />
@@ -4098,7 +4111,9 @@ export function ClinicalDashboard() {
                             <FileText className="h-4 w-4" />
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-[color:var(--text)]">Source narrative</span>
+                            <span className="block text-sm font-semibold text-[color:var(--text)]">
+                              Source narrative
+                            </span>
                             <span className={cn("block truncate text-xs", textMuted)}>
                               Full source-linked answer text and section citations
                             </span>
@@ -4117,7 +4132,9 @@ export function ClinicalDashboard() {
                   <VerificationActionStrip
                     source={bestSource}
                     grounded={
-                      answer.grounded && answer.confidence !== "unsupported" && currentRelevance?.isSourceBacked !== false
+                      answer.grounded &&
+                      answer.confidence !== "unsupported" &&
+                      currentRelevance?.isSourceBacked !== false
                     }
                     citationCount={answer.citations.length}
                     quoteCount={answer.quoteCards?.length ?? 0}
@@ -4177,7 +4194,9 @@ export function ClinicalDashboard() {
               onScopeDocument={scopeOnlyDocument}
             />
           )}
-          {searchMode === "answer" && answer && <VisualEvidenceStrip evidence={visualEvidence} collapsed={weakEvidence} />}
+          {searchMode === "answer" && answer && (
+            <VisualEvidenceStrip evidence={visualEvidence} collapsed={weakEvidence} />
+          )}
           {searchMode === "answer" && answer && (
             <RelatedDocumentsPanel documents={relatedDocuments} onScopeDocument={scopeOnlyDocument} />
           )}
