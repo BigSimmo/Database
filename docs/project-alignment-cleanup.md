@@ -7,6 +7,13 @@
 - Added transitive overrides for `postcss`, `tmp`, and `uuid` to remove audit findings from Next and ExcelJS dependency paths while preserving the existing spreadsheet import/export code.
 - Verified ExcelJS still writes and reads an XLSX buffer with the `uuid` override in place.
 
+## Dependency verification note
+
+- `npm ci` and `npm audit --json` are the release gates for dependency install and security status.
+- On Windows with npm 10, `npm ls --depth=0` can report bundled optional wasm/native packages as extraneous immediately after `npm ci`: `@emnapi/core`, `@emnapi/runtime`, `@emnapi/wasi-threads`, `@napi-rs/wasm-runtime`, and `@tybys/wasm-util`.
+- `npm explain` traces these packages to optional wasm/native dependency paths from `@tailwindcss/oxide-wasm32-wasi`, `@rolldown/binding-wasm32-wasi`, and `@unrs/resolver-binding-wasm32-wasi`; the lockfile contains those paths and `npm audit --json` reports zero vulnerabilities.
+- Do not treat this specific `npm ls --depth=0` extraneous output as a hard release blocker unless audit fails, install fails, package versions drift from `package-lock.json`, or a future npm/package update stops reproducing the optional-dependency reporting issue.
+
 ## Runtime policy
 
 - CI verifies the project on Node.js 22, so local development should also use Node.js 22.x.
