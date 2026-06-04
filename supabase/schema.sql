@@ -345,8 +345,14 @@ create index if not exists document_sections_chunk_ids_gin_idx
   on public.document_sections using gin(chunk_ids);
 create index if not exists document_sections_tags_gin_idx
   on public.document_sections using gin(tags);
+create index if not exists document_sections_owner_idx
+  on public.document_sections(owner_id);
 create index if not exists document_memory_cards_document_idx
   on public.document_memory_cards(document_id, card_type, confidence desc);
+create index if not exists document_memory_cards_owner_idx
+  on public.document_memory_cards(owner_id);
+create index if not exists document_memory_cards_section_idx
+  on public.document_memory_cards(section_id);
 create index if not exists document_memory_cards_search_idx
   on public.document_memory_cards using gin(search_tsv);
 create index if not exists document_memory_cards_terms_idx
@@ -1176,6 +1182,21 @@ create policy "labels owner manual delete" on public.document_labels
 
 create policy "summaries owner read" on public.document_summaries
   for select to authenticated using (owner_id = (select auth.uid()));
+
+create policy "document sections owner all" on public.document_sections
+  for all to authenticated
+  using ((select auth.uid()) = owner_id)
+  with check ((select auth.uid()) = owner_id);
+
+create policy "document memory cards owner all" on public.document_memory_cards
+  for all to authenticated
+  using ((select auth.uid()) = owner_id)
+  with check ((select auth.uid()) = owner_id);
+
+create policy "image caption cache owner all" on public.image_caption_cache
+  for all to authenticated
+  using ((select auth.uid()) = owner_id)
+  with check ((select auth.uid()) = owner_id);
 
 create policy "chunks owner read" on public.document_chunks
   for select to authenticated using (

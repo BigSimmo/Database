@@ -149,6 +149,7 @@ const authEmailChangeEvent = "clinical-kb-auth-email-change";
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const setupRecheckPollMs = 60_000;
+const indexingWorkDetailsPollMs = 15_000;
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
 type SetupCheck = {
@@ -3006,8 +3007,8 @@ function shorterPollDelay(current: number | null, next: unknown) {
 
 function hasActiveIndexingWork(
   documents: ClinicalDocument[],
-  jobs: IngestionJob[],
-  batches: ImportBatch[],
+  jobs: IngestionJob[] = [],
+  batches: ImportBatch[] = [],
   routeHint = false,
 ) {
   return (
@@ -3041,6 +3042,7 @@ export function ClinicalDashboard() {
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const nextWorkStatePollRef = useRef(0);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
@@ -3157,13 +3159,23 @@ export function ClinicalDashboard() {
           documentParams.set("includeMeta", "false");
         }
 
+        const now = Date.now();
+        const shouldRefreshWorkState = now >= nextWorkStatePollRef.current;
+        if (shouldRefreshWorkState) nextWorkStatePollRef.current = now + indexingWorkDetailsPollMs;
+
         const [documentsResponse, jobsResponse, batchesResponse] = await Promise.all([
           fetch(`/api/documents?${documentParams.toString()}`, { headers: protectedHeaders }),
-          fetch("/api/ingestion/jobs", { headers: protectedHeaders }),
-          fetch("/api/ingestion/batches", { headers: protectedHeaders }),
+          shouldRefreshWorkState ? fetch("/api/ingestion/jobs", { headers: protectedHeaders }) : Promise.resolve(null as Response | null),
+          shouldRefreshWorkState
+            ? fetch("/api/ingestion/batches", { headers: protectedHeaders })
+            : Promise.resolve(null as Response | null),
         ]);
 
-        if (documentsResponse.status === 401 || jobsResponse.status === 401 || batchesResponse.status === 401) {
+        if (
+          documentsResponse.status === 401 ||
+          (jobsResponse !== null && jobsResponse.status === 401) ||
+          (batchesResponse !== null && batchesResponse.status === 401)
+        ) {
           markSessionExpired();
           setDocuments([]);
           setDocumentsPagination(null);
@@ -3175,8 +3187,8 @@ export function ClinicalDashboard() {
         }
 
         let nextDocuments: ClinicalDocument[] = [];
-        let nextJobs: IngestionJob[] = [];
-        let nextBatches: ImportBatch[] = [];
+        let nextJobs: IngestionJob[] = shouldRefreshWorkState ? [] : jobs;
+        let nextBatches: ImportBatch[] = shouldRefreshWorkState ? [] : batches;
 
         if (documentsResponse.ok) {
           const payload = (await documentsResponse.json()) as DocumentsPayload;
@@ -3193,7 +3205,7 @@ export function ClinicalDashboard() {
           setApiUnavailable(true);
         }
 
-        if (jobsResponse.ok) {
+        if (shouldRefreshWorkState && jobsResponse && jobsResponse.ok) {
           const payload = (await jobsResponse.json()) as JobsPayload;
           nextJobs = payload.jobs ?? [];
           setJobs(nextJobs);
@@ -3201,18 +3213,18 @@ export function ClinicalDashboard() {
           routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
           if (payload.demoMode) setDemoMode(true);
           if (payload.setupRequired) setSetupWarning(payload.error ?? null);
-        } else {
+        } else if (shouldRefreshWorkState) {
           setApiUnavailable(true);
         }
 
-        if (batchesResponse.ok) {
+        if (shouldRefreshWorkState && batchesResponse && batchesResponse.ok) {
           const payload = (await batchesResponse.json()) as BatchesPayload;
           nextBatches = payload.batches ?? [];
           setBatches(nextBatches);
           routeIndexingActive ||= Boolean(payload.hasActiveBatches);
           routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
           if (payload.demoMode) setDemoMode(true);
-        } else {
+        } else if (shouldRefreshWorkState) {
           setApiUnavailable(true);
         }
 
@@ -3356,7 +3368,7 @@ export function ClinicalDashboard() {
 
   const activeIndexingWork = useMemo(
     () => hasActiveIndexingWork(documents, jobs, batches, indexingActive),
-    [batches, documents, indexingActive, jobs],
+    [documents, jobs, batches, indexingActive],
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
 
