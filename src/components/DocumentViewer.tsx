@@ -47,6 +47,7 @@ import {
   toolbarButton,
 } from "@/components/ui-primitives";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -67,29 +68,6 @@ type PageRow = {
   text: string;
   ocr_used: boolean;
 };
-
-type LocalProjectIdentityPayload = {
-  localServer?: {
-    projectPortStart?: number;
-    projectPortEnd?: number;
-    safeLocalOrigin?: boolean;
-  };
-};
-
-async function readLocalProjectIdentity() {
-  const response = await fetch("/api/local-project-id", { cache: "no-store" });
-  if (!response.ok) return null;
-  return (await response.json()) as LocalProjectIdentityPayload;
-}
-
-function unsafeLocalProjectMessage(identity: LocalProjectIdentityPayload | null) {
-  const range =
-    typeof identity?.localServer?.projectPortStart === "number" &&
-    typeof identity.localServer.projectPortEnd === "number"
-      ? ` Use the URL printed by npm run ensure; managed ports are ${identity.localServer.projectPortStart}-${identity.localServer.projectPortEnd}.`
-      : " Use the URL printed by npm run ensure.";
-  return `This tab is not using the guarded Clinical KB local URL.${range}`;
-}
 
 type ImageRow = {
   id: string;

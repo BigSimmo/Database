@@ -37,6 +37,7 @@ import { DocumentManagementActions, type DocumentDeleteResult } from "@/componen
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isLocalNoAuthMode } from "@/lib/env";
 import {
   appBackdrop,
@@ -179,14 +180,6 @@ type SetupStatusPayload = {
   indexingActive?: boolean;
   pollAfterMs?: number | null;
 };
-type LocalProjectIdentityPayload = {
-  localServer?: {
-    currentUrl?: string | null;
-    projectPortStart?: number;
-    projectPortEnd?: number;
-    safeLocalOrigin?: boolean;
-  };
-};
 type DocumentsPayload = {
   documents?: ClinicalDocument[];
   pagination?: DocumentPagination | null;
@@ -224,21 +217,6 @@ type SearchResultModePayload =
       query: string;
       payload: AnswerPayload;
     };
-
-async function readLocalProjectIdentity() {
-  const response = await fetch("/api/local-project-id", { cache: "no-store" });
-  if (!response.ok) return null;
-  return (await response.json()) as LocalProjectIdentityPayload;
-}
-
-function unsafeLocalProjectMessage(identity: LocalProjectIdentityPayload | null) {
-  const range =
-    typeof identity?.localServer?.projectPortStart === "number" &&
-    typeof identity.localServer.projectPortEnd === "number"
-      ? ` Use the URL printed by npm run ensure; managed ports are ${identity.localServer.projectPortStart}-${identity.localServer.projectPortEnd}.`
-      : " Use the URL printed by npm run ensure.";
-  return `This tab is not using the guarded Clinical KB local URL.${range}`;
-}
 
 function parseSseData(lines: string[]) {
   const data = lines.join("\n").trim();
@@ -4093,7 +4071,7 @@ export function ClinicalDashboard() {
                         key={`${section.heading}:${section.citation_chunk_ids.join(",")}:${section.body.slice(0, 24)}`}
                         className={cn(panelSubtle, "space-y-3 p-4")}
                       >
-                        <div className="rounded-lg border border-[color:var(--accent)]/20 bg-[color:var(--surface)] p-3">
+                        <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
                           <div className="flex items-start gap-2">
                             <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
                               <ListChecks className="h-4 w-4" />
