@@ -55,16 +55,47 @@ describe("ward output helpers", () => {
     const sections = buildClinicalOutputSections(answer);
 
     expect(sections.map((section) => section.id)).toEqual([
-      "action",
+      "bottom-line",
       "monitoring",
-      "thresholds",
       "escalation",
+      "thresholds",
       "verify-source",
     ]);
+    expect(sections[0].items[0]).toContain("Monitor renal function");
     expect(sections[1].items[0]).toContain("renal function");
-    expect(sections[2].items[0]).toContain("lithium level");
-    expect(sections[3].items[0]).toContain("vomiting");
+    expect(sections[3].items[0]).toContain("lithium level");
+    expect(sections[2].items[0]).toContain("vomiting");
     expect(sections[4].items[0]).toContain("1 linked citation");
+  });
+
+  it("uses normalized answer labels instead of raw regex-only buckets", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      answer: "Bottom line: Verify FBC first.",
+      answerSections: [
+        {
+          heading: "Medication/dose details",
+          body: "Withhold clozapine if ANC is unsafe.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+        {
+          heading: "Documentation/forms",
+          body: "Record the source and review decision.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      quoteCards: [],
+    });
+
+    expect(sections.map((section) => section.id)).toEqual([
+      "bottom-line",
+      "medication",
+      "documentation",
+      "thresholds",
+      "verify-source",
+    ]);
+    expect(sections.find((section) => section.id === "medication")?.items[0]).toContain("Withhold clozapine");
+    expect(sections.find((section) => section.id === "documentation")?.items[0]).toContain("Record the source");
   });
 
   it("places extracted threshold tables before threshold prose", () => {

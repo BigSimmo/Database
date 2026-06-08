@@ -10,11 +10,22 @@ describe("answer display formatting", () => {
     expect(parsed.type).toBe("bullets");
     expect(parsed.mode).toBe("clinical_pathway");
     expect(parsed.lines).toMatchObject([
-      { label: "Monitoring", text: "Check observations after IM medication." },
-      { label: "Dose detail", text: "Lorazepam **1mg** to **2mg** may be used when supported." },
+      {
+        label: "Monitoring",
+        displayLabel: "Monitoring",
+        group: "monitoring",
+        text: "Check observations after IM medication.",
+      },
+      {
+        label: "Dose detail",
+        displayLabel: "Medication",
+        group: "medication",
+        text: "Lorazepam **1mg** to **2mg** may be used when supported.",
+      },
     ]);
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "monitoring", symbol: "⏱" });
     expect(answerLinePresentation(parsed.lines[1])).toMatchObject({ tone: "medication", symbol: "Rx" });
+    expect(parsed.groups.map((group) => group.group)).toEqual(["monitoring", "medication"]);
   });
 
   it("recovers inline bullets after whitespace has been compacted", () => {
@@ -27,8 +38,26 @@ describe("answer display formatting", () => {
     expect(parsed.lines).toHaveLength(2);
     expect(parsed.lines[0].label).toBe("Bottom line");
     expect(parsed.lines[1].label).toBe("Escalation/risk");
+    expect(parsed.lines[0].group).toBe("bottom_line");
+    expect(parsed.lines[1].group).toBe("escalation");
+    expect(parsed.lead?.text).toBe("Use the source-backed pathway.");
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "direct", symbol: "✓" });
     expect(answerLinePresentation(parsed.lines[1])).toMatchObject({ tone: "risk", symbol: "!" });
+  });
+
+  it("keeps a prose lead before bullet rows", () => {
+    const parsed = parseAnswerDisplayContent(
+      "Use the source-backed pathway for clozapine monitoring.\n- Monitoring/timing: Check FBC weekly.\n- Medication/dose details: Withhold clozapine if ANC is unsafe.",
+    );
+
+    expect(parsed.type).toBe("bullets");
+    expect(parsed.lead).toMatchObject({
+      group: "monitoring",
+      text: "Use the source-backed pathway for clozapine monitoring.",
+    });
+    expect(parsed.groups.map((group) => group.group)).toEqual(["monitoring", "medication"]);
+    expect(parsed.lines[1]).toMatchObject({ displayLabel: "Monitoring", group: "monitoring" });
+    expect(parsed.lines[2]).toMatchObject({ displayLabel: "Medication", group: "medication" });
   });
 
   it("keeps ordinary prose as a paragraph", () => {
@@ -38,9 +67,21 @@ describe("answer display formatting", () => {
     expect(parsed.mode).toBe("evidence_gap");
     expect(parsed.lines[0]).toMatchObject({
       label: null,
+      displayLabel: "Source gap",
+      group: "gap",
       text: "The indexed source does not contain enough information.",
     });
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "gap", symbol: "?" });
+  });
+
+  it("uses unlabeled clinical keywords to group dense answer prose", () => {
+    const parsed = parseAnswerDisplayContent(
+      "Arrange baseline renal function, thyroid function, calcium, and lithium level before continuing treatment.",
+    );
+
+    expect(parsed.type).toBe("paragraph");
+    expect(parsed.mode).toBe("clinical_pathway");
+    expect(parsed.lines[0]).toMatchObject({ explicitLabel: false, group: "monitoring", displayLabel: "Monitoring" });
   });
 
   it("uses checklist mode for practical action answers", () => {
@@ -49,6 +90,7 @@ describe("answer display formatting", () => {
     );
 
     expect(parsed.mode).toBe("checklist");
+    expect(parsed.groups.map((group) => group.group)).toEqual(["action", "documentation"]);
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "action", symbol: "→" });
     expect(answerLinePresentation(parsed.lines[1])).toMatchObject({ tone: "documentation", symbol: "§" });
   });
@@ -59,6 +101,7 @@ describe("answer display formatting", () => {
     );
 
     expect(parsed.mode).toBe("comparison");
+    expect(parsed.groups.map((group) => group.group)).toEqual(["comparison", "source"]);
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "comparison", symbol: "↔" });
     expect(answerLinePresentation(parsed.lines[1])).toMatchObject({ tone: "source", symbol: "#" });
   });

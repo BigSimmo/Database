@@ -1,8 +1,19 @@
 import { formatCitationLabel } from "@/lib/citations";
+import { parseAnswerDisplayContent, type AnswerDisplayGroup } from "@/lib/answer-formatting";
 import { clipboardProvenanceLine } from "@/lib/source-metadata";
 import type { QuoteCard, RagAnswer, VisualEvidenceCard } from "@/lib/types";
 
-export type ClinicalOutputSectionId = "action" | "monitoring" | "thresholds" | "escalation" | "verify-source";
+export type ClinicalOutputSectionId =
+  | "bottom-line"
+  | "action"
+  | "monitoring"
+  | "medication"
+  | "thresholds"
+  | "escalation"
+  | "documentation"
+  | "comparison"
+  | "source-gap"
+  | "verify-source";
 
 export type ClinicalThresholdTable = {
   id: string;
@@ -20,12 +31,6 @@ export type ClinicalOutputSection = {
   tables?: ClinicalThresholdTable[];
 };
 
-const actionPattern =
-  /\b(action|start|stop|hold|withhold|cease|avoid|review|assess|check|refer|discuss|required|must|should)\b/i;
-const escalationPattern =
-  /\b(escalat|urgent|senior|review|risk|intent|attempt|agitation|supervision|toxicity|vomiting|diarrhoea|dehydration|tremor|confusion|ataxia|fever|chest pain|dyspnoea|seizure|constipation)\b/i;
-const monitoringPattern =
-  /\b(monitor|check|baseline|fbc|anc|renal|thyroid|calcium|metabolic|myocarditis|blood pressure|weight|level|schedule)\b/i;
 const thresholdPattern =
   /\b(threshold|cut[\s-]?off|withhold|cease|stop|hold|discontinue|anc|fbc|wbc|neutrophil|level|range|criteria|score|rating|below|above|less than|greater than|mmol|mg\/l|x\s*10)\b|[<>]=?|[≤≥]/i;
 
@@ -142,58 +147,77 @@ function buildVerifySourceItems(answer: RagAnswer) {
   );
 }
 
+const groupToClinicalSection: Partial<Record<AnswerDisplayGroup, { id: ClinicalOutputSectionId; title: string }>> = {
+  bottom_line: { id: "bottom-line", title: "Bottom line" },
+  action: { id: "action", title: "Action" },
+  monitoring: { id: "monitoring", title: "Monitoring" },
+  medication: { id: "medication", title: "Medication" },
+  escalation: { id: "escalation", title: "Escalation" },
+  documentation: { id: "documentation", title: "Documentation" },
+  comparison: { id: "comparison", title: "Comparison" },
+  gap: { id: "source-gap", title: "Source gap" },
+};
+
+function sectionDisplayLines(answer: RagAnswer) {
+  return (answer.answerSections ?? []).flatMap(
+    (section) => parseAnswerDisplayContent(`${section.heading}: ${section.body}`).lines,
+  );
+}
+
 export function buildClinicalOutputSections(answer: RagAnswer | null | undefined) {
   if (!answer) return [];
 
-  const sectionBodies = answer.answerSections?.map((section) => section.body) ?? [];
+  const answerContent = parseAnswerDisplayContent(answer.answer);
+  const answerLead = answerContent.lead ?? answerContent.lines[0];
+  const answerDetailLines = answerContent.lines.filter((line) => line.id !== answerLead?.id);
+  const parsedLines = [...answerDetailLines, ...sectionDisplayLines(answer)];
   const quoteTexts = answer.quoteCards?.map((quote) => quote.quote) ?? [];
-  const combined = [...sectionBodies, ...quoteTexts, answer.answer];
-
-  const actionSource = sectionBodies.length
-    ? sectionBodies.filter((item) => actionPattern.test(item) || !monitoringPattern.test(item))
-    : [answer.answer];
-  const actions = uniqueShortItems(actionSource.length ? actionSource : [answer.answer], 3);
-  const monitoring = uniqueShortItems(
-    combined.filter((item) => monitoringPattern.test(item)),
-    4,
-  );
-  const thresholdItems = uniqueShortItems(
-    combined.filter((item) => thresholdPattern.test(item)),
-    4,
-  );
+  const allTexts = [...parsedLines.map((line) => line.text), ...quoteTexts];
   const thresholdTables = buildThresholdTables(answer);
-  const escalation = uniqueShortItems(
-    combined.filter((item) => escalationPattern.test(item)),
+  const thresholdItems = uniqueShortItems(
+    allTexts.filter((item) => thresholdPattern.test(item)),
     4,
   );
   const verifySource = buildVerifySourceItems(answer);
 
   const sections: ClinicalOutputSection[] = [];
-  sections.push({
-    id: "action",
-    title: "Action",
-    items: actions.length
-      ? actions
-      : ["Use the source-backed answer as the starting action and verify citations first."],
-  });
-  sections.push({
-    id: "monitoring",
-    title: "Monitoring",
-    items: monitoring.length
-      ? monitoring
-      : ["No explicit monitoring schedule was extracted from the answer or quotes."],
-  });
-  sections.push({
-    id: "thresholds",
-    title: "Thresholds",
-    items: thresholdItems.length ? thresholdItems : ["No explicit numeric threshold or table row was extracted."],
-    tables: thresholdTables,
-  });
-  sections.push({
-    id: "escalation",
-    title: "Escalation",
-    items: escalation.length ? escalation : ["No explicit escalation trigger was extracted from the answer or quotes."],
-  });
+  if (answerLead?.text) {
+    sections.push({
+      id: answerLead.group === "gap" ? "source-gap" : "bottom-line",
+      title: answerLead.group === "gap" ? "Source gap" : "Bottom line",
+      items: uniqueShortItems([answerLead.text], 1),
+    });
+  }
+
+  for (const group of [
+    "bottom_line",
+    "action",
+    "monitoring",
+    "medication",
+    "escalation",
+    "documentation",
+    "comparison",
+    "gap",
+  ] as const) {
+    const section = groupToClinicalSection[group];
+    if (!section) continue;
+    const items = uniqueShortItems(
+      parsedLines.filter((line) => line.group === group).map((line) => line.text),
+      group === "bottom_line" ? 1 : 4,
+    );
+    if (items.length === 0) continue;
+    sections.push({ ...section, items });
+  }
+
+  if (thresholdItems.length || thresholdTables.length) {
+    sections.push({
+      id: "thresholds",
+      title: "Thresholds",
+      items: thresholdItems,
+      tables: thresholdTables,
+    });
+  }
+
   sections.push({
     id: "verify-source",
     title: "Verify source",

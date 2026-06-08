@@ -1219,16 +1219,16 @@ function SourceLinkedAnswer({
         return (
           <article
             key={`${section.heading}:${section.citation_chunk_ids.join(",")}:${section.body.slice(0, 24)}`}
-            className={cn("space-y-3 border-b border-[color:var(--border)] pb-4 last:border-b-0 last:pb-0")}
+            className={cn("space-y-2.5 border-b border-[color:var(--border)] pb-3 last:border-b-0 last:pb-0")}
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-2.5">
-                <span className={cn(iconTilePremium, "h-8 w-8 text-xs font-bold")}>{index + 1}</span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className={cn(metadataPill, "grid h-7 w-7 place-items-center px-0 text-[11px] font-bold")}>
+                  {index + 1}
+                </span>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.03em] text-[color:var(--text-heading)]">
-                    {section.heading}
-                  </h3>
-                  <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                  <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{section.heading}</h3>
+                  <p className={cn("text-xs leading-5", textMuted)}>
                     {section.citationSources.length} source passage
                     {section.citationSources.length === 1 ? "" : "s"}
                   </p>
@@ -1273,7 +1273,8 @@ function AnswerSymbolTile({ line }: { line: AnswerDisplayLine }) {
 }
 
 function AnswerLineLabel({ line }: { line: AnswerDisplayLine }) {
-  const label = line.label ?? line.presentation.label;
+  const label = line.displayLabel;
+  if (!label) return null;
   return (
     <span
       className={cn(
@@ -1299,7 +1300,7 @@ function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
         {line ? <AnswerSymbolTile line={line} /> : null}
         <p className="min-w-0 font-medium text-[color:var(--text-heading)]">
           {line ? <AnswerLineLabel line={line} /> : null}
-          {line ? " " : null}
+          {line?.displayLabel ? " " : null}
           <SafeBoldText text={line?.text ?? "No usable answer text for this result."} />
         </p>
       </div>
@@ -1325,7 +1326,9 @@ function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
         >
           <AnswerSymbolTile line={line} />
           <span className="min-w-0 font-medium text-[color:var(--text)]">
-            <AnswerLineLabel line={line} /> <SafeBoldText text={line.text} />
+            <AnswerLineLabel line={line} />
+            {line.displayLabel ? " " : null}
+            <SafeBoldText text={line.text} />
           </span>
         </li>
       ))}
@@ -1645,74 +1648,95 @@ function ClinicalOutputPanel({
 }) {
   const sections = buildClinicalOutputSections(answer);
   if (sections.length === 0) return null;
+  const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
+  const detailSections = sections.filter((section) => section.id !== leadSection.id && section.id !== "verify-source");
+  const verifySection = sections.find((section) => section.id === "verify-source");
 
   const content = (
     <section data-testid="clinical-action-view" className={cn(panelSubtle, "p-3 sm:p-4")}>
-      <SectionHeading
-        icon={ListChecks}
-        title="Clinical action view"
-        description="Structured from retrieved answer text, exact quotes, citations, and extracted tables."
-        action={
-          <CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedWardNote} onClick={onCopyWardNote} />
-        }
-        hideDescriptionOnMobile
-        compactMobile
-      />
-      <p className={cn("mt-3 text-[15px] leading-6", textMuted)}>
-        Draft only; verify source first before pasting into the medical record.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionHeading
+          icon={ListChecks}
+          title="Clinical answer"
+          description="Dense source-backed structure for review before clinical use."
+          hideDescriptionOnMobile
+          compactMobile
+        />
+        <CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedWardNote} onClick={onCopyWardNote} />
+      </div>
       {demoMode ? (
         <p className="mt-2 rounded-lg border border-amber-300/30 bg-amber-300/12 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-100">
           Synthetic demo only: this is not clinical guidance.
         </p>
       ) : null}
-      <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {sections.map((section) => (
-          <article
-            key={section.id}
-            className={cn(sourceCard, "p-3", section.id === "thresholds" && "lg:col-span-2 xl:col-span-3")}
-          >
-            <div className="flex items-start gap-2">
-              <span className={cn(iconTilePremium, "h-8 w-8")}>
-                {section.id === "verify-source" ? <Target className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
-                <p className={cn("text-xs leading-5", textMuted)}>
-                  {section.id === "thresholds"
-                    ? "Tables appear before prose when structured evidence is available."
-                    : "Extracted from source-backed answer evidence."}
-                </p>
-              </div>
-            </div>
-            {section.tables?.length ? (
-              <div className="mt-3 grid gap-3">
-                {section.tables.map((table) => (
-                  <div key={table.id} className="space-y-1.5">
-                    <AccessibleTable
-                      caption={table.sourceLabel ? `${table.caption} · ${table.sourceLabel}` : table.caption}
-                      markdown={table.markdown}
-                      rows={table.rows}
-                      columns={table.columns}
-                      compact
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <ul className="mt-3 space-y-2 text-[15px] leading-6 text-[color:var(--text-muted)]">
-              {section.items.map((item, index) => (
-                <li key={`${section.id}:${index}:${item.slice(0, 48)}`} className="flex gap-2">
-                  <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-[color:var(--primary)]" />
-                  <span>
-                    <SafeBoldText text={item} />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
+      <div className="mt-3 rounded-lg border border-[color:var(--primary)]/20 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_70%),var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
+        <div className="flex items-start gap-2.5">
+          <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
+              {leadSection.title}
+            </p>
+            <p className="mt-1 text-[15px] font-semibold leading-6 text-[color:var(--text-heading)]">
+              <SafeBoldText text={leadSection.items[0] ?? "Review the source-backed answer and citations."} />
+            </p>
+          </div>
+        </div>
       </div>
+      <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+        {detailSections.map((section) => {
+          const isWide = section.id === "thresholds" || Boolean(section.tables?.length);
+          return (
+            <article key={section.id} className={cn(sourceCard, "p-3", isWide && "md:col-span-2 xl:col-span-3")}>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
+                <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>{section.items.length}</span>
+              </div>
+              {section.tables?.length ? (
+                <div className="mt-3 grid gap-3">
+                  {section.tables.map((table) => (
+                    <div key={table.id} className="space-y-1.5">
+                      <AccessibleTable
+                        caption={table.sourceLabel ? `${table.caption} · ${table.sourceLabel}` : table.caption}
+                        markdown={table.markdown}
+                        rows={table.rows}
+                        columns={table.columns}
+                        compact
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {section.items.length ? (
+                <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)]">
+                  {section.items.map((item, index) => (
+                    <li key={`${section.id}:${index}:${item.slice(0, 48)}`} className="grid grid-cols-[auto_1fr] gap-2">
+                      <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
+                      <span>
+                        <SafeBoldText text={item} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+      {verifySection ? (
+        <div className={cn("mt-3 border-t border-[color:var(--border)] pt-3", textMuted)}>
+          <div className="flex items-start gap-2.5">
+            <Target className="mt-1 h-4 w-4 shrink-0 text-[color:var(--primary)]" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.08em]">Verify source</p>
+              <p className="mt-1 text-sm leading-6">
+                <SafeBoldText text={verifySection.items[0] ?? "Open the cited source passage before clinical use."} />
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 
@@ -1720,7 +1744,7 @@ function ClinicalOutputPanel({
     return (
       <UtilityDrawer
         icon={ListChecks}
-        title="Clinical action view"
+        title="Clinical answer"
         summary="Collapsed because direct source support was not found."
         mobileSummary="Clinical formats"
       >
