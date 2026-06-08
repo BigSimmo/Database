@@ -1942,49 +1942,6 @@ function QuoteCards({
   );
 }
 
-function clinicalOutputModeCopy(mode?: RagAnswer["responseMode"]) {
-  if (mode === "threshold_table") {
-    return {
-      title: "Threshold view",
-      description: "Threshold and table evidence is prioritized before supporting source notes.",
-      sectionDescription: "Structured threshold evidence from cited sources.",
-    };
-  }
-  if (mode === "comparison_matrix") {
-    return {
-      title: "Comparison view",
-      description: "Source-backed points are arranged for side-by-side comparison.",
-      sectionDescription: "Comparison point extracted from cited source evidence.",
-    };
-  }
-  if (mode === "clinical_pathway") {
-    return {
-      title: "Clinical pathway view",
-      description: "Action, monitoring, escalation, and source-gap points are grouped from retrieved evidence.",
-      sectionDescription: "Clinical pathway point extracted from retrieved evidence.",
-    };
-  }
-  if (mode === "document_lookup") {
-    return {
-      title: "Document lookup view",
-      description: "Best matching document passages, pages, and supporting source notes.",
-      sectionDescription: "Document lookup evidence from cited passages.",
-    };
-  }
-  if (mode === "evidence_gap") {
-    return {
-      title: "Evidence gap view",
-      description: "Closest indexed evidence and gaps to verify before relying on this result.",
-      sectionDescription: "Gap or closest-source note from retrieved evidence.",
-    };
-  }
-  return {
-    title: "Structured details",
-    description: "Key points extracted from the answer and supporting source material.",
-    sectionDescription: "Extracted from source-backed answer evidence.",
-  };
-}
-
 function ClinicalOutputPanel({
   answer,
   collapsed = false,
@@ -2008,13 +1965,7 @@ function ClinicalOutputPanel({
           hideDescriptionOnMobile
           compactMobile
         />
-        <CopyButton label="Copy clinical draft" shortLabel="Draft" copied={copiedWardNote} onClick={onCopyWardNote} />
       </div>
-      {demoMode ? (
-        <p className="mt-2 rounded-lg border border-amber-300/30 bg-amber-300/12 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-100">
-          Synthetic demo only: this is not clinical guidance.
-        </p>
-      ) : null}
       <div className="mt-3 rounded-lg border border-[color:var(--primary)]/20 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_70%),var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
         <div className="flex items-start gap-2.5">
           <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
@@ -4701,3 +4652,4 @@ export function ClinicalDashboard() {
     </div>
   );
 }
+
