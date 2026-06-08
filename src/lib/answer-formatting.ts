@@ -1,9 +1,25 @@
 export type AnswerDisplayLine = {
   id: string;
   label: string | null;
+  displayLabel: string | null;
   text: string;
   presentation: AnswerLinePresentation;
+  group: AnswerDisplayGroup;
+  explicitLabel: boolean;
+  isLead: boolean;
 };
+
+export type AnswerDisplayGroup =
+  | "bottom_line"
+  | "action"
+  | "monitoring"
+  | "medication"
+  | "escalation"
+  | "documentation"
+  | "comparison"
+  | "source"
+  | "gap"
+  | "summary";
 
 export type AnswerDisplayTone =
   | "direct"
@@ -25,27 +41,127 @@ export type AnswerLinePresentation = {
 
 export type AnswerDisplayMode = "direct" | "checklist" | "clinical_pathway" | "comparison" | "summary" | "evidence_gap";
 
-export type ParsedAnswerDisplay =
-  | { type: "paragraph"; lines: AnswerDisplayLine[]; mode: AnswerDisplayMode }
-  | { type: "bullets"; lines: AnswerDisplayLine[]; mode: AnswerDisplayMode };
+export type AnswerDisplayGroupSummary = {
+  group: AnswerDisplayGroup;
+  label: string;
+  lines: AnswerDisplayLine[];
+};
 
-const knownAnswerLabels = new Set([
-  "bottom line",
-  "required actions",
+export type ParsedAnswerDisplay =
+  | {
+      type: "paragraph";
+      lines: AnswerDisplayLine[];
+      lead: AnswerDisplayLine | null;
+      groups: AnswerDisplayGroupSummary[];
+      mode: AnswerDisplayMode;
+    }
+  | {
+      type: "bullets";
+      lines: AnswerDisplayLine[];
+      lead: AnswerDisplayLine | null;
+      groups: AnswerDisplayGroupSummary[];
+      mode: AnswerDisplayMode;
+    };
+
+const groupLabels: Record<AnswerDisplayGroup, string> = {
+  bottom_line: "Bottom line",
+  action: "Action",
+  monitoring: "Monitoring",
+  medication: "Medication",
+  escalation: "Escalation",
+  documentation: "Document",
+  comparison: "Compare",
+  source: "Source",
+  gap: "Source gap",
+  summary: "Summary",
+};
+
+const groupSymbols: Record<AnswerDisplayGroup, string> = {
+  bottom_line: "✓",
+  action: "→",
+  monitoring: "⏱",
+  medication: "Rx",
+  escalation: "!",
+  documentation: "§",
+  comparison: "↔",
+  source: "#",
+  gap: "?",
+  summary: "•",
+};
+
+const groupTones: Record<AnswerDisplayGroup, AnswerDisplayTone> = {
+  bottom_line: "direct",
+  action: "action",
+  monitoring: "monitoring",
+  medication: "medication",
+  escalation: "risk",
+  documentation: "documentation",
+  comparison: "comparison",
+  source: "source",
+  gap: "gap",
+  summary: "summary",
+};
+
+const highSignalGroups = new Set<AnswerDisplayGroup>([
+  "bottom_line",
+  "action",
   "monitoring",
-  "monitoring/timing",
-  "medication/dose details",
-  "dose detail",
-  "medication point",
-  "table evidence",
-  "threshold/action",
-  "risk/escalation",
-  "escalation/risk",
-  "workflow step",
-  "documentation/forms",
-  "source gaps",
-  "section summary",
-  "source point",
+  "medication",
+  "escalation",
+  "documentation",
+  "comparison",
+  "source",
+  "gap",
+]);
+
+const knownAnswerLabels = new Map<string, AnswerDisplayGroup>([
+  ["answer", "bottom_line"],
+  ["bottom line", "bottom_line"],
+  ["clinical point", "bottom_line"],
+  ["direct answer", "bottom_line"],
+  ["key point", "bottom_line"],
+  ["required action", "action"],
+  ["required actions", "action"],
+  ["action", "action"],
+  ["actions", "action"],
+  ["workflow step", "action"],
+  ["next step", "action"],
+  ["monitoring", "monitoring"],
+  ["monitoring/timing", "monitoring"],
+  ["timing", "monitoring"],
+  ["table evidence", "monitoring"],
+  ["threshold/action", "monitoring"],
+  ["threshold", "monitoring"],
+  ["thresholds", "monitoring"],
+  ["dose detail", "medication"],
+  ["dose details", "medication"],
+  ["medication point", "medication"],
+  ["medication/dose details", "medication"],
+  ["medication/dose detail", "medication"],
+  ["medication details", "medication"],
+  ["dose", "medication"],
+  ["risk/escalation", "escalation"],
+  ["escalation/risk", "escalation"],
+  ["escalation", "escalation"],
+  ["risk", "escalation"],
+  ["safety", "escalation"],
+  ["documentation/forms", "documentation"],
+  ["documentation", "documentation"],
+  ["forms", "documentation"],
+  ["document", "documentation"],
+  ["comparison", "comparison"],
+  ["compare", "comparison"],
+  ["source point", "source"],
+  ["source", "source"],
+  ["source evidence", "source"],
+  ["citation", "source"],
+  ["quote", "source"],
+  ["source gaps", "gap"],
+  ["source gap", "gap"],
+  ["gap", "gap"],
+  ["unsupported", "gap"],
+  ["section summary", "summary"],
+  ["summary", "summary"],
 ]);
 
 function normalizeInline(value: string) {
@@ -64,8 +180,10 @@ function splitInlineBullets(value: string) {
     .split(/\r?\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const bulletLineIndex = newlineParts.findIndex((line) => /^(?:[-*•]|\d+[.)])\s+/.test(line));
   if (newlineParts.filter((line) => /^(?:[-*•]|\d+[.)])\s+/.test(line)).length >= 2) {
-    return newlineParts.map(stripBulletPrefix);
+    const lead = bulletLineIndex > 0 ? [newlineParts.slice(0, bulletLineIndex).join(" ")] : [];
+    return [...lead, ...newlineParts.slice(Math.max(0, bulletLineIndex)).map(stripBulletPrefix)];
   }
 
   const inlineParts = trimmed
@@ -77,92 +195,113 @@ function splitInlineBullets(value: string) {
   return [trimmed];
 }
 
-function splitLabel(value: string): Pick<AnswerDisplayLine, "label" | "text"> {
-  const match = value.match(/^([^:]{2,44}):\s+(.+)$/);
-  if (!match) return { label: null, text: value };
-
-  const rawLabel = normalizeInline(match[1].replace(/\*\*/g, ""));
-  const labelKey = rawLabel.toLowerCase();
-  if (!knownAnswerLabels.has(labelKey) && !/^[A-Z][A-Za-z/ -]{2,40}$/.test(rawLabel)) {
-    return { label: null, text: value };
-  }
-
-  return {
-    label: rawLabel,
-    text: normalizeInline(match[2]),
-  };
+function normalizeLabelKey(value: string) {
+  return normalizeInline(value.replace(/\*\*/g, ""))
+    .replace(/\s*\/\s*/g, "/")
+    .toLowerCase();
 }
 
-function inferPresentation(label: string | null, text: string): AnswerLinePresentation {
-  const labelKey = (label ?? "").toLowerCase();
-  if (/\bbottom line\b/.test(labelKey)) {
-    return { tone: "direct", symbol: "✓", label: label ?? "Bottom line" };
-  }
-  if (/\b(?:source gaps?|gap|unsupported)\b/.test(labelKey)) {
-    return { tone: "gap", symbol: "?", label: label ?? "Source gap" };
-  }
-  if (/\b(?:risk|escalation|red flag|safety)\b/.test(labelKey)) {
-    return { tone: "risk", symbol: "!", label: label ?? "Risk" };
-  }
-  if (/\b(?:medication|dose|titration|prescrib)\b/.test(labelKey)) {
-    return { tone: "medication", symbol: "Rx", label: label ?? "Medication" };
-  }
-  if (/\b(?:monitoring|timing|threshold|table evidence)\b/.test(labelKey)) {
-    return { tone: "monitoring", symbol: "⏱", label: label ?? "Monitoring" };
-  }
-  if (/\b(?:required actions?|workflow|action)\b/.test(labelKey)) {
-    return { tone: "action", symbol: "→", label: label ?? "Action" };
-  }
-  if (/\b(?:documentation|forms?|record|audit)\b/.test(labelKey)) {
-    return { tone: "documentation", symbol: "§", label: label ?? "Document" };
-  }
-  if (/\b(?:compare|comparison|conflict)\b/.test(labelKey)) {
-    return { tone: "comparison", symbol: "↔", label: label ?? "Compare" };
-  }
-  if (/\b(?:source|citation|quote|evidence)\b/.test(labelKey)) {
-    return { tone: "source", symbol: "#", label: label ?? "Source" };
-  }
-  if (/\b(?:summary|overview|section summary)\b/.test(labelKey)) {
-    return { tone: "summary", symbol: "•", label: label ?? "Summary" };
-  }
+function groupFromLabel(label: string | null): AnswerDisplayGroup | null {
+  if (!label) return null;
+  const labelKey = normalizeLabelKey(label);
+  const exact = knownAnswerLabels.get(labelKey);
+  if (exact) return exact;
+  if (/\bbottom line\b/.test(labelKey)) return "bottom_line";
+  if (/\b(?:source gaps?|gap|unsupported)\b/.test(labelKey)) return "gap";
+  if (/\b(?:risk|escalation|red flag|safety)\b/.test(labelKey)) return "escalation";
+  if (/\b(?:medication|dose|titration|prescrib)\b/.test(labelKey)) return "medication";
+  if (/\b(?:monitoring|timing|threshold|table evidence)\b/.test(labelKey)) return "monitoring";
+  if (/\b(?:required actions?|workflow|action)\b/.test(labelKey)) return "action";
+  if (/\b(?:documentation|forms?|record|audit)\b/.test(labelKey)) return "documentation";
+  if (/\b(?:compare|comparison|conflict)\b/.test(labelKey)) return "comparison";
+  if (/\b(?:source|citation|quote|evidence)\b/.test(labelKey)) return "source";
+  if (/\b(?:summary|overview|section summary)\b/.test(labelKey)) return "summary";
+  return null;
+}
 
+function groupFromText(text: string): AnswerDisplayGroup {
   const combined = text.toLowerCase();
   if (/\b(?:gap|insufficient|unsupported|not contain|not enough|unclear|missing)\b/.test(combined)) {
-    return { tone: "gap", symbol: "?", label: label ?? "Source gap" };
+    return "gap";
   }
   if (
     /\b(?:risk|escalat|urgent|immediate|red flag|cease|withhold|stop|contraindicat|avoid|emergency)\b/.test(combined)
   ) {
-    return { tone: "risk", symbol: "!", label: label ?? "Risk" };
+    return "escalation";
   }
   if (
-    /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|anc|fbc|wbc|blood test|threshold|level)\b/.test(combined)
+    /\b(?:monitor(?:ing)?|timing|weekly|monthly|hours?|days?|weeks?|anc|fbc|wbc|blood test|threshold|level)\b/.test(
+      combined,
+    )
   ) {
-    return { tone: "monitoring", symbol: "⏱", label: label ?? "Monitoring" };
+    return "monitoring";
   }
   if (
     /\b(?:dose|mg|mcg|route|oral|intramuscular|im\b|po\b|clozapine|lithium|lorazepam|haloperidol|olanzapine|medication)\b/.test(
       combined,
     )
   ) {
-    return { tone: "medication", symbol: "Rx", label: label ?? "Medication" };
+    return "medication";
   }
   if (/\b(?:document|form|record|audit|consent|register|file|note)\b/.test(combined)) {
-    return { tone: "documentation", symbol: "§", label: label ?? "Document" };
+    return "documentation";
   }
   if (/\b(?:compare|versus|difference|whereas|while|document-specific|conflict)\b/.test(combined)) {
-    return { tone: "comparison", symbol: "↔", label: label ?? "Compare" };
+    return "comparison";
   }
   if (/\b(?:source|citation|quote|evidence|excerpt)\b/.test(combined)) {
-    return { tone: "source", symbol: "#", label: label ?? "Source" };
+    return "source";
   }
   if (/\b(?:action|required|must|should|complete|refer|review|arrange|contact|notify|assess)\b/.test(combined)) {
-    return { tone: "action", symbol: "→", label: label ?? "Action" };
+    return "action";
   }
   if (/\b(?:summary|overview|bottom line|key point)\b/.test(combined)) {
-    return { tone: "summary", symbol: "•", label: label ?? "Summary" };
+    return "summary";
   }
-  return { tone: "direct", symbol: "✓", label: label ?? "Point" };
+  return "bottom_line";
+}
+
+function splitLabel(
+  value: string,
+): Pick<AnswerDisplayLine, "label" | "displayLabel" | "text" | "group" | "explicitLabel"> {
+  const match = value.match(/^([^:]{2,44}):\s+(.+)$/);
+  if (!match) {
+    const group = groupFromText(value);
+    return {
+      label: null,
+      displayLabel: highSignalGroups.has(group) ? groupLabels[group] : null,
+      text: value,
+      group,
+      explicitLabel: false,
+    };
+  }
+
+  const rawLabel = normalizeInline(match[1].replace(/\*\*/g, ""));
+  const explicitGroup = groupFromLabel(rawLabel);
+  if (!explicitGroup && !/^[A-Z][A-Za-z/ -]{2,40}$/.test(rawLabel)) {
+    const group = groupFromText(value);
+    return {
+      label: null,
+      displayLabel: highSignalGroups.has(group) ? groupLabels[group] : null,
+      text: value,
+      group,
+      explicitLabel: false,
+    };
+  }
+  const text = normalizeInline(match[2]);
+  const group = explicitGroup ?? groupFromText(text);
+
+  return {
+    label: rawLabel,
+    displayLabel: highSignalGroups.has(group) ? groupLabels[group] : null,
+    text,
+    group,
+    explicitLabel: true,
+  };
+}
+
+function presentationForGroup(group: AnswerDisplayGroup): AnswerLinePresentation {
+  return { tone: groupTones[group], symbol: groupSymbols[group], label: groupLabels[group] };
 }
 
 function inferDisplayMode(lines: AnswerDisplayLine[]): AnswerDisplayMode {
@@ -180,15 +319,54 @@ function inferDisplayMode(lines: AnswerDisplayLine[]): AnswerDisplayMode {
 }
 
 export function answerLinePresentation(line: AnswerDisplayLine): AnswerLinePresentation {
-  return line.presentation ?? inferPresentation(line.label, line.text);
+  return line.presentation ?? presentationForGroup(line.group);
+}
+
+function groupedLines(lines: AnswerDisplayLine[]): AnswerDisplayGroupSummary[] {
+  const groups = new Map<AnswerDisplayGroup, AnswerDisplayLine[]>();
+  for (const line of lines) {
+    if (line.isLead && line.group === "bottom_line") continue;
+    const existing = groups.get(line.group) ?? [];
+    existing.push(line);
+    groups.set(line.group, existing);
+  }
+
+  const order: AnswerDisplayGroup[] = [
+    "bottom_line",
+    "action",
+    "monitoring",
+    "medication",
+    "escalation",
+    "documentation",
+    "comparison",
+    "source",
+    "gap",
+    "summary",
+  ];
+  return order
+    .filter((group) => groups.has(group))
+    .map((group) => ({ group, label: groupLabels[group], lines: groups.get(group) ?? [] }));
 }
 
 function buildAnswerLine(part: string, index: number, prefix: string): AnswerDisplayLine {
   const parsed = splitLabel(part);
+  const isLead = index === 0 && (!parsed.explicitLabel || parsed.group === "bottom_line");
   return {
     id: `${prefix}:${index}:${part.slice(0, 48)}`,
     ...parsed,
-    presentation: inferPresentation(parsed.label, parsed.text),
+    isLead,
+    presentation: presentationForGroup(parsed.group),
+  };
+}
+
+function parsedAnswer(type: ParsedAnswerDisplay["type"], lines: AnswerDisplayLine[]): ParsedAnswerDisplay {
+  const lead = lines.find((line) => line.isLead) ?? null;
+  return {
+    type,
+    mode: inferDisplayMode(lines),
+    lead,
+    groups: groupedLines(lines),
+    lines,
   };
 }
 
@@ -206,10 +384,16 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
         {
           id: "empty",
           label: null,
+          displayLabel: "Source gap",
           text: "No usable answer text for this result.",
-          presentation: inferPresentation(null, "No usable answer text for this result."),
+          group: "gap",
+          explicitLabel: false,
+          isLead: true,
+          presentation: presentationForGroup("gap"),
         },
       ],
+      lead: null,
+      groups: [],
     };
   }
 
@@ -219,11 +403,7 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
 
   if (parts.length >= 2) {
     const lines = parts.map((part, index) => buildAnswerLine(part, index, "bullet"));
-    return {
-      type: "bullets",
-      mode: inferDisplayMode(lines),
-      lines,
-    };
+    return parsedAnswer("bullets", lines);
   }
 
   const semicolonParts = cleaned
@@ -232,17 +412,9 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
     .filter((part) => part.length > 18);
   if (semicolonParts.length >= 3) {
     const lines = semicolonParts.map((part, index) => buildAnswerLine(part, index, "semicolon"));
-    return {
-      type: "bullets",
-      mode: inferDisplayMode(lines),
-      lines,
-    };
+    return parsedAnswer("bullets", lines);
   }
 
   const lines = [buildAnswerLine(normalizeInline(cleaned), 0, "paragraph")];
-  return {
-    type: "paragraph",
-    mode: inferDisplayMode(lines),
-    lines,
-  };
+  return parsedAnswer("paragraph", lines);
 }
