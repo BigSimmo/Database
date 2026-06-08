@@ -17,45 +17,45 @@ export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[col
 export const appBackdrop =
   "bg-[radial-gradient(circle_at_50%_-12%,color-mix(in_srgb,var(--primary)_11%,transparent),transparent_28rem),linear-gradient(180deg,var(--background),color-mix(in_srgb,var(--background)_90%,var(--surface-inset)))]";
 export const glassPanel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] shadow-[var(--shadow-lux)] backdrop-blur-lg dark:border-white/10";
+  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)] dark:border-white/10";
 export const quietPanel =
-  "rounded-lg border border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_52%),var(--surface-raised)] shadow-[var(--shadow-tight)]";
-export const sourceCard = `${quietPanel} hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
+  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
+export const sourceCard = `${quietPanel} hover:border-[color:var(--border-strong)]`;
 export const answerSurface =
-  "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary-soft)_30%,transparent),transparent_58%),var(--surface-lux)] shadow-[var(--shadow-lux)]";
+  "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]";
 export const evidenceSurface =
-  "rounded-lg border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary-soft)_24%,transparent),transparent_60%),var(--surface-lux)] shadow-[var(--glow-soft)]";
+  "rounded-lg border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]";
 export const panel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_44%),var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/35 dark:ring-white/5";
+  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)] ring-1 ring-white/25 dark:ring-white/5";
 export const panelSubtle = quietPanel;
 export const controlBase =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-tight)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none";
-export const primaryControl = `${controlBase} bg-[linear-gradient(135deg,var(--primary),var(--primary-strong))] px-5 text-[color:var(--primary-contrast)] shadow-[var(--glow-soft)] hover:bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] hover:shadow-[var(--glow-primary)]`;
+  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-none";
+export const primaryControl = `${controlBase} bg-[color:var(--primary)] px-5 text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]`;
 export const floatingControl =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] backdrop-blur-lg transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none";
+  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
 export const toolbarButton =
-  "grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] text-[color:var(--text)] shadow-[var(--shadow-inset)] backdrop-blur-lg transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:shadow-none";
+  "grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none";
 export const eyebrowText = "text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]";
 export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
 export const fieldControl =
-  "h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-glass)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none backdrop-blur-md transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20";
+  "h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
   "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]";
 export const shellChip =
-  "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-tight)]";
+  "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]";
 export const navPill =
-  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-lg transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]";
+  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]";
 export const metadataPill =
-  "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]";
+  "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]";
 export const subtleStatusPill =
   "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-xs font-semibold text-[color:var(--text-muted)]";
 export const clinicalDivider = "border-t border-[color:var(--border)]/80";
 export const iconTile =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]";
 export const iconTilePremium =
-  "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/18 bg-[radial-gradient(circle_at_35%_20%,color-mix(in_srgb,var(--primary)_16%,white),var(--primary-soft))] text-[color:var(--primary)] shadow-[var(--glow-soft)]";
+  "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]";
 export const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]";
 export const premiumHeaderSurface =

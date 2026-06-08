@@ -217,6 +217,40 @@ describe("RAG trust validation", () => {
     expect(block).not.toContain("citation_chunk_id: Previous");
   });
 
+  it("packs section hierarchy, structured table facts, and index warnings into source context", () => {
+    const block = buildRagSourceBlock([
+      source({
+        section_path: ["Medication", "Dose table"],
+        table_facts: [
+          {
+            id: "fact-1",
+            document_id: "doc-1",
+            source_chunk_id: "chunk-1",
+            source_image_id: "image-1",
+            page_number: 2,
+            table_title: "Dose table",
+            row_label: "Lorazepam",
+            clinical_parameter: "Route",
+            threshold_value: "1 mg IM",
+            action: "Review before repeat PRN dose.",
+          },
+        ],
+        indexing_quality: {
+          document_id: "doc-1",
+          quality_score: 0.62,
+          extraction_quality: "partial",
+          metrics: {},
+          issues: ["low table row extraction coverage"],
+        },
+      }),
+    ]);
+
+    expect(block).toContain("Section path: Medication > Dose table");
+    expect(block).toContain("Structured table facts");
+    expect(block).toContain("1 mg IM");
+    expect(block).toContain("Index quality warnings: low table row extraction coverage");
+  });
+
   it("clamps model confidence to retrieval strength", () => {
     const answer = parseAnswerJson(
       JSON.stringify({

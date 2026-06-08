@@ -1,7 +1,13 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
-import type { RagQueryClass, SearchResult, SearchScoreExplanation } from "@/lib/types";
+import type {
+  ClinicalQueryAnalysis,
+  ClinicalQueryIntent,
+  RagQueryClass,
+  SearchResult,
+  SearchScoreExplanation,
+} from "@/lib/types";
 
-type SearchIntent = "definition" | "protocol" | "drug_dosing" | "escalation_risk" | "document_lookup" | "general";
+type SearchIntent = ClinicalQueryIntent;
 
 type IntentSignals = {
   intent: SearchIntent;
@@ -118,6 +124,76 @@ const synonymGroups = [
   ["dose", "dosing", "dose limit", "maximum dose", "frequency", "route", "oral", "intramuscular", "IM", "PRN"],
 ];
 
+const typoCorrections = new Map<string, string>([
+  ["clozapin", "clozapine"],
+  ["clozapinw", "clozapine"],
+  ["clozapene", "clozapine"],
+  ["agitaton", "agitation"],
+  ["agitationn", "agitation"],
+  ["arousl", "arousal"],
+  ["arrousal", "arousal"],
+  ["neutrophyl", "neutrophil"],
+  ["neutropena", "neutropenia"],
+  ["myocardits", "myocarditis"],
+  ["metbolic", "metabolic"],
+  ["dischage", "discharge"],
+  ["admisson", "admission"],
+  ["prescribng", "prescribing"],
+  ["monitring", "monitoring"],
+]);
+
+const domainAliasGroups = [
+  ["fbc", "full blood count", "blood count", "white cell", "wbc"],
+  ["anc", "absolute neutrophil count", "neutrophil", "neutrophils"],
+  ["nocc", "national outcomes and casemix collection", "outcome measures"],
+  ["pt", "patient", "patients", "pts"],
+  ["ed", "emergency department"],
+  ["ect", "electroconvulsive therapy"],
+  ["lai", "long acting injectable", "depot", "long-acting injectable"],
+  ["im", "intramuscular"],
+  ["po", "oral"],
+  ["prn", "as required"],
+  ["mhsp", "mental health service procedure"],
+  ["fda", "food and drug administration"],
+];
+
+const medicationAliasGroups = [
+  ["clozapine", "clozaril"],
+  ["lithium", "lithium carbonate", "lithium level"],
+  ["olanzapine", "zyprexa"],
+  ["lorazepam", "ativan"],
+  ["haloperidol", "haldol"],
+  ["droperidol"],
+  ["promethazine", "phenergan"],
+  ["diazepam", "valium"],
+  ["risperidone", "risperdal"],
+  ["quetiapine", "seroquel"],
+  ["midazolam"],
+  ["clonazepam"],
+  ["chlorpromazine"],
+];
+
+const documentTitleAliasGroups = [
+  ["nocc", "national outcomes and casemix collection"],
+  ["patient safety plan", "safety plan", "pt safety plan"],
+  ["active community patient ed", "active community pt ed", "community patients in ed"],
+  ["admission community pts", "community admission", "admission of community patients"],
+  ["agitation arousal pharmacological management", "agitation and arousal", "agitation dosing"],
+  ["clozapine prescribing administration monitoring", "clozapine monitoring", "clozapine"],
+  ["long acting injectable", "long-acting injectable", "lai"],
+  ["metabolic screening", "metabolic monitoring"],
+  ["treatment team process", "mental health treatment team"],
+  ["assessment documentation", "assessment document"],
+  ["discharge", "discharge documentation"],
+  ["duress", "duress procedure"],
+  ["illegal substances", "illegal substance"],
+];
+
+const thresholdSignalPattern =
+  /\b(?:threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|withhold|cease|stop|maximum|minimum|baseline|anc|fbc|neutrophil|white cell)\b/i;
+const freshnessSignalPattern =
+  /\b(?:current|latest|newest|recent|review date|reviewed|published|publication|version|outdated|expired|superseded)\b/i;
+
 const intentPatterns: Array<{
   intent: SearchIntent;
   pattern: RegExp;
@@ -157,22 +233,170 @@ const intentPatterns: Array<{
   },
 ];
 
-const comparisonPattern = /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b/i;
+const comparisonPattern =
+  /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b|\bcombine\b.{0,100}\bwith\b/i;
 const tableThresholdPattern =
   /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b/i;
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectable|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
-const documentLookupPattern =
-  /\b(search|lookup|find|where|which document|documents?|document title|document id|file|pdf|page|section|guideline|procedure|protocol|form)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
+const documentIncludePattern =
+  /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
+const explicitDocumentLookupPattern =
+  /\b(?:find|search|lookup|open|show|where)\b.{0,80}\b(?:document|file|pdf|protocol|guideline|procedure|page|section|form|table)\b|\bwhich\s+document\b/i;
 const broadSummaryPattern =
   /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b/i;
+const explicitDocumentTitleNoisePattern =
+  /\b(?:newly uploaded|future|not uploaded|2027|airport|travel policy|gardening|equipment|checklist)\b/i;
+const outsideCorpusMedicalPattern =
+  /\b(?:diabetic ketoacidosis|dka|community acquired pneumonia|pneumonia|antibiotic|ssri|adolescent depression|hyperkalaemia|hyperkalemia|ketamine sedation)\b/i;
+const shortClinicalSearchTerms = new Set(["ed", "im", "po", "pt"]);
+const simpleRequirementsQuestionPattern = /^\s*(?:what|which)\s+(?:are|is)\s+.+\brequirements?\s*\??\s*$/i;
 
 function tokens(text: string) {
   return text
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .toLowerCase()
     .split(/\W+/)
-    .filter((token) => token.length > 2);
+    .filter((token) => token.length > 2 || shortClinicalSearchTerms.has(token));
+}
+
+function normalizeAnalysisText(text: string) {
+  return text
+    .normalize("NFKC")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[^a-z0-9%/.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function correctedTokens(query: string) {
+  return tokens(query).map((token) => typoCorrections.get(token) ?? token);
+}
+
+function unique(values: string[], limit = 30) {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    output.push(normalized);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
+function termMatchesQuery(normalizedQuery: string, term: string) {
+  const normalizedTerm = normalizeAnalysisText(term);
+  if (!normalizedTerm) return false;
+  const escaped = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(normalizedQuery);
+}
+
+function aliasesForQuery(normalizedQuery: string, groups: string[][]) {
+  const matches: string[] = [];
+  for (const group of groups) {
+    if (group.some((term) => termMatchesQuery(normalizedQuery, term))) {
+      matches.push(...group);
+    }
+  }
+  return unique(matches, 40);
+}
+
+function medicationTerms(normalizedQuery: string) {
+  return aliasesForQuery(normalizedQuery, medicationAliasGroups).filter((term) =>
+    medicationAliasGroups.some((group) => group[0] === term),
+  );
+}
+
+function acronymTerms(query: string, normalizedQuery: string) {
+  const direct = (query.match(/\b[A-Z]{2,6}\b/g) ?? []).map((term) => term.toLowerCase());
+  const aliases = aliasesForQuery(normalizedQuery, domainAliasGroups).filter((term) => /^[a-z]{2,6}$/.test(term));
+  return unique([...direct, ...aliases], 12);
+}
+
+function thresholdTermsFor(normalizedQuery: string) {
+  if (!thresholdSignalPattern.test(normalizedQuery)) return [];
+  return unique(
+    correctedTokens(normalizedQuery).filter((token) =>
+      /^(threshold|cutoff|level|range|score|scale|criteria|criterion|withhold|cease|stop|maximum|minimum|baseline|anc|fbc|neutrophil)$/.test(
+        token,
+      ),
+    ),
+    12,
+  );
+}
+
+function documentTitleTermsFor(normalizedQuery: string) {
+  return aliasesForQuery(normalizedQuery, documentTitleAliasGroups);
+}
+
+function queryClassFromSignals(args: {
+  normalizedQuery: string;
+  medications: string[];
+  thresholdTerms: string[];
+  documentTitleTerms: string[];
+  comparisonIntent: boolean;
+  explicitDocumentLookupIntent: boolean;
+}): RagQueryClass {
+  if (args.comparisonIntent) return "comparison";
+  if (
+    (args.documentTitleTerms.length > 0 || args.explicitDocumentLookupIntent) &&
+    explicitDocumentTitleNoisePattern.test(args.normalizedQuery)
+  )
+    return "document_lookup";
+  if (outsideCorpusMedicalPattern.test(args.normalizedQuery) && args.documentTitleTerms.length === 0)
+    return "unsupported_or_general";
+  if (args.thresholdTerms.length > 0 || tableThresholdPattern.test(args.normalizedQuery)) return "table_threshold";
+  if (args.medications.length > 0 || medicationDoseRiskPattern.test(args.normalizedQuery))
+    return "medication_dose_risk";
+  if (broadSummaryPattern.test(args.normalizedQuery) && !args.explicitDocumentLookupIntent) return "broad_summary";
+  if (
+    args.explicitDocumentLookupIntent ||
+    args.documentTitleTerms.length > 0 ||
+    /\b(?:document title|document id|documentation|file|pdf|page|section|guideline|procedure|protocol|forms?)\b/i.test(
+      args.normalizedQuery,
+    ) ||
+    (documentIncludePattern.test(args.normalizedQuery) && !simpleRequirementsQuestionPattern.test(args.normalizedQuery))
+  )
+    return "document_lookup";
+  return "unsupported_or_general";
+}
+
+function intentFromSignals(queryClass: RagQueryClass, normalizedQuery: string): ClinicalQueryIntent {
+  if (queryClass === "comparison") return "comparison";
+  if (queryClass === "broad_summary") return "broad_summary";
+  if (queryClass === "document_lookup") return "document_lookup";
+  if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") {
+    if (
+      /(dose|dosage|dosing|mg|mcg|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer)/i.test(normalizedQuery)
+    ) {
+      return "drug_dosing";
+    }
+    if (/(risk|urgent|red flag|escalat|contraindicat|avoid|toxicity|withhold|cease|stop)/i.test(normalizedQuery)) {
+      return "escalation_risk";
+    }
+  }
+  if (/(protocol|procedure|process|pathway|workflow|algorithm|guideline)/i.test(normalizedQuery)) return "protocol";
+  if (/(what is|define|definition|meaning|term|describe)/i.test(normalizedQuery)) return "definition";
+  return "general";
+}
+
+function analysisConfidence(args: {
+  queryClass: RagQueryClass;
+  reasons: string[];
+  canonicalTerms: string[];
+  documentTitleTerms: string[];
+  typoCorrectionCount: number;
+}) {
+  let score = 0.36;
+  if (args.queryClass !== "unsupported_or_general") score += 0.2;
+  score += Math.min(0.22, args.reasons.length * 0.045);
+  score += Math.min(0.16, args.canonicalTerms.length * 0.018);
+  score += Math.min(0.12, args.documentTitleTerms.length * 0.025);
+  score += Math.min(0.08, args.typoCorrectionCount * 0.03);
+  return clamp(score);
 }
 
 function parseDateAsYearsAgo(value?: string | null) {
@@ -218,9 +442,23 @@ function extractionQualityScore(result: SearchResult) {
   return 0;
 }
 
+function indexQualityRankSignal(result: SearchResult) {
+  const quality = result.indexing_quality;
+  if (!quality) return 0;
+  const score = Number(quality.quality_score);
+  if (!Number.isFinite(score)) return 0;
+  const issuePenalty = Math.min(0.06, (quality.issues?.length ?? 0) * 0.012);
+  if (score >= 0.9) return 0.025 - issuePenalty;
+  if (score >= 0.75) return 0.01 - issuePenalty;
+  if (score >= 0.5) return -0.035 - issuePenalty;
+  return -0.09 - issuePenalty;
+}
+
 function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
   if (!tokens.length) return 0;
-  const haystack = normalizeQueryTokenForLookups(`${result.section_heading ?? ""} ${result.content}`).split(" ");
+  const haystack = normalizeQueryTokenForLookups(
+    `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")} ${result.content}`,
+  ).split(" ");
   if (!haystack.length) return 0;
   const lookup = new Set(haystack);
   const hits = tokens.filter((token) => lookup.has(token)).length;
@@ -228,7 +466,9 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
 }
 
 export function hasDoseEvidenceSupport(result: SearchResult) {
-  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.memory_cards ?? [])
+  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
+    .map((fact) => `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`)
+    .join(" ")} ${(result.memory_cards ?? [])
     .map((card) => `${card.title} ${card.content}`)
     .join(" ")} ${(result.images ?? [])
     .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
@@ -259,66 +499,98 @@ export function classifyQueryIntent(query: string): IntentSignals {
   };
 }
 
-export function classifyRagQuery(query: string): RagQueryClassification {
-  const reasons: string[] = [];
-  const normalized = query.trim();
-
-  if (comparisonPattern.test(normalized)) {
-    reasons.push("comparison_terms");
-    return {
-      queryClass: "comparison",
-      reasons,
-      needsVisualEvidence: tableThresholdPattern.test(normalized),
-      needsSynthesis: true,
-    };
-  }
-
-  if (tableThresholdPattern.test(normalized)) {
-    reasons.push("table_or_threshold_terms");
-    return {
-      queryClass: "table_threshold",
-      reasons,
-      needsVisualEvidence: true,
-      needsSynthesis: false,
-    };
-  }
-
-  if (medicationDoseRiskPattern.test(normalized)) {
-    reasons.push("medication_dose_or_risk_terms");
-    return {
-      queryClass: "medication_dose_risk",
-      reasons,
-      needsVisualEvidence: /table|chart|matrix|dose card/i.test(normalized),
-      needsSynthesis: /recommend|decide|should|manage|consider|contraindicat|interaction|risk/i.test(normalized),
-    };
-  }
-
-  if (documentLookupPattern.test(normalized)) {
-    reasons.push("document_lookup_terms");
-    return {
-      queryClass: "document_lookup",
-      reasons,
-      needsVisualEvidence: /page|table|chart|figure|image/i.test(normalized),
-      needsSynthesis: false,
-    };
-  }
-
-  if (broadSummaryPattern.test(normalized)) {
-    reasons.push("broad_summary_terms");
-    return {
-      queryClass: "broad_summary",
-      reasons,
-      needsVisualEvidence: /table|chart|figure|image/i.test(normalized),
-      needsSynthesis: true,
-    };
-  }
-
-  reasons.push("no_specific_rag_class_terms");
-  return {
-    queryClass: "unsupported_or_general",
+export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
+  const originalQuery = query.trim();
+  const normalizedQuery = normalizeAnalysisText(originalQuery);
+  const corrected = correctedTokens(originalQuery);
+  const corrections = tokens(originalQuery)
+    .map((token, index) => ({ from: token, to: corrected[index] ?? token }))
+    .filter((item) => item.from !== item.to);
+  const correctedQuery = unique(corrected).join(" ");
+  const aliasTerms = aliasesForQuery(`${normalizedQuery} ${correctedQuery}`, domainAliasGroups);
+  const titleTerms = documentTitleTermsFor(`${normalizedQuery} ${correctedQuery}`);
+  const medications = medicationTerms(`${normalizedQuery} ${correctedQuery}`);
+  const acronyms = acronymTerms(originalQuery, normalizedQuery);
+  const thresholdTerms = thresholdTermsFor(`${normalizedQuery} ${correctedQuery}`);
+  const comparisonIntent = comparisonPattern.test(normalizedQuery);
+  const explicitDocumentLookupIntent = explicitDocumentLookupPattern.test(normalizedQuery);
+  const documentTitleIntent =
+    titleTerms.length > 0 ||
+    documentIncludePattern.test(normalizedQuery) ||
+    explicitDocumentLookupIntent;
+  const freshnessNeed = freshnessSignalPattern.test(normalizedQuery);
+  const queryClass = queryClassFromSignals({
+    normalizedQuery,
+    medications,
+    thresholdTerms,
+    documentTitleTerms: titleTerms,
+    comparisonIntent,
+    explicitDocumentLookupIntent,
+  });
+  const intent = intentFromSignals(queryClass, normalizedQuery);
+  const canonicalTerms = unique([...corrected, ...medications, ...acronyms], 32);
+  const expandedTerms = unique(
+    [
+      ...canonicalTerms,
+      ...aliasTerms,
+      ...titleTerms,
+      ...aliasesForQuery(`${normalizedQuery} ${correctedQuery}`, medicationAliasGroups),
+      ...synonymGroups.filter((group) => group.some((term) => normalizedQuery.includes(term.toLowerCase()))).flat(),
+    ],
+    48,
+  );
+  const reasons = [
+    comparisonIntent ? "comparison_terms" : "",
+    thresholdTerms.length || tableThresholdPattern.test(normalizedQuery) ? "table_or_threshold_terms" : "",
+    medications.length || medicationDoseRiskPattern.test(normalizedQuery) ? "medication_dose_or_risk_terms" : "",
+    documentTitleIntent ? "document_lookup_terms" : "",
+    documentIncludePattern.test(normalizedQuery) ? "document_include_terms" : "",
+    broadSummaryPattern.test(normalizedQuery) ? "broad_summary_terms" : "",
+    corrections.length ? "typo_corrections" : "",
+    aliasTerms.length ? "domain_alias_terms" : "",
+    freshnessNeed ? "freshness_terms" : "",
+  ].filter(Boolean);
+  const confidence = analysisConfidence({
+    queryClass,
     reasons,
-    needsVisualEvidence: false,
-    needsSynthesis: true,
+    canonicalTerms,
+    documentTitleTerms: titleTerms,
+    typoCorrectionCount: corrections.length,
+  });
+
+  return {
+    originalQuery,
+    normalizedQuery,
+    queryClass,
+    intent,
+    confidence,
+    reasons: reasons.length ? reasons : ["no_specific_rag_class_terms"],
+    canonicalTerms,
+    expandedTerms,
+    typoCorrections: corrections,
+    medications,
+    acronyms,
+    thresholdTerms,
+    documentTitleTerms: titleTerms,
+    documentTitleIntent,
+    comparisonIntent,
+    freshnessNeed,
+    needsVisualEvidence: hasImageEvidenceNeed(normalizedQuery) || queryClass === "table_threshold",
+    needsSynthesis:
+      queryClass === "comparison" ||
+      queryClass === "broad_summary" ||
+      /recommend|decide|should|manage|consider|contraindicat|interaction|risk/i.test(normalizedQuery),
+    needsClassifierFallback: confidence < 0.58 && queryClass === "unsupported_or_general",
+  };
+}
+
+export function classifyRagQuery(query: string): RagQueryClassification {
+  const analysis = analyzeClinicalQuery(query);
+  return {
+    queryClass: analysis.queryClass,
+    reasons: analysis.reasons,
+    needsVisualEvidence: analysis.needsVisualEvidence,
+    needsSynthesis: analysis.needsSynthesis,
   };
 }
 
@@ -348,13 +620,16 @@ function imageEvidenceSignal(query: string, result: SearchResult) {
 
 function sectionMatchBoost(query: string, result: SearchResult) {
   const loweredQuery = query.toLowerCase();
-  if (!result.section_heading) return 0;
-  const sectionTokens = result.section_heading
+  const sectionText = [result.section_heading, ...(result.section_path ?? [])].filter(Boolean).join(" ");
+  if (!sectionText) return 0;
+  const sectionTokens = sectionText
     .toLowerCase()
     .split(/\W+/)
     .filter((token) => token.length > 2);
   const matches = sectionTokens.filter((token) => loweredQuery.includes(token));
-  return Math.min(0.12, matches.length * 0.03);
+  const exactSectionPhrase =
+    sectionTokens.length >= 2 && normalizedClinicalSearchTokens(query).join(" ").includes(sectionTokens.slice(0, 5).join(" "));
+  return Math.min(0.15, matches.length * 0.03 + (exactSectionPhrase ? 0.045 : 0));
 }
 
 function documentMetadataBoost(query: string, result: SearchResult, normalizedTokens: string[]) {
@@ -398,27 +673,32 @@ function documentMetadataBoost(query: string, result: SearchResult, normalizedTo
 }
 
 export function normalizedClinicalSearchTokens(query: string) {
-  return tokens(query)
-    .filter((token) => token.length > 2 && !textSearchStopWords.has(token))
+  const baseTokens = correctedTokens(query);
+  return baseTokens
+    .filter((token) => (token.length > 2 || shortClinicalSearchTerms.has(token)) && !textSearchStopWords.has(token))
     .map((token) => (token.endsWith("s") && !token.endsWith("ss") ? token.slice(0, -1) : token))
-    .filter((token) => token.length > 2 && !textSearchStopWords.has(token));
+    .filter((token) => (token.length > 2 || shortClinicalSearchTerms.has(token)) && !textSearchStopWords.has(token));
 }
 
 export function buildClinicalTextSearchQuery(query: string) {
   const normalizedTokens = normalizedClinicalSearchTokens(query);
 
   if (/\bactive community patients?\b/i.test(query) && /\bed\b/i.test(query) && normalizedTokens.includes("active")) {
-    normalizedTokens.push("pt", "ed");
+    const expandedTokens = normalizedTokens.filter(
+      (token) => !["patient", "patients", "pt", "pts", "ed"].includes(token),
+    );
+    normalizedTokens.splice(0, normalizedTokens.length, ...expandedTokens, "pt", "ed");
   } else if (/\bcommunity patients?\b/i.test(query) && normalizedTokens.includes("community")) {
     normalizedTokens.push("pts");
   }
 
-  const uniqueTokens = Array.from(new Set(normalizedTokens)).slice(0, 10);
+  const uniqueTokens = Array.from(new Set(normalizedTokens)).slice(0, 14);
   return uniqueTokens.length >= 1 ? uniqueTokens.join(" ") : query;
 }
 
 export function expandClinicalQuery(query: string) {
-  const lowered = query.toLowerCase();
+  const analysis = analyzeClinicalQuery(query);
+  const lowered = analysis.normalizedQuery;
   const additions = new Set<string>();
 
   for (const group of synonymGroups) {
@@ -426,6 +706,8 @@ export function expandClinicalQuery(query: string) {
       group.forEach((term) => additions.add(term));
     }
   }
+
+  analysis.expandedTerms.forEach((term) => additions.add(term));
 
   if (additions.size === 0) return query;
   return `${query} ${Array.from(additions).join(" ")}`;
@@ -436,12 +718,17 @@ function roundScore(value: number) {
 }
 
 export function clinicalRankExplanation(query: string, result: SearchResult): SearchScoreExplanation {
+  const analysis = analyzeClinicalQuery(query);
   const queryTokens = tokens(query);
   const querySignal = classifyQueryIntent(query);
-  const queryClass = classifyRagQuery(query).queryClass;
+  const queryClass = analysis.queryClass;
   const normalizedTokens = normalizedClinicalQueryTokens(query);
+  const tableFactText = (result.table_facts ?? [])
+    .map((fact) => [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "))
+    .join(" ");
+  const sectionPathText = result.section_path?.join(" ") ?? "";
   const haystack =
-    `${result.title} ${result.file_name} ${result.section_heading ?? ""} ${result.content}`.toLowerCase();
+    `${result.title} ${result.file_name} ${result.section_heading ?? ""} ${sectionPathText} ${result.content} ${tableFactText}`.toLowerCase();
   const base = result.hybrid_score ?? result.similarity;
   const title = `${result.title} ${result.file_name}`.toLowerCase();
   const titleTokenText = tokens(`${result.title} ${result.file_name}`).join(" ");
@@ -461,7 +748,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
       : 0;
   const status = result.source_metadata?.document_status;
   const validation = result.source_metadata?.clinical_validation_status;
-  const statusBoost = status === "current" ? 0.04 : status === "outdated" ? -0.08 : 0;
+  const statusBoost = status === "current" ? 0.05 : status === "review_due" ? -0.04 : status === "outdated" ? -0.18 : 0;
   const validationBoost = validation === "approved" ? 0.04 : validation === "locally_reviewed" ? 0.025 : 0;
   const publicationYearsAgo = parseDateAsYearsAgo(result.source_metadata?.publication_date);
   const reviewYearsAgo = parseDateAsYearsAgo(result.source_metadata?.review_date);
@@ -480,6 +767,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const sectionBoost = sectionMatchBoost(query, result);
   const sectionedLookupBoost = querySignal.sectionedLookup ? 0.02 : 0;
   const extractionBoost = extractionQualityScore(result);
+  const indexQualityBoost = indexQualityRankSignal(result);
   const dosingBoost = querySignal.hasDosingSignals && hasDoseEvidenceSupport(result) ? 0.09 : 0;
   const titleOnlyDosePenalty =
     queryClass === "medication_dose_risk" && titleCoverageBoost >= 0.09 && !hasDoseEvidenceSupport(result) ? -0.42 : 0;
@@ -533,17 +821,51 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     /(threshold|cut[\s-]?off|withhold|cease|stop|anc|fbc|table|chart|criteria|level|range|monitor)/i.test(haystack)
       ? 0.06
       : 0;
+  const structuredTableBoost =
+    (queryClass === "table_threshold" || queryClass === "medication_dose_risk") && (result.table_facts?.length ?? 0) > 0
+      ? 0.12
+      : 0;
+  const directAnswerCoverage =
+    normalizedTokens.length > 0
+      ? normalizedTokens.filter((token) => haystack.includes(token)).length / Math.max(normalizedTokens.length, 1)
+      : 0;
+  const directAnswerBoost =
+    directAnswerCoverage >= 0.75
+      ? 0.08
+      : directAnswerCoverage >= 0.5
+        ? 0.035
+        : directAnswerCoverage <= 0.2 && normalizedTokens.length >= 3
+          ? -0.08
+          : 0;
   const comparisonCoverageBoost =
     queryClass === "comparison" && titleCoverageBoost > 0 && evidenceBoost > 0.02 ? 0.025 : 0;
   const routeSignal = (() => {
-    if (result.source_metadata?.document_status === "review_due") return -0.01;
-    if (result.source_metadata?.document_status === "outdated") return -0.04;
+    if (result.source_metadata?.document_status === "review_due") return -0.03;
+    if (result.source_metadata?.document_status === "outdated") return -0.1;
+    if (result.source_metadata?.extraction_quality === "poor") return -0.05;
     return 0;
   })();
+  const lowLexicalCoverage = normalizedTokens.length > 0 && evidenceBoost < 0.035 && titleCoverageBoost < 0.045;
+  const shouldBlendRrf =
+    typeof result.rrf_score === "number" &&
+    result.rrf_score > 0 &&
+    (queryClass === "comparison" ||
+      queryClass === "document_lookup" ||
+      analysis.typoCorrections.length > 0 ||
+      lowLexicalCoverage);
+  const rrfScore = typeof result.rrf_score === "number" ? result.rrf_score : 0;
+  const rrfBoost = shouldBlendRrf ? Math.min(0.11, rrfScore * 0.32) : 0;
 
   const titleBoost = exactTitleBoost + titleCoverageBoost + titlePhraseBoost;
   const metadataSignals =
-    statusBoost + validationBoost + freshnessBoost + reviewBoost + extractionBoost + metadataBoost + routeSignal;
+    statusBoost +
+    validationBoost +
+    freshnessBoost +
+    reviewBoost +
+    extractionBoost +
+    indexQualityBoost +
+    metadataBoost +
+    routeSignal;
   const clinicalSignalBoost =
     safetyContentBoost +
     imageBoost +
@@ -555,23 +877,26 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     definitionBoost +
     evidenceBoost +
     tableThresholdBoost +
+    structuredTableBoost +
+    directAnswerBoost +
     comparisonCoverageBoost +
     sectionDepth;
   const penalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
-  const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + penalty;
+  const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty;
 
   return {
     vectorScore: roundScore(clamp(result.similarity)),
     textRank: roundScore(result.text_rank ?? 0),
     weightedHybridScore: roundScore(clamp(base)),
     rrfScore: typeof result.rrf_score === "number" ? roundScore(result.rrf_score) : null,
+    rrfBoost: roundScore(rrfBoost),
     memoryBoost: roundScore(result.memory_score ? Math.min(0.24, result.memory_score * 0.24) : 0),
     titleBoost: roundScore(titleBoost),
     metadataBoost: roundScore(metadataSignals),
     clinicalSignalBoost: roundScore(clinicalSignalBoost),
     penalty: roundScore(penalty),
     finalScore: roundScore(finalScore),
-    strategy: "weighted_hybrid_served_rrf_telemetry",
+    strategy: shouldBlendRrf ? "weighted_hybrid_rrf_blend" : "weighted_hybrid",
   };
 }
 

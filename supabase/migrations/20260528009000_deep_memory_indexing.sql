@@ -42,7 +42,7 @@ create table if not exists public.document_memory_cards (
   source_image_ids uuid[] not null default '{}',
   confidence real not null default 0.5 check (confidence >= 0 and confidence <= 1),
   metadata jsonb not null default '{}'::jsonb,
-  embedding vector(1536) not null,
+  embedding extensions.vector(1536) not null,
   search_tsv tsvector generated always as (
     to_tsvector(
       'english',

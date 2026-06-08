@@ -120,6 +120,38 @@ function hashBytes(bytes: Buffer) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function hashText(text: string) {
+  return createHash("sha256").update(text.replace(/\s+/g, " ").trim()).digest("hex");
+}
+
+function compactSearchText(value: unknown, limit = 900) {
+  const compact = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!compact) return "";
+  return compact.length > limit ? compact.slice(0, limit).trim() : compact;
+}
+
+function normalizedTerms(value: string, limit = 18) {
+  return Array.from(
+    new Set(
+      value
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 2 && !["the", "and", "for", "with", "from", "that"].includes(term)),
+    ),
+  ).slice(0, limit);
+}
+
+function firstMatchingColumn(columns: string[], candidates: RegExp[]) {
+  return columns.findIndex((column) => candidates.some((pattern) => pattern.test(column)));
+}
+
+function tableFactValue(cells: string[], index: number) {
+  return index >= 0 && index < cells.length ? compactSearchText(cells[index], 240) || null : null;
+}
+
 type ImageClassification = Awaited<ReturnType<typeof classifyAndCaptionImageFromBase64>>;
 
 const imageEvidenceCategories = new Set<ImageEvidenceCategory>([
@@ -309,6 +341,9 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     tableTitle: string | null;
     tableTextSnippet: string | null;
     tableRole: string | null;
+    accessibleTableMarkdown: string | null;
+    tableRows: string[][] | null;
+    tableColumns: string[] | null;
   }> = [];
   const seenHashes = new Set<string>();
   let skippedImages = 0;
@@ -477,6 +512,9 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         tableTitle: tableMetadata.tableTitle,
         tableTextSnippet: tableMetadata.tableTextSnippet,
         tableRole: tableMetadata.tableRole,
+        accessibleTableMarkdown: tableMetadata.accessibleTableMarkdown,
+        tableRows: tableMetadata.tableRows,
+        tableColumns: tableMetadata.tableColumns,
       });
     }
   }
@@ -489,15 +527,209 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
   };
 }
 
+type IndexedChunkRow = ReturnType<typeof buildChunks>[number] & {
+  id: string;
+  content_hash: string;
+  index_generation_id: string;
+  embedding: number[];
+};
+
+function buildTableFactRows(args: {
+  job: JobRow;
+  chunkRows: IndexedChunkRow[];
+  insertedImages: Awaited<ReturnType<typeof uploadAndCaptionImages>>["insertedImages"];
+}) {
+  const imagesById = new Map(args.insertedImages.map((image) => [image.id, image]));
+  const facts: Record<string, unknown>[] = [];
+
+  for (const chunk of args.chunkRows) {
+    for (const imageId of chunk.image_ids ?? []) {
+      const image = imagesById.get(imageId);
+      if (!image?.tableRows?.length) continue;
+      const columns = (image.tableColumns ?? []).map((column) => compactSearchText(column, 80));
+      const parameterIndex = firstMatchingColumn(columns, [/item/i, /parameter/i, /score/i, /state/i, /criterion/i]);
+      const thresholdIndex = firstMatchingColumn(columns, [/threshold/i, /value/i, /range/i, /level/i, /count/i, /dose/i]);
+      const actionIndex = firstMatchingColumn(columns, [/action/i, /management/i, /intervention/i, /response/i, /require/i]);
+
+      for (const [rowIndex, rawCells] of image.tableRows.slice(0, 120).entries()) {
+        const cells = rawCells.map((cell) => compactSearchText(cell, 240));
+        const rowText = cells.filter(Boolean).join(" ");
+        if (!rowText) continue;
+        const rowLabel = tableFactValue(cells, parameterIndex >= 0 ? parameterIndex : 0);
+        const threshold =
+          tableFactValue(cells, thresholdIndex) ??
+          cells.find((cell) => /(?:\d|mg|mcg|mmol|anc|fbc|score|level|threshold|withhold|cease)/i.test(cell)) ??
+          null;
+        const action = tableFactValue(cells, actionIndex) ?? cells[cells.length - 1] ?? null;
+        facts.push({
+          owner_id: args.job.documents.owner_id,
+          document_id: args.job.document_id,
+          source_chunk_id: chunk.id,
+          source_image_id: image.id,
+          page_number: chunk.page_number,
+          table_title: image.tableTitle ?? image.tableLabel,
+          row_label: rowLabel,
+          clinical_parameter: rowLabel ?? image.tableTitle ?? image.tableLabel,
+          threshold_value: threshold,
+          action,
+          normalized_terms: normalizedTerms(`${image.tableTitle ?? ""} ${image.tableLabel ?? ""} ${rowText}`),
+          metadata: {
+            row_index: rowIndex,
+            columns,
+            cells,
+            table_role: image.tableRole,
+            accessible_table_markdown: image.accessibleTableMarkdown,
+          },
+        });
+      }
+    }
+  }
+
+  return facts;
+}
+
+function buildEmbeddingFieldInputs(job: JobRow, chunkRows: IndexedChunkRow[]) {
+  const seen = new Set<string>();
+  const fields: Array<{ document_id: string; owner_id: string | null; source_chunk_id: string; field_type: string; content: string; metadata: Record<string, unknown> }> = [];
+
+  for (const chunk of chunkRows) {
+    const sectionPath = chunk.section_path?.length
+      ? chunk.section_path.join(" > ")
+      : Array.isArray(chunk.metadata?.subsection_path)
+        ? (chunk.metadata.subsection_path as unknown[]).map(String).join(" > ")
+        : "";
+    const content = compactSearchText(
+      [job.documents.title, job.documents.file_name, sectionPath, chunk.section_heading].filter(Boolean).join(" | "),
+      700,
+    );
+    if (!content) continue;
+    const key = `${chunk.id}:section_context:${content.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fields.push({
+      owner_id: job.documents.owner_id,
+      document_id: job.document_id,
+      source_chunk_id: chunk.id,
+      field_type: "section_context",
+      content,
+      metadata: {
+        chunk_index: chunk.chunk_index,
+        page_number: chunk.page_number,
+        anchor_id: chunk.anchor_id ?? null,
+      },
+    });
+  }
+
+  return fields;
+}
+
+function buildIndexQualityPayload(args: {
+  job: JobRow;
+  metrics: ReturnType<typeof extractionMetrics>;
+  chunks: ReturnType<typeof buildChunks>;
+  insertedImages: Awaited<ReturnType<typeof uploadAndCaptionImages>>["insertedImages"];
+  sectionCount: number;
+  memoryCardCount: number;
+}) {
+  const chunkCount = args.chunks.length;
+  const headingCount = args.chunks.filter((chunk) => chunk.section_heading).length;
+  const tableImages = args.insertedImages.filter((image) => image.sourceKind === "table_crop");
+  const tableImagesWithRows = tableImages.filter((image) => image.tableRows?.length);
+  const fingerprints = args.chunks.map((chunk) => hashText(chunk.content));
+  const duplicateChunkRatio = chunkCount
+    ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1)
+    : 0;
+  const avgChunkLength = chunkCount
+    ? args.chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunkCount
+    : 0;
+  const headingDensity = chunkCount ? headingCount / chunkCount : 0;
+  const tableExtractionCoverage = tableImages.length ? tableImagesWithRows.length / tableImages.length : null;
+  const ocrCoverage = args.metrics.page_count ? args.metrics.ocr_page_count / args.metrics.page_count : 0;
+  const issues: string[] = [];
+  if (chunkCount === 0) issues.push("no indexed chunks");
+  if (avgChunkLength < 120 && chunkCount > 0) issues.push("short average chunks");
+  if (headingDensity < 0.08 && chunkCount >= 8) issues.push("low heading density");
+  if (duplicateChunkRatio > 0.18) issues.push("high duplicate chunk ratio");
+  if (tableImages.length > 0 && tableExtractionCoverage !== null && tableExtractionCoverage < 0.5)
+    issues.push("low table row extraction coverage");
+  if (args.metrics.text_character_count < 80) issues.push("low extracted text volume");
+  if (args.sectionCount === 0) issues.push("no structured sections");
+  if (args.memoryCardCount === 0) issues.push("no memory cards");
+
+  let qualityScore = 1;
+  qualityScore -= issues.length * 0.08;
+  qualityScore -= Math.min(0.2, duplicateChunkRatio * 0.5);
+  if (tableExtractionCoverage !== null) qualityScore -= Math.max(0, 0.7 - tableExtractionCoverage) * 0.12;
+  if (headingDensity < 0.08 && chunkCount >= 8) qualityScore -= 0.08;
+  qualityScore = Math.max(0, Math.min(1, qualityScore));
+  const extractionQuality = qualityScore >= 0.78 ? "good" : qualityScore >= 0.48 ? "partial" : "poor";
+
+  return {
+    document_id: args.job.document_id,
+    owner_id: args.job.documents.owner_id,
+    quality_score: Number(qualityScore.toFixed(3)),
+    extraction_quality: extractionQuality,
+    issues,
+    metrics: {
+      ...args.metrics,
+      avg_chunk_length: Number(avgChunkLength.toFixed(1)),
+      duplicate_chunk_ratio: Number(duplicateChunkRatio.toFixed(3)),
+      heading_density: Number(headingDensity.toFixed(3)),
+      table_extraction_coverage: tableExtractionCoverage === null ? null : Number(tableExtractionCoverage.toFixed(3)),
+      ocr_coverage: Number(ocrCoverage.toFixed(3)),
+      search_eval_hit_rate: null,
+      section_count: args.sectionCount,
+      memory_card_count: args.memoryCardCount,
+    },
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function insertDocumentLevelEmbeddingFields(args: {
+  job: JobRow;
+  chunkRows: IndexedChunkRow[];
+  summary: string | null;
+}) {
+  const sourceChunkId = args.chunkRows[0]?.id;
+  if (!sourceChunkId) return;
+  const inputs = [
+    {
+      field_type: "document_title",
+      content: compactSearchText(`${args.job.documents.title} ${args.job.documents.file_name}`, 600),
+    },
+    {
+      field_type: "document_summary",
+      content: compactSearchText(`${args.job.documents.title} ${args.summary ?? ""}`, 1200),
+    },
+  ].filter((field) => field.content);
+  if (inputs.length === 0) return;
+  const embeddings = await embedTexts(inputs.map((field) => field.content));
+  const rows = inputs.map((field, index) => ({
+    owner_id: args.job.documents.owner_id,
+    document_id: args.job.document_id,
+    source_chunk_id: sourceChunkId,
+    field_type: field.field_type,
+    content: field.content,
+    embedding: embeddings[index],
+    metadata: {
+      source: "document_level",
+    },
+  }));
+  const { error } = await supabase.from("document_embedding_fields").insert(rows);
+  if (error) throw new Error(error.message);
+}
+
 async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
   const pagesByNumber = new Map(extracted.pages.map((page) => [page.pageNumber, page.text] as const));
   const imageResult = await uploadAndCaptionImages(job, extracted, pagesByNumber);
   const { insertedImages } = imageResult;
+  const indexGenerationId = randomUUID();
 
   await updateJob(job.id, { stage: "chunking", progress: 72 });
   const chunkMetadata = {
     source_path: job.documents.source_path ?? null,
     content_hash: job.documents.content_hash ?? null,
+    index_generation_id: indexGenerationId,
     embedding_model: env.OPENAI_EMBEDDING_MODEL,
     extractor: "local-worker",
     rag_indexing_version: ragDeepMemoryVersion,
@@ -515,6 +747,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       },
     })),
   );
+  const indexedChunkRows: IndexedChunkRow[] = [];
 
   for (let start = 0; start < chunks.length; start += env.WORKER_BATCH_SIZE) {
     const batch = chunks.slice(start, start + env.WORKER_BATCH_SIZE);
@@ -525,17 +758,41 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
 
     const embeddings = await embedTexts(batch.map((chunk) => chunk.content));
     const rows = batch.map((chunk, index) => ({
+      id: randomUUID(),
       ...chunk,
+      content_hash: hashText(`${chunk.section_heading ?? ""}\n${chunk.content}`),
+      index_generation_id: indexGenerationId,
       embedding: embeddings[index],
-    }));
+    })) satisfies IndexedChunkRow[];
+    indexedChunkRows.push(...rows);
 
     const { error } = await supabase.from("document_chunks").insert(rows);
     if (error) throw new Error(error.message);
+
+    const tableFacts = buildTableFactRows({ job, chunkRows: rows, insertedImages });
+    if (tableFacts.length > 0) {
+      const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
+      if (factsError) throw new Error(factsError.message);
+    }
+
+    const fieldInputs = buildEmbeddingFieldInputs(job, rows);
+    if (fieldInputs.length > 0) {
+      const fieldEmbeddings = await embedTexts(fieldInputs.map((field) => field.content));
+      const fieldRows = fieldInputs.map((field, index) => ({
+        ...field,
+        embedding: fieldEmbeddings[index],
+      }));
+      const { error: fieldsError } = await supabase.from("document_embedding_fields").insert(fieldRows);
+      if (fieldsError) throw new Error(fieldsError.message);
+    }
   }
 
   return {
     chunks,
+    indexedChunkRows,
+    indexGenerationId,
     imageCount: insertedImages.length,
+    insertedImages,
     skippedImages: imageResult.skippedImages,
     imageSkipReasons: imageResult.skipReasons,
     imageTypeCounts: imageResult.imageTypeCounts,
@@ -573,7 +830,9 @@ async function loadEnrichmentRows(documentId: string) {
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
       .from("document_chunks")
-      .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata")
+      .select(
+        "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,image_ids,metadata",
+      )
       .eq("document_id", documentId)
       .order("chunk_index", { ascending: true })
       .range(start, start + 999);
@@ -622,19 +881,30 @@ async function processJob(job: JobRow) {
 
     await updateJob(job.id, { stage: "saving pages", progress: 32 });
     await insertPages(job.document_id, extracted);
-    const { chunks, imageCount, skippedImages, imageSkipReasons, imageTypeCounts } = await insertEmbeddedChunks(
-      job,
-      extracted,
-    );
+    const {
+      chunks,
+      indexedChunkRows,
+      indexGenerationId,
+      imageCount,
+      insertedImages,
+      skippedImages,
+      imageSkipReasons,
+      imageTypeCounts,
+    } = await insertEmbeddedChunks(job, extracted);
     const metrics = extractionMetrics(extracted, skippedImages, imageSkipReasons, imageTypeCounts);
 
     await updateJob(job.id, { stage: "summarising and labelling", progress: 95 });
     const enrichmentRows = await loadEnrichmentRows(job.document_id);
-    await upsertDocumentEnrichment({
+    const enrichment = await upsertDocumentEnrichment({
       supabase,
       document: job.documents,
       chunks: enrichmentRows.chunks,
       images: enrichmentRows.images,
+    });
+    await insertDocumentLevelEmbeddingFields({
+      job,
+      chunkRows: indexedChunkRows,
+      summary: enrichment.summary.summary,
     });
     await updateJob(job.id, { stage: "building structured memory", progress: 98 });
     const deepMemory = await upsertDocumentDeepMemory({
@@ -643,6 +913,18 @@ async function processJob(job: JobRow) {
       chunks: enrichmentRows.chunks,
       images: enrichmentRows.images,
     });
+    const quality = buildIndexQualityPayload({
+      job,
+      metrics,
+      chunks,
+      insertedImages,
+      sectionCount: deepMemory.sections.length,
+      memoryCardCount: deepMemory.memoryCards.length,
+    });
+    const { error: qualityError } = await supabase.from("document_index_quality").upsert(quality, {
+      onConflict: "document_id",
+    });
+    if (qualityError) throw new Error(qualityError.message);
 
     const indexedAt = new Date().toISOString();
     await updateDocument(job.document_id, {
@@ -654,6 +936,7 @@ async function processJob(job: JobRow) {
       metadata: {
         ...(job.documents.metadata ?? {}),
         indexed_at: indexedAt,
+        index_generation_id: indexGenerationId,
         rag_enrichment_version: ragEnrichmentVersion,
         rag_indexing_version: ragDeepMemoryVersion,
         rag_memory_version: ragDeepMemoryVersion,
@@ -661,7 +944,10 @@ async function processJob(job: JobRow) {
         rag_enrichment_updated_at: indexedAt,
         section_count: deepMemory.sections.length,
         memory_card_count: deepMemory.memoryCards.length,
-        extraction_quality: extracted.pages.length > 0 && metrics.text_character_count >= 80 ? "good" : "partial",
+        extraction_quality: quality.extraction_quality,
+        index_quality_score: quality.quality_score,
+        index_quality_issues: quality.issues,
+        index_quality_metrics: quality.metrics,
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,
       },

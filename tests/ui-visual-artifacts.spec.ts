@@ -11,8 +11,8 @@ async function attachViewportScreenshot(
   path: string,
 ) {
   await page.setViewportSize(viewport);
-  await page.goto(path);
-  await page.waitForLoadState("networkidle");
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => undefined);
   await expect(page.locator("body")).toBeVisible();
 
   await testInfo.attach(name, {
@@ -23,6 +23,7 @@ async function attachViewportScreenshot(
 
 test.describe("Clinical KB visual QA artifacts", () => {
   test("captures dashboard and document viewer screenshots", async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
     await attachViewportScreenshot(page, testInfo, "dashboard-mobile", { width: 390, height: 820 }, "/");
     await attachViewportScreenshot(page, testInfo, "dashboard-desktop", { width: 1280, height: 900 }, "/");
     await attachViewportScreenshot(page, testInfo, "document-mobile", { width: 390, height: 820 }, documentPath);

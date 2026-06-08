@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { answerLinePresentation, parseAnswerDisplayContent } from "../src/lib/answer-formatting";
+import {
+  answerLinePresentation,
+  coerceAnswerDisplayMode,
+  parseAnswerDisplayContent,
+} from "../src/lib/answer-formatting";
 
 describe("answer display formatting", () => {
   it("parses markdown-style answer bullets into labeled display rows", () => {
@@ -104,5 +108,20 @@ describe("answer display formatting", () => {
     expect(parsed.groups.map((group) => group.group)).toEqual(["comparison", "source"]);
     expect(answerLinePresentation(parsed.lines[0])).toMatchObject({ tone: "comparison", symbol: "↔" });
     expect(answerLinePresentation(parsed.lines[1])).toMatchObject({ tone: "source", symbol: "#" });
+  });
+
+  it("allows explicit response modes to override prose inference", () => {
+    const threshold = parseAnswerDisplayContent(
+      "ANC below the table threshold requires source verification.",
+      "threshold_table",
+    );
+    const comparison = parseAnswerDisplayContent(
+      "- Source A: Routine review.\n- Source B: Escalation criteria.",
+      "comparison_matrix",
+    );
+
+    expect(threshold.mode).toBe("threshold_table");
+    expect(comparison.mode).toBe("comparison_matrix");
+    expect(coerceAnswerDisplayMode("document_lookup")).toBe("document_lookup");
   });
 });

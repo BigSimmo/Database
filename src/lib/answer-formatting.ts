@@ -1,3 +1,5 @@
+import type { AnswerResponseMode } from "@/lib/types";
+
 export type AnswerDisplayLine = {
   id: string;
   label: string | null;
@@ -39,7 +41,16 @@ export type AnswerLinePresentation = {
   label: string;
 };
 
-export type AnswerDisplayMode = "direct" | "checklist" | "clinical_pathway" | "comparison" | "summary" | "evidence_gap";
+export type AnswerDisplayMode =
+  | "direct"
+  | "checklist"
+  | "clinical_pathway"
+  | "comparison"
+  | "comparison_matrix"
+  | "threshold_table"
+  | "document_lookup"
+  | "summary"
+  | "evidence_gap";
 
 export type AnswerDisplayGroupSummary = {
   group: AnswerDisplayGroup;
@@ -318,6 +329,27 @@ function inferDisplayMode(lines: AnswerDisplayLine[]): AnswerDisplayMode {
   return "direct";
 }
 
+export function coerceAnswerDisplayMode(
+  responseMode?: AnswerResponseMode | AnswerDisplayMode | null,
+  fallback: AnswerDisplayMode = "direct",
+): AnswerDisplayMode {
+  if (!responseMode) return fallback;
+  if (
+    responseMode === "checklist" ||
+    responseMode === "comparison_matrix" ||
+    responseMode === "threshold_table" ||
+    responseMode === "clinical_pathway" ||
+    responseMode === "document_lookup" ||
+    responseMode === "evidence_gap"
+  ) {
+    return responseMode;
+  }
+  if (responseMode === "comparison") return "comparison_matrix";
+  if (responseMode === "summary") return "summary";
+  if (responseMode === "direct") return "direct";
+  return fallback;
+}
+
 export function answerLinePresentation(line: AnswerDisplayLine): AnswerLinePresentation {
   return line.presentation ?? presentationForGroup(line.group);
 }
@@ -370,7 +402,10 @@ function parsedAnswer(type: ParsedAnswerDisplay["type"], lines: AnswerDisplayLin
   };
 }
 
-export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
+export function parseAnswerDisplayContent(
+  value: string,
+  preferredMode?: AnswerResponseMode | AnswerDisplayMode | null,
+): ParsedAnswerDisplay {
   const cleaned = value
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
@@ -379,7 +414,7 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
   if (!cleaned) {
     return {
       type: "paragraph",
-      mode: "evidence_gap",
+      mode: coerceAnswerDisplayMode(preferredMode, "evidence_gap"),
       lines: [
         {
           id: "empty",
@@ -403,7 +438,8 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
 
   if (parts.length >= 2) {
     const lines = parts.map((part, index) => buildAnswerLine(part, index, "bullet"));
-    return parsedAnswer("bullets", lines);
+    const parsed = parsedAnswer("bullets", lines);
+    return { ...parsed, mode: coerceAnswerDisplayMode(preferredMode, parsed.mode) };
   }
 
   const semicolonParts = cleaned
@@ -412,9 +448,11 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
     .filter((part) => part.length > 18);
   if (semicolonParts.length >= 3) {
     const lines = semicolonParts.map((part, index) => buildAnswerLine(part, index, "semicolon"));
-    return parsedAnswer("bullets", lines);
+    const parsed = parsedAnswer("bullets", lines);
+    return { ...parsed, mode: coerceAnswerDisplayMode(preferredMode, parsed.mode) };
   }
 
   const lines = [buildAnswerLine(normalizeInline(cleaned), 0, "paragraph")];
-  return parsedAnswer("paragraph", lines);
+  const parsed = parsedAnswer("paragraph", lines);
+  return { ...parsed, mode: coerceAnswerDisplayMode(preferredMode, parsed.mode) };
 }

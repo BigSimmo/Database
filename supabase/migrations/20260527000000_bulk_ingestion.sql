@@ -148,7 +148,7 @@ $$;
 
 drop function if exists public.match_document_chunks(vector, integer, double precision, uuid);
 create or replace function public.match_document_chunks(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   match_count integer default 8,
   min_similarity double precision default 0.15,
   document_filter uuid default null,
@@ -211,7 +211,7 @@ $$;
 
 drop function if exists public.match_document_chunks_hybrid(vector, text, integer, double precision, uuid[]);
 create or replace function public.match_document_chunks_hybrid(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 12,
   min_similarity double precision default 0.12,

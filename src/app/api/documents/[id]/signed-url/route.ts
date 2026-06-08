@@ -8,6 +8,8 @@ import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } f
 
 export const runtime = "nodejs";
 
+const signedUrlTtlSeconds = 60 * 10;
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -17,6 +19,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({
         url: document.storage_path,
         fileType: document.file_type,
+        expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
         demoMode: true,
       });
     }
@@ -35,10 +38,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     const signed = await supabase.storage
       .from(env.SUPABASE_DOCUMENT_BUCKET)
-      .createSignedUrl(document.storage_path, 60 * 10);
+      .createSignedUrl(document.storage_path, signedUrlTtlSeconds);
 
     if (signed.error) throw new Error(signed.error.message);
-    return NextResponse.json({ url: signed.data.signedUrl, fileType: document.file_type });
+    return NextResponse.json({
+      url: signed.data.signedUrl,
+      fileType: document.file_type,
+      expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

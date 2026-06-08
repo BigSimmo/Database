@@ -1,5 +1,5 @@
 create or replace function public.match_document_chunks_hybrid(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 12,
   min_similarity double precision default 0.12,

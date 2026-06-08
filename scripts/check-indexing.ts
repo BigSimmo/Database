@@ -2,7 +2,17 @@ import { loadEnvConfig } from "@next/env";
 
 loadEnvConfig(process.cwd());
 
-type MetadataRow = { document_id: string; metadata?: unknown; source?: string | null };
+type MetadataRow = {
+  document_id: string;
+  metadata?: unknown;
+  source?: string | null;
+  content_hash?: string | null;
+  index_generation_id?: string | null;
+  section_path?: string[] | null;
+  anchor_id?: string | null;
+  quality_score?: number | null;
+  issues?: string[] | null;
+};
 type QueryResponse<T = unknown> = {
   data: T[] | null;
   error: { message: string } | null;
@@ -83,12 +93,30 @@ async function loadRowsForDocuments(supabase: SupabaseLike, table: string, selec
 }
 
 async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[]) {
-  const [sections, memoryCards, chunks] = await Promise.all([
+  const [sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows] = await Promise.all([
     loadRowsForDocuments(supabase, "document_sections", "document_id,metadata", documentIds),
     loadRowsForDocuments(supabase, "document_memory_cards", "document_id,metadata", documentIds),
-    loadRowsForDocuments(supabase, "document_chunks", "document_id,metadata", documentIds),
+    loadRowsForDocuments(
+      supabase,
+      "document_chunks",
+      "document_id,metadata,content_hash,index_generation_id,section_path,anchor_id",
+      documentIds,
+    ),
+    loadRowsForDocuments(supabase, "document_table_facts", "document_id,metadata", documentIds),
+    loadRowsForDocuments(
+      supabase,
+      "document_embedding_fields",
+      "document_id,metadata",
+      documentIds,
+    ),
+    loadRowsForDocuments(
+      supabase,
+      "document_index_quality",
+      "document_id,quality_score,issues",
+      documentIds,
+    ),
   ]);
-  return { sections, memoryCards, chunks };
+  return { sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows };
 }
 
 async function main() {
@@ -209,6 +237,28 @@ async function main() {
   });
   const documentsMissingCurrentDeepMemoryVersion =
     indexedDocuments.length - documentsWithCurrentDeepMemoryVersion.length;
+  const chunksMissingContentHash = deepMemoryRows.chunks.filter((chunk) => !chunk.content_hash);
+  const chunksMissingIndexGeneration = deepMemoryRows.chunks.filter((chunk) => !chunk.index_generation_id);
+  const chunksMissingSectionPath = deepMemoryRows.chunks.filter((chunk) => !chunk.section_path?.length);
+  const chunksMissingAnchors = deepMemoryRows.chunks.filter((chunk) => !chunk.anchor_id);
+  const qualityByDocument = new Map(deepMemoryRows.qualityRows.map((row) => [row.document_id, row]));
+  const documentsMissingQualityRows = indexedDocuments.filter((document) => !qualityByDocument.has(document.id));
+  const documentsWithLowQualityScore = indexedDocuments.filter((document) => {
+    const score = Number(qualityByDocument.get(document.id)?.quality_score ?? 1);
+    return Number.isFinite(score) && score < 0.45;
+  });
+  const documentsMissingEmbeddingFields = indexedDocuments.filter(
+    (document) => !deepMemoryRows.embeddingFields.some((row) => row.document_id === document.id),
+  );
+  const documentsWithStaleIndexGeneration = indexedDocuments.filter((document) => {
+    const generation = metadataRecord(document.metadata).index_generation_id;
+    const chunks = chunkRowsByDocument.get(document.id) ?? [];
+    return Boolean(
+      generation &&
+      chunks.length > 0 &&
+      chunks.some((chunk) => chunk.index_generation_id && chunk.index_generation_id !== generation),
+    );
+  });
   const requireCurrentEnrichmentVersion = strictEnrichmentVersionRequired();
 
   const [
@@ -260,6 +310,20 @@ async function main() {
   if (emptyIndexedDocuments.length > 0) issues.push(`empty indexed documents: ${emptyIndexedDocuments.length}`);
   if (documentsWithChunkCountMismatch.length > 0)
     issues.push(`indexed document chunk-count mismatches: ${documentsWithChunkCountMismatch.length}`);
+  if (chunksMissingContentHash.length > 0)
+    issues.push(`indexed chunks missing content hashes: ${chunksMissingContentHash.length}`);
+  if (chunksMissingIndexGeneration.length > 0)
+    issues.push(`indexed chunks missing index generation ids: ${chunksMissingIndexGeneration.length}`);
+  if (chunksMissingSectionPath.length > 0)
+    issues.push(`indexed chunks missing section paths: ${chunksMissingSectionPath.length}`);
+  if (documentsMissingQualityRows.length > 0)
+    issues.push(`indexed documents missing quality rows: ${documentsMissingQualityRows.length}`);
+  if (documentsMissingEmbeddingFields.length > 0)
+    issues.push(`indexed documents missing embedding fields: ${documentsMissingEmbeddingFields.length}`);
+  if (documentsWithLowQualityScore.length > 0)
+    issues.push(`indexed documents with low quality score: ${documentsWithLowQualityScore.length}`);
+  if (documentsWithStaleIndexGeneration.length > 0)
+    issues.push(`indexed documents with mixed generation chunks: ${documentsWithStaleIndexGeneration.length}`);
   if (documentsMissingSummaries.length > 0)
     issues.push(`indexed documents missing summaries: ${documentsMissingSummaries.length}`);
   if (documentsMissingGeneratedLabels.length > 0)
@@ -288,6 +352,15 @@ async function main() {
   console.log(`Worker concurrency: ${env.WORKER_CONCURRENCY}`);
   console.log(`Documents: ${(documents ?? []).length}; empty indexed: ${emptyIndexedDocuments.length}`);
   console.log(`Chunk-count mismatches: ${documentsWithChunkCountMismatch.length}`);
+  console.log(
+    `Chunk fingerprint coverage: missing hashes=${chunksMissingContentHash.length}; missing generations=${chunksMissingIndexGeneration.length}; mixed-generation documents=${documentsWithStaleIndexGeneration.length}`,
+  );
+  console.log(
+    `Section hierarchy coverage: chunks missing section paths=${chunksMissingSectionPath.length}; chunks missing anchors=${chunksMissingAnchors.length}`,
+  );
+  console.log(
+    `Structured index coverage: table facts=${deepMemoryRows.tableFacts.length}; embedding fields=${deepMemoryRows.embeddingFields.length}; quality rows=${deepMemoryRows.qualityRows.length}/${indexedDocuments.length}; low-quality documents=${documentsWithLowQualityScore.length}`,
+  );
   console.log(
     `Enrichment coverage: summaries missing=${documentsMissingSummaries.length}; generated labels missing=${documentsMissingGeneratedLabels.length}`,
   );

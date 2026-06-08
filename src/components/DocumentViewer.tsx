@@ -98,6 +98,24 @@ type ChunkRow = {
   image_ids: string[];
 };
 
+type DocumentSearchResult = {
+  id: string;
+  page_number: number | null;
+  chunk_index: number;
+  section_heading: string | null;
+  snippet: string;
+  matched_terms: string[];
+  image_ids: string[];
+  score: number;
+};
+
+type DocumentIndexHealth = {
+  extractionQuality?: string | null;
+  indexedAt?: string | null;
+  indexVersion?: string | null;
+  warnings?: unknown;
+};
+
 const iconButton = toolbarButton;
 const primaryButton = primaryControl;
 const secondaryButton = floatingControl;
@@ -334,15 +352,22 @@ function PinnedSourceEvidence({
   sectionId?: "source-evidence" | "source-evidence-rail";
 }) {
   const displayContent = chunk ? sourceTextForDocumentViewer(chunk.content) : "";
-  const previewLimit = 300;
+  const previewLimit = compact ? 220 : 300;
   const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null);
   const isLong = displayContent.length > previewLimit;
   const expanded = !compact || (chunk?.id ? expandedChunkId === chunk.id : false);
   const showingPreview = compact && isLong && !expanded;
   const visibleContent = showingPreview ? `${displayContent.slice(0, previewLimit).trim()}...` : displayContent;
+  const chunkMeta = chunk
+    ? [`Page ${chunk.page_number ?? "n/a"}`, `chunk ${chunk.chunk_index}`].filter(Boolean).join(" · ")
+    : "";
 
   return (
-    <section id={sectionId} data-testid="pinned-source-evidence" className={cn(evidenceSurface, "scroll-mt-24 p-4")}>
+    <section
+      id={sectionId}
+      data-testid="pinned-source-evidence"
+      className={cn(evidenceSurface, "scroll-mt-24", compact ? "p-3" : "p-4")}
+    >
       <PanelHeading icon={Quote} title="Pinned source evidence" />
       {loading ? (
         <LoadingPanel label="Loading pinned source evidence" />
@@ -351,34 +376,53 @@ function PinnedSourceEvidence({
           data-testid="highlighted-source-passage"
           className={cn(
             sourceCard,
-            "mt-3 border-[color:var(--primary)] bg-[color:var(--primary-soft)]/35 p-3 text-[15px] leading-7 text-[color:var(--text-muted)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/20",
+            "mt-3 overflow-hidden border-[color:var(--primary)] bg-[color:var(--surface)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/20",
+            compact ? "text-sm leading-6" : "text-[15px] leading-7",
           )}
         >
-          <p className="mb-2 inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[color:var(--primary)] px-2 text-xs font-bold text-[color:var(--primary-contrast)]">
-            <Target className="h-3.5 w-3.5" />
-            Highlighted source passage
-          </p>
-          {chunk.section_heading && (
-            <p className="mb-2 font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
-          )}
-          <p className="whitespace-pre-wrap">
-            {visibleContent || "No displayable clinical text was available for this indexed passage."}
-          </p>
-          {compact && isLong ? (
-            <button
-              type="button"
-              onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
-              className={cn(secondaryButton, "mt-3 min-h-9 px-3 text-xs")}
-              data-testid="toggle-full-passage"
-            >
-              {expanded ? "Show passage preview" : "Show full passage"}
-            </button>
-          ) : null}
-          {compact ? (
-            <p className={cn("mt-2 text-xs leading-5", textMuted)}>
-              Full indexed page text remains available in the source text section.
+          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--primary-soft)]/28 px-3 py-3">
+            <div className="min-w-0">
+              <p className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[color:var(--primary)] px-2 text-xs font-bold text-[color:var(--primary-contrast)]">
+                <Target className="h-3.5 w-3.5" />
+                Highlighted source passage
+              </p>
+              {chunkMeta ? <p className={cn("mt-2", eyebrowText)}>{chunkMeta}</p> : null}
+              {chunk.section_heading && (
+                <p className="mt-2 font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
+              )}
+            </div>
+          </div>
+          <blockquote className="bg-[color:var(--surface)] px-3 py-3 text-[color:var(--text)]">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              Excerpt
             </p>
-          ) : null}
+            <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] px-3 py-2">
+              {visibleContent || "No displayable clinical text was available for this indexed passage."}
+            </p>
+          </blockquote>
+          <div className="border-t border-[color:var(--border)] px-3 py-2">
+            <div className="flex flex-wrap gap-2">
+              <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
+                <ExternalLink className="h-4 w-4" />
+                Open page
+              </a>
+              {compact && isLong ? (
+                <button
+                  type="button"
+                  onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
+                  className={cn(secondaryButton, "min-h-9 px-3 text-xs")}
+                  data-testid="toggle-full-passage"
+                >
+                  {expanded ? "Show passage preview" : "Show full passage"}
+                </button>
+              ) : null}
+            </div>
+            {compact ? (
+              <p className={cn("mt-2 text-xs leading-5", textMuted)}>
+                Full indexed page text remains available in the source text section.
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : (
         <p className="mt-3 text-[15px] leading-6 text-[color:var(--primary)]">
@@ -410,7 +454,7 @@ function IndexedSourceText({
           return block.level === "title" ? (
             <h3
               key={block.id}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-center text-sm font-semibold text-[color:var(--text)]"
+              className="rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/20 px-3 py-2 text-sm font-bold text-[color:var(--text-heading)]"
             >
               {block.text}
             </h3>
@@ -429,12 +473,12 @@ function IndexedSourceText({
             <ul
               key={block.id}
               className={cn(
-                "space-y-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-3 text-[15px] leading-6 text-[color:var(--text-muted)]",
+                "space-y-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-3 text-[15px] leading-6 text-[color:var(--text)]",
                 compact && "px-4 py-2 text-sm leading-6",
               )}
             >
               {block.items.map((item) => (
-                <li key={item} className="list-disc">
+                <li key={item} className="list-disc pl-1">
                   {item}
                 </li>
               ))}
@@ -449,7 +493,10 @@ function IndexedSourceText({
         return (
           <p
             key={block.id}
-            className={cn("text-[15px] leading-7 text-[color:var(--text-muted)]", compact && "text-sm leading-6")}
+            className={cn(
+              "rounded-lg border-l-4 border-[color:var(--primary)]/45 bg-[color:var(--primary-soft)]/14 py-2 pl-3 pr-2 text-[15px] leading-7 text-[color:var(--text)]",
+              compact && "text-sm leading-6",
+            )}
           >
             {block.text}
           </p>
@@ -459,11 +506,45 @@ function IndexedSourceText({
   );
 }
 
+function highlightTermsFor(terms: string[], fallback: string) {
+  const fallbackTerms = fallback
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((term) => term.length >= 3);
+  return Array.from(new Set((terms.length ? terms : fallbackTerms).map((term) => term.toLowerCase()).filter(Boolean)));
+}
+
+function HighlightedSearchText({ text, terms }: { text: string; terms: string[] }) {
+  if (!text.trim() || terms.length === 0) return <>{text}</>;
+  const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
+  if (!escaped.length) return <>{text}</>;
+  const matcher = new RegExp(`(${escaped.join("|")})`, "gi");
+  return (
+    <>
+      {text.split(matcher).map((part, index) =>
+        terms.some((term) => part.toLowerCase() === term.toLowerCase()) ? (
+          <mark
+            key={`${part}:${index}`}
+            className="rounded-sm bg-[color:var(--primary-soft)] px-0.5 font-semibold text-[color:var(--primary)]"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={`${part}:${index}`}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function IndexedTextPanel({
   loading,
   selectedPage,
   chunks,
   search,
+  documentSearchResults,
+  searchingDocument,
+  documentSearchError,
   idPrefix,
   selectedChunkId,
   onSearchChange,
@@ -472,6 +553,9 @@ function IndexedTextPanel({
   selectedPage: PageRow | undefined;
   chunks: ChunkRow[];
   search: string;
+  documentSearchResults: DocumentSearchResult[];
+  searchingDocument: boolean;
+  documentSearchError: string | null;
   idPrefix: string;
   selectedChunkId?: string;
   onSearchChange: (value: string) => void;
@@ -481,15 +565,48 @@ function IndexedTextPanel({
     ...chunk,
     displayContent: sourceTextForDocumentViewer(chunk.content),
   }));
+  const loadedChunkById = new Map(displayChunks.map((chunk) => [chunk.id, chunk]));
   const visibleChunks = normalizedSearch
-    ? displayChunks.filter((chunk) =>
-        `${chunk.section_heading ?? ""} ${chunk.displayContent}`.toLowerCase().includes(normalizedSearch),
-      )
-    : displayChunks.slice(0, 8);
+    ? documentSearchResults.map((result) => {
+        const loadedChunk = loadedChunkById.get(result.id);
+        return {
+          id: result.id,
+          page_number: result.page_number,
+          chunk_index: result.chunk_index,
+          section_heading: result.section_heading,
+          displayContent: loadedChunk?.displayContent ?? result.snippet,
+          matchedTerms: result.matched_terms,
+          serverRanked: true,
+        };
+      })
+    : displayChunks.slice(0, 8).map((chunk) => ({ ...chunk, matchedTerms: [], serverRanked: false }));
+  const [activeHitIndex, setActiveHitIndex] = useState(0);
+  const clampedActiveHitIndex = visibleChunks.length ? Math.min(activeHitIndex, visibleChunks.length - 1) : 0;
+  const activeHit = normalizedSearch && visibleChunks.length ? visibleChunks[clampedActiveHitIndex] : null;
+  const pageHitCounts = visibleChunks.reduce<Map<number, number>>((counts, chunk) => {
+    if (!chunk.page_number) return counts;
+    counts.set(chunk.page_number, (counts.get(chunk.page_number) ?? 0) + 1);
+    return counts;
+  }, new Map());
+  const pageHitSummary = Array.from(pageHitCounts.entries())
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, 5)
+    .map(([page, count]) => `p${page}: ${count}`)
+    .join(" · ");
   const selectedPageText = selectedPage ? sourceTextForIndexedPage(selectedPage.text) : "";
 
+  useEffect(() => {
+    if (!activeHit) return;
+    document.getElementById(`${idPrefix}-${activeHit.id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeHit, idPrefix]);
+
+  function moveHit(delta: number) {
+    if (visibleChunks.length === 0) return;
+    setActiveHitIndex((current) => (current + delta + visibleChunks.length) % visibleChunks.length);
+  }
+
   return (
-    <section className={cn(panel, "p-5 source-print")}>
+    <section data-testid={`${idPrefix}-indexed-text-panel`} className={cn(panel, "p-5 source-print")}>
       <PanelHeading
         icon={FileText}
         title="Indexed source text"
@@ -503,7 +620,10 @@ function IndexedTextPanel({
         <span className={fieldLabel}>Search within indexed source text</span>
         <input
           value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
+          onChange={(event) => {
+            setActiveHitIndex(0);
+            onSearchChange(event.target.value);
+          }}
           placeholder="Find a term, warning, or monitoring item"
           className={fieldControl}
         />
@@ -519,9 +639,57 @@ function IndexedTextPanel({
         <p className={cn("mt-4 text-[15px]", textMuted)}>No extracted text has been indexed for this page yet.</p>
       )}
       <div className={cn("mt-4 pt-4", clinicalDivider)}>
-        <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
+          {normalizedSearch ? (
+            <span className={cn("text-xs font-semibold", textMuted)}>
+              {searchingDocument
+                ? "Searching all indexed passages"
+                : `${visibleChunks.length} full-document hit${visibleChunks.length === 1 ? "" : "s"}`}
+            </span>
+          ) : null}
+        </div>
+        {normalizedSearch && visibleChunks.length > 0 && !searchingDocument ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[color:var(--text)]">
+                Hit {clampedActiveHitIndex + 1} of {visibleChunks.length}
+              </p>
+              <p className={cn("mt-0.5 truncate text-[11px] font-semibold", textMuted)}>
+                {pageHitSummary || "No page numbers indexed for these hits"}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              <button
+                type="button"
+                onClick={() => moveHit(-1)}
+                className={cn(secondaryButton, "min-h-8 px-2 text-xs")}
+                aria-label="Previous document search hit"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => moveHit(1)}
+                className={cn(secondaryButton, "min-h-8 px-2 text-xs")}
+                aria-label="Next document search hit"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {documentSearchError ? (
+          <p className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--warning)]">
+            {documentSearchError}
+          </p>
+        ) : null}
         <div className="mt-3 grid gap-3">
-          {visibleChunks.length === 0 ? (
+          {searchingDocument ? (
+            <LoadingPanel label="Searching all indexed passages" />
+          ) : visibleChunks.length === 0 ? (
             <p className={cn("text-[15px] leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (
@@ -532,27 +700,76 @@ function IndexedTextPanel({
                 data-source-chunk-id={chunk.id}
                 className={cn(
                   sourceCard,
-                  "p-3 transition",
-                  selectedChunkId === chunk.id &&
+                  "overflow-hidden p-0 transition",
+                  (selectedChunkId === chunk.id || activeHit?.id === chunk.id) &&
                     "border-[color:var(--primary)] bg-[color:var(--primary-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/25",
                 )}
               >
-                {selectedChunkId === chunk.id ? (
-                  <p className="mb-2 inline-flex min-h-6 items-center rounded-md bg-[color:var(--primary-soft)] px-2 text-xs font-bold text-[color:var(--primary)]">
-                    Highlighted quoted passage
+                <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-3">
+                  <p
+                    className={cn(
+                      "mb-2 inline-flex min-h-6 items-center rounded-md px-2 text-xs font-bold",
+                      selectedChunkId === chunk.id
+                        ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)]"
+                        : activeHit?.id === chunk.id
+                          ? "bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                          : "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+                    )}
+                  >
+                    {selectedChunkId === chunk.id
+                      ? "Highlighted quoted passage"
+                      : activeHit?.id === chunk.id
+                        ? "Active search hit"
+                        : "Source passage"}
                   </p>
-                ) : null}
-                <p className={eyebrowText}>
-                  Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
-                </p>
-                {chunk.section_heading && (
-                  <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
-                )}
-                <IndexedSourceText
-                  text={chunk.displayContent}
-                  emptyText="No displayable clinical text was available for this indexed passage."
-                  compact
-                />
+                  <p className={eyebrowText}>
+                    Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
+                    {chunk.serverRanked ? " · full-document search" : ""}
+                  </p>
+                  {chunk.section_heading && (
+                    <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
+                  )}
+                  {chunk.matchedTerms.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {chunk.matchedTerms.slice(0, 5).map((term) => (
+                        <span
+                          key={`${chunk.id}:${term}`}
+                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-2 text-[10px] font-bold text-[color:var(--primary)]"
+                        >
+                          {term}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="px-3 pb-3">
+                  <p className="mb-2 mt-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                    Excerpt
+                  </p>
+                  {normalizedSearch ? (
+                    <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm leading-6 text-[color:var(--text)]">
+                      <HighlightedSearchText
+                        text={
+                          chunk.displayContent ||
+                          "No displayable clinical text was available for this indexed passage."
+                        }
+                        terms={highlightTermsFor(chunk.matchedTerms, normalizedSearch)}
+                      />
+                    </p>
+                  ) : (
+                    <IndexedSourceText
+                      text={chunk.displayContent}
+                      emptyText="No displayable clinical text was available for this indexed passage."
+                      compact
+                    />
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-3">
+                    <a href="#pdf-preview-section" className={cn(secondaryButton, "min-h-9 px-3 text-xs")}>
+                      <ExternalLink className="h-4 w-4" />
+                      Open page
+                    </a>
+                  </div>
+                </div>
               </article>
             ))
           )}
@@ -923,6 +1140,7 @@ export function DocumentViewer({
   const [chunks, setChunks] = useState<ChunkRow[]>([]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<RagAnswer | null>(null);
+  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const [loadingDocument, setLoadingDocument] = useState(true);
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -930,6 +1148,9 @@ export function DocumentViewer({
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
   const [sourceSearch, setSourceSearch] = useState("");
+  const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
+  const [searchingDocument, setSearchingDocument] = useState(false);
+  const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
@@ -981,7 +1202,14 @@ export function DocumentViewer({
         setSignedUrl(null);
       }
     }, 0);
-    const detailUrl = `/api/documents/${documentId}${chunkId ? `?chunk=${chunkId}` : ""}`;
+    const detailParams = new URLSearchParams({
+      page: String(Math.max(1, initialPage || 1)),
+      pageLimit: "9",
+      chunkLimit: "16",
+    });
+    if (chunkId) detailParams.set("chunk", chunkId);
+    const detailUrl = `/api/documents/${documentId}?${detailParams.toString()}`;
+    const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
     readLocalProjectIdentity()
       .then((identity) => {
         if (!identity?.localServer?.safeLocalOrigin) {
@@ -999,15 +1227,18 @@ export function DocumentViewer({
           if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
           return payload;
         });
-        const signedUrlRequest = fetch(`/api/documents/${documentId}/signed-url`, {
-          signal: controller.signal,
-          headers: clientDemoMode ? undefined : authorizationHeader,
-        }).then(async (response) => {
-          const payload = await response.json();
-          if (response.status === 401) markSessionExpired();
-          if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
-          return payload;
-        });
+        const cachedSignedUrl = getCachedSignedUrl(signedUrlEndpoint);
+        const signedUrlRequest = cachedSignedUrl
+          ? Promise.resolve(cachedSignedUrl)
+          : fetch(signedUrlEndpoint, {
+              signal: controller.signal,
+              headers: clientDemoMode ? undefined : authorizationHeader,
+            }).then(async (response) => {
+              const payload = await response.json();
+              if (response.status === 401) markSessionExpired();
+              if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
+              return payload;
+            });
 
         return Promise.allSettled([detailRequest, signedUrlRequest]);
       })
@@ -1020,18 +1251,22 @@ export function DocumentViewer({
           setPages(detail.pages ?? []);
           setImages(detail.images ?? []);
           setChunks(detail.chunks ?? []);
+          setIndexHealth(detail.indexHealth ?? null);
         } else {
           setDocument(null);
           setPages([]);
           setImages([]);
           setChunks([]);
+          setIndexHealth(null);
           setViewerError(
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
           );
         }
 
         if (signedUrlResult.status === "fulfilled") {
-          setSignedUrl(signedUrlResult.value.url ?? null);
+          const payload = signedUrlResult.value;
+          if (payload?.url) setCachedSignedUrl(signedUrlEndpoint, payload);
+          setSignedUrl(payload?.url ?? null);
           setPreviewError(null);
         } else {
           setSignedUrl(null);
@@ -1061,10 +1296,57 @@ export function DocumentViewer({
     clientDemoMode,
     documentId,
     chunkId,
+    initialPage,
     isConfigured,
     markSessionExpired,
     previewAttempt,
   ]);
+
+  useEffect(() => {
+    const query = sourceSearch.trim();
+    if (!canUsePrivateApis || query.length < 2) {
+      const reset = window.setTimeout(() => {
+        setDocumentSearchResults([]);
+        setSearchingDocument(false);
+        setDocumentSearchError(null);
+      }, 0);
+      return () => window.clearTimeout(reset);
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setSearchingDocument(true);
+      setDocumentSearchError(null);
+      fetch(`/api/documents/${documentId}/search?q=${encodeURIComponent(query)}&limit=30`, {
+        signal: controller.signal,
+        headers: clientDemoMode ? undefined : authorizationHeader,
+      })
+        .then(async (response) => {
+          const payload = await response.json();
+          if (response.status === 401) markSessionExpired();
+          if (!response.ok) throw new Error(payload.error || "Document search could not be loaded.");
+          return payload;
+        })
+        .then((payload) => {
+          if (controller.signal.aborted) return;
+          setDocumentSearchResults(payload.results ?? []);
+          setDocumentSearchError(null);
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) return;
+          setDocumentSearchResults([]);
+          setDocumentSearchError(error instanceof Error ? error.message : "Document search could not be loaded.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchingDocument(false);
+        });
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [authorizationHeader, canUsePrivateApis, clientDemoMode, documentId, markSessionExpired, sourceSearch]);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
@@ -1168,6 +1450,11 @@ export function DocumentViewer({
       (image.searchable === false ||
         ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
   );
+  const indexWarnings = Array.isArray(indexHealth?.warnings)
+    ? indexHealth.warnings.map((warning) => String(warning)).filter(Boolean)
+    : typeof indexHealth?.warnings === "string" && indexHealth.warnings
+      ? [indexHealth.warnings]
+      : [];
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
@@ -1310,6 +1597,9 @@ export function DocumentViewer({
                 selectedPage={selectedPage}
                 chunks={chunks}
                 search={sourceSearch}
+                documentSearchResults={documentSearchResults}
+                searchingDocument={searchingDocument}
+                documentSearchError={documentSearchError}
                 idPrefix="mobile-chunk"
                 selectedChunkId={chunkId}
                 onSearchChange={setSourceSearch}
@@ -1380,6 +1670,9 @@ export function DocumentViewer({
               selectedPage={selectedPage}
               chunks={chunks}
               search={sourceSearch}
+              documentSearchResults={documentSearchResults}
+              searchingDocument={searchingDocument}
+              documentSearchError={documentSearchError}
               idPrefix="desktop-chunk"
               selectedChunkId={chunkId}
               onSearchChange={setSourceSearch}
@@ -1405,6 +1698,40 @@ export function DocumentViewer({
               description="Verify source provenance before using generated summaries or copied text."
             />
             <SourceMetadataSummary metadata={document?.metadata} />
+            {indexHealth ? (
+              <div
+                className={cn(
+                  "mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3",
+                )}
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  Index health
+                </p>
+                <dl className="mt-2 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
+                  <div>
+                    <dt>Extraction</dt>
+                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>Index version</dt>
+                    <dd className="mt-0.5 truncate text-[color:var(--text)]">
+                      {indexHealth.indexVersion ?? "unknown"}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt>Indexed</dt>
+                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
+                  </div>
+                </dl>
+                {indexWarnings.length ? (
+                  <ul className="mt-3 grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+                    {indexWarnings.slice(0, 4).map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
           </section>
 
           {document?.summary || document?.labels?.length ? (

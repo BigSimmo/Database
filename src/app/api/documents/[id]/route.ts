@@ -14,6 +14,25 @@ const renameSchema = z.object({
 });
 
 const cleanupPageSize = 1000;
+const defaultPageWindow = 9;
+const maxPageWindow = 40;
+const defaultChunkWindow = 16;
+const maxChunkWindow = 80;
+const selectedChunkNeighborCount = 3;
+
+function boundedInteger(value: string | null, fallback: number, min: number, max: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function pageWindowAround(pageNumber: number, limit: number, maxPage?: number | null) {
+  const half = Math.floor(limit / 2);
+  const max = Math.max(1, maxPage ?? Number.MAX_SAFE_INTEGER);
+  const from = Math.max(1, Math.min(pageNumber - half, Math.max(1, max - limit + 1)));
+  const to = Math.min(max, from + limit - 1);
+  return { from, to };
+}
 
 function safeMetadata(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -210,12 +229,43 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (error) throw new Error(error.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
+    const url = new URL(request.url);
+    const chunkId = url.searchParams.get("chunk");
+    const requestedPage = boundedInteger(url.searchParams.get("page"), 1, 1, Math.max(1, document.page_count ?? 1));
+    const pageLimit = boundedInteger(url.searchParams.get("pageLimit"), defaultPageWindow, 1, maxPageWindow);
+    const chunkLimit = boundedInteger(url.searchParams.get("chunkLimit"), defaultChunkWindow, 1, maxChunkWindow);
+    const chunkOffset = boundedInteger(url.searchParams.get("chunkOffset"), 0, 0, 1_000_000);
+
+    let selectedChunk: {
+      id: string;
+      page_number: number | null;
+      chunk_index: number;
+      section_heading: string | null;
+      content: string;
+      image_ids: string[];
+    } | null = null;
+
+    if (chunkId) {
+      const { data, error: selectedChunkError } = await supabase
+        .from("document_chunks")
+        .select("id,page_number,chunk_index,section_heading,content,image_ids")
+        .eq("document_id", id)
+        .eq("id", chunkId)
+        .maybeSingle();
+
+      if (selectedChunkError) throw new Error(selectedChunkError.message);
+      selectedChunk = data ?? null;
+    }
+
+    const effectivePage = selectedChunk?.page_number ?? requestedPage;
+    const pageWindow = pageWindowAround(effectivePage, pageLimit, document.page_count);
     const { data: pages, error: pagesError } = await supabase
       .from("document_pages")
       .select("id,page_number,text,ocr_used,metadata")
       .eq("document_id", id)
-      .order("page_number", { ascending: true })
-      .limit(80);
+      .gte("page_number", pageWindow.from)
+      .lte("page_number", pageWindow.to)
+      .order("page_number", { ascending: true });
 
     if (pagesError) throw new Error(pagesError.message);
 
@@ -231,16 +281,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (imagesError) throw new Error(imagesError.message);
 
-    const chunkId = new URL(request.url).searchParams.get("chunk");
     const chunkQuery = supabase
       .from("document_chunks")
       .select("id,page_number,chunk_index,section_heading,content,image_ids")
       .eq("document_id", id)
       .order("chunk_index", { ascending: true });
 
-    const { data: chunks, error: chunksError } = chunkId
-      ? await chunkQuery.eq("id", chunkId).limit(1)
-      : await chunkQuery.limit(30);
+    const chunkRangeStart = selectedChunk
+      ? Math.max(0, selectedChunk.chunk_index - selectedChunkNeighborCount)
+      : chunkOffset;
+    const chunkRangeEnd = selectedChunk
+      ? selectedChunk.chunk_index + selectedChunkNeighborCount
+      : chunkOffset + chunkLimit - 1;
+
+    const { data: chunks, error: chunksError } = selectedChunk
+      ? await chunkQuery.gte("chunk_index", chunkRangeStart).lte("chunk_index", chunkRangeEnd)
+      : await chunkQuery.range(chunkRangeStart, chunkRangeEnd);
 
     if (chunksError) throw new Error(chunksError.message);
 
@@ -261,6 +317,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       pages: pages ?? [],
       images: (images ?? []).map(withImageTableMetadata),
       chunks: chunks ?? [],
+      pageWindow: {
+        from: pageWindow.from,
+        to: pageWindow.to,
+        limit: pageLimit,
+        total: document.page_count ?? null,
+        hasBefore: pageWindow.from > 1,
+        hasAfter: Boolean(document.page_count && pageWindow.to < document.page_count),
+      },
+      chunkWindow: {
+        offset: chunkRangeStart,
+        limit: selectedChunk ? chunkRangeEnd - chunkRangeStart + 1 : chunkLimit,
+        total: document.chunk_count ?? null,
+        hasBefore: chunkRangeStart > 0,
+        hasAfter: Boolean(document.chunk_count && chunkRangeEnd + 1 < document.chunk_count),
+        selectedChunkId: selectedChunk?.id ?? null,
+      },
+      indexHealth: {
+        extractionQuality: safeMetadata(document.metadata).extraction_quality ?? null,
+        indexedAt: safeMetadata(document.metadata).indexed_at ?? null,
+        indexVersion: safeMetadata(document.metadata).rag_indexing_version ?? null,
+        warnings: safeMetadata(document.metadata).extraction_warnings ?? [],
+      },
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {

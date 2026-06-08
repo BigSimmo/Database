@@ -9,7 +9,7 @@ alter table public.documents
 create index if not exists documents_title_search_idx on public.documents using gin(title_search_tsv);
 
 create or replace function public.match_document_chunks_hybrid(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 12,
   min_similarity double precision default 0.12,

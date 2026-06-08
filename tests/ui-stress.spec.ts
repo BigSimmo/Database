@@ -145,6 +145,25 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 async function mockStressData(page: Page) {
   const documents = Array.from({ length: 24 }, (_, index) => makeDocument(index + 1));
 
+  await page.route(/\/api\/local-project-id$/, async (route) => {
+    await route.fulfill({
+      json: {
+        appName: "Clinical KB",
+        projectId: "test-clinical-kb",
+        identityPath: "/api/local-project-id",
+        localServer: {
+          currentUrl: "http://localhost:4298",
+          currentPort: 4298,
+          projectPortStart: 4000,
+          projectPortEnd: 5999,
+          safeLocalOrigin: true,
+          requestOrigin: null,
+          requestReferer: null,
+          unsafeLocalCaller: null,
+        },
+      },
+    });
+  });
   await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { documents, demoMode: true } });
   });
@@ -159,16 +178,16 @@ async function mockStressData(page: Page) {
       json: {
         demoMode: true,
         checks: [
-          { id: "env", label: ".env.local configured", status: "needs_setup", detail: "Mocked missing env." },
+          { id: "env", label: ".env.local configured", status: "ready", detail: "Mocked env ready." },
           {
             id: "project",
             label: "Clinical KB Database target",
-            status: "needs_setup",
-            detail: "Mocked missing Supabase project.",
+            status: "ready",
+            detail: "Mocked Supabase project ready.",
           },
-          { id: "schema", label: "supabase/schema.sql applied", status: "unknown", detail: "Mocked schema unknown." },
-          { id: "openai", label: "OpenAI API key available", status: "needs_setup", detail: "Mocked missing key." },
-          { id: "worker", label: "npm run worker running", status: "unknown", detail: "Mocked worker unknown." },
+          { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Mocked schema ready." },
+          { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Mocked key ready." },
+          { id: "worker", label: "npm run worker running", status: "ready", detail: "Mocked worker ready." },
         ],
       },
     });
@@ -196,6 +215,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await mockStressData(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
       await expect(
         page
@@ -205,13 +225,46 @@ test.describe("Clinical KB long-content stress coverage", () => {
       ).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
 
+      await page.getByLabel("Open document scope").click();
+      const scopeContainer = page.getByTestId("scope-command-popover");
+      await expect(scopeContainer).toBeVisible();
+      await expect(
+        scopeContainer.getByText("Type to filter 24 documents. Selected documents stay pinned here."),
+      ).toBeVisible();
+      await expect(
+        scopeContainer.getByText("24 documents available. Type a title or file name to narrow the list."),
+      ).toBeVisible();
+      const scopeFilter = scopeContainer.locator('[data-testid="document-scope-filter"]');
+      await expect(scopeFilter).toBeVisible();
+      await expect(scopeFilter).toBeFocused();
+      await scopeFilter.fill("case-24");
+      await expect(scopeContainer.getByText("1 match")).toBeVisible();
+      await expect(scopeContainer.getByRole("button", { name: /responsive-layout-stress-case-24\.pdf/i })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(scopeContainer).toBeHidden();
+      await expect(page.getByLabel("Open document scope")).toBeFocused();
+      await expectNoPageHorizontalOverflow(page);
+
       await page
         .getByLabel("Search indexed guidelines by question or keyword")
         .fill("Show all stress citations and source cards");
       await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
-      await expect(page.getByText("10 exact quotes")).toBeVisible();
+      await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+      await expect(page.getByTestId("clinical-action-view")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Copy clinical draft" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
+      await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
+      await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
+      const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
+      await expect(evidenceDrawer).toBeVisible();
+      expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
+      await evidenceDrawer.locator("summary").click();
+      const evidenceReview = page.getByTestId("evidence-support-panel");
+      await expect(evidenceReview).toBeVisible();
+      await expect(evidenceReview.getByText("Evidence review")).toBeVisible();
+      await expect(evidenceReview.getByTestId("evidence-counts").getByText("Quotes")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }

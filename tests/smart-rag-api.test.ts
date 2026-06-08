@@ -32,6 +32,7 @@ describe("smart RAG API plan", () => {
 
     expect(plan.intent).toBe("medication_or_risk_answer");
     expect(plan.responseMode).toBe("fast_grounded_answer");
+    expect(plan.displayMode).toBe("clinical_pathway");
     expect(plan.answerFocus).toContain("medication");
     expect(plan.coreSourceLinks).toHaveLength(1);
     expect(plan.coreSourceLinks[0]).toMatchObject({
@@ -53,6 +54,7 @@ describe("smart RAG API plan", () => {
     });
 
     expect(plan.responseMode).toBe("multi_document_synthesis");
+    expect(plan.displayMode).toBe("comparison_matrix");
     expect(plan.latencyPlan).toBe("cache_or_text_first");
     expect(plan.answerFocus).toContain("2 documents");
     expect(plan.streamPlan).toContain("Fuse strongest points");
@@ -69,6 +71,20 @@ describe("smart RAG API plan", () => {
     });
 
     expect(plan.responseMode).toBe("document_lookup");
+    expect(plan.displayMode).toBe("document_lookup");
     expect(plan.answerFocus).toContain("best matching document");
+  });
+
+  it("uses threshold table display mode for threshold queries", () => {
+    const plan = buildSmartRagApiPlan({
+      query: "What ANC threshold should stop clozapine?",
+      queryClass: "table_threshold",
+      results: [source({ content: "ANC threshold table with action rows." })],
+      retrievalStrategy: "text_fast_path",
+      routeMode: "extractive",
+    });
+
+    expect(plan.displayMode).toBe("threshold_table");
+    expect(plan.answerFocus).toContain("threshold");
   });
 });
