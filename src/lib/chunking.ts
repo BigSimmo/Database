@@ -82,6 +82,13 @@ function sectionAnchorId(heading: string | null) {
   );
 }
 
+function headingLevel(heading: string | null, sectionPath: string[]) {
+  if (!heading) return sectionPath.length > 0 ? Math.min(sectionPath.length, 6) : null;
+  const numbered = heading.match(/^(\d+(?:\.\d+){0,5})\b/);
+  if (numbered) return Math.min(numbered[1].split(".").length, 6);
+  return sectionPath.includes(heading) ? Math.max(1, sectionPath.indexOf(heading) + 1) : Math.max(1, sectionPath.length);
+}
+
 function imageMatchScore(lookupText: string, sourceText: string) {
   if (!lookupText || !sourceText) return 0;
   const source = new Set(sourceText.split(/\s+/).filter(Boolean));
@@ -194,6 +201,7 @@ export function buildImageTag(image: {
   tableTitle?: string | null;
   tableRole?: string | null;
   tableTextSnippet?: string | null;
+  accessibleTableMarkdown?: string | null;
 }) {
   const parts = [
     `Image ID: ${image.id}`,
@@ -203,6 +211,7 @@ export function buildImageTag(image: {
     image.tableTitle ? `Table title: ${image.tableTitle}` : "",
     image.tableRole ? `Table role: ${image.tableRole}` : "",
     image.tableTextSnippet ? `Table text: ${compactImageText(image.tableTextSnippet)}` : "",
+    image.accessibleTableMarkdown ? `Accessible table: ${compactImageText(image.accessibleTableMarkdown, 600)}` : "",
     `Description: ${image.caption}`,
   ].filter(Boolean);
   return `[[IMAGE_DATA_START]] ${parts.join("; ")} [[IMAGE_DATA_END]]`;
@@ -225,6 +234,8 @@ export function buildChunks(inputs: ChunkInput[]) {
       const heading = detectHeading(content);
       const sectionContext = sectionPath.includes(heading ?? "") ? sectionPath : [...sectionPath];
       const sectionAnchor = sectionAnchorId(heading);
+      const level = headingLevel(heading, sectionContext);
+      const parentHeading = sectionContext.length > 1 ? sectionContext[sectionContext.length - 2] : null;
       const referencedImageIds = pageImages
         .filter((image) => {
           const label = normalizeLookupText(image.tableLabel ?? "");
@@ -260,7 +271,11 @@ export function buildChunks(inputs: ChunkInput[]) {
         document_id: input.documentId,
         page_number: input.pageNumber,
         chunk_index: chunks.length,
-        section_heading: detectHeading(content),
+        section_heading: heading,
+        section_path: sectionContext,
+        heading_level: level,
+        parent_heading: parentHeading,
+        anchor_id: sectionAnchor,
         content,
         token_estimate: estimateTokens(content),
         image_ids: referencedImageIds,
@@ -272,6 +287,10 @@ export function buildChunks(inputs: ChunkInput[]) {
           heading_lookup: pageLookupText,
           subsection_path: sectionContext,
           section_anchor: sectionAnchor,
+          section_path: sectionContext,
+          heading_level: level,
+          parent_heading: parentHeading,
+          anchor_id: sectionAnchor,
         },
       });
     });

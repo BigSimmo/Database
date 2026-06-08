@@ -1,3 +1,5 @@
+import type { AnswerResponseMode } from "@/lib/types";
+
 export type AnswerDisplayLine = {
   id: string;
   label: string | null;
@@ -23,7 +25,16 @@ export type AnswerLinePresentation = {
   label: string;
 };
 
-export type AnswerDisplayMode = "direct" | "checklist" | "clinical_pathway" | "comparison" | "summary" | "evidence_gap";
+export type AnswerDisplayMode =
+  | "direct"
+  | "checklist"
+  | "clinical_pathway"
+  | "comparison"
+  | "comparison_matrix"
+  | "threshold_table"
+  | "document_lookup"
+  | "summary"
+  | "evidence_gap";
 
 export type ParsedAnswerDisplay =
   | { type: "paragraph"; lines: AnswerDisplayLine[]; mode: AnswerDisplayMode }
@@ -179,6 +190,27 @@ function inferDisplayMode(lines: AnswerDisplayLine[]): AnswerDisplayMode {
   return "direct";
 }
 
+export function coerceAnswerDisplayMode(
+  responseMode?: AnswerResponseMode | AnswerDisplayMode | null,
+  fallback: AnswerDisplayMode = "direct",
+): AnswerDisplayMode {
+  if (!responseMode) return fallback;
+  if (
+    responseMode === "checklist" ||
+    responseMode === "comparison_matrix" ||
+    responseMode === "threshold_table" ||
+    responseMode === "clinical_pathway" ||
+    responseMode === "document_lookup" ||
+    responseMode === "evidence_gap"
+  ) {
+    return responseMode;
+  }
+  if (responseMode === "comparison") return "comparison_matrix";
+  if (responseMode === "summary") return "summary";
+  if (responseMode === "direct") return "direct";
+  return fallback;
+}
+
 export function answerLinePresentation(line: AnswerDisplayLine): AnswerLinePresentation {
   return line.presentation ?? inferPresentation(line.label, line.text);
 }
@@ -192,7 +224,10 @@ function buildAnswerLine(part: string, index: number, prefix: string): AnswerDis
   };
 }
 
-export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
+export function parseAnswerDisplayContent(
+  value: string,
+  preferredMode?: AnswerResponseMode | AnswerDisplayMode | null,
+): ParsedAnswerDisplay {
   const cleaned = value
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
@@ -201,7 +236,7 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
   if (!cleaned) {
     return {
       type: "paragraph",
-      mode: "evidence_gap",
+      mode: coerceAnswerDisplayMode(preferredMode, "evidence_gap"),
       lines: [
         {
           id: "empty",
@@ -221,7 +256,7 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
     const lines = parts.map((part, index) => buildAnswerLine(part, index, "bullet"));
     return {
       type: "bullets",
-      mode: inferDisplayMode(lines),
+      mode: coerceAnswerDisplayMode(preferredMode, inferDisplayMode(lines)),
       lines,
     };
   }
@@ -234,7 +269,7 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
     const lines = semicolonParts.map((part, index) => buildAnswerLine(part, index, "semicolon"));
     return {
       type: "bullets",
-      mode: inferDisplayMode(lines),
+      mode: coerceAnswerDisplayMode(preferredMode, inferDisplayMode(lines)),
       lines,
     };
   }
@@ -242,7 +277,7 @@ export function parseAnswerDisplayContent(value: string): ParsedAnswerDisplay {
   const lines = [buildAnswerLine(normalizeInline(cleaned), 0, "paragraph")];
   return {
     type: "paragraph",
-    mode: inferDisplayMode(lines),
+    mode: coerceAnswerDisplayMode(preferredMode, inferDisplayMode(lines)),
     lines,
   };
 }

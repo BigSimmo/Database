@@ -1,7 +1,7 @@
 drop function if exists public.match_document_chunks_hybrid(vector, text, integer, double precision, uuid[], uuid);
 
 create or replace function public.match_document_chunks_hybrid(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 12,
   min_similarity double precision default 0.12,
@@ -139,7 +139,7 @@ as $$
 $$;
 
 create or replace function public.match_document_memory_cards_hybrid(
-  query_embedding vector(1536),
+  query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 32,
   min_similarity double precision default 0.1,

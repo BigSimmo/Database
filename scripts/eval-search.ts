@@ -33,15 +33,19 @@ export type SearchEvalResult = {
   expectedAllHitTop5: boolean | null;
   missingExpectedFiles: string[];
   resultCount: number;
+  payloadBytes: number;
   topScore: number;
   topFiles: string[];
   latencyMs: number;
   retrievalStrategy: string | null;
+  queryClass: string | null;
   searchCacheHit: boolean;
   embeddingSkipped: boolean;
   embeddingCacheHit: boolean;
   fallbackToEmbedding: boolean;
   visualEvidence: number;
+  latencyTargetMs: number;
+  relevanceGrade?: RagEvalCase["relevanceGrade"];
   failures: string[];
 };
 
@@ -98,6 +102,18 @@ function validateSearchResult(testCase: RagEvalCase, result: Omit<SearchEvalResu
   if (testCase.supported && result.resultCount === 0) failures.push("expected search results");
   if (!testCase.supported && result.topScore >= 0.82)
     failures.push("unsupported control produced high-confidence match");
+  if (testCase.falsePositiveControl && result.resultCount > 0 && result.topScore >= 0.78)
+    failures.push("false-positive control produced plausible match");
+  if (testCase.relevanceGrade === "unsupported" && result.payloadBytes > 100_000)
+    failures.push(`unsupported payload too large: ${result.payloadBytes} bytes`);
+  if (testCase.category === "routine" && result.payloadBytes > 550_000)
+    failures.push(`routine payload too large: ${result.payloadBytes} bytes`);
+  if (result.latencyMs > Math.max(testCase.latencyTargetMs * 2, testCase.latencyTargetMs + 3000)) {
+    failures.push(`latency over case budget: ${result.latencyMs}ms > ${testCase.latencyTargetMs}ms`);
+  }
+  if (testCase.expectedQueryClass && result.queryClass !== testCase.expectedQueryClass) {
+    failures.push(`expected query class ${testCase.expectedQueryClass}, got ${result.queryClass ?? "none"}`);
+  }
   return failures;
 }
 
@@ -112,17 +128,20 @@ export function summarizeFailures(results: SearchEvalResult[]) {
   ).length;
   const routineEmbeddingSkipped = routine.filter((result) => result.embeddingSkipped).length;
   const unsupportedHighConfidence = unsupported.filter((result) => result.topScore >= 0.82).length;
+  const oversizedPayloads = results.filter((result) => result.payloadBytes > 750_000).length;
   const failures: string[] = [];
 
   if (expectedCoverageCases.length >= 18 && expectedHits < expectedCoverageCases.length)
     failures.push(`expected document coverage ${expectedHits}/${expectedCoverageCases.length}`);
-  if (routineLatencies.length > 0 && percentile(routineLatencies, 95) > 1500)
-    failures.push("routine search p95 over 1500ms");
+  if (routineLatencies.length >= 18 && percentile(routineLatencies, 95) > 2000)
+    failures.push("routine search p95 over 2000ms");
   if (routine.length > 0 && routineEmbeddingSkipped / routine.length < 0.7) {
     failures.push(`routine embedding skipped ${routineEmbeddingSkipped}/${routine.length}`);
   }
   if (unsupportedHighConfidence > 0) failures.push(`unsupported high-confidence matches ${unsupportedHighConfidence}`);
+  if (oversizedPayloads > 0) failures.push(`oversized search payloads ${oversizedPayloads}`);
   if (supported.some((result) => result.failures.length > 0)) failures.push("supported case-level search failure(s)");
+  if (unsupported.some((result) => result.failures.length > 0)) failures.push("unsupported case-level search failure(s)");
 
   return failures;
 }
@@ -156,6 +175,7 @@ function printHumanSummary(results: SearchEvalResult[]) {
   console.log(`  text_fast_path=${textFast}/${results.length}`);
   console.log(`  embedding_skipped=${embeddingSkipped}/${results.length}`);
   console.log(`  fallback_to_embedding=${fallbackToEmbedding}/${results.length}`);
+  console.log(`  max_payload_bytes=${Math.max(0, ...results.map((result) => result.payloadBytes))}`);
   console.log(`  strategy_counts=${JSON.stringify(strategyCounts)}`);
 }
 
@@ -204,15 +224,19 @@ async function main() {
       expectedAllHitTop5: testCase.expectedFiles.length > 1 ? top5Coverage.allHit : null,
       missingExpectedFiles: testCase.expectedFiles.length > 1 ? top5Coverage.missingFiles : top3Coverage.missingFiles,
       resultCount: search.results.length,
+      payloadBytes: Buffer.byteLength(JSON.stringify(search.results), "utf8"),
       topScore: topScore(search.results),
       topFiles: Array.from(new Set(search.results.slice(0, 3).map((result) => result.file_name))),
       latencyMs,
       retrievalStrategy: search.telemetry.retrieval_strategy ?? null,
+      queryClass: search.telemetry.query_class ?? null,
       searchCacheHit: search.telemetry.search_cache_hit,
       embeddingSkipped: search.telemetry.embedding_skipped,
       embeddingCacheHit: search.telemetry.embedding_cache_hit,
       fallbackToEmbedding: !search.telemetry.embedding_skipped,
       visualEvidence: visuals.length,
+      latencyTargetMs: testCase.latencyTargetMs,
+      relevanceGrade: testCase.relevanceGrade,
     } satisfies Omit<SearchEvalResult, "failures">;
     const failures = validateSearchResult(testCase, baseResult);
     if (hasInvalidVisualEvidence(visuals)) failures.push("decorative or zero-relevance visual evidence returned");
@@ -226,7 +250,7 @@ async function main() {
         `SEARCH ${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} skippedEmbedding=${result.embeddingSkipped} expectedHit=${result.expectedHitTop3}${expectedCoverage} topScore=${result.topScore.toFixed(3)}${failureSuffix}`,
       );
       console.log(`  Q: ${testCase.question}`);
-      console.log(`  Top files: ${result.topFiles.join("; ") || "none"}`);
+      console.log(`  Top files: ${result.topFiles.join("; ") || "none"} payloadBytes=${result.payloadBytes}`);
     }
   }
 

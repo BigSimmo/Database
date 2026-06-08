@@ -1,7 +1,14 @@
 import { citationFromResult, documentCitationHref, formatCompactCitationLabel } from "@/lib/citations";
 import { sourceStrengthForSimilarity } from "@/lib/evidence";
 import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
-import type { RagAnswer, RagQueryClass, SearchResult, SmartRagApiPlan, SmartRagSourceLink } from "@/lib/types";
+import type {
+  AnswerResponseMode,
+  RagAnswer,
+  RagQueryClass,
+  SearchResult,
+  SmartRagApiPlan,
+  SmartRagSourceLink,
+} from "@/lib/types";
 
 type RetrievalStrategy = SmartRagApiPlan["retrievalStrategy"];
 
@@ -121,6 +128,20 @@ function latencyPlan(
   return "balanced_hybrid";
 }
 
+function displayMode(args: {
+  mode: SmartRagApiPlan["responseMode"];
+  queryClass: RagQueryClass;
+  routeMode?: RagAnswer["routingMode"];
+}): AnswerResponseMode {
+  if (args.mode === "unsupported") return "evidence_gap";
+  if (args.mode === "document_lookup" || args.queryClass === "document_lookup") return "document_lookup";
+  if (args.queryClass === "comparison" || args.mode === "multi_document_synthesis") return "comparison_matrix";
+  if (args.queryClass === "table_threshold") return "threshold_table";
+  if (args.queryClass === "medication_dose_risk") return "clinical_pathway";
+  if (args.routeMode === "extractive") return "checklist";
+  return "checklist";
+}
+
 function answerFocus(args: {
   queryClass: RagQueryClass;
   mode: SmartRagApiPlan["responseMode"];
@@ -166,6 +187,7 @@ export function buildSmartRagApiPlan(args: BuildSmartRagApiPlanArgs): SmartRagAp
   const mode = responseMode(args);
   const coreSourceLinks = buildCoreSourceLinks(args.results, args.queryClass, args.maxLinks ?? 5);
   const documentCount = uniqueDocumentCount(args.results);
+  const planDisplayMode = displayMode({ mode, queryClass: args.queryClass, routeMode: args.routeMode });
 
   return {
     query: args.query,
@@ -174,6 +196,7 @@ export function buildSmartRagApiPlan(args: BuildSmartRagApiPlanArgs): SmartRagAp
     responseMode: mode,
     retrievalStrategy,
     latencyPlan: latencyPlan(mode, retrievalStrategy),
+    displayMode: planDisplayMode,
     answerFocus: answerFocus({
       queryClass: args.queryClass,
       mode,

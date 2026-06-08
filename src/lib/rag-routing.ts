@@ -213,6 +213,22 @@ export function chooseAnswerRoute(args: {
     };
   }
 
+  if (
+    queryClass === "unsupported_or_general" &&
+    isComplexClinicalQuery(args.query) &&
+    strongestScore < 0.46 &&
+    topTextRank < 0.02 &&
+    !directTitleSupport
+  ) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "weak_complex_query_support",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
   const crossDocumentIntent = routineCrossDocumentPattern.test(args.query) || queryClass === "broad_summary";
   const actionableConflictOrGap = hasActionableConflictOrGap(args.conflictsOrGaps);
 

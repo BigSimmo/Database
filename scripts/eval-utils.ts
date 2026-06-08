@@ -78,7 +78,12 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
 
   if (testCase.supported && !answer.grounded) failures.push("expected grounded answer");
   if (!testCase.supported && answer.grounded) failures.push("expected unsupported answer");
+  if (testCase.falsePositiveControl && answer.grounded)
+    failures.push("false-positive control produced grounded answer");
   if (!testCase.allowedRoutes.includes(route)) failures.push(`unexpected route ${route}`);
+  if (testCase.expectedQueryClass && answer.queryClass !== testCase.expectedQueryClass) {
+    failures.push(`expected query class ${testCase.expectedQueryClass}, got ${answer.queryClass ?? "none"}`);
+  }
   if (answer.citations.length < testCase.minCitations)
     failures.push(`expected at least ${testCase.minCitations} citations`);
   if (testCase.expectedFiles.length > 1 && !expectedCoverage.allHit) {

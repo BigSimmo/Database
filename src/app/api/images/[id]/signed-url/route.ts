@@ -8,6 +8,8 @@ import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } f
 
 export const runtime = "nodejs";
 
+const signedUrlTtlSeconds = 60 * 10;
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -18,6 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         url: image.signed_url ?? image.storage_path,
         mimeType: image.mime_type,
         caption: image.caption,
+        expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
         demoMode: true,
       });
     }
@@ -43,13 +46,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Image not found." }, { status: 404 });
 
-    const signed = await supabase.storage.from(env.SUPABASE_IMAGE_BUCKET).createSignedUrl(image.storage_path, 60 * 10);
+    const signed = await supabase.storage
+      .from(env.SUPABASE_IMAGE_BUCKET)
+      .createSignedUrl(image.storage_path, signedUrlTtlSeconds);
 
     if (signed.error) throw new Error(signed.error.message);
     return NextResponse.json({
       url: signed.data.signedUrl,
       mimeType: image.mime_type,
       caption: image.caption,
+      expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {

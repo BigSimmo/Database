@@ -29,6 +29,7 @@ const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
   { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
+  { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
 ];
@@ -197,18 +198,44 @@ async function mockDemoApi(page: Page) {
     });
   });
   await page.route(/\/api\/search$/, async (route) => {
+    const body = route.request().postDataJSON() as { query?: string; mode?: string };
+    const query = body.query?.toLowerCase() ?? "";
+    if (query.includes("coffee machine")) {
+      await route.fulfill({
+        json: {
+          results: [],
+          visualEvidence: [],
+          relatedDocuments: [],
+          documentMatches: [],
+          relevance: { verdict: "none", score: 0, directSourceCount: 0, weakSourceCount: 0 },
+          smartPanel: {},
+          telemetry: {
+            query_class: "unsupported_or_general",
+            retrieval_strategy: "unsupported_short_circuit",
+            embedding_skipped: true,
+          },
+          demoMode: true,
+        },
+      });
+      return;
+    }
+    const isSafetyPlan = query.includes("patient safety plan");
     await route.fulfill({
       json: {
         results: [
           {
-            id: "44444444-4444-4444-8444-444444444442",
+            id: isSafetyPlan
+              ? "55555555-5555-4555-8555-555555555555"
+              : "44444444-4444-4444-8444-444444444442",
             document_id: "11111111-1111-4111-8111-111111111111",
-            title: "Synthetic lithium monitoring protocol",
-            file_name: "lithium-monitoring.pdf",
+            title: isSafetyPlan ? "Synthetic patient safety plan" : "Synthetic lithium monitoring protocol",
+            file_name: isSafetyPlan ? "patient-safety-plan.pdf" : "lithium-monitoring.pdf",
             page_number: 1,
             chunk_index: 0,
-            section_heading: "Monitoring",
-            content: "Lithium monitoring and toxicity safety-net source passage.",
+            section_heading: isSafetyPlan ? "Safety plan contents" : "Monitoring",
+            content: isSafetyPlan
+              ? "Patient safety plan should include warning signs, supports, coping strategies, means restriction, and crisis contacts."
+              : "Lithium monitoring and toxicity safety-net source passage.",
             image_ids: [],
             similarity: 0.9,
             hybrid_score: 0.92,
@@ -220,12 +247,23 @@ async function mockDemoApi(page: Page) {
         documentMatches: [
           {
             document_id: "11111111-1111-4111-8111-111111111111",
-            title: "Synthetic lithium monitoring protocol",
-            file_name: "lithium-monitoring.pdf",
-            labels: [{ label: "lithium", label_type: "medication", source: "generated", confidence: 0.94 }],
-            summarySnippet: "Lithium monitoring and toxicity safety-net reminders.",
+            title: isSafetyPlan ? "Synthetic patient safety plan" : "Synthetic lithium monitoring protocol",
+            file_name: isSafetyPlan ? "patient-safety-plan.pdf" : "lithium-monitoring.pdf",
+            labels: [
+              {
+                label: isSafetyPlan ? "patient safety plan" : "lithium",
+                label_type: isSafetyPlan ? "document" : "medication",
+                source: "generated",
+                confidence: 0.94,
+              },
+            ],
+            summarySnippet: isSafetyPlan
+              ? "Patient safety plan contents and crisis supports."
+              : "Lithium monitoring and toxicity safety-net reminders.",
             bestPages: [1],
-            bestChunkIds: ["44444444-4444-4444-8444-444444444442"],
+            bestChunkIds: [
+              isSafetyPlan ? "55555555-5555-4555-8555-555555555555" : "44444444-4444-4444-8444-444444444442",
+            ],
             imageCount: 1,
             tableCount: 1,
             matchReason: "Matched indexed passage",
@@ -233,6 +271,45 @@ async function mockDemoApi(page: Page) {
           },
         ],
         smartPanel: {},
+        telemetry: {
+          query_class: isSafetyPlan ? "document_lookup" : "medication_dose_risk",
+          retrieval_strategy: "text_fast_path",
+          embedding_skipped: true,
+        },
+        demoMode: true,
+      },
+    });
+  });
+  await page.route(/\/api\/documents\/[^/]+\/search(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        query: new URL(route.request().url()).searchParams.get("q") ?? "",
+        results: [
+          {
+            id: "55555555-5555-4555-8555-555555555555",
+            page_number: 1,
+            chunk_index: 2,
+            section_heading: "Safety plan contents",
+            snippet:
+              "Patient safety plan should include warning signs, coping strategies, supports, crisis contacts, and means restriction.",
+            matched_terms: ["safety", "plan", "include"],
+            image_ids: [],
+            score: 2.4,
+          },
+          {
+            id: "44444444-4444-4444-8444-444444444442",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Monitoring",
+            snippet: "Lithium monitoring and toxicity safety-net source passage.",
+            matched_terms: ["monitoring"],
+            image_ids: [],
+            score: 1.2,
+          },
+        ],
+        pageHits: [1],
+        hitCount: 2,
+        strategy: "full_text_trigram_rpc",
         demoMode: true,
       },
     });
@@ -268,6 +345,36 @@ async function mockDemoApi(page: Page) {
     const payload = getDemoDocumentPayload(id, selectedChunkId);
     if (!payload) {
       await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
+      return;
+    }
+    if (selectedChunkId === "55555555-5555-4555-8555-555555555555") {
+      await route.fulfill({
+        json: {
+          ...payload,
+          document: {
+            ...payload.document,
+            title: "Synthetic patient safety plan",
+            file_name: "patient-safety-plan.pdf",
+          },
+          pages: payload.pages.map((page) => ({
+            ...page,
+            text: `${page.text}\n\nPatient safety plan should include warning signs, coping strategies, supports, crisis contacts, and means restriction.`,
+          })),
+          chunks: [
+            {
+              id: "55555555-5555-4555-8555-555555555555",
+              document_id: id,
+              page_number: 1,
+              chunk_index: 2,
+              section_heading: "Safety plan contents",
+              content:
+                "Patient safety plan should include warning signs, coping strategies, supports, crisis contacts, and means restriction.",
+              image_ids: [],
+            },
+          ],
+          demoMode: true,
+        },
+      });
       return;
     }
     const longSelectedPassage = selectedChunkId
@@ -321,7 +428,7 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } =
 
 async function waitForDemoDashboardReady(page: Page) {
   await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeEnabled();
-  await expect(page.getByTestId("scope-prompts-drawer").getByText("3 documents")).toBeAttached({ timeout: 30000 });
+  await expect(page.getByLabel("Open document scope")).toBeVisible({ timeout: 30000 });
 }
 
 async function scrollDashboardToBottom(page: Page) {
@@ -370,12 +477,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
       await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
-      if (viewport.width >= 640) {
-        const scopeDrawer = page.getByTestId("scope-prompts-drawer");
-        await expect(scopeDrawer).toBeVisible();
-        expect(await scopeDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
-        await expect(scopeDrawer).toContainText("Scope & prompts");
-      }
+      await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
+      const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
+      expect(headerHeight).toBeLessThanOrEqual(viewport.width >= 640 ? 185 : 180);
+      await expect(page.getByLabel("Open document scope")).toBeVisible();
+      await expect(page.getByTestId("scope-command-popover")).toBeHidden();
+      await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
+      await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Use sample question/i }).first()).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width < 1024 });
       await expectNoPageHorizontalOverflow(page);
     });
@@ -390,7 +499,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await questionInput.fill("lithium monitoring");
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
-    await expect(page.getByTestId("answer-grounding-chip")).toBeVisible();
+    await expect(page.getByTestId("clinical-action-view")).toBeVisible();
+    await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     await expect(page.getByText("Sign in before searching private guideline documents")).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true });
@@ -405,7 +515,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await expect(questionInput).toBeEnabled();
-    await expect(page.getByLabel("Open document scope and prompt controls")).toBeVisible();
+    await expect(page.getByLabel("Open document scope")).toBeVisible();
     const question = "What toxicity safety-net symptoms should be reviewed for lithium?";
     await questionInput.click();
     await questionInput.pressSequentially(question);
@@ -413,8 +523,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    await expect(page.getByTestId("answer-grounding-chip")).toBeVisible();
+    const plainAnswer = page.getByTestId("plain-answer-response");
+    await expect(plainAnswer).toBeVisible();
+    await expect(plainAnswer).toContainText("toxicity safety-net review should cover");
+    await expect(page.getByRole("button", { name: /Use sample question/i })).toHaveCount(0);
     await expect(page.getByTestId("clinical-action-view")).toBeVisible();
+    await expect(
+      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Structured details", exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByTestId("clinical-action-view").getByRole("heading", { name: "Action", exact: true }),
     ).toBeVisible();
@@ -424,29 +540,57 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const rawNarrative = page.getByTestId("raw-answer-narrative");
     await expect(rawNarrative).toBeVisible();
     expect(await rawNarrative.evaluate((element) => element.hasAttribute("open"))).toBe(false);
-    await expect(page.getByTestId("answer-top-source-chip")).toBeVisible();
-    await expect(page.getByTestId("answer-grounding-chip")).toBeVisible();
-    await expect(page.getByTestId("clinical-action-view").getByText(/Synthetic demo only/i)).toBeVisible();
+    await expect(page.getByTestId("answer-top-source-chip")).toHaveCount(0);
+    await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
+    await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
+    await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copy clinical draft" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
+    await expect(page.getByTestId("clinical-action-view").getByText(/Synthetic demo only/i)).toHaveCount(0);
     await expect(
-      page.getByText("Draft only; verify source first before pasting into the medical record.").first(),
-    ).toBeVisible();
+      page.getByTestId("clinical-action-view").getByText("Draft only; verify source first before pasting into the medical record."),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("answer-safety-notice")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Quotes, \d+ items?/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Images, \d+ items?/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Sources, \d+ items?/ })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true });
 
+    const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
+    await expect(evidenceDrawer).toBeVisible();
+    await expect(evidenceDrawer).toContainText(/top source/i);
+    await expect(evidenceDrawer).toContainText(/citations?/i);
+    await expect(page.getByText("Review evidence").first()).toBeVisible();
+    await expect(page.getByText("Workspace utilities")).toBeVisible();
+    expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
+    await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
+
     const hierarchy = await page.evaluate(() => {
-      const safety = document.querySelector('[data-testid="safety-findings-panel"]');
-      const verify = document.querySelector('[data-testid="verify-source-strip"]');
-      const copy = document.querySelector('[data-testid="copy-governance-strip"]');
+      const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
+      const structured = document.querySelector('[data-testid="clinical-action-view"]');
+      const evidence = Array.from(document.querySelectorAll("details")).find((element) =>
+        element.textContent?.includes("Evidence & sources"),
+      );
       return {
-        safetyTop: safety?.getBoundingClientRect().top ?? 9999,
-        verifyTop: verify?.getBoundingClientRect().top ?? 9999,
-        copyTop: copy?.getBoundingClientRect().top ?? 9999,
+        plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
+        structuredTop: structured?.getBoundingClientRect().top ?? 9999,
+        evidenceTop: evidence?.getBoundingClientRect().top ?? 9999,
       };
     });
-    expect(hierarchy.safetyTop).toBeLessThan(hierarchy.verifyTop);
-    expect(hierarchy.verifyTop).toBeLessThan(hierarchy.copyTop);
+    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.structuredTop);
+    expect(hierarchy.structuredTop).toBeLessThan(hierarchy.evidenceTop);
+
+    await evidenceDrawer.locator("summary").click();
+    const evidenceSupport = page.getByTestId("evidence-support-panel");
+    await expect(evidenceSupport).toBeVisible();
+    await expect(evidenceSupport.getByText("Evidence review")).toBeVisible();
+    await expect(evidenceSupport.getByText("Source status", { exact: true })).toBeVisible();
+    await expect(evidenceSupport.getByTestId("evidence-counts")).toBeVisible();
+    await expect(evidenceSupport.getByRole("link", { name: /Open top source/i })).toBeVisible();
+    const safetyNotice = page.getByTestId("answer-safety-notice");
+    await expect(safetyNotice).toBeVisible();
+    await expect(safetyNotice).toContainText("Draft only; verify source first before pasting into the medical record.");
+    await expect(safetyNotice).toContainText("Synthetic demo only: this is not clinical guidance.");
 
     const headingMetrics = await page.getByTestId("answer-section-heading").evaluate((element) => {
       const icon = element.querySelector("[data-section-heading-icon]");
@@ -460,20 +604,28 @@ test.describe("Clinical KB UI smoke coverage", () => {
           iconRect && titleRect
             ? Math.abs(iconRect.top + iconRect.height / 2 - (titleRect.top + titleRect.height / 2))
             : 999,
-        actionHeight: actionsRect?.height ?? 999,
+        hasActions: Boolean(actionsRect),
       };
     });
     expect(headingMetrics.iconTitleCenterDelta).toBeLessThanOrEqual(3);
-    expect(headingMetrics.actionHeight).toBeLessThanOrEqual(34);
+    expect(headingMetrics.hasActions).toBe(false);
 
     await expectMobileNavTarget(page, "Quotes", "#quotes", "Source quotes");
     await expectMobileNavTarget(page, "Images", "#images", "Tables and diagrams");
     await expectMobileNavTarget(page, "Sources", "#sources", "Source passages");
+    await expect(page.getByText("Top source detail")).toHaveCount(0);
+    await expect(page.getByText("Retrieval details")).toHaveCount(0);
 
-    await page.getByLabel("Open document scope and prompt controls").click();
-    const mobileScopePopover = page.getByTestId("mobile-scope-popover");
-    await expect(mobileScopePopover).toBeVisible();
-    const popoverMetrics = await mobileScopePopover.evaluate((element) => {
+    await page.getByLabel("Open document scope").click();
+    const scopePopover = page.getByTestId("scope-command-popover");
+    await expect(scopePopover).toBeVisible();
+    const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
+    await expect(scopeFilter).toBeVisible();
+    await expect(scopeFilter).toBeFocused();
+    await scopeFilter.fill("lithium");
+    await expect(scopePopover.getByText("1 match")).toBeVisible();
+    await expect(scopePopover.getByRole("button", { name: /Lithium monitoring protocol/i })).toBeVisible();
+    const popoverMetrics = await scopePopover.evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
         height: element.getBoundingClientRect().height,
@@ -485,6 +637,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.overflowY).toBe("auto");
     expect(popoverMetrics.maxHeight).not.toBe("none");
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
+    await page.keyboard.press("Escape");
+    await expect(scopePopover).toBeHidden();
+    await expect(page.getByLabel("Open document scope")).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -514,6 +669,42 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("search regressions avoid fetch errors and open viewer hits", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await page.getByRole("button", { name: "Switch to document search mode" }).click();
+    const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
+
+    await questionInput.fill("what is the best coffee machine for my kitchen");
+    await page.getByRole("button", { name: "Find matching documents" }).click();
+    await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
+    await expect(page.locator("body")).toContainText(/No matching documents|No document matches|No indexed source/i);
+
+    await questionInput.fill("What should a patient safety plan include?");
+    await page.getByRole("button", { name: "Find matching documents" }).click();
+    await expect(page.getByText("Synthetic patient safety plan").first()).toBeVisible();
+    const viewerLink = page.locator('a[href*="chunk=55555555-5555-4555-8555-555555555555"]').first();
+    await expect(viewerLink).toBeVisible();
+    await viewerLink.click();
+    await expect(page).toHaveURL(/chunk=55555555-5555-4555-8555-555555555555/);
+    await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
+      "Patient safety plan should include",
+    );
+
+    const sourceSearch = page.getByLabel("Search within indexed source text").last();
+    await sourceSearch.fill("safety plan include");
+    const desktopTextPanel = page.getByTestId("desktop-chunk-indexed-text-panel");
+    await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
+    await expect(desktopTextPanel.getByRole("button", { name: "Next document search hit" })).toBeVisible();
+    await desktopTextPanel.getByRole("button", { name: "Next document search hit" }).click();
+    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
+    await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("document viewer puts pinned evidence before the PDF preview on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await mockDemoApi(page);
@@ -529,6 +720,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
 
     await expect(evidence).toBeVisible();
+    await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
@@ -670,11 +862,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const payload = await response.json();
     expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(5);
+    expect(payload.checks).toHaveLength(6);
     expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
       "env",
       "project",
       "schema",
+      "search",
       "openai",
       "worker",
     ]);
@@ -697,6 +890,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText(".env.local configured")).toBeVisible();
     await expect(uploadDrawer.getByText("Clinical KB Database target")).toBeVisible();
     await expect(uploadDrawer.getByText("supabase/schema.sql applied")).toBeVisible();
+    await expect(uploadDrawer.getByText("Search RPC and vector indexes")).toBeVisible();
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
     await expect(uploadDrawer.getByText("Document title optional")).toBeVisible();
@@ -741,6 +935,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
 
       const dialog = await openGuide(page);
+      await page.keyboard.press("Shift+Tab");
+      expect(
+        await dialog.evaluate((element) => element.contains(document.activeElement)),
+      ).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(
+        await dialog.evaluate((element) => element.contains(document.activeElement)),
+      ).toBe(true);
       await dialog.getByRole("button", { name: "Close guide" }).click();
       await expect(dialog).toBeHidden();
 

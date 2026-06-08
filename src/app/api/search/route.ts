@@ -8,11 +8,11 @@ import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichmen
 import { jsonError, PublicApiError } from "@/lib/http";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { searchChunksWithTelemetry } from "@/lib/rag";
-import { classifyRagQuery } from "@/lib/clinical-search";
+import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consumePublicSearchRateLimit } from "@/lib/public-rate-limit";
-import type { SearchResult } from "@/lib/types";
+import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -107,6 +107,304 @@ function buildDocumentMatchesFromResults(results: SearchResult[], limit: number)
     }));
 }
 
+function compactText(value: string, limit = 900) {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= limit) return compact;
+  return `${compact.slice(0, limit - 3).trim()}...`;
+}
+
+function compactSourceMetadata(metadata: SearchResult["source_metadata"]): Partial<ClinicalSourceMetadata> | undefined {
+  if (!metadata) return undefined;
+  return {
+    source_title: metadata.source_title,
+    publisher: metadata.publisher,
+    jurisdiction: metadata.jurisdiction,
+    version: metadata.version,
+    review_date: metadata.review_date,
+    publication_date: metadata.publication_date,
+    document_status: metadata.document_status,
+    clinical_validation_status: metadata.clinical_validation_status,
+    extraction_quality: metadata.extraction_quality,
+    indexed_at: metadata.indexed_at,
+  };
+}
+
+function compactImage(image: ChunkImage) {
+  return {
+    id: image.id,
+    page_number: image.page_number,
+    source_kind: image.source_kind,
+    sourceKind: image.sourceKind,
+    image_type: image.image_type,
+    clinicalUseClass: image.clinicalUseClass,
+    caption: image.caption ? compactText(image.caption, 240) : "",
+    storage_path: image.storage_path,
+    searchable: image.searchable,
+    clinical_relevance_score: image.clinical_relevance_score,
+    tableLabel: image.tableLabel,
+    tableTitle: image.tableTitle,
+  };
+}
+
+function buildMatchExplanation(query: string, result: SearchResult) {
+  if (result.match_explanation) return result.match_explanation;
+  const queryTerms = new Set(normalizedClinicalSearchTokens(query));
+  const titleText = `${result.title} ${result.file_name}`.toLowerCase();
+  const sectionText = `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`.toLowerCase();
+  const labelText = (result.document_labels ?? []).map((label) => label.label.toLowerCase()).join(" ");
+  const contentText = result.content.toLowerCase();
+  const tableHit = Boolean(
+    result.table_facts?.length ||
+      result.images?.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop"),
+  );
+  const titleHit = Array.from(queryTerms).some((term) => titleText.includes(term));
+  const sectionHit = Array.from(queryTerms).some((term) => sectionText.includes(term));
+  const labelHit = Array.from(queryTerms).some((term) => labelText.includes(term));
+  const contentHit = Array.from(queryTerms).some((term) => contentText.includes(term));
+  const metadata = result.source_metadata;
+  return {
+    titleHit,
+    labelHit,
+    sectionHit,
+    contentHit,
+    tableHit,
+    vectorSimilarity: result.similarity ?? null,
+    textRank: result.text_rank ?? null,
+    freshness: metadata?.document_status ?? null,
+    extractionQuality: metadata?.extraction_quality ?? null,
+    indexQualityScore: result.indexing_quality?.quality_score ?? null,
+    indexQualityIssues: result.indexing_quality?.issues?.slice(0, 4) ?? [],
+    reasons: [
+      titleHit ? "title" : "",
+      labelHit ? "label" : "",
+      sectionHit ? "section" : "",
+      contentHit ? "content" : "",
+      tableHit ? "table" : "",
+      metadata?.document_status ? `status:${metadata.document_status}` : "",
+      metadata?.extraction_quality ? `extraction:${metadata.extraction_quality}` : "",
+      result.indexing_quality?.quality_score !== undefined
+        ? `index:${Number(result.indexing_quality.quality_score).toFixed(2)}`
+        : "",
+    ].filter(Boolean),
+  };
+}
+
+function compactSearchResult(query: string, result: SearchResult) {
+  const evidenceImages = result.images?.filter((image) => isClinicalImageEvidence(image)).slice(0, 3) ?? [];
+  return {
+    id: result.id,
+    document_id: result.document_id,
+    title: result.title,
+    file_name: result.file_name,
+    page_number: result.page_number,
+    chunk_index: result.chunk_index,
+    section_heading: result.section_heading,
+    section_path: result.section_path ?? [],
+    heading_level: result.heading_level ?? null,
+    parent_heading: result.parent_heading ?? null,
+    anchor_id: result.anchor_id ?? null,
+    content: compactText(result.content),
+    image_ids: result.image_ids?.slice(0, 8) ?? [],
+    similarity: result.similarity,
+    text_rank: result.text_rank,
+    hybrid_score: result.hybrid_score,
+    rrf_score: result.rrf_score,
+    source_strength: result.source_strength,
+    score_explanation: result.score_explanation,
+    source_metadata: compactSourceMetadata(result.source_metadata),
+    relevance: result.relevance,
+    match_explanation: buildMatchExplanation(query, result),
+    table_facts: result.table_facts?.slice(0, 4).map((fact) => ({
+      id: fact.id,
+      source_chunk_id: fact.source_chunk_id,
+      source_image_id: fact.source_image_id,
+      page_number: fact.page_number,
+      table_title: fact.table_title,
+      row_label: fact.row_label,
+      clinical_parameter: fact.clinical_parameter,
+      threshold_value: fact.threshold_value,
+      action: fact.action,
+      match_reason: fact.match_reason,
+    })),
+    indexing_quality: result.indexing_quality ?? null,
+    images: evidenceImages.map(compactImage),
+  };
+}
+
+function compactSearchResults(query: string, results: SearchResult[]) {
+  return results.map((result) => compactSearchResult(query, result));
+}
+
+function facetCounts(values: Array<string | null | undefined>, limit = 12) {
+  const counts = new Map<string, number>();
+  for (const raw of values) {
+    const value = raw?.trim();
+    if (!value) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([value, count]) => ({ value, count }));
+}
+
+function buildSearchFacets(results: SearchResult[]) {
+  return {
+    status: facetCounts(results.map((result) => result.source_metadata?.document_status)),
+    validation: facetCounts(results.map((result) => result.source_metadata?.clinical_validation_status)),
+    extractionQuality: facetCounts(results.map((result) => result.source_metadata?.extraction_quality)),
+    sections: facetCounts(results.map((result) => result.section_heading)),
+    labels: facetCounts(results.flatMap((result) => result.document_labels?.map((label) => label.label) ?? [])),
+    documentTypes: facetCounts(
+      results.flatMap((result) =>
+        result.document_labels?.filter((label) => label.label_type === "document_type").map((label) => label.label) ?? [],
+      ),
+    ),
+    evidence: [
+      { value: "has_images", count: results.filter((result) => result.images?.length).length },
+      {
+        value: "has_tables",
+        count: results.filter(
+          (result) =>
+            result.table_facts?.length ||
+            result.images?.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop"),
+        ).length,
+      },
+    ].filter((facet) => facet.count > 0),
+  };
+}
+
+function candidatePromotions(query: string, results: SearchResult[]) {
+  const queryTerms = normalizedClinicalSearchTokens(query);
+  const topLabels = results
+    .flatMap((result) => result.document_labels ?? [])
+    .filter((label) => label.confidence >= 0.55)
+    .slice(0, 8)
+    .map((label) => ({
+      label: label.label,
+      label_type: label.label_type,
+      document_id: label.document_id,
+      confidence: label.confidence,
+    }));
+  return {
+    aliases: Array.from(new Set(queryTerms)).slice(0, 10),
+    labels: topLabels,
+  };
+}
+
+function logWeakSearch(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  queryClass: string;
+  route?: string | null;
+  retrievalStrategy?: string | null;
+  relevance: ReturnType<typeof buildEvidenceRelevance>;
+  results: SearchResult[];
+}) {
+  const topScore = Math.max(
+    0,
+    ...args.results
+      .slice(0, 5)
+      .map((result) => result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0),
+  );
+  const weak =
+    args.results.length === 0 ||
+    args.relevance.verdict === "none" ||
+    args.relevance.verdict === "nearby" ||
+    topScore < 0.48;
+  if (!weak) return;
+  const promotions = candidatePromotions(args.query, args.results);
+  void args.supabase
+    .from("rag_query_misses")
+    .insert({
+      owner_id: null,
+      query: args.query,
+      normalized_query: args.query.toLowerCase().replace(/\s+/g, " ").trim(),
+      query_class: args.queryClass,
+      route: args.route ?? null,
+      retrieval_strategy: args.retrievalStrategy ?? null,
+      top_score: topScore,
+      top_files: Array.from(new Set(args.results.slice(0, 5).map((result) => result.file_name))),
+      top_chunk_ids: args.results
+        .slice(0, 8)
+        .map((result) => result.id)
+        .filter((id) => /^[0-9a-f-]{36}$/i.test(id)),
+      miss_reason: args.results.length === 0 ? "no_results" : `weak_${args.relevance.verdict}`,
+      candidate_aliases: promotions.aliases,
+      candidate_labels: promotions.labels,
+      metadata: {
+        relevance_score: args.relevance.score,
+        direct_source_count: args.relevance.directSourceCount,
+        weak_source_count: args.relevance.weakSourceCount,
+      },
+    })
+    .then(undefined, () => undefined);
+}
+
+function telemetryLatencyMs(telemetry: Record<string, unknown>) {
+  const keys = ["text_fast_path_latency_ms", "embedding_latency_ms", "supabase_rpc_latency_ms", "rerank_latency_ms"];
+  return keys.reduce((sum, key) => {
+    const value = telemetry[key];
+    return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  }, 0);
+}
+
+function latencyBucket(ms: number) {
+  if (ms < 500) return "lt_500ms";
+  if (ms < 1500) return "500_1500ms";
+  if (ms < 5000) return "1500_5000ms";
+  return "gte_5000ms";
+}
+
+function logPublicSearchObservation(args: {
+  query: string;
+  results: SearchResult[];
+  payload: Record<string, unknown>;
+  failure?: { code: string; causeName?: string | null; causeMessage?: string | null; sqlState?: string | null };
+}) {
+  void (async () => {
+    try {
+      const telemetry =
+        args.payload.telemetry && typeof args.payload.telemetry === "object"
+          ? (args.payload.telemetry as Record<string, unknown>)
+          : {};
+      const payloadBytes = Buffer.byteLength(JSON.stringify(args.payload), "utf8");
+      const topResult = args.results[0] ?? null;
+      const latencyMs = telemetryLatencyMs(telemetry);
+      await createAdminClient()
+        .from("rag_queries")
+        .insert({
+          owner_id: null,
+          query: args.query,
+          answer: null,
+          source_chunk_ids: args.results.map((result) => result.id),
+          model: "search",
+          metadata: {
+            event_type: args.failure ? "public_search_failure" : "public_search",
+            failure_code: args.failure?.code ?? null,
+            failure_cause_name: args.failure?.causeName ?? null,
+            failure_cause_message: args.failure?.causeMessage ?? null,
+            failure_sql_state: args.failure?.sqlState ?? null,
+            query_class: telemetry.query_class ?? null,
+            retrieval_strategy: telemetry.retrieval_strategy ?? null,
+            payload_bytes: payloadBytes,
+            result_count: args.results.length,
+            top_document_id: topResult?.document_id ?? null,
+            top_document_title: topResult?.title ?? null,
+            top_file_name: topResult?.file_name ?? null,
+            top_score: topResult ? (topResult.hybrid_score ?? topResult.similarity ?? null) : null,
+            latency_ms: latencyMs,
+            latency_bucket: latencyBucket(latencyMs),
+            search_cache_hit: telemetry.search_cache_hit ?? null,
+            embedding_skipped: telemetry.embedding_skipped ?? null,
+          },
+        });
+    } catch {
+      // Search telemetry must not affect the user-facing search path.
+    }
+  })();
+}
+
 async function buildPublicSearchPayload(body: SearchRequestBody) {
   const supabase = createAdminClient();
   const search = await searchChunksWithTelemetry({
@@ -144,12 +442,34 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
     routeMode: body.mode === "documents" ? undefined : "fast",
     preferredResponseMode: body.mode === "documents" ? "document_lookup" : undefined,
   });
-
-  return {
+  logWeakSearch({
+    supabase,
+    query: body.query,
+    queryClass,
+    route: body.mode,
+    retrievalStrategy: search.telemetry.retrieval_strategy,
+    relevance,
     results,
+  });
+
+  const payload = {
+    results: compactSearchResults(body.query, results),
+    facets: buildSearchFacets(results),
     visualEvidence: buildVisualEvidence(results),
     relevance,
-    relatedDocuments,
+    relatedDocuments: relatedDocuments.map((document) => ({
+      document_id: document.document_id,
+      title: document.title,
+      file_name: document.file_name,
+      score: document.score,
+      best_pages: document.best_pages,
+      best_chunk_ids: document.best_chunk_ids,
+      image_count: document.image_count,
+      table_count: document.table_count ?? 0,
+      match_reason: document.match_reason,
+      summary: document.summary ? compactText(document.summary, 360) : null,
+      labels: document.labels?.slice(0, 6) ?? [],
+    })),
     documentMatches,
     smartPanel: { ...smartPanel, relevance, relatedDocuments },
     smartApiPlan,
@@ -162,6 +482,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
       retrieval_strategy: search.telemetry.retrieval_strategy,
       smart_api_intent: smartApiPlan.intent,
       smart_api_response_mode: smartApiPlan.responseMode,
+      smart_api_display_mode: smartApiPlan.displayMode,
       smart_api_source_link_count: smartApiPlan.sourceLinkCount,
       search_cache_hit: search.telemetry.search_cache_hit,
       embedding_skipped: search.telemetry.embedding_skipped,
@@ -176,6 +497,37 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
       rrf_top_score: search.telemetry.rrf_top_score,
     },
   };
+  logPublicSearchObservation({ query: body.query, results, payload });
+  return payload;
+}
+
+function classifySearchFailure(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const sqlState = extractSqlState(error);
+  if (message.includes("rate limit") || message.includes("429")) return "search_rate_limited";
+  if (message.includes("type ") && message.includes("does not exist")) return "search_schema_type_missing";
+  if (message.includes("public.vector") || message.includes("extensions.vector")) return "search_vector_type_mismatch";
+  if (sqlState) return `search_sqlstate_${sqlState}`;
+  if (message.includes("pgrst")) return "search_postgrest_failure";
+  if (message.includes("embedding") || message.includes("openai")) return "embedding_or_model_failure";
+  if (message.includes("rpc") || message.includes("function") || message.includes("match_document"))
+    return "supabase_rpc_failure";
+  if (message.includes("timeout") || message.includes("timed out") || message.includes("network"))
+    return "search_timeout";
+  if (message.includes("permission") || message.includes("jwt") || message.includes("auth"))
+    return "search_auth_context_failure";
+  if (message.includes("schema") || message.includes("column") || message.includes("relation"))
+    return "search_schema_mismatch";
+  return error instanceof Error && error.name !== "Error" ? error.name : "search_unknown_failure";
+}
+
+function extractSqlState(error: unknown) {
+  const value = error as { code?: unknown; details?: unknown; message?: unknown };
+  const candidates = [value?.code, value?.details, value?.message, error instanceof Error ? error.message : null]
+    .filter((item): item is string => typeof item === "string")
+    .join(" ");
+  const match = candidates.match(/\b([0-9A-Z]{5})\b/);
+  return match?.[1]?.toLowerCase() ?? null;
 }
 
 export async function POST(request: Request) {
@@ -193,7 +545,8 @@ export async function POST(request: Request) {
           ? annotateDocumentMatches(body.query, buildDocumentMatchesFromResults(results, body.documentLimit), results)
           : [];
       return NextResponse.json({
-        results,
+        results: compactSearchResults(body.query, results),
+        facets: buildSearchFacets(results),
         visualEvidence: buildVisualEvidence(results),
         relevance,
         smartPanel: { ...buildSmartPanel(body.query, results), relevance },
@@ -241,8 +594,33 @@ export async function POST(request: Request) {
       return jsonError(error, 400);
     }
     if (error instanceof Error && error.message.trim()) {
+      const code = classifySearchFailure(error);
+      const failurePayload = {
+        results: [],
+        telemetry: {
+          query_class: classifyRagQuery(error.message).queryClass,
+          retrieval_strategy: null,
+          failure_code: code,
+        },
+      };
+      logPublicSearchObservation({
+        query: "unknown",
+        results: [],
+        payload: failurePayload,
+        failure: {
+          code,
+          causeName: error.name,
+          causeMessage: error.message,
+          sqlState: extractSqlState(error),
+        },
+      });
       return jsonError(
-        new PublicApiError("Search failed. Retry with a narrower question.", 500, { code: error.name }),
+        new PublicApiError("Search failed. Retry with a narrower question.", 500, {
+          code,
+          causeName: error.name,
+          causeMessage: error.message,
+          sqlState: extractSqlState(error),
+        }),
         500,
       );
     }

@@ -141,6 +141,10 @@ export type SearchResult = {
   page_number: number | null;
   chunk_index: number;
   section_heading: string | null;
+  section_path?: string[];
+  heading_level?: number | null;
+  parent_heading?: string | null;
+  anchor_id?: string | null;
   content: string;
   image_ids: string[];
   similarity: number;
@@ -156,7 +160,51 @@ export type SearchResult = {
   memory_cards?: DocumentMemoryCard[];
   memory_score?: number;
   relevance?: SourceEvidenceRelevance;
+  match_explanation?: SearchMatchExplanation;
+  table_facts?: DocumentTableFact[];
+  indexing_quality?: DocumentIndexQualityScore | null;
   images: ChunkImage[];
+};
+
+export type SearchMatchExplanation = {
+  titleHit?: boolean;
+  labelHit?: boolean;
+  sectionHit?: boolean;
+  contentHit?: boolean;
+  tableHit?: boolean;
+  vectorSimilarity?: number | null;
+  textRank?: number | null;
+  fieldType?: string | null;
+  freshness?: ClinicalSourceMetadata["document_status"] | null;
+  extractionQuality?: ClinicalSourceMetadata["extraction_quality"] | null;
+  indexQualityScore?: number | null;
+  indexQualityIssues?: string[];
+  reasons: string[];
+};
+
+export type DocumentTableFact = {
+  id: string;
+  document_id: string;
+  source_chunk_id: string | null;
+  source_image_id: string | null;
+  page_number: number | null;
+  table_title: string | null;
+  row_label: string | null;
+  clinical_parameter: string | null;
+  threshold_value: string | null;
+  action: string | null;
+  text_rank?: number | null;
+  match_reason?: string | null;
+};
+
+export type DocumentIndexQualityScore = {
+  document_id: string;
+  owner_id?: string | null;
+  quality_score: number;
+  extraction_quality: ClinicalSourceMetadata["extraction_quality"];
+  metrics: Record<string, unknown>;
+  issues: string[];
+  updated_at?: string;
 };
 
 export type SearchScoreExplanation = {
@@ -164,6 +212,7 @@ export type SearchScoreExplanation = {
   textRank: number;
   weightedHybridScore: number;
   rrfScore: number | null;
+  rrfBoost: number;
   memoryBoost: number;
   titleBoost: number;
   metadataBoost: number;
@@ -171,7 +220,7 @@ export type SearchScoreExplanation = {
   penalty: number;
   finalScore: number;
   finalRank?: number;
-  strategy: "weighted_hybrid_served_rrf_telemetry";
+  strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
 };
 
 export type Citation = {
@@ -289,6 +338,8 @@ export type DocumentIndexQuality = {
   sectionCount?: number;
   memoryCardCount?: number;
   missingEmbeddings?: number;
+  qualityScore?: number;
+  qualityIssues?: string[];
   stale?: boolean;
 };
 
@@ -346,6 +397,38 @@ export type RagQueryClass =
   | "comparison"
   | "broad_summary"
   | "unsupported_or_general";
+
+export type ClinicalQueryIntent =
+  | "definition"
+  | "protocol"
+  | "drug_dosing"
+  | "escalation_risk"
+  | "document_lookup"
+  | "comparison"
+  | "broad_summary"
+  | "general";
+
+export type ClinicalQueryAnalysis = {
+  originalQuery: string;
+  normalizedQuery: string;
+  queryClass: RagQueryClass;
+  intent: ClinicalQueryIntent;
+  confidence: number;
+  reasons: string[];
+  canonicalTerms: string[];
+  expandedTerms: string[];
+  typoCorrections: Array<{ from: string; to: string }>;
+  medications: string[];
+  acronyms: string[];
+  thresholdTerms: string[];
+  documentTitleTerms: string[];
+  documentTitleIntent: boolean;
+  comparisonIntent: boolean;
+  freshnessNeed: boolean;
+  needsVisualEvidence: boolean;
+  needsSynthesis: boolean;
+  needsClassifierFallback: boolean;
+};
 
 export type RelatedDocument = {
   document_id: string;
@@ -487,13 +570,23 @@ export type SmartRagApiPlan = {
     | "document_lookup_fast_path"
     | "hybrid"
     | "vector_fallback"
+    | "unsupported_short_circuit"
     | "unknown";
   latencyPlan: "cache_or_text_first" | "balanced_hybrid" | "strong_generation" | "no_supported_answer";
   answerFocus: string;
+  displayMode: AnswerResponseMode;
   sourceLinkCount: number;
   coreSourceLinks: SmartRagSourceLink[];
   streamPlan: string[];
 };
+
+export type AnswerResponseMode =
+  | "checklist"
+  | "comparison_matrix"
+  | "threshold_table"
+  | "clinical_pathway"
+  | "document_lookup"
+  | "evidence_gap";
 
 export type RagAnswer = {
   answer: string;
@@ -505,6 +598,8 @@ export type RagAnswer = {
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;
   queryClass?: RagQueryClass;
+  queryAnalysis?: ClinicalQueryAnalysis;
+  responseMode?: AnswerResponseMode;
   latencyTimings?: {
     search_cache_hit?: boolean;
     text_fast_path_latency_ms?: number;
@@ -581,6 +676,9 @@ export type ChunkInput = {
     tableTitle?: string | null;
     tableRole?: string | null;
     tableTextSnippet?: string | null;
+    accessibleTableMarkdown?: string | null;
+    tableRows?: string[][] | null;
+    tableColumns?: string[] | null;
   }>;
   metadata?: Record<string, unknown>;
 };
@@ -590,6 +688,10 @@ export type DocumentChunk = {
   page_number: number | null;
   chunk_index: number;
   section_heading: string | null;
+  section_path?: string[];
+  heading_level?: number | null;
+  parent_heading?: string | null;
+  anchor_id?: string | null;
   content: string;
   token_estimate: number;
   image_ids: string[];

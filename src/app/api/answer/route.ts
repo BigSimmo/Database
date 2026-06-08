@@ -21,15 +21,17 @@ export async function POST(request: Request) {
     const body = answerSchema.parse(await request.json());
     if (isDemoMode()) {
       const answer = demoAnswer(body.query, body.documentId, body.documentIds);
+      const smartApiPlan = buildSmartRagApiPlan({
+        query: body.query,
+        queryClass: classifyRagQuery(body.query).queryClass,
+        results: answer.sources,
+        routeMode: answer.routingMode,
+        retrievalStrategy: "hybrid",
+      });
       return NextResponse.json({
         ...answer,
-        smartApiPlan: buildSmartRagApiPlan({
-          query: body.query,
-          queryClass: classifyRagQuery(body.query).queryClass,
-          results: answer.sources,
-          routeMode: answer.routingMode,
-          retrievalStrategy: "hybrid",
-        }),
+        responseMode: smartApiPlan.displayMode,
+        smartApiPlan,
         demoMode: true,
       });
     }

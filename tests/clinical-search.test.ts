@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  analyzeClinicalQuery,
   buildClinicalTextSearchQuery,
   classifyRagQuery,
   clinicalRankExplanation,
+  hasDoseEvidenceSupport,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "../src/lib/clinical-search";
@@ -29,15 +31,37 @@ function result(overrides: Partial<SearchResult>): SearchResult {
 describe("clinical search query normalization", () => {
   it("classifies common RAG query shapes for routing and observability", () => {
     expect(classifyRagQuery("Find the NOCC document").queryClass).toBe("document_lookup");
+    expect(classifyRagQuery("What should a patient safety plan include?").queryClass).toBe("document_lookup");
+    expect(classifyRagQuery("What forms are required for a patient safety plan?").queryClass).toBe(
+      "document_lookup",
+    );
+    expect(classifyRagQuery("What are NOCC requirements?").queryClass).toBe("document_lookup");
+    expect(classifyRagQuery("What assessment documentation is required?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What ANC threshold should stop clozapine?").queryClass).toBe("table_threshold");
     expect(classifyRagQuery("How are long acting injectable medications managed?").queryClass).toBe(
       "medication_dose_risk",
     );
+    expect(classifyRagQuery("How are long acting injectables managed?").queryClass).toBe("medication_dose_risk");
     expect(classifyRagQuery("agitation and arousal dosing in psychiatric patients").queryClass).toBe(
       "medication_dose_risk",
     );
     expect(classifyRagQuery("Compare admission and discharge requirements").queryClass).toBe("comparison");
+    expect(classifyRagQuery("Combine community admission steps with discharge documentation requirements.").queryClass).toBe(
+      "comparison",
+    );
     expect(classifyRagQuery("Summarize the discharge guidance").queryClass).toBe("broad_summary");
+    expect(classifyRagQuery("What is the diabetic ketoacidosis insulin protocol?").queryClass).toBe(
+      "unsupported_or_general",
+    );
+    expect(classifyRagQuery("What antibiotic dose is recommended for community-acquired pneumonia?").queryClass).toBe(
+      "unsupported_or_general",
+    );
+    expect(classifyRagQuery("Find the 2027 revised clozapine airport travel policy.").queryClass).toBe(
+      "document_lookup",
+    );
+    expect(classifyRagQuery("What does the clozapine gardening equipment checklist require?").queryClass).toBe(
+      "document_lookup",
+    );
   });
 
   it("keeps high-yield clinical terms and removes question filler", () => {
@@ -55,6 +79,19 @@ describe("clinical search query normalization", () => {
     expect(buildClinicalTextSearchQuery("Please can you find agitation and arousal dosing for me?")).toBe(
       "agitation arousal dosing",
     );
+  });
+
+  it("normalizes common typos, abbreviations, and local clinical aliases", () => {
+    const analysis = analyzeClinicalQuery("clozapin agitaton arousl FBC ANC in ED");
+
+    expect(analysis.typoCorrections).toEqual([
+      { from: "clozapin", to: "clozapine" },
+      { from: "agitaton", to: "agitation" },
+      { from: "arousl", to: "arousal" },
+    ]);
+    expect(analysis.medications).toContain("clozapine");
+    expect(analysis.acronyms).toEqual(expect.arrayContaining(["fbc", "anc", "ed"]));
+    expect(buildClinicalTextSearchQuery("clozapin agitaton arousl")).toBe("clozapine agitation arousal");
   });
 
   it("falls back to the original query when only one useful token remains", () => {
@@ -214,7 +251,7 @@ describe("clinical search query normalization", () => {
     expect(ranked[0].id).toBe("chunk-match");
   });
 
-  it("attaches score explanations while keeping weighted hybrid ranking as the served default", () => {
+  it("keeps weighted hybrid as the served ranking for routine lexical matches", () => {
     const ranked = rankClinicalResults("monitoring requirements", [
       result({
         id: "weighted-winner",
@@ -241,7 +278,40 @@ describe("clinical search query normalization", () => {
     expect(ranked[0].id).toBe("weighted-winner");
     expect(ranked[0].score_explanation).toMatchObject({
       rrfScore: 0.01,
-      strategy: "weighted_hybrid_served_rrf_telemetry",
+      rrfBoost: 0,
+      strategy: "weighted_hybrid",
+      finalRank: 1,
+    });
+  });
+
+  it("blends RRF into served ranking for comparison queries", () => {
+    const ranked = rankClinicalResults("Compare monitoring requirements across documents", [
+      result({
+        id: "weighted-contender",
+        title: "Monitoring Requirements",
+        file_name: "monitoring.pdf",
+        content: "Monitoring requirements are documented here.",
+        hybrid_score: 0.72,
+        similarity: 0.7,
+        text_rank: 0.4,
+        rrf_score: 0.01,
+      }),
+      result({
+        id: "rrf-contender",
+        title: "Monitoring Requirements",
+        file_name: "monitoring-alt.pdf",
+        content: "Monitoring requirements are documented here.",
+        hybrid_score: 0.64,
+        similarity: 0.62,
+        text_rank: 0.4,
+        rrf_score: 0.5,
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("rrf-contender");
+    expect(ranked[0].score_explanation).toMatchObject({
+      strategy: "weighted_hybrid_rrf_blend",
+      rrfBoost: expect.any(Number),
       finalRank: 1,
     });
   });
@@ -266,5 +336,67 @@ describe("clinical search query normalization", () => {
     expect(explanation.rrfScore).toBe(0.2);
     expect(explanation.memoryBoost).toBeGreaterThan(0);
     expect(explanation.finalScore).toBeGreaterThan(0.74);
+  });
+
+  it("uses index quality as a ranking signal when lexical evidence is otherwise similar", () => {
+    const ranked = rankClinicalResults("discharge guidance requirements", [
+      result({
+        id: "low-quality",
+        title: "Discharge Guidance",
+        content: "Discharge guidance requirements are listed here.",
+        hybrid_score: 0.63,
+        indexing_quality: {
+          document_id: "doc-1",
+          quality_score: 0.42,
+          extraction_quality: "poor",
+          metrics: {},
+          issues: ["low extracted text volume", "low heading density"],
+        },
+      }),
+      result({
+        id: "high-quality",
+        document_id: "doc-2",
+        title: "Discharge Guidance",
+        content: "Discharge guidance requirements are listed here.",
+        hybrid_score: 0.61,
+        indexing_quality: {
+          document_id: "doc-2",
+          quality_score: 0.95,
+          extraction_quality: "good",
+          metrics: {},
+          issues: [],
+        },
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("high-quality");
+    expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(
+      ranked[1].score_explanation?.metadataBoost ?? 0,
+    );
+  });
+
+  it("treats structured table facts as dose and threshold evidence", () => {
+    expect(
+      hasDoseEvidenceSupport(
+        result({
+          content: "Administrative table text.",
+          table_facts: [
+            {
+              id: "fact-1",
+              document_id: "doc-1",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_number: 2,
+              table_title: "Medication dose table",
+              row_label: "Lorazepam",
+              clinical_parameter: "Route",
+              threshold_value: "1 mg IM",
+              action: "Review before repeat PRN dose.",
+              match_reason: "table_threshold",
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 });

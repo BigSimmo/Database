@@ -5,7 +5,13 @@ export class PublicApiError extends Error {
   constructor(
     message: string,
     readonly status = 400,
-    readonly details?: { code?: string; requestId?: string | null },
+    readonly details?: {
+      code?: string;
+      requestId?: string | null;
+      causeName?: string | null;
+      causeMessage?: string | null;
+      sqlState?: string | null;
+    },
   ) {
     super(message);
     this.name = "PublicApiError";
@@ -33,6 +39,9 @@ function logSafeError(error: unknown, status: number) {
     message,
     code: details?.code,
     requestId: details?.requestId,
+    causeName: details?.causeName,
+    causeMessage: details?.causeMessage,
+    sqlState: details?.sqlState,
     stack,
   });
 }

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
-type SetupCheckId = "env" | "project" | "schema" | "openai" | "worker";
+type SetupCheckId = "env" | "project" | "schema" | "search" | "openai" | "worker";
 
 type SetupCheck = {
   id: SetupCheckId;
@@ -104,6 +104,55 @@ async function readSchemaStatus(supabase: AdminClient | null) {
       "needs_setup",
       "Schema check could not complete with the configured Supabase service role.",
     );
+  }
+}
+
+type SearchSchemaHealth = {
+  ok?: boolean;
+  missing?: string[];
+  vector_extension_schema?: string | null;
+  checked_at?: string;
+};
+
+async function readSearchSchemaStatus(supabase: AdminClient | null) {
+  const label = "Search RPC and vector indexes";
+  if (!requiredSupabaseEnvPresent) {
+    return check("search", label, "unknown", "Supabase environment is missing, so search health checks were skipped.");
+  }
+
+  if (!supabaseProjectCanBeQueried) {
+    return check("search", label, "unknown", "Supabase project mismatch detected, so search checks were skipped.");
+  }
+
+  try {
+    if (!supabase) throw new Error("Supabase admin client is unavailable.");
+    const { data, error } = await supabase.rpc("search_schema_health");
+    if (error) {
+      return check(
+        "search",
+        label,
+        "needs_setup",
+        `Search health RPC is unavailable or failed: ${error.message}`,
+      );
+    }
+    const health = (data ?? {}) as SearchSchemaHealth;
+    const missing = Array.isArray(health.missing) ? health.missing : [];
+    if (!health.ok || missing.length > 0) {
+      return check(
+        "search",
+        label,
+        "needs_setup",
+        `Missing or stale search schema items: ${missing.join(", ") || "unknown"}.`,
+      );
+    }
+    return check(
+      "search",
+      label,
+      "ready",
+      `Vector RPC signatures and trigram indexes are ready${health.vector_extension_schema ? ` (${health.vector_extension_schema})` : ""}.`,
+    );
+  } catch {
+    return check("search", label, "needs_setup", "Search schema health could not be checked.");
   }
 }
 
@@ -205,7 +254,11 @@ function setupStatusResponse(payload: SetupStatusPayload) {
 
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
   const supabase = supabaseProjectCanBeQueried ? createAdminClient() : null;
-  const [schema, worker] = await Promise.all([readSchemaStatus(supabase), readWorkerStatus(supabase)]);
+  const [schema, search, worker] = await Promise.all([
+    readSchemaStatus(supabase),
+    readSearchSchemaStatus(supabase),
+    readWorkerStatus(supabase),
+  ]);
 
   const checks = [
     check(
@@ -223,6 +276,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
       formatSupabaseProjectCheck(supabaseProjectCheck),
     ),
     schema,
+    search,
     check(
       "openai",
       "OpenAI API key available",

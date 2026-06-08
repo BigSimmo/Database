@@ -86,7 +86,7 @@ describe("RAG answer routing", () => {
     });
 
     expect(selected.mode).toBe("extractive");
-    expect(selected.reason).toBe("high_confidence_source_extractive");
+    expect(selected.reason).toBe("document_lookup_source_extractive");
   });
 
   it("skips generation for document lookups without direct title support", () => {

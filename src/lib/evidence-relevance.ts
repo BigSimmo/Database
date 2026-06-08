@@ -126,11 +126,18 @@ function labelsText(labels?: Array<{ label?: string | null; label_type?: string 
 }
 
 function sourceTextBlocks(source: SearchResult) {
-  const title = normalizeSearchText(`${source.title} ${source.file_name} ${source.section_heading ?? ""}`);
+  const title = normalizeSearchText(
+    `${source.title} ${source.file_name} ${source.section_heading ?? ""} ${(source.section_path ?? []).join(" ")}`,
+  );
   const content = normalizeSearchText(
     [
       source.content,
       source.adjacent_context ?? "",
+      ...(source.table_facts ?? []).map((fact) =>
+        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+          .filter(Boolean)
+          .join(" "),
+      ),
       ...(source.memory_cards ?? []).map((card) => `${card.title} ${card.content}`),
       ...(source.images ?? []).map((image) =>
         [
