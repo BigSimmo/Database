@@ -3533,6 +3533,8 @@ export function ClinicalDashboard() {
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const jobsRef = useRef(jobs);
+  const batchesRef = useRef(batches);
   const [query, setQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("answer");
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
@@ -3570,6 +3572,14 @@ export function ClinicalDashboard() {
   const canRunSearch = clientDemoMode || hasReadyPublicSearchSetup(setupChecks);
   const openGuide = useCallback(() => setGuideOpen(true), []);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
+
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
+
+  useEffect(() => {
+    batchesRef.current = batches;
+  }, [batches]);
 
   const refresh = useCallback(
     async (options: RefreshOptions = {}) => {
@@ -3675,8 +3685,8 @@ export function ClinicalDashboard() {
         }
 
         let nextDocuments: ClinicalDocument[] = [];
-        let nextJobs: IngestionJob[] = shouldRefreshWorkState ? [] : jobs;
-        let nextBatches: ImportBatch[] = shouldRefreshWorkState ? [] : batches;
+        let nextJobs: IngestionJob[] = shouldRefreshWorkState ? [] : jobsRef.current;
+        let nextBatches: ImportBatch[] = shouldRefreshWorkState ? [] : batchesRef.current;
 
         if (documentsResponse.ok) {
           const payload = (await documentsResponse.json()) as DocumentsPayload;

@@ -1296,6 +1296,7 @@ export function DocumentViewer({
     clientDemoMode,
     documentId,
     chunkId,
+    initialPage,
     isConfigured,
     markSessionExpired,
     previewAttempt,
