@@ -428,8 +428,6 @@ create index if not exists document_images_searchable_idx
 create index if not exists document_images_hash_idx
   on public.document_images(document_id, image_hash)
   where image_hash is not null;
-create index if not exists document_images_labels_idx
-  on public.document_images using gin(labels);
 create index if not exists image_caption_cache_owner_hash_idx
   on public.image_caption_cache(owner_id, image_hash, model);
 create index if not exists document_labels_owner_label_idx
@@ -442,10 +440,6 @@ create index if not exists document_summaries_summary_trgm_idx
   on public.document_summaries using gin ((lower(summary)) gin_trgm_ops);
 create index if not exists document_sections_document_idx
   on public.document_sections(document_id, section_index);
-create index if not exists document_sections_chunk_ids_gin_idx
-  on public.document_sections using gin(chunk_ids);
-create index if not exists document_sections_tags_gin_idx
-  on public.document_sections using gin(tags);
 create index if not exists document_sections_owner_idx
   on public.document_sections(owner_id);
 create index if not exists document_memory_cards_document_idx
@@ -456,12 +450,6 @@ create index if not exists document_memory_cards_section_idx
   on public.document_memory_cards(section_id);
 create index if not exists document_memory_cards_search_idx
   on public.document_memory_cards using gin(search_tsv);
-create index if not exists document_memory_cards_terms_idx
-  on public.document_memory_cards using gin(normalized_terms);
-create index if not exists document_memory_cards_source_chunks_idx
-  on public.document_memory_cards using gin(source_chunk_ids);
-create index if not exists document_memory_cards_source_images_idx
-  on public.document_memory_cards using gin(source_image_ids);
 create index if not exists document_memory_cards_embedding_hnsw_idx
   on public.document_memory_cards using hnsw (embedding vector_cosine_ops);
 create index if not exists document_chunks_document_idx on public.document_chunks(document_id, chunk_index);
@@ -1187,6 +1175,9 @@ begin
 end;
 $$;
 
+revoke execute on function public.search_schema_health() from public, anon, authenticated;
+grant execute on function public.search_schema_health() to service_role;
+
 create or replace function public.match_documents_for_query(
   query_text text,
   match_count integer default 12,
@@ -1688,6 +1679,11 @@ create policy "rag owner read" on public.rag_queries
 
 create policy "rag misses owner read" on public.rag_query_misses
   for select to authenticated using (owner_id = (select auth.uid()));
+
+create policy "rag response cache service role all" on public.rag_response_cache
+  for all to service_role
+  using (true)
+  with check (true);
 
 create policy "storage cleanup owner read" on public.storage_cleanup_jobs
   for select to authenticated using (owner_id = (select auth.uid()));
