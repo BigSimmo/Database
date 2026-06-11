@@ -7,6 +7,8 @@ import { jsonError, PublicApiError } from "@/lib/http";
 import { consumePublicAnswerRateLimit } from "@/lib/public-rate-limit";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+import { createAdminClient } from "@/lib/supabase/admin";
+import * as serverAuth from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -36,6 +38,9 @@ export async function POST(request: Request) {
       });
     }
 
+    const supabase = createAdminClient();
+    const user = await serverAuth.requireAuthenticatedUser(request, supabase);
+
     const rateLimit = consumePublicAnswerRateLimit(request.headers);
     if (rateLimit.limited) {
       return NextResponse.json(
@@ -48,10 +53,13 @@ export async function POST(request: Request) {
       query: body.query,
       documentId: body.documentId,
       documentIds: body.documentIds,
-      ownerId: undefined,
+      ownerId: user.id,
     });
     return NextResponse.json(answer);
   } catch (error) {
+    if (error instanceof serverAuth.AuthenticationError) {
+      return serverAuth.unauthorizedResponse(error);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
