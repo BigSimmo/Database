@@ -7,6 +7,8 @@ import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuthenticatedUser } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -132,11 +134,17 @@ export async function POST(request: Request) {
     const body = answerSchema.parse(await request.json());
     if (isDemoMode()) return streamAnswer(body);
 
+    const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
+
     const rateLimit = consumePublicAnswerRateLimit(request.headers);
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-    return streamAnswer(body);
+    return streamAnswer(body, user.id);
   } catch (error) {
+    if (error instanceof Error && error.name === "AuthenticationError") {
+      return Response.json({ error: "Authentication required." }, { status: 401 });
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
