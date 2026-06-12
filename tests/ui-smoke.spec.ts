@@ -523,16 +523,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
+    await expect(page.getByRole("button", { name: /Use sample question/i })).toHaveCount(0);
     const plainAnswer = page.getByTestId("plain-answer-response");
     await expect(plainAnswer).toBeVisible();
     await expect(plainAnswer).toContainText("toxicity safety-net review should cover");
-    await expect(page.getByRole("button", { name: /Use sample question/i })).toHaveCount(0);
     await expect(page.getByTestId("clinical-action-view")).toBeVisible();
     await expect(
-      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Structured details", exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Action", exact: true }),
+      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Structured clinical support", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByTestId("clinical-action-view").getByRole("heading", { name: "Thresholds", exact: true }),

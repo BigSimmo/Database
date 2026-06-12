@@ -84,4 +84,74 @@ describe("image-aware chunks", () => {
       page_end: 2,
     });
   });
+
+  it("caps inline image and table context so narrative chunks are not overwhelmed", () => {
+    const chunks = buildChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 3,
+        pageText: "Clozapine monitoring narrative guidance for blood tests and escalation.",
+        metadata: {},
+        images: Array.from({ length: 5 }, (_, index) => ({
+          id: `table-${index + 1}`,
+          caption: `Clinical table ${index + 1}`,
+          sourceKind: "table_crop",
+          tableTitle: `Monitoring table ${index + 1}`,
+          tableTextSnippet: "ANC threshold | withhold clozapine | repeat FBC",
+          pageNumber: 3,
+        })),
+      },
+    ]);
+
+    const content = chunks.map((chunk) => chunk.content).join("\n");
+    expect(content.match(/\[\[IMAGE_DATA_START\]\]/g)).toHaveLength(3);
+    expect(content).toContain("additional image/table blocks");
+    expect(content).toContain("Clozapine monitoring narrative guidance");
+  });
+});
+
+describe("section-aware chunking groundwork", () => {
+  it("carries the previous section path onto a following page without a new heading", () => {
+    const chunks = buildChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "Clozapine Monitoring\n\nBaseline FBC and ANC monitoring applies.",
+        metadata: {},
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 2,
+        pageText: "Continue weekly blood-test monitoring until clinically stable.",
+        metadata: {},
+      },
+    ]);
+
+    const pageTwoChunk = chunks.find((chunk) => chunk.page_number === 2);
+    expect(pageTwoChunk?.section_path).toContain("Clozapine Monitoring");
+    expect(pageTwoChunk?.metadata.section_path).toContain("Clozapine Monitoring");
+  });
+
+  it("removes repeated page boilerplate while preserving clinical narrative", () => {
+    const chunks = buildChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "Mental Health Guideline\n\nLithium Monitoring\n\nCheck renal function.\n\nPrinted uncontrolled document",
+        metadata: {},
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 2,
+        pageText: "Mental Health Guideline\n\nReview lithium levels after dose changes.\n\nPrinted uncontrolled document",
+        metadata: {},
+      },
+    ]);
+
+    const content = chunks.map((chunk) => chunk.content).join("\n");
+    expect(content).not.toContain("Mental Health Guideline");
+    expect(content).not.toContain("Printed uncontrolled document");
+    expect(content).toContain("Check renal function");
+    expect(content).toContain("Review lithium levels");
+  });
 });

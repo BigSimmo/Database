@@ -73,6 +73,47 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain('create policy "storage cleanup owner read"');
   });
 
+  it("supports reviewing and promoting weak search misses", () => {
+    expect(schema).toContain("review_status text not null default 'new'");
+    expect(schema).toContain("check (review_status in ('new', 'fixed', 'not_in_corpus', 'ambiguous', 'ignored'))");
+    expect(schema).toContain("expected_document_id uuid references public.documents(id) on delete set null");
+    expect(schema).toContain("expected_chunk_id uuid references public.document_chunks(id) on delete set null");
+    expect(schema).toContain("review_notes text");
+    expect(schema).toContain("reviewed_at timestamptz");
+    expect(schema).toContain("promoted_eval_case boolean not null default false");
+    expect(schema).toContain("create index if not exists rag_query_misses_owner_review_status_created_idx");
+  });
+
+  it("supports owner-scoped table-backed RAG aliases", () => {
+    expect(schema).toContain("create table if not exists public.rag_aliases");
+    expect(schema).toContain("alias text not null");
+    expect(schema).toContain("canonical text not null");
+    expect(schema).toContain(
+      "check (alias_type in ('medication', 'document_title', 'acronym', 'service', 'workflow', 'typo', 'clinical_term', 'custom'))",
+    );
+    expect(schema).toContain("weight real not null default 1.0");
+    expect(schema).toContain("enabled boolean not null default true");
+    expect(schema).toContain("create index if not exists rag_aliases_owner_enabled_idx");
+    expect(schema).toContain("create index if not exists rag_aliases_type_enabled_idx");
+    expect(schema).toContain("create index if not exists rag_aliases_alias_trgm_idx");
+    expect(schema).toContain("grant select, insert, update, delete on table");
+    expect(schema).toContain("public.rag_aliases,");
+    expect(schema).toContain("alter table public.rag_aliases enable row level security");
+    expect(schema).toContain('create policy "rag aliases owner read" on public.rag_aliases');
+    expect(schema).toContain("owner_id is null or owner_id = (select auth.uid())");
+    expect(schema).toContain("create trigger rag_aliases_updated_at");
+  });
+
+  it("returns table fact metadata for rich table source packing", () => {
+    const functionBody = schema.slice(
+      schema.indexOf("create or replace function public.match_document_table_facts_text"),
+      schema.indexOf("create or replace function public.match_document_embedding_fields_hybrid"),
+    );
+
+    expect(functionBody).toContain("metadata jsonb");
+    expect(functionBody).toContain("f.metadata");
+  });
+
   it("filters hybrid retrieval by owner inside Postgres", () => {
     expect(schema).toContain("owner_filter uuid default null");
     expect(schema).toContain("and (owner_filter is null or d.owner_id = owner_filter)");
@@ -86,6 +127,19 @@ describe("Supabase schema Data API grants", () => {
       "create index if not exists documents_search_idx on public.documents using gin(search_tsv)",
     );
     expect(schema).toContain("ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0");
+    expect(schema).toContain("hybrid_candidates as");
+    expect(schema).toContain("vector_candidates as");
+    expect(schema).toContain("text_candidates as");
+    expect(schema).toContain("rrf_candidates as");
+    expect(schema).toContain("candidate_ids as");
+  });
+
+  it("allows richer clinical embedding field types", () => {
+    expect(schema).toContain("'chunk_high_yield'");
+    expect(schema).toContain("'table_row'");
+    expect(schema).toContain("'image_caption'");
+    expect(schema).toContain("'clinical_action'");
+    expect(schema).toContain("'threshold_fact'");
   });
 
   it("stores smart image metadata, document labels, and high-yield summaries", () => {

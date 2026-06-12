@@ -301,7 +301,19 @@ create table if not exists public.document_embedding_fields (
   owner_id uuid references auth.users(id) on delete set null,
   document_id uuid not null references public.documents(id) on delete cascade,
   source_chunk_id uuid references public.document_chunks(id) on delete cascade,
-  field_type text not null check (field_type in ('document_title', 'document_summary', 'section_context', 'memory_card')),
+  field_type text not null check (
+    field_type in (
+      'document_title',
+      'document_summary',
+      'section_context',
+      'memory_card',
+      'chunk_high_yield',
+      'table_row',
+      'image_caption',
+      'clinical_action',
+      'threshold_fact'
+    )
+  ),
   content text not null,
   embedding extensions.vector(1536) not null,
   metadata jsonb not null default '{}'::jsonb,
@@ -371,8 +383,31 @@ create table if not exists public.rag_query_misses (
   candidate_aliases text[] not null default '{}',
   candidate_labels jsonb not null default '[]'::jsonb,
   metadata jsonb not null default '{}'::jsonb,
+  review_status text not null default 'new'
+    check (review_status in ('new', 'fixed', 'not_in_corpus', 'ambiguous', 'ignored')),
+  expected_document_id uuid references public.documents(id) on delete set null,
+  expected_chunk_id uuid references public.document_chunks(id) on delete set null,
+  review_notes text,
+  reviewed_at timestamptz,
+  promoted_eval_case boolean not null default false,
   promoted_at timestamptz,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.rag_aliases (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete cascade,
+  alias text not null,
+  canonical text not null,
+  alias_type text not null
+    check (alias_type in ('medication', 'document_title', 'acronym', 'service', 'workflow', 'typo', 'clinical_term', 'custom')),
+  weight real not null default 1.0,
+  enabled boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint rag_aliases_alias_nonempty check (btrim(alias) <> ''),
+  constraint rag_aliases_canonical_nonempty check (btrim(canonical) <> '')
 );
 
 create table if not exists public.rag_response_cache (
@@ -494,10 +529,18 @@ create index if not exists rag_queries_source_chunk_ids_gin_idx
   on public.rag_queries using gin(source_chunk_ids);
 create index if not exists rag_query_misses_owner_created_idx
   on public.rag_query_misses(owner_id, created_at desc);
+create index if not exists rag_query_misses_owner_review_status_created_idx
+  on public.rag_query_misses(owner_id, review_status, created_at desc);
 create index if not exists rag_query_misses_normalized_idx
   on public.rag_query_misses(normalized_query, created_at desc);
 create index if not exists rag_query_misses_aliases_idx
   on public.rag_query_misses using gin(candidate_aliases);
+create index if not exists rag_aliases_owner_enabled_idx
+  on public.rag_aliases(owner_id, enabled);
+create index if not exists rag_aliases_type_enabled_idx
+  on public.rag_aliases(alias_type, enabled);
+create index if not exists rag_aliases_alias_trgm_idx
+  on public.rag_aliases using gin ((lower(alias)) gin_trgm_ops);
 create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx
@@ -550,6 +593,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists rag_response_cache_updated_at on public.rag_response_cache;
 create trigger rag_response_cache_updated_at
 before update on public.rag_response_cache
+for each row execute function public.set_updated_at();
+
+drop trigger if exists rag_aliases_updated_at on public.rag_aliases;
+create trigger rag_aliases_updated_at
+before update on public.rag_aliases
 for each row execute function public.set_updated_at();
 
 drop trigger if exists document_sections_updated_at on public.document_sections;
@@ -932,6 +980,49 @@ as $$
       min(text_match_rank) as text_match_rank
     from combined
     group by id, document_id, page_number, chunk_index, section_heading, content, image_ids
+  ),
+  scored_metrics as (
+    select
+      scored.*,
+      ((scored.similarity * 0.72) + (least(scored.text_rank, 1) * 0.28))::double precision as hybrid_score,
+      (
+        coalesce(1.0 / (60 + scored.vector_rank), 0) +
+        coalesce(1.0 / (60 + scored.text_match_rank), 0)
+      )::double precision as rrf_score
+    from scored
+  ),
+  hybrid_candidates as (
+    select id
+    from scored_metrics
+    order by hybrid_score desc, similarity desc, text_rank desc
+    limit match_count
+  ),
+  vector_candidates as (
+    select id
+    from scored_metrics
+    order by similarity desc, hybrid_score desc
+    limit match_count
+  ),
+  text_candidates as (
+    select id
+    from scored_metrics
+    order by text_rank desc, hybrid_score desc
+    limit match_count
+  ),
+  rrf_candidates as (
+    select id
+    from scored_metrics
+    order by rrf_score desc, hybrid_score desc
+    limit match_count
+  ),
+  candidate_ids as (
+    select id from hybrid_candidates
+    union
+    select id from vector_candidates
+    union
+    select id from text_candidates
+    union
+    select id from rrf_candidates
   )
   select
     c.id,
@@ -948,15 +1039,13 @@ as $$
     public.document_summary_text(c.document_id) as document_summary,
     c.similarity,
     c.text_rank,
-    ((c.similarity * 0.72) + (least(c.text_rank, 1) * 0.28))::double precision as hybrid_score,
-    (
-      coalesce(1.0 / (60 + c.vector_rank), 0) +
-      coalesce(1.0 / (60 + c.text_match_rank), 0)
-    )::double precision as rrf_score,
+    c.hybrid_score,
+    c.rrf_score,
     public.chunk_image_metadata(c.image_ids) as images
-  from scored c
+  from scored_metrics c
+  join candidate_ids candidates on candidates.id = c.id
   join public.documents d on d.id = c.document_id
-  order by hybrid_score desc, c.similarity desc, c.text_rank desc
+  order by c.hybrid_score desc, c.rrf_score desc, c.similarity desc, c.text_rank desc
   limit match_count;
 $$;
 
@@ -1410,7 +1499,8 @@ returns table (
   threshold_value text,
   action text,
   text_rank double precision,
-  match_reason text
+  match_reason text,
+  metadata jsonb
 )
 language sql
 stable
@@ -1419,7 +1509,8 @@ as $$
   with query as (
     select
       websearch_to_tsquery('english', coalesce(query_text, '')) as tsq,
-      lower(coalesce(query_text, '')) as normalized
+      lower(coalesce(query_text, '')) as normalized,
+      regexp_split_to_array(lower(coalesce(query_text, '')), '[^a-z0-9]+') as terms
   ),
   ranked as (
     select
@@ -1435,13 +1526,35 @@ as $$
       f.action,
       (
         ts_rank_cd(f.search_tsv, query.tsq) +
-        (similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), query.normalized) * 0.8)
+        (
+          similarity(
+            lower(
+              coalesce(f.table_title, '') || ' ' ||
+              coalesce(f.row_label, '') || ' ' ||
+              coalesce(f.clinical_parameter, '') || ' ' ||
+              coalesce(f.threshold_value, '') || ' ' ||
+              coalesce(f.action, '')
+            ),
+            query.normalized
+          ) * 0.8
+        ) +
+        case
+          when coalesce(f.threshold_value, '') <> ''
+            and regexp_split_to_array(lower(f.threshold_value), '[^a-z0-9]+') && query.terms then 0.12
+          else 0
+        end +
+        case
+          when coalesce(f.action, '') <> ''
+            and regexp_split_to_array(lower(f.action), '[^a-z0-9]+') && query.terms then 0.1
+          else 0
+        end
       )::double precision as text_rank,
       case
         when coalesce(f.threshold_value, '') <> '' then 'table_threshold'
         when coalesce(f.action, '') <> '' then 'table_action'
         else 'table_row'
-      end as match_reason
+      end as match_reason,
+      f.metadata
     from public.document_table_facts f
     join public.documents d on d.id = f.document_id
     cross join query
@@ -1450,8 +1563,17 @@ as $$
       and d.status = 'indexed'
       and (
         f.search_tsv @@ query.tsq
-        or f.normalized_terms && regexp_split_to_array(query.normalized, '\s+')
-        or similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), query.normalized) >= 0.18
+        or f.normalized_terms && query.terms
+        or similarity(
+          lower(
+            coalesce(f.table_title, '') || ' ' ||
+            coalesce(f.row_label, '') || ' ' ||
+            coalesce(f.clinical_parameter, '') || ' ' ||
+            coalesce(f.threshold_value, '') || ' ' ||
+            coalesce(f.action, '')
+          ),
+          query.normalized
+        ) >= 0.18
       )
   )
   select *
@@ -1561,6 +1683,7 @@ grant select, insert, update, delete on table
   public.ingestion_jobs,
   public.rag_queries,
   public.rag_query_misses,
+  public.rag_aliases,
   public.rag_response_cache,
   public.storage_cleanup_jobs
 to service_role;
@@ -1582,6 +1705,7 @@ grant select on table
   public.ingestion_jobs,
   public.rag_queries,
   public.rag_query_misses,
+  public.rag_aliases,
   public.storage_cleanup_jobs
 to authenticated;
 
@@ -1603,6 +1727,7 @@ alter table public.document_index_quality enable row level security;
 alter table public.ingestion_jobs enable row level security;
 alter table public.rag_queries enable row level security;
 alter table public.rag_query_misses enable row level security;
+alter table public.rag_aliases enable row level security;
 alter table public.rag_response_cache enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
 
@@ -1679,6 +1804,9 @@ create policy "rag owner read" on public.rag_queries
 
 create policy "rag misses owner read" on public.rag_query_misses
   for select to authenticated using (owner_id = (select auth.uid()));
+
+create policy "rag aliases owner read" on public.rag_aliases
+  for select to authenticated using (owner_id is null or owner_id = (select auth.uid()));
 
 create policy "rag response cache service role all" on public.rag_response_cache
   for all to service_role

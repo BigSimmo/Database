@@ -98,7 +98,7 @@ import {
   type AnswerDisplayTone,
   type ParsedAnswerDisplay,
 } from "@/lib/answer-formatting";
-import { sourceTextForDisplay, sourceTextForDisplayPreservingBreaks } from "@/lib/source-text-sanitizer";
+import { sourceTextForClinicalProse, sourceTextForClinicalProsePreservingBreaks } from "@/lib/source-text-sanitizer";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import type {
   ClinicalDocument,
@@ -899,9 +899,7 @@ function MasterSearchHeader({
                         {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">
-                          {documentScopeTitle(document)}
-                        </span>
+                        <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
                         <span className="block truncate text-[11px] font-medium text-slate-400">
                           {documentScopeMeta(document)}
                         </span>
@@ -930,7 +928,6 @@ function MasterSearchHeader({
             ) : null}
           </div>
         </section>
-
       </div>
     );
   }
@@ -1359,24 +1356,32 @@ function plainAnswerText(value: string) {
     .trim();
 }
 
-function PlainAnswerResponse({ text }: { text: string }) {
+function NaturalLanguageAnswer({ text }: { text: string }) {
   const cleaned = plainAnswerText(text);
   if (!cleaned) return null;
-  const paragraphs = cleaned.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  const paragraphs = cleaned
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 
   return (
     <section
       data-testid="plain-answer-response"
-      aria-label="Answer response"
-      className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--surface-raised)_88%,var(--warning-soft)),var(--surface)_68%)] px-3 py-3 text-[15px] leading-7 text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/8 sm:px-4"
+      aria-label="Primary natural-language answer"
+      className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-[15px] leading-7 text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 sm:px-4 sm:py-4"
     >
-      <div className="mb-1.5 flex items-center gap-2">
-        <span className="grid h-6 w-6 place-items-center rounded-md bg-[color:var(--surface)] text-[color:var(--primary)] ring-1 ring-[color:var(--primary)]/20">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--primary-soft)] text-[color:var(--primary)] ring-1 ring-[color:var(--primary)]/20">
           <MessageSquareText className="h-4 w-4" />
         </span>
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Response</p>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Answer</h3>
+          <p className={cn("hidden text-xs leading-5 sm:block", textMuted)}>
+            Source-backed synthesis written first; structured details follow below.
+          </p>
+        </div>
       </div>
-      <div className="space-y-2 pl-0 font-medium sm:pl-8">
+      <div className="space-y-2 font-medium">
         {paragraphs.map((paragraph, index) => (
           <p key={`${index}:${paragraph.slice(0, 32)}`}>
             <SafeBoldText text={paragraph} />
@@ -1385,6 +1390,24 @@ function PlainAnswerResponse({ text }: { text: string }) {
       </div>
     </section>
   );
+}
+
+function comparableAnswerText(value: string) {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/\.\.\.$/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isRedundantStructuredItem(item: string, primaryAnswer: string) {
+  const itemText = comparableAnswerText(item);
+  const answerText = comparableAnswerText(primaryAnswer);
+  if (!itemText || !answerText) return false;
+  if (itemText.length < 80) return false;
+  if (answerText.includes(itemText) || itemText.includes(answerText)) return true;
+  return answerText.includes(itemText.slice(0, Math.min(160, itemText.length)));
 }
 
 function answerToneClasses(tone: AnswerDisplayTone) {
@@ -1945,14 +1968,23 @@ function QuoteCards({
 function ClinicalOutputPanel({
   answer,
   collapsed = false,
+  showLead = true,
 }: {
   answer: RagAnswer;
   collapsed?: boolean;
+  showLead?: boolean;
 }) {
   const sections = buildClinicalOutputSections(answer);
   if (sections.length === 0) return null;
   const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
-  const detailSections = sections.filter((section) => section.id !== leadSection.id && section.id !== "verify-source");
+  const primaryAnswer = plainAnswerText(answer.answer);
+  const detailSections = sections
+    .filter((section) => section.id !== leadSection.id && section.id !== "verify-source")
+    .map((section) => ({
+      ...section,
+      items: showLead ? section.items : section.items.filter((item) => !isRedundantStructuredItem(item, primaryAnswer)),
+    }))
+    .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
   const verifySection = sections.find((section) => section.id === "verify-source");
 
   const content = (
@@ -1960,67 +1992,89 @@ function ClinicalOutputPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
           icon={ListChecks}
-          title="Clinical answer"
-          description="Dense source-backed structure for review before clinical use."
+          title={showLead ? "Clinical answer" : "Structured clinical support"}
+          description={
+            showLead
+              ? "Dense source-backed structure for review before clinical use."
+              : "Concise details that support, scan, and verify the answer above."
+          }
           hideDescriptionOnMobile
           compactMobile
         />
       </div>
-      <div className="mt-3 rounded-lg border border-[color:var(--primary)]/20 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_70%),var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
-        <div className="flex items-start gap-2.5">
-          <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
-            <CheckCircle2 className="h-4 w-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
-              {leadSection.title}
-            </p>
-            <p className="mt-1 text-[15px] font-semibold leading-6 text-[color:var(--text-heading)]">
+      {showLead ? (
+        <div className="mt-3 rounded-md border border-[color:var(--primary)]/15 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
+          <div className="flex items-start gap-2.5">
+            <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
+              <CheckCircle2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
+                {leadSection.title}
+              </p>
+              <p className="mt-1 text-[15px] font-semibold leading-6 text-[color:var(--text-heading)]">
                 <SafeBoldText text={leadSection.items[0] ?? "Review the source-backed answer and citations."} />
               </p>
             </div>
           </div>
-      </div>
-      <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
-        {detailSections.map((section) => {
-          const isWide = section.id === "thresholds" || Boolean(section.tables?.length);
-          return (
-            <article key={section.id} className={cn(sourceCard, "p-3", isWide && "md:col-span-2 xl:col-span-3")}>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
-                <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>{section.items.length}</span>
-              </div>
-              {section.tables?.length ? (
-                <div className="mt-3 grid gap-3">
-                  {section.tables.map((table) => (
-                    <div key={table.id} className="space-y-1.5">
-                      <AccessibleTable
-                        caption={table.sourceLabel ? `${table.caption} · ${table.sourceLabel}` : table.caption}
-                        markdown={table.markdown}
-                        rows={table.rows}
-                        columns={table.columns}
-                        compact
-                      />
-                    </div>
-                  ))}
+        </div>
+      ) : null}
+      {detailSections.length ? (
+        <div
+          className={cn(
+            "mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
+            showLead && "border-t border-[color:var(--border)] pt-3",
+          )}
+        >
+          {detailSections.map((section) => {
+            const isWide = section.id === "thresholds" || Boolean(section.tables?.length);
+            return (
+              <article
+                key={section.id}
+                className={cn(
+                  "rounded-md border border-[color:var(--border)]/80 bg-[color:var(--surface)] p-3",
+                  isWide && "md:col-span-2 xl:col-span-3",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
+                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>{section.items.length}</span>
                 </div>
-              ) : null}
-              {section.items.length ? (
-                <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)]">
-                  {section.items.map((item, index) => (
-                    <li key={`${section.id}:${index}:${item.slice(0, 48)}`} className="grid grid-cols-[auto_1fr] gap-2">
-                      <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
-                      <span>
-                        <SafeBoldText text={item} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
+                {section.tables?.length ? (
+                  <div className="mt-3 grid gap-3">
+                    {section.tables.map((table) => (
+                      <div key={table.id} className="space-y-1.5">
+                        <AccessibleTable
+                          caption={table.caption}
+                          markdown={table.markdown}
+                          rows={table.rows}
+                          columns={table.columns}
+                          compact
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {section.items.length ? (
+                  <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)]">
+                    {section.items.map((item, index) => (
+                      <li
+                        key={`${section.id}:${index}:${item.slice(0, 48)}`}
+                        className="grid grid-cols-[auto_1fr] gap-2"
+                      >
+                        <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
+                        <span>
+                          <SafeBoldText text={item} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
       {verifySection ? (
         <div className={cn("mt-3 border-t border-[color:var(--border)] pt-3", textMuted)}>
           <div className="flex items-start gap-2.5">
@@ -2487,7 +2541,7 @@ function looksLikeDisplayArtifact(value: string) {
 }
 
 function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = normalizeDisplayText(sourceTextForDisplay(value));
+  const normalized = normalizeDisplayText(sourceTextForClinicalProse(value));
   if (!normalized) return "";
   const artifactStart = normalized.search(
     /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,
@@ -2504,7 +2558,7 @@ function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions 
 }
 
 function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = sourceTextForDisplayPreservingBreaks(value).trim();
+  const normalized = sourceTextForClinicalProsePreservingBreaks(value).trim();
   if (!normalized) return "";
   const artifactStart = normalizeDisplayText(normalized).search(
     /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,
@@ -2576,9 +2630,7 @@ function SourceList({
                     >
                       {sourceTitle}
                     </Link>
-                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                      {sourceMeta}
-                    </p>
+                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>{sourceMeta}</p>
                     <SourceProvenance metadata={source.source_metadata} />
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <QueryCoverageChips relevance={source.relevance} />
@@ -3268,9 +3320,7 @@ function UtilityDrawer({
 
 function DrawerGroupLabel({ title }: { title: string }) {
   return (
-    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
-      {title}
-    </p>
+    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }
 
@@ -4440,9 +4490,9 @@ export function ClinicalDashboard() {
               ) : answer ? (
                 <div className="min-w-0 space-y-4 sm:space-y-5">
                   <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-                    <PlainAnswerResponse text={safeAnswerText || answer.answer} />
+                    <NaturalLanguageAnswer text={safeAnswerText || answer.answer} />
 
-                    <ClinicalOutputPanel answer={answer} />
+                    <ClinicalOutputPanel answer={answer} showLead={false} />
 
                     <DrawerGroupLabel title="Review evidence" />
 
@@ -4498,22 +4548,6 @@ export function ClinicalDashboard() {
                   </div>
 
                   <SafetyFindingsPanel findings={safetyFindings} />
-
-                  <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div className="flex min-w-max gap-2 pb-1 sm:min-w-0 sm:flex-wrap">
-                      {answer.citations.map((citation) => (
-                        <Link
-                          key={citation.chunk_id}
-                          href={documentCitationHref(citation)}
-                          aria-label={`Open ${formatCitationLabel(citation)}`}
-                          className="inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--primary)]/30 bg-[color:var(--surface)] px-3 py-2 text-[13px] font-semibold text-[color:var(--primary)] transition hover:bg-[color:var(--primary-soft)] sm:text-xs"
-                        >
-                          <span className="sm:hidden">{formatCompactCitationLabel(citation)}</span>
-                          <span className="hidden sm:inline">{formatCitationLabel(citation)}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <AnswerEmptyState onPickSample={setQuery} />
@@ -4652,4 +4686,3 @@ export function ClinicalDashboard() {
     </div>
   );
 }
-

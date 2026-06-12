@@ -4,8 +4,9 @@ import {
   documentCitationHref,
   formatCompactCitationLabel,
   formatCitationLabel,
+  uniqueCitations,
 } from "../src/lib/citations";
-import type { SearchResult } from "../src/lib/types";
+import type { Citation, SearchResult } from "../src/lib/types";
 
 const result: SearchResult = {
   id: "chunk-1",
@@ -20,6 +21,16 @@ const result: SearchResult = {
   similarity: 0.82,
   images: [],
 };
+
+const citation = (overrides: Partial<Citation> = {}): Citation => ({
+  chunk_id: "chunk-1",
+  document_id: "doc-1",
+  title: "Lithium source",
+  file_name: "lithium.pdf",
+  page_number: 1,
+  chunk_index: 0,
+  ...overrides,
+});
 
 describe("citations", () => {
   it("creates readable labels", () => {
@@ -37,5 +48,17 @@ describe("citations", () => {
 
   it("links to source document, page, and chunk", () => {
     expect(documentCitationHref(citationFromResult(result))).toBe("/documents/doc-1?page=12&chunk=chunk-1");
+  });
+
+  it("deduplicates visible citations by document page and chunk", () => {
+    const citations = uniqueCitations([
+      citation(),
+      citation({ title: "Renamed local title" }),
+      citation({ chunk_id: "chunk-2" }),
+    ]);
+
+    expect(citations).toHaveLength(2);
+    expect(citations.map((item) => item.chunk_id)).toEqual(["chunk-1", "chunk-2"]);
+    expect(citations[0].title).toBe("Lithium source");
   });
 });

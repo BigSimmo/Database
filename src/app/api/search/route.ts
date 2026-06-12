@@ -413,6 +413,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
     documentId: body.documentId,
     documentIds: body.documentIds,
     ownerId: undefined,
+    allowGlobalSearch: true,
   });
   const resultLimit =
     body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8);

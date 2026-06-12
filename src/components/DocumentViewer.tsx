@@ -1490,7 +1490,9 @@ export function DocumentViewer({
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-semibold sm:text-base">{headerTitle}</h1>
+              <h1 className="line-clamp-2 max-w-[min(58vw,24rem)] text-sm font-semibold leading-tight sm:max-w-none sm:truncate sm:text-base">
+                {headerTitle}
+              </h1>
               <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">{headerSubtitle}</p>
               <div className="hidden items-center gap-2 sm:flex">
                 {readyDocument ? (

@@ -12,6 +12,7 @@ const lineNoisePatterns: RegExp[] = [
   /^\s*[-*_]{3,}\s*$/,
   /^\s*[\u25cf\u25e6\u2022]\s*$/,
 ];
+const maxImageContextItemsPerPage = 3;
 
 export function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -47,11 +48,49 @@ function looksLikeMetadataNoise(line: string) {
   return false;
 }
 
-function removePageNoise(text: string) {
+function normalizeRepeatedLine(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function looksLikeRepeatingBoilerplate(line: string) {
+  const normalized = normalizeRepeatedLine(line);
+  if (!normalized || normalized.length < 5 || normalized.length > 90) return false;
+  if (looksLikeMetadataNoise(line)) return true;
+  if (/^(?:clinical|corporate|mental health|government|department|hospital|health service)\b/i.test(line)) return true;
+  if (/\b(?:confidential|printed|uncontrolled|guideline|procedure|policy|document|version|review date)\b/i.test(line)) {
+    return true;
+  }
+  return false;
+}
+
+function buildRepeatedBoilerplateLines(inputs: ChunkInput[]) {
+  const counts = new Map<string, number>();
+  for (const input of inputs) {
+    const pageLines = new Set(
+      input.pageText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(looksLikeRepeatingBoilerplate)
+        .map(normalizeRepeatedLine)
+        .filter(Boolean),
+    );
+    for (const line of pageLines) {
+      counts.set(line, (counts.get(line) ?? 0) + 1);
+    }
+  }
+  return new Set([...counts.entries()].filter(([, count]) => count >= 2).map(([line]) => line));
+}
+
+function removePageNoise(text: string, repeatedBoilerplateLines = new Set<string>()) {
   return text
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line === "" || !looksLikeMetadataNoise(line))
+    .filter((line) => {
+      if (line === "") return true;
+      if (looksLikeMetadataNoise(line)) return false;
+      if (repeatedBoilerplateLines.has(normalizeRepeatedLine(line))) return false;
+      return true;
+    })
     .join("\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -184,7 +223,7 @@ function chunkTextBySentence(clean: string, chunkSize: number, overlap: number) 
   return chunks;
 }
 
-function compactImageText(value: string | null | undefined, limit = 900) {
+function compactImageText(value: string | null | undefined, limit = 420) {
   const text = String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();
@@ -211,21 +250,35 @@ export function buildImageTag(image: {
     image.tableTitle ? `Table title: ${image.tableTitle}` : "",
     image.tableRole ? `Table role: ${image.tableRole}` : "",
     image.tableTextSnippet ? `Table text: ${compactImageText(image.tableTextSnippet)}` : "",
-    image.accessibleTableMarkdown ? `Accessible table: ${compactImageText(image.accessibleTableMarkdown, 600)}` : "",
+    image.accessibleTableMarkdown ? `Accessible table: ${compactImageText(image.accessibleTableMarkdown, 360)}` : "",
     `Description: ${image.caption}`,
   ].filter(Boolean);
   return `[[IMAGE_DATA_START]] ${parts.join("; ")} [[IMAGE_DATA_END]]`;
 }
 
+function buildPageImageContext(pageImages: NonNullable<ChunkInput["images"]>) {
+  const selectedImages = pageImages.slice(0, maxImageContextItemsPerPage).map(buildImageTag);
+  const omitted = pageImages.length - selectedImages.length;
+  if (omitted > 0) {
+    selectedImages.push(`[[IMAGE_DATA_OMITTED]] ${omitted} additional image/table blocks on this page. [[/IMAGE_DATA_OMITTED]]`);
+  }
+  return selectedImages.join("\n");
+}
+
 export function buildChunks(inputs: ChunkInput[]) {
   const chunks: DocumentChunk[] = [];
   const chunkFingerprint = new Map<string, number>();
+  const repeatedBoilerplateLines = buildRepeatedBoilerplateLines(inputs);
+  let activeSectionPath: string[] = [];
 
   for (const input of inputs) {
     const pageImages = input.images ?? [];
-    const imageContext = pageImages.map(buildImageTag).join("\n");
-    const sectionPath = extractSectionHeadings(input.pageText);
-    const pageText = [removePageNoise(input.pageText), imageContext].filter(Boolean).join("\n\n");
+    const imageContext = buildPageImageContext(pageImages);
+    const cleanedPageText = removePageNoise(input.pageText, repeatedBoilerplateLines);
+    const pageSectionPath = extractSectionHeadings(cleanedPageText);
+    if (pageSectionPath.length > 0) activeSectionPath = pageSectionPath;
+    const sectionPath = activeSectionPath;
+    const pageText = [cleanedPageText, imageContext].filter(Boolean).join("\n\n");
     const pageLookupText = normalizeLookupText(input.pageText);
     const pageChunks = chunkTextWithOverlap(pageText);
 

@@ -5,18 +5,19 @@ export type SafeBoldSegment = {
 
 export function parseSafeBoldText(input: string): SafeBoldSegment[] {
   const segments: SafeBoldSegment[] = [];
-  const parts = input.split("**");
+  const pattern = /\*\*([^*]+(?:\*(?!\*)[^*]+)*)\*\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
 
-  for (let index = 0; index < parts.length; index += 1) {
-    const text = parts[index];
-    if (!text) continue;
-    segments.push({
-      text,
-      bold: index % 2 === 1,
-    });
+  while ((match = pattern.exec(input))) {
+    const before = input.slice(cursor, match.index).replace(/\*\*/g, "");
+    if (before) segments.push({ text: before, bold: false });
+    if (match[1]) segments.push({ text: match[1], bold: true });
+    cursor = match.index + match[0].length;
   }
 
-  if (input.endsWith("**") || parts.length % 2 === 1) return segments;
+  const after = input.slice(cursor).replace(/\*\*/g, "");
+  if (after) segments.push({ text: after, bold: false });
 
-  return [{ text: input, bold: false }];
+  return segments.length ? segments : [{ text: input.replace(/\*\*/g, ""), bold: false }];
 }

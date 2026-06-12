@@ -1,0 +1,52 @@
+[
+  {
+    "id": "clozapine-anc-threshold",
+    "query": "What ANC or FBC threshold should withhold clozapine?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedContentTerms": [
+      "clozapine",
+      "anc",
+      ["fbc", "full blood count", "wbc"],
+      ["withhold", "cease", "stop", "red"]
+    ],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "agitation-im-po-options",
+    "query": "What IM or PO options are listed for agitation?",
+    "expectedQueryClass": "medication_dose_risk",
+    "expectedDocumentSubstrings": ["AgitationArousalPharmaMgt"],
+    "expectedContentTerms": ["agitation", "im", "po"],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "patient-safety-plan-include",
+    "query": "What should a patient safety plan include?",
+    "expectedQueryClass": "document_lookup",
+    "expectedDocumentSubstrings": ["PtSafetyPlan"],
+    "expectedContentTerms": ["safety", "plan"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "active-community-patient-ed",
+    "query": "How are active community patients in ED managed?",
+    "expectedQueryClass": "document_lookup",
+    "expectedDocumentSubstrings": ["ActiveCommunityPtED"],
+    "expectedContentTerms": ["community", "ed"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "admission-discharge-comparison",
+    "query": "Compare admission and discharge requirements",
+    "expectedQueryClass": "comparison",
+    "expectedDocumentSubstrings": ["AdmissionCommunityPts", "Discharge"],
+    "expectedContentTerms": ["admission", "discharge"],
+    "topK": 12,
+    "expectTableEvidence": false
+  }
+]

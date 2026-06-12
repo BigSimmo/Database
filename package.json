@@ -28,6 +28,7 @@
     "check:indexing": "tsx scripts/check-indexing.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
     "eval:rag": "tsx scripts/eval-rag.ts",
+    "eval:retrieval": "tsx scripts/eval-retrieval.ts",
     "eval:search": "tsx scripts/eval-search.ts",
     "eval:search:api": "tsx scripts/eval-search-api.ts",
     "tune:search-weights": "tsx scripts/tune-search-weights.ts",

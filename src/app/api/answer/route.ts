@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       documentId: body.documentId,
       documentIds: body.documentIds,
       ownerId: undefined,
+      allowGlobalSearch: true,
     });
     return NextResponse.json(answer);
   } catch (error) {

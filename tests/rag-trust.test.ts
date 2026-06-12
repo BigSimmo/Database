@@ -95,6 +95,39 @@ describe("RAG trust validation", () => {
     expect(sections).toHaveLength(1);
   });
 
+  it("strips provenance boilerplate from generated answer and section prose", () => {
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer:
+          "Neuroleptic side effect Guideline PAE-PRO-0338/16 Page 5 of 5. Monitor for clinically significant side effects.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: "chunk-1" }],
+        answerSections: [
+          {
+            heading: "Medication/dose details",
+            kind: "medication_dose",
+            supportLevel: "direct",
+            body: "PAE-PRO-0338/16 Page 5 of 5. Dose evidence: monitor medication effect profile and risk.",
+            citation_chunk_ids: ["chunk-1"],
+          },
+        ],
+      }),
+      [source()],
+      "olanzapine side effect monitoring",
+    );
+
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("Monitor for clinically significant side effects");
+    expect(answer.answer).not.toContain("PAE-PRO-0338");
+    expect(answer.answer).not.toContain("Page 5 of 5");
+    expect(answer.answerSections?.[0]).toMatchObject({
+      kind: "medication_dose",
+      supportLevel: "direct",
+    });
+    expect(answer.answerSections?.[0]?.body).not.toContain("PAE-PRO-0338");
+    expect(answer.answerSections?.[0]?.body).not.toContain("Page 5 of 5");
+  });
+
   it("removes JSON-like artifact sections while keeping valid sections", () => {
     const answer = parseAnswerJson(
       JSON.stringify({
@@ -249,6 +282,84 @@ describe("RAG trust validation", () => {
     expect(block).toContain("Structured table facts");
     expect(block).toContain("1 mg IM");
     expect(block).toContain("Index quality warnings: low table row extraction coverage");
+  });
+
+  it("packs richer structured table context for threshold and dose queries", () => {
+    const block = buildRagSourceBlock(
+      [
+        source({
+          table_facts: [
+            {
+              id: "fact-1",
+              document_id: "doc-1",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_number: 2,
+              table_title: "Clozapine ANC thresholds",
+              row_label: "ANC below 1.5",
+              clinical_parameter: "ANC",
+              threshold_value: "below 1.5 x 10^9/L",
+              action: "Withhold clozapine and repeat FBC.",
+            },
+          ],
+          images: [
+            {
+              id: "image-1",
+              page_number: 2,
+              storage_path: "private/table.png",
+              caption: "Clozapine ANC thresholds.",
+              searchable: true,
+              image_type: "clinical_table",
+              source_kind: "table_crop",
+              tableTitle: "Clozapine ANC thresholds",
+              accessibleTableMarkdown: "| ANC | Threshold | Action | below 1.5 | withhold |",
+            },
+          ],
+        }),
+      ],
+      { query: "What ANC threshold should stop clozapine?", queryClass: "table_threshold" },
+    );
+
+    expect(block).toContain("table title: Clozapine ANC thresholds");
+    expect(block).toContain("clinical parameter: ANC");
+    expect(block).toContain("threshold_value: below 1.5 x 10^9/L");
+    expect(block).toContain("action: Withhold clozapine and repeat FBC.");
+    expect(block).toContain("source_image_id: image-1");
+    expect(block).toContain("table snippet:");
+    expect(block).toContain("citation_chunk_id: chunk-1");
+  });
+
+  it("packs table snippets from table fact metadata when image context is missing", () => {
+    const block = buildRagSourceBlock(
+      [
+        source({
+          table_facts: [
+            {
+              id: "fact-1",
+              document_id: "doc-1",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-not-linked",
+              page_number: 2,
+              table_title: "Clozapine blood monitoring",
+              row_label: "Red result",
+              clinical_parameter: "FBC",
+              threshold_value: "WBC below threshold",
+              action: "Withhold clozapine and repeat FBC.",
+              metadata: {
+                accessible_table_markdown:
+                  "| State | WBC | Action |\n| Red | below threshold | Withhold clozapine and repeat FBC |",
+              },
+            },
+          ],
+          images: [],
+        }),
+      ],
+      { query: "What FBC threshold should withhold clozapine?", queryClass: "table_threshold" },
+    );
+
+    expect(block).toContain("table snippet:");
+    expect(block).toContain("Withhold clozapine and repeat FBC");
+    expect(block).toContain("source_image_id: image-not-linked");
   });
 
   it("clamps model confidence to retrieval strength", () => {

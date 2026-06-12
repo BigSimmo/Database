@@ -19,7 +19,9 @@ import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
+import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkPythonPdfPrerequisites } from "./prerequisites";
+import { buildTableFactRows } from "./table-facts";
 
 type JobDocument = {
   id: string;
@@ -130,26 +132,6 @@ function compactSearchText(value: unknown, limit = 900) {
     .trim();
   if (!compact) return "";
   return compact.length > limit ? compact.slice(0, limit).trim() : compact;
-}
-
-function normalizedTerms(value: string, limit = 18) {
-  return Array.from(
-    new Set(
-      value
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .map((term) => term.trim())
-        .filter((term) => term.length >= 2 && !["the", "and", "for", "with", "from", "that"].includes(term)),
-    ),
-  ).slice(0, limit);
-}
-
-function firstMatchingColumn(columns: string[], candidates: RegExp[]) {
-  return columns.findIndex((column) => candidates.some((pattern) => pattern.test(column)));
-}
-
-function tableFactValue(cells: string[], index: number) {
-  return index >= 0 && index < cells.length ? compactSearchText(cells[index], 240) || null : null;
 }
 
 type ImageClassification = Awaited<ReturnType<typeof classifyAndCaptionImageFromBase64>>;
@@ -534,60 +516,6 @@ type IndexedChunkRow = ReturnType<typeof buildChunks>[number] & {
   embedding: number[];
 };
 
-function buildTableFactRows(args: {
-  job: JobRow;
-  chunkRows: IndexedChunkRow[];
-  insertedImages: Awaited<ReturnType<typeof uploadAndCaptionImages>>["insertedImages"];
-}) {
-  const imagesById = new Map(args.insertedImages.map((image) => [image.id, image]));
-  const facts: Record<string, unknown>[] = [];
-
-  for (const chunk of args.chunkRows) {
-    for (const imageId of chunk.image_ids ?? []) {
-      const image = imagesById.get(imageId);
-      if (!image?.tableRows?.length) continue;
-      const columns = (image.tableColumns ?? []).map((column) => compactSearchText(column, 80));
-      const parameterIndex = firstMatchingColumn(columns, [/item/i, /parameter/i, /score/i, /state/i, /criterion/i]);
-      const thresholdIndex = firstMatchingColumn(columns, [/threshold/i, /value/i, /range/i, /level/i, /count/i, /dose/i]);
-      const actionIndex = firstMatchingColumn(columns, [/action/i, /management/i, /intervention/i, /response/i, /require/i]);
-
-      for (const [rowIndex, rawCells] of image.tableRows.slice(0, 120).entries()) {
-        const cells = rawCells.map((cell) => compactSearchText(cell, 240));
-        const rowText = cells.filter(Boolean).join(" ");
-        if (!rowText) continue;
-        const rowLabel = tableFactValue(cells, parameterIndex >= 0 ? parameterIndex : 0);
-        const threshold =
-          tableFactValue(cells, thresholdIndex) ??
-          cells.find((cell) => /(?:\d|mg|mcg|mmol|anc|fbc|score|level|threshold|withhold|cease)/i.test(cell)) ??
-          null;
-        const action = tableFactValue(cells, actionIndex) ?? cells[cells.length - 1] ?? null;
-        facts.push({
-          owner_id: args.job.documents.owner_id,
-          document_id: args.job.document_id,
-          source_chunk_id: chunk.id,
-          source_image_id: image.id,
-          page_number: chunk.page_number,
-          table_title: image.tableTitle ?? image.tableLabel,
-          row_label: rowLabel,
-          clinical_parameter: rowLabel ?? image.tableTitle ?? image.tableLabel,
-          threshold_value: threshold,
-          action,
-          normalized_terms: normalizedTerms(`${image.tableTitle ?? ""} ${image.tableLabel ?? ""} ${rowText}`),
-          metadata: {
-            row_index: rowIndex,
-            columns,
-            cells,
-            table_role: image.tableRole,
-            accessible_table_markdown: image.accessibleTableMarkdown,
-          },
-        });
-      }
-    }
-  }
-
-  return facts;
-}
-
 function buildEmbeddingFieldInputs(job: JobRow, chunkRows: IndexedChunkRow[]) {
   const seen = new Set<string>();
   const fields: Array<{ document_id: string; owner_id: string | null; source_chunk_id: string; field_type: string; content: string; metadata: Record<string, unknown> }> = [];
@@ -769,12 +697,6 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     const { error } = await supabase.from("document_chunks").insert(rows);
     if (error) throw new Error(error.message);
 
-    const tableFacts = buildTableFactRows({ job, chunkRows: rows, insertedImages });
-    if (tableFacts.length > 0) {
-      const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
-      if (factsError) throw new Error(factsError.message);
-    }
-
     const fieldInputs = buildEmbeddingFieldInputs(job, rows);
     if (fieldInputs.length > 0) {
       const fieldEmbeddings = await embedTexts(fieldInputs.map((field) => field.content));
@@ -785,6 +707,28 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       const { error: fieldsError } = await supabase.from("document_embedding_fields").insert(fieldRows);
       if (fieldsError) throw new Error(fieldsError.message);
     }
+  }
+
+  const tableFacts = buildTableFactRows({ job, chunkRows: indexedChunkRows, insertedImages });
+  if (tableFacts.length > 0) {
+    const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
+    if (factsError) throw new Error(factsError.message);
+  }
+
+  const additionalFieldInputs = buildAdditionalEmbeddingFieldInputs({
+    job,
+    chunkRows: indexedChunkRows,
+    insertedImages,
+    tableFacts,
+  });
+  if (additionalFieldInputs.length > 0) {
+    const additionalEmbeddings = await embedTexts(additionalFieldInputs.map((field) => field.content));
+    const additionalRows = additionalFieldInputs.map((field, index) => ({
+      ...field,
+      embedding: additionalEmbeddings[index],
+    }));
+    const { error: additionalFieldsError } = await supabase.from("document_embedding_fields").insert(additionalRows);
+    if (additionalFieldsError) throw new Error(additionalFieldsError.message);
   }
 
   return {

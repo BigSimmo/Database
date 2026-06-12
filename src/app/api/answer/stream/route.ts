@@ -105,6 +105,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
                 documentId: body.documentId,
                 documentIds: body.documentIds,
                 ownerId,
+                allowGlobalSearch: !ownerId,
                 onProgress,
               });
           send("final", answer);

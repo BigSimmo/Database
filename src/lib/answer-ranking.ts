@@ -1,6 +1,6 @@
 import { classifyRagQuery, hasDoseEvidenceSupport, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
-import { sourceTextForModel } from "@/lib/source-text-sanitizer";
+import { lowYieldSourceNoiseScore, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 const answerRankStrategy = "query_focused_answer_evidence_v1";
@@ -177,6 +177,7 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
   const weakOverlapPenalty = combinedCoverage < 0.2 ? -0.18 : combinedCoverage < 0.34 ? -0.07 : 0;
   const adjacentOnlyPenalty = contentCoverage < 0.16 && adjacentCoverage > contentCoverage ? -0.08 : 0;
   const boilerplatePenalty = answerBoilerplatePattern.test(result.content) && contentCoverage < 0.35 ? -0.08 : 0;
+  const lowYieldPenalty = lowYieldSourceNoiseScore(result.content) >= 0.35 && contentCoverage < 0.45 ? -0.12 : 0;
   const coreConceptTokens = tokens.filter(
     (token) =>
       ![
@@ -211,6 +212,7 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
       weakOverlapPenalty +
       adjacentOnlyPenalty +
       boilerplatePenalty +
+      lowYieldPenalty +
       titleOnlyDosePenalty +
       missingCoreConceptPenalty,
   );

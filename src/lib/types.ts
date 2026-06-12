@@ -195,6 +195,7 @@ export type DocumentTableFact = {
   action: string | null;
   text_rank?: number | null;
   match_reason?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type DocumentIndexQualityScore = {
@@ -504,10 +505,29 @@ export type ConflictOrGap = {
   source_chunk_ids?: string[];
 };
 
+export type AnswerSectionKind =
+  | "bottom_line"
+  | "required_actions"
+  | "monitoring_timing"
+  | "medication_dose"
+  | "thresholds"
+  | "escalation_risk"
+  | "contraindications_cautions"
+  | "comparison"
+  | "documentation"
+  | "source_gap"
+  | "visual_evidence"
+  | "quotes"
+  | "verification";
+
+export type AnswerSectionSupportLevel = "direct" | "partial" | "nearby" | "unsupported";
+
 export type AnswerSection = {
   heading: string;
   body: string;
   citation_chunk_ids: string[];
+  kind?: AnswerSectionKind;
+  supportLevel?: AnswerSectionSupportLevel;
 };
 
 export type OpenAITokenUsage = {

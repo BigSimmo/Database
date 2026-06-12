@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanClinicalSummaryText,
+  isLowYieldClinicalText,
+  lowYieldSourceNoiseScore,
+  sourceTextForClinicalProse,
   sourceTextForDisplay,
   sourceTextForDocumentViewer,
   sourceTextForIndexedPage,
@@ -61,6 +64,29 @@ describe("source text sanitizer", () => {
     expect(cleaned).not.toContain("Source mentions:");
     expect(cleaned).not.toContain("[[IMAGE_DATA_START]]");
     expect(cleaned).not.toContain("Image ID:");
+  });
+
+  it("removes low-yield source codes and page boilerplate from clinical prose", () => {
+    const text =
+      "monitoring Neuroleptic side effect Guideline PAE-PRO-0338/16 Page 5 of 5. Dose evidence: effect profile of medication including the risk of PIS with Olanzapine LAI (1.85% of patients were affected in pre-marketing studies - refer to MIMS Product Information).";
+
+    const cleaned = sourceTextForClinicalProse(text);
+
+    expect(cleaned).toContain("Dose evidence: effect profile of medication");
+    expect(cleaned).toContain("risk of PIS with Olanzapine LAI");
+    expect(cleaned).not.toContain("PAE-PRO-0338");
+    expect(cleaned).not.toContain("Page 5 of 5");
+    expect(cleaned).not.toContain("refer to MIMS Product Information");
+    expect(cleaned).not.toContain("Neuroleptic side effect Guideline");
+  });
+
+  it("scores document-control snippets as low yield without hiding document viewer provenance", () => {
+    const text = "Neuroleptic side effect Guideline PAE-PRO-0338/16 Page 5 of 5";
+
+    expect(lowYieldSourceNoiseScore(text)).toBeGreaterThanOrEqual(0.45);
+    expect(isLowYieldClinicalText(text)).toBe(true);
+    expect(sourceTextForDocumentViewer(text)).toContain("PAE-PRO-0338/16");
+    expect(sourceTextForDocumentViewer(text)).toContain("Page 5 of 5");
   });
 
   it("does not strip leading safe-bold markers during repeated summary cleaning", () => {

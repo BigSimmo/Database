@@ -44,6 +44,24 @@ export function documentCitationHref(citation: Citation) {
   return `/documents/${citation.document_id}?${params.toString()}`;
 }
 
+export function citationIdentity(citation: Pick<Citation, "chunk_id" | "document_id" | "page_number">) {
+  return [citation.document_id, citation.page_number ?? "n/a", citation.chunk_id].join(":");
+}
+
+export function uniqueCitations<T extends Citation>(citations: T[]) {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+
+  for (const citation of citations) {
+    const key = citationIdentity(citation);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(citation);
+  }
+
+  return unique;
+}
+
 export function compactCitations(results: SearchResult[], limit = 6) {
   const seen = new Set<string>();
   const citations: Citation[] = [];
