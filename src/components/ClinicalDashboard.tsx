@@ -66,8 +66,6 @@ import {
   premiumHeaderSurface,
   primaryControl,
   raisedCard,
-  sheetHandle,
-  sheetSurface,
   shellChip,
   SourceProvenance,
   SourceStatusBadge,
