@@ -80,6 +80,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import { Sheet } from "@/components/ui/sheet";
 import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
 import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -5034,106 +5035,24 @@ const guideSections = [
 ] as const;
 
 function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const dialogRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
-
-    document.body.style.overflow = "hidden";
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-
-      const focusable = Array.from(
-        dialogRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
-        ) ?? [],
-      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousActiveElement?.focus();
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end bg-slate-950/70 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Clinical KB guide"
+      description="Practical use notes for source-backed guideline search."
+      closeLabel="Close guide"
+      contentClassName="sm:max-w-2xl"
     >
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="clinical-kb-guide-title"
-        className={cn(sheetSurface, "max-h-[min(84svh,42rem)] w-full overflow-y-auto sm:max-w-2xl")}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] p-4 sm:p-5">
-          <span className={cn(sheetHandle, "mb-4")} aria-hidden />
-          <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 gap-3">
-            <span className={cn(iconTilePremium, "h-10 w-10")}>
-              <BookOpen className="h-4.5 w-4.5" />
-            </span>
-            <div className="min-w-0">
-              <h2 id="clinical-kb-guide-title" className="text-base font-semibold text-[color:var(--text-heading)]">
-                Clinical KB guide
-              </h2>
-              <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
-                Practical use notes for source-backed guideline search.
-              </p>
-            </div>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            className={cn(navPill, "h-[44px] w-[44px] px-0")}
-            aria-label="Close guide"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          </div>
-        </div>
-
-        <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-          {guideSections.map((section) => (
-            <article key={section.title} className={cn(sourceCard, "p-3")}>
-              <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
-              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {guideSections.map((section) => (
+          <article key={section.title} className={cn(sourceCard, "p-3")}>
+            <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
+            <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
+          </article>
+        ))}
+      </div>
+    </Sheet>
   );
 }
 
