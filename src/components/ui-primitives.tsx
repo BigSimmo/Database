@@ -12,33 +12,33 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 export const textMuted = "text-[color:var(--text-muted)]";
-export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
+export const raisedCard = "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
+export const insetCard = "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
 export const appBackdrop =
   "bg-[radial-gradient(circle_at_50%_-12%,color-mix(in_srgb,var(--primary)_11%,transparent),transparent_28rem),linear-gradient(180deg,var(--background),color-mix(in_srgb,var(--background)_90%,var(--surface-inset)))]";
 export const glassPanel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)] dark:border-white/10";
+  "rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] dark:border-white/10";
 export const quietPanel =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
-export const sourceCard = `${quietPanel} hover:border-[color:var(--border-strong)]`;
+  "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
+export const sourceCard = `${quietPanel} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface =
-  "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]";
+  "rounded-xl border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
 export const evidenceSurface =
-  "rounded-lg border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]";
+  "rounded-xl border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
 export const panel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)] ring-1 ring-white/25 dark:ring-white/5";
+  "rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-white/25 dark:ring-white/5";
 export const panelSubtle = quietPanel;
 export const controlBase =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-none";
-export const primaryControl = `${controlBase} bg-[color:var(--primary)] px-5 text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]`;
+export const primaryControl = `${controlBase} bg-[color:var(--primary)] px-5 text-[color:var(--primary-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255_/_18%),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] hover:shadow-[inset_0_1px_0_rgb(255_255_255_/_22%),var(--shadow-hover)]`;
 export const floatingControl =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
 export const toolbarButton =
   "grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none";
-export const eyebrowText = "text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]";
+export const eyebrowText = "text-2xs font-semibold uppercase text-[color:var(--text-soft)]";
 export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
 export const fieldControl =
-  "h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20";
+  "h-[44px] w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
@@ -62,13 +62,14 @@ export const premiumHeaderSurface =
   "border-b border-white/10 bg-[radial-gradient(circle_at_12%_-35%,color-mix(in_srgb,var(--app-shell-accent)_34%,transparent),transparent_18rem),linear-gradient(135deg,var(--app-shell)_0%,var(--app-shell-muted)_58%,color-mix(in_srgb,var(--app-shell-muted)_72%,var(--app-shell-accent))_100%)] text-white shadow-[var(--shadow-soft)]";
 
 export const toneSuccess =
-  "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]";
-export const toneDanger = "border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
-export const toneInfo = "border-[color:var(--info)]/30 bg-[color:var(--info-soft)] text-[color:var(--info)]";
+  "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+export const toneDanger =
+  "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+export const toneInfo = "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 export const toneWarning =
-  "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
 export const toneWarningQuiet =
-  "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
+  "border-[color:var(--warning-border)]/60 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
 export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 
@@ -150,10 +151,39 @@ export function PanelHeading({
   );
 }
 
-export function LoadingPanel({ label }: { label: string }) {
+export function LoadingPanel({
+  label,
+  variant = "spinner",
+  lines = 3,
+}: {
+  label: string;
+  variant?: "spinner" | "skeleton";
+  lines?: number;
+}) {
+  if (variant === "skeleton") {
+    return (
+      <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
+        {Array.from({ length: lines }).map((_, index) => (
+          <span
+            key={index}
+            aria-hidden
+            className={cn(
+              "block h-3.5 rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
+              "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
+              "motion-safe:animate-shimmer",
+              index === lines - 1 ? "w-2/3" : "w-full",
+            )}
+          />
+        ))}
+        <span className="sr-only">{label}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${insetCard} mt-3 grid min-h-28 place-items-center p-4 text-center text-sm font-semibold text-[color:var(--text-muted)]`}
+      role="status"
     >
       <div>
         <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--primary)]" />
@@ -165,7 +195,7 @@ export function LoadingPanel({ label }: { label: string }) {
 
 export function EmptyState({ icon: Icon, title, body }: { icon: IconComponent; title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
+    <div className="rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
           <Icon className="h-4.5 w-4.5" />
