@@ -6,6 +6,7 @@ loadEnvConfig(process.cwd());
 
 type Args = {
   baseUrl?: string;
+  authToken?: string;
   limit?: number;
   question?: string;
   json: boolean;
@@ -42,6 +43,7 @@ function parseArgs(argv: string[]): Args {
     if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
     index += 1;
     if (token === "--base-url") args.baseUrl = value.replace(/\/+$/, "");
+    if (token === "--auth-token") args.authToken = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--question") args.question = value;
   }
@@ -54,6 +56,19 @@ function ensuredBaseUrl() {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
   }).trim();
+}
+
+function envAuthToken() {
+  return (
+    process.env.RAG_EVAL_API_AUTH_TOKEN?.trim() ||
+    process.env.RAG_EVAL_AUTH_TOKEN?.trim() ||
+    process.env.SUPABASE_ACCESS_TOKEN?.trim() ||
+    ""
+  );
+}
+
+function isLocalNoAuthEval() {
+  return process.env.LOCAL_NO_AUTH === "true" || process.env.NEXT_PUBLIC_LOCAL_NO_AUTH === "true";
 }
 
 function validate(result: ApiSearchEvalResult, testCase: ReturnType<typeof selectRagEvalCases>[number]) {
@@ -72,13 +87,17 @@ function validate(result: ApiSearchEvalResult, testCase: ReturnType<typeof selec
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = args.baseUrl ?? ensuredBaseUrl();
+  const authToken = args.authToken?.trim() || envAuthToken();
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: ApiSearchEvalResult[] = [];
 
   for (const testCase of cases) {
     const response = await fetch(`${baseUrl}/api/search`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
       body: JSON.stringify({ query: testCase.question, topK: 8 }),
     });
     const text = await response.text();
@@ -105,7 +124,13 @@ async function main() {
   }
 
   const thresholdFailures = results.filter((result) => result.failures.length > 0).map((result) => result.id);
+  const unauthorized = results.some((result) => result.status === 401);
   if (args.json) console.log(JSON.stringify({ baseUrl, results, thresholdFailures }, null, 2));
+  if (unauthorized && !authToken && !isLocalNoAuthEval()) {
+    console.error(
+      "API search eval was rejected by the real-mode auth gate. Pass --auth-token or set RAG_EVAL_API_AUTH_TOKEN, RAG_EVAL_AUTH_TOKEN, or SUPABASE_ACCESS_TOKEN to a Supabase access token, or run the ensured local server with LOCAL_NO_AUTH=true and NEXT_PUBLIC_LOCAL_NO_AUTH=true.",
+    );
+  }
   if (args.failOnThreshold && thresholdFailures.length > 0) process.exit(1);
 }
 

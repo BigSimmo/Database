@@ -661,7 +661,7 @@ describe("private document API access", () => {
     const { POST } = await import("../src/app/api/search/route");
 
     const response = await POST(
-      request("/api/search", {
+      authenticatedRequest("/api/search", {
         method: "POST",
         body: JSON.stringify({ query: "agitation management tables", mode: "documents", documentLimit: 10 }),
       }),
@@ -1147,7 +1147,7 @@ describe("private document API access", () => {
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
-  it("allows unauthenticated search and answer without owner scope", async () => {
+  it("rejects unauthenticated search and answer requests", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -1174,29 +1174,29 @@ describe("private document API access", () => {
     const searchRoute = await import("../src/app/api/search/route");
     const answerRoute = await import("../src/app/api/answer/route");
 
-    await searchRoute.POST(
+    const searchResponse = await searchRoute.POST(
       request("/api/search", {
         method: "POST",
         body: JSON.stringify({ query: "monitoring", documentIds: [otherDocumentId] }),
       }),
     );
-    await answerRoute.POST(
+    const answerResponse = await answerRoute.POST(
       request("/api/answer", {
         method: "POST",
         body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
       }),
     );
 
-    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, documentIds: [otherDocumentId] }),
-    );
-    expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, documentId: otherDocumentId }),
-    );
+    expect(searchResponse.status).toBe(401);
+    expect(answerResponse.status).toBe(401);
+    expect(await payload(searchResponse)).toEqual({ error: "Authentication required." });
+    expect(await payload(answerResponse)).toEqual({ error: "Authentication required." });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it("rate limits public answer generation without limiting public search", async () => {
+  it("rate limits authenticated answer generation without limiting authenticated search", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -1223,7 +1223,7 @@ describe("private document API access", () => {
     const answerRoute = await import("../src/app/api/answer/route");
     const searchRoute = await import("../src/app/api/search/route");
     const answerRequest = () =>
-      request("/api/answer", {
+      authenticatedRequest("/api/answer", {
         method: "POST",
         headers: { "x-forwarded-for": "203.0.113.10" },
         body: JSON.stringify({ query: "monitoring" }),
@@ -1241,7 +1241,7 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).toHaveBeenCalledTimes(30);
 
     const searchResponse = await searchRoute.POST(
-      request("/api/search", {
+      authenticatedRequest("/api/search", {
         method: "POST",
         headers: { "x-forwarded-for": "203.0.113.10" },
         body: JSON.stringify({ query: "monitoring" }),
@@ -1249,10 +1249,10 @@ describe("private document API access", () => {
     );
 
     expect(searchResponse.status).toBe(200);
-    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined }));
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: userId }));
   });
 
-  it("rate limits abnormal public search bursts with retry metadata", async () => {
+  it("rate limits abnormal authenticated search bursts with retry metadata", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -1280,7 +1280,7 @@ describe("private document API access", () => {
     });
     const searchRoute = await import("../src/app/api/search/route");
     const searchRequest = () =>
-      request("/api/search", {
+      authenticatedRequest("/api/search", {
         method: "POST",
         headers: { "x-forwarded-for": "203.0.113.20" },
         body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
@@ -1299,7 +1299,7 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(2);
   });
 
-  it("coalesces identical in-flight public search requests", async () => {
+  it("coalesces identical in-flight authenticated search requests", async () => {
     let releaseSearch!: () => void;
     const searchGate = new Promise<void>((resolve) => {
       releaseSearch = resolve;
@@ -1326,7 +1326,7 @@ describe("private document API access", () => {
     mockRuntime(client, { searchChunksWithTelemetry });
     const searchRoute = await import("../src/app/api/search/route");
     const searchRequest = () =>
-      request("/api/search", {
+      authenticatedRequest("/api/search", {
         method: "POST",
         headers: { "x-real-ip": "203.0.113.21" },
         body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
@@ -1350,7 +1350,7 @@ describe("private document API access", () => {
     expect(secondPayload.telemetry).toMatchObject({ coalesced: true });
   });
 
-  it("streams answer progress before the final answer without auth", async () => {
+  it("streams answer progress before the final answer for authenticated users", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({ stage: "retrieved", message: "Retrieved 2 candidate sources." });
       return {
@@ -1366,7 +1366,7 @@ describe("private document API access", () => {
     const { POST } = await import("../src/app/api/answer/stream/route");
 
     const response = await POST(
-      request("/api/answer/stream", {
+      authenticatedRequest("/api/answer/stream", {
         method: "POST",
         body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
       }),
@@ -1378,12 +1378,12 @@ describe("private document API access", () => {
     expect(body.indexOf("event: final")).toBeGreaterThan(body.indexOf("event: progress"));
     expect(body).toContain("Retrieved 2 candidate sources.");
     expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, documentId: otherDocumentId, onProgress: expect.any(Function) }),
+      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
     );
-    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.auth.getUser).toHaveBeenCalledWith(token);
   });
 
-  it("emits a structured SSE error when public streaming answers are rate limited", async () => {
+  it("emits a structured SSE error when authenticated streaming answers are rate limited", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Owned evidence.",
       grounded: true,
@@ -1397,7 +1397,7 @@ describe("private document API access", () => {
     const answerRoute = await import("../src/app/api/answer/route");
     const streamRoute = await import("../src/app/api/answer/stream/route");
     const answerRequest = () =>
-      request("/api/answer", {
+      authenticatedRequest("/api/answer", {
         method: "POST",
         headers: { "x-real-ip": "203.0.113.11" },
         body: JSON.stringify({ query: "monitoring" }),
@@ -1409,7 +1409,7 @@ describe("private document API access", () => {
     }
 
     const response = await streamRoute.POST(
-      request("/api/answer/stream", {
+      authenticatedRequest("/api/answer/stream", {
         method: "POST",
         headers: { "x-real-ip": "203.0.113.11" },
         body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
