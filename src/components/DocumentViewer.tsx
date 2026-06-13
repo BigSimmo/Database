@@ -652,7 +652,7 @@ function IndexedTextPanel({
         {normalizedSearch && visibleChunks.length > 0 && !searchingDocument ? (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
             <div className="min-w-0">
-              <p className="text-xs font-bold text-[color:var(--text)]">
+              <p className="nums text-xs font-bold text-[color:var(--text)]">
                 Hit {clampedActiveHitIndex + 1} of {visibleChunks.length}
               </p>
               <p className={cn("mt-0.5 truncate text-[11px] font-semibold", textMuted)}>
@@ -992,9 +992,9 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
                 if (event.key === "Enter") jumpToPage(Number(pageInput) || page);
               }}
               inputMode="numeric"
-              className="h-[44px] w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14"
+              className="nums h-[44px] w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14"
             />
-            <span className="text-[13px] font-semibold sm:text-sm">of {totalPages}</span>
+            <span className="nums text-[13px] font-semibold sm:text-sm">of {totalPages}</span>
           </label>
         ) : (
           <div className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:px-3">
