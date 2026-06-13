@@ -813,7 +813,6 @@ function MasterSearchHeader({
   selectedDocumentIds,
   queryMode,
   scopeFilters,
-  batches,
   hasAnswer,
   demoMode,
   realDataReady,
@@ -836,7 +835,6 @@ function MasterSearchHeader({
   selectedDocumentIds: string[];
   queryMode: ClinicalQueryMode;
   scopeFilters: SearchScopeFilters;
-  batches: ImportBatch[];
   hasAnswer: boolean;
   demoMode: boolean;
   realDataReady: boolean;
@@ -1080,13 +1078,13 @@ function MasterSearchHeader({
     <header
       id="search"
       className={cn(
-        "sticky top-0 z-30 px-3 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 lg:px-8",
+        "sticky top-0 z-30 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 lg:px-8",
         premiumHeaderSurface,
-        compactMobile ? "sm:py-2.5" : "sm:py-3",
+        "sm:py-2.5",
       )}
       style={{ backgroundColor: "var(--app-shell)" }}
     >
-      <div className="mx-auto max-w-7xl space-y-3">
+      <div className="mx-auto max-w-7xl space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div
@@ -1137,7 +1135,7 @@ function MasterSearchHeader({
           </div>
         </div>
 
-        <div className="grid gap-2 rounded-[var(--radius-lg)] border border-white/10 bg-white/6 p-1.5 shadow-[var(--shadow-inset)] sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="grid gap-2 rounded-[var(--radius-lg)] border border-white/10 bg-white/6 p-1 shadow-[var(--shadow-inset)] sm:flex sm:flex-wrap sm:items-center sm:justify-between">
           <div role="group" aria-label="Search mode" className="grid grid-cols-2 gap-1 sm:min-w-[14rem]">
             {[
               { mode: "answer" as const, label: "Answer", icon: Sparkles },
@@ -1256,127 +1254,11 @@ function MasterSearchHeader({
           </div>
         </div>
 
-        <div className="hidden">
-          <label className="min-w-0">
-            <span className="sr-only">Clinical query mode</span>
-            <select
-              value={queryMode}
-              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
-              className="h-10 w-full rounded-lg border border-white/15 bg-white/95 px-3 text-sm font-semibold text-slate-950 outline-none focus:border-teal-300 focus:ring-4 focus:ring-teal-300/20 dark:bg-slate-950/90 dark:text-slate-50"
-            >
-              {clinicalQueryModeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <details className="group min-w-0">
-            <summary className="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/15 bg-white/7 px-3 text-xs font-semibold text-slate-100">
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4 shrink-0" />
-                <span className="truncate">Clinical filters</span>
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
-            </summary>
-            <div className="mt-2 grid gap-2 rounded-lg border border-white/10 bg-white/6 p-2 sm:grid-cols-2 lg:grid-cols-4">
-              <input
-                value={filterText(scopeFilters.medications)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
-                }
-                placeholder="Medication labels"
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              />
-              <input
-                value={filterText(scopeFilters.topics)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
-                }
-                placeholder="Topic labels"
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              />
-              <input
-                value={filterText(scopeFilters.documentTypes)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, documentTypes: splitFilterText(event.target.value) })
-                }
-                placeholder="Document type labels"
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              />
-              <select
-                value={scopeFilters.sourceStatuses?.[0] ?? ""}
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    sourceStatuses: event.target.value
-                      ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
-                      : [],
-                  })
-                }
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              >
-                <option value="">Any status</option>
-                <option value="current">Current</option>
-                <option value="review_due">Review due</option>
-                <option value="outdated">Outdated</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <select
-                value={scopeFilters.locality ?? ""}
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
-                  })
-                }
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              >
-                <option value="">Any locality</option>
-                <option value="local">Local only</option>
-                <option value="non_local">Non-local only</option>
-              </select>
-              <select
-                value={scopeFilters.importBatchIds?.[0] ?? ""}
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    importBatchIds: event.target.value ? [event.target.value] : [],
-                  })
-                }
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              >
-                <option value="">Any batch</option>
-                {batches.map((batch) => (
-                  <option key={batch.id} value={batch.id}>
-                    {batch.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={filterText(scopeFilters.collections)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
-                }
-                placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
-                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-              />
-              <button
-                type="button"
-                onClick={() => onScopeFiltersChange({})}
-                className="h-9 rounded-md border border-white/15 bg-white/7 px-2 text-xs font-semibold text-slate-100 hover:bg-white/12"
-              >
-                Clear filters
-              </button>
-            </div>
-          </details>
-        </div>
-
         <form
           onSubmit={submit}
-          className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
+          className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
         >
-          <label className="relative col-span-2 min-w-0 sm:col-span-1">
+          <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
@@ -1415,7 +1297,7 @@ function MasterSearchHeader({
             }
             className={cn(
               primaryControl,
-              "min-h-[48px] rounded-[var(--radius-lg)] px-3 text-sm sm:min-h-[44px] sm:px-5 sm:text-sm",
+              "min-h-[44px] whitespace-nowrap rounded-[var(--radius-lg)] px-3 text-sm sm:px-5",
             )}
             aria-label={searchMode === "answer" ? "Generate source-backed answer" : "Find matching documents"}
           >
@@ -1433,7 +1315,7 @@ function MasterSearchHeader({
           >
             <summary
               ref={scopeSummaryRef}
-              className="flex min-h-[48px] cursor-pointer list-none items-center justify-center gap-1.5 rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-2 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:min-h-[44px] sm:gap-2 sm:px-3 sm:text-xs"
+              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-2 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
               aria-label="Open document scope"
               aria-expanded={scopeOpen}
             >
@@ -6286,7 +6168,6 @@ export function ClinicalDashboard() {
         selectedDocumentIds={selectedDocumentIds}
         queryMode={queryMode}
         scopeFilters={scopeFilters}
-        batches={batches}
         hasAnswer={Boolean(answer)}
         demoMode={demoMode}
         realDataReady={canRunSearch}

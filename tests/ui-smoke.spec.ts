@@ -784,7 +784,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Switch to document search mode" }).click();
     await expect(page.getByRole("heading", { name: "Document matches" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByText("Search documents")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Search documents")).toBeVisible();
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await questionInput.fill("lithium monitoring");
