@@ -8,7 +8,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  branch-safety:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check GitHub branch safety
+        run: node scripts/check-github-branch-safety.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   verify:
+    needs: branch-safety
     runs-on: ubuntu-latest
 
     steps:
