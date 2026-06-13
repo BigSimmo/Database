@@ -2,11 +2,14 @@
 
 ## 1. ESLint 10 / eslint-plugin-react incompatibility (pre-existing, Tier 3)
 
-`npm run lint` crashes in the worktree with `TypeError: contextOrFilename.getFilename is not a function` inside `eslint-plugin-react@7.37.5` `resolveBasedir`, while linting `eslint.config.mjs` itself — before any source file. Cause: the lockfile pins **eslint 10.4.1**, whose context API broke `eslint-plugin-react@7.37.5` (pulled transitively by `eslint-config-next`). This affects a clean `npm ci` (so CI lint on this branch is also broken) and is independent of the redesign.
+There is a lockfile/install mismatch around ESLint that predates and is independent of the redesign:
 
-- **Why deferred:** Fixing it means changing dependency versions (bump `eslint-plugin-react`/`eslint-config-next`, or pin eslint to 9.x) — Tier 3, requires approval. The repo has a `dependency` maintenance shortcut for exactly this.
-- **Mitigation used:** redesign code was linted via the parent install's compatible **eslint 9.39.4** engine against the same flat config — changed TS/TSX files are lint-clean.
-- **Recommended fix:** run the `dependency` shortcut, or bump `eslint-plugin-react` to a release compatible with ESLint 10.
+- **On the working `main` checkout**, `node_modules` has **eslint 9.39.4** and `npm run lint` passes cleanly. ✅
+- **`package-lock.json` pins eslint 10.4.1.** A clean `npm ci` therefore installs eslint 10, which breaks `eslint-plugin-react@7.37.5` (`TypeError: contextOrFilename.getFilename is not a function` in `resolveBasedir`, thrown while linting `eslint.config.mjs` itself, before any source file). This was observed in the isolated worktree install. CI (`npm ci`) is therefore at risk even though the local checkout lints fine.
+
+- **Why deferred:** Resolving the mismatch means changing dependency versions (bump `eslint-plugin-react`/`eslint-config-next` to an ESLint-10-compatible release, or pin eslint to 9.x) — Tier 3, requires approval. The repo has a `dependency` maintenance shortcut for exactly this.
+- **Mitigation used:** redesign code was additionally linted via the eslint 9.39.4 engine against the same flat config — all changed TS/TSX files are lint-clean.
+- **Recommended fix:** run the `dependency` shortcut, or bump `eslint-plugin-react` to a release compatible with ESLint 10, then reconcile the lockfile.
 
 ## 2. ClinicalDashboard decomposition (Tier 2, see decision log D5)
 
