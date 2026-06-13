@@ -66,7 +66,9 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("create or replace function public.stamp_document_deep_memory_version");
     expect(schema).toContain("alter table public.document_sections enable row level security");
     expect(schema).toContain("alter table public.document_memory_cards enable row level security");
-    expect(schema).toContain("create index if not exists document_sections_owner_idx on public.document_sections(owner_id)");
+    expect(schema).toContain(
+      "create index if not exists document_sections_owner_idx on public.document_sections(owner_id)",
+    );
     expect(schema).toContain(
       "create index if not exists document_memory_cards_owner_idx on public.document_memory_cards(owner_id)",
     );

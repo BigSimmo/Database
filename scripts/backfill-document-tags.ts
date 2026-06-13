@@ -144,8 +144,7 @@ function planDocument(document: DocumentRow, labels: DocumentLabel[]) {
   const nextKeys = cleaned
     .map((label) => `${label.label_type}:${label.label}:${Math.round(label.confidence * 1000)}`)
     .sort();
-  const changed =
-    currentKeys.length !== nextKeys.length || currentKeys.some((key, index) => key !== nextKeys[index]);
+  const changed = currentKeys.length !== nextKeys.length || currentKeys.some((key, index) => key !== nextKeys[index]);
 
   return {
     document,
@@ -206,7 +205,13 @@ function printPlan(plans: Array<ReturnType<typeof planDocument>>, write: boolean
   for (const plan of changed.slice(0, 25)) {
     console.log(`- ${plan.document.title || plan.document.file_name}`);
     console.log(`  generated: ${plan.generatedCount} -> ${plan.cleaned.length}; manual preserved: ${plan.manualCount}`);
-    if (plan.dropped.length) console.log(`  drop: ${plan.dropped.map((label) => label.label).slice(0, 6).join(", ")}`);
+    if (plan.dropped.length)
+      console.log(
+        `  drop: ${plan.dropped
+          .map((label) => label.label)
+          .slice(0, 6)
+          .join(", ")}`,
+      );
     console.log(
       `  keep: ${plan.cleaned
         .map((label) => `${label.label_type}:${label.label}`)
@@ -227,7 +232,8 @@ async function main() {
     documents.map((document) => document.id),
   );
   const labelsByDocument = new Map<string, DocumentLabel[]>();
-  for (const label of labels) labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+  for (const label of labels)
+    labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
   const plans = documents.map((document) => planDocument(document, labelsByDocument.get(document.id) ?? []));
 
   printPlan(plans, args.write);

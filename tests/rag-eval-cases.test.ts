@@ -12,7 +12,7 @@ const row = {
   created_at: "2026-06-13T00:00:00.000Z",
 };
 
-function clientWithRows(rows: typeof row[]) {
+function clientWithRows(rows: (typeof row)[]) {
   const filters: Array<{ column: string; value: unknown }> = [];
   const query = {
     eq(column: string, value: unknown) {

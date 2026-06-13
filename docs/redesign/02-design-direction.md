@@ -35,4 +35,4 @@ A precision clinical instrument: calm, quiet, and trustworthy. A teal-tinted neu
 
 ### Component standards
 
-Every interactive component covers: default, hover, focus-visible (global ring tokens), pressed, disabled, loading, and selected/empty where applicable. Overlays animate in and out. Skeletons (shimmer) replace spinners for content loads; spinners remain only for indeterminate *progress* messaging. Mobile: bottom sheets instead of centered modals below `sm:`, 44px touch targets, safe-area utilities (`pt-safe`, `pb-safe`, `pb-safe-2`).
+Every interactive component covers: default, hover, focus-visible (global ring tokens), pressed, disabled, loading, and selected/empty where applicable. Overlays animate in and out. Skeletons (shimmer) replace spinners for content loads; spinners remain only for indeterminate _progress_ messaging. Mobile: bottom sheets instead of centered modals below `sm:`, 44px touch targets, safe-area utilities (`pt-safe`, `pb-safe`, `pb-safe-2`).

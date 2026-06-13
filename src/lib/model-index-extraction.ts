@@ -128,12 +128,16 @@ const schema = {
 };
 
 function compact(value: unknown, limit = 900) {
-  const clean = sourceTextForModel(String(value ?? "")).replace(/\s+/g, " ").trim();
+  const clean = sourceTextForModel(String(value ?? ""))
+    .replace(/\s+/g, " ")
+    .trim();
   return clean.length <= limit ? clean : `${clean.slice(0, limit - 3).trim()}...`;
 }
 
 function cleanItemText(value: unknown, limit = 520) {
-  const clean = cleanClinicalSummaryText(String(value ?? "")).replace(/\s+/g, " ").trim();
+  const clean = cleanClinicalSummaryText(String(value ?? ""))
+    .replace(/\s+/g, " ")
+    .trim();
   if (!clean || clean.length < 8) return "";
   return clean.length <= limit ? clean : `${clean.slice(0, limit - 3).trim()}...`;
 }
@@ -169,7 +173,10 @@ function uniqueItems<T extends { title: string; content: string }>(items: T[], l
   const seen = new Set<string>();
   const output: T[] = [];
   for (const item of items) {
-    const key = `${item.title} ${item.content}`.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 240);
+    const key = `${item.title} ${item.content}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .slice(0, 240);
     if (seen.has(key)) continue;
     seen.add(key);
     output.push(item);

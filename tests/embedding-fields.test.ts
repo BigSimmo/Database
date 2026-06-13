@@ -64,13 +64,7 @@ describe("additional embedding fields", () => {
     });
 
     expect(fields.map((field) => field.field_type)).toEqual(
-      expect.arrayContaining([
-        "chunk_high_yield",
-        "clinical_action",
-        "threshold_fact",
-        "table_row",
-        "image_caption",
-      ]),
+      expect.arrayContaining(["chunk_high_yield", "clinical_action", "threshold_fact", "table_row", "image_caption"]),
     );
     expect(fields.every((field) => field.source_chunk_id === "chunk-1")).toBe(true);
     expect(fields.length).toBeLessThanOrEqual(8);
@@ -81,10 +75,7 @@ describe("additional embedding fields", () => {
       job,
       chunkRows: [chunk()],
       insertedImages: [],
-      tableFacts: [
-        tableFact({ action: "Repeat FBC." }),
-        tableFact({ action: "repeat fbc." }),
-      ],
+      tableFacts: [tableFact({ action: "Repeat FBC." }), tableFact({ action: "repeat fbc." })],
     });
 
     const contents = fields.map((field) => field.content.toLowerCase());

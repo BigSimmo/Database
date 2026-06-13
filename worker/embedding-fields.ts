@@ -52,15 +52,17 @@ function sectionPathForChunk(chunk: TableFactChunkRow) {
 
 function chunkContext(job: EmbeddingFieldJob, chunk: TableFactChunkRow, contentLimit = 950) {
   return compactSearchText(
-    clinicalVocabularySearchText([
-      job.documents.title,
-      job.documents.file_name,
-      sectionPathForChunk(chunk),
-      chunk.section_heading,
-      compactSearchText(chunk.content, contentLimit),
-    ]
-      .filter(Boolean)
-      .join(" | ")),
+    clinicalVocabularySearchText(
+      [
+        job.documents.title,
+        job.documents.file_name,
+        sectionPathForChunk(chunk),
+        chunk.section_heading,
+        compactSearchText(chunk.content, contentLimit),
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    ),
     1300,
   );
 }
@@ -87,14 +89,16 @@ function usefulImageCaption(image: TableFactImageRow) {
     Boolean(image.tableTitle || image.tableLabel || image.tableTextSnippet);
   if (!clinical) return "";
   return compactSearchText(
-    clinicalVocabularySearchText([
-      image.tableTitle,
-      image.tableLabel,
-      image.caption,
-      image.tableTextSnippet ? `Table text: ${image.tableTextSnippet}` : "",
-    ]
-      .filter(Boolean)
-      .join(" | ")),
+    clinicalVocabularySearchText(
+      [
+        image.tableTitle,
+        image.tableLabel,
+        image.caption,
+        image.tableTextSnippet ? `Table text: ${image.tableTextSnippet}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    ),
     900,
   );
 }
@@ -102,9 +106,9 @@ function usefulImageCaption(image: TableFactImageRow) {
 function tableFactText(fact: TableFactInsert) {
   return compactSearchText(
     clinicalVocabularySearchText(
-    [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
-      .filter(Boolean)
-      .join(" | "),
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+        .filter(Boolean)
+        .join(" | "),
     ),
     900,
   );
@@ -160,18 +164,28 @@ export function buildAdditionalEmbeddingFieldInputs(args: {
 
     const actionText = extractClinicalSentences(chunk.content, actionPattern);
     if (actionText) {
-      addField(chunk, "clinical_action", `Clinical action: ${chunkContext(args.job, { ...chunk, content: actionText }, 650)}`, {
-        source: "chunk_action_sentence",
-        page_number: chunk.page_number,
-      });
+      addField(
+        chunk,
+        "clinical_action",
+        `Clinical action: ${chunkContext(args.job, { ...chunk, content: actionText }, 650)}`,
+        {
+          source: "chunk_action_sentence",
+          page_number: chunk.page_number,
+        },
+      );
     }
 
     const thresholdText = extractClinicalSentences(chunk.content, thresholdPattern);
     if (thresholdText) {
-      addField(chunk, "threshold_fact", `Threshold fact: ${chunkContext(args.job, { ...chunk, content: thresholdText }, 650)}`, {
-        source: "chunk_threshold_sentence",
-        page_number: chunk.page_number,
-      });
+      addField(
+        chunk,
+        "threshold_fact",
+        `Threshold fact: ${chunkContext(args.job, { ...chunk, content: thresholdText }, 650)}`,
+        {
+          source: "chunk_threshold_sentence",
+          page_number: chunk.page_number,
+        },
+      );
     }
   }
 

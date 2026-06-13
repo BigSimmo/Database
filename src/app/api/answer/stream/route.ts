@@ -108,7 +108,9 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
             });
             return;
           }
-          const singleDocumentScope = Boolean(body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0);
+          const singleDocumentScope = Boolean(
+            body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
+          );
           const answer = isDemoMode()
             ? (() => {
                 const demo = demoAnswer(body.query, body.documentId, body.documentIds);
@@ -122,7 +124,8 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
                   smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
                   smartApiPlan: buildSmartRagApiPlan({
                     query: answerFocusQuery,
-                    queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
+                    queryClass:
+                      queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
                     results: sources,
                     routeMode: demo.routingMode,
                     retrievalStrategy: "hybrid",

@@ -157,7 +157,11 @@ export async function POST(request: Request) {
         if (updateError) throw new Error(updateError.message);
         results.push({ documentId: document.id, updated: true });
       } catch (error) {
-        results.push({ documentId: document.id, updated: false, error: error instanceof Error ? error.message : "Bulk edit failed." });
+        results.push({
+          documentId: document.id,
+          updated: false,
+          error: error instanceof Error ? error.message : "Bulk edit failed.",
+        });
       }
     }
 
@@ -189,7 +193,10 @@ export async function POST(request: Request) {
         .from("document_labels")
         .delete()
         .eq("owner_id", user.id)
-        .in("document_id", documents.map((document) => document.id))
+        .in(
+          "document_id",
+          documents.map((document) => document.id),
+        )
         .eq("label", normalized.label)
         .eq("label_type", normalized.label_type);
       if (removeError) throw new Error(removeError.message);

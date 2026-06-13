@@ -16,11 +16,11 @@ type Args = {
 type SimpleSupabaseReader = {
   from: (table: string) => {
     select: (columns: string) => {
-      eq: (column: string, value: unknown) => {
-        range: (
-          from: number,
-          to: number,
-        ) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+      eq: (
+        column: string,
+        value: unknown,
+      ) => {
+        range: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
       };
     };
   };
@@ -79,7 +79,9 @@ function hashText(value: string) {
 }
 
 function compactSearchText(value: unknown, limit = 900) {
-  const clean = String(value ?? "").replace(/\s+/g, " ").trim();
+  const clean = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   return clean.length <= limit ? clean : clean.slice(0, limit).trim();
 }
 
@@ -97,7 +99,8 @@ function chunkSectionPath(chunk: Record<string, unknown>) {
   if (fromMetadata.length) return fromMetadata;
   const heading = String(chunk.section_heading ?? "").trim();
   if (heading) return [heading];
-  const pageNumber = chunk.page_number === null || chunk.page_number === undefined ? "unknown" : String(chunk.page_number);
+  const pageNumber =
+    chunk.page_number === null || chunk.page_number === undefined ? "unknown" : String(chunk.page_number);
   return [`Page ${pageNumber}`];
 }
 
@@ -114,8 +117,10 @@ function fallbackGeneratedLabel(document: Record<string, unknown>) {
   const text = `${document.title ?? ""} ${document.file_name ?? ""}`.toLowerCase();
   const title = compactSearchText(document.title ?? document.file_name, 64);
   if (/clozapine/.test(text)) return { label: "clozapine", label_type: "medication", confidence: 0.86 };
-  if (/alcohol/.test(text) && /withdrawal/.test(text)) return { label: "alcohol withdrawal", label_type: "topic", confidence: 0.78 };
-  if (/alcohol/.test(text) && /use\s*disorder/.test(text)) return { label: "alcohol use disorder", label_type: "topic", confidence: 0.78 };
+  if (/alcohol/.test(text) && /withdrawal/.test(text))
+    return { label: "alcohol withdrawal", label_type: "topic", confidence: 0.78 };
+  if (/alcohol/.test(text) && /use\s*disorder/.test(text))
+    return { label: "alcohol use disorder", label_type: "topic", confidence: 0.78 };
   if (/amfetamine|amphetamine|methamphetamine/.test(text)) {
     return { label: "methamphetamine use disorder", label_type: "topic", confidence: 0.78 };
   }
@@ -125,7 +130,8 @@ function fallbackGeneratedLabel(document: Record<string, unknown>) {
   if (/home\s*visit/.test(text)) return { label: "community home visit", label_type: "workflow", confidence: 0.7 };
   if (/discharge/.test(text)) return { label: "discharge planning", label_type: "workflow", confidence: 0.7 };
   if (/illegal|substance/.test(text)) return { label: "substance use risk", label_type: "risk", confidence: 0.68 };
-  if (/\bid\s*pts|identification/.test(text)) return { label: "patient identification", label_type: "workflow", confidence: 0.68 };
+  if (/\bid\s*pts|identification/.test(text))
+    return { label: "patient identification", label_type: "workflow", confidence: 0.68 };
   if (/nocc/.test(text)) return { label: "nocc outcome measures", label_type: "topic", confidence: 0.75 };
   if (/mhat|mhct|treatment\s*team/.test(text)) {
     return { label: "treatment team process", label_type: "workflow", confidence: 0.7 };
@@ -133,15 +139,14 @@ function fallbackGeneratedLabel(document: Record<string, unknown>) {
   return title ? { label: title, label_type: "topic", confidence: 0.58 } : null;
 }
 
-async function loadRows<T>(
-  supabase: SimpleSupabaseReader,
-  table: string,
-  select: string,
-  documentId: string,
-) {
+async function loadRows<T>(supabase: SimpleSupabaseReader, table: string, select: string, documentId: string) {
   const rows: T[] = [];
   for (let start = 0; ; start += 1000) {
-    const { data, error } = await supabase.from(table).select(select).eq("document_id", documentId).range(start, start + 999);
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .eq("document_id", documentId)
+      .range(start, start + 999);
     if (error) throw new Error(error.message);
     rows.push(...((data ?? []) as T[]));
     if (!data || data.length < 1000) break;
@@ -157,7 +162,9 @@ async function repairChunkIndexingMetadata(args: {
 }) {
   const writable = args.supabase as {
     from: (table: string) => {
-      update: (row: Record<string, unknown>) => { eq: (column: string, value: unknown) => PromiseLike<{ error: { message: string } | null }> };
+      update: (row: Record<string, unknown>) => {
+        eq: (column: string, value: unknown) => PromiseLike<{ error: { message: string } | null }>;
+      };
     };
   };
   const documentMetadata = metadataRecord(args.document.metadata);
@@ -201,8 +208,14 @@ async function loadDocumentSummary(args: { supabase: unknown; documentId: string
   const readable = args.supabase as {
     from: (table: string) => {
       select: (columns: string) => {
-        eq: (column: string, value: unknown) => {
-          maybeSingle: () => PromiseLike<{ data: { summary?: string | null } | null; error: { message: string } | null }>;
+        eq: (
+          column: string,
+          value: unknown,
+        ) => {
+          maybeSingle: () => PromiseLike<{
+            data: { summary?: string | null } | null;
+            error: { message: string } | null;
+          }>;
         };
       };
     };
@@ -228,7 +241,10 @@ async function upsertDocumentLevelEmbeddingFields(args: {
   const writable = args.supabase as {
     from: (table: string) => {
       delete: () => {
-        eq: (column: string, value: unknown) => {
+        eq: (
+          column: string,
+          value: unknown,
+        ) => {
           in: (column: string, values: unknown[]) => PromiseLike<{ error: { message: string } | null }>;
         };
       };
@@ -276,8 +292,14 @@ async function ensureGeneratedFallbackLabel(args: {
 }) {
   const client = args.supabase as {
     from: (table: string) => {
-      select: (columns: string, options?: Record<string, unknown>) => {
-        eq: (column: string, value: unknown) => {
+      select: (
+        columns: string,
+        options?: Record<string, unknown>,
+      ) => {
+        eq: (
+          column: string,
+          value: unknown,
+        ) => {
           eq: (
             column: string,
             value: unknown,
@@ -315,8 +337,14 @@ async function ensureGeneratedFallbackLabel(args: {
 async function countRows(args: { supabase: unknown; table: string; documentId: string }) {
   const readable = args.supabase as {
     from: (table: string) => {
-      select: (columns: string, options?: Record<string, unknown>) => {
-        eq: (column: string, value: unknown) => PromiseLike<{ count?: number | null; error: { message: string } | null }>;
+      select: (
+        columns: string,
+        options?: Record<string, unknown>,
+      ) => {
+        eq: (
+          column: string,
+          value: unknown,
+        ) => PromiseLike<{ count?: number | null; error: { message: string } | null }>;
       };
     };
   };
@@ -429,14 +457,13 @@ async function main() {
     { upsertDocumentEnrichment, ragEnrichmentVersion },
     { upsertDocumentDeepMemory, ragDeepMemoryVersion },
     { embedTexts },
-  ] =
-    await Promise.all([
-      import("@/lib/env"),
-      import("@/lib/supabase/admin"),
-      import("@/lib/document-enrichment"),
-      import("@/lib/deep-memory"),
-      import("@/lib/openai"),
-    ]);
+  ] = await Promise.all([
+    import("@/lib/env"),
+    import("@/lib/supabase/admin"),
+    import("@/lib/document-enrichment"),
+    import("@/lib/deep-memory"),
+    import("@/lib/openai"),
+  ]);
   requireServerEnv();
   requireOpenAIEnv();
   const supabase = createAdminClient();
@@ -455,7 +482,8 @@ async function main() {
   const writeEnabled = args.write && args.confirm;
   console.log(`Smart index backfill ${writeEnabled ? "WRITE" : "DRY-RUN"} documents=${documents?.length ?? 0}`);
   if (args.write && !args.confirm) console.log("WRITE requested without --confirm; staying in dry-run mode.");
-  if (args.metadataOnly) console.log("Metadata-only mode: repairing chunk metadata, document-level fields, labels, and quality rows.");
+  if (args.metadataOnly)
+    console.log("Metadata-only mode: repairing chunk metadata, document-level fields, labels, and quality rows.");
 
   for (const document of documents ?? []) {
     const [chunks, images] = await Promise.all([

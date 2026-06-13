@@ -118,28 +118,13 @@ async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[])
       documentIds,
     ),
     loadRowsForDocuments(supabase, "document_table_facts", "document_id,metadata", documentIds),
-    loadRowsForDocuments(
-      supabase,
-      "document_embedding_fields",
-      "document_id,metadata",
-      documentIds,
-    ),
-    loadRowsForDocuments(
-      supabase,
-      "document_index_quality",
-      "document_id,quality_score,issues",
-      documentIds,
-    ),
+    loadRowsForDocuments(supabase, "document_embedding_fields", "document_id,metadata", documentIds),
+    loadRowsForDocuments(supabase, "document_index_quality", "document_id,quality_score,issues", documentIds),
   ]);
   let indexUnits: MetadataRow[] = [];
   const missingSchema: string[] = [];
   try {
-    indexUnits = await loadRowsForDocuments(
-      supabase,
-      "document_index_units",
-      "document_id,metadata",
-      documentIds,
-    );
+    indexUnits = await loadRowsForDocuments(supabase, "document_index_units", "document_id,metadata", documentIds);
   } catch (error) {
     const message = missingSchemaMessage(error instanceof Error ? error : null);
     if (!message) throw error;

@@ -50,7 +50,10 @@ function looksLikeMetadataNoise(line: string) {
 }
 
 function normalizeRepeatedLine(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function looksLikeRepeatingBoilerplate(line: string) {
@@ -126,7 +129,9 @@ function headingLevel(heading: string | null, sectionPath: string[]) {
   if (!heading) return sectionPath.length > 0 ? Math.min(sectionPath.length, 6) : null;
   const numbered = heading.match(/^(\d+(?:\.\d+){0,5})\b/);
   if (numbered) return Math.min(numbered[1].split(".").length, 6);
-  return sectionPath.includes(heading) ? Math.max(1, sectionPath.indexOf(heading) + 1) : Math.max(1, sectionPath.length);
+  return sectionPath.includes(heading)
+    ? Math.max(1, sectionPath.indexOf(heading) + 1)
+    : Math.max(1, sectionPath.length);
 }
 
 function imageMatchScore(lookupText: string, sourceText: string) {
@@ -261,7 +266,9 @@ function buildPageImageContext(pageImages: NonNullable<ChunkInput["images"]>) {
   const selectedImages = pageImages.slice(0, maxImageContextItemsPerPage).map(buildImageTag);
   const omitted = pageImages.length - selectedImages.length;
   if (omitted > 0) {
-    selectedImages.push(`[[IMAGE_DATA_OMITTED]] ${omitted} additional image/table blocks on this page. [[/IMAGE_DATA_OMITTED]]`);
+    selectedImages.push(
+      `[[IMAGE_DATA_OMITTED]] ${omitted} additional image/table blocks on this page. [[/IMAGE_DATA_OMITTED]]`,
+    );
   }
   return selectedImages.join("\n");
 }

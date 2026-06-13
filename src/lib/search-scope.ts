@@ -10,9 +10,18 @@ export const searchScopeFiltersSchema = z
     medications: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     topics: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     documentTypes: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
-    sourceStatuses: z.array(z.enum(["current", "review_due", "outdated", "unknown"])).max(4).optional(),
-    validationStatuses: z.array(z.enum(["unverified", "locally_reviewed", "approved"])).max(3).optional(),
-    extractionQualities: z.array(z.enum(["good", "partial", "poor", "unknown"])).max(4).optional(),
+    sourceStatuses: z
+      .array(z.enum(["current", "review_due", "outdated", "unknown"]))
+      .max(4)
+      .optional(),
+    validationStatuses: z
+      .array(z.enum(["unverified", "locally_reviewed", "approved"]))
+      .max(3)
+      .optional(),
+    extractionQualities: z
+      .array(z.enum(["good", "partial", "poor", "unknown"]))
+      .max(4)
+      .optional(),
     locality: z.enum(["local", "non_local"]).optional(),
     importBatchIds: z.array(z.string().uuid()).max(25).optional(),
     collections: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
@@ -118,7 +127,9 @@ export async function resolveSearchScope(args: {
       activeFilterCount,
       matchedDocumentCount: explicitIds.length || null,
       warnings,
-      summary: explicitIds.length ? `${explicitIds.length} selected document${explicitIds.length === 1 ? "" : "s"}` : "All documents",
+      summary: explicitIds.length
+        ? `${explicitIds.length} selected document${explicitIds.length === 1 ? "" : "s"}`
+        : "All documents",
     };
   }
 
@@ -141,14 +152,23 @@ export async function resolveSearchScope(args: {
     if (page.length < pageSize || documentRows.length >= maxResolvedDocuments) break;
   }
   if (documentRows.length >= maxResolvedDocuments) {
-    warnings.push(`Scope resolution read the first ${maxResolvedDocuments} indexed documents; narrow the filters if expected documents are missing.`);
+    warnings.push(
+      `Scope resolution read the first ${maxResolvedDocuments} indexed documents; narrow the filters if expected documents are missing.`,
+    );
   }
 
   const rows = documentRows.filter((row) => metadataMatches(row, filters));
   const candidateIds = rows.map((row) => row.id);
   if (candidateIds.length === 0) {
     warnings.push("No indexed documents matched the selected filters.");
-    return { documentIds: [], filters, activeFilterCount, matchedDocumentCount: 0, warnings, summary: "No matching documents" };
+    return {
+      documentIds: [],
+      filters,
+      activeFilterCount,
+      matchedDocumentCount: 0,
+      warnings,
+      summary: "No matching documents",
+    };
   }
 
   const needsLabels = hasValues(filters.medications) || hasValues(filters.topics) || hasValues(filters.documentTypes);
@@ -176,7 +196,8 @@ export async function resolveSearchScope(args: {
   });
 
   if (resolvedIds.length === 0) warnings.push("No indexed documents matched the selected label filters.");
-  if (resolvedIds.length > 100) warnings.push(`${resolvedIds.length} documents match the selected scope; answers may be broad.`);
+  if (resolvedIds.length > 100)
+    warnings.push(`${resolvedIds.length} documents match the selected scope; answers may be broad.`);
 
   return {
     documentIds: resolvedIds,

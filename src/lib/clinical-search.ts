@@ -489,7 +489,9 @@ function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass
         Boolean(image.tableRows?.length) ||
         Boolean(image.tableColumns?.length) ||
         Boolean(image.accessibleTableMarkdown) ||
-        /\b(?:table|threshold|dose|monitor|criteria)\b/i.test(`${image.tableTitle ?? ""} ${image.tableTextSnippet ?? ""}`),
+        /\b(?:table|threshold|dose|monitor|criteria)\b/i.test(
+          `${image.tableTitle ?? ""} ${image.tableTextSnippet ?? ""}`,
+        ),
     )
   ) {
     score += 0.035;
@@ -511,10 +513,13 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
 
 export function hasDoseEvidenceSupport(result: SearchResult) {
   const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
-    .map((fact) => `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`)
-    .join(" ")} ${(result.memory_cards ?? [])
-    .map((card) => `${card.title} ${card.content}`)
-    .join(" ")} ${(result.images ?? [])
+    .map(
+      (fact) =>
+        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
+    )
+    .join(" ")} ${(result.memory_cards ?? []).map((card) => `${card.title} ${card.content}`).join(" ")} ${(
+    result.images ?? []
+  )
     .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
     .join(" ")}`.toLowerCase();
   return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
@@ -559,9 +564,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   const comparisonIntent = comparisonPattern.test(normalizedQuery);
   const explicitDocumentLookupIntent = explicitDocumentLookupPattern.test(normalizedQuery);
   const documentTitleIntent =
-    titleTerms.length > 0 ||
-    documentIncludePattern.test(normalizedQuery) ||
-    explicitDocumentLookupIntent;
+    titleTerms.length > 0 || documentIncludePattern.test(normalizedQuery) || explicitDocumentLookupIntent;
   const freshnessNeed = freshnessSignalPattern.test(normalizedQuery);
   const queryClass = queryClassFromSignals({
     normalizedQuery,
@@ -674,7 +677,8 @@ function sectionMatchBoost(query: string, result: SearchResult) {
     .filter((token) => token.length > 2);
   const matches = sectionTokens.filter((token) => loweredQuery.includes(token));
   const exactSectionPhrase =
-    sectionTokens.length >= 2 && normalizedClinicalSearchTokens(query).join(" ").includes(sectionTokens.slice(0, 5).join(" "));
+    sectionTokens.length >= 2 &&
+    normalizedClinicalSearchTokens(query).join(" ").includes(sectionTokens.slice(0, 5).join(" "));
   return Math.min(0.15, matches.length * 0.03 + (exactSectionPhrase ? 0.045 : 0));
 }
 
@@ -771,7 +775,9 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const queryClass = analysis.queryClass;
   const normalizedTokens = normalizedClinicalQueryTokens(query);
   const tableFactText = (result.table_facts ?? [])
-    .map((fact) => [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "))
+    .map((fact) =>
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "),
+    )
     .join(" ");
   const sectionPathText = result.section_path?.join(" ") ?? "";
   const haystack =
@@ -880,7 +886,10 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     if (unit.extraction_mode === "model_heavy") score += 0.025;
     if (unit.unit_type === "askable_question") score += 0.07;
     if (unit.unit_type === "clinical_fact") score += 0.055;
-    if (unit.unit_type === "table_fact" && (queryClass === "table_threshold" || queryClass === "medication_dose_risk")) {
+    if (
+      unit.unit_type === "table_fact" &&
+      (queryClass === "table_threshold" || queryClass === "medication_dose_risk")
+    ) {
       score += 0.09;
     }
     if (unit.unit_type === "section_summary" && (queryClass === "document_lookup" || queryClass === "broad_summary")) {

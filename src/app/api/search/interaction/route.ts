@@ -18,31 +18,33 @@ export async function POST(request: Request) {
   try {
     const body = interactionSchema.parse(await request.json());
     const normalizedQuery = body.query.toLowerCase().replace(/\s+/g, " ").trim();
-    await createAdminClient().from("rag_query_misses").insert({
-      owner_id: null,
-      query: body.query,
-      normalized_query: normalizedQuery,
-      query_class: body.queryClass ?? null,
-      clicked_document_id: body.documentId,
-      clicked_chunk_id: body.chunkId ?? null,
-      top_files: body.fileName ? [body.fileName] : [],
-      top_chunk_ids: body.chunkId ? [body.chunkId] : [],
-      miss_reason: "clicked_result",
-      candidate_aliases: normalizedClinicalSearchTokens(body.query).slice(0, 10),
-      candidate_labels: body.title
-        ? [
-            {
-              label: body.title,
-              label_type: "document_type",
-              document_id: body.documentId,
-              confidence: 0.6,
-            },
-          ]
-        : [],
-      metadata: {
-        interaction: "source_open",
-      },
-    });
+    await createAdminClient()
+      .from("rag_query_misses")
+      .insert({
+        owner_id: null,
+        query: body.query,
+        normalized_query: normalizedQuery,
+        query_class: body.queryClass ?? null,
+        clicked_document_id: body.documentId,
+        clicked_chunk_id: body.chunkId ?? null,
+        top_files: body.fileName ? [body.fileName] : [],
+        top_chunk_ids: body.chunkId ? [body.chunkId] : [],
+        miss_reason: "clicked_result",
+        candidate_aliases: normalizedClinicalSearchTokens(body.query).slice(0, 10),
+        candidate_labels: body.title
+          ? [
+              {
+                label: body.title,
+                label_type: "document_type",
+                document_id: body.documentId,
+                confidence: 0.6,
+              },
+            ]
+          : [],
+        metadata: {
+          interaction: "source_open",
+        },
+      });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });

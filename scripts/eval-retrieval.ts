@@ -168,7 +168,9 @@ function resultContentText(result: SearchResult) {
     )
     .join(" ");
   const imageText = (result.images ?? [])
-    .map((image) => [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet].filter(Boolean).join(" "))
+    .map((image) =>
+      [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet].filter(Boolean).join(" "),
+    )
     .join(" ");
   return normalized(
     [
@@ -193,11 +195,12 @@ function expectedDocumentHits(expectedSubstrings: string[], results: SearchResul
   return { hits, missing: expectedSubstrings.filter((expected) => !hits.includes(expected)) };
 }
 
-function expectedContentHits(expectedTerms: GoldenRetrievalCase["expectedContentTerms"], results: SearchResult[], limit: number) {
-  const topContentText = results
-    .slice(0, limit)
-    .map(resultContentText)
-    .join(" ");
+function expectedContentHits(
+  expectedTerms: GoldenRetrievalCase["expectedContentTerms"],
+  results: SearchResult[],
+  limit: number,
+) {
+  const topContentText = results.slice(0, limit).map(resultContentText).join(" ");
   const hits = expectedTerms.filter((expectation) =>
     contentExpectationAlternatives(expectation).some((term) => textContainsClinicalTerm(topContentText, term)),
   );

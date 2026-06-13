@@ -160,7 +160,8 @@ function groupedMessage(warning: SourceGovernanceWarning, count: number) {
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} partial extraction quality.`;
   if (warning.code === "low_index_quality")
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} low indexing quality.`;
-  if (warning.code === "weak_table_extraction") return `${plural(count, "table evidence item")} reviewed as administrative, unrelated, or poor extraction.`;
+  if (warning.code === "weak_table_extraction")
+    return `${plural(count, "table evidence item")} reviewed as administrative, unrelated, or poor extraction.`;
   return warning.message;
 }
 

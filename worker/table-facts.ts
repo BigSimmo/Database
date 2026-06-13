@@ -59,16 +59,14 @@ function compactSearchText(value: unknown, limit = 900) {
 
 function normalizedTerms(value: string, limit = 18) {
   return Array.from(
-    new Set(
-      [
-        ...value
-          .toLowerCase()
-          .split(/[^a-z0-9]+/)
-          .map((term) => term.trim())
-          .filter((term) => term.length >= 2 && !["the", "and", "for", "with", "from", "that"].includes(term)),
-        ...clinicalVocabularyTerms(value, limit),
-      ],
-    ),
+    new Set([
+      ...value
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 2 && !["the", "and", "for", "with", "from", "that"].includes(term)),
+      ...clinicalVocabularyTerms(value, limit),
+    ]),
   ).slice(0, limit);
 }
 

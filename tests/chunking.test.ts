@@ -143,13 +143,15 @@ describe("section-aware chunking groundwork", () => {
       {
         documentId: "doc-1",
         pageNumber: 1,
-        pageText: "Mental Health Guideline\n\nLithium Monitoring\n\nCheck renal function.\n\nPrinted uncontrolled document",
+        pageText:
+          "Mental Health Guideline\n\nLithium Monitoring\n\nCheck renal function.\n\nPrinted uncontrolled document",
         metadata: {},
       },
       {
         documentId: "doc-1",
         pageNumber: 2,
-        pageText: "Mental Health Guideline\n\nReview lithium levels after dose changes.\n\nPrinted uncontrolled document",
+        pageText:
+          "Mental Health Guideline\n\nReview lithium levels after dose changes.\n\nPrinted uncontrolled document",
         metadata: {},
       },
     ]);

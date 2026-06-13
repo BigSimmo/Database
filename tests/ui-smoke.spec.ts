@@ -736,7 +736,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await waitForDemoDashboardReady(page);
 
       await page
-        .getByRole("button", { name: "Use sample question: What clozapine monitoring items are shown in the table image?" })
+        .getByRole("button", {
+          name: "Use sample question: What clozapine monitoring items are shown in the table image?",
+        })
         .click();
       await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 

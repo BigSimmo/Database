@@ -164,7 +164,7 @@ function buildMatchExplanation(query: string, result: SearchResult) {
   const contentText = result.content.toLowerCase();
   const tableHit = Boolean(
     result.table_facts?.length ||
-      result.images?.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop"),
+    result.images?.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop"),
   );
   const titleHit = Array.from(queryTerms).some((term) => titleText.includes(term));
   const sectionHit = Array.from(queryTerms).some((term) => sectionText.includes(term));
@@ -282,8 +282,10 @@ function buildSearchFacets(results: SearchResult[]) {
     sections: facetCounts(results.map((result) => result.section_heading)),
     labels: facetCounts(results.flatMap((result) => result.document_labels?.map((label) => label.label) ?? [])),
     documentTypes: facetCounts(
-      results.flatMap((result) =>
-        result.document_labels?.filter((label) => label.label_type === "document_type").map((label) => label.label) ?? [],
+      results.flatMap(
+        (result) =>
+          result.document_labels?.filter((label) => label.label_type === "document_type").map((label) => label.label) ??
+          [],
       ),
     ),
     evidence: [
@@ -438,7 +440,8 @@ async function buildScopedSearchPayload(
   ownerId: string,
 ) {
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
-  const effectiveQueryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
+  const effectiveQueryClass =
+    queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
   const scope = await resolveSearchScope({
     supabase,
     ownerId,
@@ -619,7 +622,11 @@ export async function POST(request: Request) {
       const relevance = buildEvidenceRelevance(searchFocusQuery, results);
       const documentMatches =
         body.mode === "documents"
-          ? annotateDocumentMatches(searchFocusQuery, buildDocumentMatchesFromResults(results, body.documentLimit), results)
+          ? annotateDocumentMatches(
+              searchFocusQuery,
+              buildDocumentMatchesFromResults(results, body.documentLimit),
+              results,
+            )
           : [];
       return NextResponse.json({
         results: compactSearchResults(searchFocusQuery, results),

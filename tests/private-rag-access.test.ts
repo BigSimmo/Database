@@ -227,8 +227,8 @@ describe("private RAG API access", () => {
       expect.objectContaining({ ownerId, query: "clozapine monitoring" }),
     );
     expect(
-      mocks.supabase.inserts.some(({ payload: insertPayload }) =>
-        isRecord(insertPayload) && insertPayload.owner_id === ownerId,
+      mocks.supabase.inserts.some(
+        ({ payload: insertPayload }) => isRecord(insertPayload) && insertPayload.owner_id === ownerId,
       ),
     ).toBe(true);
   });

@@ -393,10 +393,9 @@ function addQualityIssue(
   });
 }
 
-export function reviewDocumentTagQuality<T extends ClinicalTagSource & { id?: string; title?: string; file_name?: string }>(
-  documents: T[],
-  options: { lowConfidenceThreshold?: number; overusedThreshold?: number } = {},
-) {
+export function reviewDocumentTagQuality<
+  T extends ClinicalTagSource & { id?: string; title?: string; file_name?: string },
+>(documents: T[], options: { lowConfidenceThreshold?: number; overusedThreshold?: number } = {}) {
   const lowConfidenceThreshold = options.lowConfidenceThreshold ?? 0.5;
   const overusedThreshold = options.overusedThreshold ?? Math.max(4, Math.ceil(documents.length * 0.25));
   const issues: SmartDocumentTagQualityIssue[] = [];
@@ -544,11 +543,16 @@ export function buildSmartDocumentTagFacets<T extends ClinicalTagSource>(
     .filter((group) => group.facets.length > 0);
 }
 
-export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(documents: T[], selectedTagKeys: string[]) {
+export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(
+  documents: T[],
+  selectedTagKeys: string[],
+) {
   if (selectedTagKeys.length === 0) return documents;
   const selected = new Set(selectedTagKeys);
   return documents.filter((document) => {
-    const tagKeys = new Set(buildSmartDocumentTags(document.labels, { includeManualGroup: false }).map((tag) => tag.key));
+    const tagKeys = new Set(
+      buildSmartDocumentTags(document.labels, { includeManualGroup: false }).map((tag) => tag.key),
+    );
     return [...selected].every((key) => tagKeys.has(key));
   });
 }

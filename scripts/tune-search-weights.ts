@@ -64,7 +64,9 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const cases = selectRagEvalCases({ limit: parseLimit(process.argv.slice(2)) }).filter((testCase) => testCase.supported);
+  const cases = selectRagEvalCases({ limit: parseLimit(process.argv.slice(2)) }).filter(
+    (testCase) => testCase.supported,
+  );
   const searches: SearchForTuning[] = [];
   for (const testCase of cases) {
     const search = await searchChunksWithTelemetry({
@@ -83,7 +85,9 @@ async function main() {
       const ranked = [...item.results].sort(
         (a, b) => weightedScore(item.testCase.question, b, weights) - weightedScore(item.testCase.question, a, weights),
       );
-      score += ranked.slice(0, 5).reduce((sum, result, rank) => sum + expectedHitScore(item.testCase.expectedFiles, result, rank), 0);
+      score += ranked
+        .slice(0, 5)
+        .reduce((sum, result, rank) => sum + expectedHitScore(item.testCase.expectedFiles, result, rank), 0);
       if (ranked.slice(0, 3).some((result) => item.testCase.expectedFiles.includes(result.file_name))) top3Hits += 1;
     }
     return {

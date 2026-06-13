@@ -45,7 +45,9 @@ export type IndexUnitChunk = {
 };
 
 function compact(value: unknown, limit = 900) {
-  const compacted = String(value ?? "").replace(/\s+/g, " ").trim();
+  const compacted = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!compacted) return "";
   return compacted.length <= limit ? compacted : `${compacted.slice(0, limit - 3).trim()}...`;
 }
@@ -224,7 +226,8 @@ export function buildDocumentIndexUnitInputs(args: {
         heading_path: section.heading_path,
         title: section.heading,
         content: section.summary,
-        quality_score: section.extraction_quality === "good" ? 0.78 : section.extraction_quality === "partial" ? 0.58 : 0.42,
+        quality_score:
+          section.extraction_quality === "good" ? 0.78 : section.extraction_quality === "partial" ? 0.58 : 0.42,
         extraction_mode: "hybrid",
         metadata: { source: "document_sections", chunk_ids: section.chunk_ids, tags: section.tags },
       }),
@@ -247,13 +250,37 @@ export function buildDocumentIndexUnitInputs(args: {
   }
 
   for (const item of args.modelProfile?.sections ?? []) {
-    add(itemUnit({ document: args.document, chunks: args.chunks, item, unit_type: "section_summary", metadata: { source: "model_sections" } }));
+    add(
+      itemUnit({
+        document: args.document,
+        chunks: args.chunks,
+        item,
+        unit_type: "section_summary",
+        metadata: { source: "model_sections" },
+      }),
+    );
   }
   for (const item of args.modelProfile?.askable_questions ?? []) {
-    add(itemUnit({ document: args.document, chunks: args.chunks, item, unit_type: "askable_question", metadata: { source: "model_askable_questions" } }));
+    add(
+      itemUnit({
+        document: args.document,
+        chunks: args.chunks,
+        item,
+        unit_type: "askable_question",
+        metadata: { source: "model_askable_questions" },
+      }),
+    );
   }
   for (const item of args.modelProfile?.clinical_facts ?? []) {
-    add(itemUnit({ document: args.document, chunks: args.chunks, item, unit_type: "clinical_fact", metadata: { source: "model_clinical_facts" } }));
+    add(
+      itemUnit({
+        document: args.document,
+        chunks: args.chunks,
+        item,
+        unit_type: "clinical_fact",
+        metadata: { source: "model_clinical_facts" },
+      }),
+    );
   }
   for (const item of args.modelProfile?.table_facts ?? []) {
     add(tableUnit({ document: args.document, chunks: args.chunks, item }));

@@ -109,7 +109,10 @@ export function DocumentTagCloud({
   grouped = false,
 }: DocumentTagCloudProps) {
   const tags = useMemo(() => buildSmartDocumentTags(labels, { query, includeManualGroup: true }), [labels, query]);
-  const groupedTags = useMemo(() => groupSmartDocumentTags(labels, { query, includeManualGroup: true }), [labels, query]);
+  const groupedTags = useMemo(
+    () => groupSmartDocumentTags(labels, { query, includeManualGroup: true }),
+    [labels, query],
+  );
   const selected = useMemo(() => new Set(selectedTagKeys ?? []), [selectedTagKeys]);
   const [expanded, setExpanded] = useState(false);
   if (tags.length === 0) return null;

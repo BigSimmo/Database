@@ -23,10 +23,9 @@ function argValue(name: string) {
 }
 
 function unique(values: Array<string | null | undefined>, limit = 12) {
-  return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))).slice(
-    0,
-    limit,
-  );
+  return Array.from(
+    new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))),
+  ).slice(0, limit);
 }
 
 async function main() {

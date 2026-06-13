@@ -518,7 +518,14 @@ type IndexedChunkRow = ReturnType<typeof buildChunks>[number] & {
 
 function buildEmbeddingFieldInputs(job: JobRow, chunkRows: IndexedChunkRow[]) {
   const seen = new Set<string>();
-  const fields: Array<{ document_id: string; owner_id: string | null; source_chunk_id: string; field_type: string; content: string; metadata: Record<string, unknown> }> = [];
+  const fields: Array<{
+    document_id: string;
+    owner_id: string | null;
+    source_chunk_id: string;
+    field_type: string;
+    content: string;
+    metadata: Record<string, unknown>;
+  }> = [];
 
   for (const chunk of chunkRows) {
     const sectionPath = chunk.section_path?.length
@@ -564,9 +571,7 @@ function buildIndexQualityPayload(args: {
   const tableImages = args.insertedImages.filter((image) => image.sourceKind === "table_crop");
   const tableImagesWithRows = tableImages.filter((image) => image.tableRows?.length);
   const fingerprints = args.chunks.map((chunk) => hashText(chunk.content));
-  const duplicateChunkRatio = chunkCount
-    ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1)
-    : 0;
+  const duplicateChunkRatio = chunkCount ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1) : 0;
   const avgChunkLength = chunkCount
     ? args.chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunkCount
     : 0;

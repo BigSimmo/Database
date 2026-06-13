@@ -424,7 +424,10 @@ function TableReviewPanel({
             .filter(Boolean)
             .join(" | ");
           return (
-            <div key={fact.id} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
+            <div
+              key={fact.id}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
+            >
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                 Page {fact.page_number ?? "n/a"} · {reviewClass.replaceAll("_", " ")}
               </p>
@@ -1451,7 +1454,9 @@ function DocumentManualTagEditor({
                 ) : (
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[color:var(--text)]">{label.label}</p>
-                    <p className={cn("text-[11px] font-semibold", textMuted)}>{manualLabelTypeLabel(label.label_type)}</p>
+                    <p className={cn("text-[11px] font-semibold", textMuted)}>
+                      {manualLabelTypeLabel(label.label_type)}
+                    </p>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">
@@ -2215,13 +2220,7 @@ export function DocumentViewer({
                     ))}
                 </div>
               )}
-              <DocumentTagCloud
-                labels={document.labels}
-                limit={18}
-                className="mt-4"
-                onTagClick={searchByTag}
-                grouped
-              />
+              <DocumentTagCloud labels={document.labels} limit={18} className="mt-4" onTagClick={searchByTag} grouped />
               <DocumentManualTagEditor
                 document={document}
                 canManage={canUsePrivateApis}

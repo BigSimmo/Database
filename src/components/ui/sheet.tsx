@@ -106,7 +106,10 @@ export function Sheet({
           contentClassName,
         )}
       >
-        <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden" aria-hidden />
+        <div
+          className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden"
+          aria-hidden
+        />
         {title ? (
           <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5">
             <div className="min-w-0">

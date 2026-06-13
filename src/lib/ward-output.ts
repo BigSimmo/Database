@@ -7,7 +7,11 @@ import {
   sourceStatusLabel,
   validationStatusLabel,
 } from "@/lib/source-metadata";
-import { clinicalProseUsefulness, isLowYieldClinicalText, sourceTextForClinicalProse } from "@/lib/source-text-sanitizer";
+import {
+  clinicalProseUsefulness,
+  isLowYieldClinicalText,
+  sourceTextForClinicalProse,
+} from "@/lib/source-text-sanitizer";
 import type { AnswerSectionKind, QuoteCard, RagAnswer, VisualEvidenceCard } from "@/lib/types";
 
 export type ClinicalOutputSectionId =
@@ -237,10 +241,13 @@ function sectionBodyMatchesKind(kind: AnswerSectionKind | undefined, body: strin
     );
   }
   if (kind === "thresholds") return thresholdPattern.test(text);
-  if (kind === "monitoring_timing") return /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood|level|review interval)\b/.test(text);
-  if (kind === "escalation_risk") return /\b(?:risk|escalat|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text);
+  if (kind === "monitoring_timing")
+    return /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood|level|review interval)\b/.test(text);
+  if (kind === "escalation_risk")
+    return /\b(?:risk|escalat|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text);
   if (kind === "documentation") return /\b(?:document|form|record|audit|consent|register|completion)\b/.test(text);
-  if (kind === "required_actions") return /\b(?:action|required|must|arrange|contact|notify|assess|complete|follow up|report)\b/.test(text);
+  if (kind === "required_actions")
+    return /\b(?:action|required|must|arrange|contact|notify|assess|complete|follow up|report)\b/.test(text);
   return true;
 }
 
@@ -564,7 +571,7 @@ function clinicalTableToTextRows(table: ClinicalThresholdTable) {
   const rows = table.rows?.length ? table.rows : parseMarkdownTable(table.markdown);
   if (!rows?.length) return [];
   const hasColumns = Boolean(table.columns?.length);
-  const header = hasColumns ? table.columns ?? [] : rows[0];
+  const header = hasColumns ? (table.columns ?? []) : rows[0];
   const body = hasColumns ? rows : rows.slice(1);
   const visibleBody = body.slice(0, 6);
 

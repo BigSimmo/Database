@@ -19,7 +19,7 @@ Entries are appended as work lands. Format: what changed / why better / consider
 ## D3 — Reduced-motion kill-switch no longer zeroes `transform`
 
 **What:** Removed `transform: none !important` from the global `@media (prefers-reduced-motion: reduce)` rule; it still zeroes animation/transition/scroll-behavior.
-**Why better:** The blanket `transform: none` broke `-translate-y-1/2` optical centering (e.g. input icons) for reduced-motion users — a live a11y defect. Reduced motion should suppress *motion*, not *layout transforms*.
+**Why better:** The blanket `transform: none` broke `-translate-y-1/2` optical centering (e.g. input icons) for reduced-motion users — a live a11y defect. Reduced motion should suppress _motion_, not _layout transforms_.
 **Rejected:** Scoping `transform: none` to only animated elements (fragile allowlist); leaving as-is (keeps the bug).
 **Verification:** Phase 6 reduced-motion emulation pass; visual check that icons stay centered.
 

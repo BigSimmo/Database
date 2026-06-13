@@ -71,8 +71,7 @@ describe("golden retrieval eval helpers", () => {
       },
       results: [
         result({
-          content:
-            "Clozapine table State WBC Neutrophil Outcome Red <3 <1.5. Continue with regular blood tests.",
+          content: "Clozapine table State WBC Neutrophil Outcome Red <3 <1.5. Continue with regular blood tests.",
           images: [
             {
               id: "image-1",

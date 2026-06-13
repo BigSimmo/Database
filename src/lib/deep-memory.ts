@@ -1,9 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
-import {
-  buildDocumentIndexUnitInputs,
-  embeddingTextForDocumentIndexUnit,
-} from "@/lib/document-index-units";
+import { buildDocumentIndexUnitInputs, embeddingTextForDocumentIndexUnit } from "@/lib/document-index-units";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import {
   fallbackModelIndexProfile,
@@ -504,7 +501,11 @@ export async function upsertDocumentDeepMemory(args: {
 
   await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
   await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
-  await args.supabase.from("document_index_units").delete().eq("document_id", args.document.id).then(undefined, () => undefined);
+  await args.supabase
+    .from("document_index_units")
+    .delete()
+    .eq("document_id", args.document.id)
+    .then(undefined, () => undefined);
 
   const { data: insertedSections, error: sectionError } = await args.supabase
     .from("document_sections")
@@ -570,7 +571,10 @@ export async function upsertDocumentDeepMemory(args: {
         },
       }));
     if (aliases.length) {
-      await args.supabase.from("rag_aliases").insert(aliases).then(undefined, () => undefined);
+      await args.supabase
+        .from("rag_aliases")
+        .insert(aliases)
+        .then(undefined, () => undefined);
     }
   }
 

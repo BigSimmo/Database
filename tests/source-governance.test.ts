@@ -84,9 +84,27 @@ describe("source governance warnings", () => {
 
   it("groups repeated document-level warnings into one counted message", () => {
     const grouped = groupSourceGovernanceWarnings([
-      { code: "unverified_source", severity: "warning", message: "One or more supporting sources have not been locally validated.", document_id: "doc-1", title: "A" },
-      { code: "unverified_source", severity: "warning", message: "One or more supporting sources have not been locally validated.", document_id: "doc-2", title: "B" },
-      { code: "non_local_source", severity: "info", message: "One or more supporting sources do not appear to be local WA/Perth guidance.", document_id: "doc-3", title: "C" },
+      {
+        code: "unverified_source",
+        severity: "warning",
+        message: "One or more supporting sources have not been locally validated.",
+        document_id: "doc-1",
+        title: "A",
+      },
+      {
+        code: "unverified_source",
+        severity: "warning",
+        message: "One or more supporting sources have not been locally validated.",
+        document_id: "doc-2",
+        title: "B",
+      },
+      {
+        code: "non_local_source",
+        severity: "info",
+        message: "One or more supporting sources do not appear to be local WA/Perth guidance.",
+        document_id: "doc-3",
+        title: "C",
+      },
     ]);
 
     expect(grouped).toHaveLength(2);

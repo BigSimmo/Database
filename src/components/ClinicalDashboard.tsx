@@ -1037,9 +1037,7 @@ function MasterSearchHeader({
                         {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">
-                          {documentScopeTitle(document)}
-                        </span>
+                        <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
                         <span className="nums block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
                           {documentScopeMeta(document)}
                         </span>
@@ -1457,7 +1455,10 @@ function MasterSearchHeader({
               data-testid="scope-command-popover"
               className="polished-scroll fixed inset-x-0 bottom-0 z-50 max-h-[82dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-3 pb-safe text-[color:var(--text)] shadow-[var(--shadow-elevated)] motion-safe:animate-sheet-up sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:z-40 sm:max-h-[min(70dvh,28rem)] sm:w-[28rem] sm:rounded-xl sm:p-2.5 sm:pb-2.5 sm:backdrop-blur-xl sm:motion-safe:animate-pop-in"
             >
-              <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)] sm:hidden" aria-hidden />
+              <div
+                className="mx-auto mb-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)] sm:hidden"
+                aria-hidden
+              />
               <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
                 <span>Document scope</span>
                 <span className="nums">{scopeSummary}</span>
@@ -2505,9 +2506,7 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
                 <span className={metadataPill}>{row.supportLevel}</span>
               </td>
               <td className="px-3 py-2 align-top text-[color:var(--text)]">{row.citationCount}</td>
-              <td className={cn("max-w-56 px-3 py-2 align-top text-xs leading-5", textMuted)}>
-                {row.sourceStatus}
-              </td>
+              <td className={cn("max-w-56 px-3 py-2 align-top text-xs leading-5", textMuted)}>{row.sourceStatus}</td>
               <td className="min-w-72 px-3 py-2 align-top">
                 <p className="text-[13px] font-semibold text-[color:var(--text)]">{row.bestSourceLabel}</p>
                 <p className={cn("mt-1 line-clamp-3 text-xs leading-5", textMuted)}>
@@ -2646,7 +2645,8 @@ function ClinicalOutputPanel({
   onViewModeChange?: (mode: AnswerViewMode) => void;
   evidenceMapRows?: AnswerEvidenceMapRow[];
 }) {
-  const sections = viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
+  const sections =
+    viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
   const rows = evidenceMapRows ?? buildAnswerEvidenceMap(answer);
   if (sections.length === 0 && (viewMode !== "evidence_map" || rows.length === 0)) return null;
   const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
@@ -2686,9 +2686,7 @@ function ClinicalOutputPanel({
           icon={ListChecks}
           title={title}
           description={description}
-          action={
-            onViewModeChange ? <AnswerViewModeControl value={viewMode} onChange={onViewModeChange} /> : undefined
-          }
+          action={onViewModeChange ? <AnswerViewModeControl value={viewMode} onChange={onViewModeChange} /> : undefined}
           hideDescriptionOnMobile
           compactMobile
         />
@@ -2775,9 +2773,7 @@ function ClinicalOutputPanel({
                       </h3>
                     </div>
                   </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-[10px]")}>
-                    {itemCount}
-                  </span>
+                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-[10px]")}>{itemCount}</span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">
@@ -2976,7 +2972,10 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
       </summary>
       <div className="grid gap-2 border-t border-[color:var(--border)] p-3">
         {visibleSources.map((source) => (
-          <article key={source.id} className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+          <article
+            key={source.id}
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+          >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">{source.title}</p>
@@ -2992,7 +2991,12 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
             </div>
             <MatchExplanationChips source={source} />
             {source.index_unit ? (
-              <p className={cn("mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-1.5 text-xs leading-5", textMuted)}>
+              <p
+                className={cn(
+                  "mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-1.5 text-xs leading-5",
+                  textMuted,
+                )}
+              >
                 <span className="font-semibold text-[color:var(--text)]">
                   {source.index_unit.unit_type.replaceAll("_", " ")}:
                 </span>{" "}
@@ -3919,7 +3923,10 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
                 <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
                 {issue.examples.length || issue.documentTitles.length ? (
                   <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
-                    {[issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "", issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : ""]
+                    {[
+                      issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "",
+                      issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : "",
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
@@ -3981,10 +3988,15 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
       </summary>
       <div className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
         {items.map((item) => (
-          <article key={item.document.id} className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
+          <article
+            key={item.document.id}
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "text-[11px]")}>index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}</span>
+              <span className={cn(metadataPill, "text-[11px]")}>
+                index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
+              </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>

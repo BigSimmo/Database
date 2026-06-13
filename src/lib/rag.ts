@@ -1941,7 +1941,9 @@ async function loadChunksForSignalMatches(args: {
           fieldType: match.fieldType ?? null,
           freshness: normalizeSourceMetadata(document.metadata).document_status,
           extractionQuality: normalizeSourceMetadata(document.metadata).extraction_quality,
-          reasons: [match.reason, match.indexUnit?.unit_type ? `unit:${match.indexUnit.unit_type}` : ""].filter(Boolean),
+          reasons: [match.reason, match.indexUnit?.unit_type ? `unit:${match.indexUnit.unit_type}` : ""].filter(
+            Boolean,
+          ),
         },
         images: [],
       } satisfies SearchResult;

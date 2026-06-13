@@ -147,7 +147,8 @@ export function summarizeFailures(results: SearchEvalResult[]) {
   if (unsupportedHighConfidence > 0) failures.push(`unsupported high-confidence matches ${unsupportedHighConfidence}`);
   if (oversizedPayloads > 0) failures.push(`oversized search payloads ${oversizedPayloads}`);
   if (supported.some((result) => result.failures.length > 0)) failures.push("supported case-level search failure(s)");
-  if (unsupported.some((result) => result.failures.length > 0)) failures.push("unsupported case-level search failure(s)");
+  if (unsupported.some((result) => result.failures.length > 0))
+    failures.push("unsupported case-level search failure(s)");
 
   return failures;
 }

@@ -210,9 +210,7 @@ export function AccessibleTable({
   const { header, body } = normalized;
   const displayCaption = clinicalOnly && caption ? cleanClinicalTableText(caption) : caption;
   const title = dialogTitle || displayCaption || "Clinical table";
-  const table = (
-    <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={compact} />
-  );
+  const table = <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={compact} />;
 
   function openDialog(trigger: HTMLElement) {
     if (!canExpand) return;
@@ -264,7 +262,10 @@ export function AccessibleTable({
             <div className="flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)]">
               <div className="min-w-0">
                 <p className={cn("text-[11px] font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical table</p>
-                <h2 id={`${dialogId}-title`} className="truncate text-base font-semibold text-[color:var(--text-heading)]">
+                <h2
+                  id={`${dialogId}-title`}
+                  className="truncate text-base font-semibold text-[color:var(--text-heading)]"
+                >
                   {title}
                 </h2>
               </div>
@@ -279,13 +280,7 @@ export function AccessibleTable({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <AccessibleTableMarkup
-                caption={displayCaption}
-                header={header}
-                body={body}
-                compact={false}
-                expanded
-              />
+              <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={false} expanded />
             </div>
           </div>
         </div>

@@ -34,9 +34,7 @@ describe("clinical search query normalization", () => {
   it("classifies common RAG query shapes for routing and observability", () => {
     expect(classifyRagQuery("Find the NOCC document").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What should a patient safety plan include?").queryClass).toBe("document_lookup");
-    expect(classifyRagQuery("What forms are required for a patient safety plan?").queryClass).toBe(
-      "document_lookup",
-    );
+    expect(classifyRagQuery("What forms are required for a patient safety plan?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What are NOCC requirements?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What assessment documentation is required?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What ANC threshold should stop clozapine?").queryClass).toBe("table_threshold");
@@ -48,9 +46,9 @@ describe("clinical search query normalization", () => {
       "medication_dose_risk",
     );
     expect(classifyRagQuery("Compare admission and discharge requirements").queryClass).toBe("comparison");
-    expect(classifyRagQuery("Combine community admission steps with discharge documentation requirements.").queryClass).toBe(
-      "comparison",
-    );
+    expect(
+      classifyRagQuery("Combine community admission steps with discharge documentation requirements.").queryClass,
+    ).toBe("comparison");
     expect(classifyRagQuery("Summarize the discharge guidance").queryClass).toBe("broad_summary");
     expect(classifyRagQuery("What is the diabetic ketoacidosis insulin protocol?").queryClass).toBe(
       "unsupported_or_general",
@@ -381,9 +379,7 @@ describe("clinical search query normalization", () => {
     ]);
 
     expect(ranked[0].id).toBe("high-quality");
-    expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(
-      ranked[1].score_explanation?.metadataBoost ?? 0,
-    );
+    expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(ranked[1].score_explanation?.metadataBoost ?? 0);
   });
 
   it("boosts direct current validated table evidence above stale nearby evidence", () => {
@@ -483,9 +479,7 @@ describe("clinical search query normalization", () => {
     ]);
 
     expect(ranked[0].id).toBe("current-direct-table");
-    expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(
-      ranked[1].score_explanation?.metadataBoost ?? 0,
-    );
+    expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(ranked[1].score_explanation?.metadataBoost ?? 0);
   });
 
   it("treats structured table facts as dose and threshold evidence", () => {

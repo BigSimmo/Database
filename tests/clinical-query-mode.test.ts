@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  clinicalModePrompt,
-  queryClassForClinicalMode,
-  queryForClinicalMode,
-} from "../src/lib/clinical-query-mode";
+import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "../src/lib/clinical-query-mode";
 
 describe("clinical query modes", () => {
   it("maps explicit modes to retrieval query classes", () => {

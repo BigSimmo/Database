@@ -82,7 +82,12 @@ export async function POST(request: Request) {
     for (const document of documents) {
       try {
         if (parsed.data.mode === "retry_failed" && document.status !== "failed") {
-          results.push({ documentId: document.id, mode: parsed.data.mode, ok: false, error: "Document is not failed." });
+          results.push({
+            documentId: document.id,
+            mode: parsed.data.mode,
+            ok: false,
+            error: "Document is not failed.",
+          });
           continue;
         }
 

@@ -239,7 +239,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(scopeFilter).toBeFocused();
       await scopeFilter.fill("case-24");
       await expect(scopeContainer.getByText("1 match")).toBeVisible();
-      await expect(scopeContainer.getByRole("button", { name: /responsive-layout-stress-case-24\.pdf/i })).toBeVisible();
+      await expect(
+        scopeContainer.getByRole("button", { name: /responsive-layout-stress-case-24\.pdf/i }),
+      ).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(scopeContainer).toBeHidden();
       await expect(page.getByLabel("Open document scope")).toBeFocused();

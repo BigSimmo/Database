@@ -546,10 +546,7 @@ describe("ward output helpers", () => {
 
     expect(comparison?.tables?.[0]).toMatchObject({
       columns: ["Clinical detail"],
-      rows: [
-        [expect.stringContaining("lithium level")],
-        [expect.stringContaining("Escalate abnormal")],
-      ],
+      rows: [[expect.stringContaining("lithium level")], [expect.stringContaining("Escalate abnormal")]],
     });
     expect(comparison?.tables?.[0].columns).not.toEqual(expect.arrayContaining(["Source", "Support", "Pages"]));
   });

@@ -128,12 +128,7 @@ async function readSearchSchemaStatus(supabase: AdminClient | null) {
     if (!supabase) throw new Error("Supabase admin client is unavailable.");
     const { data, error } = await supabase.rpc("search_schema_health");
     if (error) {
-      return check(
-        "search",
-        label,
-        "needs_setup",
-        `Search health RPC is unavailable or failed: ${error.message}`,
-      );
+      return check("search", label, "needs_setup", `Search health RPC is unavailable or failed: ${error.message}`);
     }
     const health = (data ?? {}) as SearchSchemaHealth;
     const missing = Array.isArray(health.missing) ? health.missing : [];
