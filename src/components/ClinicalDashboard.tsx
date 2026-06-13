@@ -56,7 +56,6 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
-  glassPanel,
   iconTilePremium,
   fieldLabel,
   LoadingPanel,
