@@ -79,7 +79,7 @@ function workflowCheckContexts(workflowsDir) {
   return contexts;
 }
 
-async function requestJson(pathname) {
+async function requestJson(pathname, options = {}) {
   if (!token) {
     throw new Error("GITHUB_TOKEN or GH_TOKEN is required");
   }
@@ -94,6 +94,10 @@ async function requestJson(pathname) {
 
   if (response.status === 404) {
     return null;
+  }
+
+  if (response.status === 403 && options.allowForbidden) {
+    return { forbidden: true };
   }
 
   if (!response.ok) {
@@ -227,9 +231,13 @@ async function main() {
     }
   }
 
-  const protection = await requestJson(`/repos/${ownerRepo}/branches/${defaultBranch}/protection`);
+  const protection = await requestJson(`/repos/${ownerRepo}/branches/${defaultBranch}/protection`, {
+    allowForbidden: true,
+  });
 
-  if (protection) {
+  if (protection?.forbidden) {
+    warn("classic branch protection could not be inspected with this token; relying on rulesets");
+  } else if (protection) {
     if (protection.required_pull_request_reviews) {
       fail("classic branch protection reintroduced manual PR review settings");
     }
