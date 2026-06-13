@@ -42,3 +42,17 @@ Entries are appended as work lands. Format: what changed / why better / consider
 **Why better here:** Decomposition is move-only and changes zero pixels — it's maintainability hygiene. Within one session, spending the largest token/risk budget on an invisible refactor (14 commits × full Playwright verification) trades directly against delivering the visible premium upgrade that is the actual mission. Editing the monolith in place for the targeted sections (guide, scope picker, answer, bottom nav, viewer) reaches the same user-facing result without that churn.
 **Rejected:** Doing the full split first (high risk/cost, no visual payoff this session); a partial split (leaves the file half-migrated — worse than either end state).
 **Verification:** n/a (not performed); tracked in deferred items with a concrete restart point.
+
+## D6 — Reconcile merge-integration regressions on `main` (header compaction)
+
+**Context:** My redesign branch was merged into `main` alongside several parallel branches. One of them (`2fc9cf0` "Refactor database app routing and UI flows") replaced the compact header with a taller command-style header (two-row mobile search form ≈251px), added a duplicate **hidden** query-mode/filters block (merge debris), and did not update the `≤180/185` header-height smoke budget (`8c0996d`, which is in my base). A separate merged branch added a `mobile-section-fab-menu` whose "Search documents" label collided with the documents-mode heading (strict-locator failure at `:778`). All 7 `main` smoke failures traced to these parallel branches, not the redesign (git topology: `2fc9cf0` is not an ancestor of my base `846943d`).
+
+**What (per user decision "reconcile to green, compact header"):**
+
+1. Made the mobile search form single-row again (`grid-cols-[minmax(0,1fr)_auto_auto]`, `whitespace-nowrap` controls) — recovers ~56px; kept the command-style input and the desktop query-mode + filters.
+2. Tightened header rhythm: `space-y-3→2`, `pb-3→2`, mode-bar `p-1.5→1`, unified `sm:py-2.5`. Mobile header back under 180px, sm under 185px.
+3. Removed the duplicate hidden query-mode/filters block (dead `display:none` debris) and the now-orphaned `batches` prop on `MasterSearchHeader` (+ its call-site).
+4. Scoped the `:778` locator to `getByRole("main").getByText("Search documents")` — a test update for the structurally-added FAB menu (logged here, not deleted).
+
+**Why better:** restores the ≤180 budget the project already enforces, keeps the newer command-style features, and clears merge debris. **Rejected:** raising the test budget (would bless an over-tall mobile header); deleting the FAB menu (other branch's feature).
+**Verification:** the 6 header-height tests + the `:778` doc-search test pass on a warm server; typecheck, lint (no warnings), prettier clean; full chromium smoke re-run.
