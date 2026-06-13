@@ -51,6 +51,7 @@ import {
   commandInput,
   evidenceSurface,
   EmptyState,
+  eyebrowText,
   fieldControlPlain,
   fieldControlWithIcon,
   fieldIcon,
@@ -960,16 +961,16 @@ function MasterSearchHeader({
   function renderScopeRows() {
     return (
       <div className="grid gap-3">
-        <section className="min-w-0 rounded-lg border border-white/10 bg-white/5 p-2.5">
+        <section className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-300">Document scope</p>
-            <span className="shrink-0 text-[11px] font-semibold text-slate-400">
+            <p className={eyebrowText}>Document scope</p>
+            <span className="nums shrink-0 text-[11px] font-semibold text-[color:var(--text-soft)]">
               {selectedDocumentIds.length ? `${selectedDocumentIds.length} selected` : `${documents.length} available`}
             </span>
           </div>
           <div className="space-y-2">
             <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
               <input
                 ref={scopeFilterInputRef}
                 value={scopeFilter}
@@ -977,7 +978,7 @@ function MasterSearchHeader({
                 data-testid="document-scope-filter"
                 aria-label="Filter document scope"
                 placeholder="Filter documents by title or file"
-                className="h-10 w-full rounded-lg border border-white/12 bg-white/8 pl-9 pr-3 text-sm font-semibold text-white outline-none transition placeholder:text-slate-400 focus:border-teal-300/50 focus:ring-4 focus:ring-teal-300/15"
+                className="h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
               />
             </label>
             <div className="flex flex-wrap items-center gap-2">
@@ -987,18 +988,18 @@ function MasterSearchHeader({
                 className={cn(
                   shellChip,
                   selectedDocumentIds.length === 0
-                    ? "border-teal-300/40 bg-teal-300/18 text-teal-50"
-                    : "border-white/12 bg-white/6 text-slate-200 hover:bg-white/10",
+                    ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                 )}
               >
                 All documents
               </button>
               {scopeFilter ? (
-                <span className="rounded-md bg-white/8 px-2 py-1 text-[11px] font-semibold text-slate-300">
+                <span className="nums rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
                   {matchingDocuments.length} match{matchingDocuments.length === 1 ? "" : "es"}
                 </span>
               ) : (
-                <span className="rounded-md bg-white/8 px-2 py-1 text-[11px] font-semibold text-slate-300">
+                <span className="rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
                   Recently updated first
                 </span>
               )}
@@ -1006,7 +1007,7 @@ function MasterSearchHeader({
             <div className="max-h-72 overflow-y-auto pr-1 polished-scroll">
               <div className="grid gap-1.5">
                 {requireScopeFilter && visibleScopeDocuments.length === 0 ? (
-                  <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-300">
+                  <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
                     Type to filter {documents.length} documents. Selected documents stay pinned here.
                   </p>
                 ) : null}
@@ -1021,22 +1022,26 @@ function MasterSearchHeader({
                       className={cn(
                         "grid min-h-[44px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
                         selected
-                          ? "border-teal-300/40 bg-teal-300/18 text-teal-50"
-                          : "border-white/10 bg-white/5 text-slate-200 hover:border-white/18 hover:bg-white/9",
+                          ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
+                          : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
                       )}
                     >
                       <span
                         className={cn(
                           "grid h-5 w-5 place-items-center rounded-md border",
-                          selected ? "border-teal-200/50 bg-teal-200/20" : "border-white/18 bg-white/5",
+                          selected
+                            ? "border-[color:var(--primary)]/50 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                            : "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]",
                         )}
                         aria-hidden
                       >
                         {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
-                        <span className="block truncate text-[11px] font-medium text-slate-400">
+                        <span className="block truncate text-sm font-semibold">
+                          {documentScopeTitle(document)}
+                        </span>
+                        <span className="nums block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
                           {documentScopeMeta(document)}
                         </span>
                         <DocumentTagCloud
@@ -1049,7 +1054,7 @@ function MasterSearchHeader({
                         />
                       </span>
                       {selected ? (
-                        <span className="rounded-md bg-teal-200/15 px-2 py-1 text-[11px] font-bold text-teal-50">
+                        <span className="rounded-md bg-[color:var(--primary-soft)] px-2 py-1 text-[11px] font-bold text-[color:var(--primary-strong)]">
                           In scope
                         </span>
                       ) : null}
@@ -1057,14 +1062,14 @@ function MasterSearchHeader({
                   );
                 })}
                 {!requireScopeFilter && visibleScopeDocuments.length === 0 ? (
-                  <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-slate-300">
+                  <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
                     No documents match that filter. Clear the filter or search by file name.
                   </p>
                 ) : null}
               </div>
             </div>
             {hiddenScopeMatchCount > 0 ? (
-              <p className="px-1 text-xs font-medium text-slate-400">
+              <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
                 {requireScopeFilter
                   ? `${documents.length} documents available. Type a title or file name to narrow the list.`
                   : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
@@ -1446,15 +1451,21 @@ function MasterSearchHeader({
               ) : null}
             </summary>
             <div
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm motion-safe:animate-overlay-in sm:hidden"
+            />
+            <div
               data-testid="scope-command-popover"
-              className="mobile-popover-scroll polished-scroll fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] top-auto z-40 hidden max-h-[min(72dvh,34rem)] overflow-y-auto overscroll-contain rounded-[var(--radius-xl)] border border-white/15 bg-[color:var(--surface-glass)] p-3 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl transition motion-safe:duration-150 group-open:block dark:bg-[color:var(--app-shell-muted)] dark:text-white sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:w-[28rem] sm:max-w-md sm:rounded-[var(--radius-lg)] sm:p-2.5"
+              className="polished-scroll fixed inset-x-0 bottom-0 z-50 max-h-[82dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-3 pb-safe text-[color:var(--text)] shadow-[var(--shadow-elevated)] motion-safe:animate-sheet-up sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:z-40 sm:max-h-[min(70dvh,28rem)] sm:w-[28rem] sm:rounded-xl sm:p-2.5 sm:pb-2.5 sm:backdrop-blur-xl sm:motion-safe:animate-pop-in"
             >
-              <span className={cn(sheetHandle, "mb-3 bg-white/35 dark:bg-white/25")} aria-hidden />
-              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)] dark:text-slate-300">
+              <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)] sm:hidden" aria-hidden />
+              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
                 <span>Document scope</span>
-                <span>{scopeSummary}</span>
+                <span className="nums">{scopeSummary}</span>
               </div>
-              {scopePreview ? <p className="mb-2 truncate px-1 text-xs text-slate-300">{scopePreview}</p> : null}
+              {scopePreview ? (
+                <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              ) : null}
               {renderScopeRows()}
             </div>
           </details>
@@ -1744,7 +1755,7 @@ function NaturalLanguageAnswer({ text }: { text: string }) {
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-[15px] leading-7 text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 sm:px-4 sm:py-4"
+      className="relative overflow-hidden rounded-xl border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-base leading-[1.7] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 motion-safe:animate-fade-up sm:px-4 sm:py-4"
     >
       <div className="mb-2 min-w-0">
         <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Answer</h3>
@@ -1754,7 +1765,7 @@ function NaturalLanguageAnswer({ text }: { text: string }) {
       </div>
       <p
         data-testid="plain-answer-prose"
-        className="text-[15px] font-medium leading-7 text-[color:var(--text-heading)]"
+        className="max-w-[68ch] text-base font-medium leading-[1.7] text-[color:var(--text-heading)]"
       >
         <SafeBoldText text={cleaned} />
       </p>
