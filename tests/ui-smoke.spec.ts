@@ -224,9 +224,7 @@ async function mockDemoApi(page: Page) {
       json: {
         results: [
           {
-            id: isSafetyPlan
-              ? "55555555-5555-4555-8555-555555555555"
-              : "44444444-4444-4444-8444-444444444442",
+            id: isSafetyPlan ? "55555555-5555-4555-8555-555555555555" : "44444444-4444-4444-8444-444444444442",
             document_id: "11111111-1111-4111-8111-111111111111",
             title: isSafetyPlan ? "Synthetic patient safety plan" : "Synthetic lithium monitoring protocol",
             file_name: isSafetyPlan ? "patient-safety-plan.pdf" : "lithium-monitoring.pdf",
@@ -422,7 +420,9 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } =
   expect(audit.hasFrameworkOverlay).toBe(false);
 
   if (options.mobileNav) {
-    await expect(page.getByRole("navigation", { name: "Answer sections" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Answer sections" })).toHaveCount(0);
+    await expect(page.getByTestId("mobile-section-fab-button")).toBeVisible();
+    await expect(page.getByTestId("mobile-section-fab-menu")).toBeHidden();
   }
 }
 
@@ -441,8 +441,18 @@ async function scrollDashboardToBottom(page: Page) {
 }
 
 async function expectMobileNavTarget(page: Page, label: string, hash: string, sectionText: string) {
-  await page.getByRole("link", { name: label }).click();
-  await expect(page.locator(`nav a[href="${hash}"]`)).toHaveAttribute("aria-current", "page");
+  const fabButton = page.getByTestId("mobile-section-fab-button");
+  const fabMenu = page.getByTestId("mobile-section-fab-menu");
+  await fabButton.click();
+  await expect(fabMenu).toBeVisible();
+  await fabMenu.getByRole("link", { name: new RegExp(`^${label}`) }).click();
+  await expect(fabMenu).toBeHidden();
+  await expect(fabButton).toBeFocused();
+  await fabButton.click();
+  await expect(fabMenu.locator(`a[href="${hash}"]`)).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
+  await expect(fabMenu).toBeHidden();
+  await expect(fabButton).toBeFocused();
   await expect(page.locator(hash)).toBeVisible();
   await expect(page.locator(hash)).toContainText(sectionText);
   await expectNoPageHorizontalOverflow(page);
@@ -485,7 +495,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
       await expect(page.getByRole("button", { name: /Use sample question/i }).first()).toBeVisible();
-      await expectDomIntegrity(page, { mobileNav: viewport.width < 1024 });
+      await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
+      if (viewport.width <= 768) {
+        const fabButton = page.getByTestId("mobile-section-fab-button");
+        const fabMenu = page.getByTestId("mobile-section-fab-menu");
+        await fabButton.click();
+        await expect(fabMenu).toBeVisible();
+        await expect(page.getByTestId("mobile-section-fab-status")).toHaveText("No answer yet");
+        await expect(page.getByTestId("mobile-section-fab-next-step")).toHaveText("Ask a question first");
+        await expect(fabMenu).toContainText("No quotes yet");
+        await expect(fabMenu).toContainText("No images yet");
+        await page.keyboard.press("Escape");
+        await expect(fabMenu).toBeHidden();
+      }
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -516,7 +538,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await expect(questionInput).toBeEnabled();
     await expect(page.getByLabel("Open document scope")).toBeVisible();
-    const question = "What toxicity safety-net symptoms should be reviewed for lithium?";
+    const question = "What clozapine monitoring items are shown in the table image?";
     await questionInput.click();
     await questionInput.pressSequentially(question);
     await expect(questionInput).toHaveValue(question);
@@ -526,14 +548,42 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: /Use sample question/i })).toHaveCount(0);
     const plainAnswer = page.getByTestId("plain-answer-response");
     await expect(plainAnswer).toBeVisible();
-    await expect(plainAnswer).toContainText("toxicity safety-net review should cover");
+    await expect(plainAnswer).toContainText("synthetic clozapine table image highlights");
+    await expect(plainAnswer.getByTestId("plain-answer-prose")).toBeVisible();
+    await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
+    await expect(plainAnswer.locator("svg")).toHaveCount(0);
     await expect(page.getByTestId("clinical-action-view")).toBeVisible();
     await expect(
-      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Structured clinical support", exact: true }),
+      page
+        .getByTestId("clinical-action-view")
+        .getByRole("heading", { name: "High-yield clinical details", exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("clinical-action-view").getByRole("heading", { name: "Thresholds", exact: true }),
-    ).toBeVisible();
+    const clinicalDetails = page.getByTestId("clinical-action-view");
+    await expect(clinicalDetails.getByTestId("clinical-detail-summary")).toBeVisible();
+    await expect(clinicalDetails.getByTestId("clinical-detail-card").first()).toBeVisible();
+    const clinicalTable = clinicalDetails.getByTestId("clinical-detail-table").first();
+    await expect(clinicalTable).toBeVisible();
+    await expect(clinicalDetails.getByRole("table").first()).toBeVisible();
+    await expect(clinicalDetails.getByRole("heading", { name: "Thresholds" })).toBeVisible();
+    await expect(clinicalDetails).toContainText("FBC/ANC");
+    await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+    const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
+    await expect(tableExpandButton).toBeVisible();
+    await tableExpandButton.click();
+    const tableDialog = page.getByTestId("table-fullscreen-dialog");
+    await expect(tableDialog).toBeVisible();
+    await expect(tableDialog.getByRole("table")).toBeVisible();
+    await expect(tableDialog).toContainText("FBC/ANC");
+    await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+    await expectNoPageHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    await expect(tableDialog).toBeHidden();
+    await expect(tableExpandButton).toBeFocused();
+    await tableExpandButton.click();
+    await expect(tableDialog).toBeVisible();
+    await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
+    await expect(tableDialog).toBeHidden();
+    await expect(tableExpandButton).toBeFocused();
     const rawNarrative = page.getByTestId("raw-answer-narrative");
     await expect(rawNarrative).toBeVisible();
     expect(await rawNarrative.evaluate((element) => element.hasAttribute("open"))).toBe(false);
@@ -545,12 +595,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
     await expect(page.getByTestId("clinical-action-view").getByText(/Synthetic demo only/i)).toHaveCount(0);
     await expect(
-      page.getByTestId("clinical-action-view").getByText("Draft only; verify source first before pasting into the medical record."),
+      page
+        .getByTestId("clinical-action-view")
+        .getByText("Draft only; verify source first before pasting into the medical record."),
     ).toHaveCount(0);
     await expect(page.getByTestId("answer-safety-notice")).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /Quotes, \d+ items?/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Images, \d+ items?/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Sources, \d+ items?/ })).toBeVisible();
+    const fabButton = page.getByTestId("mobile-section-fab-button");
+    const fabMenu = page.getByTestId("mobile-section-fab-menu");
+    await expect(fabButton).toBeVisible();
+    await fabButton.click();
+    await expect(fabMenu).toContainText("Answer navigator");
+    await expect(page.getByTestId("mobile-section-fab-status")).toHaveText("Ready to verify");
+    await expect(page.getByTestId("mobile-section-fab-next-step")).toHaveText("Next: review exact quotes");
+    await expect(fabMenu.getByRole("link", { name: /Quotes, \d+ items?/ })).toBeVisible();
+    await expect(fabMenu.getByRole("link", { name: /Images, \d+ items?/ })).toBeVisible();
+    await expect(fabMenu.getByRole("link", { name: /Sources, \d+ items?/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(fabMenu).toBeHidden();
+    await expect(fabButton).toBeFocused();
     await expectDomIntegrity(page, { mobileNav: true });
 
     const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
@@ -639,6 +701,55 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByLabel("Open document scope")).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
+
+  for (const viewport of [
+    { name: "320px mobile", width: 320, height: 820, expands: true },
+    { name: "390px mobile", width: 390, height: 820, expands: true },
+    { name: "1280px desktop", width: 1280, height: 900, expands: false },
+  ] as const) {
+    test(`clinical table mobile expansion at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoApi(page);
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+
+      await page
+        .getByRole("button", { name: "Use sample question: What clozapine monitoring items are shown in the table image?" })
+        .click();
+      await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+
+      const clinicalTable = page.getByTestId("clinical-action-view").getByTestId("clinical-detail-table").first();
+      await expect(clinicalTable).toBeVisible();
+      await expect(clinicalTable).toContainText("FBC/ANC");
+      await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+
+      const expandButton = clinicalTable.getByTestId("table-expand-button");
+      if (!viewport.expands) {
+        await expect(expandButton).toHaveCount(0);
+        await expectNoPageHorizontalOverflow(page);
+        return;
+      }
+
+      await clinicalTable.getByTestId("accessible-table-surface").click();
+      const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
+      await expect(surfaceDialog).toBeVisible();
+      await expect(surfaceDialog).toContainText("FBC/ANC");
+      await page.keyboard.press("Escape");
+      await expect(surfaceDialog).toBeHidden();
+
+      await expect(expandButton).toBeVisible();
+      await expandButton.click();
+      const dialog = page.getByTestId("table-fullscreen-dialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("table")).toBeVisible();
+      await expect(dialog).toContainText("FBC/ANC");
+      await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+      await expectNoPageHorizontalOverflow(page);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(expandButton).toBeFocused();
+    });
+  }
 
   test("document search mode lists matching documents and scope actions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -933,13 +1044,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       const dialog = await openGuide(page);
       await page.keyboard.press("Shift+Tab");
-      expect(
-        await dialog.evaluate((element) => element.contains(document.activeElement)),
-      ).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Tab");
-      expect(
-        await dialog.evaluate((element) => element.contains(document.activeElement)),
-      ).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await dialog.getByRole("button", { name: "Close guide" }).click();
       await expect(dialog).toBeHidden();
 

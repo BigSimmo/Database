@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -21,10 +22,15 @@ import {
   Quote,
   RefreshCw,
   Sparkles,
+  Tag,
   Target,
+  Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
+import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
   appBackdrop,
@@ -53,7 +59,14 @@ import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
-import type { ClinicalDocument, RagAnswer } from "@/lib/types";
+import type {
+  ClinicalDocument,
+  ClinicalDocumentSummaryProfile,
+  DocumentLabel,
+  DocumentLabelType,
+  DocumentSummaryProfileItem,
+  RagAnswer,
+} from "@/lib/types";
 import {
   cleanClinicalSummaryText,
   sourceTextForDocumentViewer,
@@ -89,6 +102,19 @@ type ImageRow = {
   tableColumns?: string[] | null;
 };
 
+type TableFactRow = {
+  id: string;
+  document_id: string;
+  source_image_id: string | null;
+  page_number: number | null;
+  table_title: string | null;
+  row_label: string | null;
+  clinical_parameter: string | null;
+  threshold_value: string | null;
+  action: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
 type ChunkRow = {
   id: string;
   page_number: number | null;
@@ -96,6 +122,7 @@ type ChunkRow = {
   section_heading: string | null;
   content: string;
   image_ids: string[];
+  metadata?: Record<string, unknown> | null;
 };
 
 type DocumentSearchResult = {
@@ -116,9 +143,73 @@ type DocumentIndexHealth = {
   warnings?: unknown;
 };
 
+const profileSectionLabels: Array<{
+  key: keyof Omit<ClinicalDocumentSummaryProfile, "overview">;
+  label: string;
+}> = [
+  { key: "applies_to", label: "Applies to / scope" },
+  { key: "key_clinical_actions", label: "Key clinical actions" },
+  { key: "medication_dose_monitoring", label: "Medication, dose and monitoring" },
+  { key: "thresholds_timing", label: "Thresholds and timing" },
+  { key: "escalation_risk_warnings", label: "Escalation and risk warnings" },
+  { key: "required_forms_documentation", label: "Required forms / documentation" },
+  { key: "not_covered", label: "Not covered / source gaps" },
+  { key: "important_tables_images", label: "Important tables / images" },
+  { key: "best_questions", label: "Best questions this document can answer" },
+  { key: "source_quality_notes", label: "Source quality notes" },
+];
+
 const iconButton = toolbarButton;
 const primaryButton = primaryControl;
 const secondaryButton = floatingControl;
+
+function hasProfileItems(items: unknown): items is DocumentSummaryProfileItem[] {
+  return Array.isArray(items) && items.some((item) => item && typeof item === "object" && "text" in item);
+}
+
+function profileItemText(item: DocumentSummaryProfileItem) {
+  return cleanClinicalSummaryText(item.text);
+}
+
+function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryProfile }) {
+  const sections = profileSectionLabels
+    .map((section) => ({ ...section, items: profile[section.key] }))
+    .filter((section) => hasProfileItems(section.items));
+
+  return (
+    <div data-testid="clinical-document-profile" className="mt-3 space-y-4">
+      {profile.overview ? (
+        <p className="whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
+          <SafeBoldText text={cleanClinicalSummaryText(profile.overview)} />
+        </p>
+      ) : null}
+      {sections.map((section) => (
+        <section key={section.key} className="border-t border-[color:var(--border)] pt-3">
+          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            {section.label}
+          </h3>
+          <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
+            {section.items.slice(0, section.key === "best_questions" ? 8 : 6).map((item, index) => {
+              const text = profileItemText(item);
+              if (!text) return null;
+              return (
+                <li key={`${section.key}:${index}:${text}`} className="flex gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--primary)]"
+                  />
+                  <span>
+                    <SafeBoldText text={text} />
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 function SourceMetadataSummary({ metadata }: { metadata?: unknown }) {
   const source = normalizeSourceMetadata(metadata);
@@ -308,6 +399,71 @@ function DocumentImage({ image }: { image: ImageRow }) {
   );
 }
 
+function TableReviewPanel({
+  tableFacts,
+  canReview,
+  busyFactId,
+  onReview,
+}: {
+  tableFacts: TableFactRow[];
+  canReview: boolean;
+  busyFactId: string | null;
+  onReview: (fact: TableFactRow, reviewClass: string) => void;
+}) {
+  if (!tableFacts.length) return null;
+  return (
+    <details className={cn(sourceCard, "p-3")} open>
+      <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+        Table review queue ({tableFacts.length})
+      </summary>
+      <div className="mt-3 grid gap-2">
+        {tableFacts.slice(0, 12).map((fact) => {
+          const metadata = fact.metadata ?? {};
+          const reviewClass = typeof metadata.review_class === "string" ? metadata.review_class : "unreviewed";
+          const text = [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+            .filter(Boolean)
+            .join(" | ");
+          return (
+            <div key={fact.id} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                Page {fact.page_number ?? "n/a"} · {reviewClass.replaceAll("_", " ")}
+              </p>
+              <p className="mt-1 text-sm leading-5 text-[color:var(--text)]">{text || "Table fact has no text."}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[
+                  ["clinical_useful", "Clinical"],
+                  ["administrative", "Admin"],
+                  ["reference", "Reference"],
+                  ["unrelated", "Unrelated"],
+                  ["bad_extraction", "Bad extraction"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={!canReview || busyFactId === fact.id}
+                    onClick={() => onReview(fact, value)}
+                    className={cn(
+                      "inline-flex min-h-8 items-center rounded-md border px-2 text-[11px] font-semibold transition",
+                      reviewClass === value
+                        ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                    )}
+                  >
+                    {busyFactId === fact.id && value === reviewClass ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : null}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 function DocumentViewerAnchors({
   evidenceHref,
   className,
@@ -477,8 +633,8 @@ function IndexedSourceText({
                 compact && "px-4 py-2 text-sm leading-6",
               )}
             >
-              {block.items.map((item) => (
-                <li key={item} className="list-disc pl-1">
+              {block.items.map((item, index) => (
+                <li key={`${block.id}:${index}:${item}`} className="list-disc pl-1">
                   {item}
                 </li>
               ))}
@@ -750,8 +906,7 @@ function IndexedTextPanel({
                     <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm leading-6 text-[color:var(--text)]">
                       <HighlightedSearchText
                         text={
-                          chunk.displayContent ||
-                          "No displayable clinical text was available for this indexed passage."
+                          chunk.displayContent || "No displayable clinical text was available for this indexed passage."
                         }
                         terms={highlightTermsFor(chunk.matchedTerms, normalizedSearch)}
                       />
@@ -969,7 +1124,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
     >
       <div
         data-testid="pdf-toolbar"
-        className="z-10 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-[69px] sm:flex sm:flex-wrap sm:p-3"
+        className="z-10 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 border-b border-[color:var(--border-lux)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_78%),var(--surface-glass)] p-2 shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-[69px] sm:flex sm:flex-wrap sm:p-3"
       >
         <button
           onClick={() => jumpToPage(page - 1)}
@@ -980,7 +1135,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           <ChevronLeft className="h-4 w-4" />
         </button>
         {pagesReady ? (
-          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-glass)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
+          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-[var(--radius-lg)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
             <span className="hidden sm:inline">Page</span>
             <input
               aria-label="PDF page number"
@@ -1011,7 +1166,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        <div className="col-span-3 grid grid-cols-3 gap-2 sm:col-span-1 sm:ml-auto sm:flex sm:items-center">
+        <div className="col-span-3 grid grid-cols-3 gap-1.5 rounded-[var(--radius-lg)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)] sm:col-span-1 sm:ml-auto sm:flex sm:items-center">
           <button
             onClick={() => {
               setFitWidth(false);
@@ -1028,7 +1183,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             disabled={!pagesReady}
             aria-label="Fit page width and enter fullscreen"
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
               fitWidth || fullscreenActive
                 ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
@@ -1124,6 +1279,247 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
   );
 }
 
+const manualLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }> = [
+  { value: "topic", label: "Topic" },
+  { value: "medication", label: "Medication" },
+  { value: "risk", label: "Risk" },
+  { value: "workflow", label: "Workflow" },
+  { value: "setting", label: "Setting" },
+  { value: "service", label: "Service" },
+  { value: "document_type", label: "Document type" },
+  { value: "population", label: "Population" },
+  { value: "custom", label: "Manual" },
+];
+
+function manualLabelTypeLabel(value: DocumentLabelType) {
+  return manualLabelTypeOptions.find((option) => option.value === value)?.label ?? "Manual";
+}
+
+function DocumentManualTagEditor({
+  document,
+  canManage,
+  clientDemoMode,
+  authorizationHeader,
+  onLabelsUpdated,
+  onUnauthorized,
+}: {
+  document: ClinicalDocument;
+  canManage: boolean;
+  clientDemoMode: boolean;
+  authorizationHeader: Record<string, string>;
+  onLabelsUpdated: (labels: DocumentLabel[]) => void;
+  onUnauthorized: () => void;
+}) {
+  const manualLabels = (document.labels ?? []).filter((label) => label.source === "manual");
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftType, setDraftType] = useState<DocumentLabelType>("topic");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState("");
+  const [editingType, setEditingType] = useState<DocumentLabelType>("topic");
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submitManualTag(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, action: string) {
+    setBusyAction(action);
+    setError(null);
+    try {
+      const response = await fetch(`/api/documents/${document.id}/labels`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(clientDemoMode ? {} : authorizationHeader),
+        },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) onUnauthorized();
+      if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Tag update failed.");
+      if (Array.isArray(payload.labels)) onLabelsUpdated(payload.labels as DocumentLabel[]);
+      return true;
+    } catch (tagError) {
+      setError(tagError instanceof Error ? tagError.message : "Tag update failed.");
+      return false;
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function addManualTag(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const added = await submitManualTag("POST", { label: draftLabel, label_type: draftType }, "add");
+    if (added) {
+      setDraftLabel("");
+      setDraftType("topic");
+    }
+  }
+
+  async function saveManualTag(label: DocumentLabel) {
+    const saved = await submitManualTag(
+      "PATCH",
+      { labelId: label.id, label: editingLabel, label_type: editingType },
+      `edit:${label.id}`,
+    );
+    if (saved) {
+      setEditingId(null);
+      setEditingLabel("");
+    }
+  }
+
+  async function deleteManualTag(label: DocumentLabel) {
+    await submitManualTag("DELETE", { labelId: label.id }, `delete:${label.id}`);
+  }
+
+  return (
+    <div className={cn(sourceCard, "mt-4 p-3")}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <Tag className="h-3.5 w-3.5 text-[color:var(--primary)]" />
+          Manual tags
+        </p>
+        <span className={cn("text-[11px] font-semibold", textMuted)}>
+          {manualLabels.length ? `${manualLabels.length} curated` : "Generated tags are read-only"}
+        </span>
+      </div>
+
+      <form onSubmit={addManualTag} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+        <input
+          value={draftLabel}
+          onChange={(event) => setDraftLabel(event.target.value)}
+          placeholder="Add clean manual tag"
+          disabled={!canManage || busyAction !== null}
+          className={fieldControl}
+        />
+        <select
+          value={draftType}
+          onChange={(event) => setDraftType(event.target.value as DocumentLabelType)}
+          disabled={!canManage || busyAction !== null}
+          className={fieldControl}
+          aria-label="Manual tag type"
+        >
+          {manualLabelTypeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          disabled={!canManage || busyAction !== null || !draftLabel.trim()}
+          className={cn(primaryButton, "min-h-[44px] px-3 text-xs")}
+        >
+          {busyAction === "add" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Add
+        </button>
+      </form>
+
+      {error ? (
+        <p className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--warning)]">
+          {error}
+        </p>
+      ) : null}
+
+      {manualLabels.length ? (
+        <div className="mt-3 grid gap-2">
+          {manualLabels.map((label) => {
+            const editing = editingId === label.id;
+            return (
+              <div
+                key={label.id}
+                className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+              >
+                {editing ? (
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem]">
+                    <input
+                      value={editingLabel}
+                      onChange={(event) => setEditingLabel(event.target.value)}
+                      className={fieldControl}
+                      aria-label="Manual tag label"
+                    />
+                    <select
+                      value={editingType}
+                      onChange={(event) => setEditingType(event.target.value as DocumentLabelType)}
+                      className={fieldControl}
+                      aria-label="Manual tag type"
+                    >
+                      {manualLabelTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[color:var(--text)]">{label.label}</p>
+                    <p className={cn("text-[11px] font-semibold", textMuted)}>{manualLabelTypeLabel(label.label_type)}</p>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {editing ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => saveManualTag(label)}
+                        disabled={!editingLabel.trim() || busyAction !== null}
+                        className={cn(primaryButton, "min-h-9 px-2 text-xs")}
+                        aria-label={`Save ${label.label}`}
+                      >
+                        {busyAction === `edit:${label.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        disabled={busyAction !== null}
+                        className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
+                        aria-label="Cancel edit"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(label.id);
+                          setEditingLabel(label.label);
+                          setEditingType(label.label_type);
+                        }}
+                        disabled={!canManage || busyAction !== null}
+                        className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
+                        aria-label={`Rename ${label.label}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteManualTag(label)}
+                        disabled={!canManage || busyAction !== null}
+                        className={cn(secondaryButton, "min-h-9 px-2 text-xs text-[color:var(--danger)]")}
+                        aria-label={`Remove ${label.label}`}
+                      >
+                        {busyAction === `delete:${label.id}` ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function DocumentViewer({
   documentId,
   initialPage,
@@ -1137,6 +1533,7 @@ export function DocumentViewer({
   const [document, setDocument] = useState<ClinicalDocument | null>(null);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [images, setImages] = useState<ImageRow[]>([]);
+  const [tableFacts, setTableFacts] = useState<TableFactRow[]>([]);
   const [chunks, setChunks] = useState<ChunkRow[]>([]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<RagAnswer | null>(null);
@@ -1151,6 +1548,7 @@ export function DocumentViewer({
   const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
   const [searchingDocument, setSearchingDocument] = useState(false);
   const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
+  const [reviewingTableFactId, setReviewingTableFactId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
@@ -1250,12 +1648,14 @@ export function DocumentViewer({
           setDocument(detail.document ?? null);
           setPages(detail.pages ?? []);
           setImages(detail.images ?? []);
+          setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
           setIndexHealth(detail.indexHealth ?? null);
         } else {
           setDocument(null);
           setPages([]);
           setImages([]);
+          setTableFacts([]);
           setChunks([]);
           setIndexHealth(null);
           setViewerError(
@@ -1473,6 +1873,48 @@ export function DocumentViewer({
   const handleDocumentDeleted = () => {
     router.push("/");
   };
+  const handleDocumentLabelsUpdated = (labels: DocumentLabel[]) => {
+    setDocument((current) => (current ? { ...current, labels } : current));
+  };
+  const searchByTag = (tag: { searchText: string; label: string }) => {
+    const params = new URLSearchParams({ mode: "documents", q: tag.searchText || tag.label });
+    router.push(`/?${params.toString()}`);
+  };
+  async function reviewTableFact(fact: TableFactRow, reviewClass: string) {
+    setReviewingTableFactId(fact.id);
+    try {
+      const response = await fetch(`/api/documents/${documentId}/table-facts`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(clientDemoMode ? {} : authorizationHeader),
+        },
+        body: JSON.stringify({ factId: fact.id, reviewClass }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) markSessionExpired();
+      if (!response.ok) throw new Error(payload.error || "Table review update failed.");
+      setTableFacts((current) =>
+        current.map((candidate) => (candidate.id === fact.id ? (payload.tableFact as TableFactRow) : candidate)),
+      );
+      setImages((current) =>
+        current.map((image) =>
+          image.id === fact.source_image_id
+            ? {
+                ...image,
+                clinicalUseClass: reviewClass === "clinical_useful" ? "clinical_evidence" : reviewClass,
+                tableRole: reviewClass === "clinical_useful" ? "clinical" : reviewClass,
+                searchable: reviewClass === "clinical_useful" || reviewClass === "reference",
+              }
+            : image,
+        ),
+      );
+    } catch (error) {
+      setViewerError(error instanceof Error ? error.message : "Table review update failed.");
+    } finally {
+      setReviewingTableFactId(null);
+    }
+  }
 
   return (
     <main className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)]")}>
@@ -1736,22 +2178,26 @@ export function DocumentViewer({
             ) : null}
           </section>
 
-          {document?.summary || document?.labels?.length ? (
+          {document ? (
             <section className={cn(panel, "p-4 source-print")}>
               <PanelHeading
                 icon={Sparkles}
-                title="High-yield summary"
-                description="Indexing-time summary and generated labels from source evidence."
+                title={
+                  document.summary?.clinical_specifics?.profile ? "Clinical document profile" : "High-yield summary"
+                }
+                description="Indexing-time clinical summary and generated labels from source evidence."
               />
-              {document.summary?.summary && (
+              {document.summary?.clinical_specifics?.profile ? (
+                <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
+              ) : document.summary?.summary ? (
                 <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
                   <SafeBoldText text={document.summary.summary} />
                 </p>
-              )}
-              {document.summary?.clinical_specifics && (
+              ) : null}
+              {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
                 <div className="mt-4 grid gap-3">
                   {Object.entries(document.summary.clinical_specifics)
-                    .filter(([, items]) => Array.isArray(items) && items.length > 0)
+                    .filter(([key, items]) => key !== "profile" && Array.isArray(items) && items.length > 0)
                     .slice(0, 6)
                     .map(([key, items]) => (
                       <div key={key} className={cn(sourceCard, "p-3")}>
@@ -1759,8 +2205,8 @@ export function DocumentViewer({
                           {key.replaceAll("_", " ")}
                         </p>
                         <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
-                          {(items as string[]).slice(0, 5).map((item) => (
-                            <li key={item}>
+                          {(items as string[]).slice(0, 5).map((item, index) => (
+                            <li key={`${key}:${index}:${item}`}>
                               - <SafeBoldText text={item} />
                             </li>
                           ))}
@@ -1769,18 +2215,21 @@ export function DocumentViewer({
                     ))}
                 </div>
               )}
-              {document.labels?.length ? (
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {document.labels.slice(0, 12).map((label) => (
-                    <span
-                      key={`${label.label_type}:${label.label}`}
-                      className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[11px] font-semibold text-[color:var(--text-muted)]"
-                    >
-                      {label.label}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+              <DocumentTagCloud
+                labels={document.labels}
+                limit={18}
+                className="mt-4"
+                onTagClick={searchByTag}
+                grouped
+              />
+              <DocumentManualTagEditor
+                document={document}
+                canManage={canUsePrivateApis}
+                clientDemoMode={clientDemoMode}
+                authorizationHeader={authorizationHeader}
+                onLabelsUpdated={handleDocumentLabelsUpdated}
+                onUnauthorized={markSessionExpired}
+              />
             </section>
           ) : null}
 
@@ -1791,6 +2240,12 @@ export function DocumentViewer({
               description="Indexed clinical tables, diagrams, and image captions extracted from the source document."
             />
             <div className="mt-3 space-y-3">
+              <TableReviewPanel
+                tableFacts={tableFacts}
+                canReview={canUsePrivateApis}
+                busyFactId={reviewingTableFactId}
+                onReview={reviewTableFact}
+              />
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading extracted tables" />
               ) : clinicalImages.length === 0 ? (

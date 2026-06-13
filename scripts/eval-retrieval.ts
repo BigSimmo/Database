@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
+import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
 import { findOwnerIdByEmail, loadAdminClient, percentile } from "./eval-utils";
 
@@ -104,6 +105,18 @@ function parseArgs(argv: string[]): EvalArgs {
 export function loadGoldenRetrievalCases(path: string) {
   const parsed = goldenCasesSchema.parse(JSON.parse(readFileSync(path, "utf8")));
   return parsed;
+}
+
+export function capturedRagCaseToGoldenCase(testCase: RagEvalCase): GoldenRetrievalCase {
+  return {
+    id: testCase.id,
+    query: testCase.question,
+    expectedQueryClass: testCase.expectedQueryClass ?? "document_lookup",
+    expectedDocumentSubstrings: testCase.expectedFiles,
+    expectedContentTerms: [],
+    topK: 8,
+    expectTableEvidence: Boolean(testCase.requireVisualEvidence),
+  };
 }
 
 function normalized(value: string) {
@@ -356,7 +369,9 @@ async function main() {
   requireOpenAIEnv();
 
   const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
-  const allCases = loadGoldenRetrievalCases(args.fixture);
+  const capturedCaseClient = supabase as unknown as SupabaseEvalCaseClient;
+  const capturedCases = await loadCapturedRagEvalCases({ supabase: capturedCaseClient, ownerId, limit: args.limit });
+  const allCases = [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)];
   const filteredCases = args.query
     ? allCases.filter((item) => item.query.toLowerCase().includes(args.query!.toLowerCase()) || item.id === args.query)
     : allCases;

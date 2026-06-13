@@ -1,4 +1,5 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
 import type {
   ClinicalQueryAnalysis,
   ClinicalQueryIntent,
@@ -454,6 +455,49 @@ function indexQualityRankSignal(result: SearchResult) {
   return -0.09 - issuePenalty;
 }
 
+function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass) {
+  let score = 0;
+  const metadata = result.source_metadata;
+
+  if (result.relevance?.verdict === "direct") score += 0.09;
+  if (result.relevance?.verdict === "partial") score += 0.045;
+  if (result.relevance?.verdict === "nearby") score -= 0.065;
+  if (result.relevance?.verdict === "none") score -= 0.13;
+
+  if (result.source_strength === "strong") score += 0.04;
+  if (result.source_strength === "moderate") score += 0.02;
+  if (result.source_strength === "limited") score -= 0.015;
+
+  if (metadata?.document_status === "current") score += 0.035;
+  if (metadata?.document_status === "review_due") score -= 0.025;
+  if (metadata?.document_status === "outdated") score -= 0.09;
+
+  if (metadata?.clinical_validation_status === "approved") score += 0.035;
+  if (metadata?.clinical_validation_status === "locally_reviewed") score += 0.025;
+  if (metadata?.clinical_validation_status === "unverified") score -= 0.02;
+
+  if (metadata?.extraction_quality === "good") score += 0.025;
+  if (metadata?.extraction_quality === "partial") score -= 0.015;
+  if (metadata?.extraction_quality === "poor") score -= 0.075;
+
+  const tableFocusedQuery = queryClass === "table_threshold" || queryClass === "medication_dose_risk";
+  if (tableFocusedQuery && (result.table_facts?.length ?? 0) > 0) score += 0.055;
+  if (
+    tableFocusedQuery &&
+    (result.images ?? []).some(
+      (image) =>
+        Boolean(image.tableRows?.length) ||
+        Boolean(image.tableColumns?.length) ||
+        Boolean(image.accessibleTableMarkdown) ||
+        /\b(?:table|threshold|dose|monitor|criteria)\b/i.test(`${image.tableTitle ?? ""} ${image.tableTextSnippet ?? ""}`),
+    )
+  ) {
+    score += 0.035;
+  }
+
+  return score;
+}
+
 function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
   if (!tokens.length) return 0;
   const haystack = normalizeQueryTokenForLookups(
@@ -529,9 +573,11 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   });
   const intent = intentFromSignals(queryClass, normalizedQuery);
   const canonicalTerms = unique([...corrected, ...medications, ...acronyms], 32);
+  const vocabularyTerms = expandClinicalVocabularyText(originalQuery, 32);
   const expandedTerms = unique(
     [
       ...canonicalTerms,
+      ...vocabularyTerms,
       ...aliasTerms,
       ...titleTerms,
       ...aliasesForQuery(`${normalizedQuery} ${correctedQuery}`, medicationAliasGroups),
@@ -708,6 +754,7 @@ export function expandClinicalQuery(query: string) {
   }
 
   analysis.expandedTerms.forEach((term) => additions.add(term));
+  expandClinicalVocabularyText(query).forEach((term) => additions.add(term));
 
   if (additions.size === 0) return query;
   return `${query} ${Array.from(additions).join(" ")}`;
@@ -768,6 +815,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const sectionedLookupBoost = querySignal.sectionedLookup ? 0.02 : 0;
   const extractionBoost = extractionQualityScore(result);
   const indexQualityBoost = indexQualityRankSignal(result);
+  const sourceQualityBoost = sourceQualityRankSignal(result, queryClass);
   const dosingBoost = querySignal.hasDosingSignals && hasDoseEvidenceSupport(result) ? 0.09 : 0;
   const titleOnlyDosePenalty =
     queryClass === "medication_dose_risk" && titleCoverageBoost >= 0.09 && !hasDoseEvidenceSupport(result) ? -0.42 : 0;
@@ -825,6 +873,21 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     (queryClass === "table_threshold" || queryClass === "medication_dose_risk") && (result.table_facts?.length ?? 0) > 0
       ? 0.12
       : 0;
+  const indexUnitBoost = (() => {
+    const unit = result.index_unit;
+    if (!unit) return 0;
+    let score = 0.025;
+    if (unit.extraction_mode === "model_heavy") score += 0.025;
+    if (unit.unit_type === "askable_question") score += 0.07;
+    if (unit.unit_type === "clinical_fact") score += 0.055;
+    if (unit.unit_type === "table_fact" && (queryClass === "table_threshold" || queryClass === "medication_dose_risk")) {
+      score += 0.09;
+    }
+    if (unit.unit_type === "section_summary" && (queryClass === "document_lookup" || queryClass === "broad_summary")) {
+      score += 0.05;
+    }
+    return Math.min(0.16, score + Math.max(0, Number(unit.quality_score ?? 0) - 0.7) * 0.08);
+  })();
   const directAnswerCoverage =
     normalizedTokens.length > 0
       ? normalizedTokens.filter((token) => haystack.includes(token)).length / Math.max(normalizedTokens.length, 1)
@@ -864,6 +927,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     reviewBoost +
     extractionBoost +
     indexQualityBoost +
+    sourceQualityBoost +
     metadataBoost +
     routeSignal;
   const clinicalSignalBoost =
@@ -880,7 +944,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     structuredTableBoost +
     directAnswerBoost +
     comparisonCoverageBoost +
-    sectionDepth;
+    sectionDepth +
+    indexUnitBoost;
   const penalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
   const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty;
 

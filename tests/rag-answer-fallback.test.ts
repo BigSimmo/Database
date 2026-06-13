@@ -144,6 +144,73 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answerSections?.[0]?.body).not.toContain("- Medication point");
   });
 
+  it("filters table-caption metadata from extractive answer points", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const clozapineTableSource = source({
+      id: "clozapine-table-1",
+      document_id: "clozapine-doc",
+      title: "Clozapine Monitoring",
+      file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+      page_number: 6,
+      section_heading: "Roles and responsibilities",
+      content:
+        "Table detailing roles and responsibilities in Clozapine therapy monitoring including discontinuation criteria for red-range blood results. clinical_table table_crop Roles and responsibilities: If the consumer's blood results return in the red range, Clozapine therapy must be discontinued immediately and reported to the patient monitoring system.",
+      similarity: 0.95,
+      hybrid_score: 0.95,
+      text_rank: 1.3,
+      memory_cards: [
+        {
+          id: "memory-table-1",
+          document_id: "clozapine-doc",
+          owner_id: null,
+          card_type: "table_row",
+          title: "Clozapine red range action",
+          content:
+            "Table detailing roles and responsibilities in Clozapine therapy monitoring. clinical_table table_crop Roles and responsibilities: If the consumer's blood results return in the red range, Clozapine therapy must be discontinued immediately and reported to the patient monitoring system.",
+          normalized_terms: ["clozapine", "monitoring", "red", "range"],
+          page_number: 6,
+          source_chunk_ids: ["clozapine-table-1"],
+          source_image_ids: [],
+          confidence: 0.93,
+        },
+      ],
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [clozapineTableSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(),
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "what clozapine monitoring action is needed for red range blood results",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(plainAnswer).toContain("must be discontinued immediately");
+    expect(plainAnswer).not.toContain("Table detailing roles and responsibilities");
+    expect(plainAnswer).not.toContain("clinical_table");
+    expect(plainAnswer).not.toContain("table_crop");
+  });
+
   it("returns an extractive source-backed answer when structured model output is truncated", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_MAX_OUTPUT_TOKENS", "650");

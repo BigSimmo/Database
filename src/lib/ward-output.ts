@@ -1,11 +1,18 @@
 import { formatCitationLabel } from "@/lib/citations";
 import { parseAnswerDisplayContent, type AnswerDisplayGroup } from "@/lib/answer-formatting";
-import { clipboardProvenanceLine } from "@/lib/source-metadata";
-import { isLowYieldClinicalText, sourceTextForClinicalProse } from "@/lib/source-text-sanitizer";
+import {
+  clipboardProvenanceLine,
+  extractionQualityLabel,
+  normalizeSourceMetadata,
+  sourceStatusLabel,
+  validationStatusLabel,
+} from "@/lib/source-metadata";
+import { clinicalProseUsefulness, isLowYieldClinicalText, sourceTextForClinicalProse } from "@/lib/source-text-sanitizer";
 import type { AnswerSectionKind, QuoteCard, RagAnswer, VisualEvidenceCard } from "@/lib/types";
 
 export type ClinicalOutputSectionId =
   | "bottom-line"
+  | "support-map"
   | "action"
   | "monitoring"
   | "medication"
@@ -23,7 +30,6 @@ export type ClinicalThresholdTable = {
   markdown?: string | null;
   rows?: string[][] | null;
   columns?: string[] | null;
-  sourceLabel?: string;
 };
 
 export type ClinicalOutputSection = {
@@ -33,15 +39,32 @@ export type ClinicalOutputSection = {
   tables?: ClinicalThresholdTable[];
 };
 
+export type AnswerViewMode = "standard" | "high_yield" | "evidence_map";
+
+export type AnswerEvidenceMapRow = {
+  id: string;
+  section: string;
+  detail: string;
+  supportLevel: string;
+  citationCount: number;
+  sourceStatus: string;
+  bestSourceLabel: string;
+  bestLinkedPassage: string;
+  href?: string;
+};
+
 const thresholdPattern =
   /\b(thresholds?|cut[\s-]?offs?|withhold|cease|stop|hold|discontinue|anc|fbc|wbc|neutrophils?|levels?|ranges?|criteria|scores?|ratings?|below|above|less than|greater than|mmol|mg\/l|x\s*10)\b|[<>]=?|[≤≥]/i;
+const unsupportedGapPattern =
+  /\b(?:supplied\s+)?(?:sources?|documents?|guidelines?)\s+(?:do|does)\s+not\s+(?:provide|state|include|answer|cover)\b|\bnot\s+(?:provided|available|stated|covered|supported)\b|\bsource\s+gap\b/i;
 
 function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
 function normalizeClinicalItem(text: string) {
-  return normalizeText(sourceTextForClinicalProse(text));
+  const usefulness = clinicalProseUsefulness(text);
+  return normalizeText(usefulness.text || sourceTextForClinicalProse(text));
 }
 
 function normalizeClinicalToken(text: string) {
@@ -120,8 +143,11 @@ function uniqueShortItems(items: string[], limit: number) {
   const seen = new Set<string>();
   const output: string[] = [];
 
-  for (const item of items.map(normalizeClinicalItem).filter(Boolean)) {
-    if (isLowYieldClinicalText(item)) continue;
+  for (const rawItem of items) {
+    const usefulness = clinicalProseUsefulness(rawItem);
+    const item = normalizeClinicalItem(rawItem);
+    if (!item) continue;
+    if (!usefulness.useful && isLowYieldClinicalText(item)) continue;
     const key = item.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -193,10 +219,28 @@ function isPromotableClinicalTable(card: VisualEvidenceCard, answer: RagAnswer) 
 }
 
 function isPromotableThresholdItem(item: string, answer: RagAnswer) {
+  if (unsupportedGapPattern.test(item)) return false;
   if (isLowYieldClinicalText(item)) return false;
   const query = answer.smartPanel?.query ?? "";
   if (query && !hasSharedClinicalToken(query, item)) return false;
   if (query && !hasRequiredMedicationMatch(query, item)) return false;
+  return true;
+}
+
+function sectionBodyMatchesKind(kind: AnswerSectionKind | undefined, body: string) {
+  if (!kind) return true;
+  const text = body.toLowerCase();
+  if (kind !== "source_gap" && unsupportedGapPattern.test(text)) return false;
+  if (kind === "medication_dose") {
+    return /\b(?:dose|dosing|dosage|mg|mcg|mmol|route|oral|intramuscular|medication|lithium|clozapine|olanzapine|haloperidol|lorazepam|quetiapine|risperidone)\b/.test(
+      text,
+    );
+  }
+  if (kind === "thresholds") return thresholdPattern.test(text);
+  if (kind === "monitoring_timing") return /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood|level|review interval)\b/.test(text);
+  if (kind === "escalation_risk") return /\b(?:risk|escalat|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text);
+  if (kind === "documentation") return /\b(?:document|form|record|audit|consent|register|completion)\b/.test(text);
+  if (kind === "required_actions") return /\b(?:action|required|must|arrange|contact|notify|assess|complete|follow up|report)\b/.test(text);
   return true;
 }
 
@@ -208,11 +252,10 @@ function tableFromVisualEvidence(card: VisualEvidenceCard): ClinicalThresholdTab
       : null;
   const candidate: ClinicalThresholdTable = {
     id: card.id,
-    caption: [card.tableLabel, card.tableTitle].filter(Boolean).join(": ") || card.caption,
+    caption: clinicalTableCaption(card.tableTitle || card.caption),
     markdown,
     rows: card.tableRows,
     columns: card.tableColumns,
-    sourceLabel: `${card.title}, page ${card.page_number ?? "n/a"}`,
   };
 
   if (!tableHasUsableShape(candidate)) return null;
@@ -303,7 +346,9 @@ function sectionKindToClinicalSection(kind?: AnswerSectionKind): { id: ClinicalO
 function isPromotableAnswerSection(section: NonNullable<RagAnswer["answerSections"]>[number], answer: RagAnswer) {
   if (section.kind === "source_gap") return true;
   if (section.kind === "verification" || section.kind === "quotes" || section.kind === "visual_evidence") return false;
-  if (isLowYieldClinicalText(`${section.heading}. ${section.body}`)) return false;
+  const useful = clinicalProseUsefulness(`${section.heading}. ${section.body}`);
+  if (!useful.useful && isLowYieldClinicalText(`${section.heading}. ${section.body}`)) return false;
+  if (!sectionBodyMatchesKind(section.kind, useful.text || section.body)) return false;
   if (section.supportLevel === "unsupported") return false;
   if (section.supportLevel === "nearby") return false;
   if (isWeakAnswer(answer) && section.supportLevel !== "direct" && section.supportLevel !== "partial") return false;
@@ -317,6 +362,218 @@ function sectionDisplayLines(answer: RagAnswer) {
       const label = section.kind ? sectionKindLabels[section.kind] : section.heading;
       return parseAnswerDisplayContent(`${label}: ${section.body}`).lines;
     });
+}
+
+function compactTableCell(value: string, limit = 180) {
+  const normalized = normalizeClinicalItem(value);
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit - 3).trim()}...`;
+}
+
+function clinicalTableCaption(value: string) {
+  return normalizeText(value)
+    .replace(/\btable\s+\d+\s*[:.-]?\s*/i, "")
+    .replace(/\b(?:page|p\.)\s*\d+\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function answerSectionTableArea(section: NonNullable<RagAnswer["answerSections"]>[number]) {
+  if (section.kind) return sectionKindLabels[section.kind];
+  return normalizeText(section.heading) || "Clinical support";
+}
+
+function shouldBuildStructuredSupportTable(answer: RagAnswer, rowCount: number) {
+  if (rowCount < 2) return false;
+  if (rowCount >= 3) return true;
+  return (
+    answer.responseMode === "clinical_pathway" ||
+    answer.responseMode === "comparison_matrix" ||
+    answer.responseMode === "threshold_table" ||
+    answer.queryClass === "comparison" ||
+    answer.queryClass === "medication_dose_risk" ||
+    answer.queryClass === "table_threshold"
+  );
+}
+
+function buildStructuredSupportTable(answer: RagAnswer): ClinicalThresholdTable | null {
+  const seen = new Set<string>();
+  const rows = (answer.answerSections ?? [])
+    .filter((section) => isPromotableAnswerSection(section, answer))
+    .filter(
+      (section) =>
+        section.kind !== "bottom_line" &&
+        section.kind !== "source_gap" &&
+        section.kind !== "verification" &&
+        section.kind !== "quotes" &&
+        section.kind !== "visual_evidence",
+    )
+    .map((section) => {
+      const area = compactTableCell(answerSectionTableArea(section), 52);
+      const detail = compactTableCell(section.body);
+      return [area, detail];
+    })
+    .filter((row) => {
+      if (!row[0] || !row[1]) return false;
+      const key = `${row[0].toLowerCase()}||${row[1].toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+
+  if (!shouldBuildStructuredSupportTable(answer, rows.length)) return null;
+
+  return {
+    id: "structured-support-map",
+    caption: "Clinical details from the answer",
+    columns: ["Clinical area", "Clinical detail"],
+    rows,
+  };
+}
+
+function buildSourceComparisonTable(answer: RagAnswer): ClinicalThresholdTable | null {
+  const documents = (answer.documentBreakdown ?? []).slice(0, 4);
+  const shouldCompare =
+    answer.responseMode === "comparison_matrix" || answer.queryClass === "comparison" || documents.length >= 3;
+  if (!shouldCompare || documents.length < 2) return null;
+  const rows = documents
+    .map((document) => compactTableCell(document.best_quote ?? "", 180))
+    .filter(Boolean)
+    .map((detail) => [detail]);
+
+  if (rows.length < 2) return null;
+
+  return {
+    id: "source-comparison-map",
+    caption: "Clinical comparison detail",
+    columns: ["Clinical detail"],
+    rows,
+  };
+}
+
+function evidenceHref(documentId: string, pageNumber?: number | null, chunkId?: string | null) {
+  const params = new URLSearchParams();
+  if (pageNumber) params.set("page", String(pageNumber));
+  if (chunkId) params.set("chunk", chunkId);
+  const query = params.toString();
+  return `/documents/${documentId}${query ? `?${query}` : ""}`;
+}
+
+function supportLevelLabel(value?: string | null) {
+  if (value === "direct") return "Direct";
+  if (value === "partial") return "Partial";
+  if (value === "nearby") return "Nearby only";
+  if (value === "unsupported") return "Unsupported";
+  if (value === "strong") return "Strong";
+  if (value === "moderate") return "Moderate";
+  if (value === "limited") return "Limited";
+  return "Not classified";
+}
+
+function sourceStatusSummary(metadataInput: unknown) {
+  const metadata = normalizeSourceMetadata(metadataInput);
+  return [sourceStatusLabel(metadata), validationStatusLabel(metadata), extractionQualityLabel(metadata)].join(" / ");
+}
+
+function displaySectionLabel(section: NonNullable<RagAnswer["answerSections"]>[number]) {
+  if (section.kind) return sectionKindLabels[section.kind];
+  return normalizeText(section.heading) || "Answer section";
+}
+
+export function buildAnswerEvidenceMap(answer: RagAnswer | null | undefined): AnswerEvidenceMapRow[] {
+  if (!answer) return [];
+
+  const sourceByChunkId = new Map((answer.sources ?? []).map((source) => [source.id, source]));
+  const citationByChunkId = new Map(answer.citations.map((citation) => [citation.chunk_id, citation]));
+  const quoteByChunkId = new Map((answer.quoteCards ?? []).map((quote) => [quote.chunk_id, quote]));
+  const rows: AnswerEvidenceMapRow[] = [];
+  const sections = (answer.answerSections ?? []).filter(
+    (section) => section.kind !== "verification" && section.kind !== "quotes" && section.kind !== "visual_evidence",
+  );
+
+  for (const [index, section] of sections.entries()) {
+    const citationIds = Array.from(new Set(section.citation_chunk_ids.filter(Boolean)));
+    const source = citationIds.map((id) => sourceByChunkId.get(id)).find(Boolean);
+    const citation = citationIds.map((id) => citationByChunkId.get(id)).find(Boolean);
+    const quote = citationIds.map((id) => quoteByChunkId.get(id)).find(Boolean);
+    const metadata = source?.source_metadata ?? citation?.source_metadata ?? null;
+    const bestSourceLabel = source
+      ? `${source.title}, page ${source.page_number ?? "n/a"}`
+      : citation
+        ? formatCitationLabel(citation)
+        : "No linked source";
+    const bestLinkedPassage = compactTableCell(quote?.quote ?? source?.content ?? section.body, 220);
+    const supportLevel = section.supportLevel ?? source?.source_strength ?? answer.evidenceSummary?.source_strength;
+    const href = source
+      ? evidenceHref(source.document_id, source.page_number, source.id)
+      : citation
+        ? evidenceHref(citation.document_id, citation.page_number, citation.chunk_id)
+        : undefined;
+
+    rows.push({
+      id: `${section.heading || "section"}:${index}`,
+      section: displaySectionLabel(section),
+      detail: compactTableCell(section.body, 180),
+      supportLevel: supportLevelLabel(supportLevel),
+      citationCount: citationIds.length,
+      sourceStatus: sourceStatusSummary(metadata),
+      bestSourceLabel,
+      bestLinkedPassage,
+      href,
+    });
+  }
+
+  if (rows.length > 0) return rows.slice(0, 8);
+
+  return answer.citations.slice(0, 6).map((citation, index) => ({
+    id: `citation:${citation.chunk_id}:${index}`,
+    section: "Citation",
+    detail: "Linked source passage available for review.",
+    supportLevel: supportLevelLabel(answer.evidenceSummary?.source_strength),
+    citationCount: 1,
+    sourceStatus: sourceStatusSummary(citation.source_metadata),
+    bestSourceLabel: formatCitationLabel(citation),
+    bestLinkedPassage: "Open the linked passage to verify the source text.",
+    href: evidenceHref(citation.document_id, citation.page_number, citation.chunk_id),
+  }));
+}
+
+export function buildHighYieldClinicalOutputSections(answer: RagAnswer | null | undefined) {
+  const highYieldIds = new Set<ClinicalOutputSectionId>([
+    "action",
+    "thresholds",
+    "cautions",
+    "escalation",
+    "monitoring",
+    "medication",
+    "source-gap",
+    "verify-source",
+  ]);
+
+  return buildClinicalOutputSections(answer)
+    .filter((section) => highYieldIds.has(section.id))
+    .map((section) => ({
+      ...section,
+      items: uniqueShortItems(section.items, section.id === "verify-source" ? 2 : 4),
+    }))
+    .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
+}
+
+function clinicalTableToTextRows(table: ClinicalThresholdTable) {
+  const rows = table.rows?.length ? table.rows : parseMarkdownTable(table.markdown);
+  if (!rows?.length) return [];
+  const hasColumns = Boolean(table.columns?.length);
+  const header = hasColumns ? table.columns ?? [] : rows[0];
+  const body = hasColumns ? rows : rows.slice(1);
+  const visibleBody = body.slice(0, 6);
+
+  return [
+    table.caption,
+    header.length ? `| ${header.join(" | ")} |` : "",
+    header.length ? `| ${header.map(() => "---").join(" | ")} |` : "",
+    ...visibleBody.map((row) => `| ${row.join(" | ")} |`),
+  ].filter(Boolean);
 }
 
 export function buildClinicalOutputSections(answer: RagAnswer | null | undefined) {
@@ -333,6 +590,8 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
     allTexts.filter((item) => thresholdPattern.test(item) && isPromotableThresholdItem(item, answer)),
     4,
   );
+  const structuredSupportTable = buildStructuredSupportTable(answer);
+  const sourceComparisonTable = buildSourceComparisonTable(answer);
   const verifySource = buildVerifySourceItems(answer);
 
   const sections: ClinicalOutputSection[] = [];
@@ -341,6 +600,15 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
       id: answerLead.group === "gap" ? "source-gap" : "bottom-line",
       title: answerLead.group === "gap" ? "Source gap" : "Bottom line",
       items: uniqueShortItems([answerLead.text], 1),
+    });
+  }
+
+  if (structuredSupportTable) {
+    sections.push({
+      id: "support-map",
+      title: "Structured support",
+      items: [],
+      tables: [structuredSupportTable],
     });
   }
 
@@ -385,6 +653,20 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
       items: thresholdItems,
       tables: thresholdTables,
     });
+  }
+
+  if (sourceComparisonTable) {
+    const existing = sections.find((section) => section.id === "comparison");
+    if (existing) {
+      existing.tables = [...(existing.tables ?? []), sourceComparisonTable];
+    } else {
+      sections.push({
+        id: "comparison",
+        title: "Comparison",
+        items: [],
+        tables: [sourceComparisonTable],
+      });
+    }
   }
 
   sections.push({
@@ -446,7 +728,12 @@ export function formatWardNote(answer: RagAnswer, demoMode = false) {
     "",
     normalizeText(answer.answer),
     "",
-    ...clinicalSections.flatMap((section) => [section.title, ...section.items.map((item) => `- ${item}`), ""]),
+    ...clinicalSections.flatMap((section) => [
+      section.title,
+      ...section.items.map((item) => `- ${item}`),
+      ...(section.tables ?? []).flatMap(clinicalTableToTextRows),
+      "",
+    ]),
     "Citations",
     ...answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`),
     "",

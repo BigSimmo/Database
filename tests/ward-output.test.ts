@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAnswerEvidenceMap,
   buildClinicalOutputSections,
+  buildHighYieldClinicalOutputSections,
   createQuoteFollowUp,
   formatAnswerForClipboard,
   formatQuotesForClipboard,
@@ -66,6 +68,73 @@ describe("ward output helpers", () => {
     expect(sections[3].items[0]).toContain("lithium level");
     expect(sections[2].items[0]).toContain("vomiting");
     expect(sections[4].items[0]).toContain("1 linked citation");
+  });
+
+  it("derives high-yield sections and evidence-map rows below the concise answer", () => {
+    const enrichedAnswer: RagAnswer = {
+      ...answer,
+      sources: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          title: "Lithium source",
+          file_name: "lithium.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Monitoring",
+          content: "Check lithium level, renal function, thyroid function, calcium, and interacting medicines.",
+          image_ids: [],
+          images: [],
+          similarity: 0.78,
+          source_strength: "strong",
+          source_metadata: {
+            source_title: "Lithium source",
+            publisher: "WA Health",
+            jurisdiction: "Western Australia",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "current",
+            clinical_validation_status: "approved",
+            extraction_quality: "good",
+          },
+        },
+      ],
+      answerSections: [
+        {
+          heading: "Monitoring",
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+          body: "Check lithium level, renal function, thyroid function, calcium, and interacting medicines.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+        {
+          heading: "Documentation",
+          kind: "documentation",
+          supportLevel: "direct",
+          body: "Record the source and review decision.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+    };
+
+    const highYieldSections = buildHighYieldClinicalOutputSections(enrichedAnswer);
+    const evidenceRows = buildAnswerEvidenceMap(enrichedAnswer);
+
+    expect(highYieldSections.map((section) => section.id)).toEqual(["monitoring", "thresholds", "verify-source"]);
+    expect(highYieldSections.some((section) => section.id === "documentation")).toBe(false);
+    expect(evidenceRows[0]).toMatchObject({
+      section: "Monitoring/timing",
+      supportLevel: "Direct",
+      citationCount: 1,
+      bestSourceLabel: "Lithium source, page 1",
+    });
+    expect(evidenceRows[0].sourceStatus).toContain("Current source");
+    expect(evidenceRows[0].sourceStatus).toContain("Approved");
+    expect(evidenceRows[0].href).toContain("/documents/doc-1");
   });
 
   it("uses normalized answer labels instead of raw regex-only buckets", () => {
@@ -137,6 +206,7 @@ describe("ward output helpers", () => {
 
     expect(thresholds?.tables).toHaveLength(1);
     expect(thresholds?.tables?.[0].caption).toContain("FBC/ANC");
+    expect(thresholds?.tables?.[0]).not.toHaveProperty("sourceLabel");
     expect(thresholds?.items[0]).toContain("Withhold clozapine");
   });
 
@@ -226,6 +296,26 @@ describe("ward output helpers", () => {
     expect(medication?.items.join(" ")).not.toContain("Neuroleptic side effect Guideline");
   });
 
+  it("rejects source-title-heavy evidence snippets from structured support", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      answer: "Care coordinator follow-up is supported by the retrieved source.",
+      answerSections: [
+        {
+          heading: "Medication/dose details",
+          kind: "medication_dose",
+          supportLevel: "direct",
+          body: "Dose evidence: LUNSERS (Liverpool University Neuroleptic Side Effect Rating Scale) - using for monitoring Neuroleptic side effect Guideline Appendix 1. Dose evidence: Care coordinator to follow up completion by consumer and report findings to treating doctor.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+    });
+
+    expect(sections.find((section) => section.id === "medication")).toBeUndefined();
+    expect(JSON.stringify(sections)).not.toContain("Dose evidence");
+    expect(JSON.stringify(sections)).not.toContain("Liverpool University");
+  });
+
   it("does not promote nearby or unsupported structured sections as primary clinical support", () => {
     const sections = buildClinicalOutputSections({
       ...answer,
@@ -264,6 +354,37 @@ describe("ward output helpers", () => {
 
     expect(sections.find((section) => section.id === "medication")).toBeUndefined();
     expect(sections.find((section) => section.id === "source-gap")?.items[0]).toContain("do not contain");
+  });
+
+  it("keeps missing threshold evidence in source gaps instead of threshold support", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      answer:
+        "There is no direct information on dose ranges, usual starting doses, titration steps, or therapeutic serum lithium thresholds in the supplied documents.",
+      grounded: false,
+      confidence: "unsupported",
+      smartPanel: { query: "lithium dosing" } as RagAnswer["smartPanel"],
+      answerSections: [
+        {
+          heading: "Source gap",
+          kind: "source_gap",
+          supportLevel: "unsupported",
+          body: "The supplied sources do not provide dosing guidelines, starting doses, titration schedules, or target serum levels for lithium.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+        {
+          heading: "Thresholds",
+          kind: "thresholds",
+          supportLevel: "partial",
+          body: "The supplied sources do not provide dosing guidelines, starting doses, titration schedules, or target serum levels for lithium.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      quoteCards: [],
+    });
+
+    expect(sections.find((section) => section.id === "source-gap")?.items[0]).toContain("do not provide");
+    expect(sections.find((section) => section.id === "thresholds")).toBeUndefined();
   });
 
   it("does not promote medication-mismatched threshold prose for medication-specific queries", () => {
@@ -353,6 +474,84 @@ describe("ward output helpers", () => {
     expect(
       buildClinicalOutputSections(weakButMatchedAnswer).find((section) => section.id === "thresholds")?.tables,
     ).toHaveLength(1);
+  });
+
+  it("builds a compact structured support table for complex answers", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      responseMode: "clinical_pathway",
+      answerSections: [
+        {
+          heading: "Required actions",
+          kind: "required_actions",
+          supportLevel: "direct",
+          body: "Arrange baseline renal function, thyroid function, calcium, and lithium level before continuing.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+        {
+          heading: "Monitoring/timing",
+          kind: "monitoring_timing",
+          supportLevel: "partial",
+          body: "Review lithium level and renal function after clinically relevant changes.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+    });
+
+    const support = sections.find((section) => section.id === "support-map");
+
+    expect(support?.tables?.[0]).toMatchObject({
+      columns: ["Clinical area", "Clinical detail"],
+      rows: [
+        ["Required actions", expect.stringContaining("baseline renal function")],
+        ["Monitoring/timing", expect.stringContaining("Review lithium level")],
+      ],
+    });
+    expect(support?.tables?.[0].columns).not.toContain("Support");
+  });
+
+  it("adds clinical-only comparison detail for comparison answers", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      answer: "The retrieved documents overlap on monitoring but differ in escalation detail.",
+      queryClass: "comparison",
+      responseMode: "comparison_matrix",
+      documentBreakdown: [
+        {
+          document_id: "doc-1",
+          title: "Lithium guideline",
+          file_name: "lithium.pdf",
+          top_similarity: 0.8,
+          source_strength: "strong",
+          source_count: 2,
+          quote_count: 1,
+          pages: [1, 2],
+          best_quote: "Check lithium level and renal function.",
+        },
+        {
+          document_id: "doc-2",
+          title: "Renal monitoring protocol",
+          file_name: "renal.pdf",
+          top_similarity: 0.7,
+          source_strength: "limited",
+          source_count: 1,
+          quote_count: 1,
+          pages: [4],
+          best_quote: "Escalate abnormal renal function for review.",
+        },
+      ],
+    });
+
+    const comparison = sections.find((section) => section.id === "comparison");
+
+    expect(comparison?.tables?.[0]).toMatchObject({
+      columns: ["Clinical detail"],
+      rows: [
+        [expect.stringContaining("lithium level")],
+        [expect.stringContaining("Escalate abnormal")],
+      ],
+    });
+    expect(comparison?.tables?.[0].columns).not.toEqual(expect.arrayContaining(["Source", "Support", "Pages"]));
   });
 
   it("formats copyable answer and quote text with citations", () => {

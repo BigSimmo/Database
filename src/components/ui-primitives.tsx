@@ -60,6 +60,12 @@ export const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]";
 export const premiumHeaderSurface =
   "border-b border-white/10 bg-[radial-gradient(circle_at_12%_-35%,color-mix(in_srgb,var(--app-shell-accent)_34%,transparent),transparent_18rem),linear-gradient(135deg,var(--app-shell)_0%,var(--app-shell-muted)_58%,color-mix(in_srgb,var(--app-shell-muted)_72%,var(--app-shell-accent))_100%)] text-white shadow-[var(--shadow-soft)]";
+export const sheetSurface =
+  "rounded-t-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-xl dark:ring-white/10 sm:rounded-[var(--radius-lg)]";
+export const sheetHandle =
+  "mx-auto block h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70 sm:hidden";
+export const commandInput =
+  "min-h-[48px] w-full rounded-[var(--radius-lg)] border border-white/20 bg-white/95 pl-12 pr-12 text-base font-semibold text-slate-950 shadow-[0_16px_34px_rgb(0_0_0_/_14%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/25 dark:bg-slate-950/90 dark:text-slate-50 dark:placeholder:text-slate-500";
 
 export const toneSuccess =
   "border-[color:var(--success)]/30 bg-[color:var(--success-soft)] text-[color:var(--success)]";

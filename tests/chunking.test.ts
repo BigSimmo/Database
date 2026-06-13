@@ -82,6 +82,12 @@ describe("image-aware chunks", () => {
       embedding_model: "text-embedding-3-small",
       page_start: 2,
       page_end: 2,
+      source_spans: expect.arrayContaining([
+        expect.objectContaining({
+          page_number: 2,
+          excerpt: expect.stringContaining("Medication monitoring guidance"),
+        }),
+      ]),
     });
   });
 

@@ -132,6 +132,24 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("text_candidates as");
     expect(schema).toContain("rrf_candidates as");
     expect(schema).toContain("candidate_ids as");
+    const hybridFunction = schema.slice(
+      schema.indexOf("create or replace function public.match_document_chunks_hybrid"),
+      schema.indexOf("create or replace function public.match_document_memory_cards_hybrid"),
+    );
+    expect(hybridFunction).not.toContain("document_label_metadata");
+    expect(hybridFunction).not.toContain("document_summary_text");
+  });
+
+  it("covers advisor-reported foreign key indexes for search support tables", () => {
+    expect(schema).toContain(
+      "create index if not exists document_embedding_fields_owner_idx on public.document_embedding_fields(owner_id)",
+    );
+    expect(schema).toContain(
+      "create index if not exists document_table_facts_owner_idx on public.document_table_facts(owner_id)",
+    );
+    expect(schema).toContain(
+      "create index if not exists document_table_facts_source_image_idx on public.document_table_facts(source_image_id) where source_image_id is not null",
+    );
   });
 
   it("allows richer clinical embedding field types", () => {
@@ -140,6 +158,18 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("'image_caption'");
     expect(schema).toContain("'clinical_action'");
     expect(schema).toContain("'threshold_fact'");
+  });
+
+  it("supports unified multi-level document index units", () => {
+    expect(schema).toContain("create table if not exists public.document_index_units");
+    expect(schema).toContain("'document_profile'");
+    expect(schema).toContain("'askable_question'");
+    expect(schema).toContain("'vocabulary_term'");
+    expect(schema).toContain("source_span jsonb");
+    expect(schema).toContain("create index if not exists document_index_units_embedding_hnsw_idx");
+    expect(schema).toContain("create or replace function public.match_document_index_units_hybrid");
+    expect(schema).toContain("delete from public.document_index_units where document_id = p_document_id;");
+    expect(schema).toContain('create policy "document index units owner read"');
   });
 
   it("stores smart image metadata, document labels, and high-yield summaries", () => {

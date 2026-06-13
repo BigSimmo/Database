@@ -1,4 +1,5 @@
 import type { TableFactChunkRow, TableFactImageRow, TableFactInsert } from "./table-facts";
+import { clinicalVocabularySearchText } from "../src/lib/clinical-vocabulary";
 
 type EmbeddingFieldJob = {
   document_id: string;
@@ -51,7 +52,7 @@ function sectionPathForChunk(chunk: TableFactChunkRow) {
 
 function chunkContext(job: EmbeddingFieldJob, chunk: TableFactChunkRow, contentLimit = 950) {
   return compactSearchText(
-    [
+    clinicalVocabularySearchText([
       job.documents.title,
       job.documents.file_name,
       sectionPathForChunk(chunk),
@@ -59,7 +60,7 @@ function chunkContext(job: EmbeddingFieldJob, chunk: TableFactChunkRow, contentL
       compactSearchText(chunk.content, contentLimit),
     ]
       .filter(Boolean)
-      .join(" | "),
+      .join(" | ")),
     1300,
   );
 }
@@ -86,23 +87,25 @@ function usefulImageCaption(image: TableFactImageRow) {
     Boolean(image.tableTitle || image.tableLabel || image.tableTextSnippet);
   if (!clinical) return "";
   return compactSearchText(
-    [
+    clinicalVocabularySearchText([
       image.tableTitle,
       image.tableLabel,
       image.caption,
       image.tableTextSnippet ? `Table text: ${image.tableTextSnippet}` : "",
     ]
       .filter(Boolean)
-      .join(" | "),
+      .join(" | ")),
     900,
   );
 }
 
 function tableFactText(fact: TableFactInsert) {
   return compactSearchText(
+    clinicalVocabularySearchText(
     [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
       .filter(Boolean)
       .join(" | "),
+    ),
     900,
   );
 }

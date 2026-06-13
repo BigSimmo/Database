@@ -36,8 +36,6 @@ returns table (
   content text,
   image_ids uuid[],
   source_metadata jsonb,
-  document_labels jsonb,
-  document_summary text,
   similarity double precision,
   text_rank double precision,
   hybrid_score double precision,
@@ -188,13 +186,11 @@ as $$
     c.content,
     c.image_ids,
     d.metadata as source_metadata,
-    coalesce(public.document_label_metadata(c.document_id), '[]'::jsonb) as document_labels,
-    public.document_summary_text(c.document_id) as document_summary,
     c.similarity,
     c.text_rank,
     c.hybrid_score,
     c.rrf_score,
-    public.chunk_image_metadata(c.image_ids) as images
+    '[]'::jsonb as images
   from scored_metrics c
   join candidate_ids candidates on candidates.id = c.id
   join public.documents d on d.id = c.document_id

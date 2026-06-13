@@ -48,6 +48,40 @@ export type ClinicalSourceMetadata = {
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
 
+export type ClinicalQueryMode =
+  | "auto"
+  | "monitoring_schedule"
+  | "dose_threshold_lookup"
+  | "contraindications_cautions"
+  | "escalation_criteria"
+  | "required_documentation"
+  | "compare_guidance";
+
+export type SearchScopeSummary = {
+  summary: string;
+  activeFilterCount: number;
+  matchedDocumentCount: number | null;
+  warnings: string[];
+  queryMode?: ClinicalQueryMode;
+};
+
+export type SourceGovernanceWarning = {
+  code:
+    | "outdated_source"
+    | "review_due_source"
+    | "non_local_source"
+    | "unverified_source"
+    | "poor_extraction"
+    | "partial_extraction"
+    | "low_index_quality"
+    | "weak_evidence"
+    | "weak_table_extraction";
+  severity: "info" | "warning" | "danger";
+  message: string;
+  document_id?: string;
+  title?: string;
+};
+
 export type ClinicalDocument = {
   id: string;
   owner_id?: string | null;
@@ -162,6 +196,7 @@ export type SearchResult = {
   relevance?: SourceEvidenceRelevance;
   match_explanation?: SearchMatchExplanation;
   table_facts?: DocumentTableFact[];
+  index_unit?: DocumentIndexUnitMatch | null;
   indexing_quality?: DocumentIndexQualityScore | null;
   images: ChunkImage[];
 };
@@ -172,6 +207,8 @@ export type SearchMatchExplanation = {
   sectionHit?: boolean;
   contentHit?: boolean;
   tableHit?: boolean;
+  indexUnitType?: string | null;
+  matchedAliases?: string[];
   vectorSimilarity?: number | null;
   textRank?: number | null;
   fieldType?: string | null;
@@ -180,6 +217,26 @@ export type SearchMatchExplanation = {
   indexQualityScore?: number | null;
   indexQualityIssues?: string[];
   reasons: string[];
+};
+
+export type DocumentIndexUnitMatch = {
+  id: string;
+  unit_type: string;
+  title: string;
+  content: string;
+  source_chunk_id: string | null;
+  source_image_id: string | null;
+  page_start: number | null;
+  page_end: number | null;
+  heading_path: string[];
+  normalized_terms: string[];
+  source_span?: Record<string, unknown> | null;
+  quality_score: number | null;
+  extraction_mode: "deterministic" | "model_heavy" | "hybrid" | string;
+  similarity?: number | null;
+  text_rank?: number | null;
+  hybrid_score?: number | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type DocumentTableFact = {
@@ -313,6 +370,7 @@ export type DocumentSummary = {
   owner_id?: string | null;
   summary: string;
   clinical_specifics: {
+    profile?: ClinicalDocumentSummaryProfile;
     actions?: string[];
     thresholds_timing?: string[];
     medication_monitoring?: string[];
@@ -328,6 +386,32 @@ export type DocumentSummary = {
   generated_at?: string;
   created_at?: string;
   updated_at?: string;
+};
+
+export type DocumentSummaryEvidenceType = "text" | "table" | "image" | "mixed" | "metadata";
+export type DocumentSummarySupportLevel = "direct" | "partial" | "not_found";
+
+export type DocumentSummaryProfileItem = {
+  text: string;
+  source_chunk_ids: string[];
+  source_image_ids: string[];
+  pages: number[];
+  evidence_type: DocumentSummaryEvidenceType;
+  support: DocumentSummarySupportLevel;
+};
+
+export type ClinicalDocumentSummaryProfile = {
+  overview: string;
+  applies_to: DocumentSummaryProfileItem[];
+  key_clinical_actions: DocumentSummaryProfileItem[];
+  medication_dose_monitoring: DocumentSummaryProfileItem[];
+  thresholds_timing: DocumentSummaryProfileItem[];
+  escalation_risk_warnings: DocumentSummaryProfileItem[];
+  required_forms_documentation: DocumentSummaryProfileItem[];
+  not_covered: DocumentSummaryProfileItem[];
+  important_tables_images: DocumentSummaryProfileItem[];
+  best_questions: DocumentSummaryProfileItem[];
+  source_quality_notes: DocumentSummaryProfileItem[];
 };
 
 export type RagIndexingVersion = "rag-universal-v1" | "rag-deep-memory-v1";
@@ -364,6 +448,7 @@ export type DocumentSectionMemory = {
 
 export type DocumentMemoryCardType =
   | "section_summary"
+  | "askable_question"
   | "table_row"
   | "threshold"
   | "medication"
@@ -656,6 +741,8 @@ export type RagAnswer = {
     finalScore: number;
     score_explanation?: SearchScoreExplanation;
   }>;
+  scope?: SearchScopeSummary;
+  sourceGovernanceWarnings?: SourceGovernanceWarning[];
 };
 
 export type ExtractedPage = {

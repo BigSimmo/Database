@@ -1,0 +1,356 @@
+import { env } from "@/lib/env";
+import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
+import { generateStructuredTextResponse } from "@/lib/openai";
+import { cleanClinicalSummaryText, sourceTextForModel } from "@/lib/source-text-sanitizer";
+
+export const modelIndexExtractionVersion = "model-heavy-index-v1" as const;
+
+export type ModelIndexChunk = {
+  id: string;
+  page_number: number | null;
+  chunk_index: number;
+  section_heading: string | null;
+  content: string;
+};
+
+export type ModelIndexImage = {
+  id: string;
+  page_number: number | null;
+  caption: string | null;
+  image_type?: string | null;
+  labels?: string[] | null;
+  source_kind?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type ModelIndexProfileItem = {
+  title: string;
+  content: string;
+  source_chunk_ids: string[];
+  source_image_ids: string[];
+  confidence: number;
+};
+
+export type ModelIndexTableFact = ModelIndexProfileItem & {
+  table_title: string | null;
+  clinical_parameter: string | null;
+  threshold_value: string | null;
+  action: string | null;
+};
+
+export type ModelIndexAlias = {
+  alias: string;
+  canonical: string;
+  alias_type: string;
+  source_chunk_ids: string[];
+  confidence: number;
+};
+
+export type ModelIndexProfile = {
+  sections: ModelIndexProfileItem[];
+  askable_questions: ModelIndexProfileItem[];
+  clinical_facts: ModelIndexProfileItem[];
+  table_facts: ModelIndexTableFact[];
+  aliases: ModelIndexAlias[];
+  quality_issues: string[];
+  model: string | null;
+  version: typeof modelIndexExtractionVersion;
+};
+
+const itemSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    title: { type: "string" },
+    content: { type: "string" },
+    source_chunk_ids: { type: "array", items: { type: "string" } },
+    source_image_ids: { type: "array", items: { type: "string" } },
+    confidence: { type: "number" },
+  },
+  required: ["title", "content", "source_chunk_ids", "source_image_ids", "confidence"],
+};
+
+const schema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    sections: { type: "array", maxItems: 16, items: itemSchema },
+    askable_questions: { type: "array", maxItems: 15, items: itemSchema },
+    clinical_facts: { type: "array", maxItems: 36, items: itemSchema },
+    table_facts: {
+      type: "array",
+      maxItems: 32,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          ...itemSchema.properties,
+          table_title: { type: ["string", "null"] },
+          clinical_parameter: { type: ["string", "null"] },
+          threshold_value: { type: ["string", "null"] },
+          action: { type: ["string", "null"] },
+        },
+        required: [
+          "title",
+          "content",
+          "source_chunk_ids",
+          "source_image_ids",
+          "confidence",
+          "table_title",
+          "clinical_parameter",
+          "threshold_value",
+          "action",
+        ],
+      },
+    },
+    aliases: {
+      type: "array",
+      maxItems: 28,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          alias: { type: "string" },
+          canonical: { type: "string" },
+          alias_type: {
+            type: "string",
+            enum: ["medication", "document_title", "acronym", "service", "workflow", "typo", "clinical_term", "custom"],
+          },
+          source_chunk_ids: { type: "array", items: { type: "string" } },
+          confidence: { type: "number" },
+        },
+        required: ["alias", "canonical", "alias_type", "source_chunk_ids", "confidence"],
+      },
+    },
+    quality_issues: { type: "array", maxItems: 12, items: { type: "string" } },
+  },
+  required: ["sections", "askable_questions", "clinical_facts", "table_facts", "aliases", "quality_issues"],
+};
+
+function compact(value: unknown, limit = 900) {
+  const clean = sourceTextForModel(String(value ?? "")).replace(/\s+/g, " ").trim();
+  return clean.length <= limit ? clean : `${clean.slice(0, limit - 3).trim()}...`;
+}
+
+function cleanItemText(value: unknown, limit = 520) {
+  const clean = cleanClinicalSummaryText(String(value ?? "")).replace(/\s+/g, " ").trim();
+  if (!clean || clean.length < 8) return "";
+  return clean.length <= limit ? clean : `${clean.slice(0, limit - 3).trim()}...`;
+}
+
+function normalizeItem(
+  item: unknown,
+  validChunkIds: Set<string>,
+  validImageIds: Set<string>,
+): ModelIndexProfileItem | null {
+  if (!item || typeof item !== "object") return null;
+  const raw = item as Record<string, unknown>;
+  const source_chunk_ids = Array.isArray(raw.source_chunk_ids)
+    ? raw.source_chunk_ids.map(String).filter((id) => validChunkIds.has(id))
+    : [];
+  const source_image_ids = Array.isArray(raw.source_image_ids)
+    ? raw.source_image_ids.map(String).filter((id) => validImageIds.has(id))
+    : [];
+  if (source_chunk_ids.length === 0 && source_image_ids.length === 0) return null;
+  const title = cleanItemText(raw.title, 120);
+  const content = cleanItemText(raw.content, 720);
+  if (!title || !content) return null;
+  const confidence = Number(raw.confidence);
+  return {
+    title,
+    content,
+    source_chunk_ids,
+    source_image_ids,
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0.55,
+  };
+}
+
+function uniqueItems<T extends { title: string; content: string }>(items: T[], limit: number) {
+  const seen = new Set<string>();
+  const output: T[] = [];
+  for (const item of items) {
+    const key = `${item.title} ${item.content}`.toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 240);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
+function tableFact(item: unknown, validChunkIds: Set<string>, validImageIds: Set<string>): ModelIndexTableFact | null {
+  const base = normalizeItem(item, validChunkIds, validImageIds);
+  if (!base || !item || typeof item !== "object") return null;
+  const raw = item as Record<string, unknown>;
+  return {
+    ...base,
+    table_title: cleanItemText(raw.table_title, 140) || null,
+    clinical_parameter: cleanItemText(raw.clinical_parameter, 180) || null,
+    threshold_value: cleanItemText(raw.threshold_value, 180) || null,
+    action: cleanItemText(raw.action, 260) || null,
+  };
+}
+
+function aliasItem(item: unknown, validChunkIds: Set<string>): ModelIndexAlias | null {
+  if (!item || typeof item !== "object") return null;
+  const raw = item as Record<string, unknown>;
+  const alias = cleanItemText(raw.alias, 80);
+  const canonical = cleanItemText(raw.canonical, 120);
+  const source_chunk_ids = Array.isArray(raw.source_chunk_ids)
+    ? raw.source_chunk_ids.map(String).filter((id) => validChunkIds.has(id))
+    : [];
+  if (!alias || !canonical || alias.toLowerCase() === canonical.toLowerCase() || source_chunk_ids.length === 0) {
+    return null;
+  }
+  const confidence = Number(raw.confidence);
+  return {
+    alias,
+    canonical,
+    alias_type: String(raw.alias_type || "clinical_term"),
+    source_chunk_ids,
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0.55,
+  };
+}
+
+function emptyProfile(model: string | null = null): ModelIndexProfile {
+  return {
+    sections: [],
+    askable_questions: [],
+    clinical_facts: [],
+    table_facts: [],
+    aliases: [],
+    quality_issues: [],
+    model,
+    version: modelIndexExtractionVersion,
+  };
+}
+
+function parseProfile(raw: string, chunks: ModelIndexChunk[], images: ModelIndexImage[], model: string | null) {
+  const validChunkIds = new Set(chunks.map((chunk) => chunk.id));
+  const validImageIds = new Set(images.map((image) => image.id));
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  return {
+    sections: uniqueItems(
+      (Array.isArray(parsed.sections) ? parsed.sections : [])
+        .map((item) => normalizeItem(item, validChunkIds, validImageIds))
+        .filter((item): item is ModelIndexProfileItem => Boolean(item)),
+      16,
+    ),
+    askable_questions: uniqueItems(
+      (Array.isArray(parsed.askable_questions) ? parsed.askable_questions : [])
+        .map((item) => normalizeItem(item, validChunkIds, validImageIds))
+        .filter((item): item is ModelIndexProfileItem => Boolean(item)),
+      15,
+    ),
+    clinical_facts: uniqueItems(
+      (Array.isArray(parsed.clinical_facts) ? parsed.clinical_facts : [])
+        .map((item) => normalizeItem(item, validChunkIds, validImageIds))
+        .filter((item): item is ModelIndexProfileItem => Boolean(item)),
+      36,
+    ),
+    table_facts: uniqueItems(
+      (Array.isArray(parsed.table_facts) ? parsed.table_facts : [])
+        .map((item) => tableFact(item, validChunkIds, validImageIds))
+        .filter((item): item is ModelIndexTableFact => Boolean(item)),
+      32,
+    ),
+    aliases: (Array.isArray(parsed.aliases) ? parsed.aliases : [])
+      .map((item) => aliasItem(item, validChunkIds))
+      .filter((item): item is ModelIndexAlias => Boolean(item))
+      .slice(0, 28),
+    quality_issues: (Array.isArray(parsed.quality_issues) ? parsed.quality_issues : [])
+      .map((item) => cleanItemText(item, 160))
+      .filter(Boolean)
+      .slice(0, 12),
+    model,
+    version: modelIndexExtractionVersion,
+  } satisfies ModelIndexProfile;
+}
+
+function buildPrompt(args: {
+  document: { title: string; file_name: string; source_path?: string | null };
+  chunks: ModelIndexChunk[];
+  images: ModelIndexImage[];
+}) {
+  const chunks = args.chunks.slice(0, 90);
+  const imageBlock = args.images
+    .slice(0, 40)
+    .map((image) => {
+      const metadata = image.metadata ?? {};
+      return [
+        `image_id: ${image.id}`,
+        `page: ${image.page_number ?? "n/a"}`,
+        `type: ${image.image_type ?? "unclear"}`,
+        `source_kind: ${image.source_kind ?? "unknown"}`,
+        `caption: ${compact(image.caption, 420)}`,
+        `table: ${compact([metadata.table_title, metadata.table_label, metadata.table_text_snippet ?? metadata.table_text].filter(Boolean).join(" | "), 520)}`,
+      ].join("; ");
+    })
+    .join("\n");
+
+  const sourceBlock = chunks
+    .map((chunk) =>
+      [
+        `chunk_id: ${chunk.id}`,
+        `page: ${chunk.page_number ?? "n/a"}; chunk_index: ${chunk.chunk_index}; heading: ${chunk.section_heading ?? "none"}`,
+        compact(chunk.content, 1250),
+      ].join("\n"),
+    )
+    .join("\n\n---\n\n");
+
+  const vocabularyHints = expandClinicalVocabularyText(
+    `${args.document.title} ${args.document.file_name} ${chunks.map((chunk) => chunk.content).join(" ")}`,
+    36,
+  );
+
+  return `Create a high-quality model-heavy but source-constrained clinical search index profile.
+Use only the supplied chunks and image metadata. Do not use outside knowledge. Every item must cite real source_chunk_ids and/or source_image_ids from the supplied evidence.
+
+Return strict JSON:
+- sections: concise section summaries that help browse the document.
+- askable_questions: natural questions this document can answer, phrased as user search queries.
+- clinical_facts: clinically useful source facts, especially actions, workflows, risk, medication, monitoring, documentation, populations, services, and settings.
+- table_facts: structured facts from visible tables only. Extract parameter, threshold/value, and action when available.
+- aliases: local acronyms, service terms, forms, misspellings, or alternate names visibly supported by the source.
+- quality_issues: extraction/indexing concerns visible from the evidence only.
+
+Hard constraints:
+- Do not invent facts, thresholds, actions, aliases, source IDs, or clinical advice.
+- Do not include document-control boilerplate as clinical facts.
+- Keep content short and searchable. Prefer exact clinical terms over sentences when possible.
+- If support is weak, omit the item.
+- Include source IDs only in source_chunk_ids/source_image_ids, not in content text.
+
+Document: ${args.document.title}
+File: ${args.document.file_name}
+Source path: ${args.document.source_path ?? "unknown"}
+Vocabulary hints already known locally: ${vocabularyHints.join(", ") || "none"}
+
+Text chunks:
+${sourceBlock || "No source text."}
+
+Image/table metadata:
+${imageBlock || "No image metadata."}`;
+}
+
+export async function generateModelIndexProfile(args: {
+  document: { title: string; file_name: string; source_path?: string | null };
+  chunks: ModelIndexChunk[];
+  images?: ModelIndexImage[];
+}) {
+  if (args.chunks.length === 0) return emptyProfile();
+  const model = env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_ANSWER_MODEL;
+  const raw = await generateStructuredTextResponse(buildPrompt({ ...args, images: args.images ?? [] }), schema, {
+    model,
+    maxOutputTokens: 3200,
+    operation: "summary",
+    schemaName: "clinical_model_index_profile",
+    reasoningEffort: "medium",
+    textVerbosity: "medium",
+  });
+  return parseProfile(raw, args.chunks, args.images ?? [], model);
+}
+
+export function fallbackModelIndexProfile() {
+  return emptyProfile();
+}

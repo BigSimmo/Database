@@ -116,6 +116,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         document,
         chunks,
         images,
+        summary: enrichment.summary.summary,
       });
       return NextResponse.json({
         mode,
@@ -123,6 +124,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         deepMemory: {
           sectionCount: deepMemory.sections.length,
           memoryCardCount: deepMemory.memoryCards.length,
+          indexUnitCount: deepMemory.indexUnits.length,
         },
       });
     }

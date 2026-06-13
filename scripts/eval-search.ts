@@ -1,7 +1,13 @@
 import { loadEnvConfig } from "@next/env";
 import { pathToFileURL } from "node:url";
 import { buildVisualEvidence } from "@/lib/evidence";
-import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
+import {
+  loadCapturedRagEvalCases,
+  mergeRagEvalCases,
+  selectRagEvalCases,
+  type RagEvalCase,
+  type SupabaseEvalCaseClient,
+} from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
 import {
   expectedFileCoverage,
@@ -193,7 +199,12 @@ async function main() {
 
   const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
   const scope = ownerId ? `owner:${args.ownerId ? "id" : args.ownerEmail}` : "public";
-  const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
+  const baseCases = selectRagEvalCases({ question: args.question });
+  const capturedCaseClient = supabase as unknown as SupabaseEvalCaseClient;
+  const capturedCases = args.question
+    ? []
+    : await loadCapturedRagEvalCases({ supabase: capturedCaseClient, ownerId, limit: args.limit });
+  const cases = mergeRagEvalCases(baseCases, capturedCases).slice(0, args.limit ?? undefined);
   const results: SearchEvalResult[] = [];
 
   if (!args.json) console.log(`Running ${cases.length} search eval case(s), scope=${scope}.`);

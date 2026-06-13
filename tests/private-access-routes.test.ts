@@ -741,6 +741,7 @@ describe("private document API access", () => {
     const upsertDocumentDeepMemory = vi.fn(async () => ({
       sections: [],
       memoryCards: [],
+      indexUnits: [],
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
@@ -774,6 +775,7 @@ describe("private document API access", () => {
         document: expect.objectContaining({ id: documentId }),
         chunks,
         images,
+        summary: "Source-backed summary.",
       }),
     );
   });
@@ -845,6 +847,7 @@ describe("private document API access", () => {
     const upsertDocumentDeepMemory = vi.fn(async () => ({
       sections: [],
       memoryCards: [],
+      indexUnits: [],
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
@@ -874,6 +877,7 @@ describe("private document API access", () => {
       expect.objectContaining({
         chunks: expect.arrayContaining([expect.objectContaining({ id: "chunk-final" })]),
         images: expect.arrayContaining([expect.objectContaining({ id: "image-final" })]),
+        summary: "Source-backed summary.",
       }),
     );
   });
@@ -938,6 +942,21 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toEqual({ error: "Document not found." });
     expect(client.calls).toHaveLength(1);
+  });
+
+  it("rejects malformed document detail ids before Supabase uuid filters", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await GET(authenticatedRequest("/api/documents/=3&pageLimit=1"), {
+      params: Promise.resolve({ id: "=3&pageLimit=1" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toEqual({ error: "Invalid document id." });
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("allows owners to rename the document display title without changing file provenance", async () => {
@@ -1019,6 +1038,153 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toEqual({ error: "Document not found." });
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+  });
+
+  it("creates clean manual document labels for owned documents", async () => {
+    const manualLabelId = "55555555-5555-4555-8555-555555555555";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "document_labels" && call.operation === "insert") {
+        return ok({ id: manualLabelId, ...(call.insertPayload as Record<string, unknown>) });
+      }
+      if (call.table === "document_labels" && call.operation === "select") {
+        return ok([{ id: manualLabelId, document_id: documentId, label: "clozapine monitoring" }]);
+      }
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { POST } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ label: "Clozapine Monitoring!!", label_type: "medication" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const insert = client.calls.find((call) => call.table === "document_labels" && call.operation === "insert");
+
+    expect(response.status).toBe(201);
+    expect(body.label).toMatchObject({ label: "clozapine monitoring", label_type: "medication", source: "manual" });
+    expect(insert?.insertPayload).toMatchObject({
+      document_id: documentId,
+      owner_id: userId,
+      label: "clozapine monitoring",
+      label_type: "medication",
+      source: "manual",
+      confidence: 1,
+    });
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+  });
+
+  it("rejects noisy manual document labels before insert", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ label: "Document control", label_type: "topic" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toEqual({
+      error: "Enter a short, specific clinical tag. Generic document-control tags are not allowed.",
+    });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("renames only manual document labels", async () => {
+    const manualLabelId = "66666666-6666-4666-8666-666666666666";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) {
+        return ok({ id: manualLabelId, metadata: { created_by: "test" } });
+      }
+      if (call.table === "document_labels" && call.operation === "update") {
+        return ok({ id: manualLabelId, ...(call.updatePayload as Record<string, unknown>) });
+      }
+      if (call.table === "document_labels" && call.operation === "select") {
+        return ok([{ id: manualLabelId, document_id: documentId, label: "lithium toxicity" }]);
+      }
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { PATCH } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "PATCH",
+        body: JSON.stringify({ labelId: manualLabelId, label: "Lithium toxicity", label_type: "risk" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const update = client.calls.find((call) => call.table === "document_labels" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(update?.filters).toContainEqual({ column: "source", value: "manual" });
+    expect(update?.updatePayload).toMatchObject({ label: "lithium toxicity", label_type: "risk", source: "manual" });
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+  });
+
+  it("refuses to mutate generated document labels", async () => {
+    const generatedLabelId = "77777777-7777-4777-8777-777777777777";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) return ok(null);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { PATCH } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "PATCH",
+        body: JSON.stringify({ labelId: generatedLabelId, label: "Lithium toxicity", label_type: "risk" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(await payload(response)).toEqual({ error: "Manual tag not found." });
+    expect(client.calls.some((call) => call.table === "document_labels" && call.operation === "update")).toBe(false);
+  });
+
+  it("deletes only manual document labels", async () => {
+    const manualLabelId = "88888888-8888-4888-8888-888888888888";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) {
+        return ok({ id: manualLabelId });
+      }
+      if (call.table === "document_labels" && call.operation === "delete") return ok([]);
+      if (call.table === "document_labels" && call.operation === "select") return ok([]);
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { DELETE } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await DELETE(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "DELETE",
+        body: JSON.stringify({ labelId: manualLabelId }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const deleteCall = client.calls.find((call) => call.table === "document_labels" && call.operation === "delete");
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toMatchObject({ deleted: true, labelId: manualLabelId, labels: [] });
+    expect(deleteCall?.filters).toContainEqual({ column: "source", value: "manual" });
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
   });
 
   it("permanently deletes an owned document, query logs, and storage objects", async () => {

@@ -12,6 +12,9 @@ import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consumePublicSearchRateLimit } from "@/lib/public-rate-limit";
+import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -21,6 +24,8 @@ const searchSchema = z.object({
   topK: z.number().int().min(1).max(20).optional(),
   documentId: z.string().uuid().optional(),
   documentIds: z.array(z.string().uuid()).max(25).optional(),
+  filters: searchScopeFiltersSchema.optional(),
+  queryMode: clinicalQueryModeSchema.optional().default("auto"),
   mode: z.enum(["answer", "documents"]).optional().default("answer"),
   documentLimit: z.number().int().min(1).max(50).optional().default(20),
   includeRelatedDocuments: z.boolean().optional().default(true),
@@ -36,6 +41,8 @@ function publicSearchKey(body: SearchRequestBody) {
     topK: body.topK ?? null,
     documentId: body.documentId ?? null,
     documentIds: body.documentIds?.length ? [...body.documentIds].sort() : [],
+    filters: body.filters ?? {},
+    queryMode: body.queryMode,
     mode: body.mode,
     documentLimit: body.documentLimit,
     includeRelatedDocuments: body.includeRelatedDocuments,
@@ -168,6 +175,7 @@ function buildMatchExplanation(query: string, result: SearchResult) {
     sectionHit,
     contentHit,
     tableHit,
+    indexUnitType: result.index_unit?.unit_type ?? null,
     vectorSimilarity: result.similarity ?? null,
     textRank: result.text_rank ?? null,
     freshness: metadata?.document_status ?? null,
@@ -180,6 +188,7 @@ function buildMatchExplanation(query: string, result: SearchResult) {
       sectionHit ? "section" : "",
       contentHit ? "content" : "",
       tableHit ? "table" : "",
+      result.index_unit?.unit_type ? `unit:${result.index_unit.unit_type}` : "",
       metadata?.document_status ? `status:${metadata.document_status}` : "",
       metadata?.extraction_quality ? `extraction:${metadata.extraction_quality}` : "",
       result.indexing_quality?.quality_score !== undefined
@@ -214,6 +223,21 @@ function compactSearchResult(query: string, result: SearchResult) {
     source_metadata: compactSourceMetadata(result.source_metadata),
     relevance: result.relevance,
     match_explanation: buildMatchExplanation(query, result),
+    index_unit: result.index_unit
+      ? {
+          id: result.index_unit.id,
+          unit_type: result.index_unit.unit_type,
+          title: result.index_unit.title,
+          content: compactText(result.index_unit.content, 360),
+          page_start: result.index_unit.page_start,
+          page_end: result.index_unit.page_end,
+          heading_path: result.index_unit.heading_path?.slice(0, 6) ?? [],
+          quality_score: result.index_unit.quality_score,
+          extraction_mode: result.index_unit.extraction_mode,
+          source_span: result.index_unit.source_span ?? null,
+          hybrid_score: result.index_unit.hybrid_score ?? null,
+        }
+      : null,
     table_facts: result.table_facts?.slice(0, 4).map((fact) => ({
       id: fact.id,
       source_chunk_id: fact.source_chunk_id,
@@ -407,37 +431,75 @@ function logPublicSearchObservation(args: {
 
 async function buildPublicSearchPayload(body: SearchRequestBody) {
   const supabase = createAdminClient();
+  const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+  const effectiveQueryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
+  const scope = await resolveSearchScope({
+    supabase,
+    ownerId: undefined,
+    documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
+    filters: body.filters,
+  });
+  if (scope.documentIds?.length === 0) {
+    const relevance = buildEvidenceRelevance(searchFocusQuery, []);
+    const payload = {
+      results: [],
+      facets: buildSearchFacets([]),
+      visualEvidence: [],
+      relevance,
+      relatedDocuments: [],
+      documentMatches: [],
+      smartPanel: { ...buildSmartPanel(body.query, []), relevance, relatedDocuments: [] },
+      smartApiPlan: buildSmartRagApiPlan({
+        query: searchFocusQuery,
+        queryClass: effectiveQueryClass,
+        results: [],
+        retrievalStrategy: "unknown",
+        routeMode: "unsupported",
+        preferredResponseMode: body.mode === "documents" ? "document_lookup" : undefined,
+      }),
+      scope: { ...scope, queryMode: body.queryMode },
+      sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [], relevance }),
+      telemetry: {
+        query_class: effectiveQueryClass,
+        relevance_verdict: relevance.verdict,
+        relevance_score: relevance.score,
+        direct_source_count: 0,
+        weak_source_count: 0,
+      },
+    };
+    logPublicSearchObservation({ query: body.query, results: [], payload });
+    return payload;
+  }
   const search = await searchChunksWithTelemetry({
     query: body.query,
     topK: body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8),
-    documentId: body.documentId,
-    documentIds: body.documentIds,
+    documentIds: scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     ownerId: undefined,
     allowGlobalSearch: true,
+    queryMode: body.queryMode,
   });
   const resultLimit =
     body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8);
-  const results = annotateSearchResults(body.query, diversifySearchResults(search.results, resultLimit, 4, true));
+  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 4, true));
 
   const relatedDocuments = body.includeRelatedDocuments
     ? await fetchRelatedDocuments({
         supabase,
         ownerId: undefined,
-        query: body.query,
+        query: searchFocusQuery,
         results,
         limit: body.mode === "documents" ? body.documentLimit : undefined,
       })
     : [];
-  const smartPanel = buildSmartPanel(body.query, results);
-  const relevance = buildEvidenceRelevance(body.query, results);
+  const smartPanel = buildSmartPanel(searchFocusQuery, results);
+  const relevance = buildEvidenceRelevance(searchFocusQuery, results);
   const documentMatches =
     body.mode === "documents"
-      ? annotateDocumentMatches(body.query, relatedDocuments.map(toDocumentMatch), results)
+      ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
       : [];
-  const queryClass = search.telemetry.query_class ?? classifyRagQuery(body.query).queryClass;
   const smartApiPlan = buildSmartRagApiPlan({
-    query: body.query,
-    queryClass,
+    query: searchFocusQuery,
+    queryClass: effectiveQueryClass,
     results,
     retrievalStrategy: search.telemetry.retrieval_strategy,
     routeMode: body.mode === "documents" ? undefined : "fast",
@@ -446,7 +508,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
   logWeakSearch({
     supabase,
     query: body.query,
-    queryClass,
+    queryClass: effectiveQueryClass,
     route: body.mode,
     retrievalStrategy: search.telemetry.retrieval_strategy,
     relevance,
@@ -454,7 +516,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
   });
 
   const payload = {
-    results: compactSearchResults(body.query, results),
+    results: compactSearchResults(searchFocusQuery, results),
     facets: buildSearchFacets(results),
     visualEvidence: buildVisualEvidence(results),
     relevance,
@@ -474,8 +536,10 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
     documentMatches,
     smartPanel: { ...smartPanel, relevance, relatedDocuments },
     smartApiPlan,
+    scope: { ...scope, queryMode: body.queryMode },
+    sourceGovernanceWarnings: sourceGovernanceWarnings({ results, relevance }),
     telemetry: {
-      query_class: queryClass,
+      query_class: effectiveQueryClass,
       relevance_verdict: relevance.verdict,
       relevance_score: relevance.score,
       direct_source_count: relevance.directSourceCount,
@@ -494,6 +558,8 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
       rerank_latency_ms: search.telemetry.rerank_latency_ms,
       memory_card_count: search.telemetry.memory_card_count,
       memory_top_score: search.telemetry.memory_top_score,
+      index_unit_count: search.telemetry.index_unit_count,
+      index_unit_top_score: search.telemetry.index_unit_top_score,
       weighted_top_score: search.telemetry.weighted_top_score,
       rrf_top_score: search.telemetry.rrf_top_score,
     },
@@ -535,24 +601,25 @@ export async function POST(request: Request) {
   try {
     const body = searchSchema.parse(await request.json());
     if (isDemoMode()) {
+      const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+      const queryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
       const results = annotateSearchResults(
-        body.query,
+        searchFocusQuery,
         demoSearch(body.query, body.topK ?? 8, body.documentId, body.documentIds),
       );
-      const queryClass = classifyRagQuery(body.query).queryClass;
-      const relevance = buildEvidenceRelevance(body.query, results);
+      const relevance = buildEvidenceRelevance(searchFocusQuery, results);
       const documentMatches =
         body.mode === "documents"
-          ? annotateDocumentMatches(body.query, buildDocumentMatchesFromResults(results, body.documentLimit), results)
+          ? annotateDocumentMatches(searchFocusQuery, buildDocumentMatchesFromResults(results, body.documentLimit), results)
           : [];
       return NextResponse.json({
-        results: compactSearchResults(body.query, results),
+        results: compactSearchResults(searchFocusQuery, results),
         facets: buildSearchFacets(results),
         visualEvidence: buildVisualEvidence(results),
         relevance,
-        smartPanel: { ...buildSmartPanel(body.query, results), relevance },
+        smartPanel: { ...buildSmartPanel(searchFocusQuery, results), relevance },
         smartApiPlan: buildSmartRagApiPlan({
-          query: body.query,
+          query: searchFocusQuery,
           queryClass,
           results,
           retrievalStrategy: "hybrid",

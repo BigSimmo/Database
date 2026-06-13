@@ -19,6 +19,110 @@ export type RagEvalCase = {
   requireVisualEvidence?: boolean;
 };
 
+type CapturedEvalCaseRow = {
+  id: string;
+  query: string;
+  query_class: string | null;
+  top_files: string[] | null;
+  expected_file: string | null;
+  miss_reason: string | null;
+  metadata: unknown;
+  created_at: string | null;
+};
+
+type CapturedEvalCaseQuery = {
+  eq: (column: string, value: unknown) => CapturedEvalCaseQuery;
+  order: (
+    column: string,
+    options: { ascending: boolean },
+  ) => {
+    limit: (count: number) => PromiseLike<{ data: CapturedEvalCaseRow[] | null; error: { message: string } | null }>;
+  };
+};
+
+export type SupabaseEvalCaseClient = {
+  from: (table: "rag_query_misses") => {
+    select: (columns: string) => CapturedEvalCaseQuery;
+  };
+};
+
+const knownQueryClasses = new Set<RagQueryClass>([
+  "document_lookup",
+  "table_threshold",
+  "medication_dose_risk",
+  "comparison",
+  "broad_summary",
+  "unsupported_or_general",
+]);
+
+function capturedCaseRating(row: CapturedEvalCaseRow) {
+  if (typeof row.metadata === "object" && row.metadata !== null && "rating" in row.metadata) {
+    const rating = (row.metadata as { rating?: unknown }).rating;
+    if (rating === "good" || rating === "needs_fixing") return rating;
+  }
+  return row.miss_reason === "answer_good_eval" ? "good" : "needs_fixing";
+}
+
+function uniqueNonEmpty(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
+}
+
+function expectedFilesForCapturedCase(row: CapturedEvalCaseRow, rating: "good" | "needs_fixing") {
+  const explicit = uniqueNonEmpty([row.expected_file]);
+  if (explicit.length > 0) return explicit;
+  if (rating === "good") return uniqueNonEmpty(row.top_files ?? []);
+  return [];
+}
+
+export function mapCapturedEvalCase(row: CapturedEvalCaseRow): RagEvalCase {
+  const rating = capturedCaseRating(row);
+  const expectedFiles = expectedFilesForCapturedCase(row, rating);
+  const expectedQueryClass = knownQueryClasses.has(row.query_class as RagQueryClass)
+    ? (row.query_class as RagQueryClass)
+    : undefined;
+
+  return {
+    id: `captured-${row.id}`,
+    question: row.query,
+    category: rating === "needs_fixing" ? "complex" : "routine",
+    suite: "core",
+    relevanceGrade: expectedFiles.length > 0 ? "direct" : "partial",
+    expectedQueryClass,
+    supported: true,
+    expectedFiles,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: rating === "good" ? 1 : 0,
+    latencyTargetMs: rating === "good" ? 5000 : 20000,
+  };
+}
+
+export async function loadCapturedRagEvalCases(args: {
+  supabase: SupabaseEvalCaseClient;
+  ownerId?: string;
+  limit?: number;
+}) {
+  let query = args.supabase
+    .from("rag_query_misses")
+    .select("id,query,query_class,top_files,expected_file,miss_reason,metadata,created_at")
+    .eq("promoted_eval_case", true);
+  if (args.ownerId) query = query.eq("owner_id", args.ownerId);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(args.limit ?? 50);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapCapturedEvalCase);
+}
+
+export function mergeRagEvalCases(baseCases: RagEvalCase[], capturedCases: RagEvalCase[]) {
+  const seen = new Set<string>();
+  const merged: RagEvalCase[] = [];
+  for (const testCase of [...capturedCases, ...baseCases]) {
+    const key = testCase.question.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(testCase);
+  }
+  return merged;
+}
+
 export const ragEvalCases: RagEvalCase[] = [
   {
     id: "clozapine-monitoring",

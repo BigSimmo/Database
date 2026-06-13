@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 const renameSchema = z.object({
   title: z.string().trim().min(1).max(180),
 });
+const documentRouteIdSchema = z.string().uuid();
 
 const cleanupPageSize = 1000;
 const defaultPageWindow = 9;
@@ -24,6 +25,12 @@ function boundedInteger(value: string | null, fallback: number, min: number, max
   const parsed = Number.parseInt(value ?? "", 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
+}
+
+function parseDocumentRouteId(value: string) {
+  const parsed = documentRouteIdSchema.safeParse(value);
+  if (!parsed.success) throw new PublicApiError("Invalid document id.");
+  return parsed.data;
 }
 
 function pageWindowAround(pageNumber: number, limit: number, maxPage?: number | null) {
@@ -207,16 +214,17 @@ async function updateStorageCleanupJob(args: {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
     if (isDemoMode()) {
       const chunkId = new URL(request.url).searchParams.get("chunk");
-      const payload = getDemoDocumentPayload(id, chunkId);
+      const payload = getDemoDocumentPayload(rawId, chunkId);
       if (!payload) {
         return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
       }
       return NextResponse.json({ ...payload, demoMode: true });
     }
 
+    const id = parseDocumentRouteId(rawId);
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const { data: document, error } = await supabase
@@ -248,7 +256,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (chunkId) {
       const { data, error: selectedChunkError } = await supabase
         .from("document_chunks")
-        .select("id,page_number,chunk_index,section_heading,content,image_ids")
+        .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
         .eq("document_id", id)
         .eq("id", chunkId)
         .maybeSingle();
@@ -283,7 +291,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const chunkQuery = supabase
       .from("document_chunks")
-      .select("id,page_number,chunk_index,section_heading,content,image_ids")
+      .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
       .eq("document_id", id)
       .order("chunk_index", { ascending: true });
 
@@ -300,13 +308,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (chunksError) throw new Error(chunksError.message);
 
-    const [labelsResult, summaryResult] = await Promise.all([
+    const [labelsResult, summaryResult, tableFactsResult] = await Promise.all([
       supabase.from("document_labels").select("*").eq("document_id", id).order("confidence", { ascending: false }),
       supabase.from("document_summaries").select("*").eq("document_id", id).maybeSingle(),
+      supabase
+        .from("document_table_facts")
+        .select("*")
+        .eq("document_id", id)
+        .order("page_number", { ascending: true })
+        .limit(200),
     ]);
 
     if (labelsResult.error) throw new Error(labelsResult.error.message);
     if (summaryResult.error) throw new Error(summaryResult.error.message);
+    if (tableFactsResult.error) throw new Error(tableFactsResult.error.message);
 
     return NextResponse.json({
       document: {
@@ -316,6 +331,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
       pages: pages ?? [],
       images: (images ?? []).map(withImageTableMetadata),
+      tableFacts: tableFactsResult.data ?? [],
       chunks: chunks ?? [],
       pageWindow: {
         from: pageWindow.from,
@@ -350,11 +366,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
     if (isDemoMode()) {
       return NextResponse.json({ error: "Demo documents cannot be renamed." }, { status: 400 });
     }
 
+    const id = parseDocumentRouteId(rawId);
     const parsed = renameSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {
       throw new PublicApiError("Enter a document title between 1 and 180 characters.");
@@ -405,11 +422,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
     if (isDemoMode()) {
       return NextResponse.json({ error: "Demo documents cannot be deleted." }, { status: 400 });
     }
 
+    const id = parseDocumentRouteId(rawId);
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const { data: document, error: documentError } = await supabase

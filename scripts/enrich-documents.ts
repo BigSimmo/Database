@@ -561,19 +561,22 @@ async function main() {
       continue;
     }
 
+    let enrichmentSummary: string | null = null;
     if (args.mode === "summaries-labels-images") {
-      await upsertDocumentEnrichment({
+      const enrichment = await upsertDocumentEnrichment({
         supabase,
         document: { ...document, metadata: imageMetadata },
         chunks: evidence.chunks,
         images: evidence.images,
       });
+      enrichmentSummary = enrichment.summary.summary;
     }
     const deepMemory = await upsertDocumentDeepMemory({
       supabase,
       document: { ...document, metadata: imageMetadata },
       chunks: evidence.chunks,
       images: evidence.images,
+      summary: enrichmentSummary,
     });
     completed += 1;
     console.log(

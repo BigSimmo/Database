@@ -9,35 +9,59 @@ import {
 } from "@/lib/indexing-coverage";
 import { generateStructuredTextResponse } from "@/lib/openai";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
+import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
+import { cleanClinicalSummaryText, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
   ClinicalDocument,
+  ClinicalDocumentSummaryProfile,
   DocumentLabel,
   DocumentLabelType,
   DocumentSummary,
+  DocumentSummaryEvidenceType,
+  DocumentSummaryProfileItem,
+  DocumentSummarySupportLevel,
   DocumentMatch,
   RelatedDocument,
   SearchResult,
 } from "@/lib/types";
 
-const labelTypes = new Set<DocumentLabelType>([
-  "topic",
-  "document_type",
-  "medication",
-  "risk",
-  "setting",
-  "workflow",
-  "population",
-  "service",
-  "custom",
-]);
-
 export const ragEnrichmentVersion = ragDeepMemoryVersion;
+
+const summaryProfileVersion = "clinical-document-profile-v1";
+
+const summaryProfileKeys = [
+  "applies_to",
+  "key_clinical_actions",
+  "medication_dose_monitoring",
+  "thresholds_timing",
+  "escalation_risk_warnings",
+  "required_forms_documentation",
+  "not_covered",
+  "important_tables_images",
+  "best_questions",
+  "source_quality_notes",
+] as const;
+
+type SummaryProfileKey = (typeof summaryProfileKeys)[number];
 
 function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
     ? { ...(metadata as Record<string, unknown>) }
     : {};
 }
+
+const anchoredProfileItemSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    text: { type: "string" },
+    source_chunk_ids: { type: "array", items: { type: "string" } },
+    source_image_ids: { type: "array", items: { type: "string" } },
+    evidence_type: { type: "string", enum: ["text", "table", "image", "mixed", "metadata"] },
+    support: { type: "string", enum: ["direct", "partial", "not_found"] },
+  },
+  required: ["text", "source_chunk_ids", "source_image_ids", "evidence_type", "support"],
+};
 
 const summarySchema = {
   type: "object",
@@ -48,6 +72,36 @@ const summarySchema = {
       type: "object",
       additionalProperties: false,
       properties: {
+        profile: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            overview: { type: "string" },
+            applies_to: { type: "array", items: anchoredProfileItemSchema },
+            key_clinical_actions: { type: "array", items: anchoredProfileItemSchema },
+            medication_dose_monitoring: { type: "array", items: anchoredProfileItemSchema },
+            thresholds_timing: { type: "array", items: anchoredProfileItemSchema },
+            escalation_risk_warnings: { type: "array", items: anchoredProfileItemSchema },
+            required_forms_documentation: { type: "array", items: anchoredProfileItemSchema },
+            not_covered: { type: "array", items: anchoredProfileItemSchema },
+            important_tables_images: { type: "array", items: anchoredProfileItemSchema },
+            best_questions: { type: "array", items: anchoredProfileItemSchema },
+            source_quality_notes: { type: "array", items: anchoredProfileItemSchema },
+          },
+          required: [
+            "overview",
+            "applies_to",
+            "key_clinical_actions",
+            "medication_dose_monitoring",
+            "thresholds_timing",
+            "escalation_risk_warnings",
+            "required_forms_documentation",
+            "not_covered",
+            "important_tables_images",
+            "best_questions",
+            "source_quality_notes",
+          ],
+        },
         actions: { type: "array", items: { type: "string" } },
         thresholds_timing: { type: "array", items: { type: "string" } },
         medication_monitoring: { type: "array", items: { type: "string" } },
@@ -56,6 +110,7 @@ const summarySchema = {
         exceptions_gaps: { type: "array", items: { type: "string" } },
       },
       required: [
+        "profile",
         "actions",
         "thresholds_timing",
         "medication_monitoring",
@@ -122,15 +177,6 @@ type GeneratedSummary = {
   labels: GeneratedLabel[];
 };
 
-function compactLabel(label: string) {
-  return label
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w\s/-]+/g, "")
-    .replace(/\s+/g, " ")
-    .slice(0, 80);
-}
-
 function normalizeGeneratedLabels(labels: unknown): GeneratedLabel[] {
   if (!Array.isArray(labels)) return [];
   const seen = new Set<string>();
@@ -139,28 +185,56 @@ function normalizeGeneratedLabels(labels: unknown): GeneratedLabel[] {
   for (const item of labels) {
     if (!item || typeof item !== "object") continue;
     const raw = item as Record<string, unknown>;
-    const label = compactLabel(String(raw.label ?? ""));
-    const labelType = labelTypes.has(raw.label_type as DocumentLabelType)
-      ? (raw.label_type as DocumentLabelType)
-      : "custom";
-    const confidence = Number(raw.confidence);
-    const key = `${labelType}:${label}`;
-
-    if (label.length < 2 || seen.has(key)) continue;
-    seen.add(key);
-    normalized.push({
-      label,
-      label_type: labelType,
-      confidence: Number.isFinite(confidence) ? Math.min(Math.max(confidence, 0), 1) : 0.55,
+    const label = normalizeDocumentLabelForStorage({
+      label: raw.label,
+      label_type: raw.label_type,
+      confidence: raw.confidence,
+      source: "generated",
     });
+    if (!label) continue;
+    const key = `${label.label_type}:${label.label}`;
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(label);
     if (normalized.length >= 20) break;
   }
 
   return normalized;
 }
 
-function fallbackClinicalSpecifics(): DocumentSummary["clinical_specifics"] {
+function emptyClinicalProfile(overview: string): ClinicalDocumentSummaryProfile {
   return {
+    overview,
+    applies_to: [],
+    key_clinical_actions: [],
+    medication_dose_monitoring: [],
+    thresholds_timing: [],
+    escalation_risk_warnings: [],
+    required_forms_documentation: [],
+    not_covered: [],
+    important_tables_images: [],
+    best_questions: [],
+    source_quality_notes: [],
+  };
+}
+
+function fallbackClinicalSpecifics(): DocumentSummary["clinical_specifics"] {
+  const overview = "Indexed source text is available for source-backed review.";
+  return {
+    profile: {
+      ...emptyClinicalProfile(overview),
+      source_quality_notes: [
+        {
+          text: "No model-generated clinical profile was available; inspect the source passages.",
+          source_chunk_ids: [],
+          source_image_ids: [],
+          pages: [],
+          evidence_type: "metadata",
+          support: "partial",
+        },
+      ],
+    },
     actions: [],
     thresholds_timing: [],
     medication_monitoring: [],
@@ -170,21 +244,162 @@ function fallbackClinicalSpecifics(): DocumentSummary["clinical_specifics"] {
   };
 }
 
+function stringArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function pageNumbersForItem(args: {
+  chunkIds: string[];
+  imageIds: string[];
+  chunkPages: Map<string, number | null>;
+  imagePages: Map<string, number | null>;
+}) {
+  return uniqueStrings([
+    ...args.chunkIds.map((id) => String(args.chunkPages.get(id) ?? "")),
+    ...args.imageIds.map((id) => String(args.imagePages.get(id) ?? "")),
+  ])
+    .map((page) => Number(page))
+    .filter((page) => Number.isInteger(page) && page > 0);
+}
+
+function normalizeEvidenceType(value: unknown): DocumentSummaryEvidenceType {
+  return value === "table" || value === "image" || value === "mixed" || value === "metadata" ? value : "text";
+}
+
+function normalizeSupportLevel(value: unknown): DocumentSummarySupportLevel {
+  return value === "partial" || value === "not_found" ? value : "direct";
+}
+
+function normalizeProfileItems(args: {
+  items: unknown;
+  validChunkIds: Set<string>;
+  validImageIds: Set<string>;
+  chunkPages: Map<string, number | null>;
+  imagePages: Map<string, number | null>;
+  maxItems?: number;
+}) {
+  if (!Array.isArray(args.items)) return [];
+  const normalized: DocumentSummaryProfileItem[] = [];
+  const seen = new Set<string>();
+
+  for (const item of args.items) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as Record<string, unknown>;
+    const text = cleanClinicalSummaryText(String(raw.text ?? ""));
+    if (!text || seen.has(text.toLowerCase())) continue;
+
+    const source_chunk_ids = uniqueStrings(stringArray(raw.source_chunk_ids)).filter((id) =>
+      args.validChunkIds.has(id),
+    );
+    const source_image_ids = uniqueStrings(stringArray(raw.source_image_ids)).filter((id) =>
+      args.validImageIds.has(id),
+    );
+    const support = normalizeSupportLevel(raw.support);
+    const evidence_type = normalizeEvidenceType(raw.evidence_type);
+
+    if (support !== "not_found" && source_chunk_ids.length === 0 && source_image_ids.length === 0) continue;
+
+    normalized.push({
+      text,
+      source_chunk_ids,
+      source_image_ids,
+      pages: pageNumbersForItem({
+        chunkIds: source_chunk_ids,
+        imageIds: source_image_ids,
+        chunkPages: args.chunkPages,
+        imagePages: args.imagePages,
+      }),
+      evidence_type,
+      support,
+    });
+    seen.add(text.toLowerCase());
+    if (normalized.length >= (args.maxItems ?? 6)) break;
+  }
+
+  return normalized;
+}
+
+function profileItemsToStrings(items: DocumentSummaryProfileItem[], limit = 6) {
+  return items
+    .filter((item) => item.support !== "not_found")
+    .map((item) => item.text)
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function legacyItems(...groups: string[][]) {
+  const seen = new Set<string>();
+  const items: string[] = [];
+  for (const item of groups.flat()) {
+    const cleaned = cleanClinicalSummaryText(item);
+    const key = cleaned.toLowerCase();
+    if (!cleaned || seen.has(key)) continue;
+    seen.add(key);
+    items.push(cleaned);
+  }
+  return items.slice(0, 8);
+}
+
+function normalizeClinicalProfile(args: {
+  profile: unknown;
+  fallbackOverview: string;
+  chunks: EnrichmentChunk[];
+  images: EnrichmentImage[];
+}) {
+  const raw = args.profile && typeof args.profile === "object" ? (args.profile as Record<string, unknown>) : {};
+  const validChunkIds = new Set(args.chunks.map((chunk) => chunk.id));
+  const validImageIds = new Set(args.images.map((image) => image.id));
+  const chunkPages = new Map(args.chunks.map((chunk) => [chunk.id, chunk.page_number] as const));
+  const imagePages = new Map(args.images.map((image) => [image.id, image.page_number] as const));
+  const overview = cleanClinicalSummaryText(String(raw.overview ?? "")) || args.fallbackOverview;
+  const profile = emptyClinicalProfile(overview);
+
+  for (const key of summaryProfileKeys) {
+    profile[key] = normalizeProfileItems({
+      items: raw[key],
+      validChunkIds,
+      validImageIds,
+      chunkPages,
+      imagePages,
+      maxItems: key === "best_questions" ? 8 : 6,
+    }) as ClinicalDocumentSummaryProfile[SummaryProfileKey];
+  }
+
+  return profile;
+}
+
 function inferLabels(document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">): GeneratedLabel[] {
   const haystack = `${document.title} ${document.file_name} ${document.source_path ?? ""}`.toLowerCase();
   const labels: GeneratedLabel[] = [];
 
   const add = (label: string, label_type: DocumentLabelType, confidence = 0.62) => {
-    const normalized = compactLabel(label);
-    if (!normalized || labels.some((item) => item.label === normalized && item.label_type === label_type)) return;
-    labels.push({ label: normalized, label_type, confidence });
+    const normalized = normalizeDocumentLabelForStorage({ label, label_type, confidence, source: "generated" });
+    if (!normalized || labels.some((item) => item.label === normalized.label && item.label_type === label_type)) return;
+    labels.push(normalized);
   };
 
   if (/clozapine/.test(haystack)) add("clozapine", "medication", 0.86);
+  if (/alcohol/.test(haystack) && /withdrawal/.test(haystack)) add("alcohol withdrawal", "topic", 0.78);
+  if (/alcohol/.test(haystack) && /use\s*disorder/.test(haystack)) add("alcohol use disorder", "topic", 0.78);
+  if (/amfetamine|amphetamine|methamphetamine/.test(haystack)) add("methamphetamine use disorder", "topic", 0.78);
+  if (/alzheimer/.test(haystack)) add("alzheimer disease", "topic", 0.78);
+  if (/anorexia/.test(haystack)) add("anorexia nervosa", "topic", 0.78);
+  if (/agitation|arousal/.test(haystack)) add("agitation management", "risk", 0.72);
   if (/ect|electroconvulsive/.test(haystack)) add("ect", "topic", 0.82);
   if (/metabolic/.test(haystack)) add("metabolic monitoring", "topic", 0.78);
   if (/risk|safety|duress|security/.test(haystack)) add("risk and safety", "risk", 0.72);
-  if (/admission|discharge|leave|home visit|appointment/.test(haystack)) add("workflow", "workflow", 0.68);
+  if (/home\s*visit/.test(haystack)) add("community home visit", "workflow", 0.7);
+  if (/discharge/.test(haystack)) add("discharge planning", "workflow", 0.7);
+  if (/admission|leave|appointment/.test(haystack)) add("care pathway", "workflow", 0.68);
+  if (/illegal|substance/.test(haystack)) add("substance use risk", "risk", 0.68);
+  if (/\bid\s*pts|identification/.test(haystack)) add("patient identification", "workflow", 0.68);
+  if (/nocc/.test(haystack)) add("nocc outcome measures", "topic", 0.75);
+  if (/mhat|mhct|treatment\s*team/.test(haystack)) add("treatment team process", "workflow", 0.7);
   if (/prescri|medicat|injectable|neuroleptic/.test(haystack)) add("medication management", "topic", 0.72);
   if (/form|checklist|documentation|assessment/.test(haystack)) add("documentation", "document_type", 0.66);
   add("clinical guideline", "document_type", 0.55);
@@ -205,7 +420,7 @@ function buildEnrichmentPrompt(args: {
       return [
         `chunk_id: ${chunk.id}`,
         `${page}; chunk ${chunk.chunk_index}; heading: ${chunk.section_heading ?? "none"}`,
-        compactPromptChunk(chunk.content),
+        compactPromptChunk(sourceTextForModel(chunk.content)),
       ].join("\n");
     })
     .join("\n\n---\n\n");
@@ -213,14 +428,26 @@ function buildEnrichmentPrompt(args: {
   const imageBlock = args.images
     .map((image) => {
       const labels = image.labels?.length ? ` labels=${image.labels.join(", ")}` : "";
-      return `image_id: ${image.id}; page ${image.page_number ?? "n/a"}; type=${image.image_type ?? "unclear"};${labels} caption=${image.caption ?? ""}`;
+      return `image_id: ${image.id}; page ${image.page_number ?? "n/a"}; type=${image.image_type ?? "unclear"};${labels} caption=${cleanClinicalSummaryText(image.caption ?? "")}`;
     })
     .join("\n");
 
   return `Generate indexing-time enrichment for this uploaded clinical guideline/reference document.
-Use only the provided source excerpts and image captions. Be ultra concise and high yield for clinical use.
+Use only the provided source excerpts and image captions. Be concise, clinically useful, and source-backed.
 
-Return strict JSON. Summary must be 3-6 compact bullets in one string. Clinical specifics arrays must contain only source-supported items and may be empty. Labels should be practical search labels.
+Return strict JSON.
+- summary: a clean plain-language overview of what the document is for, 2-4 concise sentences or bullets.
+- clinical_specifics.profile: a structured clinical document profile.
+- Every profile item must include exact source_chunk_ids and/or source_image_ids from the provided excerpts unless support is "not_found".
+- Do not copy document-control text, document codes, page boilerplate, headers, footers, review metadata, file names, or citation/page labels into clinical prose.
+- Put provenance only in source_chunk_ids/source_image_ids. Do not mention chunk IDs, image IDs, or page numbers in text.
+- Use "not_covered" for clinically important limits or gaps the source does not answer.
+- Use "source_quality_notes" only for extraction/OCR/coverage caveats visible from the provided evidence.
+- Keep legacy clinical_specifics arrays populated from the same high-yield facts for backwards-compatible search.
+- Labels should be clean source-supported search tags: short keywords, usually 1-4 words.
+- Prefer clinical topics, medications, risks, workflows, populations, settings, services, and document types.
+- Do not include filenames, page numbers, document-control text, copyright/version phrases, broad words like "guideline", "policy", "procedure", "document", or full sentences.
+- Avoid duplicates and near-duplicates.
 
 Document: ${args.document.title}
 File: ${args.document.file_name}
@@ -235,24 +462,53 @@ Image evidence:
 ${imageBlock || "No indexed image evidence available."}`;
 }
 
-function parseGeneratedSummary(raw: string, document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">) {
+function parseGeneratedSummary(
+  raw: string,
+  document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">,
+  chunks: EnrichmentChunk[],
+  images: EnrichmentImage[],
+) {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const specifics =
       parsed.clinical_specifics && typeof parsed.clinical_specifics === "object"
         ? (parsed.clinical_specifics as DocumentSummary["clinical_specifics"])
         : fallbackClinicalSpecifics();
-    const summary = String(parsed.summary ?? "").trim();
+    const summary =
+      cleanClinicalSummaryText(String(parsed.summary ?? "")) ||
+      `${document.title}: indexed source text is available for source-backed review.`;
+    const profile = normalizeClinicalProfile({
+      profile: specifics.profile,
+      fallbackOverview: summary,
+      chunks,
+      images,
+    });
 
     return {
       summary: summary || `- ${document.title}: indexed source text is available for source-backed review.`,
       clinical_specifics: {
-        actions: Array.isArray(specifics.actions) ? specifics.actions : [],
-        thresholds_timing: Array.isArray(specifics.thresholds_timing) ? specifics.thresholds_timing : [],
-        medication_monitoring: Array.isArray(specifics.medication_monitoring) ? specifics.medication_monitoring : [],
-        risk_escalation: Array.isArray(specifics.risk_escalation) ? specifics.risk_escalation : [],
-        documentation_forms: Array.isArray(specifics.documentation_forms) ? specifics.documentation_forms : [],
-        exceptions_gaps: Array.isArray(specifics.exceptions_gaps) ? specifics.exceptions_gaps : [],
+        profile,
+        actions: legacyItems(profileItemsToStrings(profile.key_clinical_actions), stringArray(specifics.actions)),
+        thresholds_timing: legacyItems(
+          profileItemsToStrings(profile.thresholds_timing),
+          stringArray(specifics.thresholds_timing),
+        ),
+        medication_monitoring: legacyItems(
+          profileItemsToStrings(profile.medication_dose_monitoring),
+          stringArray(specifics.medication_monitoring),
+        ),
+        risk_escalation: legacyItems(
+          profileItemsToStrings(profile.escalation_risk_warnings),
+          stringArray(specifics.risk_escalation),
+        ),
+        documentation_forms: legacyItems(
+          profileItemsToStrings(profile.required_forms_documentation),
+          stringArray(specifics.documentation_forms),
+        ),
+        exceptions_gaps: legacyItems(
+          profileItemsToStrings(profile.not_covered, 4),
+          stringArray(specifics.exceptions_gaps),
+        ),
       },
       labels: normalizeGeneratedLabels(parsed.labels),
     } satisfies GeneratedSummary;
@@ -274,11 +530,15 @@ export async function generateDocumentEnrichment(args: {
     buildEnrichmentPrompt({ ...args, images: args.images ?? [] }),
     summarySchema,
     {
-      model: env.OPENAI_FAST_ANSWER_MODEL,
-      maxOutputTokens: 1000,
+      model: env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_FAST_ANSWER_MODEL,
+      maxOutputTokens: 2400,
+      operation: "summary",
+      schemaName: "clinical_document_enrichment",
+      reasoningEffort: "medium",
+      textVerbosity: "medium",
     },
   );
-  const parsed = parseGeneratedSummary(raw, args.document);
+  const parsed = parseGeneratedSummary(raw, args.document, args.chunks, args.images ?? []);
   const inferred = inferLabels(args.document);
   return {
     ...parsed,
@@ -315,6 +575,7 @@ export async function upsertDocumentEnrichment(args: {
     rag_enrichment_version: ragEnrichmentVersion,
     rag_indexing_version: ragEnrichmentVersion,
     rag_memory_version: ragEnrichmentVersion,
+    clinical_profile_version: summaryProfileVersion,
     enriched_at: enrichedAt,
   };
   const coverageMetadata = {
@@ -333,7 +594,7 @@ export async function upsertDocumentEnrichment(args: {
         clinical_specifics: enrichment.clinical_specifics,
         source_chunk_ids: sourceChunkIds,
         source_image_ids: sourceImageIds,
-        model: env.OPENAI_FAST_ANSWER_MODEL,
+        model: env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_FAST_ANSWER_MODEL,
         metadata: { ...generatedMetadata, ...coverageMetadata, label_count: enrichment.labels.length },
         generated_at: enrichedAt,
         updated_at: enrichedAt,

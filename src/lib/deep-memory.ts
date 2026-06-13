@@ -1,6 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import {
+  buildDocumentIndexUnitInputs,
+  embeddingTextForDocumentIndexUnit,
+} from "@/lib/document-index-units";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import {
+  fallbackModelIndexProfile,
+  generateModelIndexProfile,
+  modelIndexExtractionVersion,
+  type ModelIndexProfile,
+  type ModelIndexProfileItem,
+} from "@/lib/model-index-extraction";
 import { embedTexts } from "@/lib/openai";
 import { sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
@@ -298,6 +309,31 @@ function createCard(args: {
   };
 }
 
+function modelItemToCard(args: {
+  document: MemoryDocument;
+  item: ModelIndexProfileItem;
+  type: DocumentMemoryCardType;
+  chunkById: Map<string, MemoryChunk>;
+  source?: string;
+}): BuiltMemoryCard | null {
+  const chunk = args.item.source_chunk_ids.map((id) => args.chunkById.get(id)).find(Boolean) ?? undefined;
+  if (!chunk && args.item.source_image_ids.length === 0) return null;
+  return createCard({
+    document: args.document,
+    chunk,
+    type: args.type,
+    content: `${args.item.title}: ${args.item.content}`,
+    confidence: args.item.confidence,
+    sourceImageIds: args.item.source_image_ids,
+    metadata: {
+      extraction_source: args.source ?? "model_index_profile",
+      model_index_version: modelIndexExtractionVersion,
+      source_chunk_ids: args.item.source_chunk_ids,
+      source_image_ids: args.item.source_image_ids,
+    },
+  });
+}
+
 function sectionIndexForChunk(sections: SectionInsertRow[], chunkId: string) {
   return sections.find((section) => section.chunk_ids.includes(chunkId))?.section_index;
 }
@@ -319,9 +355,11 @@ export function buildDocumentMemoryCards(args: {
   chunks: MemoryChunk[];
   images?: MemoryImage[];
   sections?: SectionInsertRow[];
+  modelProfile?: ModelIndexProfile | null;
 }) {
   const cards: BuiltMemoryCard[] = [];
   const sections = args.sections ?? buildDocumentSections({ document: args.document, chunks: args.chunks });
+  const chunkById = new Map(args.chunks.map((chunk) => [chunk.id, chunk]));
   const imagesByPage = new Map<number | null, MemoryImage[]>();
   for (const image of args.images ?? []) {
     imagesByPage.set(image.page_number ?? null, [...(imagesByPage.get(image.page_number ?? null) ?? []), image]);
@@ -379,6 +417,37 @@ export function buildDocumentMemoryCards(args: {
     }
   }
 
+  for (const item of args.modelProfile?.askable_questions ?? []) {
+    const card = modelItemToCard({
+      document: args.document,
+      item,
+      type: "askable_question",
+      chunkById,
+      source: "model_askable_question",
+    });
+    if (card) cards.push(card);
+  }
+  for (const item of args.modelProfile?.clinical_facts ?? []) {
+    const card = modelItemToCard({
+      document: args.document,
+      item,
+      type: classifyStatement(item.content)?.type ?? "citation_anchor",
+      chunkById,
+      source: "model_clinical_fact",
+    });
+    if (card) cards.push(card);
+  }
+  for (const item of args.modelProfile?.table_facts ?? []) {
+    const card = modelItemToCard({
+      document: args.document,
+      item,
+      type: "table_row",
+      chunkById,
+      source: "model_table_fact",
+    });
+    if (card) cards.push(card);
+  }
+
   if (!cards.some((card) => card.source_chunk_ids.length > 0) && args.chunks.length > 0) {
     const chunk = args.chunks[0];
     cards.push(
@@ -415,15 +484,27 @@ export async function upsertDocumentDeepMemory(args: {
   document: MemoryDocument;
   chunks: MemoryChunk[];
   images?: MemoryImage[];
+  summary?: string | null;
 }) {
   if (args.chunks.length === 0) throw new Error("Cannot build deep memory for a document with no chunks.");
 
   const sections = buildDocumentSections(args);
-  const cards = buildDocumentMemoryCards({ ...args, sections });
+  let modelProfile: ModelIndexProfile | null = null;
+  try {
+    modelProfile = await generateModelIndexProfile({
+      document: args.document,
+      chunks: args.chunks,
+      images: args.images ?? [],
+    });
+  } catch {
+    modelProfile = fallbackModelIndexProfile();
+  }
+  const cards = buildDocumentMemoryCards({ ...args, sections, modelProfile });
   if (cards.length === 0) throw new Error("Deep memory generated no source-backed memory cards.");
 
   await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
   await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
+  await args.supabase.from("document_index_units").delete().eq("document_id", args.document.id).then(undefined, () => undefined);
 
   const { data: insertedSections, error: sectionError } = await args.supabase
     .from("document_sections")
@@ -452,8 +533,49 @@ export async function upsertDocumentDeepMemory(args: {
     if (error) throw new Error(error.message);
   }
 
+  const indexUnits = buildDocumentIndexUnitInputs({
+    document: args.document,
+    chunks: args.chunks,
+    sections,
+    modelProfile,
+    summary: args.summary ?? null,
+  });
+  if (indexUnits.length > 0) {
+    const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));
+    for (let start = 0; start < indexUnits.length; start += 100) {
+      const batch = indexUnits.slice(start, start + 100).map((unit, index) => ({
+        ...unit,
+        embedding: indexUnitEmbeddings[start + index],
+      }));
+      const { error } = await args.supabase.from("document_index_units").insert(batch);
+      if (error) throw new Error(error.message);
+    }
+  }
+
+  if (modelProfile?.aliases.length) {
+    const aliases = modelProfile.aliases
+      .filter((alias) => alias.confidence >= 0.65)
+      .map((alias) => ({
+        owner_id: args.document.owner_id ?? null,
+        alias: alias.alias,
+        canonical: alias.canonical,
+        alias_type: alias.alias_type,
+        weight: Math.max(0.5, Math.min(1.5, alias.confidence + 0.25)),
+        enabled: true,
+        metadata: {
+          source: "model_index_profile",
+          document_id: args.document.id,
+          source_chunk_ids: alias.source_chunk_ids,
+          model_index_version: modelIndexExtractionVersion,
+        },
+      }));
+    if (aliases.length) {
+      await args.supabase.from("rag_aliases").insert(aliases).then(undefined, () => undefined);
+    }
+  }
+
   await stampDeepMemoryVersion({ supabase: args.supabase, documentId: args.document.id });
-  return { sections, memoryCards: cards };
+  return { sections, memoryCards: cards, indexUnits, modelProfile };
 }
 
 function scoreMemoryCardForQuery(

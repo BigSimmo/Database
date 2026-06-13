@@ -151,6 +151,7 @@ describe("document enrichment", () => {
     expect((summaryUpsert?.payload as { metadata: Record<string, unknown> }).metadata).toMatchObject({
       generated_by: "local-worker",
       rag_enrichment_version: ragEnrichmentVersion,
+      clinical_profile_version: "clinical-document-profile-v1",
       label_count: expect.any(Number),
       coverage_profile: expect.objectContaining({ chunk_count: 1 }),
     });
@@ -170,6 +171,64 @@ describe("document enrichment", () => {
       coverage_profile: expect.objectContaining({ chunk_count: 1 }),
     });
     expect(documentUpdate?.filters).toContainEqual({ column: "id", value: "doc-future" });
+  });
+
+  it("cleans noisy generated labels before inserting document labels", async () => {
+    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
+      JSON.stringify({
+        summary: "- Clozapine monitoring requirements are available for source-backed review.",
+        clinical_specifics: {
+          actions: ["Check clozapine monitoring requirements."],
+          thresholds_timing: [],
+          medication_monitoring: [],
+          risk_escalation: [],
+          documentation_forms: [],
+          exceptions_gaps: [],
+        },
+        labels: [
+          { label: "Document control", label_type: "topic", confidence: 0.99 },
+          { label: "Clozapine Monitoring!!", label_type: "topic", confidence: 0.92 },
+          { label: "clozapine-monitoring", label_type: "topic", confidence: 0.88 },
+          { label: "Policy", label_type: "document_type", confidence: 0.75 },
+          { label: "weak orphan", label_type: "custom", confidence: 0.2 },
+        ],
+      }),
+    );
+    const supabase = createSupabaseMock();
+
+    await upsertDocumentEnrichment({
+      supabase: supabase as never,
+      document: {
+        id: "doc-clozapine",
+        owner_id: null,
+        title: "Clozapine Monitoring",
+        file_name: "clozapine-monitoring.pdf",
+        source_path: null,
+        metadata: {},
+      },
+      chunks: [
+        {
+          id: "chunk-1",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Monitoring",
+          content: "Clozapine monitoring requirements and blood test monitoring are described.",
+        },
+      ],
+      images: [],
+    });
+
+    const labelsInsert = supabase.calls.find((call) => call.table === "document_labels" && call.operation === "insert");
+    const labels = (labelsInsert?.payload as Array<{ label: string; label_type: string }>) ?? [];
+
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "clozapine monitoring", label_type: "topic" }),
+        expect.objectContaining({ label: "clozapine", label_type: "medication" }),
+      ]),
+    );
+    expect(labels.map((label) => label.label)).not.toEqual(expect.arrayContaining(["document control", "policy"]));
+    expect(labels.filter((label) => label.label === "clozapine monitoring")).toHaveLength(1);
   });
 
   it("uses coverage-aware source excerpts instead of only the first chunks for large documents", async () => {
@@ -196,5 +255,129 @@ describe("document enrichment", () => {
     expect(prompt).toContain("Coverage: 60 indexed chunks");
     expect(prompt).toContain("chunk_id: chunk-52");
     expect(prompt).toContain("remain indexed and retrievable");
+  });
+
+  it("returns a cleaned anchored clinical document profile for new summaries", async () => {
+    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
+      JSON.stringify({
+        summary: "Clinical summary: Lithium monitoring guideline PAE-PRO-0338/16 Page 5 of 5. Use for lithium review.",
+        clinical_specifics: {
+          profile: {
+            overview:
+              "Document summary: Lithium monitoring guideline PAE-PRO-0338/16 Page 5 of 5. Use for lithium review.",
+            applies_to: [
+              {
+                text: "Applies to adults receiving lithium monitoring.",
+                source_chunk_ids: ["chunk-1"],
+                source_image_ids: [],
+                evidence_type: "text",
+                support: "direct",
+              },
+            ],
+            key_clinical_actions: [
+              {
+                text: "Check renal, thyroid, calcium, and lithium levels before review.",
+                source_chunk_ids: ["chunk-1", "missing-chunk"],
+                source_image_ids: [],
+                evidence_type: "text",
+                support: "direct",
+              },
+            ],
+            medication_dose_monitoring: [],
+            thresholds_timing: [],
+            escalation_risk_warnings: [],
+            required_forms_documentation: [],
+            not_covered: [
+              {
+                text: "The source does not specify paediatric dosing.",
+                source_chunk_ids: [],
+                source_image_ids: [],
+                evidence_type: "metadata",
+                support: "not_found",
+              },
+            ],
+            important_tables_images: [
+              {
+                text: "Monitoring table is visible in indexed image evidence.",
+                source_chunk_ids: [],
+                source_image_ids: ["image-1"],
+                evidence_type: "table",
+                support: "direct",
+              },
+            ],
+            best_questions: [
+              {
+                text: "What lithium monitoring is required?",
+                source_chunk_ids: ["chunk-1"],
+                source_image_ids: [],
+                evidence_type: "text",
+                support: "direct",
+              },
+            ],
+            source_quality_notes: [],
+          },
+          actions: ["PAE-PRO-0338/16 Page 5 of 5 Check renal function."],
+          thresholds_timing: [],
+          medication_monitoring: [],
+          risk_escalation: [],
+          documentation_forms: [],
+          exceptions_gaps: [],
+        },
+        labels: [],
+      }),
+    );
+
+    const enrichment = await generateDocumentEnrichment({
+      document: {
+        title: "Lithium Monitoring",
+        file_name: "lithium.pdf",
+        source_path: null,
+      },
+      chunks: [
+        {
+          id: "chunk-1",
+          page_number: 3,
+          chunk_index: 0,
+          section_heading: "Monitoring",
+          content: "Check renal, thyroid, calcium, and lithium levels before review.",
+        },
+      ],
+      images: [
+        {
+          id: "image-1",
+          page_number: 4,
+          caption: "Monitoring table",
+          image_type: "clinical_table",
+          labels: ["lithium"],
+        },
+      ],
+    });
+
+    const profile = enrichment.clinical_specifics.profile;
+
+    expect(enrichment.summary).toContain("Use for lithium review");
+    expect(enrichment.summary).not.toContain("PAE-PRO-0338");
+    expect(enrichment.summary).not.toContain("Page 5 of 5");
+    expect(profile?.overview).not.toContain("PAE-PRO-0338");
+    expect(profile?.key_clinical_actions[0]).toMatchObject({
+      text: "Check renal, thyroid, calcium, and lithium levels before review.",
+      source_chunk_ids: ["chunk-1"],
+      pages: [3],
+      evidence_type: "text",
+      support: "direct",
+    });
+    expect(profile?.important_tables_images[0]).toMatchObject({
+      source_image_ids: ["image-1"],
+      pages: [4],
+      evidence_type: "table",
+    });
+    expect(profile?.not_covered[0]).toMatchObject({
+      text: "The source does not specify paediatric dosing.",
+      source_chunk_ids: [],
+      source_image_ids: [],
+      pages: [],
+      support: "not_found",
+    });
+    expect(enrichment.clinical_specifics.actions?.join(" ")).not.toContain("PAE-PRO-0338");
   });
 });

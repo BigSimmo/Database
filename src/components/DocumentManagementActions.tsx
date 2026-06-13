@@ -8,6 +8,8 @@ import {
   fieldLabel,
   floatingControl,
   primaryControl,
+  sheetHandle,
+  sheetSurface,
   textMuted,
   toneDanger,
   toolbarButton,
@@ -153,12 +155,13 @@ export function DocumentManagementActions({
 
       {mode && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-4 py-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end bg-black/55 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm sm:grid sm:place-items-center sm:px-4 sm:py-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
         >
-          <div className="w-full max-w-lg rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-lux)] sm:p-5">
+          <div className={cn(sheetSurface, "w-full max-w-lg p-4 sm:p-5")}>
+            <span className={cn(sheetHandle, "mb-4")} aria-hidden />
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 id={titleId} className="text-base font-semibold text-[color:var(--text-heading)]">

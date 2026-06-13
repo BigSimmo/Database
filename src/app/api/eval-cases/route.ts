@@ -1,0 +1,96 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
+import { isDemoMode } from "@/lib/env";
+import { jsonError, PublicApiError } from "@/lib/http";
+import { searchScopeFiltersSchema } from "@/lib/search-scope";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+
+export const runtime = "nodejs";
+
+const evalCaptureSchema = z.object({
+  query: z.string().trim().min(1).max(2000),
+  rating: z.enum(["good", "needs_fixing"]),
+  answer: z.string().trim().max(12000).optional().default(""),
+  queryMode: clinicalQueryModeSchema.optional().default("auto"),
+  queryClass: z
+    .enum([
+      "document_lookup",
+      "table_threshold",
+      "medication_dose_risk",
+      "comparison",
+      "broad_summary",
+      "unsupported_or_general",
+    ])
+    .optional(),
+  filters: searchScopeFiltersSchema.optional(),
+  sourceChunkIds: z.array(z.string().trim().min(1)).max(80).optional().default([]),
+  citedChunkIds: z.array(z.string().trim().min(1)).max(80).optional().default([]),
+  sourceFiles: z.array(z.string().trim().min(1).max(512)).max(20).optional().default([]),
+  expectedDocumentId: z.string().uuid().optional(),
+  expectedChunkId: z.string().uuid().optional(),
+});
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function uniqueUuidValues(values: string[]) {
+  return uniqueValues(values).filter((value) => uuidPattern.test(value));
+}
+
+export async function POST(request: Request) {
+  try {
+    if (isDemoMode()) return NextResponse.json({ error: "Eval capture is unavailable in demo mode." }, { status: 400 });
+
+    const parsed = evalCaptureSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) throw new PublicApiError("Eval capture payload is invalid.");
+
+    const supabase = createAdminClient();
+    const user = await requireAuthenticatedUser(request, supabase);
+    const normalizedQuery = parsed.data.query.toLowerCase().replace(/\s+/g, " ").trim();
+    const sourceChunkIds = uniqueUuidValues(parsed.data.sourceChunkIds);
+    const citedChunkIds = uniqueUuidValues(parsed.data.citedChunkIds);
+    const sourceFiles = uniqueValues(parsed.data.sourceFiles);
+    const missReason = parsed.data.rating === "good" ? "answer_good_eval" : "answer_needs_fixing";
+    const { data, error } = await supabase
+      .from("rag_query_misses")
+      .insert({
+        owner_id: user.id,
+        query: parsed.data.query,
+        normalized_query: normalizedQuery,
+        query_class: parsed.data.queryClass ?? parsed.data.queryMode,
+        top_files: sourceFiles,
+        top_chunk_ids: sourceChunkIds,
+        cited_chunk_ids: citedChunkIds,
+        miss_reason: missReason,
+        expected_document_id: parsed.data.expectedDocumentId ?? null,
+        expected_chunk_id: parsed.data.expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null,
+        candidate_aliases: normalizedClinicalSearchTokens(parsed.data.query).slice(0, 12),
+        promoted_eval_case: true,
+        promoted_at: new Date().toISOString(),
+        metadata: {
+          interaction: "answer_eval_capture",
+          rating: parsed.data.rating,
+          answer: parsed.data.answer,
+          query_class: parsed.data.queryClass ?? null,
+          query_mode: parsed.data.queryMode,
+          filters: parsed.data.filters ?? {},
+          source_chunk_ids_rejected: parsed.data.sourceChunkIds.length - sourceChunkIds.length,
+          cited_chunk_ids_rejected: parsed.data.citedChunkIds.length - citedChunkIds.length,
+          captured_at: new Date().toISOString(),
+        },
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return NextResponse.json({ ok: true, id: data.id }, { status: 201 });
+  } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
+    return jsonError(error, 400);
+  }
+}

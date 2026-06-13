@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  capturedRagCaseToGoldenCase,
   evaluateGoldenRetrievalCase,
   loadGoldenRetrievalCases,
   summarizeGoldenRetrievalResults,
@@ -117,5 +118,28 @@ describe("golden retrieval eval helpers", () => {
     );
     expect(summary.failed_cases).toHaveLength(1);
     expect(summary.document_recall_at_5).toBe(0);
+  });
+
+  it("converts captured RAG eval cases into golden retrieval cases", () => {
+    expect(
+      capturedRagCaseToGoldenCase({
+        id: "captured-case",
+        question: "Which document covers clozapine monitoring?",
+        category: "routine",
+        expectedQueryClass: "document_lookup",
+        supported: true,
+        expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
+        allowedRoutes: ["extractive", "fast"],
+        minCitations: 1,
+        latencyTargetMs: 5000,
+      }),
+    ).toMatchObject({
+      id: "captured-case",
+      query: "Which document covers clozapine monitoring?",
+      expectedQueryClass: "document_lookup",
+      expectedDocumentSubstrings: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
+      expectedContentTerms: [],
+      topK: 8,
+    });
   });
 });

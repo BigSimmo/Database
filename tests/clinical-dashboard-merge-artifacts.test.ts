@@ -5,7 +5,13 @@ import { describe, expect, it } from "vitest";
 
 const dashboardPath = resolve(process.cwd(), "src/components/ClinicalDashboard.tsx");
 const dashboardSource = readFileSync(dashboardPath, "utf8");
-const dashboardAst = ts.createSourceFile(dashboardPath, dashboardSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const dashboardAst = ts.createSourceFile(
+  dashboardPath,
+  dashboardSource,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TSX,
+);
 
 function findFunctionDeclaration(name: string): ts.FunctionDeclaration | null {
   let found: ts.FunctionDeclaration | null = null;
@@ -52,5 +58,19 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(panelIdentifiers.has("demoMode")).toBe(false);
     expect(panelSource).not.toContain("Copy clinical draft");
     expect(panelSource).not.toContain("Synthetic demo only: this is not clinical guidance.");
+  });
+
+  it("keeps the primary answer as simple prose instead of parsed icon rows", () => {
+    expect(findFunctionDeclaration("PrimaryAnswerContent")).toBeNull();
+
+    const answer = findFunctionDeclaration("NaturalLanguageAnswer");
+    expect(answer, "NaturalLanguageAnswer should remain a local function declaration").not.toBeNull();
+    if (!answer) throw new Error("NaturalLanguageAnswer should remain a local function declaration");
+
+    const answerSource = answer.getText(dashboardAst);
+    expect(answerSource).toContain("plain-answer-prose");
+    expect(answerSource).not.toContain("parseAnswerDisplayContent");
+    expect(answerSource).not.toContain("AnswerSymbolTile");
+    expect(answerSource).not.toContain("AnswerLineLabel");
   });
 });

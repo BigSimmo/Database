@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanClinicalSummaryText,
+  clinicalProseUsefulness,
   isLowYieldClinicalText,
   lowYieldSourceNoiseScore,
   sourceTextForClinicalProse,
@@ -72,12 +73,38 @@ describe("source text sanitizer", () => {
 
     const cleaned = sourceTextForClinicalProse(text);
 
-    expect(cleaned).toContain("Dose evidence: effect profile of medication");
+    expect(cleaned).toContain("effect profile of medication");
+    expect(cleaned).not.toContain("Dose evidence");
     expect(cleaned).toContain("risk of PIS with Olanzapine LAI");
     expect(cleaned).not.toContain("PAE-PRO-0338");
     expect(cleaned).not.toContain("Page 5 of 5");
     expect(cleaned).not.toContain("refer to MIMS Product Information");
     expect(cleaned).not.toContain("Neuroleptic side effect Guideline");
+  });
+
+  it("removes standalone internal image classification tokens from clinical prose", () => {
+    const text =
+      "Table detailing roles and responsibilities for Clozapine monitoring. clinical_table table_crop Roles and responsibilities: discontinue therapy for red-range blood results.";
+
+    const cleaned = sourceTextForClinicalProse(text);
+
+    expect(cleaned).toContain("Clozapine monitoring");
+    expect(cleaned).toContain("red-range blood results");
+    expect(cleaned).not.toContain("clinical_table");
+    expect(cleaned).not.toContain("table_crop");
+  });
+
+  it("marks source-title-heavy answer fragments as low usefulness while preserving clinical actions", () => {
+    const noisy =
+      "The retrieved medication/risk sources support these practical points. Dose evidence: LUNSERS (Liverpool University Neuroleptic Side Effect Rating Scale) - using for monitoring Neuroleptic side effect Guideline Appendix 1. Dose evidence: Care coordinator to follow up completion by consumer and report findings to treating doctor.";
+
+    const usefulness = clinicalProseUsefulness(noisy);
+
+    expect(usefulness.text).toContain("Care coordinator to follow up completion");
+    expect(usefulness.text).not.toContain("Dose evidence");
+    expect(usefulness.text).not.toContain("Liverpool University Neuroleptic Side Effect Rating Scale");
+    expect(usefulness.text).not.toContain("The retrieved medication/risk sources");
+    expect(usefulness.useful).toBe(true);
   });
 
   it("scores document-control snippets as low yield without hiding document viewer provenance", () => {

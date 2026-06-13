@@ -19,14 +19,15 @@ import {
   LogIn,
   LogOut,
   Mail,
-  MessageSquareText,
   Moon,
   Quote,
   RefreshCw,
   Search,
   ShieldAlert,
+  SlidersHorizontal,
   Sparkles,
   Sun,
+  Tag,
   Target,
   UploadCloud,
   WifiOff,
@@ -34,18 +35,20 @@ import {
 } from "lucide-react";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
+import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isLocalNoAuthMode } from "@/lib/env";
-import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import {
   appBackdrop,
   answerSurface,
   clinicalDivider,
   cn,
+  commandInput,
   evidenceSurface,
   EmptyState,
   fieldControlPlain,
@@ -63,6 +66,8 @@ import {
   premiumHeaderSurface,
   primaryControl,
   raisedCard,
+  sheetHandle,
+  sheetSurface,
   shellChip,
   SourceProvenance,
   SourceStatusBadge,
@@ -98,8 +103,24 @@ import {
   type AnswerDisplayTone,
   type ParsedAnswerDisplay,
 } from "@/lib/answer-formatting";
-import { sourceTextForClinicalProse, sourceTextForClinicalProsePreservingBreaks } from "@/lib/source-text-sanitizer";
+import {
+  clinicalProseUsefulness,
+  sourceTextForClinicalProse,
+  sourceTextForClinicalProsePreservingBreaks,
+} from "@/lib/source-text-sanitizer";
+import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
+import {
+  buildSmartDocumentTagFacets,
+  filterDocumentsBySmartTagFacets,
+  reviewDocumentTagQuality,
+  smartDocumentFacetGroups,
+  tagSearchText,
+  type SmartDocumentTag,
+  type SmartDocumentTagFacet,
+  type SmartDocumentTagGroup,
+  type SmartDocumentTagQualityIssueKind,
+} from "@/lib/document-tags";
 import type {
   ClinicalDocument,
   BestSourceRecommendation,
@@ -115,10 +136,17 @@ import type {
   EvidenceSummary,
   SearchResult,
   SourceEvidenceRelevance,
+  SearchScopeSummary,
   VisualEvidenceCard,
+  ClinicalQueryMode,
 } from "@/lib/types";
+import type { SearchScopeFilters } from "@/lib/search-scope";
 import {
+  type AnswerEvidenceMapRow,
+  type AnswerViewMode,
+  buildAnswerEvidenceMap,
   buildClinicalOutputSections,
+  buildHighYieldClinicalOutputSections,
   createQuoteFollowUp,
   formatQuotesForClipboard,
   shouldPollForUpdates,
@@ -144,6 +172,7 @@ const sampleQueries = [
 ] as const;
 
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
+const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 
 const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
@@ -217,6 +246,41 @@ type SearchFacets = {
   evidence?: SearchFacet[];
 };
 
+const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
+  { value: "auto", label: "Auto" },
+  { value: "monitoring_schedule", label: "Monitoring" },
+  { value: "dose_threshold_lookup", label: "Dose / thresholds" },
+  { value: "contraindications_cautions", label: "Cautions" },
+  { value: "escalation_criteria", label: "Escalation" },
+  { value: "required_documentation", label: "Documentation" },
+  { value: "compare_guidance", label: "Compare" },
+];
+
+function splitFilterText(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function filterText(values?: string[]) {
+  return (values ?? []).join(", ");
+}
+
+function compactScopeFilters(filters: SearchScopeFilters) {
+  const next: SearchScopeFilters = {};
+  if (filters.medications?.length) next.medications = filters.medications;
+  if (filters.topics?.length) next.topics = filters.topics;
+  if (filters.documentTypes?.length) next.documentTypes = filters.documentTypes;
+  if (filters.sourceStatuses?.length) next.sourceStatuses = filters.sourceStatuses;
+  if (filters.validationStatuses?.length) next.validationStatuses = filters.validationStatuses;
+  if (filters.extractionQualities?.length) next.extractionQualities = filters.extractionQualities;
+  if (filters.locality) next.locality = filters.locality;
+  if (filters.importBatchIds?.length) next.importBatchIds = filters.importBatchIds;
+  if (filters.collections?.length) next.collections = filters.collections;
+  return next;
+}
+
 type SearchResultModePayload =
   | {
       kind: "documents";
@@ -226,6 +290,8 @@ type SearchResultModePayload =
       documentMatches: DocumentMatch[];
       relevance?: EvidenceRelevance;
       facets?: SearchFacets;
+      scope?: SearchScopeSummary;
+      sourceGovernanceWarnings?: SourceGovernanceWarning[];
     }
   | {
       kind: "answer";
@@ -693,12 +759,62 @@ function QueryCoverageChips({
   );
 }
 
+function ScopeAndGovernanceNotice({
+  scope,
+  warnings,
+}: {
+  scope: SearchScopeSummary | null;
+  warnings: SourceGovernanceWarning[];
+}) {
+  const groupedWarnings = groupSourceGovernanceWarnings(warnings).slice(0, 4);
+  const showScope =
+    Boolean(scope && scope.activeFilterCount > 0) ||
+    Boolean(scope?.warnings?.length) ||
+    scope?.matchedDocumentCount === 0;
+  if (!showScope && groupedWarnings.length === 0) return null;
+  return (
+    <div className="space-y-2 rounded-lg border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] p-3 text-sm text-[color:var(--text)]">
+      {showScope && scope ? (
+        <p className="font-semibold">
+          Scope: {scope.summary}
+          {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
+        </p>
+      ) : null}
+      {scope?.warnings?.length ? (
+        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+          {scope.warnings.slice(0, 3).map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
+      {groupedWarnings.length ? (
+        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+          {groupedWarnings.map((warning) => (
+            <li key={warning.code}>
+              {warning.message}
+              {warning.titles.length ? (
+                <details className="mt-1 font-medium text-[color:var(--text-muted)]">
+                  <summary className="cursor-pointer">Sources affected</summary>
+                  <span className="mt-1 block">{warning.titles.slice(0, 5).join(", ")}</span>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function MasterSearchHeader({
   documents,
   query,
   searchMode,
   loading,
   selectedDocumentIds,
+  queryMode,
+  scopeFilters,
+  batches,
   hasAnswer,
   demoMode,
   realDataReady,
@@ -708,6 +824,8 @@ function MasterSearchHeader({
   onAsk,
   onClearQuery,
   onClearScope,
+  onQueryModeChange,
+  onScopeFiltersChange,
   onToggleScope,
   onOpenGuide,
   onToggleTheme,
@@ -717,6 +835,9 @@ function MasterSearchHeader({
   searchMode: SearchMode;
   loading: boolean;
   selectedDocumentIds: string[];
+  queryMode: ClinicalQueryMode;
+  scopeFilters: SearchScopeFilters;
+  batches: ImportBatch[];
   hasAnswer: boolean;
   demoMode: boolean;
   realDataReady: boolean;
@@ -726,6 +847,8 @@ function MasterSearchHeader({
   onAsk: () => void;
   onClearQuery: () => void;
   onClearScope: () => void;
+  onQueryModeChange: (mode: ClinicalQueryMode) => void;
+  onScopeFiltersChange: (filters: SearchScopeFilters) => void;
   onToggleScope: (documentId: string) => void;
   onOpenGuide: () => void;
   onToggleTheme: () => void;
@@ -755,7 +878,7 @@ function MasterSearchHeader({
   });
   const matchingDocuments = normalizedScopeFilter
     ? recentlyUpdatedDocuments.filter((document) =>
-        [document.title, document.file_name, document.description]
+        [document.title, document.file_name, document.description, tagSearchText(document)]
           .filter(Boolean)
           .some((value) => value?.toLowerCase().includes(normalizedScopeFilter)),
       )
@@ -770,6 +893,18 @@ function MasterSearchHeader({
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocuments.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
   const submitLabel = searchMode === "answer" ? (trimmedQuery ? "Answer" : "Ask") : "Docs";
+  const collectionOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (const document of documents) {
+      const metadata =
+        document.metadata && typeof document.metadata === "object"
+          ? (document.metadata as Record<string, unknown>)
+          : {};
+      const collection = metadata.collection;
+      if (typeof collection === "string" && collection.trim()) values.add(collection.trim());
+    }
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [documents]);
 
   const closeScope = useCallback((restoreFocus = false) => {
     const details = scopeDetailsRef.current;
@@ -903,6 +1038,14 @@ function MasterSearchHeader({
                         <span className="block truncate text-[11px] font-medium text-slate-400">
                           {documentScopeMeta(document)}
                         </span>
+                        <DocumentTagCloud
+                          labels={document.labels}
+                          query={scopeFilter}
+                          limit={2}
+                          compact
+                          expandable={false}
+                          className="mt-1"
+                        />
                       </span>
                       {selected ? (
                         <span className="rounded-md bg-teal-200/15 px-2 py-1 text-[11px] font-bold text-teal-50">
@@ -936,13 +1079,13 @@ function MasterSearchHeader({
     <header
       id="search"
       className={cn(
-        "sticky top-0 z-30 px-3 lg:px-8",
+        "sticky top-0 z-30 px-3 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 lg:px-8",
         premiumHeaderSurface,
-        compactMobile ? "py-2 sm:py-2.5" : "py-2 sm:py-2.5",
+        compactMobile ? "sm:py-2.5" : "sm:py-3",
       )}
       style={{ backgroundColor: "var(--app-shell)" }}
     >
-      <div className="mx-auto max-w-7xl space-y-2">
+      <div className="mx-auto max-w-7xl space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div
@@ -993,8 +1136,8 @@ function MasterSearchHeader({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/6 p-1 shadow-[var(--shadow-inset)]">
-          <div role="group" aria-label="Search mode" className="grid min-w-[13rem] grid-cols-2 gap-1">
+        <div className="grid gap-2 rounded-[var(--radius-lg)] border border-white/10 bg-white/6 p-1.5 shadow-[var(--shadow-inset)] sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+          <div role="group" aria-label="Search mode" className="grid grid-cols-2 gap-1 sm:min-w-[14rem]">
             {[
               { mode: "answer" as const, label: "Answer", icon: Sparkles },
               { mode: "documents" as const, label: "Documents", icon: FileText },
@@ -1007,7 +1150,7 @@ function MasterSearchHeader({
                   type="button"
                   onClick={() => onSearchModeChange(item.mode)}
                   className={cn(
-                    "inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-xs font-semibold transition",
+                    "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-md)] px-3 text-sm font-semibold transition",
                     active
                       ? "bg-white text-slate-950 shadow-[var(--shadow-tight)]"
                       : "text-slate-200 hover:bg-white/10 hover:text-white",
@@ -1021,16 +1164,218 @@ function MasterSearchHeader({
               );
             })}
           </div>
-          <span className="hidden px-2 text-xs font-medium text-slate-300 sm:inline">
+          <span className="hidden px-2 text-xs font-medium text-slate-300 lg:inline">
             {searchMode === "answer" ? "Synthesize cited clinical guidance" : "List matching source documents"}
           </span>
+          <div className="ml-auto hidden min-w-0 items-center gap-2 sm:flex">
+            <select
+              value={queryMode}
+              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
+              aria-label="Clinical query mode"
+              className="h-9 w-44 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+            >
+              {clinicalQueryModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <details className="group relative">
+              <summary className="flex h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-md border border-white/15 bg-white/7 px-3 text-xs font-semibold text-slate-100">
+                <SlidersHorizontal className="h-4 w-4 shrink-0" />
+                Filters
+                <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
+              </summary>
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(42rem,calc(100vw-2rem))] gap-2 rounded-lg border border-white/15 bg-[color:var(--surface-glass)] p-3 shadow-[var(--shadow-elevated)] backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-3">
+                <input
+                  value={filterText(scopeFilters.medications)}
+                  onChange={(event) =>
+                    onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
+                  }
+                  placeholder="Medication labels"
+                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+                />
+                <input
+                  value={filterText(scopeFilters.topics)}
+                  onChange={(event) =>
+                    onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
+                  }
+                  placeholder="Topic labels"
+                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+                />
+                <input
+                  value={filterText(scopeFilters.collections)}
+                  onChange={(event) =>
+                    onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
+                  }
+                  placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
+                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+                />
+                <select
+                  value={scopeFilters.sourceStatuses?.[0] ?? ""}
+                  onChange={(event) =>
+                    onScopeFiltersChange({
+                      ...scopeFilters,
+                      sourceStatuses: event.target.value
+                        ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
+                        : [],
+                    })
+                  }
+                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+                >
+                  <option value="">Any status</option>
+                  <option value="current">Current</option>
+                  <option value="review_due">Review due</option>
+                  <option value="outdated">Outdated</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+                <select
+                  value={scopeFilters.locality ?? ""}
+                  onChange={(event) =>
+                    onScopeFiltersChange({
+                      ...scopeFilters,
+                      locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
+                    })
+                  }
+                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+                >
+                  <option value="">Any locality</option>
+                  <option value="local">Local only</option>
+                  <option value="non_local">Non-local only</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => onScopeFiltersChange({})}
+                  className="h-9 rounded-md border border-white/15 bg-white/7 px-2 text-xs font-semibold text-slate-100 hover:bg-white/12"
+                >
+                  Clear filters
+                </button>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div className="hidden">
+          <label className="min-w-0">
+            <span className="sr-only">Clinical query mode</span>
+            <select
+              value={queryMode}
+              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
+              className="h-10 w-full rounded-lg border border-white/15 bg-white/95 px-3 text-sm font-semibold text-slate-950 outline-none focus:border-teal-300 focus:ring-4 focus:ring-teal-300/20 dark:bg-slate-950/90 dark:text-slate-50"
+            >
+              {clinicalQueryModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <details className="group min-w-0">
+            <summary className="flex h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/15 bg-white/7 px-3 text-xs font-semibold text-slate-100">
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 shrink-0" />
+                <span className="truncate">Clinical filters</span>
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
+            </summary>
+            <div className="mt-2 grid gap-2 rounded-lg border border-white/10 bg-white/6 p-2 sm:grid-cols-2 lg:grid-cols-4">
+              <input
+                value={filterText(scopeFilters.medications)}
+                onChange={(event) =>
+                  onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
+                }
+                placeholder="Medication labels"
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              />
+              <input
+                value={filterText(scopeFilters.topics)}
+                onChange={(event) =>
+                  onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
+                }
+                placeholder="Topic labels"
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              />
+              <input
+                value={filterText(scopeFilters.documentTypes)}
+                onChange={(event) =>
+                  onScopeFiltersChange({ ...scopeFilters, documentTypes: splitFilterText(event.target.value) })
+                }
+                placeholder="Document type labels"
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              />
+              <select
+                value={scopeFilters.sourceStatuses?.[0] ?? ""}
+                onChange={(event) =>
+                  onScopeFiltersChange({
+                    ...scopeFilters,
+                    sourceStatuses: event.target.value
+                      ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
+                      : [],
+                  })
+                }
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              >
+                <option value="">Any status</option>
+                <option value="current">Current</option>
+                <option value="review_due">Review due</option>
+                <option value="outdated">Outdated</option>
+                <option value="unknown">Unknown</option>
+              </select>
+              <select
+                value={scopeFilters.locality ?? ""}
+                onChange={(event) =>
+                  onScopeFiltersChange({
+                    ...scopeFilters,
+                    locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
+                  })
+                }
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              >
+                <option value="">Any locality</option>
+                <option value="local">Local only</option>
+                <option value="non_local">Non-local only</option>
+              </select>
+              <select
+                value={scopeFilters.importBatchIds?.[0] ?? ""}
+                onChange={(event) =>
+                  onScopeFiltersChange({
+                    ...scopeFilters,
+                    importBatchIds: event.target.value ? [event.target.value] : [],
+                  })
+                }
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              >
+                <option value="">Any batch</option>
+                {batches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {batch.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={filterText(scopeFilters.collections)}
+                onChange={(event) =>
+                  onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
+                }
+                placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
+                className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+              />
+              <button
+                type="button"
+                onClick={() => onScopeFiltersChange({})}
+                className="h-9 rounded-md border border-white/15 bg-white/7 px-2 text-xs font-semibold text-slate-100 hover:bg-white/12"
+              >
+                Clear filters
+              </button>
+            </div>
+          </details>
         </div>
 
         <form
           onSubmit={submit}
-          className="grid grid-cols-[minmax(0,1fr)_72px_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
+          className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
         >
-          <label className="relative min-w-0">
+          <label className="relative col-span-2 min-w-0 sm:col-span-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
             <input
               value={query}
@@ -1040,10 +1385,7 @@ function MasterSearchHeader({
               }}
               aria-label="Search indexed guidelines by question or keyword"
               placeholder="Ask a question or enter a keyword"
-              className={cn(
-                "w-full rounded-lg border border-white/20 bg-white/95 pl-12 pr-12 font-semibold text-slate-950 shadow-[0_16px_34px_rgb(0_0_0_/_14%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/25 dark:bg-slate-950/90 dark:text-slate-50 dark:placeholder:text-slate-500",
-                "h-11 text-sm sm:text-base",
-              )}
+              className={commandInput}
             />
             {query && (
               <button
@@ -1070,7 +1412,10 @@ function MasterSearchHeader({
                     ? "Generate a source-backed answer"
                     : "Find matching documents"
             }
-            className={cn(primaryControl, compactMobile ? "h-11 rounded-lg px-3 sm:px-5" : "h-11 rounded-lg")}
+            className={cn(
+              primaryControl,
+              "min-h-[48px] rounded-[var(--radius-lg)] px-3 text-sm sm:min-h-[44px] sm:px-5 sm:text-sm",
+            )}
             aria-label={searchMode === "answer" ? "Generate source-backed answer" : "Find matching documents"}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -1083,11 +1428,11 @@ function MasterSearchHeader({
               setScopeOpen(open);
               if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
             }}
-            className="relative"
+            className="group relative"
           >
             <summary
               ref={scopeSummaryRef}
-              className="flex h-11 cursor-pointer list-none items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/7 px-2 text-xs font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3"
+              className="flex min-h-[48px] cursor-pointer list-none items-center justify-center gap-1.5 rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-2 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:min-h-[44px] sm:gap-2 sm:px-3 sm:text-xs"
               aria-label="Open document scope"
               aria-expanded={scopeOpen}
             >
@@ -1101,8 +1446,9 @@ function MasterSearchHeader({
             </summary>
             <div
               data-testid="scope-command-popover"
-              className="mobile-popover-scroll polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[calc(100vw-1.5rem)] max-w-md overflow-y-auto overscroll-contain rounded-lg border border-white/15 bg-[color:var(--surface-glass)] p-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl transition motion-safe:duration-150 dark:bg-[color:var(--app-shell-muted)] dark:text-white sm:w-[28rem]"
+              className="mobile-popover-scroll polished-scroll fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] top-auto z-40 hidden max-h-[min(72dvh,34rem)] overflow-y-auto overscroll-contain rounded-[var(--radius-xl)] border border-white/15 bg-[color:var(--surface-glass)] p-3 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl transition motion-safe:duration-150 group-open:block dark:bg-[color:var(--app-shell-muted)] dark:text-white sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:w-[28rem] sm:max-w-md sm:rounded-[var(--radius-lg)] sm:p-2.5"
             >
+              <span className={cn(sheetHandle, "mb-3 bg-white/35 dark:bg-white/25")} aria-hidden />
               <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)] dark:text-slate-300">
                 <span>Document scope</span>
                 <span>{scopeSummary}</span>
@@ -1351,18 +1697,47 @@ function SourceLinkedAnswer({
 }
 
 function plainAnswerText(value: string) {
-  return sanitizeAnswerDisplayText(value, { minLength: 8, minTokens: 2 })
+  const useful = clinicalProseUsefulness(value);
+  return sanitizeAnswerDisplayText(useful.text || value, { minLength: 8, minTokens: 2 })
     .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
     .trim();
 }
 
+function primaryAnswerDisplayText(value: string) {
+  const cleaned = plainAnswerText(value);
+  const fragments = cleaned
+    .split(/\r?\n+/)
+    .flatMap((line) =>
+      line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
+    )
+    .map((fragment) =>
+      fragment
+        .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
+        .replace(
+          /^(?:\*\*)?(?:answer|summary|bottom line|direct answer|clinical point|key point|required actions?|monitoring(?:\/timing)?|thresholds?|dose detail|medication(?:\/dose details?)?|escalation(?:\/risk)?|risk|safety|documentation(?:\/forms)?|source gaps?)(?:\*\*)?:\s+/i,
+          "",
+        )
+        .trim(),
+    )
+    .map((fragment) => clinicalProseUsefulness(fragment).text || fragment)
+    .filter((fragment) => {
+      if (!fragment) return false;
+      const useful = clinicalProseUsefulness(fragment);
+      return useful.useful || fragment.split(/\s+/).length >= 8;
+    });
+  const uniqueFragments = Array.from(new Set(fragments));
+  const selected = uniqueFragments.slice(0, 3).join(" ");
+  const words = selected.split(/\s+/).filter(Boolean);
+  if (words.length <= 85) return selected || cleaned;
+  return `${words
+    .slice(0, 85)
+    .join(" ")
+    .replace(/[;,:-]\s*$/, "")}...`;
+}
+
 function NaturalLanguageAnswer({ text }: { text: string }) {
-  const cleaned = plainAnswerText(text);
+  const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
-  const paragraphs = cleaned
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
 
   return (
     <section
@@ -1370,24 +1745,18 @@ function NaturalLanguageAnswer({ text }: { text: string }) {
       aria-label="Primary natural-language answer"
       className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-[15px] leading-7 text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 sm:px-4 sm:py-4"
     >
-      <div className="mb-2 flex items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--primary-soft)] text-[color:var(--primary)] ring-1 ring-[color:var(--primary)]/20">
-          <MessageSquareText className="h-4 w-4" />
-        </span>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Answer</h3>
-          <p className={cn("hidden text-xs leading-5 sm:block", textMuted)}>
-            Source-backed synthesis written first; structured details follow below.
-          </p>
-        </div>
+      <div className="mb-2 min-w-0">
+        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Answer</h3>
+        <p className={cn("hidden text-xs leading-5 sm:block", textMuted)}>
+          High-yield clinical response; structured details follow below.
+        </p>
       </div>
-      <div className="space-y-2 font-medium">
-        {paragraphs.map((paragraph, index) => (
-          <p key={`${index}:${paragraph.slice(0, 32)}`}>
-            <SafeBoldText text={paragraph} />
-          </p>
-        ))}
-      </div>
+      <p
+        data-testid="plain-answer-prose"
+        className="text-[15px] font-medium leading-7 text-[color:var(--text-heading)]"
+      >
+        <SafeBoldText text={cleaned} />
+      </p>
     </section>
   );
 }
@@ -1405,9 +1774,115 @@ function isRedundantStructuredItem(item: string, primaryAnswer: string) {
   const itemText = comparableAnswerText(item);
   const answerText = comparableAnswerText(primaryAnswer);
   if (!itemText || !answerText) return false;
-  if (itemText.length < 80) return false;
   if (answerText.includes(itemText) || itemText.includes(answerText)) return true;
+  if (itemText.length < 40) return false;
+  const answerWords = new Set(answerText.split(" ").filter((word) => word.length > 3));
+  const itemWords = itemText.split(" ").filter((word) => word.length > 3);
+  if (itemWords.length < 6) return false;
+  const sharedWords = itemWords.filter((word) => answerWords.has(word)).length;
+  if (sharedWords / itemWords.length >= 0.82) return true;
   return answerText.includes(itemText.slice(0, Math.min(160, itemText.length)));
+}
+
+type ClinicalDetailSection = ReturnType<typeof buildClinicalOutputSections>[number];
+
+const clinicalDetailPriority: Record<string, number> = {
+  action: 10,
+  escalation: 20,
+  thresholds: 30,
+  cautions: 40,
+  monitoring: 50,
+  medication: 60,
+  documentation: 70,
+  comparison: 80,
+  "support-map": 90,
+  "source-gap": 100,
+};
+
+function clinicalDetailContentCount(section: ClinicalDetailSection) {
+  if (section.items.length > 0) return section.items.length;
+  const tableRows =
+    section.tables?.reduce((total, table) => total + (table.rows?.length ?? (table.markdown ? 1 : 0)), 0) ?? 0;
+  return tableRows || section.tables?.length || 0;
+}
+
+function sortClinicalDetailSections(sections: ClinicalDetailSection[]) {
+  return [...sections].sort((left, right) => {
+    const leftPriority = clinicalDetailPriority[left.id] ?? 75;
+    const rightPriority = clinicalDetailPriority[right.id] ?? 75;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    return left.title.localeCompare(right.title);
+  });
+}
+
+function clinicalDetailMeta(section: ClinicalDetailSection): {
+  icon: typeof Search;
+  eyebrow: string;
+  toneClassName: string;
+  accentClassName: string;
+} {
+  if (section.id === "thresholds") {
+    return {
+      icon: Target,
+      eyebrow: "Thresholds",
+      toneClassName: toneWarning,
+      accentClassName: "bg-[color:var(--warning)]",
+    };
+  }
+  if (section.id === "escalation" || section.id === "cautions" || section.id === "source-gap") {
+    return {
+      icon: ShieldAlert,
+      eyebrow: section.id === "source-gap" ? "Source gap" : "Risk",
+      toneClassName: toneDanger,
+      accentClassName: "bg-[color:var(--danger)]",
+    };
+  }
+  if (section.id === "monitoring" || section.id === "medication") {
+    return {
+      icon: ClipboardCheck,
+      eyebrow: section.id === "monitoring" ? "Monitoring" : "Medication",
+      toneClassName: toneWarning,
+      accentClassName: "bg-[color:var(--warning)]",
+    };
+  }
+  if (section.id === "support-map" || section.id === "comparison") {
+    return {
+      icon: BookOpen,
+      eyebrow: section.id === "support-map" ? "Evidence support" : "Comparison",
+      toneClassName: toneInfo,
+      accentClassName: "bg-[color:var(--info)]",
+    };
+  }
+  if (section.id === "documentation") {
+    return {
+      icon: FileText,
+      eyebrow: "Documentation",
+      toneClassName: toneNeutral,
+      accentClassName: "bg-[color:var(--border-strong)]",
+    };
+  }
+  return {
+    icon: ListChecks,
+    eyebrow: "Clinical action",
+    toneClassName: toneSuccess,
+    accentClassName: "bg-[color:var(--success)]",
+  };
+}
+
+function clinicalDetailSummaryItems(sections: ClinicalDetailSection[]) {
+  const countById = (ids: string[]) =>
+    sections
+      .filter((section) => ids.includes(section.id))
+      .reduce((total, section) => total + clinicalDetailContentCount(section), 0);
+  const tableCount = sections.reduce((total, section) => total + (section.tables?.length ?? 0), 0);
+  const items = [
+    { label: "Actions", value: countById(["action", "escalation", "documentation"]) },
+    { label: "Monitoring", value: countById(["monitoring", "medication"]) },
+    { label: "Tables", value: tableCount },
+    { label: "Cautions", value: countById(["cautions", "source-gap"]) },
+    { label: "Evidence", value: countById(["support-map", "comparison"]) },
+  ];
+  return items.filter((item) => item.value > 0);
 }
 
 function answerToneClasses(tone: AnswerDisplayTone) {
@@ -1865,6 +2340,186 @@ function evidenceDrawerSummary({
   ].join(" · ");
 }
 
+function queryModeLabel(mode: ClinicalQueryMode) {
+  return clinicalQueryModeOptions.find((option) => option.value === mode)?.label ?? mode.replaceAll("_", " ");
+}
+
+function AnswerInsightBar({
+  answer,
+  bestSource,
+  relevance,
+  queryMode,
+  sourceGovernanceWarnings,
+}: {
+  answer: RagAnswer;
+  bestSource: BestSourceRecommendation | null;
+  relevance?: EvidenceRelevance | null;
+  queryMode: ClinicalQueryMode;
+  sourceGovernanceWarnings: SourceGovernanceWarning[];
+}) {
+  const metadata = normalizeSourceMetadata(
+    bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
+  );
+  const modeLabel =
+    answer.smartApiPlan?.displayMode?.replaceAll("_", " ") ??
+    answer.responseMode?.replaceAll("_", " ") ??
+    queryModeLabel(queryMode);
+  const sourceCount = answer.evidenceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
+  const support = relevanceChipLabel(relevance ?? answer.relevance, answer.grounded);
+  const sourceStatus = sourceGovernanceWarnings.length
+    ? `${sourceGovernanceWarnings.length} source status note${sourceGovernanceWarnings.length === 1 ? "" : "s"}`
+    : sourceStatusLabel(metadata);
+  const items = [
+    { label: "Mode", value: modeLabel, icon: SlidersHorizontal },
+    {
+      label: "Support",
+      value: support,
+      icon: hasStrongRelevanceIcon(relevance ?? answer.relevance, answer.grounded) ? CheckCircle2 : AlertCircle,
+    },
+    { label: "Sources", value: String(sourceCount), icon: FileText },
+    { label: "Confidence", value: answer.confidence, icon: Target },
+    { label: "Status", value: `${sourceStatus} / ${validationStatusLabel(metadata)}`, icon: BookOpen },
+  ];
+
+  return (
+    <div
+      data-testid="answer-insight-bar"
+      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 sm:flex sm:flex-wrap sm:items-center"
+      aria-label="Answer evidence summary"
+    >
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <span
+            key={item.label}
+            className="inline-flex min-h-8 min-w-0 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]"
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
+            <span className="shrink-0 text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+              {item.label}
+            </span>
+            <span className="min-w-0 truncate">{item.value}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnswerViewModeControl({
+  value,
+  onChange,
+}: {
+  value: AnswerViewMode;
+  onChange: (mode: AnswerViewMode) => void;
+}) {
+  const modes: Array<{ value: AnswerViewMode; label: string; icon: typeof Search }> = [
+    { value: "standard", label: "Standard", icon: ListChecks },
+    { value: "high_yield", label: "High-yield", icon: Target },
+    { value: "evidence_map", label: "Evidence map", icon: BookOpen },
+  ];
+
+  return (
+    <div
+      data-testid="answer-view-mode-control"
+      className="flex w-full max-w-full flex-wrap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)] sm:w-auto sm:flex-nowrap"
+      role="group"
+      aria-label="Answer detail view"
+    >
+      {modes.map((mode) => {
+        const Icon = mode.icon;
+        const active = value === mode.value;
+        return (
+          <button
+            key={mode.value}
+            type="button"
+            onClick={() => onChange(mode.value)}
+            aria-pressed={active}
+            className={cn(
+              "inline-flex min-h-9 min-w-0 flex-1 basis-[7rem] items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition sm:flex-none sm:basis-auto",
+              active
+                ? "bg-[color:var(--primary)] text-white shadow-sm"
+                : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{mode.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="No evidence map rows"
+        body="This answer did not return structured answer sections or linked citations."
+      />
+    );
+  }
+
+  return (
+    <div
+      data-testid="answer-evidence-map"
+      className="overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
+    >
+      <table className="min-w-full border-collapse text-left text-sm">
+        <caption className={cn("caption-top px-3 py-2 text-left text-xs font-semibold", textMuted)}>
+          Source support by answer section
+        </caption>
+        <thead>
+          <tr className="bg-[color:var(--surface-subtle)]">
+            {["Answer section", "Support", "Citations", "Source status", "Best linked passage"].map((heading) => (
+              <th
+                key={heading}
+                scope="col"
+                className="border-b border-[color:var(--border)] px-3 py-2 align-top text-xs font-semibold text-[color:var(--text)]"
+              >
+                {heading}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-[color:var(--border)]/70">
+              <td className="max-w-56 px-3 py-2 align-top font-semibold text-[color:var(--text-heading)]">
+                {row.section}
+              </td>
+              <td className="px-3 py-2 align-top">
+                <span className={metadataPill}>{row.supportLevel}</span>
+              </td>
+              <td className="px-3 py-2 align-top text-[color:var(--text)]">{row.citationCount}</td>
+              <td className={cn("max-w-56 px-3 py-2 align-top text-xs leading-5", textMuted)}>
+                {row.sourceStatus}
+              </td>
+              <td className="min-w-72 px-3 py-2 align-top">
+                <p className="text-[13px] font-semibold text-[color:var(--text)]">{row.bestSourceLabel}</p>
+                <p className={cn("mt-1 line-clamp-3 text-xs leading-5", textMuted)}>
+                  <SafeBoldText text={row.bestLinkedPassage} />
+                </p>
+                {row.href ? (
+                  <Link
+                    href={row.href}
+                    className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] px-2 text-xs font-semibold text-[color:var(--primary)] hover:bg-[color:var(--primary-soft)]"
+                  >
+                    Open passage
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AnswerSafetyNotice({ demoMode, weakEvidence = false }: { demoMode: boolean; weakEvidence?: boolean }) {
   return (
     <div
@@ -1969,40 +2624,85 @@ function ClinicalOutputPanel({
   answer,
   collapsed = false,
   showLead = true,
+  viewMode = "standard",
+  onViewModeChange,
+  evidenceMapRows,
 }: {
   answer: RagAnswer;
   collapsed?: boolean;
   showLead?: boolean;
+  viewMode?: AnswerViewMode;
+  onViewModeChange?: (mode: AnswerViewMode) => void;
+  evidenceMapRows?: AnswerEvidenceMapRow[];
 }) {
-  const sections = buildClinicalOutputSections(answer);
-  if (sections.length === 0) return null;
+  const sections = viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
+  const rows = evidenceMapRows ?? buildAnswerEvidenceMap(answer);
+  if (sections.length === 0 && (viewMode !== "evidence_map" || rows.length === 0)) return null;
   const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
   const primaryAnswer = plainAnswerText(answer.answer);
   const detailSections = sections
-    .filter((section) => section.id !== leadSection.id && section.id !== "verify-source")
+    .filter((section) => section.id !== "verify-source")
+    .filter((section) => (showLead ? section.id !== leadSection?.id : section.id !== "bottom-line"))
     .map((section) => ({
       ...section,
       items: showLead ? section.items : section.items.filter((item) => !isRedundantStructuredItem(item, primaryAnswer)),
     }))
     .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
+  const orderedDetailSections = sortClinicalDetailSections(detailSections);
+  const summaryItems = clinicalDetailSummaryItems(orderedDetailSections);
   const verifySection = sections.find((section) => section.id === "verify-source");
+  const title =
+    viewMode === "evidence_map"
+      ? "Evidence map"
+      : viewMode === "high_yield"
+        ? "High-yield clinical details"
+        : showLead
+          ? "Clinical answer"
+          : "Structured clinical details";
+  const description =
+    viewMode === "evidence_map"
+      ? "Mapped answer sections to linked source support and source status."
+      : viewMode === "high_yield"
+        ? "Actions, thresholds, cautions, escalation triggers, monitoring, and dose details."
+        : showLead
+          ? "Dense source-backed structure for review before clinical use."
+          : "Adaptive source-backed support below the concise answer.";
 
   const content = (
     <section data-testid="clinical-action-view" className={cn(panelSubtle, "p-3 sm:p-4")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionHeading
           icon={ListChecks}
-          title={showLead ? "Clinical answer" : "Structured clinical support"}
-          description={
-            showLead
-              ? "Dense source-backed structure for review before clinical use."
-              : "Concise details that support, scan, and verify the answer above."
+          title={title}
+          description={description}
+          action={
+            onViewModeChange ? <AnswerViewModeControl value={viewMode} onChange={onViewModeChange} /> : undefined
           }
           hideDescriptionOnMobile
           compactMobile
         />
       </div>
-      {showLead ? (
+      {summaryItems.length ? (
+        <div
+          data-testid="clinical-detail-summary"
+          className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center"
+          aria-label="High-yield clinical detail summary"
+        >
+          {summaryItems.map((item) => (
+            <span
+              key={item.label}
+              className={cn(
+                subtleStatusPill,
+                "min-h-12 min-w-0 justify-between gap-2 rounded-lg px-3 py-2 text-left sm:min-h-9",
+              )}
+            >
+              <span className="min-w-0 truncate text-[11px] uppercase tracking-[0.06em]">{item.label}</span>
+              <span className="shrink-0 text-sm font-bold text-[color:var(--text-heading)]">{item.value}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {showLead && leadSection ? (
         <div className="mt-3 rounded-md border border-[color:var(--primary)]/15 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
           <div className="flex items-start gap-2.5">
             <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
@@ -2019,51 +2719,85 @@ function ClinicalOutputPanel({
           </div>
         </div>
       ) : null}
-      {detailSections.length ? (
+      {viewMode === "evidence_map" ? (
+        <div className="mt-3">
+          <EvidenceMapTable rows={rows} />
+        </div>
+      ) : orderedDetailSections.length ? (
         <div
           className={cn(
             "mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
             showLead && "border-t border-[color:var(--border)] pt-3",
           )}
         >
-          {detailSections.map((section) => {
+          {orderedDetailSections.map((section) => {
             const isWide = section.id === "thresholds" || Boolean(section.tables?.length);
+            const itemCount = clinicalDetailContentCount(section);
+            const meta = clinicalDetailMeta(section);
+            const Icon = meta.icon;
             return (
               <article
                 key={section.id}
+                data-testid="clinical-detail-card"
                 className={cn(
-                  "rounded-md border border-[color:var(--border)]/80 bg-[color:var(--surface)] p-3",
+                  "min-w-0 rounded-lg border border-[color:var(--border)]/80 bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
                   isWide && "md:col-span-2 xl:col-span-3",
                 )}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>{section.items.length}</span>
+                <div className="flex min-w-0 items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <span
+                      className={cn(
+                        "grid h-9 w-9 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+                        meta.toneClassName,
+                      )}
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                        {meta.eyebrow}
+                      </p>
+                      <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                        {section.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-[10px]")}>
+                    {itemCount}
+                  </span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">
                     {section.tables.map((table) => (
-                      <div key={table.id} className="space-y-1.5">
+                      <div key={table.id} data-testid="clinical-detail-table" className="min-w-0 space-y-2">
                         <AccessibleTable
                           caption={table.caption}
                           markdown={table.markdown}
                           rows={table.rows}
                           columns={table.columns}
                           compact
+                          expandOnMobile
+                          clinicalOnly
+                          dialogTitle={table.caption}
                         />
                       </div>
                     ))}
                   </div>
                 ) : null}
                 {section.items.length ? (
-                  <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)]">
+                  <ul className="mt-3 grid gap-2 text-[15px] leading-6 text-[color:var(--text)]">
                     {section.items.map((item, index) => (
                       <li
                         key={`${section.id}:${index}:${item.slice(0, 48)}`}
-                        className="grid grid-cols-[auto_1fr] gap-2"
+                        className="grid min-h-12 min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border border-[color:var(--border)]/70 bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)]"
                       >
-                        <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
-                        <span>
+                        <span
+                          className={cn("mt-1 h-4 w-1 shrink-0 rounded-full", meta.accentClassName)}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 break-words">
                           <SafeBoldText text={item} />
                         </span>
                       </li>
@@ -2105,6 +2839,163 @@ function ClinicalOutputPanel({
   }
 
   return content;
+}
+
+function SmartFollowUpChips({
+  answer,
+  bestSource,
+  weakEvidence,
+  onViewModeChange,
+  onQueryModeChange,
+  onLimitToLocalCurrent,
+  onScopeDocument,
+  onShowQuotes,
+  onTryBroaderSearch,
+}: {
+  answer: RagAnswer;
+  bestSource: BestSourceRecommendation | null;
+  weakEvidence: boolean;
+  onViewModeChange: (mode: AnswerViewMode) => void;
+  onQueryModeChange: (mode: ClinicalQueryMode) => void;
+  onLimitToLocalCurrent: () => void;
+  onScopeDocument: (documentId: string) => void;
+  onShowQuotes: () => void;
+  onTryBroaderSearch: () => void;
+}) {
+  const hasThresholdEvidence =
+    answer.responseMode === "threshold_table" ||
+    answer.queryClass === "table_threshold" ||
+    answer.queryClass === "medication_dose_risk";
+  const hasComparisonEvidence =
+    answer.responseMode === "comparison_matrix" ||
+    answer.queryClass === "comparison" ||
+    (answer.documentBreakdown?.length ?? 0) >= 2 ||
+    (answer.sources?.length ?? 0) >= 2;
+  const chips: Array<{ label: string; icon: typeof Search; onClick: () => void; hidden?: boolean }> = [
+    {
+      label: "Show thresholds only",
+      icon: Target,
+      hidden: !hasThresholdEvidence,
+      onClick: () => {
+        onQueryModeChange("dose_threshold_lookup");
+        onViewModeChange("high_yield");
+      },
+    },
+    {
+      label: "Compare sources",
+      icon: BookOpen,
+      hidden: !hasComparisonEvidence,
+      onClick: () => {
+        onQueryModeChange("compare_guidance");
+        onViewModeChange("evidence_map");
+      },
+    },
+    {
+      label: "Limit to local/current sources",
+      icon: Filter,
+      onClick: onLimitToLocalCurrent,
+    },
+    {
+      label: "Search this document only",
+      icon: FileText,
+      hidden: !bestSource,
+      onClick: () => {
+        if (bestSource) onScopeDocument(bestSource.document_id);
+      },
+    },
+    {
+      label: "Show exact quotes",
+      icon: Quote,
+      hidden: !answer.quoteCards?.length,
+      onClick: onShowQuotes,
+    },
+    {
+      label: "Try broader search",
+      icon: SlidersHorizontal,
+      hidden: !weakEvidence,
+      onClick: onTryBroaderSearch,
+    },
+  ];
+  const visibleChips = chips.filter((chip) => !chip.hidden);
+  if (visibleChips.length === 0) return null;
+
+  return (
+    <div
+      data-testid="smart-follow-up-chips"
+      className="flex flex-wrap gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
+      aria-label="Smart follow-up refinements"
+    >
+      {visibleChips.map((chip) => {
+        const Icon = chip.icon;
+        return (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={chip.onClick}
+            className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {chip.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
+  const visibleSources = sources.slice(0, 3);
+  if (visibleSources.length === 0) return null;
+
+  return (
+    <details data-testid="why-this-matched" className={cn("group rounded-lg", panelSubtle)}>
+      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn(iconTilePremium, "h-8 w-8")}>
+            <Search className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[color:var(--text)]">Why this matched</span>
+            <span className={cn("block truncate text-xs", textMuted)}>
+              Match signals, source strength, and term coverage for top passages
+            </span>
+          </span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+      </summary>
+      <div className="grid gap-2 border-t border-[color:var(--border)] p-3">
+        {visibleSources.map((source) => (
+          <article key={source.id} className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">{source.title}</p>
+                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                  page {source.page_number ?? "n/a"} · chunk {source.chunk_index}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <RelevanceBadge relevance={source.relevance} />
+                <StrengthBadge strength={source.source_strength} />
+                <SourceStatusBadge metadata={source.source_metadata} />
+              </div>
+            </div>
+            <MatchExplanationChips source={source} />
+            {source.index_unit ? (
+              <p className={cn("mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-1.5 text-xs leading-5", textMuted)}>
+                <span className="font-semibold text-[color:var(--text)]">
+                  {source.index_unit.unit_type.replaceAll("_", " ")}:
+                </span>{" "}
+                {source.index_unit.title}
+              </p>
+            ) : null}
+            <div className="mt-2">
+              <QueryCoverageChips relevance={source.relevance} limit={5} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 function VisualEvidenceStrip({
@@ -2159,6 +3050,7 @@ function VisualEvidenceStrip({
                 ? item.tableTextSnippet
                 : null;
             const hasStructuredTable = Boolean(tableMarkdown || item.tableRows?.length || item.tableColumns?.length);
+            const tableCaption = [item.tableTitle, item.caption].filter(Boolean)[0] ?? "Clinical table";
             const displayLabels = smartEvidenceTags(
               item.labels,
               [[item.tableLabel, item.tableTitle].filter(Boolean).join(": "), item.caption, item.tableTextSnippet]
@@ -2171,16 +3063,17 @@ function VisualEvidenceStrip({
                   <SourceImage endpoint={item.signed_url_endpoint} caption={item.caption} />
                 </div>
                 <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
-                  {[item.tableLabel, item.tableTitle].filter(Boolean).length > 0 && (
-                    <p className="font-semibold">{[item.tableLabel, item.tableTitle].filter(Boolean).join(": ")}</p>
-                  )}
-                  <p>{item.caption}</p>
+                  {item.tableTitle ? <p className="font-semibold">{item.tableTitle}</p> : null}
+                  {!hasStructuredTable ? <p>{item.caption}</p> : null}
                   <AccessibleTable
-                    caption={[item.tableLabel, item.tableTitle].filter(Boolean).join(": ") || item.caption}
+                    caption={tableCaption}
                     markdown={tableMarkdown}
                     rows={item.tableRows}
                     columns={item.tableColumns}
                     compact
+                    expandOnMobile
+                    clinicalOnly
+                    dialogTitle={tableCaption}
                   />
                   {!hasStructuredTable && item.tableTextSnippet ? (
                     <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>{item.tableTextSnippet}</p>
@@ -2201,18 +3094,22 @@ function VisualEvidenceStrip({
                     clinicalDivider,
                   )}
                 >
-                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
-                    {formatCompactCitationLabel(item)}
-                  </span>
-                  <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
-                    {item.title}, page {item.page_number ?? "n/a"}
-                  </span>
-                  {item.image_type && (
+                  {!hasStructuredTable ? (
+                    <>
+                      <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                        {formatCompactCitationLabel(item)}
+                      </span>
+                      <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
+                        {item.title}, page {item.page_number ?? "n/a"}
+                      </span>
+                    </>
+                  ) : null}
+                  {!hasStructuredTable && item.image_type && (
                     <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
                       {item.image_type.replaceAll("_", " ")}
                     </span>
                   )}
-                  <QueryCoverageChips relevance={item.relevance} limit={2} />
+                  {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
                   <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
                     <ExternalLink className="h-4 w-4" />
                     Open page
@@ -2238,9 +3135,11 @@ function VisualEvidenceStrip({
 function RelatedDocumentsPanel({
   documents,
   onScopeDocument,
+  onTagSearch,
 }: {
   documents: RelatedDocument[];
   onScopeDocument: (documentId: string) => void;
+  onTagSearch: (tag: SmartDocumentTag) => void;
 }) {
   if (documents.length === 0) return null;
 
@@ -2280,18 +3179,7 @@ function RelatedDocumentsPanel({
                 <SafeBoldText text={document.summary} />
               </p>
             )}
-            {document.labels.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {document.labels.slice(0, 6).map((label) => (
-                  <span
-                    key={`${label.label_type}:${label.label}`}
-                    className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}
-                  >
-                    {label.label}
-                  </span>
-                ))}
-              </div>
-            )}
+            <DocumentTagCloud labels={document.labels} limit={6} className="mt-3" onTagClick={onTagSearch} />
           </article>
         ))}
       </div>
@@ -2299,7 +3187,8 @@ function RelatedDocumentsPanel({
   );
 }
 
-function SearchFacetChips({ facets }: { facets?: SearchFacets | null }) {
+function SearchFacetDisclosure({ facets }: { facets?: SearchFacets | null }) {
+  const [expanded, setExpanded] = useState(false);
   if (!facets) return null;
   const chips = [
     ...(facets.status ?? []).map((facet) => ({ ...facet, prefix: "status" })),
@@ -2309,13 +3198,116 @@ function SearchFacetChips({ facets }: { facets?: SearchFacets | null }) {
   ].slice(0, 14);
   if (chips.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {chips.map((facet) => (
-        <span key={`${facet.prefix}:${facet.value}`} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-          {facet.prefix}: {facet.value} ({facet.count})
-        </span>
-      ))}
+    <div className="w-fit max-w-full">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className={cn(
+          metadataPill,
+          "min-h-8 cursor-pointer list-none gap-1.5 px-2.5 text-[11px] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+        )}
+      >
+        <Filter className="h-3.5 w-3.5" />
+        Result filters
+        <span className="text-[color:var(--text-soft)]">({chips.length})</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 transition", expanded && "rotate-180")} />
+      </button>
+      {expanded ? (
+        <div className="mt-2 flex max-w-3xl flex-wrap gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
+          {chips.map((facet) => (
+            <span key={`${facet.prefix}:${facet.value}`} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+              {facet.prefix}: {facet.value} ({facet.count})
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+const documentFacetIcons: Record<SmartDocumentTagGroup, typeof Tag> = {
+  Medication: Target,
+  Risk: ShieldAlert,
+  Workflow: ListChecks,
+  Topic: Tag,
+  Population: FileText,
+  Setting: FileText,
+  Service: Sparkles,
+  "Document type": FileText,
+  Manual: Sparkles,
+};
+
+function DocumentTagFacetRail({
+  groups,
+  activeKeys,
+  onToggle,
+  onClear,
+}: {
+  groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
+  activeKeys: string[];
+  onToggle: (facet: SmartDocumentTagFacet) => void;
+  onClear: () => void;
+}) {
+  if (groups.length === 0) return null;
+  const active = new Set(activeKeys);
+
+  return (
+    <aside
+      aria-label="Document tag filters"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
+        {activeKeys.length > 0 ? (
+          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}>
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+        {smartDocumentFacetGroups
+          .map((group) => groups.find((item) => item.group === group))
+          .filter((group): group is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(group))
+          .map(({ group, facets }) => {
+            const Icon = documentFacetIcons[group];
+            return (
+              <section key={group} className="min-w-0">
+                <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
+                  {group}
+                </h3>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {facets.map((facet) => {
+                    const selected = active.has(facet.key);
+                    return (
+                      <button
+                        key={facet.key}
+                        type="button"
+                        onClick={() => onToggle(facet)}
+                        aria-pressed={selected}
+                        title={`Filter to ${facet.label}`}
+                        className={cn(
+                          "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-[11px] font-semibold shadow-[var(--shadow-inset)] transition",
+                          selected
+                            ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                            : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                        )}
+                      >
+                        <span className="truncate">{facet.label}</span>
+                        <span className="rounded bg-[color:var(--surface)] px-1 text-[10px] text-[color:var(--text-soft)]">
+                          {facet.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+      </div>
+    </aside>
   );
 }
 
@@ -2338,6 +3330,7 @@ function MatchExplanationChips({ source }: { source: SearchResult }) {
       : "",
     explanation?.indexQualityIssues?.length ? "index warning" : "",
     explanation?.tableHit ? "table fact" : "",
+    explanation?.indexUnitType ? `unit:${explanation.indexUnitType.replaceAll("_", " ")}` : "",
   ].filter(Boolean);
   if (chips.length === 0) return null;
   return (
@@ -2364,6 +3357,7 @@ function DocumentSearchResultsPanel({
   facets,
   onScopeDocument,
   onAnswerFromDocument,
+  onTagSearch,
 }: {
   matches: DocumentMatch[];
   query: string;
@@ -2377,8 +3371,29 @@ function DocumentSearchResultsPanel({
   facets?: SearchFacets | null;
   onScopeDocument: (documentId: string) => void;
   onAnswerFromDocument: (documentId: string) => void;
+  onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
 }) {
   const trimmedQuery = query.trim();
+  const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
+  const activeFacetKeys = useMemo(
+    () => (activeFacetState.query === query ? activeFacetState.keys : []),
+    [activeFacetState, query],
+  );
+  const tagFacetGroups = useMemo(() => buildSmartDocumentTagFacets(matches, { query }), [matches, query]);
+  const visibleMatches = useMemo(
+    () => filterDocumentsBySmartTagFacets(matches, activeFacetKeys),
+    [matches, activeFacetKeys],
+  );
+
+  function toggleTagFacet(facet: SmartDocumentTagFacet) {
+    setActiveFacetState((current) => {
+      const keys = current.query === query ? current.keys : [];
+      return {
+        query,
+        keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
+      };
+    });
+  }
 
   if (loading) return <LoadingPanel label="Finding matching documents" />;
 
@@ -2436,9 +3451,25 @@ function DocumentSearchResultsPanel({
         </div>
         {relevance ? <RelevanceBadge relevance={relevance} /> : null}
       </div>
-      <SearchFacetChips facets={facets} />
+      <SearchFacetDisclosure facets={facets} />
+      <DocumentTagFacetRail
+        groups={tagFacetGroups}
+        activeKeys={activeFacetKeys}
+        onToggle={toggleTagFacet}
+        onClear={() => setActiveFacetState({ query, keys: [] })}
+      />
+      {activeFacetKeys.length > 0 ? (
+        <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-[11px]")}>
+          {visibleMatches.length} result{visibleMatches.length === 1 ? "" : "s"} after tag filters
+        </div>
+      ) : null}
       <div className="grid gap-3">
-        {matches.map((document) => (
+        {visibleMatches.length === 0 ? (
+          <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
+            No document matches include all selected tag facets.
+          </div>
+        ) : null}
+        {visibleMatches.map((document) => (
           <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="min-w-0">
@@ -2492,23 +3523,13 @@ function DocumentSearchResultsPanel({
                 <SafeBoldText text={document.summarySnippet} />
               </p>
             )}
-            {document.labels.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {document.labels.slice(0, 4).map((label) => (
-                  <span
-                    key={`${document.document_id}:${label.label_type}:${label.label}`}
-                    className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}
-                  >
-                    {label.label}
-                  </span>
-                ))}
-                {document.labels.length > 4 ? (
-                  <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-                    +{document.labels.length - 4} more
-                  </span>
-                ) : null}
-              </div>
-            )}
+            <DocumentTagCloud
+              labels={document.labels}
+              query={query}
+              limit={4}
+              className="mt-3"
+              onTagClick={onTagSearch}
+            />
           </article>
         ))}
       </div>
@@ -2823,6 +3844,154 @@ function AuthPanel() {
   );
 }
 
+const tagQualityTone: Record<SmartDocumentTagQualityIssueKind, string> = {
+  noisy: toneDanger,
+  duplicate: toneWarning,
+  low_confidence: toneInfo,
+  overused: toneNeutral,
+};
+
+function tagQualityLabel(kind: SmartDocumentTagQualityIssueKind) {
+  if (kind === "low_confidence") return "low confidence";
+  return kind;
+}
+
+function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] }) {
+  const issues = useMemo(() => reviewDocumentTagQuality(documents), [documents]);
+  const counts = issues.reduce<Record<SmartDocumentTagQualityIssueKind, number>>(
+    (current, issue) => ({ ...current, [issue.kind]: current[issue.kind] + 1 }),
+    { noisy: 0, duplicate: 0, low_confidence: 0, overused: 0 },
+  );
+
+  return (
+    <details className={cn(panelSubtle, "group p-3")}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn(iconTilePremium, "h-8 w-8")}>
+            <Tag className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[color:var(--text)]">Tag quality review</span>
+            <span className={cn("block truncate text-xs", textMuted)}>
+              {issues.length
+                ? `${issues.length} issue${issues.length === 1 ? "" : "s"} across loaded documents`
+                : "No obvious tag cleanup issues in loaded documents"}
+            </span>
+          </span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+      </summary>
+      <div className="mt-3 space-y-3">
+        <div className="flex flex-wrap gap-1.5">
+          {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
+            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-[11px]", tagQualityTone[kind])}>
+              {tagQualityLabel(kind)}: {counts[kind]}
+            </span>
+          ))}
+        </div>
+        {issues.length ? (
+          <div className="grid gap-2">
+            {issues.slice(0, 12).map((issue, index) => (
+              <div
+                key={`${issue.kind}:${issue.label}:${index}`}
+                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", tagQualityTone[issue.kind])}>
+                    {tagQualityLabel(issue.kind)}
+                  </span>
+                  <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
+                  {issue.count > 1 ? (
+                    <span className={cn("text-[11px] font-semibold", textMuted)}>{issue.count} hits</span>
+                  ) : null}
+                </div>
+                <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
+                {issue.examples.length || issue.documentTitles.length ? (
+                  <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
+                    {[issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "", issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : ""]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={cn("text-sm", textMuted)}>Loaded tags are clean enough for the current smart-tag rules.</p>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[] }) {
+  const items = useMemo(() => {
+    return documents
+      .map((document) => {
+        const metadata = document.metadata && typeof document.metadata === "object" ? document.metadata : {};
+        const score = Number((metadata as Record<string, unknown>).index_quality_score ?? 1);
+        const issues = Array.isArray((metadata as Record<string, unknown>).index_quality_issues)
+          ? ((metadata as Record<string, unknown>).index_quality_issues as unknown[]).map(String)
+          : [];
+        const sectionCount = Number((metadata as Record<string, unknown>).section_count ?? 0);
+        const memoryCardCount = Number((metadata as Record<string, unknown>).memory_card_count ?? 0);
+        const extractionQuality = String((metadata as Record<string, unknown>).extraction_quality ?? "unknown");
+        const needsRepair =
+          score < 0.72 ||
+          issues.length > 0 ||
+          sectionCount === 0 ||
+          memoryCardCount === 0 ||
+          extractionQuality === "poor" ||
+          extractionQuality === "partial";
+        return { document, score, issues, sectionCount, memoryCardCount, extractionQuality, needsRepair };
+      })
+      .filter((item) => item.needsRepair)
+      .sort((a, b) => a.score - b.score || b.issues.length - a.issues.length)
+      .slice(0, 10);
+  }, [documents]);
+
+  if (!items.length) return null;
+
+  return (
+    <details className={cn(sourceCard, "p-3")}>
+      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn(iconTilePremium, "h-8 w-8")}>
+            <ShieldAlert className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[color:var(--text)]">Index repair queue</span>
+            <span className={cn("block truncate text-xs", textMuted)}>
+              {items.length} loaded document{items.length === 1 ? "" : "s"} need quality review or reindexing
+            </span>
+          </span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+      </summary>
+      <div className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
+        {items.map((item) => (
+          <article key={item.document.id} className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
+              <span className={cn(metadataPill, "text-[11px]")}>index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>
+              <span className={cn(metadataPill, "text-[11px]")}>sections:{item.sectionCount}</span>
+              <span className={cn(metadataPill, "text-[11px]")}>memory:{item.memoryCardCount}</span>
+              {item.issues.slice(0, 4).map((issue) => (
+                <span key={issue} className={cn(metadataPill, "text-[11px]")}>
+                  {issue}
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function DocumentDrawer({
   documents,
   pagination,
@@ -2832,7 +4001,13 @@ function DocumentDrawer({
   onLoadMoreDocuments,
   onDocumentRenamed,
   onDocumentDeleted,
+  onBulkReindex,
+  onBulkAssignCollection,
+  onBulkMetadataUpdate,
+  bulkActionStatus,
+  bulkActionBusy,
   canManageDocuments,
+  onTagSearch,
 }: {
   documents: ClinicalDocument[];
   pagination: DocumentPagination | null;
@@ -2842,11 +4017,28 @@ function DocumentDrawer({
   onLoadMoreDocuments: () => void;
   onDocumentRenamed: (document: ClinicalDocument) => void;
   onDocumentDeleted: (result: DocumentDeleteResult) => void;
+  onBulkReindex: (mode: "enrichment" | "full" | "retry_failed") => void;
+  onBulkAssignCollection: (collection: string) => void;
+  onBulkMetadataUpdate: (metadata: Record<string, unknown>) => void;
+  bulkActionStatus: string | null;
+  bulkActionBusy: boolean;
   canManageDocuments: boolean;
+  onTagSearch: (tag: SmartDocumentTag) => void;
 }) {
   const [filter, setFilter] = useState("");
+  const [collectionDraft, setCollectionDraft] = useState("");
+  const [metadataDraft, setMetadataDraft] = useState({
+    sourceStatus: "",
+    validationStatus: "",
+    extractionQuality: "",
+    reviewDate: "",
+    publicationDate: "",
+    jurisdiction: "",
+    sourceType: "",
+    category: "",
+  });
   const filtered = documents.filter((document) => {
-    const labelText = document.labels?.map((label) => label.label).join(" ") ?? "";
+    const labelText = tagSearchText(document);
     const summaryText = document.summary?.summary ?? "";
     const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
     return haystack.includes(filter.toLowerCase());
@@ -2867,6 +4059,156 @@ function DocumentDrawer({
         <p className={cn("text-xs", textMuted)}>
           Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
         </p>
+      ) : null}
+      <DocumentTagQualityPanel documents={documents} />
+      <DocumentIndexRepairPanel documents={documents} />
+      {selectedDocumentIds.length ? (
+        <div className={cn(panelSubtle, "space-y-3 p-3")}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-[color:var(--text)]">
+                {selectedDocumentIds.length} selected document{selectedDocumentIds.length === 1 ? "" : "s"}
+              </p>
+              <p className={cn("text-xs", textMuted)}>Bulk actions apply only to explicitly selected documents.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!canManageDocuments || bulkActionBusy}
+                onClick={() => onBulkReindex("enrichment")}
+                className={cn(floatingControl, "px-3 text-xs")}
+              >
+                {bulkActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Regenerate summaries
+              </button>
+              <button
+                type="button"
+                disabled={!canManageDocuments || bulkActionBusy}
+                onClick={() => onBulkReindex("full")}
+                className={cn(floatingControl, "px-3 text-xs")}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Full reindex
+              </button>
+              <button
+                type="button"
+                disabled={!canManageDocuments || bulkActionBusy}
+                onClick={() => onBulkReindex("retry_failed")}
+                className={cn(floatingControl, "px-3 text-xs")}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry failed
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              value={collectionDraft}
+              onChange={(event) => setCollectionDraft(event.target.value)}
+              placeholder="Collection name for selected documents"
+              className={fieldControlPlain}
+            />
+            <button
+              type="button"
+              disabled={!canManageDocuments || bulkActionBusy || !collectionDraft.trim()}
+              onClick={() => onBulkAssignCollection(collectionDraft)}
+              className={cn(primaryControl, "justify-center")}
+            >
+              Assign collection
+            </button>
+          </div>
+          <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+              Bulk metadata editor
+            </summary>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <select
+                value={metadataDraft.sourceStatus}
+                onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceStatus: event.target.value }))}
+                className={fieldControlPlain}
+              >
+                <option value="">Source status unchanged</option>
+                <option value="current">Current</option>
+                <option value="review_due">Review due</option>
+                <option value="outdated">Outdated</option>
+                <option value="unknown">Unknown</option>
+              </select>
+              <select
+                value={metadataDraft.validationStatus}
+                onChange={(event) =>
+                  setMetadataDraft((current) => ({ ...current, validationStatus: event.target.value }))
+                }
+                className={fieldControlPlain}
+              >
+                <option value="">Validation unchanged</option>
+                <option value="unverified">Unverified</option>
+                <option value="locally_reviewed">Locally reviewed</option>
+                <option value="approved">Approved</option>
+              </select>
+              <select
+                value={metadataDraft.extractionQuality}
+                onChange={(event) =>
+                  setMetadataDraft((current) => ({ ...current, extractionQuality: event.target.value }))
+                }
+                className={fieldControlPlain}
+              >
+                <option value="">Extraction unchanged</option>
+                <option value="good">Good</option>
+                <option value="partial">Partial</option>
+                <option value="poor">Poor</option>
+                <option value="unknown">Unknown</option>
+              </select>
+              <input
+                type="date"
+                value={metadataDraft.reviewDate}
+                onChange={(event) => setMetadataDraft((current) => ({ ...current, reviewDate: event.target.value }))}
+                className={fieldControlPlain}
+                aria-label="Bulk review date"
+              />
+              <input
+                type="date"
+                value={metadataDraft.publicationDate}
+                onChange={(event) =>
+                  setMetadataDraft((current) => ({ ...current, publicationDate: event.target.value }))
+                }
+                className={fieldControlPlain}
+                aria-label="Bulk publication date"
+              />
+              <input
+                value={metadataDraft.jurisdiction}
+                onChange={(event) => setMetadataDraft((current) => ({ ...current, jurisdiction: event.target.value }))}
+                placeholder="Jurisdiction/locality"
+                className={fieldControlPlain}
+              />
+              <input
+                value={metadataDraft.sourceType}
+                onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceType: event.target.value }))}
+                placeholder="Source type"
+                className={fieldControlPlain}
+              />
+              <input
+                value={metadataDraft.category}
+                onChange={(event) => setMetadataDraft((current) => ({ ...current, category: event.target.value }))}
+                placeholder="Category"
+                className={fieldControlPlain}
+              />
+            </div>
+            <button
+              type="button"
+              disabled={!canManageDocuments || bulkActionBusy}
+              onClick={() => {
+                const metadata = Object.fromEntries(
+                  Object.entries(metadataDraft).filter(([, value]) => String(value).trim()),
+                );
+                onBulkMetadataUpdate(metadata);
+              }}
+              className={cn(primaryControl, "mt-3 justify-center")}
+            >
+              Apply metadata to selected
+            </button>
+          </details>
+          {bulkActionStatus ? <p className={cn("text-xs font-semibold", textMuted)}>{bulkActionStatus}</p> : null}
+        </div>
       ) : null}
       <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
         {filtered.length === 0 ? (
@@ -2900,18 +4242,14 @@ function DocumentDrawer({
                       <SafeBoldText text={document.summary.summary} />
                     </p>
                   )}
-                  {document.labels?.length ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {document.labels.slice(0, 5).map((label) => (
-                        <span
-                          key={`${document.id}:${label.label_type}:${label.label}`}
-                          className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}
-                        >
-                          {label.label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+                  <DocumentTagCloud
+                    labels={document.labels}
+                    query={filter}
+                    limit={5}
+                    compact
+                    className="mt-2"
+                    onTagClick={onTagSearch}
+                  />
                   <SourceProvenance metadata={document.metadata} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -3324,6 +4662,350 @@ function DrawerGroupLabel({ title }: { title: string }) {
   );
 }
 
+type MobileSectionFabItem = {
+  label: string;
+  description: string;
+  icon: typeof FileText;
+  href: (typeof navigationHashes)[number];
+  count: number | null;
+  empty?: boolean;
+};
+
+type MobileSectionFabTone = "neutral" | "ready" | "warning" | "empty";
+
+type MobileSectionFabState = {
+  statusLabel: string;
+  statusTone: MobileSectionFabTone;
+  nextStep: string;
+  badgeLabel: string | null;
+  badgeTone: MobileSectionFabTone;
+};
+
+function mobileSectionItemLabel(item: MobileSectionFabItem) {
+  if (item.count === null) return item.label;
+  return `${item.label}, ${item.count} item${item.count === 1 ? "" : "s"}`;
+}
+
+function fabToneClassName(tone: MobileSectionFabTone) {
+  if (tone === "ready") {
+    return "border-[color:var(--success)]/25 bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  }
+  if (tone === "warning") {
+    return "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  }
+  if (tone === "empty") {
+    return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
+  }
+  return "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]";
+}
+
+function buildMobileSectionFabState({
+  hasAnswer,
+  searchMode,
+  sourceCount,
+  quoteCount,
+  weakEvidence,
+  governanceWarningCount,
+}: {
+  hasAnswer: boolean;
+  searchMode: SearchMode;
+  sourceCount: number;
+  quoteCount: number;
+  weakEvidence: boolean;
+  governanceWarningCount: number;
+}): MobileSectionFabState {
+  if (!hasAnswer) {
+    return {
+      statusLabel: searchMode === "documents" ? "Document search" : "No answer yet",
+      statusTone: "empty",
+      nextStep: searchMode === "documents" ? "Review matching documents" : "Ask a question first",
+      badgeLabel: searchMode === "documents" ? null : "?",
+      badgeTone: "empty",
+    };
+  }
+
+  if (weakEvidence) {
+    return {
+      statusLabel: "Weak support",
+      statusTone: "warning",
+      nextStep: "Verify source before using",
+      badgeLabel: "!",
+      badgeTone: "warning",
+    };
+  }
+
+  if (governanceWarningCount > 0) {
+    return {
+      statusLabel: "Needs source check",
+      statusTone: "warning",
+      nextStep: `${governanceWarningCount} source warning${governanceWarningCount === 1 ? "" : "s"}`,
+      badgeLabel: "!",
+      badgeTone: "warning",
+    };
+  }
+
+  if (quoteCount > 0) {
+    return {
+      statusLabel: "Ready to verify",
+      statusTone: "ready",
+      nextStep: "Next: review exact quotes",
+      badgeLabel: String(quoteCount),
+      badgeTone: "ready",
+    };
+  }
+
+  if (sourceCount > 0) {
+    return {
+      statusLabel: "Ready to verify",
+      statusTone: "ready",
+      nextStep: "Next: verify sources",
+      badgeLabel: String(sourceCount),
+      badgeTone: "ready",
+    };
+  }
+
+  return {
+    statusLabel: "Answer ready",
+    statusTone: "neutral",
+    nextStep: "Review answer structure",
+    badgeLabel: null,
+    badgeTone: "neutral",
+  };
+}
+
+function MobileSectionFab({
+  items,
+  activeHash,
+  state,
+  hidden = false,
+  onNavigate,
+}: {
+  items: readonly MobileSectionFabItem[];
+  activeHash: string;
+  state: MobileSectionFabState;
+  hidden?: boolean;
+  onNavigate: (href: MobileSectionFabItem["href"]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelId = "mobile-section-fab-menu";
+  const labelId = "mobile-section-fab-label";
+  const activeItem = items.find((item) => item.href === activeHash) ?? items[0];
+  const ActiveIcon = activeItem.icon;
+  const activeItemLabel = mobileSectionItemLabel(activeItem);
+
+  const closeMenu = useCallback((options: { restoreFocus?: boolean } = {}) => {
+    setOpen(false);
+    if (options.restoreFocus ?? true) {
+      window.requestAnimationFrame(() => buttonRef.current?.focus());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeMenu, open]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(mobileSectionFabMediaQuery);
+    const syncActivation = () => {
+      const matches = mediaQuery.matches;
+      setActive(matches);
+      if (!matches) closeMenu({ restoreFocus: false });
+    };
+
+    const frame = window.requestAnimationFrame(syncActivation);
+    mediaQuery.addEventListener("change", syncActivation);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      mediaQuery.removeEventListener("change", syncActivation);
+    };
+  }, [closeMenu]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeForRouteChange = () => closeMenu({ restoreFocus: false });
+    window.addEventListener("hashchange", closeForRouteChange);
+    return () => window.removeEventListener("hashchange", closeForRouteChange);
+  }, [closeMenu, open]);
+
+  useEffect(() => {
+    if (!hidden) return;
+    const frame = window.requestAnimationFrame(() => closeMenu({ restoreFocus: false }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [closeMenu, hidden]);
+
+  if (hidden || !active) return null;
+
+  return (
+    <div data-testid="mobile-section-fab">
+      {open ? (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-30 bg-transparent"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) closeMenu();
+          }}
+        />
+      ) : null}
+
+      <button
+        ref={buttonRef}
+        type="button"
+        data-testid="mobile-section-fab-button"
+        aria-label={open ? "Close answer section menu" : `Open answer section menu, current section ${activeItemLabel}`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={cn(
+          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--primary)]/25 bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[0_18px_38px_rgb(14_143_133_/_22%),var(--shadow-tight)] ring-1 ring-white/30 transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--primary-strong)] active:translate-y-px dark:ring-white/10",
+          open && "bg-[color:var(--primary-strong)] shadow-[0_14px_30px_rgb(14_143_133_/_20%),var(--shadow-tight)]",
+        )}
+        style={{
+          right: "max(0.75rem, env(safe-area-inset-right))",
+          bottom: "max(0.75rem, env(safe-area-inset-bottom))",
+        }}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {open ? <X className="h-6 w-6" /> : <ActiveIcon className="h-6 w-6" />}
+        {(state.badgeLabel ?? (activeItem.count !== null ? String(activeItem.count) : null)) ? (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-[10px] font-bold leading-4 shadow-[var(--shadow-tight)]",
+              fabToneClassName(state.badgeTone),
+            )}
+          >
+            {state.badgeLabel ?? activeItem.count}
+          </span>
+        ) : null}
+      </button>
+
+      <section
+        id={panelId}
+        data-testid="mobile-section-fab-menu"
+        role="region"
+        aria-labelledby={labelId}
+        aria-hidden={!open}
+        inert={!open}
+        hidden={!open}
+        className="fixed z-40 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10"
+        style={{
+          right: "max(0.75rem, env(safe-area-inset-right))",
+          bottom: "calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.5rem)",
+          maxHeight: "min(25rem, calc(100dvh - 7rem))",
+          width: "min(20rem, calc(100vw - 1.5rem))",
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 shadow-[var(--shadow-inset)]">
+          <span
+            aria-hidden="true"
+            className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/70"
+          />
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <div className="min-w-0">
+              <p
+                id={labelId}
+                className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+              >
+                Answer navigator
+              </p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                Current: {activeItem.label}
+              </p>
+            </div>
+            <span
+              data-testid="mobile-section-fab-status"
+              className={cn("rounded-full border px-2 py-1 text-[11px] font-bold", fabToneClassName(state.statusTone))}
+            >
+              {state.statusLabel}
+            </span>
+          </div>
+          <p
+            data-testid="mobile-section-fab-next-step"
+            className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
+          >
+            {state.nextStep}
+          </p>
+        </div>
+
+        <div className="polished-scroll grid max-h-[min(17rem,calc(100dvh-14rem))] gap-1 overflow-y-auto overscroll-contain p-2">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = activeHash === item.href;
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                aria-label={mobileSectionItemLabel(item)}
+                aria-current={active ? "page" : undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onNavigate(item.href);
+                  closeMenu();
+                }}
+                className={cn(
+                  "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                  item.empty && !active && "opacity-75",
+                  active &&
+                    "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)] shadow-[var(--shadow-inset)]",
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
+                    active && "bg-[color:var(--primary)]",
+                  )}
+                />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
+                    item.empty && !active && "bg-[color:var(--surface-subtle)]",
+                    active &&
+                      "border-[color:var(--primary)]/25 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                  )}
+                >
+                  <Icon className="h-4.5 w-4.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">{item.label}</span>
+                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
+                    {item.description}
+                  </span>
+                </span>
+                {item.count !== null ? (
+                  <span
+                    className={cn(
+                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
+                      item.empty && "text-[color:var(--text-muted)]",
+                      active &&
+                        "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                    )}
+                  >
+                    {item.count}
+                  </span>
+                ) : null}
+              </a>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 const guideSections = [
   {
     title: "Ask and verify",
@@ -3401,7 +5083,7 @@ function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end bg-slate-950/70 px-3 py-3 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end bg-slate-950/70 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -3411,10 +5093,12 @@ function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
         role="dialog"
         aria-modal="true"
         aria-labelledby="clinical-kb-guide-title"
-        className={cn(glassPanel, "max-h-[min(82svh,42rem)] w-full overflow-y-auto sm:max-w-2xl")}
+        className={cn(sheetSurface, "max-h-[min(84svh,42rem)] w-full overflow-y-auto sm:max-w-2xl")}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] p-4 sm:p-5">
+        <div className="border-b border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] p-4 sm:p-5">
+          <span className={cn(sheetHandle, "mb-4")} aria-hidden />
+          <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
             <span className={cn(iconTilePremium, "h-10 w-10")}>
               <BookOpen className="h-4.5 w-4.5" />
@@ -3437,6 +5121,7 @@ function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
           >
             <X className="h-4 w-4" />
           </button>
+          </div>
         </div>
 
         <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
@@ -3557,6 +5242,7 @@ export function ClinicalDashboard() {
   const navSyncLockRef = useRef<number | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const nextWorkStatePollRef = useRef(0);
+  const urlSearchBootstrappedRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
@@ -3571,6 +5257,15 @@ export function ClinicalDashboard() {
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
+  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
+  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
+  const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
+  const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
+  const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
+  const [evalStatus, setEvalStatus] = useState<string | null>(null);
+  const [evalAction, setEvalAction] = useState<"good" | "needs_fixing" | null>(null);
+  const [bulkActionStatus, setBulkActionStatus] = useState<string | null>(null);
+  const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -3958,6 +5653,18 @@ export function ClinicalDashboard() {
   }, []);
 
   useEffect(() => {
+    if (urlSearchBootstrappedRef.current || !canRunSearch) return;
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+    const searchText = params.get("q")?.trim();
+    if (mode !== "documents" || !searchText) return;
+    urlSearchBootstrappedRef.current = true;
+    void runDocumentSearchShortcut(searchText, scopeFilters, false);
+    // URL bootstrap intentionally runs once when search setup becomes available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canRunSearch]);
+
+  useEffect(() => {
     const updateHash = () => {
       const nextHash = normalizeNavigationHash(window.location.hash || "#search");
       window.requestAnimationFrame(() => navigateMobileSection(nextHash, { updateHistory: false }));
@@ -3990,7 +5697,7 @@ export function ClinicalDashboard() {
     );
   }
 
-  async function requestDocuments(queryText: string) {
+  async function requestDocuments(queryText: string, filtersOverride?: SearchScopeFilters) {
     let response: Response;
     try {
       response = await fetch("/api/search", {
@@ -4003,6 +5710,8 @@ export function ClinicalDashboard() {
           query: queryText,
           mode: "documents",
           documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+          filters: compactScopeFilters(filtersOverride ?? scopeFilters),
+          queryMode,
           documentLimit: 30,
           topK: 20,
         }),
@@ -4030,6 +5739,8 @@ export function ClinicalDashboard() {
       documentMatches: (payload.documentMatches ?? []) as DocumentMatch[],
       relevance: payload.relevance as EvidenceRelevance | undefined,
       facets: payload.facets as SearchFacets | undefined,
+      scope: payload.scope as SearchScopeSummary | undefined,
+      sourceGovernanceWarnings: payload.sourceGovernanceWarnings as SourceGovernanceWarning[] | undefined,
       demoMode: payload.demoMode,
     };
   }
@@ -4046,6 +5757,8 @@ export function ClinicalDashboard() {
         body: JSON.stringify({
           query: queryText,
           documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+          filters: compactScopeFilters(scopeFilters),
+          queryMode,
         }),
       });
     } catch {
@@ -4100,6 +5813,8 @@ export function ClinicalDashboard() {
       setSources(payload.sources);
       setSearchRelevance(payload.relevance ?? null);
       setSearchFacets(payload.facets ?? null);
+      setSearchScope(payload.scope ?? null);
+      setSourceGovernanceWarnings((payload.sourceGovernanceWarnings ?? []) as SourceGovernanceWarning[]);
       return;
     }
 
@@ -4107,6 +5822,8 @@ export function ClinicalDashboard() {
     setAnswer(answerData);
     setSources(answerData.sources ?? []);
     setSearchRelevance(answerData.relevance ?? answerData.smartPanel?.relevance ?? null);
+    setSearchScope(answerData.scope ?? null);
+    setSourceGovernanceWarnings((answerData.sourceGovernanceWarnings ?? []) as SourceGovernanceWarning[]);
     setSearchFacets(null);
     setDocumentMatches(
       answerData.relatedDocuments?.map((document) => ({
@@ -4136,8 +5853,12 @@ export function ClinicalDashboard() {
 
     setLoading(true);
     setError(null);
+    setEvalStatus(null);
     setSearchRelevance(null);
     setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setAnswerViewMode("high_yield");
     setAnswerProgress(searchMode === "documents" ? "Finding matching documents." : "Searching indexed documents.");
 
     const fallbackQuery = keywordQueryFromNaturalLanguage(trimmedQuery);
@@ -4209,6 +5930,156 @@ export function ClinicalDashboard() {
     setSelectedDocumentIds([documentId]);
     setSearchMode("answer");
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+  }
+
+  function updateDocumentSearchUrl(searchText: string) {
+    const params = new URLSearchParams(window.location.search);
+    params.set("mode", "documents");
+    params.set("q", searchText);
+    window.history.replaceState(null, "", `/?${params.toString()}`);
+  }
+
+  async function runDocumentSearchShortcut(searchText: string, filtersOverride = scopeFilters, updateUrl = true) {
+    const trimmedSearchText = searchText.trim();
+    if (!trimmedSearchText) return;
+    if (!canRunSearch) {
+      setError("Search setup is not ready.");
+      return;
+    }
+
+    setQuery(trimmedSearchText);
+    setSearchMode("documents");
+    setLoading(true);
+    setError(null);
+    setAnswerProgress("Finding matching documents.");
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setAnswerViewMode("high_yield");
+    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+    if (updateUrl) updateDocumentSearchUrl(trimmedSearchText);
+
+    try {
+      const payload = await runWithRetries(() => requestDocuments(trimmedSearchText, filtersOverride));
+      applySearchResult(payload);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Document search failed");
+    } finally {
+      setLoading(false);
+      setAnswerProgress(null);
+    }
+  }
+
+  function handleTagSearch(tag: SmartDocumentTag | SmartDocumentTagFacet) {
+    const searchText = tag.searchText || tag.label;
+    const nextFilters: SearchScopeFilters = { ...scopeFilters };
+    if (tag.group === "Medication") nextFilters.medications = [tag.searchText || tag.label];
+    if (tag.group === "Document type") nextFilters.documentTypes = [tag.searchText || tag.label];
+    if (tag.group === "Topic") nextFilters.topics = [tag.searchText || tag.label];
+    setScopeFilters(nextFilters);
+    void runDocumentSearchShortcut(searchText, nextFilters);
+  }
+
+  async function saveAnswerEval(rating: "good" | "needs_fixing") {
+    if (!answer || !query.trim()) return;
+    setEvalAction(rating);
+    setEvalStatus(null);
+    try {
+      const response = await fetch("/api/eval-cases", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(clientDemoMode ? {} : authorizationHeader),
+        },
+        body: JSON.stringify({
+          query,
+          rating,
+          answer: answer.answer,
+          queryMode,
+          queryClass: answer.queryClass,
+          filters: compactScopeFilters(scopeFilters),
+          sourceChunkIds: answer.sources?.map((source) => source.id).filter(Boolean) ?? [],
+          citedChunkIds: answer.citations?.map((citation) => citation.chunk_id).filter(Boolean) ?? [],
+          sourceFiles: answer.sources?.map((source) => source.file_name).filter(Boolean) ?? [],
+        }),
+      });
+      if (response.status === 401) {
+        markSessionExpired();
+        setEvalStatus("Sign in before saving eval cases.");
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Eval capture failed.");
+      setEvalStatus(rating === "good" ? "Saved as a good eval case." : "Saved as needs fixing.");
+    } catch (error) {
+      setEvalStatus(error instanceof Error ? error.message : "Eval capture failed.");
+    } finally {
+      setEvalAction(null);
+    }
+  }
+
+  async function bulkReindexSelected(mode: "enrichment" | "full" | "retry_failed") {
+    if (!selectedDocumentIds.length) return;
+    setBulkActionBusy(true);
+    setBulkActionStatus(null);
+    try {
+      const response = await fetch("/api/documents/bulk/reindex", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authorizationHeader,
+        },
+        body: JSON.stringify({ documentIds: selectedDocumentIds, mode }),
+      });
+      if (response.status === 401) {
+        markSessionExpired();
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Bulk reindex failed.");
+      setBulkActionStatus(
+        `${payload.results?.filter((result: { ok: boolean }) => result.ok).length ?? 0} selected documents updated.`,
+      );
+      await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
+    } catch (error) {
+      setBulkActionStatus(error instanceof Error ? error.message : "Bulk reindex failed.");
+    } finally {
+      setBulkActionBusy(false);
+    }
+  }
+
+  async function bulkAssignCollection(collection: string) {
+    if (!selectedDocumentIds.length || !collection.trim()) return;
+    await bulkUpdateMetadata({ collection: collection.trim() });
+  }
+
+  async function bulkUpdateMetadata(metadata: Record<string, unknown>) {
+    if (!selectedDocumentIds.length || Object.keys(metadata).length === 0) return;
+    setBulkActionBusy(true);
+    setBulkActionStatus(null);
+    try {
+      const response = await fetch("/api/documents/bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authorizationHeader,
+        },
+        body: JSON.stringify({ documentIds: selectedDocumentIds, metadata }),
+      });
+      if (response.status === 401) {
+        markSessionExpired();
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Bulk metadata update failed.");
+      setBulkActionStatus(`${payload.updatedCount ?? 0} selected documents updated.`);
+      await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
+    } catch (error) {
+      setBulkActionStatus(error instanceof Error ? error.message : "Bulk metadata update failed.");
+    } finally {
+      setBulkActionBusy(false);
+    }
   }
 
   function followUpFromQuote(quote: QuoteCard) {
@@ -4345,18 +6216,83 @@ export function ClinicalDashboard() {
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
   }, [answer?.answerSections, sourceLookup]);
+  const answerEvidenceMapRows = useMemo(() => buildAnswerEvidenceMap(answer), [answer]);
+
+  function limitToLocalCurrentSources() {
+    setScopeFilters((current) => ({ ...current, locality: "local", sourceStatuses: ["current"] }));
+    setAnswerViewMode("evidence_map");
+  }
+
+  function tryBroaderAnswerSearch() {
+    setQueryMode("auto");
+    setScopeFilters({});
+    setSelectedDocumentIds([]);
+    setAnswerViewMode("high_yield");
+  }
 
   const showSystemNotice = demoMode || setupWarning;
+  const groupedGovernanceWarningCount = useMemo(
+    () => groupSourceGovernanceWarnings(sourceGovernanceWarnings).reduce((total, warning) => total + warning.count, 0),
+    [sourceGovernanceWarnings],
+  );
+  const mobileFabState = useMemo(
+    () =>
+      buildMobileSectionFabState({
+        hasAnswer: Boolean(answer),
+        searchMode,
+        sourceCount: sources.length,
+        quoteCount: answer ? (answer.quoteCards ?? []).length : 0,
+        weakEvidence,
+        governanceWarningCount: groupedGovernanceWarningCount,
+      }),
+    [answer, groupedGovernanceWarningCount, searchMode, sources.length, weakEvidence],
+  );
   const bottomNavItems = [
     {
       label: searchMode === "answer" ? "Answer" : "Docs",
+      description:
+        searchMode === "answer"
+          ? answer
+            ? weakEvidence
+              ? "Read synthesis carefully"
+              : "Clinical synthesis"
+            : "Ask a question first"
+          : documentMatches.length
+            ? "Document results"
+            : "Search documents",
       icon: searchMode === "answer" ? Search : FileText,
       href: "#search",
       count: searchMode === "documents" ? documentMatches.length : null,
+      empty: searchMode === "documents" && documentMatches.length === 0,
     },
-    { label: "Quotes", icon: Quote, href: "#quotes", count: answer ? (answer.quoteCards ?? []).length : null },
-    { label: "Images", icon: FileImage, href: "#images", count: answer ? visualEvidence.length : null },
-    { label: "Sources", icon: FileText, href: "#sources", count: answer ? sources.length : null },
+    {
+      label: "Quotes",
+      description: answer
+        ? (answer.quoteCards ?? []).length
+          ? "Exact source excerpts"
+          : "No quotes yet"
+        : "No quotes yet",
+      icon: Quote,
+      href: "#quotes",
+      count: answer ? (answer.quoteCards ?? []).length : null,
+      empty: !answer || (answer.quoteCards ?? []).length === 0,
+    },
+    {
+      label: "Images",
+      description: answer ? (visualEvidence.length ? "Tables and diagrams" : "No images yet") : "No images yet",
+      icon: FileImage,
+      href: "#images",
+      count: answer ? visualEvidence.length : null,
+      empty: !answer || visualEvidence.length === 0,
+    },
+    {
+      label: "Sources",
+      description: answer ? (sources.length ? "Passages and documents" : "No sources yet") : "No sources yet",
+      icon: FileText,
+      href: "#sources",
+      count: answer ? sources.length : null,
+      empty: !answer || sources.length === 0,
+    },
   ] as const;
   const renderSystemNotice = (className?: string) => (
     <UtilityDrawer
@@ -4409,6 +6345,9 @@ export function ClinicalDashboard() {
         searchMode={searchMode}
         loading={loading}
         selectedDocumentIds={selectedDocumentIds}
+        queryMode={queryMode}
+        scopeFilters={scopeFilters}
+        batches={batches}
         hasAnswer={Boolean(answer)}
         demoMode={demoMode}
         realDataReady={canRunSearch}
@@ -4418,6 +6357,8 @@ export function ClinicalDashboard() {
         onAsk={ask}
         onClearQuery={() => setQuery("")}
         onClearScope={() => setSelectedDocumentIds([])}
+        onQueryModeChange={setQueryMode}
+        onScopeFiltersChange={setScopeFilters}
         onToggleScope={toggleDocumentScope}
         onOpenGuide={openGuide}
         onToggleTheme={toggleTheme}
@@ -4428,7 +6369,7 @@ export function ClinicalDashboard() {
         onScroll={scheduleActiveSectionSync}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
       >
-        <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-6 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-8 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-6 max-[768px]:!pb-28 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-8 lg:px-8">
           {showDegradedNotice && renderDegradedNotice()}
           {showAuthPanel && <AuthPanel />}
           {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
@@ -4471,28 +6412,92 @@ export function ClinicalDashboard() {
               )}
 
               {searchMode === "documents" ? (
-                <DocumentSearchResultsPanel
-                  matches={documentMatches}
-                  query={query}
-                  loading={loading}
-                  documentCount={documents.length}
-                  realDataReady={canRunSearch}
-                  authUnavailable={!clientDemoMode && !canUsePrivateApis}
-                  apiUnavailable={apiUnavailable}
-                  setupWarning={setupWarning}
-                  relevance={searchRelevance}
-                  facets={searchFacets}
-                  onScopeDocument={scopeOnlyDocument}
-                  onAnswerFromDocument={answerFromDocument}
-                />
+                <div className="space-y-3">
+                  <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                  <DocumentSearchResultsPanel
+                    matches={documentMatches}
+                    query={query}
+                    loading={loading}
+                    documentCount={documents.length}
+                    realDataReady={canRunSearch}
+                    authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                    apiUnavailable={apiUnavailable}
+                    setupWarning={setupWarning}
+                    relevance={searchRelevance}
+                    facets={searchFacets}
+                    onScopeDocument={scopeOnlyDocument}
+                    onAnswerFromDocument={answerFromDocument}
+                    onTagSearch={handleTagSearch}
+                  />
+                </div>
               ) : loading && !answer ? (
                 <AnswerSkeleton />
               ) : answer ? (
                 <div className="min-w-0 space-y-4 sm:space-y-5">
                   <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
                     <NaturalLanguageAnswer text={safeAnswerText || answer.answer} />
+                    <AnswerInsightBar
+                      answer={answer}
+                      bestSource={bestSource}
+                      relevance={currentRelevance}
+                      queryMode={queryMode}
+                      sourceGovernanceWarnings={sourceGovernanceWarnings}
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
+                      <span className={cn("text-xs font-semibold", textMuted)}>
+                        Save this answer as an eval case for later regression testing.
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={!canUsePrivateApis || Boolean(evalAction)}
+                          onClick={() => saveAnswerEval("good")}
+                          className={cn(floatingControl, "px-3 text-xs")}
+                        >
+                          {evalAction === "good" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          Good eval
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canUsePrivateApis || Boolean(evalAction)}
+                          onClick={() => saveAnswerEval("needs_fixing")}
+                          className={cn(floatingControl, "px-3 text-xs")}
+                        >
+                          {evalAction === "needs_fixing" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4" />
+                          )}
+                          Needs fixing
+                        </button>
+                      </div>
+                      {evalStatus ? (
+                        <p className="basis-full text-xs font-semibold text-[color:var(--text-muted)]">{evalStatus}</p>
+                      ) : null}
+                    </div>
 
-                    <ClinicalOutputPanel answer={answer} showLead={false} />
+                    <ClinicalOutputPanel
+                      answer={answer}
+                      showLead={false}
+                      viewMode={answerViewMode}
+                      onViewModeChange={setAnswerViewMode}
+                      evidenceMapRows={answerEvidenceMapRows}
+                    />
+                    <SmartFollowUpChips
+                      answer={answer}
+                      bestSource={bestSource}
+                      weakEvidence={weakEvidence}
+                      onViewModeChange={setAnswerViewMode}
+                      onQueryModeChange={setQueryMode}
+                      onLimitToLocalCurrent={limitToLocalCurrentSources}
+                      onScopeDocument={scopeOnlyDocument}
+                      onShowQuotes={() => navigateMobileSection("#quotes")}
+                      onTryBroaderSearch={tryBroaderAnswerSearch}
+                    />
 
                     <DrawerGroupLabel title="Review evidence" />
 
@@ -4515,8 +6520,10 @@ export function ClinicalDashboard() {
                           onScopeDocument={scopeOnlyDocument}
                           supporting
                         />
+                        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
                         <AnswerSafetyNotice demoMode={demoMode} weakEvidence={weakEvidence} />
                         <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
+                        <WhyThisMatchedPanel sources={sources} />
                       </div>
                     </UtilityDrawer>
 
@@ -4570,7 +6577,11 @@ export function ClinicalDashboard() {
             <VisualEvidenceStrip evidence={visualEvidence} collapsed={weakEvidence} />
           )}
           {searchMode === "answer" && answer && (
-            <RelatedDocumentsPanel documents={relatedDocuments} onScopeDocument={scopeOnlyDocument} />
+            <RelatedDocumentsPanel
+              documents={relatedDocuments}
+              onScopeDocument={scopeOnlyDocument}
+              onTagSearch={handleTagSearch}
+            />
           )}
           <section id="sources" className="grid gap-3 scroll-mt-4 sm:scroll-mt-6">
             <DrawerGroupLabel title="Review evidence" />
@@ -4603,7 +6614,13 @@ export function ClinicalDashboard() {
                 onLoadMoreDocuments={loadMoreDocuments}
                 onDocumentRenamed={handleDocumentRenamed}
                 onDocumentDeleted={handleDocumentDeleted}
+                onBulkReindex={bulkReindexSelected}
+                onBulkAssignCollection={bulkAssignCollection}
+                onBulkMetadataUpdate={bulkUpdateMetadata}
+                bulkActionStatus={bulkActionStatus}
+                bulkActionBusy={bulkActionBusy}
                 canManageDocuments={canUsePrivateApis}
+                onTagSearch={handleTagSearch}
               />
             </UtilityDrawer>
 
@@ -4649,39 +6666,13 @@ export function ClinicalDashboard() {
         </div>
       </main>
 
-      <nav
-        aria-label="Answer sections"
-        className="z-30 grid shrink-0 select-none grid-cols-4 border-t border-white/30 bg-[color:var(--surface-glass)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-white/10 lg:hidden"
-      >
-        {bottomNavItems.map(({ label, icon: Icon, href, count }) => (
-          <a
-            key={label}
-            href={href}
-            aria-label={count === null ? label : `${label}, ${count} item${count === 1 ? "" : "s"}`}
-            aria-current={activeHash === href ? "page" : undefined}
-            onClick={(event) => {
-              event.preventDefault();
-              navigateMobileSection(href);
-            }}
-            className={cn(
-              navPill,
-              "min-h-[48px] flex-col gap-1 border-transparent bg-transparent px-2 shadow-none backdrop-blur-0 hover:bg-[color:var(--surface-subtle)]",
-              activeHash === href &&
-                "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]",
-            )}
-          >
-            <span className="inline-flex h-5 items-center justify-center gap-1">
-              <Icon className="h-5 w-5" />
-              {count !== null && (
-                <span className="min-w-4 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-glass)] px-1 text-center text-[10px] font-bold leading-4 text-[color:var(--text)] shadow-[var(--shadow-inset)]">
-                  {count}
-                </span>
-              )}
-            </span>
-            {label}
-          </a>
-        ))}
-      </nav>
+      <MobileSectionFab
+        items={bottomNavItems}
+        activeHash={activeHash}
+        state={mobileFabState}
+        hidden={guideOpen}
+        onNavigate={navigateMobileSection}
+      />
       <GuideDialog open={guideOpen} onClose={closeGuide} />
     </div>
   );

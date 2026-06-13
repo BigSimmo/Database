@@ -4,10 +4,12 @@ import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
   clinicalRankExplanation,
+  expandClinicalQuery,
   hasDoseEvidenceSupport,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "../src/lib/clinical-search";
+import { queryForClinicalMode } from "../src/lib/clinical-query-mode";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult>): SearchResult {
@@ -70,6 +72,15 @@ describe("clinical search query normalization", () => {
       "monitoring",
       "clozapine",
     ]);
+  });
+
+  it("expands local clinical vocabulary aliases for search", () => {
+    const expanded = expandClinicalQuery("LAI depot ANC clozapin monitring");
+
+    expect(expanded.toLowerCase()).toContain("long acting injectable");
+    expect(expanded.toLowerCase()).toContain("absolute neutrophil count");
+    expect(expanded.toLowerCase()).toContain("clozapine");
+    expect(expanded.toLowerCase()).toContain("monitoring");
   });
 
   it("uses AND-style websearch text to avoid broad unsupported OR matches", () => {
@@ -375,6 +386,108 @@ describe("clinical search query normalization", () => {
     );
   });
 
+  it("boosts direct current validated table evidence above stale nearby evidence", () => {
+    const ranked = rankClinicalResults("ANC threshold stop clozapine", [
+      result({
+        id: "stale-nearby",
+        title: "Clozapine Monitoring",
+        content: "Clozapine monitoring is discussed in nearby administrative notes.",
+        hybrid_score: 0.66,
+        source_strength: "limited",
+        relevance: {
+          verdict: "nearby",
+          label: "Nearby only",
+          matchedTerms: ["clozapine"],
+          missingTerms: ["anc", "threshold"],
+          directSourceCount: 0,
+          weakSourceCount: 1,
+          score: 0.25,
+          supportReason: "Only adjacent concepts matched.",
+          isSourceBacked: false,
+          coverageScore: 0.25,
+          rankScore: 0.25,
+          titleMatchedTerms: ["clozapine"],
+          contentMatchedTerms: [],
+          metadataMatchedTerms: [],
+          chips: ["nearby only"],
+        },
+        source_metadata: {
+          source_title: "Older clozapine appendix",
+          publisher: "External",
+          jurisdiction: "Unknown",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "outdated",
+          clinical_validation_status: "unverified",
+          extraction_quality: "poor",
+        },
+      }),
+      result({
+        id: "current-direct-table",
+        document_id: "doc-2",
+        title: "Clozapine Prescribing and Monitoring",
+        content: "If ANC is below threshold, stop clozapine and urgently review monitoring.",
+        hybrid_score: 0.58,
+        source_strength: "strong",
+        relevance: {
+          verdict: "direct",
+          label: "Direct support",
+          matchedTerms: ["anc", "threshold", "clozapine"],
+          missingTerms: [],
+          directSourceCount: 1,
+          weakSourceCount: 0,
+          score: 0.88,
+          supportReason: "The source directly answers the query.",
+          isSourceBacked: true,
+          coverageScore: 0.88,
+          rankScore: 0.88,
+          titleMatchedTerms: ["clozapine"],
+          contentMatchedTerms: ["anc", "threshold"],
+          metadataMatchedTerms: [],
+          chips: ["direct"],
+        },
+        source_metadata: {
+          source_title: "Clozapine Prescribing and Monitoring",
+          publisher: "WA Health",
+          jurisdiction: "Western Australia",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "approved",
+          extraction_quality: "good",
+        },
+        table_facts: [
+          {
+            id: "fact-anc",
+            document_id: "doc-2",
+            source_chunk_id: "current-direct-table",
+            source_image_id: null,
+            page_number: 2,
+            table_title: "FBC/ANC thresholds",
+            row_label: "ANC",
+            clinical_parameter: "ANC",
+            threshold_value: "Below threshold",
+            action: "Stop clozapine and review.",
+            match_reason: "table_threshold",
+          },
+        ],
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("current-direct-table");
+    expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(
+      ranked[1].score_explanation?.metadataBoost ?? 0,
+    );
+  });
+
   it("treats structured table facts as dose and threshold evidence", () => {
     expect(
       hasDoseEvidenceSupport(
@@ -398,5 +511,46 @@ describe("clinical search query normalization", () => {
         }),
       ),
     ).toBe(true);
+  });
+});
+
+describe("clinical query mode ranking", () => {
+  it("uses explicit modes to return different clinical source priorities for the same query", () => {
+    const baseQuery = "clozapine guidance";
+    const sources = [
+      result({
+        id: "dose-threshold-source",
+        title: "Clozapine dose threshold table",
+        file_name: "clozapine-dose-threshold.pdf",
+        content:
+          "Clozapine dose restart threshold table: 12.5 mg oral restart, maximum dose checks, route, blood test monitoring, and action points.",
+        hybrid_score: 0.6,
+      }),
+      result({
+        id: "escalation-source",
+        title: "Clozapine escalation criteria",
+        file_name: "clozapine-escalation.pdf",
+        content:
+          "Escalation criteria include urgent review triggers, red flags, senior specialist review, toxicity risk, and crisis action points.",
+        hybrid_score: 0.6,
+      }),
+      result({
+        id: "comparison-source",
+        title: "Clozapine guidance document comparison",
+        file_name: "clozapine-comparison.pdf",
+        content:
+          "Compare guidance across documents by requirement, process, criteria, included actions, conflicts, overlap, and source gaps.",
+        hybrid_score: 0.56,
+        rrf_score: 0.5,
+      }),
+    ];
+
+    const doseTop = rankClinicalResults(queryForClinicalMode(baseQuery, "dose_threshold_lookup"), sources)[0].id;
+    const escalationTop = rankClinicalResults(queryForClinicalMode(baseQuery, "escalation_criteria"), sources)[0].id;
+    const comparisonTop = rankClinicalResults(queryForClinicalMode(baseQuery, "compare_guidance"), sources)[0].id;
+
+    expect(doseTop).toBe("dose-threshold-source");
+    expect(escalationTop).toBe("escalation-source");
+    expect(comparisonTop).toBe("comparison-source");
   });
 });

@@ -12,6 +12,7 @@ import {
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { chooseAnswerRoute, hasDirectTitleSupport, shouldRetryWithStrongAfterFast } from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
@@ -19,6 +20,7 @@ import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEviden
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
 import {
   cleanClinicalSummaryText,
+  clinicalProseUsefulness,
   isLowYieldClinicalText,
   sourceTextForClinicalProse,
   sourceTextForDisplay,
@@ -30,6 +32,7 @@ import {
   buildCrossDocumentSynthesisPlan,
 } from "@/lib/cross-document-synthesis";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { z } from "zod";
 import {
@@ -54,6 +57,7 @@ import type {
   ConflictOrGap,
   ClinicalQueryAnalysis,
   DocumentIndexQuality,
+  DocumentIndexUnitMatch,
   DocumentMemoryCard,
   EvidenceRelevance,
   RelatedDocument,
@@ -63,6 +67,7 @@ import type {
   RagAnswer,
   SearchResult,
   SmartRagApiPlan,
+  ClinicalQueryMode,
 } from "@/lib/types";
 
 const answerSectionKinds = [
@@ -95,7 +100,8 @@ const answerJsonOutputSchema = {
   properties: {
     answer: {
       type: "string",
-      description: "The concise answer or a clear statement that the provided excerpts are insufficient.",
+      description:
+        "The first-layer response: a concise direct answer that can stand alone before structured supporting sections.",
       maxLength: 1200,
     },
     grounded: {
@@ -109,8 +115,9 @@ const answerJsonOutputSchema = {
     },
     answerSections: {
       type: "array",
-      description: "Optional clinically useful sections. Omit unsupported detail by returning an empty array.",
-      maxItems: 3,
+      description:
+        "Second-layer structured support. Add only distinct source-backed modules that improve scanability, such as actions, monitoring, medication/dose, thresholds, comparison, cautions, documentation, or source gaps.",
+      maxItems: 5,
       items: {
         type: "object",
         additionalProperties: false,
@@ -130,7 +137,7 @@ const answerJsonOutputSchema = {
           body: {
             type: "string",
             description:
-              "Clinically useful section body grounded in the cited excerpts. Do not include document codes, page labels, chunk IDs, or source metadata.",
+              "Clinically useful section body grounded in the cited excerpts. Keep it concise, decision-oriented, and non-redundant with the answer. Do not include document codes, page labels, chunk IDs, or source metadata.",
             maxLength: 420,
           },
           citation_chunk_ids: {
@@ -314,8 +321,9 @@ function sanitizeStructuredText(
   const tokenCount = finalText.split(/\s+/).filter(Boolean).length;
   if (tokenCount < minTokens) return "";
   if (!/[A-Za-z]{2,}/.test(finalText)) return "";
-  if (isLowYieldClinicalText(finalText)) return "";
-  return finalText;
+  const usefulness = clinicalProseUsefulness(finalText);
+  if (!usefulness.useful && isLowYieldClinicalText(finalText)) return "";
+  return usefulness.text || finalText;
 }
 
 function sanitizeAnswerText(value: string) {
@@ -335,6 +343,7 @@ export type SearchChunksArgs = {
   ownerId?: string;
   allowGlobalSearch?: boolean;
   skipCache?: boolean;
+  queryMode?: ClinicalQueryMode;
 };
 
 export type AnswerProgressEvent = {
@@ -367,6 +376,8 @@ export type SearchTelemetry = {
   rerank_latency_ms: number;
   memory_card_count?: number;
   memory_top_score?: number;
+  index_unit_count?: number;
+  index_unit_top_score?: number;
   weighted_top_score?: number;
   rrf_top_score?: number;
   retrieval_strategy?:
@@ -852,8 +863,19 @@ function expandClinicalQueryWithCandidateMetadata(query: string, expandedQuery: 
   return uniqueTextValues([expandedQuery, ...metadataTerms], 24).join(" ");
 }
 
-function scopedAnswerCacheKey(args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId">) {
-  return [args.ownerId ?? "anonymous", scopeKey(args), args.query.trim().toLowerCase().replace(/\s+/g, " ")].join("|");
+function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
+  return args.queryMode ?? "auto";
+}
+
+function scopedAnswerCacheKey(
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
+) {
+  return [
+    args.ownerId ?? "anonymous",
+    scopeKey(args),
+    modeKey(args),
+    args.query.trim().toLowerCase().replace(/\s+/g, " "),
+  ].join("|");
 }
 
 function cloneAnswer(answer: RagAnswer) {
@@ -861,7 +883,7 @@ function cloneAnswer(answer: RagAnswer) {
 }
 
 function getCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   startedAt: number,
 ) {
   if (args.skipCache) return null;
@@ -885,7 +907,7 @@ function getCachedAnswer(
 }
 
 function setCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   answer: RagAnswer,
 ) {
   if (args.skipCache) return;
@@ -909,6 +931,7 @@ function scopedSearchCacheKey(args: SearchChunksArgs) {
   return [
     args.ownerId ?? "anonymous",
     scopeKey(args),
+    modeKey(args),
     normalizedCacheQuery(args.query),
     args.topK ?? 8,
     args.minSimilarity ?? 0.15,
@@ -967,7 +990,7 @@ type SharedCacheKind = "search" | "answer";
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
   indexingVersion: string,
 ) {
   let query = supabase
@@ -975,7 +998,7 @@ function sharedCacheSelector(
     .select("payload")
     .eq("cache_kind", kind)
     .eq("scope_key", scopeKey(args))
-    .eq("normalized_query", normalizedCacheQuery(args.query))
+    .eq("normalized_query", normalizedCacheQuery(`${modeKey(args)} ${args.query}`))
     .eq("indexing_version", indexingVersion)
     .eq("dependency_version", ragCacheDependencyVersion)
     .gt("expires_at", new Date().toISOString())
@@ -1050,6 +1073,8 @@ async function getSharedCachedSearch(args: SearchChunksArgs) {
         rerank_latency_ms: 0,
         memory_card_count: payload.telemetry?.memory_card_count ?? 0,
         memory_top_score: payload.telemetry?.memory_top_score ?? 0,
+        index_unit_count: payload.telemetry?.index_unit_count ?? 0,
+        index_unit_top_score: payload.telemetry?.index_unit_top_score ?? 0,
         weighted_top_score: payload.telemetry?.weighted_top_score ?? 0,
         rrf_top_score: payload.telemetry?.rrf_top_score ?? 0,
         retrieval_strategy: "search_cache" as const,
@@ -1061,7 +1086,7 @@ async function getSharedCachedSearch(args: SearchChunksArgs) {
 }
 
 async function getSharedCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   startedAt: number,
 ) {
   if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
@@ -1091,7 +1116,7 @@ async function getSharedCachedAnswer(
 
 async function replaceSharedCacheRow(
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
   payload: unknown,
   ttlMs: number,
 ) {
@@ -1104,7 +1129,7 @@ async function replaceSharedCacheRow(
       .delete()
       .eq("cache_kind", kind)
       .eq("scope_key", scopeKey(args))
-      .eq("normalized_query", normalizedCacheQuery(args.query))
+      .eq("normalized_query", normalizedCacheQuery(`${modeKey(args)} ${args.query}`))
       .eq("indexing_version", indexingVersion)
       .eq("dependency_version", ragCacheDependencyVersion);
     deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
@@ -1113,7 +1138,7 @@ async function replaceSharedCacheRow(
       owner_id: args.ownerId ?? null,
       cache_kind: kind,
       scope_key: scopeKey(args),
-      normalized_query: normalizedCacheQuery(args.query),
+      normalized_query: normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
       indexing_version: indexingVersion,
       dependency_version: ragCacheDependencyVersion,
       payload,
@@ -1135,7 +1160,7 @@ function setSharedCachedSearch(args: SearchChunksArgs, results: SearchResult[], 
 }
 
 function setSharedCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   answer: RagAnswer,
 ) {
   if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
@@ -1158,6 +1183,7 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
 
   const prefix = `${ownerId}|`;
+  const sharedCacheOwnerId = ownerId === "anonymous" ? null : ownerId;
   for (const key of answerCache.keys()) {
     if (key.startsWith(prefix)) answerCache.delete(key);
   }
@@ -1172,7 +1198,21 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
       await createAdminClient()
         .from("rag_response_cache")
         .delete()
-        .eq("owner_id", ownerId)
+        [sharedCacheOwnerId ? "eq" : "is"]("owner_id", sharedCacheOwnerId)
+        .in("cache_kind", ["search", "answer"]);
+    } catch {
+      // Shared cache invalidation is best effort.
+    }
+  })();
+}
+
+function invalidateAnonymousSharedRagCaches() {
+  void (async () => {
+    try {
+      await createAdminClient()
+        .from("rag_response_cache")
+        .delete()
+        .is("owner_id", null)
         .in("cache_kind", ["search", "answer"]);
     } catch {
       // Shared cache invalidation is best effort.
@@ -1182,7 +1222,7 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
 
 export function invalidateRagCachesForDocumentMutation(ownerId: string) {
   invalidateRagCachesForOwner(ownerId);
-  invalidateRagCachesForOwner("anonymous");
+  invalidateAnonymousSharedRagCaches();
 }
 
 async function insertRagQuery(row: Record<string, unknown>) {
@@ -1487,6 +1527,15 @@ type ChunkSignalMatch = {
     text_rank?: number | null;
     match_reason?: string | null;
   }>;
+  indexUnit?: DocumentIndexUnitMatch | null;
+};
+
+type IndexUnitRpcRow = DocumentIndexUnitMatch & {
+  document_id: string;
+  source_chunk_id: string | null;
+  similarity?: number | null;
+  text_rank?: number | null;
+  hybrid_score?: number | null;
 };
 
 type TableFactRpcRow = {
@@ -1879,16 +1928,20 @@ async function loadChunksForSignalMatches(args: {
         similarity: match.similarity,
         text_rank: match.textRank,
         hybrid_score: match.hybridScore,
-        table_facts: match.tableFacts,
+        table_facts: match.tableFacts?.filter((fact) =>
+          isReviewedTablePromotable((fact as { metadata?: unknown }).metadata),
+        ),
+        index_unit: match.indexUnit ?? null,
         match_explanation: {
-          sectionHit: match.reason === "section_context",
-          tableHit: match.reason.startsWith("table"),
+          sectionHit: match.reason === "section_context" || match.indexUnit?.unit_type === "section_summary",
+          tableHit: match.reason.startsWith("table") || match.indexUnit?.unit_type === "table_fact",
+          indexUnitType: match.indexUnit?.unit_type ?? null,
           vectorSimilarity: match.similarity,
           textRank: match.textRank,
           fieldType: match.fieldType ?? null,
           freshness: normalizeSourceMetadata(document.metadata).document_status,
           extractionQuality: normalizeSourceMetadata(document.metadata).extraction_quality,
-          reasons: [match.reason],
+          reasons: [match.reason, match.indexUnit?.unit_type ? `unit:${match.indexUnit.unit_type}` : ""].filter(Boolean),
         },
         images: [],
       } satisfies SearchResult;
@@ -1995,6 +2048,56 @@ async function searchEmbeddingFieldCandidates(args: {
   return loadChunksForSignalMatches({ supabase: args.supabase, matches, ownerId: args.ownerId });
 }
 
+async function searchIndexUnitCandidates(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  queryEmbedding: number[];
+  ownerId?: string;
+  documentIds?: string[];
+  matchCount: number;
+}) {
+  const { data, error } = await args.supabase.rpc("match_document_index_units_hybrid", {
+    query_embedding: args.queryEmbedding,
+    query_text: buildClinicalTextSearchQuery(args.query),
+    match_count: args.matchCount,
+    min_similarity: 0.1,
+    document_filters: args.documentIds ?? null,
+    owner_filter: args.ownerId ?? null,
+  });
+  if (error || !data?.length) return [] as SearchResult[];
+  const matches = (data as IndexUnitRpcRow[])
+    .filter((row): row is IndexUnitRpcRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
+    .map((row) => ({
+      chunkId: row.source_chunk_id,
+      similarity: Number(row.similarity ?? 0),
+      textRank: Number(row.text_rank ?? 0),
+      hybridScore: Number(row.hybrid_score ?? row.similarity ?? 0),
+      reason: `index_unit:${row.unit_type}`,
+      fieldType: row.unit_type,
+      indexUnit: {
+        id: row.id,
+        document_id: row.document_id,
+        unit_type: row.unit_type,
+        title: row.title,
+        content: row.content,
+        source_chunk_id: row.source_chunk_id,
+        source_image_id: row.source_image_id,
+        page_start: row.page_start,
+        page_end: row.page_end,
+        heading_path: row.heading_path ?? [],
+        normalized_terms: row.normalized_terms ?? [],
+        source_span: row.source_span ?? null,
+        quality_score: row.quality_score,
+        extraction_mode: row.extraction_mode,
+        similarity: row.similarity,
+        text_rank: row.text_rank,
+        hybrid_score: row.hybrid_score,
+        metadata: row.metadata ?? null,
+      },
+    }));
+  return loadChunksForSignalMatches({ supabase: args.supabase, matches, ownerId: args.ownerId });
+}
+
 async function withMemoryBoostedCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2030,7 +2133,9 @@ async function attachDocumentRankingMetadata(
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
   const missingMetadata = results.some(
-    (result) => result.document_labels === undefined && result.document_summary === undefined,
+    (result) =>
+      (result.document_labels === undefined || result.document_labels.length === 0) &&
+      (result.document_summary === undefined || result.document_summary === null),
   );
   if (!missingMetadata) return attachIndexQualityMetadata(supabase, results, ownerId);
 
@@ -2362,12 +2467,24 @@ function cleanExtractivePointText(value: string) {
     .trim();
 }
 
+const extractiveClinicalDirectivePattern =
+  /\b(?:arrange|assess|cease|check|complete|contact|continue|discontinue|escalate|notify|prescribe|record|refer|report|review|stop|withhold|must|required|requires?|should)\b/i;
+
+function isLowValueExtractiveCaption(clause: string) {
+  const descriptor =
+    /^(?:clinical\s+table|table|figure|image)\s+(?:showing|detailing|listing|outlining|describing|with|of)\b/i.test(
+      clause,
+    ) || /\btable\s+(?:showing|detailing|listing|outlining|describing)\b/i.test(clause);
+  if (!descriptor) return false;
+  return !extractiveClinicalDirectivePattern.test(clause);
+}
+
 function sourcePointClauses(value: string, query: string) {
   const tokens = splitBalancedWords(query).filter((token) => token.length > 3);
   const clauses = cleanExtractivePointText(value)
     .split(/(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
     .map((clause) => cleanExtractivePointText(clause))
-    .filter((clause) => clause.length >= 18 && !looksLikeJsonArtifact(clause));
+    .filter((clause) => clause.length >= 18 && !looksLikeJsonArtifact(clause) && !isLowValueExtractiveCaption(clause));
 
   return clauses
     .map((clause, index) => {
@@ -2677,7 +2794,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   }
 
   const supabase = createAdminClient();
-  const queryAnalysis = await analyzeQueryWithClassifierFallback(args.query, analyzeClinicalQuery(args.query));
+  const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
+  const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
+  const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery));
+  if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
   const queryClassification = {
     queryClass: queryAnalysis.queryClass,
     confidence: queryAnalysis.confidence,
@@ -2702,16 +2822,18 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     rerank_latency_ms: 0,
     memory_card_count: 0,
     memory_top_score: 0,
+    index_unit_count: 0,
+    index_unit_top_score: 0,
     weighted_top_score: 0,
     rrf_top_score: 0,
   };
 
   const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId);
-  const ragAliasExpansions = selectRagAliasExpansions(args.query, ragAliases);
+  const ragAliasExpansions = selectRagAliasExpansions(retrievalQuery, ragAliases);
   telemetry.rag_alias_count = ragAliases.length;
   telemetry.rag_alias_expansion_count = ragAliasExpansions.length;
 
-  if (shouldApplyUnsupportedSearchShortCircuit(args.query, queryAnalysis, ragAliasExpansions)) {
+  if (shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
     telemetry.embedding_skipped = true;
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
@@ -2719,10 +2841,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     return { results: [] as SearchResult[], telemetry };
   }
 
-  let expandedQuery = normalizeRetrievalVariant([expandClinicalQuery(args.query), ...ragAliasExpansions].join(" "));
-  const queryVariants = buildRetrievalQueryVariants(args.query, queryAnalysis, ragAliases);
+  let expandedQuery = normalizeRetrievalVariant([expandClinicalQuery(retrievalQuery), ...ragAliasExpansions].join(" "));
+  const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
   telemetry.retrieval_query_variant_count = queryVariants.length;
-  const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(args.query);
+  const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(retrievalQuery);
   const candidateMultiplier = queryClassification.queryClass === "comparison" ? 7 : 5;
   const candidateFloor = queryClassification.queryClass === "comparison" ? 72 : 48;
   const candidateCount = Math.max((args.topK ?? 8) * candidateMultiplier, candidateFloor);
@@ -2755,7 +2877,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, textCandidates);
     }
     const baseTextResults = diversifySearchResults(
-      rankClinicalResults(args.query, textCandidates),
+      rankClinicalResults(retrievalQuery, textCandidates),
       args.topK ?? 8,
       maxResultsPerDocument,
       true,
@@ -2776,7 +2898,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
 
     const memoryBoost = await withMemoryBoostedCandidates({
       supabase,
-      query: args.query,
+      query: retrievalQuery,
       candidates: textCandidates,
       ownerId: args.ownerId,
       documentIds: documentFilterList,
@@ -2788,7 +2910,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       ...memoryBoost.cards.map(memoryCardChunkScore),
     );
     textFastResults = diversifySearchResults(
-      rankClinicalResults(args.query, memoryBoost.results),
+      rankClinicalResults(retrievalQuery, memoryBoost.results),
       args.topK ?? 8,
       maxResultsPerDocument,
       true,
@@ -2812,7 +2934,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     const tableFactStartedAt = Date.now();
     const tableFactCandidates = await searchTableFactCandidates({
       supabase,
-      query: args.query,
+      query: retrievalQuery,
       queryVariants,
       ownerId: args.ownerId,
       documentIds: documentFilterList,
@@ -2862,7 +2984,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       const documentLookupResults = await attachPageVisualEvidence(
         supabase,
         diversifySearchResults(
-          rankClinicalResults(args.query, memoryBoost.results),
+          rankClinicalResults(retrievalQuery, memoryBoost.results),
           args.topK ?? 8,
           maxResultsPerDocument,
           true,
@@ -2905,6 +3027,24 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     textFastResults = mergeSearchResults(embeddingFieldCandidates, textFastResults);
   }
 
+  const indexUnitStartedAt = Date.now();
+  const indexUnitCandidates = await searchIndexUnitCandidates({
+    supabase,
+    query: args.query,
+    queryEmbedding: embedding,
+    ownerId: args.ownerId,
+    documentIds: documentFilterList,
+    matchCount: Math.min(candidateCount, 64),
+  });
+  telemetry.supabase_rpc_latency_ms += Date.now() - indexUnitStartedAt;
+  telemetry.index_unit_count = indexUnitCandidates.length;
+  telemetry.index_unit_top_score = Number(
+    Math.max(0, ...indexUnitCandidates.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4),
+  );
+  if (indexUnitCandidates.length > 0) {
+    textFastResults = mergeSearchResults(indexUnitCandidates, textFastResults);
+  }
+
   const hybridRpcStartedAt = Date.now();
   const { data: hybridData, error: hybridError } = await supabase.rpc("match_document_chunks_hybrid", {
     query_embedding: embedding,
@@ -2922,7 +3062,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     const mergedWithMetadata = await attachDocumentRankingMetadata(supabase, merged, args.ownerId);
     const memoryBoost = await withMemoryBoostedCandidates({
       supabase,
-      query: args.query,
+      query: retrievalQuery,
       candidates: mergedWithMetadata,
       queryEmbedding: embedding,
       ownerId: args.ownerId,
@@ -2937,7 +3077,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     const results = await attachPageVisualEvidence(
       supabase,
       diversifySearchResults(
-        rankClinicalResults(args.query, memoryBoost.results),
+        rankClinicalResults(retrievalQuery, memoryBoost.results),
         args.topK ?? 8,
         maxResultsPerDocument,
         true,
@@ -2980,7 +3120,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   );
   const memoryBoost = await withMemoryBoostedCandidates({
     supabase,
-    query: args.query,
+    query: retrievalQuery,
     candidates: mergedWithMetadata,
     queryEmbedding: embedding,
     ownerId: args.ownerId,
@@ -2995,7 +3135,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const results = await attachPageVisualEvidence(
     supabase,
     diversifySearchResults(
-      rankClinicalResults(args.query, memoryBoost.results),
+      rankClinicalResults(retrievalQuery, memoryBoost.results),
       args.topK ?? 8,
       maxResultsPerDocument,
       true,
@@ -3194,6 +3334,7 @@ export async function answerQuestionWithScope(args: {
   allowGlobalSearch?: boolean;
   logQuery?: boolean;
   skipCache?: boolean;
+  queryMode?: ClinicalQueryMode;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
 }): Promise<RagAnswer> {
   const startedAt = Date.now();
@@ -3204,10 +3345,11 @@ export async function answerQuestionWithScope(args: {
     ownerId: args.ownerId,
     allowGlobalSearch: args.allowGlobalSearch,
   });
+  const answerFocusQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const cachedAnswer = getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
-    const cachedSources = annotateSearchResults(args.query, cachedAnswer.sources ?? []);
-    const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(args.query, cachedSources);
+    const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
+    const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
     await args.onProgress?.({
       stage: "cached",
       message: "Using a recent cited answer for this exact query and document scope.",
@@ -3232,8 +3374,8 @@ export async function answerQuestionWithScope(args: {
   const sharedCachedAnswer = await getSharedCachedAnswer(args, startedAt);
   if (sharedCachedAnswer) {
     setCachedAnswer(args, sharedCachedAnswer);
-    const cachedSources = annotateSearchResults(args.query, sharedCachedAnswer.sources ?? []);
-    const cachedRelevance = sharedCachedAnswer.relevance ?? buildEvidenceRelevance(args.query, cachedSources);
+    const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);
+    const cachedRelevance = sharedCachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
     await args.onProgress?.({
       stage: "cached",
       message: "Using a shared cached cited answer for this exact query and document scope.",
@@ -3266,16 +3408,21 @@ export async function answerQuestionWithScope(args: {
     topK: 12,
     minSimilarity: 0.12,
     skipCache: args.skipCache,
+    queryMode: args.queryMode,
   });
-  const queryClass = search.telemetry.query_class ?? classifyRagQuery(args.query).queryClass;
-  const queryAnalysis = analyzeClinicalQuery(args.query);
-  const answerRanking = rankAnswerEvidence(args.query, normalizeSearchResults(search.results), queryClass);
-  const results = annotateSearchResults(args.query, answerRanking.rankedResults);
-  const crossDocumentPlan = buildCrossDocumentSynthesisPlan(args.query, results, queryClass);
+  const queryClass =
+    queryClassForClinicalMode(args.queryMode ?? "auto") ??
+    search.telemetry.query_class ??
+    classifyRagQuery(args.query).queryClass;
+  const queryAnalysis = analyzeClinicalQuery(answerFocusQuery);
+  if (queryClassForClinicalMode(args.queryMode ?? "auto")) queryAnalysis.queryClass = queryClass;
+  const answerRanking = rankAnswerEvidence(answerFocusQuery, normalizeSearchResults(search.results), queryClass);
+  const results = annotateSearchResults(answerFocusQuery, answerRanking.rankedResults);
+  const crossDocumentPlan = buildCrossDocumentSynthesisPlan(answerFocusQuery, results, queryClass);
   const answerInputResults = crossDocumentPlan.enabled ? crossDocumentPlan.results : results;
-  const relevance = buildEvidenceRelevance(args.query, answerInputResults);
+  const relevance = buildEvidenceRelevance(answerFocusQuery, answerInputResults);
   const crossDocumentFusionBrief = crossDocumentPlan.enabled
-    ? buildCrossDocumentFusionBrief(args.query, answerInputResults)
+    ? buildCrossDocumentFusionBrief(answerFocusQuery, answerInputResults)
     : null;
   const answerRankMetadata = {
     answer_rank_top_score: answerRanking.topScore,
@@ -3291,9 +3438,9 @@ export async function answerQuestionWithScope(args: {
     cross_document_fusion_source_chunk_ids: crossDocumentFusionBrief?.sourceChunkIds ?? [],
   };
   const searchLatencyMs = Date.now() - searchStartedAt;
-  const quoteCards = extractQuoteCards(answerInputResults, args.query);
+  const quoteCards = extractQuoteCards(answerInputResults, answerFocusQuery);
   const documentBreakdown = buildDocumentBreakdown(answerInputResults, quoteCards);
-  const smartPanel = buildSmartPanel(args.query, answerInputResults);
+  const smartPanel = buildSmartPanel(answerFocusQuery, answerInputResults);
   const evidenceSummary = buildEvidenceSummary(answerInputResults, quoteCards);
   const sourceCoverage = buildSourceCoverage(answerInputResults);
   const conflictsOrGaps = detectConflictsOrGaps(answerInputResults);
@@ -3316,14 +3463,14 @@ export async function answerQuestionWithScope(args: {
   };
   const answerScoreExplanations = buildAnswerScoreExplanations(answerInputResults);
   const scoreLogMetadata = scoreExplanationLogMetadata(answerScoreExplanations);
-  const emptyPanel = buildSmartPanel(args.query, []);
+  const emptyPanel = buildSmartPanel(answerFocusQuery, []);
   const relatedDocumentsPromise = buildRelatedDocumentsSafe({
-    query: args.query,
+    query: answerFocusQuery,
     results,
     ownerId: args.ownerId,
   });
   const route = chooseAnswerRoute({
-    query: args.query,
+    query: answerFocusQuery,
     results: answerInputResults,
     queryClass,
     conflictsOrGaps,
@@ -3336,7 +3483,7 @@ export async function answerQuestionWithScope(args: {
     planResults = answerInputResults,
   ) =>
     buildSmartRagApiPlan({
-      query: args.query,
+      query: answerFocusQuery,
       queryClass,
       results: planResults,
       routeMode: mode,
@@ -3560,15 +3707,21 @@ export async function answerQuestionWithScope(args: {
 
 Rules:
 - Answer directly from the provided excerpts only.
-- The answer field is the primary output. Write it as a polished natural-language clinical synthesis that can stand alone before any structured sections.
+- Use a layered response. The answer field is the first layer: write a short, high-yield clinical paragraph that can stand alone before any structured sections.
+- The answer field must be plain prose, usually 1-3 short sentences and 35-75 words. Do not use bullets, numbered lists, labels, icons, headings, or prefixes such as "Answer", "Summary", "Bottom line", "Required actions", or "Direct answer" inside the answer field.
+- Start the answer field with the direct clinical answer in the first sentence. Keep only the vital and most relevant information there.
 - Use model-generated clinical synthesis by default; do not stitch disconnected source quotes into the answer.
 - Integrate all relevant retrieved sources intelligently: merge overlapping guidance, prioritize stronger/direct support, and call out weak, nearby, or missing support.
-- Use answerSections only for concise support details when they add scanability or verification value: Required actions, Monitoring/timing, Medication/dose details, Escalation/risk, Documentation/forms, Source gaps.
+- Put supporting detail, secondary caveats, thresholds, monitoring timing, actions, risks, comparisons, documentation, and source gaps into answerSections rather than the answer field.
+- Use answerSections as the second layer when they add scanability, decision support, or verification value. Good sections include Required actions, Monitoring/timing, Medication/dose details, Thresholds, Escalation/risk, Contraindications/cautions, Comparison, Documentation/forms, and Source gaps.
+- For simple questions, return zero or one answerSections item unless a safety or source-gap section is needed. For complex clinical, medication, threshold, comparison, or multi-document questions, return two to five distinct sections when supported.
+- Keep answerSections non-redundant with the answer field. Do not add a "Direct answer", "Bottom line", or "High-yield summary" section that merely repeats the top answer. Each section should contain one concise practical point or one compact synthesis of closely related points.
 - For each answerSections item, choose the most specific kind and supportLevel. A section is direct only when the cited chunks directly answer that section.
+- Use thresholds for numeric cutoffs, ranges, score boundaries, withhold/stop criteria, or table-like criteria. Use comparison for source differences, conflicting guidance, or when the query asks "compare", "versus", or "difference".
 - Omit sections that are not supported by the retrieved excerpts.
 - Do not include low-yield provenance in answer or answerSections: no document IDs, procedure codes, page labels, file names, chunk numbers, similarity scores, source metadata, headers, footers, review tables, or document-control text.
 - Keep provenance only in citations and quoteCards via chunk IDs. If source titles or page numbers are useful, leave them to the UI citations rather than writing them in prose.
-- Be concise: usually 1-3 short paragraphs in the answer field and about 120-180 words unless source complexity requires more.
+- Be concise: usually 1-3 short sentences in the answer field and about 35-75 words. Use answerSections for extra detail instead of lengthening the answer field.
 - Prefer Australian or WA-specific guidance when present in the sources.
 - Do not provide patient-specific medical advice.
 - If the excerpts do not support a direct answer, say that the uploaded documents do not contain enough information.
@@ -3584,7 +3737,7 @@ Rules:
 - Keep multi-document answers fast and focused: use the fused source brief and balanced source guide to cite at least two documents when the answer combines them.
 - Treat the fused source brief as an orientation layer only. Verify every claim against the raw source excerpts below it.
 - Structured memory lines are indexing-time source facts mapped back to source chunks. Use them to focus the answer, but cite the original chunks.
-- Start with the direct answer. Omit tangential background even when it appears in retrieved sources.
+- Start with the direct answer. Omit tangential background, administrative details, source titles, file names, page labels, and provenance from the answer field even when they appear in retrieved sources.
 - Bold only source-supported high-yield details using **bold**: medications, thresholds, timing, escalation triggers, required actions, contraindications, and terms central to the question.
 - Do not bold whole sentences or routine filler wording.
 - Do not use Markdown other than **bold** inside answer or answerSections.
@@ -3599,10 +3752,11 @@ Rules:
     const crossDocumentContext = [sourceGuide, fusedBrief].filter(Boolean).join("\n\n");
     return `Question:
 ${args.query}
+${clinicalModePrompt(args.queryMode ?? "auto") ? `\nSelected clinical query mode:\n${clinicalModePrompt(args.queryMode ?? "auto")}\n` : ""}
 
 Sources:
 ${crossDocumentContext ? `${crossDocumentContext}\n\n` : ""}
-${buildRagSourceBlock(contextResults, { query: args.query, queryClass })}`;
+${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`;
   }
 
   let generationLatencyMs = 0;
@@ -3623,7 +3777,7 @@ ${buildRagSourceBlock(contextResults, { query: args.query, queryClass })}`;
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
-        promptCacheKey: "clinical-rag-answer-v6",
+        promptCacheKey: "clinical-rag-answer-v7",
         reasoningEffort:
           model === env.OPENAI_STRONG_ANSWER_MODEL
             ? env.OPENAI_STRONG_REASONING_EFFORT
@@ -3962,7 +4116,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
   })) as SearchResult[];
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
-Use only the excerpts provided. Start directly with the most useful clinical point; do not prefix the answer with "Summary", "Key practical points", or similar labels. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, and citations. Exclude administrative document-control details unless they change clinical action.
+Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph, usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they change clinical action.
 Return data matching the supplied structured output schema.`;
   const summaryInput = `Document:
 ${document.title}
@@ -3976,7 +4130,7 @@ ${buildRagSourceBlock(results)}`;
     operation: "summary",
     schemaName: "clinical_document_summary",
     instructions: summaryInstructions,
-    promptCacheKey: "clinical-document-summary-v1",
+    promptCacheKey: "clinical-document-summary-v2",
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
   });
   const answer = parseAnswerJson(generated.text, results, "summary");

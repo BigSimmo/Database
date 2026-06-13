@@ -1,0 +1,558 @@
+import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
+
+export type SmartDocumentTagGroup =
+  | "Medication"
+  | "Risk"
+  | "Workflow"
+  | "Topic"
+  | "Population"
+  | "Setting"
+  | "Service"
+  | "Document type"
+  | "Manual";
+
+export type SmartDocumentTag = {
+  key: string;
+  label: string;
+  searchText: string;
+  label_type: DocumentLabelType;
+  group: SmartDocumentTagGroup;
+  source: DocumentLabel["source"];
+  confidence: number;
+  score: number;
+  queryMatched: boolean;
+};
+
+export type SmartDocumentTagFacet = {
+  key: string;
+  label: string;
+  searchText: string;
+  group: SmartDocumentTagGroup;
+  count: number;
+};
+
+export type SmartDocumentTagQualityIssueKind = "noisy" | "duplicate" | "low_confidence" | "overused";
+
+export type SmartDocumentTagQualityIssue = {
+  kind: SmartDocumentTagQualityIssueKind;
+  label: string;
+  canonicalLabel?: string;
+  label_type?: DocumentLabelType;
+  count: number;
+  reason: string;
+  examples: string[];
+  documentTitles: string[];
+};
+
+export type NormalizedDocumentLabel = {
+  label: string;
+  label_type: DocumentLabelType;
+  confidence: number;
+};
+
+type LabelCandidate = {
+  label?: unknown;
+  label_type?: unknown;
+  confidence?: unknown;
+  source?: unknown;
+};
+
+const labelTypes = new Set<DocumentLabelType>([
+  "topic",
+  "document_type",
+  "medication",
+  "risk",
+  "setting",
+  "workflow",
+  "population",
+  "service",
+  "custom",
+]);
+
+const groupLabels: Record<DocumentLabelType, SmartDocumentTagGroup> = {
+  medication: "Medication",
+  risk: "Risk",
+  workflow: "Workflow",
+  topic: "Topic",
+  population: "Population",
+  setting: "Setting",
+  service: "Service",
+  document_type: "Document type",
+  custom: "Topic",
+};
+
+const groupRank: Record<SmartDocumentTagGroup, number> = {
+  Medication: 0,
+  Risk: 1,
+  Workflow: 2,
+  Topic: 3,
+  Population: 4,
+  Setting: 5,
+  Service: 6,
+  "Document type": 7,
+  Manual: 8,
+};
+
+export const smartDocumentFacetGroups: SmartDocumentTagGroup[] = [
+  "Medication",
+  "Risk",
+  "Workflow",
+  "Setting",
+  "Service",
+  "Document type",
+];
+
+const acronymDisplay = new Map([
+  ["akg", "AKG"],
+  ["anc", "ANC"],
+  ["bsl", "BSL"],
+  ["cbt", "CBT"],
+  ["covid", "COVID"],
+  ["ctt", "CTT"],
+  ["ct", "CT"],
+  ["ed", "ED"],
+  ["ect", "ECT"],
+  ["fbc", "FBC"],
+  ["gp", "GP"],
+  ["honos", "HoNOS"],
+  ["honosca", "HoNOSCA"],
+  ["im", "IM"],
+  ["iv", "IV"],
+  ["lai", "LAI"],
+  ["mh", "MH"],
+  ["mhat", "MHAT"],
+  ["mhoa", "MHOA"],
+  ["mhsp", "MHSP"],
+  ["nocc", "NOCC"],
+  ["nsaids", "NSAIDs"],
+  ["prn", "PRN"],
+  ["qtc", "QTc"],
+  ["wcc", "WCC"],
+]);
+
+export const clinicalDocumentTagAliases = [
+  { from: "a n c", to: "absolute neutrophil count" },
+  { from: "absolute neutrophils", to: "absolute neutrophil count" },
+  { from: "akg", to: "armadale kalamunda group" },
+  { from: "clozapin", to: "clozapine" },
+  { from: "clozapine monitering", to: "clozapine monitoring" },
+  { from: "ctt", to: "clinical treatment team" },
+  { from: "depot", to: "long acting injectable medication" },
+  { from: "depot medication", to: "long acting injectable medication" },
+  { from: "f b c", to: "full blood count" },
+  { from: "haematological monitoring", to: "hematological monitoring" },
+  { from: "honos", to: "honos rating scale" },
+  { from: "ho nos", to: "honos rating scale" },
+  { from: "honosca", to: "honosca rating scale" },
+  { from: "lai", to: "long acting injectable medication" },
+  { from: "lai antipsychotic", to: "long acting injectable antipsychotic" },
+  { from: "lithum", to: "lithium" },
+  { from: "long acting injection", to: "long acting injectable medication" },
+  { from: "long acting injections", to: "long acting injectable medication" },
+  { from: "long acting injectable", to: "long acting injectable medication" },
+  { from: "long acting injectables", to: "long acting injectable medication" },
+  { from: "long acting injectable depot medication", to: "long acting injectable medication" },
+  { from: "mhat", to: "mental health assessment team" },
+  { from: "mhoa", to: "mental health older adult service" },
+  { from: "nocc", to: "nocc outcome measures" },
+  { from: "qtc", to: "qtc monitoring" },
+  { from: "wcc", to: "white cell count" },
+] as const;
+
+const lowValueExact = new Set([
+  "administration",
+  "administrative",
+  "all rights reserved",
+  "authorisation",
+  "clinical guideline",
+  "copyright",
+  "document",
+  "document control",
+  "document owner",
+  "documents",
+  "file",
+  "guidance",
+  "guideline",
+  "page",
+  "pdf",
+  "policy",
+  "procedure",
+  "protocol",
+  "publication",
+  "reference",
+  "references",
+  "review",
+  "source",
+  "table",
+  "uncontrolled when printed",
+  "version",
+  "workflow",
+]);
+
+const lowValuePattern =
+  /\b(?:uncontrolled when printed|document owner|document control|version control|copyright|all rights reserved|authorisation date|publication date|review date)\b/i;
+
+function normalizedText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\.[a-z0-9]{2,5}$/i, " ")
+    .replace(/[_-]+/g, " ")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9/+ ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function applyClinicalAliases(value: string) {
+  const exact = clinicalDocumentTagAliases.find((alias) => alias.from === value);
+  if (exact) return exact.to;
+
+  let aliased = value;
+  for (const alias of clinicalDocumentTagAliases) {
+    if (alias.from.length < 4) continue;
+    aliased = aliased.replace(new RegExp(`\\b${alias.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), alias.to);
+  }
+  return aliased.replace(/\s+/g, " ").trim();
+}
+
+function canonicalLabel(value: string, labelType: DocumentLabelType) {
+  const normalized = applyClinicalAliases(normalizedText(value));
+  if (!normalized) return "";
+
+  if (normalized === "long acting injectable" || normalized === "long acting injectables") {
+    return "long acting injectable medication";
+  }
+  if (normalized === "depot" || normalized === "depot medication") return "long acting injectable medication";
+  if (normalized === "risk and safety" || normalized === "safety risk") return "risk escalation";
+  if (normalized === "escalation pathway") return "escalation pathway";
+  if (normalized === "metabolic") return "metabolic monitoring";
+  if (normalized === "blood test" || normalized === "blood tests") return "blood test monitoring";
+  if (normalized === "dose" || normalized === "dosing") return "dose adjustment";
+  if (normalized === "documentation" && labelType !== "document_type") return "documentation requirements";
+  if (normalized === "form" || normalized === "forms") return "clinical form";
+  if (normalized === "checklist") return "clinical checklist";
+  if (normalized === "role" || normalized === "roles" || normalized === "responsibilities") {
+    return "roles and responsibilities";
+  }
+
+  return normalized;
+}
+
+function usefulTokenCount(value: string) {
+  return value.split(/\s+/).filter((token) => token.length > 2 || acronymDisplay.has(token)).length;
+}
+
+function isNoisyLabel(label: string, labelType: DocumentLabelType) {
+  if (!label || label.length < 2 || label.length > 64) return true;
+  if (lowValuePattern.test(label)) return true;
+  if (/\b(?:docx?|xlsx?|pptx?|pdf)\b/.test(label)) return true;
+  if (lowValueExact.has(label)) return true;
+  if (usefulTokenCount(label) === 0) return true;
+  if (label.split(/\s+/).length > 6) return true;
+  if (labelType === "document_type" && ["clinical form", "clinical checklist"].includes(label)) return false;
+  return false;
+}
+
+function confidenceValue(value: unknown) {
+  const confidence = Number(value);
+  return Number.isFinite(confidence) ? Math.min(Math.max(confidence, 0), 1) : 0.55;
+}
+
+function labelTypeValue(value: unknown): DocumentLabelType {
+  return labelTypes.has(value as DocumentLabelType) ? (value as DocumentLabelType) : "custom";
+}
+
+function sourceValue(value: unknown): DocumentLabel["source"] {
+  return value === "manual" ? "manual" : "generated";
+}
+
+function displayLabel(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => acronymDisplay.get(word) ?? `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`)
+    .join(" ");
+}
+
+function queryTerms(query?: string) {
+  return new Set(
+    normalizedText(query ?? "")
+      .split(/\s+/)
+      .filter((term) => term.length >= 3),
+  );
+}
+
+function queryMatches(label: string, terms: Set<string>) {
+  if (terms.size === 0) return false;
+  return [...terms].some((term) => label.includes(term));
+}
+
+function clinicalValueBoost(label: string, labelType: DocumentLabelType) {
+  let boost = 0;
+  if (/\b(?:clozapine|lithium|antipsychotic|medication|dose|fbc|anc|qtc|ect|lai)\b/.test(label)) boost += 0.18;
+  if (/\b(?:risk|escalation|safety|urgent|toxicity|suicide|violence|duress)\b/.test(label)) boost += 0.16;
+  if (/\b(?:monitoring|threshold|pathway|workflow|admission|discharge|review|follow up)\b/.test(label)) boost += 0.12;
+  if (labelType === "document_type") boost -= 0.08;
+  if (labelType === "custom") boost -= 0.05;
+  return boost;
+}
+
+export function normalizeDocumentLabelForStorage(candidate: LabelCandidate): NormalizedDocumentLabel | null {
+  const labelType = labelTypeValue(candidate.label_type);
+  const confidence = confidenceValue(candidate.confidence);
+  const source = sourceValue(candidate.source);
+  const canonical = canonicalLabel(String(candidate.label ?? ""), labelType);
+
+  if (source !== "manual" && confidence < 0.5) return null;
+  if (source !== "manual" && isNoisyLabel(canonical, labelType)) return null;
+  if (!canonical) return null;
+
+  return {
+    label: canonical,
+    label_type: labelType,
+    confidence,
+  };
+}
+
+export function buildSmartDocumentTags(
+  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null | undefined,
+  options: { limit?: number; query?: string; includeManualGroup?: boolean } = {},
+) {
+  const terms = queryTerms(options.query);
+  const deduped = new Map<string, SmartDocumentTag>();
+
+  for (const label of labels ?? []) {
+    const normalized = normalizeDocumentLabelForStorage(label);
+    const source = sourceValue(label.source);
+    if (!normalized) continue;
+
+    const group = options.includeManualGroup && source === "manual" ? "Manual" : groupLabels[normalized.label_type];
+    const matched = queryMatches(normalized.label, terms);
+    const score =
+      (source === "manual" ? 1 : 0) +
+      normalized.confidence +
+      clinicalValueBoost(normalized.label, normalized.label_type) +
+      (matched ? 1.5 : 0) -
+      groupRank[group] * 0.04;
+    const tag: SmartDocumentTag = {
+      key: `${normalized.label_type}:${normalized.label}`,
+      label: displayLabel(normalized.label),
+      searchText: normalized.label,
+      label_type: normalized.label_type,
+      group,
+      source,
+      confidence: normalized.confidence,
+      score,
+      queryMatched: matched,
+    };
+    const existing = deduped.get(tag.searchText);
+    if (!existing || tag.score > existing.score) deduped.set(tag.searchText, tag);
+  }
+
+  const sorted = [...deduped.values()].sort(
+    (a, b) =>
+      Number(b.queryMatched) - Number(a.queryMatched) ||
+      groupRank[a.group] - groupRank[b.group] ||
+      b.score - a.score ||
+      a.label.localeCompare(b.label),
+  );
+
+  return typeof options.limit === "number" ? sorted.slice(0, Math.max(0, options.limit)) : sorted;
+}
+
+export function groupSmartDocumentTags(
+  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null | undefined,
+  options: { limit?: number; query?: string; includeManualGroup?: boolean } = {},
+) {
+  const tags = buildSmartDocumentTags(labels, options);
+  return [...new Set(tags.map((tag) => tag.group))]
+    .sort((a, b) => groupRank[a] - groupRank[b])
+    .map((group) => ({
+      group,
+      tags: tags.filter((tag) => tag.group === group),
+    }));
+}
+
+export function tagSearchText(labels: ClinicalTagSource | null | undefined) {
+  return buildSmartDocumentTags(labels?.labels)
+    .map((tag) => `${tag.label} ${tag.searchText} ${tag.group}`)
+    .join(" ");
+}
+
+function addQualityIssue(
+  issues: SmartDocumentTagQualityIssue[],
+  issue: Omit<SmartDocumentTagQualityIssue, "examples" | "documentTitles"> & {
+    examples?: string[];
+    documentTitles?: string[];
+  },
+) {
+  issues.push({
+    ...issue,
+    examples: Array.from(new Set(issue.examples ?? [])).slice(0, 4),
+    documentTitles: Array.from(new Set(issue.documentTitles ?? [])).slice(0, 4),
+  });
+}
+
+export function reviewDocumentTagQuality<T extends ClinicalTagSource & { id?: string; title?: string; file_name?: string }>(
+  documents: T[],
+  options: { lowConfidenceThreshold?: number; overusedThreshold?: number } = {},
+) {
+  const lowConfidenceThreshold = options.lowConfidenceThreshold ?? 0.5;
+  const overusedThreshold = options.overusedThreshold ?? Math.max(4, Math.ceil(documents.length * 0.25));
+  const issues: SmartDocumentTagQualityIssue[] = [];
+  const globalUsage = new Map<
+    string,
+    {
+      label: string;
+      canonicalLabel: string;
+      label_type: DocumentLabelType;
+      documents: Set<string>;
+      examples: Set<string>;
+    }
+  >();
+
+  for (const document of documents) {
+    const title = document.title ?? document.file_name ?? document.id ?? "Untitled document";
+    const perDocument = new Map<string, DocumentLabel[]>();
+
+    for (const label of document.labels ?? []) {
+      const confidence = confidenceValue(label.confidence);
+      const canonical = normalizeDocumentLabelForStorage({
+        label: label.label,
+        label_type: label.label_type,
+        confidence: 1,
+        source: "generated",
+      });
+      if (!canonical) {
+        addQualityIssue(issues, {
+          kind: "noisy",
+          label: String(label.label ?? ""),
+          label_type: label.label_type,
+          count: 1,
+          reason: "Would be dropped by smart-tag cleanup.",
+          examples: [String(label.label ?? "")],
+          documentTitles: [title],
+        });
+        continue;
+      }
+
+      if (label.source !== "manual" && confidence < lowConfidenceThreshold) {
+        addQualityIssue(issues, {
+          kind: "low_confidence",
+          label: displayLabel(canonical.label),
+          canonicalLabel: canonical.label,
+          label_type: canonical.label_type,
+          count: 1,
+          reason: `${Math.round(confidence * 100)}% confidence is below the ${Math.round(lowConfidenceThreshold * 100)}% threshold.`,
+          examples: [String(label.label ?? "")],
+          documentTitles: [title],
+        });
+      }
+
+      const duplicateKey = `${canonical.label_type}:${canonical.label}`;
+      perDocument.set(duplicateKey, [...(perDocument.get(duplicateKey) ?? []), label as DocumentLabel]);
+
+      const global = globalUsage.get(duplicateKey) ?? {
+        label: displayLabel(canonical.label),
+        canonicalLabel: canonical.label,
+        label_type: canonical.label_type,
+        documents: new Set<string>(),
+        examples: new Set<string>(),
+      };
+      global.documents.add(title);
+      global.examples.add(String(label.label ?? ""));
+      globalUsage.set(duplicateKey, global);
+    }
+
+    for (const [key, duplicates] of perDocument) {
+      const uniqueRaw = new Set(duplicates.map((label) => normalizedText(String(label.label ?? ""))));
+      if (duplicates.length < 2 || uniqueRaw.size < 2) continue;
+      const [labelType, canonicalLabel] = key.split(":") as [DocumentLabelType, string];
+      addQualityIssue(issues, {
+        kind: "duplicate",
+        label: displayLabel(canonicalLabel),
+        canonicalLabel,
+        label_type: labelType,
+        count: duplicates.length,
+        reason: "Multiple near-equivalent tags exist on the same document.",
+        examples: duplicates.map((label) => label.label),
+        documentTitles: [title],
+      });
+    }
+  }
+
+  for (const global of globalUsage.values()) {
+    if (global.documents.size < overusedThreshold) continue;
+    addQualityIssue(issues, {
+      kind: "overused",
+      label: global.label,
+      canonicalLabel: global.canonicalLabel,
+      label_type: global.label_type,
+      count: global.documents.size,
+      reason: `Appears on ${global.documents.size} loaded documents; check whether it is too broad.`,
+      examples: [...global.examples],
+      documentTitles: [...global.documents],
+    });
+  }
+
+  const rank: Record<SmartDocumentTagQualityIssueKind, number> = {
+    noisy: 0,
+    duplicate: 1,
+    low_confidence: 2,
+    overused: 3,
+  };
+  return issues.sort((a, b) => rank[a.kind] - rank[b.kind] || b.count - a.count || a.label.localeCompare(b.label));
+}
+
+export function buildSmartDocumentTagFacets<T extends ClinicalTagSource>(
+  documents: T[],
+  options: { query?: string; limitPerGroup?: number } = {},
+) {
+  const limitPerGroup = options.limitPerGroup ?? 8;
+  const allowedGroups = new Set(smartDocumentFacetGroups);
+  const facets = new Map<string, SmartDocumentTagFacet>();
+
+  for (const document of documents) {
+    const documentTagKeys = new Set<string>();
+    const tags = buildSmartDocumentTags(document.labels, { query: options.query, includeManualGroup: false });
+    for (const tag of tags) {
+      if (!allowedGroups.has(tag.group) || documentTagKeys.has(tag.key)) continue;
+      documentTagKeys.add(tag.key);
+      const existing = facets.get(tag.key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        facets.set(tag.key, {
+          key: tag.key,
+          label: tag.label,
+          searchText: tag.searchText,
+          group: tag.group,
+          count: 1,
+        });
+      }
+    }
+  }
+
+  return smartDocumentFacetGroups
+    .map((group) => ({
+      group,
+      facets: [...facets.values()]
+        .filter((facet) => facet.group === group)
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+        .slice(0, Math.max(1, limitPerGroup)),
+    }))
+    .filter((group) => group.facets.length > 0);
+}
+
+export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(documents: T[], selectedTagKeys: string[]) {
+  if (selectedTagKeys.length === 0) return documents;
+  const selected = new Set(selectedTagKeys);
+  return documents.filter((document) => {
+    const tagKeys = new Set(buildSmartDocumentTags(document.labels, { includeManualGroup: false }).map((tag) => tag.key));
+    return [...selected].every((key) => tagKeys.has(key));
+  });
+}
+
+type ClinicalTagSource = {
+  labels?: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null;
+};

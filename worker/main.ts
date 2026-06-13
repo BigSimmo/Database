@@ -856,6 +856,7 @@ async function processJob(job: JobRow) {
       document: job.documents,
       chunks: enrichmentRows.chunks,
       images: enrichmentRows.images,
+      summary: enrichment.summary.summary,
     });
     const quality = buildIndexQualityPayload({
       job,

@@ -386,16 +386,16 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
 
   if (broadMultiDocumentQuery) {
     answer =
-      "Across the synthetic indexed documents, the best-supported issues are medication monitoring plus escalation triggers. Lithium sources emphasise baseline renal, thyroid, calcium, interacting medicines, and toxicity safety-net symptoms including vomiting, diarrhoea, dehydration, tremor, confusion, and ataxia. Clozapine sources add FBC/ANC, myocarditis, metabolic review, constipation planning, and urgent review for fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation. The acute risk source adds escalation for current intent, recent attempt, command hallucinations, severe agitation, intoxication with unsafe behaviour, inability to collaborate on safety planning, or absent supervision.";
+      "Across the synthetic indexed documents, the high-yield clinical themes are medication monitoring and escalation triggers across Lithium, Clozapine, and acute risk workflows.";
   } else if (lowered.includes("lithium") || lowered.includes("toxicity")) {
     answer =
-      "In the synthetic lithium document, toxicity safety-net review should cover vomiting, diarrhoea, dehydration, acute kidney injury, new interacting medicines such as NSAIDs/ACE inhibitors/diuretics, tremor, confusion, and ataxia. The same source says lithium levels are checked 5 to 7 days after initiation or dose change, then repeated until stable.";
+      "In the synthetic lithium document, toxicity safety-net review should cover vomiting, diarrhoea, dehydration, acute kidney injury, new interacting medicines such as NSAIDs/ACE inhibitors/diuretics, tremor, confusion, and ataxia.";
   } else if (lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image")) {
     answer =
-      "The synthetic clozapine table image lists monitoring domains for FBC/ANC, myocarditis, metabolic review, and constipation planning across baseline, initiation, and ongoing care. The related text also flags fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation as urgent review triggers.";
+      "The synthetic clozapine table image highlights FBC/ANC, myocarditis, metabolic review, and constipation planning as the core monitoring domains.";
   } else if (lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")) {
     answer =
-      "The synthetic acute risk document says to escalate for current intent, recent attempt, command hallucinations, severe agitation, intoxication with unsafe behaviour, inability to collaborate on safety planning, or absent supervision. The flowchart links immediate safety, current intent, means restriction, protective factors, and senior review.";
+      "The synthetic acute risk document highlights immediate safety, current intent, means restriction, protective factors, and senior review as the core escalation focus.";
   }
 
   return {
@@ -434,10 +434,31 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
           ]
         : [
             {
-              heading: "Direct answer",
-              body: answer,
+              heading: "Safety-net symptoms",
+              body:
+                lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image")
+                  ? "Urgent review triggers include fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation."
+                  : lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")
+                    ? "Escalate when current intent, recent attempt, command hallucinations, severe agitation, intoxication with unsafe behaviour, inability to collaborate on safety planning, or absent supervision is present."
+                    : "Lithium toxicity safety-netting should cover vomiting, diarrhoea, dehydration, acute kidney injury, interacting medicines, tremor, confusion, and ataxia.",
+              kind:
+                lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")
+                  ? "escalation_risk"
+                  : "monitoring_timing",
+              supportLevel: "direct",
               citation_chunk_ids: sources.slice(0, 4).map((source) => source.id),
             },
+            ...(lowered.includes("lithium") || lowered.includes("toxicity")
+              ? [
+                  {
+                    heading: "Monitoring timing",
+                    body: "The same synthetic source says lithium levels are checked 5 to 7 days after initiation or dose change, then repeated until stable.",
+                    kind: "monitoring_timing" as const,
+                    supportLevel: "direct" as const,
+                    citation_chunk_ids: sources.slice(0, 2).map((source) => source.id),
+                  },
+                ]
+              : []),
           ]
       : [],
     evidenceSummary,
@@ -477,8 +498,20 @@ export function demoSummary(documentId: string): RagAnswer {
     sources,
     answerSections: [
       {
-        heading: "High-yield summary",
-        body: answer,
+        heading:
+          document?.id === demoDocuments[0].id
+            ? "Lithium monitoring focus"
+            : document?.id === demoDocuments[1].id
+              ? "Clozapine monitoring focus"
+              : "Acute risk focus",
+        body:
+          document?.id === demoDocuments[0].id
+            ? "Confirm baseline renal, thyroid, calcium, weight, blood pressure, interacting medicines, mood/risk context, monitoring owner, and review interval."
+            : document?.id === demoDocuments[1].id
+              ? "Monitor FBC/ANC, myocarditis symptoms, metabolic parameters, constipation, and shared-care communication."
+              : "Assess immediate safety, current intent, means restriction, protective factors, and senior review needs.",
+        kind: document?.id === demoDocuments[2].id ? "escalation_risk" : "monitoring_timing",
+        supportLevel: "direct",
         citation_chunk_ids: sources.slice(0, 4).map((source) => source.id),
       },
     ],

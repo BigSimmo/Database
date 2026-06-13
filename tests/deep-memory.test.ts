@@ -97,6 +97,38 @@ describe("deep RAG memory indexing", () => {
     expect(cards.every((card) => card.metadata?.rag_indexing_version === ragDeepMemoryVersion)).toBe(true);
   });
 
+  it("adds model-backed askable question cards when source IDs validate", () => {
+    const cards = buildDocumentMemoryCards({
+      document,
+      chunks: [
+        chunk({
+          id: "chunk-question",
+          content: "Depot medications are administered through the long acting injectable medication pathway.",
+        }),
+      ],
+      modelProfile: {
+        sections: [],
+        clinical_facts: [],
+        table_facts: [],
+        aliases: [],
+        quality_issues: [],
+        model: "test-model",
+        version: "model-heavy-index-v1",
+        askable_questions: [
+          {
+            title: "How are LAI depot medications managed?",
+            content: "How are long acting injectable depot medications managed?",
+            source_chunk_ids: ["chunk-question"],
+            source_image_ids: [],
+            confidence: 0.91,
+          },
+        ],
+      },
+    });
+
+    expect(cards.some((card) => card.card_type === "askable_question")).toBe(true);
+  });
+
   it("keeps a source-backed fallback card when no enrichment-style high-yield terms are present", () => {
     const cards = buildDocumentMemoryCards({
       document,
@@ -203,6 +235,7 @@ describe("deep RAG memory indexing", () => {
 
   it("persists memory cards without leaking internal section indexes into inserts", async () => {
     const insertedMemoryRows: Record<string, unknown>[] = [];
+    const insertedIndexUnits: Record<string, unknown>[] = [];
     const supabase = {
       from: vi.fn((table: string) => ({
         delete: () => ({ eq: vi.fn(async () => ({ data: null, error: null })) }),
@@ -217,6 +250,10 @@ describe("deep RAG memory indexing", () => {
                 error: null,
               }),
             };
+          }
+          if (table === "document_index_units") {
+            insertedIndexUnits.push(...payload);
+            return Promise.resolve({ data: null, error: null });
           }
           insertedMemoryRows.push(...payload);
           return Promise.resolve({ data: null, error: null });
@@ -237,6 +274,8 @@ describe("deep RAG memory indexing", () => {
     });
 
     expect(insertedMemoryRows.length).toBeGreaterThan(0);
+    expect(insertedIndexUnits.length).toBeGreaterThan(0);
+    expect(insertedIndexUnits.some((row) => row.unit_type === "document_profile")).toBe(true);
     expect(insertedMemoryRows.every((row) => !("section_index" in row))).toBe(true);
     expect(insertedMemoryRows.every((row) => typeof row.section_id === "string" || row.section_id === null)).toBe(true);
     expect(supabase.rpc).toHaveBeenCalledWith("stamp_document_deep_memory_version", {

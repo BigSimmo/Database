@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { sourceSpanForText } from "@/lib/source-spans";
 import type { ChunkInput, DocumentChunk } from "@/lib/types";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
@@ -337,6 +338,14 @@ export function buildChunks(inputs: ChunkInput[]) {
           page_chunk_index: pageChunkIndex,
           page_start: input.pageNumber,
           page_end: input.pageNumber,
+          source_spans: [
+            sourceSpanForText({
+              pageNumber: input.pageNumber,
+              pageText: input.pageText,
+              excerpt: content.replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, "").trim(),
+              fallbackExcerpt: content,
+            }),
+          ],
           heading_lookup: pageLookupText,
           subsection_path: sectionContext,
           section_anchor: sectionAnchor,

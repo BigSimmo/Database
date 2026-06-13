@@ -33,6 +33,11 @@ type SupabaseLike = {
   };
 };
 
+type SchemaHealth = {
+  ok?: boolean;
+  missing?: unknown;
+};
+
 function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
     ? (metadata as Record<string, unknown>)
@@ -52,6 +57,16 @@ function strictEnrichmentVersionRequired() {
   return (
     process.argv.includes("--strict-enrichment-version") || process.env.RAG_REQUIRE_CURRENT_ENRICHMENT_VERSION === "1"
   );
+}
+
+function missingSchemaMessage(error: { message: string } | Error | null | undefined) {
+  const message = error instanceof Error ? error.message : error?.message;
+  if (!message) return "";
+  return /schema cache|relation .* does not exist|could not find the table|could not find the function|PGRST20\d/i.test(
+    message,
+  )
+    ? message
+    : "";
 }
 
 async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[]) {
@@ -116,7 +131,21 @@ async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[])
       documentIds,
     ),
   ]);
-  return { sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows };
+  let indexUnits: MetadataRow[] = [];
+  const missingSchema: string[] = [];
+  try {
+    indexUnits = await loadRowsForDocuments(
+      supabase,
+      "document_index_units",
+      "document_id,metadata",
+      documentIds,
+    );
+  } catch (error) {
+    const message = missingSchemaMessage(error instanceof Error ? error : null);
+    if (!message) throw error;
+    missingSchema.push(`document_index_units table is missing or not exposed to the Data API: ${message}`);
+  }
+  return { sections, memoryCards, chunks, tableFacts, embeddingFields, indexUnits, qualityRows, missingSchema };
 }
 
 async function main() {
@@ -149,6 +178,11 @@ async function main() {
   if (jobError) throw new Error(jobError.message);
   const { error: cleanupTableError } = await supabase.from("storage_cleanup_jobs").select("id,status").limit(1);
   if (cleanupTableError) throw new Error(cleanupTableError.message);
+  const { data: schemaHealth, error: schemaHealthError } = await supabase.rpc("search_schema_health");
+  const schemaHealthMissing =
+    schemaHealth && typeof schemaHealth === "object" && !Array.isArray(schemaHealth)
+      ? ((schemaHealth as SchemaHealth).missing as unknown[] | undefined)
+      : undefined;
 
   const { data: documents, error: documentsError } = await supabase
     .from("documents")
@@ -250,6 +284,9 @@ async function main() {
   const documentsMissingEmbeddingFields = indexedDocuments.filter(
     (document) => !deepMemoryRows.embeddingFields.some((row) => row.document_id === document.id),
   );
+  const documentsMissingIndexUnits = indexedDocuments.filter(
+    (document) => !deepMemoryRows.indexUnits.some((row) => row.document_id === document.id),
+  );
   const documentsWithStaleIndexGeneration = indexedDocuments.filter((document) => {
     const generation = metadataRecord(document.metadata).index_generation_id;
     const chunks = chunkRowsByDocument.get(document.id) ?? [];
@@ -304,6 +341,15 @@ async function main() {
   }
 
   const issues: string[] = [];
+  if (schemaHealthError) {
+    issues.push(`schema health RPC failed: ${schemaHealthError.message}`);
+  }
+  for (const missing of schemaHealthMissing ?? []) {
+    issues.push(`missing schema object: ${String(missing)}`);
+  }
+  for (const missing of deepMemoryRows.missingSchema) {
+    issues.push(`missing schema object: ${missing}`);
+  }
   if (duplicateGroups.length > 0) issues.push(`duplicate content-hash groups: ${duplicateGroups.length}`);
   if ((missingEmbeddingResult.count ?? 0) > 0)
     issues.push(`chunks missing embeddings: ${missingEmbeddingResult.count}`);
@@ -320,6 +366,8 @@ async function main() {
     issues.push(`indexed documents missing quality rows: ${documentsMissingQualityRows.length}`);
   if (documentsMissingEmbeddingFields.length > 0)
     issues.push(`indexed documents missing embedding fields: ${documentsMissingEmbeddingFields.length}`);
+  if (documentsMissingIndexUnits.length > 0)
+    issues.push(`indexed documents missing index units: ${documentsMissingIndexUnits.length}`);
   if (documentsWithLowQualityScore.length > 0)
     issues.push(`indexed documents with low quality score: ${documentsWithLowQualityScore.length}`);
   if (documentsWithStaleIndexGeneration.length > 0)
@@ -346,8 +394,17 @@ async function main() {
     issues.push(`pending or failed storage cleanup jobs: ${(cleanupIssuesResult.data ?? []).length}`);
   }
 
-  console.log("Indexing prerequisites ready.");
+  console.log("Indexing prerequisite base tables are reachable.");
   console.log("Supabase bulk ingestion tables are reachable.");
+  console.log(
+    `Search schema health: ${
+      schemaHealthError
+        ? `failed (${schemaHealthError.message})`
+        : schemaHealthMissing?.length
+          ? `missing ${schemaHealthMissing.map(String).join(", ")}`
+          : "ready"
+    }`,
+  );
   console.log(`Embedding model: ${env.OPENAI_EMBEDDING_MODEL}`);
   console.log(`Worker concurrency: ${env.WORKER_CONCURRENCY}`);
   console.log(`Documents: ${(documents ?? []).length}; empty indexed: ${emptyIndexedDocuments.length}`);
@@ -359,7 +416,7 @@ async function main() {
     `Section hierarchy coverage: chunks missing section paths=${chunksMissingSectionPath.length}; chunks missing anchors=${chunksMissingAnchors.length}`,
   );
   console.log(
-    `Structured index coverage: table facts=${deepMemoryRows.tableFacts.length}; embedding fields=${deepMemoryRows.embeddingFields.length}; quality rows=${deepMemoryRows.qualityRows.length}/${indexedDocuments.length}; low-quality documents=${documentsWithLowQualityScore.length}`,
+    `Structured index coverage: table facts=${deepMemoryRows.tableFacts.length}; embedding fields=${deepMemoryRows.embeddingFields.length}; index units=${deepMemoryRows.indexUnits.length}; quality rows=${deepMemoryRows.qualityRows.length}/${indexedDocuments.length}; low-quality documents=${documentsWithLowQualityScore.length}`,
   );
   console.log(
     `Enrichment coverage: summaries missing=${documentsMissingSummaries.length}; generated labels missing=${documentsMissingGeneratedLabels.length}`,

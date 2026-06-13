@@ -7,6 +7,10 @@ import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { sourceGovernanceWarnings } from "@/lib/source-governance";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -14,6 +18,8 @@ const answerSchema = z.object({
   query: z.string().trim().min(1),
   documentId: z.string().uuid().optional(),
   documentIds: z.array(z.string().uuid()).max(25).optional(),
+  filters: searchScopeFiltersSchema.optional(),
+  queryMode: clinicalQueryModeSchema.optional().default("auto"),
 });
 
 type AnswerBody = z.infer<typeof answerSchema>;
@@ -80,19 +86,42 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
 
         try {
           send("progress", { stage: "retrieving", message: "Searching indexed documents." });
+          const scope = isDemoMode()
+            ? null
+            : await resolveSearchScope({
+                supabase: createAdminClient(),
+                ownerId,
+                documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
+                filters: body.filters,
+              });
+          if (scope?.documentIds?.length === 0) {
+            send("final", {
+              answer:
+                "The selected filters did not match any indexed documents, so I cannot generate a source-backed answer for that scope.",
+              grounded: false,
+              confidence: "unsupported",
+              citations: [],
+              sources: [],
+              scope: { ...scope, queryMode: body.queryMode },
+              sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+            });
+            return;
+          }
+          const singleDocumentScope = Boolean(body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0);
           const answer = isDemoMode()
             ? (() => {
                 const demo = demoAnswer(body.query, body.documentId, body.documentIds);
-                const sources = annotateSearchResults(body.query, demo.sources);
-                const relevance = buildEvidenceRelevance(body.query, sources);
+                const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+                const sources = annotateSearchResults(answerFocusQuery, demo.sources);
+                const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
                 return {
                   ...demo,
                   sources,
                   relevance,
                   smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
                   smartApiPlan: buildSmartRagApiPlan({
-                    query: body.query,
-                    queryClass: classifyRagQuery(body.query).queryClass,
+                    query: answerFocusQuery,
+                    queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
                     results: sources,
                     routeMode: demo.routingMode,
                     retrievalStrategy: "hybrid",
@@ -102,13 +131,23 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
               })()
             : await answerQuestionWithScope({
                 query: body.query,
-                documentId: body.documentId,
-                documentIds: body.documentIds,
+                documentId: singleDocumentScope ? body.documentId : undefined,
+                documentIds: singleDocumentScope
+                  ? undefined
+                  : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
                 ownerId,
                 allowGlobalSearch: !ownerId,
+                queryMode: body.queryMode,
                 onProgress,
               });
-          send("final", answer);
+          send("final", {
+            ...answer,
+            scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
+            sourceGovernanceWarnings: sourceGovernanceWarnings({
+              results: answer.sources ?? [],
+              relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
+            }),
+          });
         } catch (error) {
           logStreamError(error);
           const streamError = streamErrorPayload(error);

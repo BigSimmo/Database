@@ -4,6 +4,8 @@ const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;
+const internalImageTokenPattern =
+  /\b(?:admin_table|clinical_table|decorative_image|diagram_crop|embedded_image|fallback_image|page_region|table_crop)\b/gi;
 
 const sourceDocumentCodeSource = String.raw`(?:[A-Z]{2,8}-[A-Z]{2,8}-\d{2,}(?:\/\d+)?|[A-Z]{2,8}-\d{3,}(?:\/\d+)?)`;
 const sourceDocumentCodePattern = new RegExp(String.raw`\b${sourceDocumentCodeSource}\b`, "g");
@@ -22,6 +24,16 @@ const clinicalSignalPattern =
 const provenancePhrasePattern =
   /\b(?:Source mentions|Source excerpt|Source passage|Document title|File name|citation_chunk_id|document_id)\s*:?\s*/gi;
 const genericReferencePattern = /\s*(?:[-–]\s*)?refer to MIMS Product Information\.?/gi;
+const evidenceLabelPattern =
+  /(?:^|[\s.;])(?:dose|table|source|medication|monitoring|threshold|risk|action|documentation)\s+evidence\s*:\s*/gi;
+const sourceTitleFragmentPattern =
+  /\b(?:[A-Z][A-Za-z0-9/&(),' -]{2,120}\s+)?(?:Guideline|Procedure|Protocol|Policy|Appendix|Scale)\b[^.;]{0,180}/g;
+const answerMetaIntroPattern =
+  /^(?:the\s+)?(?:retrieved|supplied|provided|indexed)\s+(?:medication\/risk\s+)?(?:sources?|excerpts?|passages?)\s+(?:support|show|suggest|provide|returned)\s+(?:these\s+)?(?:practical\s+)?(?:points?|information|evidence)\.?\s*/i;
+const provenanceNoiseTermPattern =
+  /\b(?:guideline|procedure|protocol|policy|appendix|source|evidence|document|file|page|scale|lunsers|liverpool university|rating scale|retrieved|excerpt|passage)\b/gi;
+const concreteClinicalActionPattern =
+  /\b(?:administer|arrange|assess|cease|check|complete|contact|document|escalat|follow\s*up|monitor|notify|record|refer|report|review|stop|withhold|dose|prescrib|titrate)\b/i;
 
 function compactWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -137,10 +149,12 @@ function stripLowYieldLines(value: string) {
 
 export function stripLowYieldSourceNoise(text: string) {
   return stripLowYieldLines(text)
+    .replace(internalImageTokenPattern, " ")
     .replace(sourceTitleWithCodePattern, " ")
     .replace(sourceDocumentCodePattern, " ")
     .replace(pageBoilerplatePattern, " ")
     .replace(provenancePhrasePattern, " ")
+    .replace(evidenceLabelPattern, " ")
     .replace(genericReferencePattern, "")
     .replace(/\b(?:chunk|similarity)\s+\d+(?:\.\d+)?\b/gi, " ")
     .replace(/\s+([,.;:])/g, "$1")
@@ -172,6 +186,63 @@ export function isLowYieldClinicalText(text: string) {
   const hasOnlyShortRemainder = tokenCount(cleaned) <= 5;
   const sourceNoise = lowYieldSourceNoiseScore(text);
   return sourceNoise >= 0.45 && (!hasClinicalSignal || hasOnlyShortRemainder);
+}
+
+function sentenceFragments(text: string) {
+  return text
+    .replace(answerMetaIntroPattern, "")
+    .split(/(?<=[.!?])\s+|\s*;\s*/)
+    .map((fragment) =>
+      compactWhitespace(
+        fragment
+          .replace(answerMetaIntroPattern, "")
+          .replace(evidenceLabelPattern, " ")
+          .replace(/^\s*[.;:\-]\s*/, ""),
+      ),
+    )
+    .filter(Boolean);
+}
+
+function provenanceNoiseRatio(text: string) {
+  const tokens = tokenCount(compactWhitespace(text));
+  if (!tokens) return 1;
+  const noiseHits = text.match(provenanceNoiseTermPattern)?.length ?? 0;
+  return Math.min(1, noiseHits / tokens);
+}
+
+function isMostlySourceTitleFragment(text: string) {
+  sourceTitleFragmentPattern.lastIndex = 0;
+  const sourceTitleLength = (text.match(sourceTitleFragmentPattern) ?? []).join(" ").length;
+  if (sourceTitleLength === 0) return false;
+  return sourceTitleLength / Math.max(1, text.length) >= 0.38;
+}
+
+export function clinicalProseUsefulness(text: string) {
+  const cleaned = sourceTextForClinicalProse(text);
+  const fragments = sentenceFragments(cleaned).filter((fragment) => {
+    if (!fragment) return false;
+    if (tokenCount(fragment) < 3) return false;
+    if (/^the\s+(?:retrieved|supplied|provided|indexed)\s+/i.test(fragment)) return false;
+    const hasClinicalSignal = clinicalSignalPattern.test(fragment);
+    const hasConcreteClinicalAction = concreteClinicalActionPattern.test(fragment);
+    const noiseRatio = provenanceNoiseRatio(fragment);
+    const mostlySourceTitle = isMostlySourceTitleFragment(fragment);
+    if (mostlySourceTitle && !hasConcreteClinicalAction) return false;
+    if (noiseRatio >= 0.28 && !hasConcreteClinicalAction) return false;
+    if (isLowYieldClinicalText(fragment) && !hasConcreteClinicalAction) return false;
+    return hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16;
+  });
+  const textWithoutNoise = readableWhitespace(fragments.join(" "));
+  const clinicalSignalScore =
+    (textWithoutNoise.match(clinicalSignalPattern) ? 1 : 0) +
+    (textWithoutNoise.match(concreteClinicalActionPattern) ? 1 : 0);
+  const provenanceScore = provenanceNoiseRatio(textWithoutNoise || cleaned);
+  return {
+    text: textWithoutNoise,
+    useful: Boolean(textWithoutNoise && clinicalSignalScore > 0 && provenanceScore < 0.42),
+    clinicalSignalScore,
+    provenanceScore,
+  };
 }
 
 export function stripInternalImageDataBlocks(text: string) {
@@ -236,7 +307,7 @@ export function cleanClinicalSummaryText(text: string) {
   const cleaned = sourceTextForClinicalProsePreservingBreaks(text)
     .replace(/\bSource mentions:\s*/gi, "")
     .replace(
-      /(?:\s+-\s*)?(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Monitoring)\s*:\s*/gi,
+      /(?:\s+-\s*)?(?:Medication point|Dose evidence|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Monitoring evidence|Monitoring)\s*:\s*/gi,
       ". ",
     )
     .replace(/^\s*(?:[-•]\s+|\*\s+)+/, "")

@@ -24,6 +24,8 @@
     "worker:once": "tsx worker/index.ts --once",
     "import:docs": "tsx scripts/import-documents.ts",
     "enrich:documents": "tsx scripts/enrich-documents.ts",
+    "tags:backfill": "tsx scripts/backfill-document-tags.ts",
+    "index:backfill": "tsx scripts/backfill-smart-index.ts",
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
