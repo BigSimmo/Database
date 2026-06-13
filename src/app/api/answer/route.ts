@@ -11,6 +11,7 @@ import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMod
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import * as serverAuth from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
       });
     }
 
+    const supabase = createAdminClient();
+    const user = await serverAuth.requireAuthenticatedUser(request, supabase);
+
     const rateLimit = consumePublicAnswerRateLimit(request.headers);
     if (rateLimit.limited) {
       return NextResponse.json(
@@ -51,10 +55,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createAdminClient();
     const scope = await resolveSearchScope({
       supabase,
-      ownerId: undefined,
+      ownerId: user.id,
       documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
       filters: body.filters,
     });
@@ -77,8 +80,7 @@ export async function POST(request: Request) {
       documentIds: singleDocumentScope
         ? undefined
         : (scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
-      ownerId: undefined,
-      allowGlobalSearch: true,
+      ownerId: user.id,
       queryMode: body.queryMode,
     });
     return NextResponse.json({
@@ -90,6 +92,9 @@ export async function POST(request: Request) {
       }),
     });
   } catch (error) {
+    if (error instanceof serverAuth.AuthenticationError) {
+      return serverAuth.unauthorizedResponse(error);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }

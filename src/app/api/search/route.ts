@@ -11,6 +11,7 @@ import { searchChunksWithTelemetry } from "@/lib/rag";
 import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { createAdminClient } from "@/lib/supabase/admin";
+import * as serverAuth from "@/lib/supabase/auth";
 import { consumePublicSearchRateLimit } from "@/lib/public-rate-limit";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
@@ -33,10 +34,11 @@ const searchSchema = z.object({
 
 type SearchRequestBody = z.infer<typeof searchSchema>;
 
-const publicSearchInflight = new Map<string, Promise<unknown>>();
+const scopedSearchInflight = new Map<string, Promise<unknown>>();
 
-function publicSearchKey(body: SearchRequestBody) {
+function scopedSearchKey(body: SearchRequestBody, ownerId: string) {
   return JSON.stringify({
+    ownerId,
     query: body.query.toLowerCase().replace(/\s+/g, " ").trim(),
     topK: body.topK ?? null,
     documentId: body.documentId ?? null,
@@ -49,14 +51,14 @@ function publicSearchKey(body: SearchRequestBody) {
   });
 }
 
-async function coalescePublicSearch<T extends Record<string, unknown>>(key: string, producer: () => Promise<T>) {
-  const existing = publicSearchInflight.get(key) as Promise<T> | undefined;
+async function coalesceScopedSearch<T extends Record<string, unknown>>(key: string, producer: () => Promise<T>) {
+  const existing = scopedSearchInflight.get(key) as Promise<T> | undefined;
   if (existing) return { payload: await existing, coalesced: true };
 
   const pending = producer().finally(() => {
-    publicSearchInflight.delete(key);
+    scopedSearchInflight.delete(key);
   });
-  publicSearchInflight.set(key, pending);
+  scopedSearchInflight.set(key, pending);
   return { payload: await pending, coalesced: false };
 }
 
@@ -318,6 +320,7 @@ function candidatePromotions(query: string, results: SearchResult[]) {
 
 function logWeakSearch(args: {
   supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
   query: string;
   queryClass: string;
   route?: string | null;
@@ -341,7 +344,7 @@ function logWeakSearch(args: {
   void args.supabase
     .from("rag_query_misses")
     .insert({
-      owner_id: null,
+      owner_id: args.ownerId,
       query: args.query,
       normalized_query: args.query.toLowerCase().replace(/\s+/g, " ").trim(),
       query_class: args.queryClass,
@@ -380,7 +383,9 @@ function latencyBucket(ms: number) {
   return "gte_5000ms";
 }
 
-function logPublicSearchObservation(args: {
+function logSearchObservation(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
   query: string;
   results: SearchResult[];
   payload: Record<string, unknown>;
@@ -395,47 +400,48 @@ function logPublicSearchObservation(args: {
       const payloadBytes = Buffer.byteLength(JSON.stringify(args.payload), "utf8");
       const topResult = args.results[0] ?? null;
       const latencyMs = telemetryLatencyMs(telemetry);
-      await createAdminClient()
-        .from("rag_queries")
-        .insert({
-          owner_id: null,
-          query: args.query,
-          answer: null,
-          source_chunk_ids: args.results.map((result) => result.id),
-          model: "search",
-          metadata: {
-            event_type: args.failure ? "public_search_failure" : "public_search",
-            failure_code: args.failure?.code ?? null,
-            failure_cause_name: args.failure?.causeName ?? null,
-            failure_cause_message: args.failure?.causeMessage ?? null,
-            failure_sql_state: args.failure?.sqlState ?? null,
-            query_class: telemetry.query_class ?? null,
-            retrieval_strategy: telemetry.retrieval_strategy ?? null,
-            payload_bytes: payloadBytes,
-            result_count: args.results.length,
-            top_document_id: topResult?.document_id ?? null,
-            top_document_title: topResult?.title ?? null,
-            top_file_name: topResult?.file_name ?? null,
-            top_score: topResult ? (topResult.hybrid_score ?? topResult.similarity ?? null) : null,
-            latency_ms: latencyMs,
-            latency_bucket: latencyBucket(latencyMs),
-            search_cache_hit: telemetry.search_cache_hit ?? null,
-            embedding_skipped: telemetry.embedding_skipped ?? null,
-          },
-        });
+      await args.supabase.from("rag_queries").insert({
+        owner_id: args.ownerId,
+        query: args.query,
+        answer: null,
+        source_chunk_ids: args.results.map((result) => result.id),
+        model: "search",
+        metadata: {
+          event_type: args.failure ? "private_search_failure" : "private_search",
+          failure_code: args.failure?.code ?? null,
+          failure_cause_name: args.failure?.causeName ?? null,
+          failure_cause_message: args.failure?.causeMessage ?? null,
+          failure_sql_state: args.failure?.sqlState ?? null,
+          query_class: telemetry.query_class ?? null,
+          retrieval_strategy: telemetry.retrieval_strategy ?? null,
+          payload_bytes: payloadBytes,
+          result_count: args.results.length,
+          top_document_id: topResult?.document_id ?? null,
+          top_document_title: topResult?.title ?? null,
+          top_file_name: topResult?.file_name ?? null,
+          top_score: topResult ? (topResult.hybrid_score ?? topResult.similarity ?? null) : null,
+          latency_ms: latencyMs,
+          latency_bucket: latencyBucket(latencyMs),
+          search_cache_hit: telemetry.search_cache_hit ?? null,
+          embedding_skipped: telemetry.embedding_skipped ?? null,
+        },
+      });
     } catch {
       // Search telemetry must not affect the user-facing search path.
     }
   })();
 }
 
-async function buildPublicSearchPayload(body: SearchRequestBody) {
-  const supabase = createAdminClient();
+async function buildScopedSearchPayload(
+  body: SearchRequestBody,
+  supabase: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+) {
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
   const scope = await resolveSearchScope({
     supabase,
-    ownerId: undefined,
+    ownerId,
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
   });
@@ -467,15 +473,14 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
         weak_source_count: 0,
       },
     };
-    logPublicSearchObservation({ query: body.query, results: [], payload });
+    logSearchObservation({ supabase, ownerId, query: body.query, results: [], payload });
     return payload;
   }
   const search = await searchChunksWithTelemetry({
     query: body.query,
     topK: body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8),
     documentIds: scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
-    ownerId: undefined,
-    allowGlobalSearch: true,
+    ownerId,
     queryMode: body.queryMode,
   });
   const resultLimit =
@@ -485,7 +490,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
   const relatedDocuments = body.includeRelatedDocuments
     ? await fetchRelatedDocuments({
         supabase,
-        ownerId: undefined,
+        ownerId,
         query: searchFocusQuery,
         results,
         limit: body.mode === "documents" ? body.documentLimit : undefined,
@@ -507,6 +512,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
   });
   logWeakSearch({
     supabase,
+    ownerId,
     query: body.query,
     queryClass: effectiveQueryClass,
     route: body.mode,
@@ -564,7 +570,7 @@ async function buildPublicSearchPayload(body: SearchRequestBody) {
       rrf_top_score: search.telemetry.rrf_top_score,
     },
   };
-  logPublicSearchObservation({ query: body.query, results, payload });
+  logSearchObservation({ supabase, ownerId, query: body.query, results, payload });
   return payload;
 }
 
@@ -598,6 +604,9 @@ function extractSqlState(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  let supabase: ReturnType<typeof createAdminClient> | null = null;
+  let ownerId: string | null = null;
+
   try {
     const body = searchSchema.parse(await request.json());
     if (isDemoMode()) {
@@ -632,6 +641,10 @@ export async function POST(request: Request) {
       });
     }
 
+    supabase = createAdminClient();
+    const user = await serverAuth.requireAuthenticatedUser(request, supabase);
+    ownerId = user.id;
+
     const rateLimit = consumePublicSearchRateLimit(request.headers);
     if (rateLimit.limited) {
       return NextResponse.json(
@@ -648,8 +661,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const key = publicSearchKey(body);
-    const { payload, coalesced } = await coalescePublicSearch(key, () => buildPublicSearchPayload(body));
+    const key = scopedSearchKey(body, ownerId);
+    const { payload, coalesced } = await coalesceScopedSearch(key, () =>
+      buildScopedSearchPayload(body, supabase!, ownerId!),
+    );
     return NextResponse.json({
       ...payload,
       telemetry: {
@@ -658,6 +673,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof serverAuth.AuthenticationError) {
+      return serverAuth.unauthorizedResponse(error);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
@@ -671,17 +689,21 @@ export async function POST(request: Request) {
           failure_code: code,
         },
       };
-      logPublicSearchObservation({
-        query: "unknown",
-        results: [],
-        payload: failurePayload,
-        failure: {
-          code,
-          causeName: error.name,
-          causeMessage: error.message,
-          sqlState: extractSqlState(error),
-        },
-      });
+      if (ownerId && supabase) {
+        logSearchObservation({
+          supabase,
+          ownerId,
+          query: "unknown",
+          results: [],
+          payload: failurePayload,
+          failure: {
+            code,
+            causeName: error.name,
+            causeMessage: error.message,
+            sqlState: extractSqlState(error),
+          },
+        });
+      }
       return jsonError(
         new PublicApiError("Search failed. Retry with a narrower question.", 500, {
           code,

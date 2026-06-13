@@ -512,18 +512,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("private mode unauthenticated dashboard allows public search", async ({ page }) => {
+  test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
+    const answerRequests: string[] = [];
+    await page.route(/\/api\/local-project-id$/, async (route) => {
+      await route.fulfill({
+        json: {
+          appName: "Clinical KB",
+          projectId: "test-project",
+          identityPath: "/api/local-project-id",
+          localServer: {
+            currentUrl: "http://localhost:4298",
+            currentPort: 4298,
+            projectPortStart: 4298,
+            projectPortEnd: 53210,
+            safeLocalOrigin: false,
+            requestOrigin: null,
+            requestReferer: null,
+            unsafeLocalCaller: "http://localhost:3000",
+          },
+        },
+      });
+    });
     await mockPrivateUnauthenticatedApi(page);
+    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+      answerRequests.push(route.request().url());
+      await route.fulfill({ status: 401, json: { error: "Authentication required." } });
+    });
     await gotoApp(page, "/");
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await questionInput.fill("lithium monitoring");
-    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
-    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
-    await expect(page.getByTestId("clinical-action-view")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeDisabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
-    await expect(page.getByText("Sign in before searching private guideline documents")).toHaveCount(0);
+    expect(answerRequests).toEqual([]);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true });
     await expectNoPageHorizontalOverflow(page);
