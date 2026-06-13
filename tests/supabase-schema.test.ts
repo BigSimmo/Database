@@ -2,6 +2,18 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
+const documentIndexUnitsMigration = readFileSync(
+  new URL("../supabase/migrations/20260612006000_document_index_units.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+
+function extractIndexUnitHybridFunction(sql: string) {
+  const start = sql.indexOf("create or replace function public.match_document_index_units_hybrid");
+  const end = sql.indexOf("$$;", start);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+  return sql.slice(start, end);
+}
 
 describe("Supabase schema Data API grants", () => {
   it("explicitly grants service-role access for upload and ingestion tables", () => {
@@ -170,6 +182,21 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("create or replace function public.match_document_index_units_hybrid");
     expect(schema).toContain("delete from public.document_index_units where document_id = p_document_id;");
     expect(schema).toContain('create policy "document index units owner read"');
+  });
+
+  it("keeps index-unit hybrid retrieval on the live timeout-safe SQL shape", () => {
+    for (const sql of [schema, documentIndexUnitsMigration]) {
+      const functionBody = extractIndexUnitHybridFunction(sql);
+
+      expect(functionBody).toContain("and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)");
+      expect(functionBody).toContain("order by text_rank desc, similarity desc");
+      expect(functionBody).toContain("order by hybrid_score desc, similarity desc, text_rank desc");
+      expect(functionBody).not.toContain("1 - (u.embedding <=> query_embedding) >= min_similarity or");
+      expect(functionBody).not.toContain("vector_ranked as");
+
+      const rankedCte = functionBody.slice(0, functionBody.indexOf("from ranked"));
+      expect(rankedCte).not.toContain("order by hybrid_score");
+    }
   });
 
   it("stores smart image metadata, document labels, and high-yield summaries", () => {

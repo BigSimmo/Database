@@ -330,4 +330,56 @@ describe("RAG structured-output fallback", () => {
     expect(answer.openAIRequestIds).toEqual(["req_valid"]);
     expect(answer.quoteCards?.length).toBe(1);
   });
+
+  it("continues hybrid chunk retrieval when index-unit hybrid retrieval times out", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+
+    const hybridSource = source({
+      id: "hybrid-fallback-chunk",
+      title: "Monitoring Requirements",
+      content: "Monitoring requirements are documented here.",
+      similarity: 0.81,
+      hybrid_score: 0.88,
+      text_rank: 0.7,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [], error: null };
+      if (name === "match_document_table_facts_text") return { data: [], error: null };
+      if (name === "match_document_embedding_fields_hybrid") return { data: [], error: null };
+      if (name === "match_document_index_units_hybrid") {
+        return { data: null, error: { message: "canceling statement due to statement timeout" } };
+      }
+      if (name === "match_document_chunks_hybrid") return { data: [hybridSource], error: null };
+      if (name === "match_document_memory_cards_hybrid") return { data: [], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: Array(1536).fill(0.01), cacheHit: false })),
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+
+    const search = await searchChunksWithTelemetry({
+      query: "monitoring requirements",
+      topK: 4,
+      allowGlobalSearch: true,
+    });
+
+    expect(rpc).toHaveBeenCalledWith("match_document_index_units_hybrid", expect.any(Object));
+    expect(rpc).toHaveBeenCalledWith("match_document_chunks_hybrid", expect.any(Object));
+    expect(search.results.map((result) => result.id)).toContain("hybrid-fallback-chunk");
+    expect(search.telemetry.index_unit_count).toBe(0);
+    expect(search.telemetry.index_unit_top_score).toBe(0);
+    expect(search.telemetry.retrieval_strategy).toBe("hybrid");
+  });
 });
