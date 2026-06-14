@@ -387,7 +387,7 @@ async function mockDemoApi(page: Page) {
   });
 }
 
-async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } = {}) {
+async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mobileFabReady?: boolean } = {}) {
   const audit = await page.evaluate(() => {
     const duplicateIds = [...document.querySelectorAll("[id]")]
       .map((element) => element.id)
@@ -421,8 +421,13 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean } =
 
   if (options.mobileNav) {
     await expect(page.getByRole("navigation", { name: "Answer sections" })).toHaveCount(0);
-    await expect(page.getByTestId("mobile-section-fab-button")).toBeVisible();
-    await expect(page.getByTestId("mobile-section-fab-menu")).toBeHidden();
+    if (options.mobileFabReady) {
+      await expect(page.getByTestId("mobile-section-fab-button")).toBeVisible();
+      await expect(page.getByTestId("mobile-section-fab-menu")).toBeHidden();
+    } else {
+      await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
+      await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
+    }
   }
 }
 
@@ -497,16 +502,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("button", { name: /Use sample question/i }).first()).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
       if (viewport.width <= 768) {
-        const fabButton = page.getByTestId("mobile-section-fab-button");
-        const fabMenu = page.getByTestId("mobile-section-fab-menu");
-        await fabButton.click();
-        await expect(fabMenu).toBeVisible();
-        await expect(page.getByTestId("mobile-section-fab-status")).toHaveText("No answer yet");
-        await expect(page.getByTestId("mobile-section-fab-next-step")).toHaveText("Ask a question first");
-        await expect(fabMenu).toContainText("No quotes yet");
-        await expect(fabMenu).toContainText("No images yet");
-        await page.keyboard.press("Escape");
-        await expect(fabMenu).toBeHidden();
+        await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
     });
@@ -547,7 +543,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
-    await expectDomIntegrity(page, { mobileNav: true });
+    await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: false });
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -635,14 +631,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(fabMenu).toBeHidden();
     await expect(fabButton).toBeFocused();
-    await expectDomIntegrity(page, { mobileNav: true });
+    await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: true });
 
     const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
     await expect(evidenceDrawer).toBeVisible();
     await expect(evidenceDrawer).toContainText(/top source/i);
     await expect(evidenceDrawer).toContainText(/citations?/i);
-    await expect(page.getByText("Review evidence").first()).toBeVisible();
-    await expect(page.getByText("Workspace utilities")).toBeVisible();
+    await expect(page.getByText("Clinical evidence")).toBeVisible();
+    await expect(page.getByText("Library and admin")).toBeVisible();
     expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 

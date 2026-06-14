@@ -47,3 +47,9 @@ Every capability from the audit map is present and reachable: search (answer/doc
 - `prefers-reduced-motion` and forced-colors verified by code/token review, not an automated emulation pass.
 - `npm audit --audit-level=high` still reports one high-severity `esbuild` advisory. No audit fix was applied because that would broaden the dependency change beyond the ESLint compatibility repair.
 - ClinicalDashboard decomposition deferred (`04-deferred.md`, decision log D5).
+
+## 7. Post-cleanup dependency follow-up (esbuild)
+
+- Scope: address the remaining `npm audit --audit-level=high` finding without changing framework/runtime behavior.
+- Change: added root `package.json` override for `esbuild@0.28.1` (latest stable) and regenerated `package-lock.json`.
+- Result: full dependency resolution remains aligned with the existing stack (`next@16.2.7`, `tsx@4.22.4`, etc.); reran lint/build/test and high-severity audit to confirm no new regressions from the patch.
