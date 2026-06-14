@@ -176,6 +176,7 @@ const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and
 const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
 const authEmailChangeEvent = "clinical-kb-auth-email-change";
+const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const setupRecheckPollMs = 60_000;
@@ -825,6 +826,7 @@ function MasterSearchHeader({
   onQueryModeChange,
   onScopeFiltersChange,
   onToggleScope,
+  onScopeOpenChange,
   onOpenGuide,
   onToggleTheme,
 }: {
@@ -847,6 +849,7 @@ function MasterSearchHeader({
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
   onScopeFiltersChange: (filters: SearchScopeFilters) => void;
   onToggleScope: (documentId: string) => void;
+  onScopeOpenChange?: (open: boolean) => void;
   onOpenGuide: () => void;
   onToggleTheme: () => void;
 }) {
@@ -912,6 +915,10 @@ function MasterSearchHeader({
   }, []);
 
   useEffect(() => {
+    onScopeOpenChange?.(scopeOpen);
+  }, [onScopeOpenChange, scopeOpen]);
+
+  useEffect(() => {
     const details = scopeDetailsRef.current;
     if (!scopeOpen || !details?.open) return undefined;
 
@@ -956,7 +963,94 @@ function MasterSearchHeader({
   function renderScopeRows() {
     return (
       <div className="grid gap-3">
-        <section className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
+        <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 sm:hidden">
+          <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
+            <p className={eyebrowText}>Refine search</p>
+            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">
+              Mode, status, topics
+            </span>
+          </div>
+          <div className="grid gap-2">
+            <select
+              value={queryMode}
+              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
+              aria-label="Clinical query mode"
+              className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+            >
+              {clinicalQueryModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={filterText(scopeFilters.medications)}
+                onChange={(event) =>
+                  onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
+                }
+                placeholder="Medication"
+                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+              />
+              <input
+                value={filterText(scopeFilters.topics)}
+                onChange={(event) =>
+                  onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
+                }
+                placeholder="Topic"
+                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+              />
+              <select
+                value={scopeFilters.sourceStatuses?.[0] ?? ""}
+                onChange={(event) =>
+                  onScopeFiltersChange({
+                    ...scopeFilters,
+                    sourceStatuses: event.target.value
+                      ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
+                      : [],
+                  })
+                }
+                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+              >
+                <option value="">Any status</option>
+                <option value="current">Current</option>
+                <option value="review_due">Review due</option>
+                <option value="outdated">Outdated</option>
+                <option value="unknown">Unknown</option>
+              </select>
+              <select
+                value={scopeFilters.locality ?? ""}
+                onChange={(event) =>
+                  onScopeFiltersChange({
+                    ...scopeFilters,
+                    locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
+                  })
+                }
+                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+              >
+                <option value="">Any locality</option>
+                <option value="local">Local only</option>
+                <option value="non_local">Non-local only</option>
+              </select>
+            </div>
+            <input
+              value={filterText(scopeFilters.collections)}
+              onChange={(event) =>
+                onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
+              }
+              placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
+              className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+            />
+            <button
+              type="button"
+              onClick={() => onScopeFiltersChange({})}
+              className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+            >
+              Clear refine filters
+            </button>
+          </div>
+        </section>
+        <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Document scope</p>
             <span className="nums shrink-0 text-[11px] font-semibold text-[color:var(--text-soft)]">
@@ -1167,25 +1261,25 @@ function MasterSearchHeader({
             {searchMode === "answer" ? "Synthesize cited clinical guidance" : "List matching source documents"}
           </span>
           <div className="ml-auto hidden min-w-0 items-center gap-2 sm:flex">
-            <select
-              value={queryMode}
-              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
-              aria-label="Clinical query mode"
-              className="h-9 w-44 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-            >
-              {clinicalQueryModeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
             <details className="group relative">
               <summary className="flex h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-md border border-white/15 bg-white/7 px-3 text-xs font-semibold text-slate-100">
                 <SlidersHorizontal className="h-4 w-4 shrink-0" />
-                Filters
+                Refine
                 <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
               </summary>
               <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(42rem,calc(100vw-2rem))] gap-2 rounded-lg border border-white/15 bg-[color:var(--surface-glass)] p-3 shadow-[var(--shadow-elevated)] backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-3">
+                <select
+                  value={queryMode}
+                  onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
+                  aria-label="Clinical query mode"
+                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
+                >
+                  {clinicalQueryModeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <input
                   value={filterText(scopeFilters.medications)}
                   onChange={(event) =>
@@ -1256,7 +1350,7 @@ function MasterSearchHeader({
 
         <form
           onSubmit={submit}
-          className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
+          className="grid grid-cols-[minmax(0,1fr)_52px_52px] gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
         >
           <label className="relative min-w-0">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -1267,7 +1361,7 @@ function MasterSearchHeader({
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
               }}
               aria-label="Search indexed guidelines by question or keyword"
-              placeholder="Ask a question or enter a keyword"
+              placeholder="Ask a question"
               className={commandInput}
             />
             {query && (
@@ -1297,12 +1391,12 @@ function MasterSearchHeader({
             }
             className={cn(
               primaryControl,
-              "min-h-[44px] whitespace-nowrap rounded-[var(--radius-lg)] px-3 text-sm sm:px-5",
+              "min-h-[44px] whitespace-nowrap rounded-[var(--radius-lg)] px-0 text-sm sm:px-5",
             )}
             aria-label={searchMode === "answer" ? "Generate source-backed answer" : "Find matching documents"}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            <span>{submitLabel}</span>
+            <span className="sr-only sm:not-sr-only">{submitLabel}</span>
           </button>
           <details
             ref={scopeDetailsRef}
@@ -1315,12 +1409,12 @@ function MasterSearchHeader({
           >
             <summary
               ref={scopeSummaryRef}
-              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-2 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
+              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
               aria-label="Open document scope"
               aria-expanded={scopeOpen}
             >
               <Filter className="h-4 w-4" />
-              <span>Scope</span>
+              <span className="sr-only sm:not-sr-only">Scope</span>
               {selectedDocumentIds.length ? (
                 <span className="rounded-md bg-teal-200/15 px-1.5 py-0.5 text-[10px] font-bold text-teal-50">
                   {selectedDocumentIds.length}
@@ -1382,7 +1476,15 @@ function CopyButton({
   );
 }
 
-function AnswerEmptyState({ onPickSample }: { onPickSample: (sample: string) => void }) {
+function AnswerEmptyState({
+  onPickSample,
+  recentQueries = [],
+  documentsLoading = false,
+}: {
+  onPickSample: (sample: string) => void;
+  recentQueries?: string[];
+  documentsLoading?: boolean;
+}) {
   return (
     <div className="space-y-3">
       <EmptyState
@@ -1390,6 +1492,39 @@ function AnswerEmptyState({ onPickSample }: { onPickSample: (sample: string) => 
         title="Ask indexed guidelines"
         body="The answer, quotes, source PDFs, and diagrams will appear here."
       />
+      {documentsLoading ? (
+        <LoadingPanel label="Checking indexed library before showing document status" variant="skeleton" lines={2} />
+      ) : null}
+      {recentQueries.length > 0 ? (
+        <section
+          aria-label="Recent questions"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+        >
+          <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              Recent questions
+            </p>
+            <span className={cn("text-[11px] font-semibold", textMuted)}>Resume</span>
+          </div>
+          <div className="grid gap-2">
+            {recentQueries.map((recent) => (
+              <button
+                key={recent}
+                type="button"
+                onClick={() => onPickSample(recent)}
+                title={recent}
+                className={cn(
+                  floatingControl,
+                  "min-h-10 justify-start px-3 text-left text-xs font-semibold sm:text-sm",
+                )}
+              >
+                <Search className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 truncate">{recent}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <section
         aria-label="Example questions"
         className={cn(
@@ -1397,10 +1532,12 @@ function AnswerEmptyState({ onPickSample }: { onPickSample: (sample: string) => 
         )}
       >
         <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Examples</p>
-          <span className={cn("text-[11px] font-semibold", textMuted)}>Quick start</span>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            Starter actions
+          </p>
+          <span className={cn("text-[11px] font-semibold", textMuted)}>Set question</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 sm:grid-cols-2">
           {sampleQueries.map((sample) => (
             <button
               key={sample.query}
@@ -1410,11 +1547,11 @@ function AnswerEmptyState({ onPickSample }: { onPickSample: (sample: string) => 
               aria-label={`Use sample question: ${sample.query}`}
               className={cn(
                 floatingControl,
-                "min-h-9 px-3 text-xs motion-safe:transition-colors motion-safe:duration-150",
+                "min-h-10 justify-start px-3 text-left text-xs motion-safe:transition-colors motion-safe:duration-150",
               )}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {sample.label}
+              <span className="min-w-0 truncate">{sample.label}</span>
             </button>
           ))}
         </div>
@@ -1635,12 +1772,12 @@ function NaturalLanguageAnswer({ text }: { text: string }) {
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative overflow-hidden rounded-xl border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-base leading-[1.7] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 motion-safe:animate-fade-up sm:px-4 sm:py-4"
+      className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-base leading-[1.7] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 motion-safe:animate-fade-up sm:px-4 sm:py-4"
     >
       <div className="mb-2 min-w-0">
-        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Answer</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Bottom line</h3>
         <p className={cn("hidden text-xs leading-5 sm:block", textMuted)}>
-          High-yield clinical response; structured details follow below.
+          High-yield clinical response with supporting evidence below.
         </p>
       </div>
       <p
@@ -2295,6 +2432,97 @@ function AnswerInsightBar({
         );
       })}
     </div>
+  );
+}
+
+function EvidenceVerificationStrip({
+  answer,
+  bestSource,
+  sourceSummary,
+  weakEvidence,
+  governanceWarningCount,
+}: {
+  answer: RagAnswer;
+  bestSource: BestSourceRecommendation | null;
+  sourceSummary?: EvidenceSummary | null;
+  weakEvidence: boolean;
+  governanceWarningCount: number;
+}) {
+  const metadata = normalizeSourceMetadata(
+    bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
+  );
+  const sourceCount = sourceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
+  const citationCount = answer.citations.length;
+  const gapCount = answer.conflictsOrGaps?.length ?? answer.smartPanel?.conflictsOrGaps?.length ?? 0;
+  const checks = [
+    {
+      label: "Bottom line cited",
+      value: citationCount ? `${citationCount} citation${citationCount === 1 ? "" : "s"}` : "No citations",
+      ready: citationCount > 0,
+    },
+    {
+      label: "Sources retrieved",
+      value: `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
+      ready: sourceCount > 0,
+    },
+    {
+      label: "Source status",
+      value: sourceStatusLabel(metadata),
+      ready: metadata.document_status === "current" && !governanceWarningCount,
+    },
+    {
+      label: "Gaps reviewed",
+      value: governanceWarningCount
+        ? `${governanceWarningCount} status note${governanceWarningCount === 1 ? "" : "s"}`
+        : gapCount
+          ? `${gapCount} gap${gapCount === 1 ? "" : "s"}`
+          : "No gaps flagged",
+      ready: !weakEvidence && !gapCount && !governanceWarningCount,
+    },
+  ];
+
+  return (
+    <section
+      data-testid="evidence-verification-strip"
+      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto]"
+      aria-label="Evidence verification progress"
+    >
+      <div className="grid gap-2 sm:grid-cols-4">
+        {checks.map((check) => (
+          <div
+            key={check.label}
+            className="min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2"
+          >
+            <div className="flex items-center gap-1.5">
+              {check.ready ? (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
+              ) : (
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" />
+              )}
+              <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                {check.label}
+              </p>
+            </div>
+            <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text)]">{check.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:max-w-72">
+        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+          Pinned source
+        </span>
+        {bestSource ? (
+          <>
+            <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">
+              {bestSource.title}
+            </span>
+            <SourceStatusBadge metadata={bestSource.source_metadata} showTitle={false} />
+          </>
+        ) : (
+          <span className="text-xs font-semibold text-[color:var(--text-muted)]">No pinned source yet</span>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -4512,6 +4740,69 @@ function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
   );
 }
 
+function LibraryHealthStrip({
+  documents,
+  jobs,
+  batches,
+  checks,
+  loading,
+}: {
+  documents: ClinicalDocument[];
+  jobs: IngestionJob[];
+  batches: ImportBatch[];
+  checks: SetupCheck[];
+  loading: boolean;
+}) {
+  const readyChecks = checks.filter((check) => check.status === "ready").length;
+  const activeJobs = jobs.filter((job) => job.status === "pending" || job.status === "processing").length;
+  const activeBatches = batches.filter((batch) => batch.status === "queued" || batch.status === "processing").length;
+  const failedWork =
+    jobs.filter((job) => job.status === "failed").length + batches.filter((batch) => batch.status === "failed").length;
+  const items = [
+    {
+      label: "Documents",
+      value: loading ? "Loading" : `${documents.length} indexed`,
+      tone: loading ? toneNeutral : documents.length ? toneSuccess : toneWarning,
+    },
+    {
+      label: "Setup",
+      value: `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
+      tone: readyChecks === (checks.length || fallbackSetupChecks.length) ? toneSuccess : toneWarning,
+    },
+    {
+      label: "Indexing",
+      value: activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
+      tone: activeJobs + activeBatches ? toneInfo : toneNeutral,
+    },
+    {
+      label: "Failures",
+      value: failedWork ? `${failedWork} needs review` : "None",
+      tone: failedWork ? toneDanger : toneNeutral,
+    },
+  ];
+
+  return (
+    <section
+      data-testid="library-health-strip"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+      aria-label="Library health"
+    >
+      <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Library health</p>
+        <span className={cn("text-[11px] font-semibold", textMuted)}>Read-only status</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.label} className={cn("rounded-md border px-2.5 py-2", item.tone)}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.06em] opacity-80">{item.label}</p>
+            <p className="mt-1 text-xs font-semibold">{item.value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function UtilityDrawer({
   title,
   icon: Icon,
@@ -5066,6 +5357,7 @@ export function ClinicalDashboard() {
   const urlSearchBootstrappedRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
+  const [dashboardDataLoading, setDashboardDataLoading] = useState(true);
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
@@ -5100,6 +5392,8 @@ export function ClinicalDashboard() {
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
@@ -5119,6 +5413,43 @@ export function ClinicalDashboard() {
   const closeGuide = useCallback(() => setGuideOpen(false), []);
 
   useEffect(() => {
+    let cancelled = false;
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const stored = JSON.parse(window.localStorage.getItem(recentQueryStorageKey) ?? "[]");
+        if (Array.isArray(stored) && !cancelled) {
+          setRecentQueries(
+            stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5),
+          );
+        }
+      } catch {
+        if (!cancelled) setRecentQueries([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const rememberRecentQuery = useCallback((value: string) => {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) return;
+    setRecentQueries((current) => {
+      const next = [trimmedValue, ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase())].slice(
+        0,
+        5,
+      );
+      try {
+        window.localStorage.setItem(recentQueryStorageKey, JSON.stringify(next));
+      } catch {
+        // Recent questions are a convenience only; ignore storage failures.
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
     jobsRef.current = jobs;
   }, [jobs]);
 
@@ -5133,6 +5464,10 @@ export function ClinicalDashboard() {
       }
 
       const promise = (async () => {
+        const trackDashboardLoading = options.includeDashboardData ?? true;
+        await Promise.resolve();
+        if (trackDashboardLoading) setDashboardDataLoading(true);
+
         const includeSetup = options.includeSetup ?? true;
         const includeDashboardData = options.includeDashboardData ?? true;
         const includeDocumentMeta = options.includeDocumentMeta ?? true;
@@ -5280,6 +5615,7 @@ export function ClinicalDashboard() {
       try {
         return await promise;
       } finally {
+        if ((options.includeDashboardData ?? true) === true) setDashboardDataLoading(false);
         if (refreshInFlightRef.current === promise) {
           refreshInFlightRef.current = null;
         }
@@ -5681,6 +6017,7 @@ export function ClinicalDashboard() {
     setSourceGovernanceWarnings([]);
     setAnswerViewMode("high_yield");
     setAnswerProgress(searchMode === "documents" ? "Finding matching documents." : "Searching indexed documents.");
+    rememberRecentQuery(trimmedQuery);
 
     const fallbackQuery = keywordQueryFromNaturalLanguage(trimmedQuery);
     const queryPlan =
@@ -5778,6 +6115,7 @@ export function ClinicalDashboard() {
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
     setAnswerViewMode("high_yield");
+    rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText);
 
@@ -6180,6 +6518,7 @@ export function ClinicalDashboard() {
         onQueryModeChange={setQueryMode}
         onScopeFiltersChange={setScopeFilters}
         onToggleScope={toggleDocumentScope}
+        onScopeOpenChange={setScopeMenuOpen}
         onOpenGuide={openGuide}
         onToggleTheme={toggleTheme}
       />
@@ -6263,42 +6602,13 @@ export function ClinicalDashboard() {
                       queryMode={queryMode}
                       sourceGovernanceWarnings={sourceGovernanceWarnings}
                     />
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
-                      <span className={cn("text-xs font-semibold", textMuted)}>
-                        Save this answer as an eval case for later regression testing.
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={!canUsePrivateApis || Boolean(evalAction)}
-                          onClick={() => saveAnswerEval("good")}
-                          className={cn(floatingControl, "px-3 text-xs")}
-                        >
-                          {evalAction === "good" ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          Good eval
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!canUsePrivateApis || Boolean(evalAction)}
-                          onClick={() => saveAnswerEval("needs_fixing")}
-                          className={cn(floatingControl, "px-3 text-xs")}
-                        >
-                          {evalAction === "needs_fixing" ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4" />
-                          )}
-                          Needs fixing
-                        </button>
-                      </div>
-                      {evalStatus ? (
-                        <p className="basis-full text-xs font-semibold text-[color:var(--text-muted)]">{evalStatus}</p>
-                      ) : null}
-                    </div>
+                    <EvidenceVerificationStrip
+                      answer={answer}
+                      bestSource={bestSource}
+                      sourceSummary={sourceSummary}
+                      weakEvidence={weakEvidence}
+                      governanceWarningCount={groupedGovernanceWarningCount}
+                    />
 
                     <ClinicalOutputPanel
                       answer={answer}
@@ -6318,8 +6628,6 @@ export function ClinicalDashboard() {
                       onShowQuotes={() => navigateMobileSection("#quotes")}
                       onTryBroaderSearch={tryBroaderAnswerSearch}
                     />
-
-                    <DrawerGroupLabel title="Review evidence" />
 
                     <UtilityDrawer
                       icon={Target}
@@ -6344,6 +6652,52 @@ export function ClinicalDashboard() {
                         <AnswerSafetyNotice demoMode={demoMode} weakEvidence={weakEvidence} />
                         <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
                         <WhyThisMatchedPanel sources={sources} />
+                      </div>
+                    </UtilityDrawer>
+
+                    <UtilityDrawer
+                      icon={CheckCircle2}
+                      title="Quality feedback"
+                      summary="Save this answer as an eval case for later regression testing."
+                      mobileSummary="Eval case"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className={cn("text-sm leading-6", textMuted)}>
+                          Record this answer for future regression checks.
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={!canUsePrivateApis || Boolean(evalAction)}
+                            onClick={() => saveAnswerEval("good")}
+                            className={cn(floatingControl, "px-3 text-xs")}
+                          >
+                            {evalAction === "good" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            Good eval
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!canUsePrivateApis || Boolean(evalAction)}
+                            onClick={() => saveAnswerEval("needs_fixing")}
+                            className={cn(floatingControl, "px-3 text-xs")}
+                          >
+                            {evalAction === "needs_fixing" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4" />
+                            )}
+                            Needs fixing
+                          </button>
+                        </div>
+                        {evalStatus ? (
+                          <p className="basis-full text-xs font-semibold text-[color:var(--text-muted)]">
+                            {evalStatus}
+                          </p>
+                        ) : null}
                       </div>
                     </UtilityDrawer>
 
@@ -6377,7 +6731,11 @@ export function ClinicalDashboard() {
                   <SafetyFindingsPanel findings={safetyFindings} />
                 </div>
               ) : (
-                <AnswerEmptyState onPickSample={setQuery} />
+                <AnswerEmptyState
+                  onPickSample={setQuery}
+                  recentQueries={recentQueries}
+                  documentsLoading={dashboardDataLoading}
+                />
               )}
             </div>
           </section>
@@ -6404,7 +6762,7 @@ export function ClinicalDashboard() {
             />
           )}
           <section id="sources" className="grid gap-3 scroll-mt-4 sm:scroll-mt-6">
-            <DrawerGroupLabel title="Review evidence" />
+            <DrawerGroupLabel title="Clinical evidence" />
             <UtilityDrawer
               icon={FileText}
               title="Source passages"
@@ -6416,15 +6774,28 @@ export function ClinicalDashboard() {
               <SourceList sources={sources} query={query} onScopeDocument={scopeOnlyDocument} />
             </UtilityDrawer>
 
-            <DrawerGroupLabel title="Workspace utilities" />
+            <DrawerGroupLabel title="Library and admin" />
             <UtilityDrawer
               icon={BookOpen}
               title="Documents"
               summary={
-                documents.length ? `${documents.length} indexed documents available` : "No indexed documents yet."
+                dashboardDataLoading
+                  ? "Loading indexed document status."
+                  : documents.length
+                    ? `${documents.length} indexed documents available`
+                    : "No indexed documents yet."
               }
-              mobileSummary={documents.length ? `${documents.length} documents` : "No documents"}
+              mobileSummary={
+                dashboardDataLoading ? "Loading library" : documents.length ? `${documents.length} documents` : "No documents"
+              }
             >
+              <LibraryHealthStrip
+                documents={documents}
+                jobs={jobs}
+                batches={batches}
+                checks={setupChecks}
+                loading={dashboardDataLoading}
+              />
               <DocumentDrawer
                 documents={documents}
                 pagination={documentsPagination}
@@ -6450,6 +6821,13 @@ export function ClinicalDashboard() {
               summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
               mobileSummary="Setup & uploads"
             >
+              <LibraryHealthStrip
+                documents={documents}
+                jobs={jobs}
+                batches={batches}
+                checks={setupChecks}
+                loading={dashboardDataLoading}
+              />
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="space-y-3">
                   <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
@@ -6490,7 +6868,7 @@ export function ClinicalDashboard() {
         items={bottomNavItems}
         activeHash={activeHash}
         state={mobileFabState}
-        hidden={guideOpen}
+        hidden={guideOpen || scopeMenuOpen || !answer}
         onNavigate={navigateMobileSection}
       />
       <GuideDialog open={guideOpen} onClose={closeGuide} />

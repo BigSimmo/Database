@@ -1051,7 +1051,8 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         canvas.width = Math.floor(viewport.width * outputScale);
         canvas.height = Math.floor(viewport.height * outputScale);
         canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        canvas.style.height = "auto";
+        canvas.style.maxWidth = "100%";
 
         renderTask = pdfPage.render({
           canvas,
@@ -1274,7 +1275,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           <canvas
             ref={canvasRef}
             aria-label={`${title} page ${page}`}
-            className="mx-auto rounded-lg bg-white shadow-[var(--shadow-tight)] dark:bg-slate-900"
+            className="mx-auto max-w-full rounded-lg bg-white shadow-[var(--shadow-tight)] dark:bg-slate-900"
           />
         )}
       </div>
@@ -1962,14 +1963,6 @@ export function DocumentViewer({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {readyDocument && (
-              <DocumentManagementActions
-                document={readyDocument}
-                disabled={!canUsePrivateApis}
-                onRenamed={handleDocumentRenamed}
-                onDeleted={handleDocumentDeleted}
-              />
-            )}
             <button
               onClick={summarize}
               disabled={!canSummarizeDocument}
@@ -1980,6 +1973,27 @@ export function DocumentViewer({
               {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               <span className="hidden sm:inline">Summarise</span>
             </button>
+            {readyDocument && (
+              <>
+                <div className="hidden items-center gap-1 rounded-lg border border-white/10 bg-white/6 p-1 shadow-[var(--shadow-tight)] sm:flex">
+                  <span className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-300">Admin</span>
+                  <DocumentManagementActions
+                    document={readyDocument}
+                    disabled={!canUsePrivateApis}
+                    className="gap-1"
+                    onRenamed={handleDocumentRenamed}
+                    onDeleted={handleDocumentDeleted}
+                  />
+                </div>
+                <DocumentManagementActions
+                  document={readyDocument}
+                  disabled={!canUsePrivateApis}
+                  className="gap-1 sm:hidden"
+                  onRenamed={handleDocumentRenamed}
+                  onDeleted={handleDocumentDeleted}
+                />
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -2143,8 +2157,8 @@ export function DocumentViewer({
           <section id="source-summary" className={cn(panel, "scroll-mt-24 p-4 source-print")}>
             <PanelHeading
               icon={FileText}
-              title="Source status"
-              description="Verify source provenance before using generated summaries or copied text."
+              title="Evidence status"
+              description="Source provenance, review date, and indexing health."
             />
             <SourceMetadataSummary metadata={document?.metadata} />
             {indexHealth ? (
