@@ -196,6 +196,7 @@ export type SearchResult = {
   parent_heading?: string | null;
   anchor_id?: string | null;
   content: string;
+  retrieval_synopsis?: string | null;
   image_ids: string[];
   similarity: number;
   text_rank?: number;
@@ -284,6 +285,10 @@ export type DocumentIndexQualityScore = {
 export type SearchScoreExplanation = {
   vectorScore: number;
   textRank: number;
+  lexicalCoverageScore: number;
+  metadataMatchScore: number;
+  sectionTitleMatchBoost: number;
+  freshnessRecencyBoost: number;
   weightedHybridScore: number;
   rrfScore: number | null;
   rrfBoost: number;
@@ -524,6 +529,12 @@ export type ClinicalQueryAnalysis = {
   acronyms: string[];
   thresholdTerms: string[];
   documentTitleTerms: string[];
+  queryRewrite: {
+    normalizedQuery: string;
+    searchQuery: string;
+    expansions: string[];
+    reasons: string[];
+  };
   documentTitleIntent: boolean;
   comparisonIntent: boolean;
   freshnessNeed: boolean;
@@ -817,6 +828,7 @@ export type DocumentChunk = {
   parent_heading?: string | null;
   anchor_id?: string | null;
   content: string;
+  retrieval_synopsis?: string;
   token_estimate: number;
   image_ids: string[];
   metadata: Record<string, unknown>;

@@ -530,10 +530,11 @@ function buildRetrievalDiagnostics(args: {
   const secondScore = sortedScores[1] ?? 0;
   const distinctDocuments = new Set(args.results.map((result) => result.document_id)).size;
   const scoreSpread = Number(Math.max(0, topScore - secondScore).toFixed(4));
+  const clinicallySensitiveQuery = /table_threshold|medication_dose_risk/.test(args.queryClass);
   const weakSignal =
     topScore < 0.5 ||
-    (args.results.length > 1 && scoreSpread < 0.05) ||
-    (args.results.length > 0 && distinctDocuments === 1 && /table_threshold|medication_dose_risk/.test(args.queryClass));
+    (args.results.length > 1 && scoreSpread < 0.05 && topScore < 0.72) ||
+    (args.results.length > 0 && distinctDocuments === 1 && clinicallySensitiveQuery && topScore < 0.68);
   const gateStatus: RetrievalConfidenceGateStatus = weakSignal ? "blocked" : "passed";
   return {
     candidateCount: args.results.length,
@@ -886,6 +887,15 @@ async function analyzeQueryWithClassifierFallback(query: string, analysis: Clini
         parsed.queryClass === "broad_summary" ||
         parsed.queryClass === "medication_dose_risk",
       expandedTerms: uniqueTextValues([...analysis.expandedTerms, ...parsed.expandedTerms], 36),
+      queryRewrite: {
+        ...analysis.queryRewrite,
+        expansions: uniqueTextValues([...analysis.queryRewrite.expansions, ...parsed.expandedTerms], 48),
+        searchQuery: uniqueTextValues(
+          [analysis.queryRewrite.searchQuery, ...analysis.queryRewrite.expansions, ...parsed.expandedTerms],
+          60,
+        ).join(" "),
+        reasons: uniqueTextValues([...analysis.queryRewrite.reasons, ...parsed.reasons, "classifier_fallback"], 16),
+      },
       reasons: uniqueTextValues([...analysis.reasons, ...parsed.reasons, "classifier_fallback"], 12),
     } satisfies ClinicalQueryAnalysis;
   } catch {
@@ -1518,6 +1528,8 @@ export function buildRetrievalQueryVariants(
   };
 
   addVariant(buildClinicalTextSearchQuery(query));
+  aliasExpansions.slice(0, 2).forEach(addVariant);
+  addVariant(analysis.queryRewrite.searchQuery);
 
   addVariant(
     retrievalVariantFromTerms([
@@ -1525,6 +1537,7 @@ export function buildRetrievalQueryVariants(
       ...analysis.acronyms,
       ...analysis.typoCorrections.map((correction) => correction.to),
       ...analysis.expandedTerms.slice(0, 8),
+      ...analysis.queryRewrite.expansions.slice(0, 10),
       ...aliasExpansions.slice(0, 6),
     ]),
   );
@@ -1616,6 +1629,7 @@ type DocumentLookupChunkRow = {
   parent_heading?: string | null;
   anchor_id?: string | null;
   content: string;
+  retrieval_synopsis?: string | null;
   image_ids: string[] | null;
 };
 
@@ -1677,7 +1691,7 @@ function documentLookupChunkTerms(query: string) {
 function documentLookupChunkScore(chunk: DocumentLookupChunkRow, terms: string[]) {
   if (terms.length === 0) return 0;
   const heading = chunk.section_heading?.toLowerCase() ?? "";
-  const content = chunk.content.toLowerCase();
+  const content = `${chunk.retrieval_synopsis ?? ""} ${chunk.content}`.toLowerCase();
   const matched = terms.filter((term) => heading.includes(term) || content.includes(term));
   const coverage = matched.length / terms.length;
   const headingHits = matched.filter((term) => heading.includes(term)).length;
@@ -1694,12 +1708,16 @@ async function fetchBestDocumentLookupChunks(args: {
   const safeFilters = terms
     .map((term) => term.replace(/[%_,]/g, " ").trim())
     .filter(Boolean)
-    .flatMap((term) => [`content.ilike.%${term}%`, `section_heading.ilike.%${term}%`])
+    .flatMap((term) => [
+      `content.ilike.%${term}%`,
+      `retrieval_synopsis.ilike.%${term}%`,
+      `section_heading.ilike.%${term}%`,
+    ])
     .join(",");
   const baseQuery = args.supabase
     .from("document_chunks")
     .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,image_ids",
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
     )
     .in("document_id", args.documentIds)
     .limit(Math.max(args.limit * 4, 24));
@@ -1720,7 +1738,7 @@ async function fetchBestDocumentLookupChunks(args: {
   const { data: fallbackChunks, error: fallbackError } = await args.supabase
     .from("document_chunks")
     .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,image_ids",
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
     )
     .in("document_id", args.documentIds)
     .order("chunk_index", { ascending: true })
@@ -1806,6 +1824,7 @@ async function searchDocumentLookupFastPath(args: {
       parent_heading: chunk.parent_heading ?? null,
       anchor_id: chunk.anchor_id ?? null,
       content: chunk.content,
+      retrieval_synopsis: chunk.retrieval_synopsis ?? null,
       image_ids: chunk.image_ids ?? [],
       source_metadata: normalizeSourceMetadata(document.metadata),
       similarity,
@@ -1906,6 +1925,10 @@ function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["s
       memory_boost: entry.score_explanation?.memoryBoost ?? null,
       title_boost: entry.score_explanation?.titleBoost ?? null,
       metadata_boost: entry.score_explanation?.metadataBoost ?? null,
+      lexical_coverage_score: entry.score_explanation?.lexicalCoverageScore ?? null,
+      metadata_match_score: entry.score_explanation?.metadataMatchScore ?? null,
+      section_title_match_boost: entry.score_explanation?.sectionTitleMatchBoost ?? null,
+      freshness_recency_boost: entry.score_explanation?.freshnessRecencyBoost ?? null,
       clinical_signal_boost: entry.score_explanation?.clinicalSignalBoost ?? null,
       penalty: entry.score_explanation?.penalty ?? null,
       final_rank: entry.score_explanation?.finalRank ?? null,
@@ -1930,7 +1953,7 @@ async function loadChunksForMemoryCards(
   const { data: chunks, error: chunksError } = await supabase
     .from("document_chunks")
     .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,image_ids",
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
     )
     .in("id", chunkIds)
     .limit(chunkIds.length);
@@ -1974,6 +1997,7 @@ async function loadChunksForMemoryCards(
         parent_heading: chunk.parent_heading ?? null,
         anchor_id: chunk.anchor_id ?? null,
         content: chunk.content,
+        retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
         source_metadata: normalizeSourceMetadata(document.metadata),
         similarity,
@@ -2001,7 +2025,7 @@ async function loadChunksForSignalMatches(args: {
   const { data: chunks, error: chunksError } = await args.supabase
     .from("document_chunks")
     .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,image_ids",
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
     )
     .in("id", chunkIds)
     .limit(chunkIds.length);
@@ -2036,6 +2060,7 @@ async function loadChunksForSignalMatches(args: {
         parent_heading: chunk.parent_heading ?? null,
         anchor_id: chunk.anchor_id ?? null,
         content: chunk.content,
+        retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
         source_metadata: normalizeSourceMetadata(document.metadata),
         similarity: match.similarity,
@@ -2320,7 +2345,7 @@ async function packAdjacentSourceContext(
   try {
     const { data, error } = await supabase
       .from("document_chunks")
-      .select("id,document_id,page_number,chunk_index,section_heading,content")
+      .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis")
       .in("document_id", documentIds)
       .in("chunk_index", chunkIndexes)
       .order("chunk_index", { ascending: true })
@@ -2328,12 +2353,16 @@ async function packAdjacentSourceContext(
 
     if (error || !data?.length) return results;
 
-    const chunksByDocumentAndIndex = new Map<string, { id: string; section_heading: string | null; content: string }>();
+    const chunksByDocumentAndIndex = new Map<
+      string,
+      { id: string; section_heading: string | null; content: string; retrieval_synopsis?: string | null }
+    >();
     for (const chunk of data) {
       chunksByDocumentAndIndex.set(`${chunk.document_id}:${chunk.chunk_index}`, {
         id: chunk.id,
         section_heading: chunk.section_heading,
         content: chunk.content,
+        retrieval_synopsis: chunk.retrieval_synopsis ?? null,
       });
     }
 
@@ -2342,12 +2371,18 @@ async function packAdjacentSourceContext(
       if (!targetIds.has(result.id)) return result;
       const adjacent = [result.chunk_index - 1, result.chunk_index + 1]
         .map((index) => chunksByDocumentAndIndex.get(`${result.document_id}:${index}`))
-        .filter((chunk): chunk is { id: string; section_heading: string | null; content: string } =>
+        .filter(
+          (chunk): chunk is {
+            id: string;
+            section_heading: string | null;
+            content: string;
+            retrieval_synopsis?: string | null;
+          } =>
           Boolean(chunk && chunk.id !== result.id && chunk.content.trim()),
         )
         .map((chunk) => {
           const heading = chunk.section_heading ? `${chunk.section_heading}: ` : "";
-          return compactContextText(`${heading}${chunk.content}`, 520);
+          return compactContextText(`${heading}${chunk.retrieval_synopsis || chunk.content}`, 520);
         });
 
       if (adjacent.length === 0) return result;
@@ -3386,6 +3421,9 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
             .map((card) => `${card.card_type}: ${compactContextText(card.content, 300)}`)
             .join(" | ")}`
         : "";
+      const retrievalSynopsis = result.retrieval_synopsis
+        ? `\nRetrieval synopsis: ${compactContextText(result.retrieval_synopsis, 700)}`
+        : "";
       return [
         [
           `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
@@ -3393,6 +3431,7 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
           `document_id: ${result.document_id}`,
         ].join("\n"),
         sectionPath,
+        retrievalSynopsis,
         compactContextText(result.content, 1800),
         adjacentContext,
         tableFacts,
@@ -4265,7 +4304,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
 
   const { data: chunks, error } = await supabase
     .from("document_chunks")
-    .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids")
+    .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,image_ids")
     .eq("document_id", documentId)
     .order("chunk_index", { ascending: true })
     .limit(40);

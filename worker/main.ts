@@ -12,6 +12,7 @@ import {
   cheapImageSkipReason,
   classifiedImageSkipReason,
   clinicalImagePolicyVersion,
+  lowSignalImageTextSkipReason,
   lightweightPerceptualHash,
 } from "../src/lib/image-filtering";
 import { isRetryableIngestionError, nextRetryAt, terminalBatchStatus } from "../src/lib/ingestion";
@@ -356,6 +357,20 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
 
     const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
     const tableMetadata = imageTableMetadata(image);
+    const lowSignalSkipReason = lowSignalImageTextSkipReason({
+      sourceKind: image.sourceKind ?? null,
+      tableRole: tableMetadata.tableRole,
+      tableText: tableMetadata.tableText,
+      tableTitle: tableMetadata.tableTitle,
+      tableLabel: tableMetadata.tableLabel,
+      width: image.width ?? null,
+      height: image.height ?? null,
+    });
+    if (lowSignalSkipReason && !["administrative table without clinical facts"].includes(lowSignalSkipReason)) {
+      skippedImages += 1;
+      skipReasons.set(lowSignalSkipReason, (skipReasons.get(lowSignalSkipReason) ?? 0) + 1);
+      continue;
+    }
     let classification: ImageClassification | null =
       image.sourceKind === "table_crop"
         ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
@@ -618,6 +633,17 @@ function buildIndexQualityPayload(args: {
   };
 }
 
+function buildChunkQualityHint(chunks: ReturnType<typeof buildChunks>) {
+  const chunkCount = chunks.length;
+  const fingerprints = chunks.map((chunk) => hashText(chunk.content));
+  const duplicateChunkRatio = chunkCount ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1) : 0;
+  const headingDensity = chunkCount ? chunks.filter((chunk) => chunk.section_heading).length / chunkCount : 0;
+  return {
+    duplicateChunkRatio: Number(duplicateChunkRatio.toFixed(3)),
+    headingDensity: Number(headingDensity.toFixed(3)),
+  };
+}
+
 async function insertDocumentLevelEmbeddingFields(args: {
   job: JobRow;
   chunkRows: IndexedChunkRow[];
@@ -725,6 +751,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     chunkRows: indexedChunkRows,
     insertedImages,
     tableFacts,
+    qualityHint: buildChunkQualityHint(chunks),
   });
   if (additionalFieldInputs.length > 0) {
     const additionalEmbeddings = await embedTexts(additionalFieldInputs.map((field) => field.content));
@@ -842,39 +869,18 @@ async function processJob(job: JobRow) {
     } = await insertEmbeddedChunks(job, extracted);
     const metrics = extractionMetrics(extracted, skippedImages, imageSkipReasons, imageTypeCounts);
 
-    await updateJob(job.id, { stage: "summarising and labelling", progress: 95 });
-    const enrichmentRows = await loadEnrichmentRows(job.document_id);
-    const enrichment = await upsertDocumentEnrichment({
-      supabase,
-      document: job.documents,
-      chunks: enrichmentRows.chunks,
-      images: enrichmentRows.images,
-    });
-    await insertDocumentLevelEmbeddingFields({
-      job,
-      chunkRows: indexedChunkRows,
-      summary: enrichment.summary.summary,
-    });
-    await updateJob(job.id, { stage: "building structured memory", progress: 98 });
-    const deepMemory = await upsertDocumentDeepMemory({
-      supabase,
-      document: job.documents,
-      chunks: enrichmentRows.chunks,
-      images: enrichmentRows.images,
-      summary: enrichment.summary.summary,
-    });
-    const quality = buildIndexQualityPayload({
+    const initialQuality = buildIndexQualityPayload({
       job,
       metrics,
       chunks,
       insertedImages,
-      sectionCount: deepMemory.sections.length,
-      memoryCardCount: deepMemory.memoryCards.length,
+      sectionCount: 0,
+      memoryCardCount: 0,
     });
-    const { error: qualityError } = await supabase.from("document_index_quality").upsert(quality, {
+    const { error: initialQualityError } = await supabase.from("document_index_quality").upsert(initialQuality, {
       onConflict: "document_id",
     });
-    if (qualityError) throw new Error(qualityError.message);
+    if (initialQualityError) throw new Error(initialQualityError.message);
 
     const indexedAt = new Date().toISOString();
     await updateDocument(job.document_id, {
@@ -890,21 +896,96 @@ async function processJob(job: JobRow) {
         rag_enrichment_version: ragEnrichmentVersion,
         rag_indexing_version: ragDeepMemoryVersion,
         rag_memory_version: ragDeepMemoryVersion,
-        rag_memory_updated_at: indexedAt,
-        rag_enrichment_updated_at: indexedAt,
-        section_count: deepMemory.sections.length,
-        memory_card_count: deepMemory.memoryCards.length,
-        extraction_quality: quality.extraction_quality,
-        index_quality_score: quality.quality_score,
-        index_quality_issues: quality.issues,
-        index_quality_metrics: quality.metrics,
+        rag_memory_updated_at: null,
+        rag_enrichment_updated_at: null,
+        enrichment_status: "pending",
+        section_count: 0,
+        memory_card_count: 0,
+        extraction_quality: initialQuality.extraction_quality,
+        index_quality_score: initialQuality.quality_score,
+        index_quality_issues: initialQuality.issues,
+        index_quality_metrics: initialQuality.metrics,
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,
       },
     });
+
+    let enrichmentStatus = "completed";
+    let enrichmentErrorMessage: string | null = null;
+    let finalQuality = initialQuality;
+    let sectionCount = 0;
+    let memoryCardCount = 0;
+    let enrichmentUpdatedAt: string | null = null;
+
+    await updateJob(job.id, { stage: "enriching indexed document", progress: 96 });
+    try {
+      const enrichmentRows = await loadEnrichmentRows(job.document_id);
+      const enrichment = await upsertDocumentEnrichment({
+        supabase,
+        document: job.documents,
+        chunks: enrichmentRows.chunks,
+        images: enrichmentRows.images,
+      });
+      await insertDocumentLevelEmbeddingFields({
+        job,
+        chunkRows: indexedChunkRows,
+        summary: enrichment.summary.summary,
+      });
+      await updateJob(job.id, { stage: "building structured memory", progress: 98 });
+      const deepMemory = await upsertDocumentDeepMemory({
+        supabase,
+        document: job.documents,
+        chunks: enrichmentRows.chunks,
+        images: enrichmentRows.images,
+        summary: enrichment.summary.summary,
+      });
+      sectionCount = deepMemory.sections.length;
+      memoryCardCount = deepMemory.memoryCards.length;
+      finalQuality = buildIndexQualityPayload({
+        job,
+        metrics,
+        chunks,
+        insertedImages,
+        sectionCount,
+        memoryCardCount,
+      });
+      const { error: qualityError } = await supabase.from("document_index_quality").upsert(finalQuality, {
+        onConflict: "document_id",
+      });
+      if (qualityError) throw new Error(qualityError.message);
+      enrichmentUpdatedAt = new Date().toISOString();
+    } catch (enrichmentError) {
+      enrichmentStatus = "failed";
+      enrichmentErrorMessage = enrichmentError instanceof Error ? enrichmentError.message : String(enrichmentError);
+      console.warn("Optional document enrichment failed", safeErrorLogDetails(enrichmentError));
+    }
+
+    await updateDocument(job.document_id, {
+      metadata: {
+        ...(job.documents.metadata ?? {}),
+        indexed_at: indexedAt,
+        index_generation_id: indexGenerationId,
+        rag_enrichment_version: ragEnrichmentVersion,
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+        rag_memory_updated_at: enrichmentUpdatedAt,
+        rag_enrichment_updated_at: enrichmentUpdatedAt,
+        enrichment_status: enrichmentStatus,
+        enrichment_error: enrichmentErrorMessage,
+        section_count: sectionCount,
+        memory_card_count: memoryCardCount,
+        extraction_quality: finalQuality.extraction_quality,
+        index_quality_score: finalQuality.quality_score,
+        index_quality_issues: finalQuality.issues,
+        index_quality_metrics: finalQuality.metrics,
+        embedding_model: env.OPENAI_EMBEDDING_MODEL,
+        ...metrics,
+      },
+    });
+
     await updateJob(job.id, {
       status: "completed",
-      stage: "indexed",
+      stage: enrichmentStatus === "completed" ? "indexed" : "indexed; enrichment deferred",
       progress: 100,
       locked_at: null,
       locked_by: null,

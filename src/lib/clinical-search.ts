@@ -118,11 +118,22 @@ const textSearchStopWords = new Set([
 ]);
 
 const synonymGroups = [
-  ["monitor", "monitoring", "baseline", "review", "follow-up", "blood test", "level"],
+  ["monitor", "monitoring", "monitoring plan", "monitoring schedule", "baseline", "review", "follow-up", "blood test", "level"],
   ["contraindication", "avoid", "do not use", "caution", "exclusion"],
   ["escalation", "urgent", "senior review", "specialist review", "red flag"],
   ["adverse effect", "side effect", "toxicity", "safety-net", "warning"],
-  ["dose", "dosing", "dose limit", "maximum dose", "frequency", "route", "oral", "intramuscular", "IM", "PRN"],
+  ["dose", "dosage", "dosing", "dose limit", "maximum dose", "frequency", "route", "oral", "intramuscular", "IM", "PRN"],
+  ["threshold", "cutoff", "cut off", "level", "range", "criteria", "withhold", "cease", "stop"],
+  ["documentation", "document", "record", "form", "checklist", "required", "requirement"],
+];
+
+const deterministicRewriteRules: Array<{ from: string[]; to: string[] }> = [
+  { from: ["dose", "dosage", "dosing"], to: ["dose", "dosage", "dosing"] },
+  { from: ["monitor", "monitoring"], to: ["monitor", "monitoring", "monitoring plan"] },
+  { from: ["monitoring"], to: ["monitor", "monitoring", "monitor plan"] },
+  { from: ["lab", "laboratory"], to: ["laboratory test", "lab result", "blood test"] },
+  { from: ["threshold", "cutoff", "cut off"], to: ["threshold", "cutoff", "criteria", "level"] },
+  { from: ["risk", "urgent"], to: ["risk", "red flag", "escalation", "urgent"] },
 ];
 
 const typoCorrections = new Map<string, string>([
@@ -327,6 +338,60 @@ function thresholdTermsFor(normalizedQuery: string) {
     ),
     12,
   );
+}
+
+function buildStableQueryRewrite(args: {
+  originalQuery: string;
+  normalizedQuery: string;
+  correctedQuery: string;
+  aliasTerms: string[];
+  titleTerms: string[];
+  medications: string[];
+  acronyms: string[];
+  thresholdTerms: string[];
+  vocabularyTerms: string[];
+}) {
+  const expansions = new Set<string>();
+  const reasons = new Set<string>();
+  const lookup = `${args.normalizedQuery} ${args.correctedQuery}`;
+
+  for (const rule of deterministicRewriteRules) {
+    if (rule.from.some((term) => termMatchesQuery(lookup, term))) {
+      rule.to.forEach((term) => expansions.add(term));
+      reasons.add("deterministic_synonym_rule");
+    }
+  }
+
+  for (const group of synonymGroups) {
+    if (group.some((term) => termMatchesQuery(lookup, term))) {
+      group.forEach((term) => expansions.add(term));
+      reasons.add("clinical_synonym_group");
+    }
+  }
+
+  [
+    ...args.aliasTerms,
+    ...args.titleTerms,
+    ...args.medications,
+    ...args.acronyms,
+    ...args.thresholdTerms,
+    ...args.vocabularyTerms.slice(0, 14),
+  ].forEach((term) => expansions.add(term));
+
+  if (args.aliasTerms.length) reasons.add("domain_alias_terms");
+  if (args.titleTerms.length) reasons.add("document_title_alias_terms");
+  if (args.medications.length) reasons.add("medication_alias_terms");
+  if (args.thresholdTerms.length) reasons.add("threshold_terms");
+  if (args.vocabularyTerms.length) reasons.add("clinical_vocabulary_terms");
+
+  const normalizedExpansions = unique(Array.from(expansions), 48);
+  const searchQuery = unique([buildClinicalTextSearchQuery(args.originalQuery), ...normalizedExpansions], 54).join(" ");
+  return {
+    normalizedQuery: args.normalizedQuery,
+    searchQuery,
+    expansions: normalizedExpansions,
+    reasons: Array.from(reasons),
+  };
 }
 
 function documentTitleTermsFor(normalizedQuery: string) {
@@ -561,6 +626,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   const medications = medicationTerms(`${normalizedQuery} ${correctedQuery}`);
   const acronyms = acronymTerms(originalQuery, normalizedQuery);
   const thresholdTerms = thresholdTermsFor(`${normalizedQuery} ${correctedQuery}`);
+  const vocabularyTerms = expandClinicalVocabularyText(originalQuery, 32);
   const comparisonIntent = comparisonPattern.test(normalizedQuery);
   const explicitDocumentLookupIntent = explicitDocumentLookupPattern.test(normalizedQuery);
   const documentTitleIntent =
@@ -576,7 +642,6 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   });
   const intent = intentFromSignals(queryClass, normalizedQuery);
   const canonicalTerms = unique([...corrected, ...medications, ...acronyms], 32);
-  const vocabularyTerms = expandClinicalVocabularyText(originalQuery, 32);
   const expandedTerms = unique(
     [
       ...canonicalTerms,
@@ -606,6 +671,17 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     documentTitleTerms: titleTerms,
     typoCorrectionCount: corrections.length,
   });
+  const queryRewrite = buildStableQueryRewrite({
+    originalQuery,
+    normalizedQuery,
+    correctedQuery,
+    aliasTerms,
+    titleTerms,
+    medications,
+    acronyms,
+    thresholdTerms,
+    vocabularyTerms,
+  });
 
   return {
     originalQuery,
@@ -621,6 +697,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     acronyms,
     thresholdTerms,
     documentTitleTerms: titleTerms,
+    queryRewrite,
     documentTitleIntent,
     comparisonIntent,
     freshnessNeed,
@@ -758,6 +835,7 @@ export function expandClinicalQuery(query: string) {
   }
 
   analysis.expandedTerms.forEach((term) => additions.add(term));
+  analysis.queryRewrite.expansions.forEach((term) => additions.add(term));
   expandClinicalVocabularyText(query).forEach((term) => additions.add(term));
 
   if (additions.size === 0) return query;
@@ -781,7 +859,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     .join(" ");
   const sectionPathText = result.section_path?.join(" ") ?? "";
   const haystack =
-    `${result.title} ${result.file_name} ${result.section_heading ?? ""} ${sectionPathText} ${result.content} ${tableFactText}`.toLowerCase();
+    `${result.title} ${result.file_name} ${result.section_heading ?? ""} ${sectionPathText} ${result.retrieval_synopsis ?? ""} ${result.content} ${tableFactText}`.toLowerCase();
   const base = result.hybrid_score ?? result.similarity;
   const title = `${result.title} ${result.file_name}`.toLowerCase();
   const titleTokenText = tokens(`${result.title} ${result.file_name}`).join(" ");
@@ -929,6 +1007,10 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const rrfBoost = shouldBlendRrf ? Math.min(0.11, rrfScore * 0.32) : 0;
 
   const titleBoost = exactTitleBoost + titleCoverageBoost + titlePhraseBoost;
+  const lexicalCoverageScore = roundScore(directAnswerCoverage);
+  const metadataMatchScore = roundScore(metadataBoost);
+  const sectionTitleMatchBoost = roundScore(titleBoost + sectionBoost + sectionDepth);
+  const freshnessRecencyBoost = roundScore(statusBoost + freshnessBoost + reviewBoost);
   const metadataSignals =
     statusBoost +
     validationBoost +
@@ -961,6 +1043,10 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   return {
     vectorScore: roundScore(clamp(result.similarity)),
     textRank: roundScore(result.text_rank ?? 0),
+    lexicalCoverageScore,
+    metadataMatchScore,
+    sectionTitleMatchBoost,
+    freshnessRecencyBoost,
     weightedHybridScore: roundScore(clamp(base)),
     rrfScore: typeof result.rrf_score === "number" ? roundScore(result.rrf_score) : null,
     rrfBoost: roundScore(rrfBoost),

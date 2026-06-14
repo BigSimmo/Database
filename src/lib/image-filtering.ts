@@ -94,6 +94,11 @@ const referencePatterns = [
   /\bdocuments support\b/i,
 ];
 
+const noisyTablePatterns = [
+  /\b(?:page|version|review date|document owner|authori[sz]ed by|effective from|amendment|copyright)\b/i,
+  /^[\W\d\s|:;.,/-]+$/,
+];
+
 function combinedText(input: ImageUseAssessmentInput) {
   return [input.tableRole, input.tableLabel, input.tableTitle, input.tableText, input.caption, ...(input.labels ?? [])]
     .filter(Boolean)
@@ -109,6 +114,51 @@ function countPatternHits(text: string, patterns: RegExp[]) {
 function clampedScore(value: unknown, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.min(Math.max(number, 0), 1) : fallback;
+}
+
+function normalizedTableTokens(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+export function lowSignalImageTextSkipReason(input: {
+  sourceKind?: string | null;
+  tableText?: string | null;
+  tableTitle?: string | null;
+  tableLabel?: string | null;
+  tableRole?: string | null;
+  width?: number | null;
+  height?: number | null;
+}) {
+  const text = [input.tableTitle, input.tableLabel, input.tableText].filter(Boolean).join(" ");
+  const tokens = normalizedTableTokens(text);
+  const uniqueRatio = tokens.length ? new Set(tokens).size / tokens.length : 0;
+  const clinicalHits = countPatternHits(text, clinicalEvidencePatterns);
+  const adminHits = countPatternHits(text, adminPatterns) + countPatternHits(text, referencePatterns);
+  const shortestSide = input.width && input.height ? Math.min(input.width, input.height) : null;
+  const sourceKind = input.sourceKind ?? "";
+  const tableRole = String(input.tableRole ?? "").toLowerCase();
+
+  if (sourceKind === "table_crop" && tableRole === "admin" && clinicalHits < 2) {
+    return "administrative table without clinical facts";
+  }
+  if (sourceKind === "table_crop" && tokens.length < 8 && clinicalHits === 0) {
+    return "low text table crop";
+  }
+  if (sourceKind === "table_crop" && tokens.length >= 12 && uniqueRatio < 0.34 && clinicalHits < 2) {
+    return "repetitive noisy table OCR";
+  }
+  if (sourceKind === "table_crop" && noisyTablePatterns.some((pattern) => pattern.test(text)) && adminHits > clinicalHits) {
+    return "document-control table OCR";
+  }
+  if (sourceKind !== "table_crop" && shortestSide !== null && shortestSide < 96 && clinicalHits === 0) {
+    return "small low-signal visual";
+  }
+  return null;
 }
 
 function reasonForClass(useClass: ClinicalImageUseClass, clinicalScore: number, adminScore: number) {
@@ -130,9 +180,20 @@ export function assessClinicalImageUse(input: ImageUseAssessmentInput): ImageUse
   const referenceScore = countPatternHits(text, referencePatterns);
   const modelScore = clampedScore(input.clinicalRelevanceScore, 0.4);
   const modelSearchable = input.searchable !== false;
+  const lowSignalSkip = lowSignalImageTextSkipReason({
+    sourceKind,
+    tableRole,
+    tableText: input.tableText,
+    tableTitle: input.tableTitle,
+    tableLabel: input.tableLabel,
+  });
 
   let useClass: ClinicalImageUseClass = "ambiguous";
-  if (
+  if (lowSignalSkip && adminScore + referenceScore > clinicalScore) {
+    useClass = "administrative";
+  } else if (lowSignalSkip && clinicalScore < 2) {
+    useClass = "decorative_or_empty";
+  } else if (
     imageType === "logo_decorative" ||
     /logo|decorative|duplicate|tiny|header|footer|empty|small/i.test(input.skipReason ?? "")
   ) {
@@ -154,7 +215,7 @@ export function assessClinicalImageUse(input: ImageUseAssessmentInput): ImageUse
   const searchable = useClass === "clinical_evidence";
   return {
     clinical_use_class: useClass,
-    clinical_use_reason: reasonForClass(useClass, clinicalScore, adminScore + referenceScore),
+    clinical_use_reason: lowSignalSkip ?? reasonForClass(useClass, clinicalScore, adminScore + referenceScore),
     clinical_signal_score: clinicalScore,
     admin_signal_score: adminScore + referenceScore,
     searchable,

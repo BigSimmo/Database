@@ -161,7 +161,7 @@ function buildMatchExplanation(query: string, result: SearchResult) {
   const titleText = `${result.title} ${result.file_name}`.toLowerCase();
   const sectionText = `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`.toLowerCase();
   const labelText = (result.document_labels ?? []).map((label) => label.label.toLowerCase()).join(" ");
-  const contentText = result.content.toLowerCase();
+  const contentText = `${result.retrieval_synopsis ?? ""} ${result.content}`.toLowerCase();
   const tableHit = Boolean(
     result.table_facts?.length ||
     result.images?.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop"),
@@ -215,6 +215,7 @@ function compactSearchResult(query: string, result: SearchResult) {
     parent_heading: result.parent_heading ?? null,
     anchor_id: result.anchor_id ?? null,
     content: compactText(result.content),
+    retrieval_synopsis: result.retrieval_synopsis ? compactText(result.retrieval_synopsis, 520) : null,
     image_ids: result.image_ids?.slice(0, 8) ?? [],
     similarity: result.similarity,
     text_rank: result.text_rank,

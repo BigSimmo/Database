@@ -23,6 +23,7 @@
     "worker": "tsx worker/index.ts",
     "worker:once": "tsx worker/index.ts --once",
     "import:docs": "tsx scripts/import-documents.ts",
+    "import:docs:20": "tsx scripts/import-documents.ts --queue-batch-size 20",
     "enrich:documents": "tsx scripts/enrich-documents.ts",
     "tags:backfill": "tsx scripts/backfill-document-tags.ts",
     "index:backfill": "tsx scripts/backfill-smart-index.ts",

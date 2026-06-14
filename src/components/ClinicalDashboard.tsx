@@ -966,9 +966,7 @@ function MasterSearchHeader({
         <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 sm:hidden">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Refine search</p>
-            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">
-              Mode, status, topics
-            </span>
+            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">Mode, status, topics</span>
           </div>
           <div className="grid gap-2">
             <select
@@ -2525,9 +2523,7 @@ function EvidenceVerificationStrip({
         </span>
         {bestSource ? (
           <>
-            <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">
-              {bestSource.title}
-            </span>
+            <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">{bestSource.title}</span>
             <SourceStatusBadge metadata={bestSource.source_metadata} showTitle={false} />
           </>
         ) : (
@@ -2669,7 +2665,7 @@ function AnswerSafetyNotice({
           ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45"
           : "border-[color:var(--border)] bg-[color:var(--surface)]",
       )}
-      >
+    >
       <p className="font-semibold text-[color:var(--text)]">
         {weakEvidence
           ? "Weak source support; verify the linked source before relying on this answer."
@@ -2677,8 +2673,8 @@ function AnswerSafetyNotice({
       </p>
       {retrievalGateBlocked ? (
         <p className="mt-1 font-semibold text-[color:var(--warning)]">
-          Retrieval confidence gate was triggered (low-confidence retrieval signal). Expand evidence details before using this
-          result.
+          Retrieval confidence gate was triggered (low-confidence retrieval signal). Expand evidence details before
+          using this result.
         </p>
       ) : null}
       {demoMode ? (
@@ -4155,6 +4151,7 @@ function DocumentDrawer({
   pagination,
   loadingMoreDocuments,
   selectedDocumentIds,
+  statusFilter,
   onToggleScope,
   onLoadMoreDocuments,
   onDocumentRenamed,
@@ -4171,6 +4168,7 @@ function DocumentDrawer({
   pagination: DocumentPagination | null;
   loadingMoreDocuments: boolean;
   selectedDocumentIds: string[];
+  statusFilter: DocumentDrawerStatusFilter;
   onToggleScope: (documentId: string) => void;
   onLoadMoreDocuments: () => void;
   onDocumentRenamed: (document: ClinicalDocument) => void;
@@ -4196,14 +4194,24 @@ function DocumentDrawer({
     category: "",
   });
   const filtered = documents.filter((document) => {
+    if (!documentStatusMatchesFilter(document, statusFilter)) return false;
     const labelText = tagSearchText(document);
     const summaryText = document.summary?.summary ?? "";
     const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
     return haystack.includes(filter.toLowerCase());
   });
+  const visibleStatusLabel = statusFilterLabel(statusFilter);
 
   return (
     <div className="space-y-3">
+      <div className={cn(panelSubtle, "flex flex-wrap items-center justify-between gap-2 p-3")}>
+        <div>
+          <p className="text-sm font-semibold text-[color:var(--text)]">{visibleStatusLabel}</p>
+          <p className={cn("text-xs", textMuted)}>
+            {filtered.length} matching document{filtered.length === 1 ? "" : "s"}
+          </p>
+        </div>
+      </div>
       <label className="relative block">
         <Search className={fieldIcon} />
         <input
@@ -4467,6 +4475,7 @@ function UploadPanel({
   const [status, setStatus] = useState<string>("");
   const [statusTone, setStatusTone] = useState<"neutral" | "success" | "warning" | "error">("neutral");
   const [uploading, setUploading] = useState(false);
+  const [selectedFileCount, setSelectedFileCount] = useState(0);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -4483,30 +4492,80 @@ function UploadPanel({
       return;
     }
 
-    const file = fileRef.current?.files?.[0];
-    if (!file) {
+    const files = Array.from(fileRef.current?.files ?? []);
+    if (files.length === 0) {
       setStatusTone("warning");
-      setStatus("Choose a PDF, DOCX, XLSX, or TXT file first.");
+      setStatus("Choose one or more PDF, DOCX, XLSX, or TXT files first.");
       return;
     }
 
     setUploading(true);
     setStatusTone("neutral");
-    setStatus("Uploading private document to Supabase Storage...");
     const form = event.currentTarget;
-    const formData = new FormData(form);
+    const titleField = form.elements.namedItem("title");
+    const requestedTitle = titleField instanceof HTMLInputElement ? titleField.value.trim() : "";
+    let queued = 0;
+    let duplicates = 0;
+    let failed = 0;
+    const failures: string[] = [];
+    const duplicateMessages: string[] = [];
 
     try {
-      const response = await fetch("/api/upload", { method: "POST", headers: authorizationHeader, body: formData });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Upload failed");
-      setStatusTone(payload.duplicate ? "warning" : "success");
-      setStatus(payload.message ?? "Queued for local worker ingestion.");
-      form.reset();
-      onUploaded();
-    } catch (error) {
-      setStatusTone("error");
-      setStatus(error instanceof Error ? error.message : "Upload failed");
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        setStatus(
+          files.length === 1
+            ? "Uploading private document to Supabase Storage..."
+            : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
+        );
+
+        const formData = new FormData();
+        formData.set("file", file);
+        if (files.length === 1 && requestedTitle) formData.set("title", requestedTitle);
+
+        try {
+          const response = await fetch("/api/upload", { method: "POST", headers: authorizationHeader, body: formData });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "Upload failed");
+          if (payload.duplicate) {
+            duplicates += 1;
+            if (typeof payload.message === "string") duplicateMessages.push(payload.message);
+          } else {
+            queued += 1;
+          }
+        } catch (error) {
+          failed += 1;
+          failures.push(`${file.name}: ${error instanceof Error ? error.message : "Upload failed"}`);
+        }
+      }
+
+      if (queued > 0) {
+        onUploaded();
+      }
+
+      const resultParts = [
+        queued ? `${queued} queued` : null,
+        duplicates ? `${duplicates} exact ${duplicates === 1 ? "copy" : "copies"} skipped` : null,
+        failed ? `${failed} failed` : null,
+      ].filter(Boolean);
+
+      if (failed > 0) {
+        setStatusTone(queued > 0 || duplicates > 0 ? "warning" : "error");
+        setStatus(`${resultParts.join(", ")}. ${failures[0]}`);
+      } else {
+        setStatusTone(duplicates > 0 && queued === 0 ? "warning" : "success");
+        let successStatus = resultParts.join(", ");
+        if (queued > 0) {
+          successStatus += ". Keep npm run worker open for indexing.";
+        } else if (duplicateMessages[0]) {
+          successStatus += `. ${duplicateMessages[0]}`;
+        } else if (successStatus) {
+          successStatus += ".";
+        }
+        setStatus(successStatus);
+        form.reset();
+        setSelectedFileCount(0);
+      }
     } finally {
       setUploading(false);
     }
@@ -4518,8 +4577,10 @@ function UploadPanel({
         <span className={fieldLabel}>Document title optional</span>
         <input
           name="title"
-          placeholder="Use the file name if left blank"
-          disabled={demoMode || !canUpload}
+          placeholder={
+            selectedFileCount > 1 ? "Only used when one file is selected" : "Use the file name if left blank"
+          }
+          disabled={demoMode || !canUpload || uploading || selectedFileCount > 1}
           className={cn(
             fieldControlPlain,
             "disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)]",
@@ -4527,19 +4588,21 @@ function UploadPanel({
         />
       </label>
       <label className="block">
-        <span className={fieldLabel}>Guideline file required</span>
+        <span className={fieldLabel}>Guideline files required</span>
         <input
           ref={fileRef}
           name="file"
           type="file"
+          multiple
           accept=".pdf,.docx,.xlsx,.txt,application/pdf,text/plain"
-          disabled={demoMode || !canUpload}
+          disabled={demoMode || !canUpload || uploading}
+          onChange={() => setSelectedFileCount(fileRef.current?.files?.length ?? 0)}
           className="block min-h-[44px] w-full cursor-pointer rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-3 py-2 text-sm text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[color:var(--app-shell)] file:px-3 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:file:bg-slate-100 dark:file:text-slate-950"
         />
       </label>
       <button type="submit" disabled={uploading || (!demoMode && !canUpload)} className={cn(floatingControl, "w-full")}>
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-        Queue document
+        {selectedFileCount > 1 ? `Queue ${selectedFileCount} documents` : "Queue document"}
       </button>
       {(status || demoMode) && (
         <p
@@ -4573,6 +4636,7 @@ function formatBytes(bytes: number) {
 function IndexingMonitor({
   jobs,
   batches,
+  filter,
   actionId,
   onRetry,
   onReindex,
@@ -4580,20 +4644,50 @@ function IndexingMonitor({
 }: {
   jobs: IngestionJob[];
   batches: ImportBatch[];
+  filter: IndexingMonitorFilter;
   actionId: string | null;
   onRetry: (jobId: string) => void;
   onReindex: (documentId: string) => void;
   onEnrich: (documentId: string) => void;
 }) {
-  if (jobs.length === 0 && batches.length === 0) {
+  const visibleJobs = jobs.filter((job) => indexingWorkMatchesFilter(job, filter));
+  const visibleBatches = batches.filter((batch) => indexingWorkMatchesFilter(batch, filter));
+  const filterTitle =
+    filter === "active" ? "Active indexing work" : filter === "failed" ? "Failed indexing work" : "All indexing work";
+
+  if (visibleJobs.length === 0 && visibleBatches.length === 0) {
     return (
-      <EmptyState icon={UploadCloud} title="No ingestion jobs" body="Queued uploads and worker progress appear here." />
+      <EmptyState
+        icon={UploadCloud}
+        title={
+          filter === "failed"
+            ? "No failed indexing work"
+            : filter === "active"
+              ? "No active indexing work"
+              : "No ingestion jobs"
+        }
+        body={
+          filter === "failed"
+            ? "Failed jobs and batches appear here when indexing needs review."
+            : filter === "active"
+              ? "Queued and processing jobs appear here while indexing is running."
+              : "Queued uploads and worker progress appear here."
+        }
+      />
     );
   }
 
   return (
     <div className="space-y-3">
-      {batches.slice(0, 3).map((batch) => (
+      <div className={cn(panelSubtle, "p-3")}>
+        <p className="text-sm font-semibold text-[color:var(--text)]">{filterTitle}</p>
+        <p className={cn("mt-1 text-xs", textMuted)}>
+          {visibleJobs.length} job{visibleJobs.length === 1 ? "" : "s"} · {visibleBatches.length} batch
+          {visibleBatches.length === 1 ? "" : "es"}
+        </p>
+      </div>
+
+      {visibleBatches.slice(0, 3).map((batch) => (
         <div key={batch.id} className={cn(panelSubtle, "p-3")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -4613,7 +4707,7 @@ function IndexingMonitor({
         cause.
       </p>
 
-      {jobs.slice(0, 10).map((job) => {
+      {visibleJobs.slice(0, 10).map((job) => {
         const documentTitle = job.documents?.title ?? job.documents?.file_name ?? "Document";
         const busy = actionId === job.id || actionId === job.document_id;
         return (
@@ -4767,44 +4861,79 @@ function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
   );
 }
 
+type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
+type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
+type IndexingMonitorFilter = "all" | "active" | "failed";
+
+function documentStatusMatchesFilter(document: ClinicalDocument, filter: DocumentDrawerStatusFilter) {
+  if (filter === "all") return true;
+  if (filter === "indexed") return document.status === "indexed";
+  if (filter === "indexing") return document.status === "queued" || document.status === "processing";
+  return document.status === "failed";
+}
+
+function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
+  if (filter === "indexed") return "Indexed documents";
+  if (filter === "indexing") return "Indexing documents";
+  if (filter === "failed") return "Failed documents";
+  return "All documents";
+}
+
+function indexingWorkMatchesFilter(item: Pick<IngestionJob | ImportBatch, "status">, filter: IndexingMonitorFilter) {
+  if (filter === "all") return true;
+  if (filter === "active") return item.status === "pending" || item.status === "processing" || item.status === "queued";
+  return item.status === "failed";
+}
+
 function LibraryHealthStrip({
   documents,
   jobs,
   batches,
   checks,
   loading,
+  onSelectTarget,
 }: {
   documents: ClinicalDocument[];
   jobs: IngestionJob[];
   batches: ImportBatch[];
   checks: SetupCheck[];
   loading: boolean;
+  onSelectTarget?: (target: LibraryHealthTarget) => void;
 }) {
   const readyChecks = checks.filter((check) => check.status === "ready").length;
+  const indexedDocuments = documents.filter((document) => document.status === "indexed").length;
   const activeJobs = jobs.filter((job) => job.status === "pending" || job.status === "processing").length;
   const activeBatches = batches.filter((batch) => batch.status === "queued" || batch.status === "processing").length;
   const failedWork =
     jobs.filter((job) => job.status === "failed").length + batches.filter((batch) => batch.status === "failed").length;
   const items = [
     {
+      target: "documents" as const,
       label: "Documents",
-      value: loading ? "Loading" : `${documents.length} indexed`,
-      tone: loading ? toneNeutral : documents.length ? toneSuccess : toneWarning,
+      value: loading ? "Loading" : `${indexedDocuments} indexed`,
+      tone: loading ? toneNeutral : indexedDocuments ? toneSuccess : toneWarning,
+      actionLabel: "Show indexed document files",
     },
     {
+      target: "setup" as const,
       label: "Setup",
       value: `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
       tone: readyChecks === (checks.length || fallbackSetupChecks.length) ? toneSuccess : toneWarning,
+      actionLabel: "Show setup checks",
     },
     {
+      target: "indexing" as const,
       label: "Indexing",
       value: activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
       tone: activeJobs + activeBatches ? toneInfo : toneNeutral,
+      actionLabel: "Show indexing progress",
     },
     {
+      target: "failures" as const,
       label: "Failures",
       value: failedWork ? `${failedWork} needs review` : "None",
       tone: failedWork ? toneDanger : toneNeutral,
+      actionLabel: "Show failed indexing work",
     },
   ];
 
@@ -4820,10 +4949,19 @@ function LibraryHealthStrip({
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
         {items.map((item) => (
-          <div key={item.label} className={cn("rounded-md border px-2.5 py-2", item.tone)}>
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => onSelectTarget?.(item.target)}
+            className={cn(
+              "rounded-md border px-2.5 py-2 text-left transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ring)] active:translate-y-0",
+              item.tone,
+            )}
+            aria-label={item.actionLabel}
+          >
             <p className="text-[10px] font-bold uppercase tracking-[0.06em] opacity-80">{item.label}</p>
             <p className="mt-1 text-xs font-semibold">{item.value}</p>
-          </div>
+          </button>
         ))}
       </div>
     </section>
@@ -4831,28 +4969,40 @@ function LibraryHealthStrip({
 }
 
 function UtilityDrawer({
+  id,
   title,
   icon: Icon,
   summary,
   mobileSummary,
   children,
   defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
   className,
 }: {
+  id?: string;
   title: string;
   icon: typeof FileText;
   summary?: string;
   mobileSummary?: string;
   children: ReactNode;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   className?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? uncontrolledOpen;
 
   return (
     <details
+      id={id}
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => {
+        const nextOpen = event.currentTarget.open;
+        setUncontrolledOpen(nextOpen);
+        onOpenChange?.(nextOpen);
+      }}
       className={cn("group", panelSubtle, className)}
     >
       <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]">
@@ -5419,6 +5569,10 @@ export function ClinicalDashboard() {
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
+  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
+  const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
@@ -5438,6 +5592,32 @@ export function ClinicalDashboard() {
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const openGuide = useCallback(() => setGuideOpen(true), []);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
+  const openLibraryHealthTarget = useCallback((target: LibraryHealthTarget) => {
+    const targetId =
+      target === "documents"
+        ? "dashboard-documents-drawer"
+        : target === "setup"
+          ? "dashboard-setup-section"
+          : "dashboard-indexing-section";
+
+    if (target === "documents") {
+      setDocumentDrawerStatusFilter("indexed");
+      setDocumentsDrawerOpen(true);
+    } else if (target === "indexing") {
+      setIndexingMonitorFilter("active");
+      setUploadDrawerOpen(true);
+    } else if (target === "failures") {
+      setIndexingMonitorFilter("failed");
+      setUploadDrawerOpen(true);
+    } else {
+      setIndexingMonitorFilter("all");
+      setUploadDrawerOpen(true);
+    }
+
+    window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -6807,6 +6987,7 @@ export function ClinicalDashboard() {
 
             <DrawerGroupLabel title="Library and admin" />
             <UtilityDrawer
+              id="dashboard-documents-drawer"
               icon={BookOpen}
               title="Documents"
               summary={
@@ -6817,8 +6998,14 @@ export function ClinicalDashboard() {
                     : "No indexed documents yet."
               }
               mobileSummary={
-                dashboardDataLoading ? "Loading library" : documents.length ? `${documents.length} documents` : "No documents"
+                dashboardDataLoading
+                  ? "Loading library"
+                  : documents.length
+                    ? `${documents.length} documents`
+                    : "No documents"
               }
+              open={documentsDrawerOpen}
+              onOpenChange={setDocumentsDrawerOpen}
             >
               <LibraryHealthStrip
                 documents={documents}
@@ -6826,12 +7013,14 @@ export function ClinicalDashboard() {
                 batches={batches}
                 checks={setupChecks}
                 loading={dashboardDataLoading}
+                onSelectTarget={openLibraryHealthTarget}
               />
               <DocumentDrawer
                 documents={documents}
                 pagination={documentsPagination}
                 loadingMoreDocuments={loadingMoreDocuments}
                 selectedDocumentIds={selectedDocumentIds}
+                statusFilter={documentDrawerStatusFilter}
                 onToggleScope={toggleDocumentScope}
                 onLoadMoreDocuments={loadMoreDocuments}
                 onDocumentRenamed={handleDocumentRenamed}
@@ -6847,10 +7036,13 @@ export function ClinicalDashboard() {
             </UtilityDrawer>
 
             <UtilityDrawer
+              id="dashboard-upload-drawer"
               icon={UploadCloud}
               title="Upload and indexing"
               summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
               mobileSummary="Setup & uploads"
+              open={uploadDrawerOpen}
+              onOpenChange={setUploadDrawerOpen}
             >
               <LibraryHealthStrip
                 documents={documents}
@@ -6858,9 +7050,10 @@ export function ClinicalDashboard() {
                 batches={batches}
                 checks={setupChecks}
                 loading={dashboardDataLoading}
+                onSelectTarget={openLibraryHealthTarget}
               />
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-3">
+                <div id="dashboard-setup-section" className="space-y-3 scroll-mt-4">
                   <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
                     Developer setup status
                   </p>
@@ -6876,11 +7069,12 @@ export function ClinicalDashboard() {
                     authorizationHeader={authorizationHeader}
                   />
                 </div>
-                <div className="space-y-3">
+                <div id="dashboard-indexing-section" className="space-y-3 scroll-mt-4">
                   <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Indexing progress</p>
                   <IndexingMonitor
                     jobs={jobs}
                     batches={batches}
+                    filter={indexingMonitorFilter}
                     actionId={indexingActionId}
                     onRetry={retryJob}
                     onReindex={reindexDocument}

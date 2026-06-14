@@ -1022,7 +1022,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
     await expect(uploadDrawer.getByText("Document title optional")).toBeVisible();
-    await expect(uploadDrawer.getByText("Guideline file required")).toBeVisible();
+    await expect(uploadDrawer.getByText("Guideline files required")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 

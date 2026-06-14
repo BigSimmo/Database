@@ -257,6 +257,7 @@ create table if not exists public.document_chunks (
   parent_heading text,
   anchor_id text,
   content text not null,
+  retrieval_synopsis text,
   content_hash text,
   index_generation_id uuid,
   token_estimate integer not null default 0,
@@ -264,7 +265,7 @@ create table if not exists public.document_chunks (
   metadata jsonb not null default '{}'::jsonb,
   embedding extensions.vector(1536) not null,
   search_tsv tsvector generated always as (
-    to_tsvector('english', coalesce(section_heading, '') || ' ' || content)
+    to_tsvector('english', coalesce(section_heading, '') || ' ' || coalesce(retrieval_synopsis, '') || ' ' || content)
   ) stored,
   created_at timestamptz not null default now(),
   unique (document_id, chunk_index)
@@ -836,8 +837,11 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
+  document_labels jsonb,
+  document_summary text,
   similarity double precision,
   images jsonb
 )
@@ -854,6 +858,7 @@ as $$
     c.chunk_index,
     c.section_heading,
     c.content,
+    c.retrieval_synopsis,
     c.image_ids,
     d.metadata as source_metadata,
     '[]'::jsonb as document_labels,
@@ -887,6 +892,7 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
   similarity double precision,
@@ -910,6 +916,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       1 - (c.embedding <=> query_embedding) as similarity,
       (
@@ -936,6 +943,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       1 - (c.embedding <=> query_embedding) as similarity,
       (
@@ -977,13 +985,14 @@ as $$
       chunk_index,
       section_heading,
       content,
+      retrieval_synopsis,
       image_ids,
       max(similarity)::double precision as similarity,
       max(text_rank)::double precision as text_rank,
       min(vector_rank) as vector_rank,
       min(text_match_rank) as text_match_rank
     from combined
-    group by id, document_id, page_number, chunk_index, section_heading, content, image_ids
+    group by id, document_id, page_number, chunk_index, section_heading, content, retrieval_synopsis, image_ids
   ),
   scored_metrics as (
     select
@@ -1037,6 +1046,7 @@ as $$
     c.chunk_index,
     c.section_heading,
     c.content,
+    c.retrieval_synopsis,
     c.image_ids,
     d.metadata as source_metadata,
     c.similarity,
@@ -1391,6 +1401,7 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
   document_labels jsonb,
@@ -1417,6 +1428,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       d.metadata as source_metadata,
       (
@@ -1445,6 +1457,7 @@ as $$
     ranked.chunk_index,
     ranked.section_heading,
     ranked.content,
+    ranked.retrieval_synopsis,
     ranked.image_ids,
     ranked.source_metadata,
     coalesce(public.document_label_metadata(ranked.document_id), '[]'::jsonb) as document_labels,

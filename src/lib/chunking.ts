@@ -14,6 +14,12 @@ const lineNoisePatterns: RegExp[] = [
   /^\s*[\u25cf\u25e6\u2022]\s*$/,
 ];
 const maxImageContextItemsPerPage = 3;
+const highYieldSectionPattern =
+  /\b(?:medicat|dose|dosage|dosing|administer|titrate|threshold|cut[\s-]?off|withhold|cease|stop|monitor|baseline|fbc|anc|neutrophil|level|risk|red flag|urgent|escalat|contraindicat|caution|toxicity|required|must|criteria|observation)\b/i;
+const narrativeSectionPattern =
+  /\b(?:background|introduction|purpose|scope|principles|overview|rationale|references|bibliography|definitions)\b/i;
+const boilerplateSynopsisPattern =
+  /\b(?:document owner|authori[sz]ed by|published date|effective from|review date|version|amendment|copyright|uncontrolled when printed|supporting information|relevant standards)\b/i;
 
 export function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
@@ -148,6 +154,40 @@ function dedupeChunkFingerprint(text: string) {
   return normalizeLookupText(text).replace(/\s+/g, " ").trim();
 }
 
+function clampChunkSize(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, Math.round(value)));
+}
+
+function adaptiveChunkProfile(text: string, sectionPath: string[]) {
+  const sectionText = sectionPath.join(" ");
+  const highYield = highYieldSectionPattern.test(`${sectionText}\n${text}`);
+  const narrative = narrativeSectionPattern.test(sectionText) && !highYield;
+  const baseSize = env.CHUNK_SIZE;
+  const baseOverlap = env.CHUNK_OVERLAP;
+
+  if (highYield) {
+    return {
+      chunkSize: clampChunkSize(Math.min(baseSize * 0.62, 1250), 850, baseSize),
+      overlap: clampChunkSize(Math.max(baseOverlap, baseSize * 0.12), 180, 340),
+      profile: "high_yield",
+    };
+  }
+
+  if (narrative) {
+    return {
+      chunkSize: clampChunkSize(Math.max(baseSize * 1.35, 2600), baseSize, 3400),
+      overlap: clampChunkSize(Math.min(baseOverlap, 180), 80, baseOverlap),
+      profile: "narrative",
+    };
+  }
+
+  return {
+    chunkSize: baseSize,
+    overlap: baseOverlap,
+    profile: "standard",
+  };
+}
+
 export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, overlap = env.CHUNK_OVERLAP) {
   const clean = removePageNoise(text)
     .replace(/[ \t]+\n/g, "\n")
@@ -237,6 +277,40 @@ function compactImageText(value: string | null | undefined, limit = 420) {
   return text.length > limit ? `${text.slice(0, limit - 3).trim()}...` : text;
 }
 
+function compactSynopsisText(value: string | null | undefined, limit = 720) {
+  const withoutImageTags = String(value ?? "")
+    .replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, " ")
+    .replace(/\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g, " ");
+  const sentences = withoutImageTags
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    .filter((sentence) => sentence.length >= 12 && !boilerplateSynopsisPattern.test(sentence));
+  const highYieldSentences = sentences.filter((sentence) => highYieldSectionPattern.test(sentence));
+  const selected = (highYieldSentences.length ? highYieldSentences : sentences).slice(0, 4).join(" ");
+  const compact = selected.replace(/\s+/g, " ").trim();
+  if (!compact) return "";
+  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
+}
+
+function buildRetrievalSynopsis(args: {
+  content: string;
+  heading: string | null;
+  sectionContext: string[];
+  pageNumber: number | null;
+  referencedImageCount: number;
+}) {
+  const section = args.sectionContext.length ? args.sectionContext.join(" > ") : args.heading;
+  const prefix = [
+    section ? `Section: ${section}` : "",
+    args.pageNumber ? `Page: ${args.pageNumber}` : "",
+    args.referencedImageCount > 0 ? `Visual/table context: ${args.referencedImageCount}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  const facts = compactSynopsisText(args.content);
+  return [prefix, facts].filter(Boolean).join(" | ").slice(0, 900);
+}
+
 export function buildImageTag(image: {
   id: string;
   caption: string;
@@ -248,6 +322,11 @@ export function buildImageTag(image: {
   tableTextSnippet?: string | null;
   accessibleTableMarkdown?: string | null;
 }) {
+  const conciseTableText = image.tableTextSnippet
+    ? `Table text: ${compactImageText(image.tableTextSnippet, 220)}`
+    : image.accessibleTableMarkdown
+      ? `Table text: ${compactImageText(image.accessibleTableMarkdown, 220)}`
+      : "";
   const parts = [
     `Image ID: ${image.id}`,
     image.sourceKind ? `Source kind: ${image.sourceKind}` : "",
@@ -255,9 +334,8 @@ export function buildImageTag(image: {
     image.tableLabel ? `Table label: ${image.tableLabel}` : "",
     image.tableTitle ? `Table title: ${image.tableTitle}` : "",
     image.tableRole ? `Table role: ${image.tableRole}` : "",
-    image.tableTextSnippet ? `Table text: ${compactImageText(image.tableTextSnippet)}` : "",
-    image.accessibleTableMarkdown ? `Accessible table: ${compactImageText(image.accessibleTableMarkdown, 360)}` : "",
-    `Description: ${image.caption}`,
+    conciseTableText,
+    `Description: ${compactImageText(image.caption, 260)}`,
   ].filter(Boolean);
   return `[[IMAGE_DATA_START]] ${parts.join("; ")} [[IMAGE_DATA_END]]`;
 }
@@ -288,7 +366,8 @@ export function buildChunks(inputs: ChunkInput[]) {
     const sectionPath = activeSectionPath;
     const pageText = [cleanedPageText, imageContext].filter(Boolean).join("\n\n");
     const pageLookupText = normalizeLookupText(input.pageText);
-    const pageChunks = chunkTextWithOverlap(pageText);
+    const chunkProfile = adaptiveChunkProfile(cleanedPageText, sectionPath);
+    const pageChunks = chunkTextWithOverlap(pageText, chunkProfile.chunkSize, chunkProfile.overlap);
 
     pageChunks.forEach((content, pageChunkIndex) => {
       const contentLookup = normalizeLookupText(content);
@@ -338,11 +417,21 @@ export function buildChunks(inputs: ChunkInput[]) {
         parent_heading: parentHeading,
         anchor_id: sectionAnchor,
         content,
+        retrieval_synopsis: buildRetrievalSynopsis({
+          content,
+          heading,
+          sectionContext,
+          pageNumber: input.pageNumber,
+          referencedImageCount: referencedImageIds.length,
+        }),
         token_estimate: estimateTokens(content),
         image_ids: referencedImageIds,
         metadata: {
           ...(input.metadata ?? {}),
           page_chunk_index: pageChunkIndex,
+          chunk_profile: chunkProfile.profile,
+          adaptive_chunk_size: chunkProfile.chunkSize,
+          adaptive_chunk_overlap: chunkProfile.overlap,
           page_start: input.pageNumber,
           page_end: input.pageNumber,
           source_spans: [

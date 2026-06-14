@@ -3,8 +3,10 @@ import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 import {
   buildImportStoragePath,
+  chunkImportFiles,
   createDocumentId,
   formatExactDuplicateSkip,
+  importMimeType,
   type ExistingImportDocument,
   parseImportCliArgs,
   scanImportFiles,
@@ -63,6 +65,7 @@ async function loadOrCreateBatch(args: {
   resume?: string;
   totalFiles: number;
   totalBytes: number;
+  queueBatchSize: number;
   dryRun: boolean;
 }) {
   if (args.dryRun) {
@@ -97,6 +100,7 @@ async function loadOrCreateBatch(args: {
         importer: "local-folder",
         document_scope: "guidelines-only",
         limit: args.limit ?? null,
+        queue_batch_size: args.queueBatchSize,
       },
     })
     .select("id,name,owner_id")
@@ -137,7 +141,11 @@ async function main() {
     }
 
     const exactCopyCount = files.filter((file) => existing.has(file.contentHash)).length;
-    for (const file of files.slice(0, 20)) {
+    const dryRunBatches = chunkImportFiles(files, args.queueBatchSize);
+    console.log(
+      `DRY RUN queue plan: ${dryRunBatches.length} batch(es) of up to ${args.queueBatchSize} file(s).`,
+    );
+    for (const file of files.slice(0, args.queueBatchSize)) {
       const duplicate = existing.get(file.contentHash);
       console.log(
         duplicate
@@ -145,7 +153,8 @@ async function main() {
           : `DRY RUN ${file.relativePath} ${file.contentHash.slice(0, 12)}`,
       );
     }
-    if (files.length > 20) console.log(`DRY RUN omitted ${files.length - 20} additional file(s).`);
+    if (files.length > args.queueBatchSize)
+      console.log(`DRY RUN omitted ${files.length - args.queueBatchSize} additional file(s).`);
     if (dryRunOwnerId || args.ownerEmail) {
       console.log(
         `DRY RUN duplicate check: would_queue=${files.length - exactCopyCount}, exact_copies=${exactCopyCount}, total=${files.length}`,
@@ -172,6 +181,7 @@ async function main() {
     resume: args.resume,
     totalFiles: files.length,
     totalBytes,
+    queueBatchSize: args.queueBatchSize,
     dryRun: args.dryRun,
   });
   const ownerId = requestedOwnerId ?? batch.owner_id;
@@ -186,32 +196,115 @@ async function main() {
   let queued = 0;
   let skipped = 0;
   let failed = 0;
+  const importBatches = chunkImportFiles(files, args.queueBatchSize);
 
-  for (const file of files) {
-    try {
-      const duplicate = existing.get(file.contentHash);
-      if (duplicate && !args.force) {
-        skipped += 1;
-        console.log(formatExactDuplicateSkip(file, duplicate));
-        continue;
-      }
+  console.log(
+    `Queueing ${files.length} file(s) in ${importBatches.length} batch(es) of up to ${args.queueBatchSize}.`,
+  );
 
-      if (duplicate && args.force) {
-        await supabase.rpc("reset_document_index", { p_document_id: duplicate.id });
-        await supabase
-          .from("documents")
-          .update({
-            status: "queued",
-            error_message: null,
-            page_count: 0,
-            chunk_count: 0,
-            image_count: 0,
+  for (const [batchIndex, fileBatch] of importBatches.entries()) {
+    const start = batchIndex * args.queueBatchSize + 1;
+    const end = start + fileBatch.length - 1;
+    console.log(`QUEUE BATCH ${batchIndex + 1}/${importBatches.length} files ${start}-${end}/${files.length}`);
+
+    for (const file of fileBatch) {
+      try {
+        const duplicate = existing.get(file.contentHash);
+        if (duplicate && !args.force) {
+          skipped += 1;
+          console.log(formatExactDuplicateSkip(file, duplicate));
+          continue;
+        }
+
+        if (duplicate && args.force) {
+          await supabase.rpc("reset_document_index", { p_document_id: duplicate.id });
+          await supabase
+            .from("documents")
+            .update({
+              status: "queued",
+              error_message: null,
+              page_count: 0,
+              chunk_count: 0,
+              image_count: 0,
+              source_path: file.absolutePath,
+              import_batch_id: batch.id,
+            })
+            .eq("id", duplicate.id);
+          const { error: jobError } = await supabase.from("ingestion_jobs").insert({
+            document_id: duplicate.id,
+            batch_id: batch.id,
+            status: "pending",
+            stage: "queued",
+            progress: 0,
+            max_attempts: env.WORKER_MAX_ATTEMPTS,
+          });
+          if (jobError) throw new Error(jobError.message);
+          queued += 1;
+          console.log(`REQUEUE ${file.relativePath}`);
+          continue;
+        }
+
+        const documentId = createDocumentId();
+        const storagePath = buildImportStoragePath(ownerId, documentId, file.fileName);
+        const fileType = importMimeType(file.fileName);
+        const namePlan = await planDocumentName({
+          supabase: supabase as never,
+          ownerId,
+          fileName: file.fileName,
+          requestedTitle: null,
+          contentHash: file.contentHash,
+        });
+        const upload = await supabase.storage
+          .from(env.SUPABASE_DOCUMENT_BUCKET)
+          .upload(storagePath, await readFile(file.absolutePath), {
+            contentType: fileType,
+            upsert: false,
+          });
+        if (upload.error) throw new Error(upload.error.message);
+
+        const { error: documentError } = await supabase.from("documents").insert({
+          id: documentId,
+          owner_id: ownerId,
+          title: namePlan.title,
+          description: null,
+          file_name: file.fileName,
+          file_type: fileType,
+          file_size: file.size,
+          storage_path: storagePath,
+          content_hash: file.contentHash,
+          source_path: file.absolutePath,
+          import_batch_id: batch.id,
+          status: "queued",
+          metadata: {
+            source_title: namePlan.title,
+            publisher: null,
+            jurisdiction: "Australia/WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: new Date().toISOString(),
+            indexed_at: null,
+            uploaded_by: ownerId,
+            original_file_name: namePlan.originalFileName,
+            original_title: namePlan.originalTitle,
+            smart_title_base: namePlan.baseTitle,
+            smart_title_group_key: namePlan.duplicateGroupKey,
+            smart_title_duplicate_index: namePlan.duplicateIndex,
+            smart_title_duplicate_reason: namePlan.duplicateReason,
+            document_status: "unknown",
+            clinical_validation_status: "unverified",
+            extraction_quality: "unknown",
+            confidentiality_scope: "guidelines-only",
             source_path: file.absolutePath,
+            content_hash: file.contentHash,
             import_batch_id: batch.id,
-          })
-          .eq("id", duplicate.id);
+            queue_batch_size: args.queueBatchSize,
+          },
+        });
+        if (documentError) throw new Error(documentError.message);
+
         const { error: jobError } = await supabase.from("ingestion_jobs").insert({
-          document_id: duplicate.id,
+          document_id: documentId,
           batch_id: batch.id,
           status: "pending",
           stage: "queued",
@@ -219,84 +312,30 @@ async function main() {
           max_attempts: env.WORKER_MAX_ATTEMPTS,
         });
         if (jobError) throw new Error(jobError.message);
-        queued += 1;
-        console.log(`REQUEUE ${file.relativePath}`);
-        continue;
-      }
 
-      const documentId = createDocumentId();
-      const storagePath = buildImportStoragePath(ownerId, documentId, file.fileName);
-      const namePlan = await planDocumentName({
-        supabase: supabase as never,
-        ownerId,
-        fileName: file.fileName,
-        requestedTitle: null,
-        contentHash: file.contentHash,
-      });
-      const upload = await supabase.storage
-        .from(env.SUPABASE_DOCUMENT_BUCKET)
-        .upload(storagePath, await readFile(file.absolutePath), {
-          contentType: "application/pdf",
-          upsert: false,
-        });
-      if (upload.error) throw new Error(upload.error.message);
-
-      const { error: documentError } = await supabase.from("documents").insert({
-        id: documentId,
-        owner_id: ownerId,
-        title: namePlan.title,
-        description: null,
-        file_name: file.fileName,
-        file_type: "application/pdf",
-        file_size: file.size,
-        storage_path: storagePath,
-        content_hash: file.contentHash,
-        source_path: file.absolutePath,
-        import_batch_id: batch.id,
-        status: "queued",
-        metadata: {
-          source_title: namePlan.title,
-          publisher: null,
-          jurisdiction: "Australia/WA",
-          version: null,
-          publication_date: null,
-          review_date: null,
-          uploaded_at: new Date().toISOString(),
-          indexed_at: null,
-          uploaded_by: ownerId,
-          original_file_name: namePlan.originalFileName,
-          original_title: namePlan.originalTitle,
-          smart_title_base: namePlan.baseTitle,
-          smart_title_group_key: namePlan.duplicateGroupKey,
-          smart_title_duplicate_index: namePlan.duplicateIndex,
-          smart_title_duplicate_reason: namePlan.duplicateReason,
-          document_status: "unknown",
-          clinical_validation_status: "unverified",
-          extraction_quality: "unknown",
-          confidentiality_scope: "guidelines-only",
+        existing.set(file.contentHash, {
+          id: documentId,
+          storage_path: storagePath,
+          title: namePlan.title,
           source_path: file.absolutePath,
           content_hash: file.contentHash,
-          import_batch_id: batch.id,
-        },
-      });
-      if (documentError) throw new Error(documentError.message);
-
-      const { error: jobError } = await supabase.from("ingestion_jobs").insert({
-        document_id: documentId,
-        batch_id: batch.id,
-        status: "pending",
-        stage: "queued",
-        progress: 0,
-        max_attempts: env.WORKER_MAX_ATTEMPTS,
-      });
-      if (jobError) throw new Error(jobError.message);
-
-      queued += 1;
-      console.log(`QUEUE ${file.relativePath}`);
-    } catch (error) {
-      failed += 1;
-      console.error(`FAIL ${file.relativePath}`, error instanceof Error ? error.message : String(error));
+        });
+        queued += 1;
+        console.log(`QUEUE ${file.relativePath}`);
+      } catch (error) {
+        failed += 1;
+        console.error(`FAIL ${file.relativePath}`, error instanceof Error ? error.message : String(error));
+      }
     }
+
+    await supabase
+      .from("import_batches")
+      .update({
+        queued_files: queued,
+        skipped_files: skipped,
+        failed_files: failed,
+      })
+      .eq("id", batch.id);
   }
 
   const status = failed > 0 ? "completed_with_errors" : "completed";
@@ -313,6 +352,9 @@ async function main() {
 
   console.log(
     `Import batch ${batch.id}: queued=${queued}, exact_copies_skipped=${skipped}, failed=${failed}, total=${files.length}`,
+  );
+  console.log(
+    "Indexing quality path unchanged: run npm run worker until jobs complete, then npm run check:indexing to verify detailed chunks, embeddings, summaries, labels, memory, index units, and quality rows.",
   );
 }
 

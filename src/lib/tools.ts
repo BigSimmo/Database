@@ -5,8 +5,14 @@ export type ToolStatus = "online" | "beta" | "offline" | "coming-soon";
 export type ToolCategory = "Clinical" | "Operations" | "Docs" | "Research" | "Admin";
 
 export type ToolIconName =
+  | "Brain"
+  | "ClipboardList"
   | "Search"
   | "FileImage"
+  | "FileText"
+  | "HeartHandshake"
+  | "Network"
+  | "Pill"
   | "UploadCloud"
   | "BookOpen"
   | "Quote"
@@ -34,129 +40,115 @@ export type ToolItem = {
 
 export const toolCatalog: ToolItem[] = [
   {
-    id: "kb-quick-search",
-    title: "Clinical Search Console",
-    description: "Search trusted guidance, indexed extracts, and case-level references before moving into deeper review.",
-    href: "https://pubmed.ncbi.nlm.nih.gov/",
-    icon: "Search",
+    id: "formulation",
+    title: "Formulation",
+    description:
+      "Build concise biopsychosocial formulations that connect presenting problems, maintaining factors, risk, and treatment direction.",
+    href: "http://localhost:53210",
+    icon: "Brain",
     category: "Clinical",
     target: "external",
     status: "online",
     openInNewTab: true,
   },
   {
-    id: "ocr-workbench",
-    title: "OCR Intake Bench",
-    description: "Review scanned policies and image-heavy PDFs before they enter the searchable knowledge base.",
-    href: "https://www.ilovepdf.com/ocr",
-    icon: "FileImage",
-    category: "Research",
-    target: "external",
-    status: "beta",
-    openInNewTab: true,
-  },
-  {
-    id: "doc-indexer",
-    title: "Indexing Queue",
-    description: "Open document ingestion, queue checks, and source readiness workflows from one launch point.",
-    href: "https://www.filewatcher.io/",
-    icon: "UploadCloud",
+    id: "forms",
+    title: "Forms",
+    description:
+      "Open structured clinical form workflows for capture, review, validation, and repeatable patient-facing documentation.",
+    href: "http://localhost:5173",
+    icon: "ClipboardList",
     category: "Operations",
     target: "external",
     status: "online",
     openInNewTab: true,
   },
   {
-    id: "policy-hub",
-    title: "Protocol Library",
-    description: "Jump to policy collections, SOP updates, and reference snapshots used during clinical review.",
-    href: "https://www.hhs.gov/",
-    icon: "BookOpen",
-    category: "Docs",
-    target: "external",
-    status: "beta",
-    openInNewTab: true,
-  },
-  {
-    id: "evidence-qa",
-    title: "Evidence Crosscheck",
-    description: "Validate claims against evidence libraries, confidence signals, and citation crosswalks.",
-    href: "https://cochrane.org/",
-    icon: "Quote",
-    category: "Research",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "safety-scan",
-    title: "Safety Flags",
-    description: "Screen outputs and source notes for adverse-event style warnings, exclusions, and escalation cues.",
-    href: "https://www.who.int/",
-    icon: "ShieldAlert",
+    id: "therapy",
+    title: "Therapy",
+    description:
+      "Navigate therapy planning, intervention selection, session structure, and patient-centred psychological treatment pathways.",
+    href: "http://localhost:53211",
+    icon: "HeartHandshake",
     category: "Clinical",
     target: "external",
     status: "online",
     openInNewTab: true,
   },
   {
-    id: "analytics-console",
-    title: "Quality Analytics",
-    description: "Monitor usage patterns, retrieval quality, and operational trends across the knowledge base.",
-    href: "https://analytics.google.com/",
-    icon: "Target",
+    id: "specifiers",
+    title: "Specifiers",
+    description:
+      "Refine diagnostic pictures with specifiers, severity cues, course descriptors, and structured clinical qualification.",
+    href: "http://127.0.0.1:58123",
+    icon: "ListChecks",
+    category: "Docs",
+    target: "external",
+    status: "online",
+    openInNewTab: true,
+  },
+  {
+    id: "dsm-5-diagnoses",
+    title: "DSM-5 Diagnoses",
+    description:
+      "Launch diagnostic criteria, differential anchors, symptom clusters, and structured DSM-5 review support.",
+    href: "http://127.0.0.1:53173",
+    icon: "BookOpen",
+    category: "Research",
+    target: "external",
+    status: "online",
+    openInNewTab: true,
+  },
+  {
+    id: "medications",
+    title: "Medications",
+    description:
+      "Open the clinical drug guide for prescribing context, monitoring, safety checks, and medication-specific review.",
+    href: "http://127.0.0.1:8081",
+    icon: "Pill",
+    category: "Clinical",
+    target: "external",
+    status: "online",
+    openInNewTab: true,
+  },
+  {
+    id: "services",
+    title: "Services",
+    description:
+      "Navigate psychiatry service pathways, referral destinations, access points, and practical service-matching decisions.",
+    href: "http://127.0.0.1:53174",
+    icon: "Network",
+    category: "Operations",
+    target: "external",
+    status: "online",
+    openInNewTab: true,
+  },
+  {
+    id: "differentials",
+    title: "Differentials",
+    description:
+      "Compare psychiatric differentials, rule-outs, red flags, and competing diagnostic explanations in one focused workspace.",
+    href: "http://127.0.0.1:53375",
+    icon: "Search",
+    category: "Research",
+    target: "external",
+    status: "online",
+    openInNewTab: true,
+  },
+  {
+    id: "psychiatry-notes",
+    title: "Psychiatry Notes",
+    description:
+      "Open the Psychiatry Application for clinical note workflows, patient summaries, documentation, and review-ready outputs.",
+    href: "http://localhost:4391",
+    icon: "FileText",
     category: "Admin",
     target: "external",
     status: "online",
     openInNewTab: true,
   },
-  {
-    id: "task-templates",
-    title: "Handover Templates",
-    description: "Start structured handover packs, meeting briefs, and repeatable review workflows.",
-    href: "https://www.notion.so/",
-    icon: "ClipboardCheck",
-    category: "Docs",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "ingestion-watch",
-    title: "Ingestion Monitor",
-    description: "Track indexing jobs, worker heartbeats, retry queues, and stalled source processing.",
-    href: "https://www.atlassian.com/software/jira",
-    icon: "ListChecks",
-    category: "Operations",
-    target: "external",
-    status: "offline",
-    openInNewTab: true,
-    disabledHint: "Service bus currently unavailable.",
-  },
-  {
-    id: "chat-agent",
-    title: "Clinical Drafting",
-    description: "Launch AI-assisted drafting and summarization for clinical notes, briefs, and source digests.",
-    href: "https://chatgpt.com/",
-    icon: "Sparkles",
-    category: "Clinical",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "citation-exporter",
-    title: "Citation Packager",
-    description: "Build citation bundles for governance handovers, meeting packs, and document review trails.",
-    href: "https://www.elsevier.com/",
-    icon: "ExternalLink",
-    category: "Research",
-    target: "external",
-    status: "coming-soon",
-    openInNewTab: true,
-  },
 ];
 
-export const defaultFavoriteToolIds = ["kb-quick-search", "safety-scan", "analytics-console"];
+export const defaultFavoriteToolIds = ["formulation", "dsm-5-diagnoses", "psychiatry-notes"];
 
-export const quickLaunchSeedToolIds = ["kb-quick-search", "ingestion-watch", "analytics-console"];
+export const quickLaunchSeedToolIds = ["formulation", "differentials", "medications"];

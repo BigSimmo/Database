@@ -331,6 +331,71 @@ describe("RAG structured-output fallback", () => {
     expect(answer.quoteCards?.length).toBe(1);
   });
 
+  it("keeps the confidence gate active for weak ambiguous retrieval", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "weak-general-1",
+        document_id: "doc-1",
+        title: "Ward Process",
+        file_name: "ward-process.pdf",
+        content: "Discharge planning documentation is briefly mentioned alongside general administrative notes.",
+        similarity: 0.6,
+        hybrid_score: 0.6,
+        text_rank: 0.06,
+      }),
+      source({
+        id: "weak-general-2",
+        document_id: "doc-2",
+        title: "General Overview",
+        file_name: "overview.pdf",
+        content: "Planning tasks and review notes are listed without specific admission or discharge guidance.",
+        similarity: 0.58,
+        hybrid_score: 0.58,
+        text_rank: 0.05,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: sources, error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "How is discharge planning handled?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.routingMode).toBe("unsupported");
+    expect(answer.routingReason).toContain("confidence_gate_blocked");
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "blocked",
+      fallbackReason: "low_signal_document_lookup_strong",
+    });
+    expect(answer.grounded).toBe(false);
+    expect(answer.citations).toHaveLength(0);
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+  });
+
   it("continues hybrid chunk retrieval when index-unit hybrid retrieval times out", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");

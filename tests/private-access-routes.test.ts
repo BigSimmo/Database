@@ -1187,7 +1187,7 @@ describe("private document API access", () => {
     expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
   });
 
-  it("permanently deletes an owned document, query logs, and storage objects", async () => {
+  it("permanently deletes an owned document, indexing traces, and storage objects", async () => {
     const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
     const imagePath = `${userId}/images/${imageId}.png`;
     const chunkId = "44444444-4444-4444-8444-444444444444";
@@ -1201,6 +1201,8 @@ describe("private document API access", () => {
       if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
       if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
       if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
+      if (call.table === "rag_query_misses" && call.operation === "delete") return ok([]);
+      if (call.table === "rag_response_cache" && call.operation === "delete") return ok([]);
       if (call.table === "documents" && call.operation === "delete") return ok([]);
       return ok([]);
     });
@@ -1212,6 +1214,8 @@ describe("private document API access", () => {
     });
     const body = await payload(response);
     const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
+    const missDeletes = client.calls.filter((call) => call.table === "rag_query_misses" && call.operation === "delete");
+    const cacheDelete = client.calls.find((call) => call.table === "rag_response_cache" && call.operation === "delete");
     const documentDelete = client.calls.find((call) => call.table === "documents" && call.operation === "delete");
     const cleanupInsert = client.calls.find(
       (call) => call.table === "storage_cleanup_jobs" && call.operation === "insert",
@@ -1232,6 +1236,19 @@ describe("private document API access", () => {
     expect(cleanupUpdate?.updatePayload).toMatchObject({ status: "completed", storage_removed: 0 });
     expect(ragDelete?.filters).not.toContainEqual({ column: "owner_id", value: userId });
     expect(ragDelete?.overlapsFilters).toContainEqual({ column: "source_chunk_ids", values: [chunkId] });
+    expect(missDeletes.map((call) => call.overlapsFilters[0])).toEqual(
+      expect.arrayContaining([
+        { column: "top_chunk_ids", values: [chunkId] },
+        { column: "cited_chunk_ids", values: [chunkId] },
+      ]),
+    );
+    expect(
+      missDeletes.some((call) =>
+        call.orFilters.includes(`clicked_document_id.eq.${documentId},expected_document_id.eq.${documentId}`),
+      ),
+    ).toBe(true);
+    expect(cacheDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(cacheDelete?.inFilters).toContainEqual({ column: "cache_kind", values: ["search", "answer"] });
     expect(documentDelete?.filters).toContainEqual({ column: "id", value: documentId });
     expect(documentDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
     expect(client.storageMocks.storageFrom).toHaveBeenCalledWith("clinical-documents");
@@ -1262,6 +1279,8 @@ describe("private document API access", () => {
       if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
       if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
       if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
+      if (call.table === "rag_query_misses" && call.operation === "delete") return ok([]);
+      if (call.table === "rag_response_cache" && call.operation === "delete") return ok([]);
       if (call.table === "documents" && call.operation === "delete") return ok([]);
       return ok([]);
     });
@@ -1286,6 +1305,44 @@ describe("private document API access", () => {
     ]);
     expect(ragDelete?.overlapsFilters[0]?.values).toContain("chunk-final");
     expect(client.storageMocks.remove).toHaveBeenCalledWith(expect.arrayContaining([finalImage.storage_path]));
+  });
+
+  it("does not delete the document if index trace cleanup fails", async () => {
+    const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
+    const chunkId = "44444444-4444-4444-8444-444444444444";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: sourcePath });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "document_images" && call.operation === "select") return ok([]);
+      if (call.table === "document_chunks" && call.operation === "select") return ok([{ id: chunkId }]);
+      if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
+      if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
+      if (call.table === "rag_queries" && call.operation === "delete") return fail("query log delete failed");
+      if (call.table === "rag_query_misses" && call.operation === "delete") return ok([]);
+      if (call.table === "rag_response_cache" && call.operation === "delete") return ok([]);
+      if (call.table === "documents" && call.operation === "delete") return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { DELETE } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const cleanupUpdate = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "update",
+    );
+
+    expect(response.status).toBe(500);
+    expect(await payload(response)).toEqual({ error: "Request failed." });
+    expect(cleanupUpdate?.updatePayload).toMatchObject({
+      status: "failed",
+      last_error: "Index trace cleanup failed: query log delete failed",
+    });
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
+    expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
   it("blocks permanent delete while a document is actively indexing", async () => {
