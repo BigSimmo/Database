@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentType, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -86,7 +86,7 @@ const iconRegistry = {
   Target,
   ExternalLink,
   Clipboard,
-} satisfies Record<ToolIconName, (props: { className?: string }) => JSX.Element>;
+} satisfies Record<ToolIconName, ComponentType<{ className?: string }>>;
 
 const statusLabel: Record<ToolStatus, string> = {
   online: "Online",
@@ -102,7 +102,7 @@ const statusTone: Record<ToolStatus, string> = {
   "coming-soon": toneNeutral,
 };
 
-const statusGlyph: Record<ToolStatus, JSX.Element> = {
+const statusGlyph: Record<ToolStatus, ReactNode> = {
   online: <Check className="h-3.5 w-3.5" />,
   beta: <Sparkles className="h-3.5 w-3.5" />,
   offline: <CircleDashed className="h-3.5 w-3.5" />,
@@ -410,27 +410,33 @@ export default function ToolsLauncherPage() {
   const [copiedToolId, setCopiedToolId] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [copyError, setCopyError] = useState<string | null>(null);
-  const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyResetRef = useRef<number | null>(null);
 
   const categories = useMemo(() => ["All", ...Array.from(new Set(toolCatalog.map((tool) => tool.category)))] as string[], []);
-  const toolById = useMemo(() => new Map(toolCatalog.map((tool) => [tool.id, tool])), [toolCatalog]);
+  const toolById = useMemo(() => new Map(toolCatalog.map((tool) => [tool.id, tool])), []);
 
   useEffect(() => {
-    try {
-      const favoritesRaw = window.localStorage.getItem(storageKeys.favorites);
-      const parsed = favoritesRaw ? JSON.parse(favoritesRaw) : null;
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setFavoriteIds(parsed.filter((id): id is string => typeof id === "string"));
-      }
-    } catch {}
+    const hydrationTimer = window.setTimeout(() => {
+      try {
+        const favoritesRaw = window.localStorage.getItem(storageKeys.favorites);
+        const parsed = favoritesRaw ? JSON.parse(favoritesRaw) : null;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFavoriteIds(parsed.filter((id): id is string => typeof id === "string"));
+        }
+      } catch {}
 
-    try {
-      const recentRaw = window.localStorage.getItem(storageKeys.recent);
-      const parsed = recentRaw ? JSON.parse(recentRaw) : null;
-      if (Array.isArray(parsed)) {
-        setRecent(parsed.filter((id): id is string => typeof id === "string").slice(0, maxRecent));
-      }
-    } catch {}
+      try {
+        const recentRaw = window.localStorage.getItem(storageKeys.recent);
+        const parsed = recentRaw ? JSON.parse(recentRaw) : null;
+        if (Array.isArray(parsed)) {
+          setRecent(parsed.filter((id): id is string => typeof id === "string").slice(0, maxRecent));
+        }
+      } catch {}
+    }, 0);
+
+    return () => {
+      window.clearTimeout(hydrationTimer);
+    };
   }, []);
 
   useEffect(() => {

@@ -15,7 +15,7 @@ import { cn, floatingControl } from "@/components/ui-primitives";
 export function DashboardFloatingFab() {
   const [open, setOpen] = useState(false);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const clearNotice = useCallback(() => {
     if (timeoutRef.current) {
