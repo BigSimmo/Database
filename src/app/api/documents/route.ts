@@ -77,7 +77,7 @@ function parseOffset(value: string | null) {
 }
 
 function ilikePattern(value: string) {
-  return `%${value.replace(/[%_]/g, "\\$&")}%`;
+  return `%${value.replace(/\\/g, "\\\\").replace(/[%_]/g, "\\$&")}%`;
 }
 
 function safeSearchTerm(value: string) {
