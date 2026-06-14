@@ -12,21 +12,21 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 export const textMuted = "text-[color:var(--text-muted)]";
-export const raisedCard = "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-export const insetCard = "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
+export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
+export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
 export const appBackdrop =
-  "bg-[radial-gradient(circle_at_50%_-12%,color-mix(in_srgb,var(--primary)_11%,transparent),transparent_28rem),linear-gradient(180deg,var(--background),color-mix(in_srgb,var(--background)_90%,var(--surface-inset)))]";
+  "bg-[radial-gradient(circle_at_50%_-12%,color-mix(in_srgb,var(--primary)_5%,transparent),transparent_28rem),linear-gradient(180deg,var(--background),color-mix(in_srgb,var(--background)_90%,var(--surface-inset)))]";
 export const glassPanel =
-  "rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] dark:border-white/10";
+  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] dark:border-white/10";
 export const quietPanel =
-  "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
+  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const sourceCard = `${quietPanel} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface =
-  "rounded-xl border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
+  "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
 export const evidenceSurface =
-  "rounded-xl border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
+  "rounded-lg border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
 export const panel =
-  "rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-white/25 dark:ring-white/5";
+  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-white/25 dark:ring-white/5";
 export const panelSubtle = quietPanel;
 export const controlBase =
   "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-none";
@@ -59,12 +59,12 @@ export const iconTilePremium =
 export const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]";
 export const premiumHeaderSurface =
-  "border-b border-white/10 bg-[radial-gradient(circle_at_12%_-35%,color-mix(in_srgb,var(--app-shell-accent)_34%,transparent),transparent_18rem),linear-gradient(135deg,var(--app-shell)_0%,var(--app-shell-muted)_58%,color-mix(in_srgb,var(--app-shell-muted)_72%,var(--app-shell-accent))_100%)] text-white shadow-[var(--shadow-soft)]";
+  "border-b border-white/10 bg-[radial-gradient(circle_at_16%_-45%,color-mix(in_srgb,var(--app-shell-accent)_16%,transparent),transparent_18rem),linear-gradient(180deg,var(--app-shell-muted)_0%,var(--app-shell)_100%)] text-white shadow-[var(--shadow-soft)]";
 export const sheetSurface =
   "rounded-t-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-xl dark:ring-white/10 sm:rounded-[var(--radius-lg)]";
 export const sheetHandle = "mx-auto block h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70 sm:hidden";
 export const commandInput =
-  "min-h-[48px] w-full rounded-[var(--radius-lg)] border border-white/20 bg-white/95 pl-12 pr-12 text-base font-semibold text-slate-950 shadow-[0_16px_34px_rgb(0_0_0_/_14%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/25 dark:bg-slate-950/90 dark:text-slate-50 dark:placeholder:text-slate-500";
+  "min-h-[48px] w-full rounded-[var(--radius-lg)] border border-white/20 bg-white/96 pl-12 pr-12 text-sm font-semibold text-slate-950 shadow-[0_10px_22px_rgb(0_0_0_/_10%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20 dark:bg-slate-900/90 dark:text-slate-50 dark:placeholder:text-slate-500 sm:text-base";
 
 export const toneSuccess =
   "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
@@ -200,7 +200,7 @@ export function LoadingPanel({
 
 export function EmptyState({ icon: Icon, title, body }: { icon: IconComponent; title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
+    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
           <Icon className="h-4.5 w-4.5" />
