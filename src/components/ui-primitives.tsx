@@ -64,7 +64,7 @@ export const sheetSurface =
   "rounded-t-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-xl dark:ring-white/10 sm:rounded-[var(--radius-lg)]";
 export const sheetHandle = "mx-auto block h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70 sm:hidden";
 export const commandInput =
-  "min-h-[48px] w-full rounded-[var(--radius-lg)] border border-white/20 bg-white/96 pl-12 pr-12 text-sm font-semibold text-slate-950 shadow-[0_10px_22px_rgb(0_0_0_/_10%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-slate-500 focus:border-[color:var(--focus)] focus:ring-4 focus:ring-teal-300/20 dark:bg-slate-900/90 dark:text-slate-50 dark:placeholder:text-slate-500 sm:text-base";
+  "min-h-[48px] w-full rounded-[var(--radius-lg)] border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[0_10px_22px_rgb(0_0_0_/_10%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25 motion-safe:transition sm:text-base";
 
 export const toneSuccess =
   "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";

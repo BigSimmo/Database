@@ -82,6 +82,22 @@ export type SourceGovernanceWarning = {
   title?: string;
 };
 
+export type RetrievalConfidenceGateStatus = "passed" | "blocked";
+
+export type RetrievalDiagnostics = {
+  candidateCount: number;
+  retrievalDepth: number;
+  distinctDocumentCount: number;
+  topScore: number;
+  secondScore: number;
+  scoreSpread: number;
+  queryClass?: RagQueryClass;
+  routeMode?: "unsupported" | "extractive" | "fast" | "strong";
+  gateStatus: RetrievalConfidenceGateStatus;
+  fallbackReason?: string | null;
+  retrievalReason?: string | null;
+};
+
 export type ClinicalDocument = {
   id: string;
   owner_id?: string | null;
@@ -699,6 +715,7 @@ export type RagAnswer = {
   confidence: "high" | "medium" | "low" | "unsupported";
   citations: Citation[];
   sources: SearchResult[];
+  retrievalDiagnostics?: RetrievalDiagnostics;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;

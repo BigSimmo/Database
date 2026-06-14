@@ -63,6 +63,8 @@ import type {
   RelatedDocument,
   OpenAITokenUsage,
   QuoteCard,
+  RetrievalConfidenceGateStatus,
+  RetrievalDiagnostics,
   RagQueryClass,
   RagAnswer,
   SearchResult,
@@ -380,6 +382,11 @@ export type SearchTelemetry = {
   index_unit_top_score?: number;
   weighted_top_score?: number;
   rrf_top_score?: number;
+  top_score?: number;
+  second_top_score?: number;
+  score_spread?: number;
+  score_distinct_documents?: number;
+  retrieval_candidate_count?: number;
   retrieval_strategy?:
     | "search_cache"
     | "text_fast_path"
@@ -390,10 +397,48 @@ export type SearchTelemetry = {
 };
 
 function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
+  if (!results.length) {
+    telemetry.top_score = 0;
+    telemetry.second_top_score = 0;
+    telemetry.score_spread = 0;
+    telemetry.weighted_top_score = 0;
+    telemetry.rrf_top_score = 0;
+    telemetry.score_distinct_documents = 0;
+    telemetry.retrieval_candidate_count = results.length;
+    return;
+  }
+
+  const byScore = (left: SearchResult, right: SearchResult) => {
+    const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
+    const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
+    if (rightHybrid !== leftHybrid) return rightHybrid - leftHybrid;
+    const leftSimilarity = left.similarity ?? 0;
+    const rightSimilarity = right.similarity ?? 0;
+    if (rightSimilarity !== leftSimilarity) return rightSimilarity - leftSimilarity;
+    if (right.relevance?.score !== left.relevance?.score) return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
+    return left.id.localeCompare(right.id);
+  };
+
+  results.sort(byScore);
+  const deduped: SearchResult[] = [];
+  const seen = new Set<string>();
+  for (const result of results) {
+    if (seen.has(result.id)) continue;
+    seen.add(result.id);
+    deduped.push(result);
+  }
+  results.length = 0;
+  results.push(...deduped);
+
   telemetry.weighted_top_score = Number(
     Math.max(0, ...results.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4),
   );
   telemetry.rrf_top_score = Number(Math.max(0, ...results.map((result) => result.rrf_score ?? 0)).toFixed(4));
+  telemetry.top_score = Number(results[0] ? Math.max(0, results[0].hybrid_score ?? results[0].similarity ?? 0) : 0);
+  telemetry.second_top_score = Number(results[1] ? Math.max(0, results[1].hybrid_score ?? results[1].similarity ?? 0) : 0);
+  telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
+  telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
+  telemetry.retrieval_candidate_count = results.length;
 }
 
 const citationSchema = z.object({
@@ -466,6 +511,74 @@ function deriveConfidence(results: SearchResult[], acceptedCitationCount: number
   if (strongest >= 0.82 && acceptedCitationCount >= 2) return "high";
   if (strongest >= 0.64) return "medium";
   return "low";
+}
+
+function scoreValue(result: SearchResult) {
+  return result.hybrid_score ?? result.similarity ?? 0;
+}
+
+function buildRetrievalDiagnostics(args: {
+  queryClass: RagQueryClass;
+  query: string;
+  results: SearchResult[];
+  answerMode: "unsupported" | "extractive" | "fast" | "strong";
+  fallbackReason?: string | null;
+}) {
+  const resultScores = args.results.map(scoreValue);
+  const sortedScores = [...resultScores].sort((a, b) => b - a);
+  const topScore = sortedScores[0] ?? 0;
+  const secondScore = sortedScores[1] ?? 0;
+  const distinctDocuments = new Set(args.results.map((result) => result.document_id)).size;
+  const scoreSpread = Number(Math.max(0, topScore - secondScore).toFixed(4));
+  const weakSignal =
+    topScore < 0.5 ||
+    (args.results.length > 1 && scoreSpread < 0.05) ||
+    (args.results.length > 0 && distinctDocuments === 1 && /table_threshold|medication_dose_risk/.test(args.queryClass));
+  const gateStatus: RetrievalConfidenceGateStatus = weakSignal ? "blocked" : "passed";
+  return {
+    candidateCount: args.results.length,
+    retrievalDepth: args.results.length,
+    distinctDocumentCount: distinctDocuments,
+    topScore: Number(topScore.toFixed(4)),
+    secondScore: Number(secondScore.toFixed(4)),
+    scoreSpread,
+    queryClass: args.queryClass,
+    routeMode: args.answerMode,
+    gateStatus,
+    fallbackReason: weakSignal ? "low_signal_retrieval_gate" : args.fallbackReason ?? null,
+    retrievalReason:
+      weakSignal && args.fallbackReason
+        ? args.fallbackReason
+        : weakSignal
+          ? "top_score_and_diversity_below_threshold"
+          : null,
+  } satisfies RetrievalDiagnostics;
+}
+
+function applyConfidenceGate(
+  route: {
+    mode: "unsupported" | "extractive" | "fast" | "strong";
+    model: string | null;
+    reason: string;
+    strongestScore: number;
+    documentCount: number;
+  },
+  queryClass: RagQueryClass,
+  diagnostics: RetrievalDiagnostics,
+): { route: typeof route; fallbackReason?: string } {
+  if (route.mode === "unsupported") return { route };
+  if (diagnostics.gateStatus === "passed") return { route };
+  if (diagnostics.retrievalDepth < 2 && queryClass === "table_threshold") return { route };
+
+  return {
+    route: {
+      ...route,
+      mode: "unsupported",
+      model: null,
+      reason: `${route.reason}; confidence_gate_blocked`,
+    },
+    fallbackReason: `low_signal_${queryClass}_${route.mode}`,
+  };
 }
 
 function clampConfidence(
@@ -638,7 +751,7 @@ function fallbackReasonFromRouting(reason?: string | null) {
     reason
       .split(";")
       .map((part) => part.trim())
-      .find((part) => /fallback|unsupported|no_|limited_retrieval|gap|conflict|failed/i.test(part)) ?? null
+      .find((part) => /fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(part)) ?? null
   );
 }
 
@@ -3324,6 +3437,22 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
   }
 }
 
+function annotateAnswerWithDiagnostics<T extends RagAnswer>(
+  answer: T,
+  diagnostics: RetrievalDiagnostics,
+  override?: { fallbackReason?: string | null },
+): T {
+  const fallbackReason = override?.fallbackReason ?? diagnostics.fallbackReason ?? null;
+  return {
+    ...answer,
+    retrievalDiagnostics: {
+      ...diagnostics,
+      fallbackReason,
+      retrievalReason: fallbackReason,
+    },
+  };
+}
+
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
@@ -3471,7 +3600,7 @@ export async function answerQuestionWithScope(args: {
     results,
     ownerId: args.ownerId,
   });
-  const route = chooseAnswerRoute({
+  const routeFromRouting = chooseAnswerRoute({
     query: answerFocusQuery,
     results: answerInputResults,
     queryClass,
@@ -3479,6 +3608,37 @@ export async function answerQuestionWithScope(args: {
     fastModel: env.OPENAI_FAST_ANSWER_MODEL,
     strongModel: env.OPENAI_STRONG_ANSWER_MODEL,
   });
+  const initialRetrievalDiagnostics = buildRetrievalDiagnostics({
+    queryClass,
+    query: answerFocusQuery,
+    results: answerInputResults,
+    answerMode: routeFromRouting.mode,
+  });
+  const gatedRoute = applyConfidenceGate(routeFromRouting, queryClass, initialRetrievalDiagnostics);
+    const route = gatedRoute.route;
+    const retrievalDiagnostics = {
+      ...initialRetrievalDiagnostics,
+      routeMode: route.mode,
+      fallbackReason: gatedRoute.fallbackReason ?? initialRetrievalDiagnostics.fallbackReason,
+      retrievalReason: (
+        gatedRoute.fallbackReason
+        ? gatedRoute.fallbackReason
+        : initialRetrievalDiagnostics.retrievalReason
+    ) ?? null,
+  };
+  const retrievalLogMetadata = {
+    retrieval_depth: retrievalDiagnostics.retrievalDepth,
+    retrieval_distinct_documents: retrievalDiagnostics.distinctDocumentCount,
+    retrieval_candidate_count: retrievalDiagnostics.candidateCount,
+    retrieval_top_score: retrievalDiagnostics.topScore,
+    retrieval_second_score: retrievalDiagnostics.secondScore,
+    retrieval_score_spread: retrievalDiagnostics.scoreSpread,
+    retrieval_gate_status: retrievalDiagnostics.gateStatus,
+    retrieval_fallback_reason: retrievalDiagnostics.fallbackReason,
+    retrieval_reason: retrievalDiagnostics.retrievalReason,
+    retrieval_query_class: retrievalDiagnostics.queryClass,
+    retrieval_route_mode: retrievalDiagnostics.routeMode,
+  };
   const buildCurrentSmartApiPlan = (
     mode: RagAnswer["routingMode"] = route.mode,
     reason = route.reason,
@@ -3525,7 +3685,8 @@ export async function answerQuestionWithScope(args: {
   if (route.mode === "unsupported") {
     const relatedDocuments = await relatedDocumentsPromise;
     const unsupportedWithNearbySources = results.length > 0;
-    const answer = {
+    const answer = annotateAnswerWithDiagnostics(
+      {
       answer: unsupportedWithNearbySources
         ? "I found nearby indexed passages, but they are not strong enough to support a reliable answer. Try refining the query or selecting a more relevant document."
         : "I could not find enough support in the indexed documents to answer this query. Upload or index a relevant guideline, then search again.",
@@ -3570,7 +3731,9 @@ export async function answerQuestionWithScope(args: {
       indexingQuality,
       smartApiPlan,
       scoreExplanations: answerScoreExplanations,
-    } satisfies RagAnswer;
+      } satisfies RagAnswer,
+      retrievalDiagnostics,
+    );
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -3612,6 +3775,7 @@ export async function answerQuestionWithScope(args: {
           total_latency_ms: answer.latencyTimings.total_latency_ms,
           evidence_summary: answer.evidenceSummary,
           source_coverage: answer.sourceCoverage,
+          ...retrievalLogMetadata,
           related_document_count: relatedDocuments.length,
         },
       });
@@ -3622,7 +3786,8 @@ export async function answerQuestionWithScope(args: {
 
   if (route.mode === "extractive") {
     const relatedDocuments = await relatedDocumentsPromise;
-    const answer: RagAnswer = buildExtractiveAnswer({
+    const answer: RagAnswer = annotateAnswerWithDiagnostics(
+      buildExtractiveAnswer({
       query: args.query,
       queryClass,
       results: answerInputResults,
@@ -3649,7 +3814,9 @@ export async function answerQuestionWithScope(args: {
         generation_latency_ms: 0,
         total_latency_ms: Date.now() - startedAt,
       },
-    });
+      }),
+      retrievalDiagnostics,
+    );
     answer.relevance = relevance;
     answer.queryAnalysis = queryAnalysis;
     answer.responseMode = smartApiPlan.displayMode;
@@ -3683,6 +3850,7 @@ export async function answerQuestionWithScope(args: {
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
           related_document_count: relatedDocuments.length,
+          ...retrievalLogMetadata,
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
@@ -3878,7 +4046,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     });
     contextPackLatencyMs += Date.now() - contextPackStartedAt;
     let generated = await generateWithModel(route.model!, packedContextResults);
-    let answer = parseAnswerJson(generated.text, packedContextResults, args.query);
+    let answer = annotateAnswerWithDiagnostics(parseAnswerJson(generated.text, packedContextResults, args.query), retrievalDiagnostics);
     if (shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults })) {
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
       routingReason = `${route.reason}; fast_unsupported_retry_strong`;
@@ -3896,7 +4064,8 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
       });
       contextPackLatencyMs += Date.now() - retryContextPackStartedAt;
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults);
-      answer = parseAnswerJson(generated.text, packedContextResults, args.query);
+      answer = annotateAnswerWithDiagnostics(parseAnswerJson(generated.text, packedContextResults, args.query), retrievalDiagnostics);
+      retrievalDiagnostics.routeMode = "strong";
     }
     await args.onProgress?.({ stage: "finalizing", message: "Checking citations and source metadata." });
 
@@ -3963,8 +4132,8 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     answer.relevance = relevance;
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
 
-    if (args.logQuery !== false)
-      await logRagQuery({
+      if (args.logQuery !== false)
+        await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: answer.answer,
@@ -4022,7 +4191,10 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
       mode: "unsupported",
       reason: "generation_fallback",
     });
-    const fallbackAnswer = await buildGenerationFallbackAnswer(error, relatedDocuments);
+    const fallbackAnswer = annotateAnswerWithDiagnostics(
+      await buildGenerationFallbackAnswer(error, relatedDocuments),
+      retrievalDiagnostics,
+    );
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
@@ -4050,6 +4222,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
+          ...retrievalLogMetadata,
           related_document_count: relatedDocuments.length,
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,

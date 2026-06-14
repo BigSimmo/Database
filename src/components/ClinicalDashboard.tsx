@@ -2398,6 +2398,7 @@ function AnswerInsightBar({
   const sourceStatus = sourceGovernanceWarnings.length
     ? `${sourceGovernanceWarnings.length} source status note${sourceGovernanceWarnings.length === 1 ? "" : "s"}`
     : sourceStatusLabel(metadata);
+  const retrievalGate = answer.retrievalDiagnostics?.gateStatus;
   const items = [
     { label: "Mode", value: modeLabel, icon: SlidersHorizontal },
     {
@@ -2407,6 +2408,11 @@ function AnswerInsightBar({
     },
     { label: "Sources", value: String(sourceCount), icon: FileText },
     { label: "Confidence", value: answer.confidence, icon: Target },
+    {
+      label: "Retrieval",
+      value: retrievalGate ? `${retrievalGate} gate` : "Not logged",
+      icon: retrievalGate === "blocked" ? ShieldAlert : CheckCircle2,
+    },
     { label: "Status", value: `${sourceStatus} / ${validationStatusLabel(metadata)}`, icon: BookOpen },
   ];
 
@@ -2454,6 +2460,7 @@ function EvidenceVerificationStrip({
   const sourceCount = sourceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
   const citationCount = answer.citations.length;
   const gapCount = answer.conflictsOrGaps?.length ?? answer.smartPanel?.conflictsOrGaps?.length ?? 0;
+  const retrievalGateBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
   const checks = [
     {
       label: "Bottom line cited",
@@ -2469,6 +2476,11 @@ function EvidenceVerificationStrip({
       label: "Source status",
       value: sourceStatusLabel(metadata),
       ready: metadata.document_status === "current" && !governanceWarningCount,
+    },
+    {
+      label: "Retrieval gate",
+      value: retrievalGateBlocked ? "Blocked for low signal" : answer.retrievalDiagnostics ? "Passed" : "Not available",
+      ready: !retrievalGateBlocked,
     },
     {
       label: "Gaps reviewed",
@@ -2638,7 +2650,16 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   );
 }
 
-function AnswerSafetyNotice({ demoMode, weakEvidence = false }: { demoMode: boolean; weakEvidence?: boolean }) {
+function AnswerSafetyNotice({
+  demoMode,
+  weakEvidence = false,
+  retrievalDiagnostics,
+}: {
+  demoMode: boolean;
+  weakEvidence?: boolean;
+  retrievalDiagnostics?: RagAnswer["retrievalDiagnostics"];
+}) {
+  const retrievalGateBlocked = retrievalDiagnostics?.gateStatus === "blocked";
   return (
     <div
       data-testid="answer-safety-notice"
@@ -2648,12 +2669,18 @@ function AnswerSafetyNotice({ demoMode, weakEvidence = false }: { demoMode: bool
           ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45"
           : "border-[color:var(--border)] bg-[color:var(--surface)]",
       )}
-    >
+      >
       <p className="font-semibold text-[color:var(--text)]">
         {weakEvidence
           ? "Weak source support; verify the linked source before relying on this answer."
           : "Draft only; verify source first before pasting into the medical record."}
       </p>
+      {retrievalGateBlocked ? (
+        <p className="mt-1 font-semibold text-[color:var(--warning)]">
+          Retrieval confidence gate was triggered (low-confidence retrieval signal). Expand evidence details before using this
+          result.
+        </p>
+      ) : null}
       {demoMode ? (
         <p className="mt-1 font-semibold text-amber-800 dark:text-amber-100">
           Synthetic demo only: this is not clinical guidance.
@@ -6340,7 +6367,7 @@ export function ClinicalDashboard() {
     [answer],
   );
   const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
-  const weakEvidence = isWeakRelevance(currentRelevance);
+  const weakEvidence = isWeakRelevance(currentRelevance) || answer?.retrievalDiagnostics?.gateStatus === "blocked";
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answer?.bestSource ?? answer?.smartPanel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
@@ -6649,7 +6676,11 @@ export function ClinicalDashboard() {
                           supporting
                         />
                         <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                        <AnswerSafetyNotice demoMode={demoMode} weakEvidence={weakEvidence} />
+                        <AnswerSafetyNotice
+                          demoMode={demoMode}
+                          weakEvidence={weakEvidence}
+                          retrievalDiagnostics={answer?.retrievalDiagnostics}
+                        />
                         <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
                         <WhyThisMatchedPanel sources={sources} />
                       </div>
