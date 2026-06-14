@@ -126,7 +126,7 @@ const child = spawn(
     nextBin,
     parsedCommand.command,
     "--hostname",
-    "localhost",
+    "0.0.0.0",
     "--port",
     String(freePort),
     ...removePortArgs(forwardedArgs),
