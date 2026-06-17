@@ -43,6 +43,12 @@ export type OpenAITextResult = {
   latencyMs: number;
   requestId?: string | null;
   usage?: OpenAITokenUsage;
+  /** Raw response status from the Responses API ("completed" | "incomplete" | …). */
+  status?: string;
+  /** True when the Responses API reported the output was cut off (e.g. max_output_tokens). */
+  truncated?: boolean;
+  /** Reason supplied in incomplete_details (e.g. "max_output_tokens", "content_filter"). */
+  incompleteReason?: string;
 };
 
 let openAIClient: OpenAI | null = null;
@@ -212,6 +218,22 @@ function extractOutputText(response: unknown) {
   return typeof outputText === "string" ? outputText : "";
 }
 
+function extractCompletionStatus(response: unknown): {
+  status?: string;
+  truncated: boolean;
+  incompleteReason?: string;
+} {
+  const value = response as {
+    status?: unknown;
+    incomplete_details?: { reason?: unknown } | null;
+  };
+  const status = typeof value.status === "string" ? value.status : undefined;
+  const reasonRaw = value.incomplete_details?.reason;
+  const incompleteReason = typeof reasonRaw === "string" ? reasonRaw : undefined;
+  const truncated = status === "incomplete" || incompleteReason === "max_output_tokens";
+  return { status, truncated, incompleteReason };
+}
+
 function extractUsage(response: unknown): OpenAITokenUsage | undefined {
   const usage = (response as { usage?: Record<string, unknown> }).usage;
   if (!usage) return undefined;
@@ -326,6 +348,7 @@ async function createTextResult(
     const client = createOpenAIClient();
     const request = client.responses.create(responseBody(input, options, format) as never, requestOptions(options));
     const { data, request_id: requestId } = await unwrapOpenAIResponse(request as unknown as APIPromiseLike<unknown>);
+    const completion = extractCompletionStatus(data);
     return {
       text: extractOutputText(data),
       model: options.model,
@@ -333,6 +356,9 @@ async function createTextResult(
       latencyMs: Date.now() - startedAt,
       requestId: requestId ?? getRequestId(data),
       usage: extractUsage(data),
+      status: completion.status,
+      truncated: completion.truncated,
+      incompleteReason: completion.incompleteReason,
     };
   } catch (error) {
     throw mapOpenAIError(error, operation);

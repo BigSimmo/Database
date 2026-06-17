@@ -3,7 +3,7 @@
 import { Maximize2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
+import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 
 const tableExpandMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 const metadataHeaderPattern = /^(?:source|sources|support|pages?|chunk|file|document|citation|citations|provenance)$/i;
@@ -42,7 +42,7 @@ function isMetadataHeader(value: string) {
   return metadataHeaderPattern.test(value.trim());
 }
 
-function clinicalOnlyTable(table: { header: string[]; body: string[][] }) {
+function clinicalOnlyTable(table: NormalizedAccessibleTable) {
   const keptIndexes = table.header
     .map((header, index) => ({ header, index }))
     .filter(({ header }) => !isMetadataHeader(header))
@@ -55,7 +55,9 @@ function clinicalOnlyTable(table: { header: string[]; body: string[][] }) {
     .filter((row) => row.some(Boolean));
 
   if (!header.length || !body.length) return null;
-  return { header, body };
+  // GEN-H3: carry the low-confidence flag through so an ambiguously-normalized
+  // clinical table is rendered with a "verify against source" caveat.
+  return { header, body, lowConfidence: table.lowConfidence, lowConfidenceReason: table.lowConfidenceReason };
 }
 
 function useMobileTableExpansion(enabled: boolean) {
@@ -210,7 +212,20 @@ export function AccessibleTable({
   const { header, body } = normalized;
   const displayCaption = clinicalOnly && caption ? cleanClinicalTableText(caption) : caption;
   const title = dialogTitle || displayCaption || "Clinical table";
-  const table = <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={compact} />;
+  const lowConfidence = Boolean(normalized.lowConfidence);
+  const table = (
+    <>
+      {lowConfidence ? (
+        <p
+          data-testid="table-low-confidence-note"
+          className={cn("mb-1 text-xs", textMuted)}
+        >
+          Table structure could not be confidently reconstructed — verify values against the source document.
+        </p>
+      ) : null}
+      <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={compact} />
+    </>
+  );
 
   function openDialog(trigger: HTMLElement) {
     if (!canExpand) return;

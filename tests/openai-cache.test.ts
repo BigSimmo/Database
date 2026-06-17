@@ -153,6 +153,67 @@ describe("OpenAI query embedding cache", () => {
     );
   });
 
+  it("flags truncated (incomplete) responses (GEN-C1)", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn(() => ({
+            withResponse: async () => ({
+              data: {
+                status: "incomplete",
+                incomplete_details: { reason: "max_output_tokens" },
+                output_text: '{"answer":"Withhold clozapine if ANC below',
+              },
+              request_id: "req_trunc",
+            }),
+          })),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    const result = await generateStructuredTextResult(
+      "Question",
+      { type: "object", properties: {}, required: [] },
+      { model: "gpt-5.4-mini", operation: "answer", schemaName: "clinical_test", maxOutputTokens: 50 },
+    );
+
+    expect(result.truncated).toBe(true);
+    expect(result.status).toBe("incomplete");
+    expect(result.incompleteReason).toBe("max_output_tokens");
+  });
+
+  it("marks a completed response as not truncated (GEN-C1)", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn(() => ({
+            withResponse: async () => ({
+              data: { status: "completed", output_text: '{"answer":"ok"}' },
+              request_id: "req_ok",
+            }),
+          })),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    const result = await generateStructuredTextResult(
+      "Question",
+      { type: "object", properties: {}, required: [] },
+      { model: "gpt-5.4-mini", operation: "answer", schemaName: "clinical_test", maxOutputTokens: 200 },
+    );
+
+    expect(result.truncated).toBe(false);
+    expect(result.status).toBe("completed");
+  });
+
   it("maps OpenAI rate limits to a safe public error", async () => {
     const { mapOpenAIError } = await import("../src/lib/openai");
 

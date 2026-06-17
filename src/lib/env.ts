@@ -19,7 +19,11 @@ const envSchema = z.object({
   OPENAI_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.4"),
-  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1400),
+  // Reasoning models (gpt-5*) draw reasoning tokens from this same budget, so a
+  // low cap can starve the JSON answer payload and silently truncate clinical
+  // content (doses/thresholds cut mid-sentence). Raised default for headroom; if
+  // output is still cut off, createTextResult now flags it as truncated (GEN-C1).
+  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(2400),
   OPENAI_QUERY_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),

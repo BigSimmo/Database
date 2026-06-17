@@ -748,6 +748,16 @@ export type RagAnswer = {
   }>;
   scope?: SearchScopeSummary;
   sourceGovernanceWarnings?: SourceGovernanceWarning[];
+  // GEN-C1: set when the model output was cut off (status="incomplete" /
+  // max_output_tokens). The clinical content may be missing a dose/threshold, so
+  // the UI must surface "answer truncated — verify against sources".
+  truncated?: boolean;
+  truncationReason?: string;
+  // GEN-C2/H2: post-generation faithfulness verification. Lists numeric/dose/threshold
+  // tokens asserted in the answer that could not be found verbatim in any cited chunk.
+  // When non-empty the answer should be treated as needing source verification.
+  unverifiedNumericTokens?: string[];
+  faithfulnessWarning?: string;
 };
 
 export type ExtractedPage = {
