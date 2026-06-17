@@ -1403,6 +1403,7 @@ returns table (
   similarity double precision,
   text_rank double precision,
   hybrid_score double precision,
+  lexical_score double precision,
   images jsonb
 )
 language sql
@@ -1454,12 +1455,20 @@ as $$
     ranked.source_metadata,
     coalesce(public.document_label_metadata(ranked.document_id), '[]'::jsonb) as document_labels,
     public.document_summary_text(ranked.document_id) as document_summary,
-    least(0.95, 0.56 + (least(ranked.text_rank, 1) * 0.39))::double precision as similarity,
+    -- Text-only fallback has NO vector cosine similarity. Do not fabricate one:
+    -- a synthetic value here was read downstream as a real semantic score and
+    -- could label a pure keyword hit as "strong"/"moderate" evidence (>=0.64).
+    -- Leave similarity at 0; the lexical signal lives in lexical_score.
+    0::double precision as similarity,
     ranked.text_rank,
-    least(0.97, 0.58 + (least(ranked.text_rank, 1) * 0.39))::double precision as hybrid_score,
+    -- Cap hybrid_score well below the 0.64 "moderate" threshold so a lexical-only
+    -- row can order amongst its peers but can never masquerade as a moderate/strong
+    -- cosine match when merged with vector results.
+    least(0.5, 0.18 + (least(ranked.text_rank, 1) * 0.3))::double precision as hybrid_score,
+    least(0.99, 0.4 + (least(ranked.text_rank, 1) * 0.59))::double precision as lexical_score,
     public.chunk_image_metadata(ranked.image_ids) as images
   from ranked
-  order by hybrid_score desc, text_rank desc
+  order by lexical_score desc, text_rank desc
   limit match_count;
 $$;
 

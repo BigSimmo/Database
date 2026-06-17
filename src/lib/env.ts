@@ -42,6 +42,14 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // Clinical search queries can contain patient-identifying text (names, MRNs,
+  // "patient with X on Y dose"). Default OFF: persist only a hash + normalized
+  // tokens needed for miss-promotion. Set true only where retaining raw query
+  // text is permitted and a retention policy exists (RET-H4).
+  RAG_PERSIST_RAW_QUERY_TEXT: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(150),

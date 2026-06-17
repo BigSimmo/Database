@@ -16,6 +16,7 @@ import { consumePublicSearchRateLimit } from "@/lib/public-rate-limit";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
+import { normalizeQueryText, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -347,8 +348,8 @@ function logWeakSearch(args: {
     .from("rag_query_misses")
     .insert({
       owner_id: args.ownerId,
-      query: args.query,
-      normalized_query: args.query.toLowerCase().replace(/\s+/g, " ").trim(),
+      query: queryTextForStorage(args.query),
+      normalized_query: normalizeQueryText(args.query),
       query_class: args.queryClass,
       route: args.route ?? null,
       retrieval_strategy: args.retrievalStrategy ?? null,
@@ -365,6 +366,7 @@ function logWeakSearch(args: {
         relevance_score: args.relevance.score,
         direct_source_count: args.relevance.directSourceCount,
         weak_source_count: args.relevance.weakSourceCount,
+        ...queryPrivacyMetadata(args.query),
       },
     })
     .then(undefined, () => undefined);
@@ -404,11 +406,12 @@ function logSearchObservation(args: {
       const latencyMs = telemetryLatencyMs(telemetry);
       await args.supabase.from("rag_queries").insert({
         owner_id: args.ownerId,
-        query: args.query,
+        query: queryTextForStorage(args.query),
         answer: null,
         source_chunk_ids: args.results.map((result) => result.id),
         model: "search",
         metadata: {
+          ...queryPrivacyMetadata(args.query),
           event_type: args.failure ? "private_search_failure" : "private_search",
           failure_code: args.failure?.code ?? null,
           failure_cause_name: args.failure?.causeName ?? null,

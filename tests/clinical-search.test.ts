@@ -548,3 +548,87 @@ describe("clinical query mode ranking", () => {
     expect(comparisonTop).toBe("comparison-source");
   });
 });
+
+describe("clinical rank score bounding and penalty caps (RET-H1, RET-H2)", () => {
+  // RET-H1
+  it("clamps the final composite score to [0,1]", () => {
+    const boosted = clinicalRankExplanation(
+      "treatment team process",
+      result({
+        id: "boosted",
+        title: "Treatment team process guideline",
+        file_name: "treatment-team-process.pdf",
+        section_heading: "Treatment team process",
+        content:
+          "Treatment team process: urgent escalation, red flag review, monitoring, and definition of the process workflow pathway.",
+        hybrid_score: 0.96,
+        similarity: 0.96,
+        rrf_score: 0.9,
+      }),
+    );
+    expect(boosted.finalScore).toBeLessThanOrEqual(1);
+    expect(boosted.finalScore).toBeGreaterThanOrEqual(0);
+  });
+
+  // RET-H2
+  it("caps total penalty so a heavily penalized result cannot fall far below zero", () => {
+    const explanation = clinicalRankExplanation(
+      "clozapine maximum dose",
+      result({
+        id: "boilerplate",
+        title: "Clozapine prescribing procedure",
+        file_name: "clozapine-procedure.pdf",
+        // administrative boilerplate, no numeric evidence, drug only in title -> stacks penalties
+        content:
+          "Supporting information, relevant standards, references, document owner, authorisation, authorised by, published date, effective from, amendment.",
+        hybrid_score: 0.4,
+        similarity: 0.4,
+      }),
+    );
+    expect(explanation.penalty).toBeGreaterThanOrEqual(-0.35);
+    // raw (uncapped) penalty should be more negative than the capped value
+    expect(explanation.rawPenalty ?? 0).toBeLessThanOrEqual(explanation.penalty);
+  });
+
+  // RET-H2 golden case: dose lives in a table row, drug only in the heading.
+  it("does not demote a numeric/table dose row below drug-name boilerplate", () => {
+    const query = "olanzapine maximum dose";
+    const tableRow = result({
+      id: "dose-table-row",
+      title: "Acute behavioural disturbance guideline",
+      file_name: "abd-guideline.pdf",
+      section_heading: "Olanzapine",
+      // numeric dose evidence, but the row text itself does not repeat "olanzapine"
+      content: "Maximum 20 mg in 24 hours. Repeat doses 5 mg IM PO. Monitoring: observe sedation.",
+      hybrid_score: 0.45,
+      similarity: 0.45,
+      table_facts: [
+        {
+          id: "tf-1",
+          document_id: "doc-1",
+          source_chunk_id: "dose-table-row",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "Dosing",
+          row_label: "Maximum",
+          clinical_parameter: "dose",
+          threshold_value: "20 mg/24h",
+          action: "do not exceed",
+        },
+      ],
+    });
+    const boilerplate = result({
+      id: "drug-name-boilerplate",
+      title: "Olanzapine prescribing procedure",
+      file_name: "olanzapine-procedure.pdf",
+      section_heading: "Olanzapine",
+      content:
+        "Olanzapine supporting information, relevant standards, references, document owner, authorisation, published date.",
+      hybrid_score: 0.5,
+      similarity: 0.5,
+    });
+
+    const ranked = rankClinicalResults(query, [boilerplate, tableRow]);
+    expect(ranked[0].id).toBe("dose-table-row");
+  });
+});

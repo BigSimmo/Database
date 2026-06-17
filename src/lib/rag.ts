@@ -11,6 +11,7 @@ import {
   rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
@@ -867,6 +868,16 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
   return args.queryMode ?? "auto";
 }
 
+// Shared DB cache key. Must include topK/minSimilarity so two requests for the
+// same query/scope/mode but different result-count or similarity-threshold
+// contracts cannot collide on one rag_response_cache row and be served a
+// payload sized/filtered for a different request. Mirrors scopedSearchCacheKey.
+function sharedNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode" | "topK" | "minSimilarity">) {
+  const topK = args.topK ?? 8;
+  const minSimilarity = args.minSimilarity ?? 0.15;
+  return normalizedCacheQuery(`${modeKey(args)} k=${topK} s=${minSimilarity} ${args.query}`);
+}
+
 function scopedAnswerCacheKey(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
 ) {
@@ -990,7 +1001,7 @@ type SharedCacheKind = "search" | "answer";
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity">,
   indexingVersion: string,
 ) {
   let query = supabase
@@ -998,7 +1009,7 @@ function sharedCacheSelector(
     .select("payload")
     .eq("cache_kind", kind)
     .eq("scope_key", scopeKey(args))
-    .eq("normalized_query", normalizedCacheQuery(`${modeKey(args)} ${args.query}`))
+    .eq("normalized_query", sharedNormalizedQuery(args))
     .eq("indexing_version", indexingVersion)
     .eq("dependency_version", ragCacheDependencyVersion)
     .gt("expires_at", new Date().toISOString())
@@ -1116,7 +1127,7 @@ async function getSharedCachedAnswer(
 
 async function replaceSharedCacheRow(
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity">,
   payload: unknown,
   ttlMs: number,
 ) {
@@ -1129,7 +1140,7 @@ async function replaceSharedCacheRow(
       .delete()
       .eq("cache_kind", kind)
       .eq("scope_key", scopeKey(args))
-      .eq("normalized_query", normalizedCacheQuery(`${modeKey(args)} ${args.query}`))
+      .eq("normalized_query", sharedNormalizedQuery(args))
       .eq("indexing_version", indexingVersion)
       .eq("dependency_version", ragCacheDependencyVersion);
     deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
@@ -1138,7 +1149,7 @@ async function replaceSharedCacheRow(
       owner_id: args.ownerId ?? null,
       cache_kind: kind,
       scope_key: scopeKey(args),
-      normalized_query: normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
+      normalized_query: sharedNormalizedQuery(args),
       indexing_version: indexingVersion,
       dependency_version: ragCacheDependencyVersion,
       payload,
@@ -1227,7 +1238,17 @@ export function invalidateRagCachesForDocumentMutation(ownerId: string) {
 
 async function insertRagQuery(row: Record<string, unknown>) {
   const supabase = createAdminClient();
-  await supabase.from("rag_queries").insert(row);
+  // Redact potential-PHI raw query text centrally so every logRagQuery caller is
+  // covered, and fold a stable hash + retention flag into metadata (RET-H4).
+  const rawQuery = typeof row.query === "string" ? row.query : "";
+  const existingMetadata =
+    row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
+  const safeRow = {
+    ...row,
+    query: queryTextForStorage(rawQuery),
+    metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
+  };
+  await supabase.from("rag_queries").insert(safeRow);
 }
 
 async function logRagQuery(row: Record<string, unknown>) {

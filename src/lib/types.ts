@@ -184,6 +184,10 @@ export type SearchResult = {
   similarity: number;
   text_rank?: number;
   hybrid_score?: number;
+  // Lexical/keyword relevance (0-1) for text-only fallback rows. This is NOT a
+  // cosine similarity — text-only rows leave `similarity` at 0 so a keyword hit
+  // can never masquerade as strong/moderate semantic evidence (RET-C2).
+  lexical_score?: number | null;
   rrf_score?: number;
   score_explanation?: SearchScoreExplanation;
   source_strength?: SourceStrength;
@@ -276,6 +280,7 @@ export type SearchScoreExplanation = {
   metadataBoost: number;
   clinicalSignalBoost: number;
   penalty: number;
+  rawPenalty?: number;
   finalScore: number;
   finalRank?: number;
   strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
