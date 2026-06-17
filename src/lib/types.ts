@@ -749,6 +749,10 @@ export type ExtractedPage = {
   pageNumber: number;
   text: string;
   ocrUsed?: boolean;
+  // IDX-H3: set when a page has image content but the extractor produced below-threshold
+  // text (e.g. the JS fallback can't OCR scanned PDFs). Surfaced in index_quality so a
+  // scanned guideline is never silently treated as a healthy, fully-indexed document.
+  needsOcr?: boolean;
 };
 
 export type ExtractedImage = {

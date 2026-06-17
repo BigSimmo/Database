@@ -129,16 +129,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
     }
 
-    const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: id });
-    if (resetError) throw new Error(resetError.message);
-
-    const { error: updateError } = await supabase
-      .from("documents")
-      .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
-      .eq("id", id)
-      .eq("owner_id", user.id);
-    if (updateError) throw new Error(updateError.message);
-
+    // IDX-H1: enqueue the job first, then mark queued. Do NOT reset the index here — the
+    // worker calls resetDocumentIndex at job start (worker/main.ts). Resetting before the
+    // job is committed would leave a previously-searchable clinical document with zero index
+    // if job creation failed or the worker never ran (silent availability regression). The
+    // existing index stays live until the worker commits a fresh one.
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
       .insert({
@@ -153,6 +148,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (jobError) throw new Error(jobError.message);
+
+    const { error: updateError } = await supabase
+      .from("documents")
+      .update({ status: "queued", error_message: null })
+      .eq("id", id)
+      .eq("owner_id", user.id);
+    if (updateError) throw new Error(updateError.message);
+
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

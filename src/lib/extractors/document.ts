@@ -91,18 +91,40 @@ async function extractPdf(buffer: Buffer) {
       }
     }
     await parser.destroy();
-    return {
-      pages:
-        parsed.pages.length > 0
-          ? parsed.pages.map((page) => ({
-              pageNumber: page.num,
-              text: page.text || "",
-              ocrUsed: false,
-            }))
-          : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }],
-      images,
-      warnings: ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."],
-    };
+
+    // IDX-H3: the JS fallback cannot OCR. A scanned / image-only page yields little or no
+    // embedded text, so without flagging it the document would index as near-empty yet still
+    // be marked "indexed" — invisible to retrieval. Mark any page that has image content but
+    // below-threshold text as needsOcr so index_quality surfaces it (and the worker refuses
+    // to mark an image-only PDF as fully indexed).
+    const JS_FALLBACK_MIN_TEXT_CHARS = 40;
+    const imageCountByPage = new Map<number, number>();
+    for (const image of images) {
+      if (image.pageNumber === null) continue;
+      imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
+    }
+
+    const rawPages =
+      parsed.pages.length > 0
+        ? parsed.pages.map((page) => ({ pageNumber: page.num, text: page.text || "" }))
+        : [{ pageNumber: 1, text: parsed.text || "" }];
+
+    const pages = rawPages.map((page) => {
+      const textLength = page.text.trim().length;
+      const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
+      const needsOcr = textLength < JS_FALLBACK_MIN_TEXT_CHARS && hasImages;
+      return { pageNumber: page.pageNumber, text: page.text, ocrUsed: false, needsOcr };
+    });
+
+    const warnings = ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."];
+    const ocrNeededPages = pages.filter((page) => page.needsOcr).length;
+    if (ocrNeededPages > 0) {
+      warnings.push(
+        `needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`,
+      );
+    }
+
+    return { pages, images, warnings };
   }
 }
 

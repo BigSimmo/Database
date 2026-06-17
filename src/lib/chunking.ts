@@ -156,6 +156,13 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
   if (!clean) return [];
   if (clean.length <= chunkSize) return [clean];
 
+  // IDX-H6: a document (or page region) that is entirely one table has no blank-line
+  // paragraph breaks, so it would otherwise fall through to the prose sentence splitter
+  // and be severed mid-row. Detect and route it to the row-boundary table splitter first.
+  if (isTableBlock(clean)) {
+    return chunkTableBlock(clean, chunkSize);
+  }
+
   const paragraphs = clean
     .split(paragraphBoundary)
     .map((paragraph) => paragraph.trim())
@@ -165,6 +172,17 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
     let current = "";
 
     for (const paragraph of paragraphs) {
+      // IDX-H6: never run a table through the prose splitter. Tables are emitted as their
+      // own atomic chunk(s), preserving row/column structure.
+      if (isTableBlock(paragraph)) {
+        if (current) {
+          chunks.push(current.trim());
+          current = "";
+        }
+        chunks.push(...chunkTableBlock(paragraph, chunkSize));
+        continue;
+      }
+
       if (paragraph.length > chunkSize) {
         if (current) {
           chunks.push(current.trim());
@@ -177,7 +195,13 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
       const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
       if (candidate.length > chunkSize && current) {
         chunks.push(current.trim());
-        current = paragraph;
+        // IDX-H5: carry the tail of the flushed chunk into the next so a clinical
+        // instruction that spans a paragraph boundary keeps shared context, mirroring
+        // readableOverlapStart used by the sentence branch. Without this the configured
+        // CHUNK_OVERLAP silently did nothing for the common multi-paragraph path.
+        const flushed = current.trim();
+        const tail = readableOverlapTail(flushed, overlap);
+        current = tail ? `${tail}\n\n${paragraph}` : paragraph;
       } else {
         current = candidate;
       }
@@ -188,6 +212,53 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
   }
 
   return chunkTextBySentence(clean, chunkSize, overlap);
+}
+
+// IDX-H5: return the last `overlap` readable characters of a chunk, trimmed to a word/sentence
+// boundary so the carried-over tail starts cleanly rather than mid-word.
+function readableOverlapTail(text: string, overlap: number) {
+  if (overlap <= 0 || !text) return "";
+  if (text.length <= overlap) return text;
+  const start = readableOverlapStart(text, text.length, overlap);
+  return text.slice(start).trim();
+}
+
+const tableRowPattern = /^\s*\|.*\|\s*$/;
+
+// IDX-H6: a markdown-style table block (every non-empty line is a pipe row).
+function isTableBlock(block: string) {
+  const lines = block.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (lines.length < 2) return false;
+  return lines.every((line) => tableRowPattern.test(line));
+}
+
+// IDX-H6: split an oversized table on row boundaries, repeating the header row(s) in each
+// chunk so dose/threshold values are never severed from their column headers. Small tables
+// pass through as a single atomic chunk.
+function chunkTableBlock(block: string, chunkSize: number) {
+  const lines = block.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (block.length <= chunkSize) return [block.trim()];
+
+  // Detect the header: the row(s) before a markdown separator row (|---|---|), else the
+  // first row.
+  const separatorIndex = lines.findIndex((line) => /^\s*\|?[\s:|-]+\|?\s*$/.test(line) && line.includes("-"));
+  const headerLines = separatorIndex > 0 ? lines.slice(0, separatorIndex + 1) : lines.slice(0, 1);
+  const bodyLines = lines.slice(headerLines.length);
+  const header = headerLines.join("\n");
+
+  const chunks: string[] = [];
+  let current = header;
+  for (const row of bodyLines) {
+    const candidate = `${current}\n${row}`;
+    if (candidate.length > chunkSize && current !== header) {
+      chunks.push(current.trim());
+      current = `${header}\n${row}`;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [block.trim()];
 }
 
 function readableOverlapStart(clean: string, end: number, overlap: number) {

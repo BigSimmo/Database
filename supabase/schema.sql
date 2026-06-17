@@ -1,6 +1,11 @@
 -- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
+--
+-- IDX-C2: every embedding column below is vector(1536). This dimension is coupled to the
+-- EMBEDDING_DIMENSIONS env var (default 1536) and the OPENAI_EMBEDDING_MODEL. If you change
+-- the embedding model, update EMBEDDING_DIMENSIONS AND every vector(N) below together; the
+-- worker hard-fails at startup (checkEmbeddingDimension) when they disagree.
 
 create schema if not exists extensions;
 set search_path = public, extensions;

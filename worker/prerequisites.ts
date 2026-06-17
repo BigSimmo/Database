@@ -1,11 +1,41 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { env } from "../src/lib/env";
+import { embedTexts } from "../src/lib/openai";
 
 export type PrerequisiteCheck = {
   ok: boolean;
   detail: string;
 };
+
+// IDX-C2: fail fast at worker startup if the configured embedding model does not produce
+// EMBEDDING_DIMENSIONS vectors. The schema's vector(N) columns are fixed, so a model/env
+// mismatch would otherwise corrupt or hard-fail ingestion mid-job. One tiny probe call.
+export async function checkEmbeddingDimension(): Promise<PrerequisiteCheck> {
+  try {
+    const [embedding] = await embedTexts(["dimension probe"]);
+    if (!embedding) {
+      return { ok: false, detail: "Embedding probe returned no vector." };
+    }
+    if (embedding.length !== env.EMBEDDING_DIMENSIONS) {
+      return {
+        ok: false,
+        detail:
+          `Embedding model "${env.OPENAI_EMBEDDING_MODEL}" produced ${embedding.length} dimensions, ` +
+          `but EMBEDDING_DIMENSIONS=${env.EMBEDDING_DIMENSIONS} (must match vector(N) in supabase/schema.sql).`,
+      };
+    }
+    return {
+      ok: true,
+      detail: `Embedding dimension ${env.EMBEDDING_DIMENSIONS} matches model "${env.OPENAI_EMBEDDING_MODEL}".`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Embedding dimension check failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
 
 export function resolveTesseractCommand() {
   if (process.env.TESSERACT_CMD) return process.env.TESSERACT_CMD;

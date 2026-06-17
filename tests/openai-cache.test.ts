@@ -12,13 +12,16 @@ describe("OpenAI query embedding cache", () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small");
     vi.stubEnv("OPENAI_QUERY_CACHE_SIZE", "200");
+    // EMBEDDING_DIMENSIONS matches the 3-element mock vector (IDX-C2 guard).
+    vi.stubEnv("EMBEDDING_DIMENSIONS", "3");
 
     vi.doMock("openai", () => ({
       default: class MockOpenAI {
         embeddings = {
+          // Include `index` to mirror the real embeddings API contract (IDX-C1).
           create: vi.fn(async () => {
             embeddingCalls += 1;
-            return { data: [{ embedding: [embeddingCalls, 0, 0] }] };
+            return { data: [{ index: 0, embedding: [embeddingCalls, 0, 0] }] };
           }),
         };
 
@@ -45,13 +48,16 @@ describe("OpenAI query embedding cache", () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small");
     vi.stubEnv("OPENAI_QUERY_CACHE_SIZE", "200");
+    // EMBEDDING_DIMENSIONS matches the 3-element mock vector (IDX-C2 guard).
+    vi.stubEnv("EMBEDDING_DIMENSIONS", "3");
 
     vi.doMock("openai", () => ({
       default: class MockOpenAI {
         embeddings = {
+          // Include `index` to mirror the real embeddings API contract (IDX-C1).
           create: vi.fn(async () => {
             embeddingCalls += 1;
-            return { data: [{ embedding: [embeddingCalls, 0, 0] }] };
+            return { data: [{ index: 0, embedding: [embeddingCalls, 0, 0] }] };
           }),
         };
 

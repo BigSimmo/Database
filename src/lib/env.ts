@@ -13,6 +13,9 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
+  // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
   OPENAI_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.4"),

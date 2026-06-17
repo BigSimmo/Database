@@ -24,6 +24,69 @@ describe("chunkTextWithOverlap", () => {
     expect(chunks[0]).toContain("Heading");
     expect(chunks[1]).toContain("First clinical paragraph");
   });
+
+  it("carries overlap across paragraph-path chunk boundaries (IDX-H5)", () => {
+    // Three distinct paragraphs that together exceed chunkSize, forcing a flush. With
+    // overlap the start of a later chunk must repeat the tail of the previous one so a
+    // clinical instruction spanning a paragraph boundary keeps shared context.
+    const paraA = `If ANC falls below 0.5 then ${"alpha ".repeat(20)}`.trim();
+    const paraB = `withhold clozapine and escalate ${"bravo ".repeat(20)}`.trim();
+    const paraC = `Repeat the full blood count daily ${"charlie ".repeat(20)}`.trim();
+    const text = [paraA, paraB, paraC].join("\n\n");
+
+    const chunks = chunkTextWithOverlap(text, 200, 60);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    // At least one later chunk should begin with content carried from the previous chunk's
+    // tail (overlap present), rather than starting cleanly at a new paragraph.
+    const hasOverlap = chunks.slice(1).some((chunk, index) => {
+      const previous = chunks[index];
+      const tailWords = previous.split(/\s+/).slice(-4).join(" ");
+      return tailWords.length > 0 && chunk.includes(tailWords);
+    });
+    expect(hasOverlap).toBe(true);
+  });
+
+  it("keeps a small markdown table atomic instead of splitting it as prose (IDX-H6)", () => {
+    const table = [
+      "| Parameter | Threshold | Action |",
+      "| --- | --- | --- |",
+      "| ANC | < 0.5 | Withhold clozapine |",
+      "| ANC | 0.5-1.0 | Repeat FBC daily |",
+    ].join("\n");
+    const text = `Monitoring guidance.\n\n${table}\n\nFollow up as needed.`;
+
+    const chunks = chunkTextWithOverlap(text, 2000, 200);
+    const tableChunk = chunks.find((chunk) => chunk.includes("| Parameter | Threshold | Action |"));
+    expect(tableChunk).toBeDefined();
+    // The whole table stays together in a single chunk: header + both data rows.
+    expect(tableChunk).toContain("| ANC | < 0.5 | Withhold clozapine |");
+    expect(tableChunk).toContain("| ANC | 0.5-1.0 | Repeat FBC daily |");
+  });
+
+  it("splits an oversized table on row boundaries and repeats the header (IDX-H6)", () => {
+    const header = ["| Parameter | Threshold | Action |", "| --- | --- | --- |"];
+    const rows = Array.from(
+      { length: 30 },
+      (_, index) => `| Row ${index} | < ${index}.0 | Withhold and escalate clinical response ${index} |`,
+    );
+    const table = [...header, ...rows].join("\n");
+
+    const chunks = chunkTextWithOverlap(table, 400, 40);
+    const tableChunks = chunks.filter((chunk) => chunk.includes("| Parameter | Threshold | Action |"));
+
+    // Multiple chunks, and every table chunk repeats the header row so values are never
+    // severed from their column headers.
+    expect(tableChunks.length).toBeGreaterThan(1);
+    for (const chunk of tableChunks) {
+      expect(chunk).toContain("| Parameter | Threshold | Action |");
+    }
+    // No data row is lost across the split.
+    const combined = tableChunks.join("\n");
+    for (let index = 0; index < 30; index += 1) {
+      expect(combined).toContain(`| Row ${index} |`);
+    }
+  });
 });
 
 describe("image-aware chunks", () => {

@@ -155,7 +155,9 @@ export function buildTableFactRows(args: {
       /require/i,
     ]);
 
-    for (const [rowIndex, rawCells] of image.tableRows.slice(0, 120).entries()) {
+    // IDX-H6: raised from 120 to 400 to match the Python extractor's MAX_TABLE_ROWS so tail
+    // rows of long dose/threshold tables are not silently dropped from the facts layer.
+    for (const [rowIndex, rawCells] of image.tableRows.slice(0, 400).entries()) {
       const cells = rawCells.map((cell) => compactSearchText(cell, 240));
       const rowText = cells.filter(Boolean).join(" ");
       if (!rowText) continue;
