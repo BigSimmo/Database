@@ -1,7 +1,52 @@
 export type NormalizedAccessibleTable = {
   header: string[];
   body: string[][];
+  // GEN-H3: true when row/column inference for a clinical (dose/threshold) table
+  // was ambiguous and the normalizer fell back to preserving the raw grid rather
+  // than merging cells. Consumers must NOT promote a low-confidence table as
+  // authoritative clinical evidence, because a mis-merge could pair a dose with
+  // the wrong drug/parameter.
+  lowConfidence?: boolean;
+  lowConfidenceReason?: string;
 };
+
+export type NormalizeAccessibleTableOptions = {
+  // When true (default), apply conservative handling for clinical tables: detect
+  // ambiguous structure and preserve the raw grid + flag low-confidence instead
+  // of heuristically merging generic columns / continuation rows.
+  conservativeClinical?: boolean;
+};
+
+// Words that indicate a table carries dose/threshold/monitoring data, where a
+// mis-paired cell is clinically dangerous.
+const CLINICAL_TABLE_SIGNAL =
+  /\b(dose|dosage|mg|mcg|microgram|titrat|threshold|anc|fbc|wbc|neutrophil|level|mmol|range|monitor|withhold|cease|maximum|max\b|min\b|interval|weekly|daily|frequency)\b/i;
+
+function rowsLookClinical(header: string[], body: string[][]): boolean {
+  const sample = [header.join(" "), ...body.slice(0, 6).map((row) => row.join(" "))].join(" ");
+  return CLINICAL_TABLE_SIGNAL.test(sample);
+}
+
+// Build a NormalizedAccessibleTable that preserves the raw grid 1:1 (no column
+// merge, no row-continuation merge), padding ragged rows and synthesizing
+// headers only where missing. Used as the conservative fallback (GEN-H3).
+function buildRawGridTable(
+  rawHeader: string[],
+  rawBody: string[][],
+  sourceColumnCount: number,
+  reason: string,
+): NormalizedAccessibleTable | null {
+  const header = Array.from({ length: sourceColumnCount }, (_, index) => {
+    const label = compactCell(rawHeader[index]);
+    if (label && !isGenericHeader(label)) return label;
+    return sourceColumnCount === 1 ? "Details" : `Column ${index + 1}`;
+  });
+  const body = rawBody
+    .map((row) => Array.from({ length: sourceColumnCount }, (_, index) => compactCell(row[index])))
+    .filter((row) => row.some((cell) => !isEmptyCell(cell)));
+  if (!header.length || !body.length) return null;
+  return { header, body, lowConfidence: true, lowConfidenceReason: reason };
+}
 
 function compactCell(value: string | null | undefined) {
   return String(value ?? "")
@@ -61,7 +106,9 @@ function looksLikeHeaderContinuation(args: { rawRow: string[]; keptIndexes: numb
 export function normalizeAccessibleTable(
   rows: string[][],
   columns?: string[] | null,
+  options?: NormalizeAccessibleTableOptions,
 ): NormalizedAccessibleTable | null {
+  const conservativeClinical = options?.conservativeClinical ?? true;
   const rawRows = rows.map((row) => row.map(compactCell)).filter((row) => row.some((cell) => !isEmptyCell(cell)));
   if (!rawRows.length) return null;
 
@@ -75,6 +122,26 @@ export function normalizeAccessibleTable(
   const namedIndexes = paddedHeader
     .map((cell, index) => (isGenericHeader(cell) ? null : index))
     .filter((index): index is number => index !== null);
+
+  // GEN-H3: for clinical (dose/threshold) tables, when the header has unnamed
+  // ("generic") columns interleaved with named ones, the merge into the nearest
+  // named column can silently move a dose/threshold cell under the wrong
+  // parameter. In that ambiguous case, preserve the raw grid and flag it
+  // low-confidence rather than guessing.
+  if (conservativeClinical && namedIndexes.length > 0 && rowsLookClinical(paddedHeader, rawBody)) {
+    const hasInterleavedGenericColumn = paddedHeader.some(
+      (cell, index) => isGenericHeader(cell) && index < (namedIndexes.at(-1) ?? 0),
+    );
+    const bodyHasMultilineCells = rawBody.some((row) => row.some((cell) => /\n/.test(cell)));
+    if (hasInterleavedGenericColumn || bodyHasMultilineCells) {
+      return buildRawGridTable(
+        paddedHeader,
+        rawBody,
+        sourceColumnCount,
+        hasInterleavedGenericColumn ? "ambiguous_generic_column" : "multiline_clinical_cell",
+      );
+    }
+  }
 
   const keptIndexes = namedIndexes.length
     ? namedIndexes
@@ -107,6 +174,9 @@ export function normalizeAccessibleTable(
     });
   }
 
+  const clinical = conservativeClinical && rowsLookClinical(paddedHeader, rawBody);
+  let mergedContinuationRow = false;
+
   const body: string[][] = [];
   for (const rawBodyRow of bodyRows) {
     const paddedRow = [
@@ -124,6 +194,7 @@ export function normalizeAccessibleTable(
 
     if (!normalizedRow.some((cell) => !isEmptyCell(cell))) continue;
     if (!shouldStartNewRow({ normalizedRow, rawRow: paddedRow, keptIndexes, previousRows: body })) {
+      mergedContinuationRow = true;
       const previous = body[body.length - 1];
       normalizedRow.forEach((cell, index) => {
         previous[index] = appendCell(previous[index] ?? "", cell);
@@ -141,5 +212,15 @@ export function normalizeAccessibleTable(
   const finalBody = body.map((row) => nonEmptyColumnIndexes.map((index) => row[index] ?? ""));
 
   if (!finalHeader.length || !finalBody.length) return null;
+  // GEN-H3: a continuation-row merge in a clinical table risks concatenating a
+  // value onto the wrong row; flag it so it isn't promoted as authoritative.
+  if (clinical && mergedContinuationRow) {
+    return {
+      header: finalHeader,
+      body: finalBody,
+      lowConfidence: true,
+      lowConfidenceReason: "merged_continuation_row",
+    };
+  }
   return { header: finalHeader, body: finalBody };
 }

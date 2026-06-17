@@ -127,14 +127,9 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: document.id });
-        if (resetError) throw new Error(resetError.message);
-        const { error: updateError } = await supabase
-          .from("documents")
-          .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
-          .eq("id", document.id)
-          .eq("owner_id", user.id);
-        if (updateError) throw new Error(updateError.message);
+        // IDX-H1: enqueue first, then mark queued. Do NOT reset the index here — the worker
+        // resets at job start (worker/main.ts). Resetting before the job is committed would
+        // leave a previously-searchable clinical document with zero index on failure.
         const { data: job, error: jobError } = await supabase
           .from("ingestion_jobs")
           .insert({
@@ -148,6 +143,12 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         if (jobError) throw new Error(jobError.message);
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update({ status: "queued", error_message: null })
+          .eq("id", document.id)
+          .eq("owner_id", user.id);
+        if (updateError) throw new Error(updateError.message);
         results.push({ documentId: document.id, mode: parsed.data.mode, ok: true, jobId: job.id });
       } catch (error) {
         results.push({

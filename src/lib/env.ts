@@ -13,10 +13,17 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
+  // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
   OPENAI_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.4"),
-  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1400),
+  // Reasoning models (gpt-5*) draw reasoning tokens from this same budget, so a
+  // low cap can starve the JSON answer payload and silently truncate clinical
+  // content (doses/thresholds cut mid-sentence). Raised default for headroom; if
+  // output is still cut off, createTextResult now flags it as truncated (GEN-C1).
+  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(2400),
   OPENAI_QUERY_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.4-mini"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
@@ -36,6 +43,14 @@ const envSchema = z.object({
   RAG_SEARCH_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(60000),
   RAG_SEARCH_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
   RAG_AWAIT_QUERY_LOGS: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  // Clinical search queries can contain patient-identifying text (names, MRNs,
+  // "patient with X on Y dose"). Default OFF: persist only a hash + normalized
+  // tokens needed for miss-promotion. Set true only where retaining raw query
+  // text is permitted and a retention policy exists (RET-H4).
+  RAG_PERSIST_RAW_QUERY_TEXT: z
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),

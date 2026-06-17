@@ -43,6 +43,12 @@ export type OpenAITextResult = {
   latencyMs: number;
   requestId?: string | null;
   usage?: OpenAITokenUsage;
+  /** Raw response status from the Responses API ("completed" | "incomplete" | …). */
+  status?: string;
+  /** True when the Responses API reported the output was cut off (e.g. max_output_tokens). */
+  truncated?: boolean;
+  /** Reason supplied in incomplete_details (e.g. "max_output_tokens", "content_filter"). */
+  incompleteReason?: string;
 };
 
 let openAIClient: OpenAI | null = null;
@@ -212,6 +218,22 @@ function extractOutputText(response: unknown) {
   return typeof outputText === "string" ? outputText : "";
 }
 
+function extractCompletionStatus(response: unknown): {
+  status?: string;
+  truncated: boolean;
+  incompleteReason?: string;
+} {
+  const value = response as {
+    status?: unknown;
+    incomplete_details?: { reason?: unknown } | null;
+  };
+  const status = typeof value.status === "string" ? value.status : undefined;
+  const reasonRaw = value.incomplete_details?.reason;
+  const incompleteReason = typeof reasonRaw === "string" ? reasonRaw : undefined;
+  const truncated = status === "incomplete" || incompleteReason === "max_output_tokens";
+  return { status, truncated, incompleteReason };
+}
+
 function extractUsage(response: unknown): OpenAITokenUsage | undefined {
   const usage = (response as { usage?: Record<string, unknown> }).usage;
   if (!usage) return undefined;
@@ -326,6 +348,7 @@ async function createTextResult(
     const client = createOpenAIClient();
     const request = client.responses.create(responseBody(input, options, format) as never, requestOptions(options));
     const { data, request_id: requestId } = await unwrapOpenAIResponse(request as unknown as APIPromiseLike<unknown>);
+    const completion = extractCompletionStatus(data);
     return {
       text: extractOutputText(data),
       model: options.model,
@@ -333,6 +356,9 @@ async function createTextResult(
       latencyMs: Date.now() - startedAt,
       requestId: requestId ?? getRequestId(data),
       usage: extractUsage(data),
+      status: completion.status,
+      truncated: completion.truncated,
+      incompleteReason: completion.incompleteReason,
     };
   } catch (error) {
     throw mapOpenAIError(error, operation);
@@ -367,11 +393,46 @@ export async function embedTexts(texts: string[]) {
       {
         model: env.OPENAI_EMBEDDING_MODEL,
         input: uniqueTexts,
+        // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
+        dimensions: env.EMBEDDING_DIMENSIONS,
       },
       requestOptions(),
     );
-    const uniqueEmbeddings = response.data.map((item) => item.embedding);
-    return outputIndexes.map((index) => uniqueEmbeddings[index]);
+
+    // IDX-C2: a short response means some inputs silently produced no embedding.
+    if (response.data.length !== uniqueTexts.length) {
+      throw new PublicApiError(
+        `OpenAI returned ${response.data.length} embeddings for ${uniqueTexts.length} inputs.`,
+        502,
+        { code: "openai_embedding_count_mismatch" },
+      );
+    }
+
+    // IDX-C1: the embeddings API does not guarantee response order; each item carries
+    // an explicit `index` into the input array. Reassemble by that index so a chunk is
+    // never stored with the embedding of an unrelated text (silent clinical corruption).
+    const byIndex = new Array<number[]>(uniqueTexts.length);
+    for (const item of response.data) {
+      if (item.index < 0 || item.index >= uniqueTexts.length) {
+        throw new PublicApiError(
+          `OpenAI returned an out-of-range embedding index ${item.index}.`,
+          502,
+          { code: "openai_embedding_index_range" },
+        );
+      }
+      // IDX-C2: guard against a model whose dimension does not match the schema.
+      if (item.embedding.length !== env.EMBEDDING_DIMENSIONS) {
+        throw new PublicApiError(
+          `OpenAI embedding has ${item.embedding.length} dimensions; expected ${env.EMBEDDING_DIMENSIONS}. ` +
+            `Check OPENAI_EMBEDDING_MODEL and EMBEDDING_DIMENSIONS match supabase/schema.sql.`,
+          502,
+          { code: "openai_embedding_dimension_mismatch" },
+        );
+      }
+      byIndex[item.index] = item.embedding;
+    }
+
+    return outputIndexes.map((index) => byIndex[index]);
   } catch (error) {
     throw mapOpenAIError(error, "embedding");
   }

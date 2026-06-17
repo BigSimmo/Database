@@ -6,6 +6,22 @@ const documentIndexUnitsMigration = readFileSync(
   new URL("../supabase/migrations/20260612006000_document_index_units.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const lexicalScoreMigration = readFileSync(
+  new URL("../supabase/migrations/20260617000000_text_search_lexical_score.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const perDocTokenSearchMigration = readFileSync(
+  new URL("../supabase/migrations/20260617001000_per_document_token_search.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+
+function extractTextChunkFunction(sql: string) {
+  const start = sql.indexOf("function public.match_document_chunks_text");
+  const end = sql.indexOf("$$;", start);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+  return sql.slice(start, end);
+}
 
 function extractIndexUnitHybridFunction(sql: string) {
   const start = sql.indexOf("create or replace function public.match_document_index_units_hybrid");
@@ -221,5 +237,30 @@ describe("Supabase schema Data API grants", () => {
       "'tableTextSnippet', nullif(left(coalesce(i.metadata->>'table_text_snippet', i.metadata->>'table_text', ''), 500), '')",
     );
     expect(schema).toContain("create or replace function public.get_related_document_metadata");
+  });
+
+  it("does not fabricate a cosine similarity for text-only retrieval (RET-C2)", () => {
+    for (const sql of [schema, lexicalScoreMigration]) {
+      const body = extractTextChunkFunction(sql);
+      // Old fabricated ceilings must be gone.
+      expect(body).not.toContain("0.56 + (least(ranked.text_rank, 1) * 0.39)");
+      expect(body).not.toContain("0.58 + (least(ranked.text_rank, 1) * 0.39)");
+      // similarity is reserved for real cosine; text-only rows leave it at 0.
+      expect(body).toContain("0::double precision as similarity");
+      // lexical signal lives in its own column.
+      expect(body).toContain("as lexical_score");
+      // hybrid_score capped below the 0.64 moderate threshold.
+      expect(body).toContain("least(0.5,");
+    }
+  });
+
+  it("tokenizes per-document viewer search instead of matching the whole query (RET-H5)", () => {
+    expect(perDocTokenSearchMigration).toContain("regexp_split_to_table");
+    expect(perDocTokenSearchMigration).toContain("length(token) >= 3");
+    expect(perDocTokenSearchMigration).toContain("exists (");
+    expect(perDocTokenSearchMigration).toContain("like '%' || t.token || '%'");
+    expect(perDocTokenSearchMigration).toContain(
+      "grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;",
+    );
   });
 });

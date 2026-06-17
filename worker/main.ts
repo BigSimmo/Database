@@ -20,7 +20,7 @@ import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
-import { checkPythonPdfPrerequisites } from "./prerequisites";
+import { checkEmbeddingDimension, checkPythonPdfPrerequisites } from "./prerequisites";
 import { buildTableFactRows } from "./table-facts";
 
 type JobDocument = {
@@ -188,6 +188,9 @@ function imageTableMetadata(image: ExtractedDocument["images"][number]) {
     accessibleTableMarkdown: metadataString(metadata, "accessible_table_markdown") ?? tableText,
     tableRows: Array.isArray(metadata.table_rows) ? metadata.table_rows : null,
     tableColumns: Array.isArray(metadata.table_columns) ? metadata.table_columns : null,
+    // IDX-H6: true when the Python extractor hit a row/char cap, so truncation is surfaced
+    // in index_quality rather than silently dropping tail rows of a long clinical table.
+    rowsTruncated: metadata.rows_truncated === true,
   };
 }
 
@@ -326,6 +329,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     accessibleTableMarkdown: string | null;
     tableRows: string[][] | null;
     tableColumns: string[] | null;
+    rowsTruncated: boolean;
   }> = [];
   const seenHashes = new Set<string>();
   let skippedImages = 0;
@@ -497,6 +501,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         accessibleTableMarkdown: tableMetadata.accessibleTableMarkdown,
         tableRows: tableMetadata.tableRows,
         tableColumns: tableMetadata.tableColumns,
+        rowsTruncated: tableMetadata.rowsTruncated,
       });
     }
   }
@@ -570,6 +575,8 @@ function buildIndexQualityPayload(args: {
   const headingCount = args.chunks.filter((chunk) => chunk.section_heading).length;
   const tableImages = args.insertedImages.filter((image) => image.sourceKind === "table_crop");
   const tableImagesWithRows = tableImages.filter((image) => image.tableRows?.length);
+  // IDX-H6: count tables the extractor truncated at a row/char cap.
+  const truncatedTableCount = args.insertedImages.filter((image) => image.rowsTruncated).length;
   const fingerprints = args.chunks.map((chunk) => hashText(chunk.content));
   const duplicateChunkRatio = chunkCount ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1) : 0;
   const avgChunkLength = chunkCount
@@ -588,9 +595,21 @@ function buildIndexQualityPayload(args: {
   if (args.metrics.text_character_count < 80) issues.push("low extracted text volume");
   if (args.sectionCount === 0) issues.push("no structured sections");
   if (args.memoryCardCount === 0) issues.push("no memory cards");
+  // IDX-H3: surface scanned/image-only pages that were never OCR'd as a hard quality issue
+  // so a degraded scanned guideline is visible rather than silently treated as healthy.
+  const needsOcrPageCount = args.metrics.needs_ocr_page_count ?? 0;
+  if (needsOcrPageCount > 0) issues.push(`needs OCR (${needsOcrPageCount} image-only page(s))`);
+  // IDX-H6: a truncated table may have dropped tail dose/threshold rows.
+  if (truncatedTableCount > 0) issues.push(`table truncated (${truncatedTableCount} table(s) hit row/char cap)`);
 
   let qualityScore = 1;
   qualityScore -= issues.length * 0.08;
+  // IDX-H3: image-only pages with no text are a serious extraction gap, weight beyond the
+  // flat per-issue penalty so the document is clearly flagged partial/poor.
+  if (needsOcrPageCount > 0) {
+    const needsOcrRatio = args.metrics.page_count ? needsOcrPageCount / args.metrics.page_count : 0;
+    qualityScore -= Math.min(0.35, 0.12 + needsOcrRatio * 0.4);
+  }
   qualityScore -= Math.min(0.2, duplicateChunkRatio * 0.5);
   if (tableExtractionCoverage !== null) qualityScore -= Math.max(0, 0.7 - tableExtractionCoverage) * 0.12;
   if (headingDensity < 0.08 && chunkCount >= 8) qualityScore -= 0.08;
@@ -613,6 +632,7 @@ function buildIndexQualityPayload(args: {
       search_eval_hit_rate: null,
       section_count: args.sectionCount,
       memory_card_count: args.memoryCardCount,
+      truncated_table_count: truncatedTableCount,
     },
     updated_at: new Date().toISOString(),
   };
@@ -756,12 +776,15 @@ function extractionMetrics(
 ) {
   const textCharacterCount = extracted.pages.reduce((sum, page) => sum + page.text.length, 0);
   const ocrPageCount = extracted.pages.filter((page) => page.ocrUsed).length;
+  // IDX-H3: pages flagged by the extractor as image-only with un-OCR'd content.
+  const needsOcrPageCount = extracted.pages.filter((page) => page.needsOcr).length;
   const warnings = [...(extracted.warnings ?? [])];
   if (textCharacterCount < 80) warnings.push("Low extracted text volume; inspect OCR quality.");
 
   return {
     page_count: extracted.pages.length,
     ocr_page_count: ocrPageCount,
+    needs_ocr_page_count: needsOcrPageCount,
     text_character_count: textCharacterCount,
     extracted_image_count: extracted.images.length,
     searchable_image_count: Object.values(imageTypeCounts).reduce((sum, count) => sum + count, 0),
@@ -876,6 +899,20 @@ async function processJob(job: JobRow) {
     });
     if (qualityError) throw new Error(qualityError.message);
 
+    // IDX-H3: refuse to mark an image-only / scanned PDF as "indexed". When the JS fallback
+    // (no OCR) yields almost no text but pages clearly carry image content, the document is
+    // functionally invisible to retrieval. Fail loud instead of silently completing so the
+    // operator installs the Python OCR prerequisites and re-runs, rather than trusting an
+    // empty clinical document. The message is non-retryable (terminal "failed").
+    const needsOcrPages = metrics.needs_ocr_page_count ?? 0;
+    const isImageOnly = needsOcrPages > 0 && needsOcrPages >= metrics.page_count && metrics.text_character_count < 80;
+    if (isImageOnly) {
+      throw new Error(
+        `Document appears image-only (${needsOcrPages}/${metrics.page_count} pages need OCR) and was not OCR'd. ` +
+          `Install the Python PDF/OCR prerequisites and reindex; not marking as indexed.`,
+      );
+    }
+
     const indexedAt = new Date().toISOString();
     await updateDocument(job.document_id, {
       status: "indexed",
@@ -949,6 +986,15 @@ async function main() {
   if (!prereqs.ok) {
     console.warn(`PDF/OCR prerequisite warning: ${prereqs.detail}`);
   }
+
+  // IDX-C2: hard-fail before claiming any job if the embedding dimension is wrong, so a
+  // misconfigured model never produces a half-indexed clinical document.
+  const dimensionCheck = await checkEmbeddingDimension();
+  if (!dimensionCheck.ok) {
+    console.error(`Embedding dimension check failed: ${dimensionCheck.detail}`);
+    process.exit(1);
+  }
+  console.log(dimensionCheck.detail);
 
   while (true) {
     const jobs = await claimJobs();

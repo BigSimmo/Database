@@ -1,4 +1,9 @@
-import { classifyRagQuery, hasDoseEvidenceSupport, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import {
+  classifyRagQuery,
+  hasDoseEvidenceSupport,
+  hasNumericOrTableEvidence,
+  normalizedClinicalSearchTokens,
+} from "@/lib/clinical-search";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { lowYieldSourceNoiseScore, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
@@ -194,14 +199,23 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
         "risk",
       ].includes(token),
   );
+  // Exempt passages with real numeric/table evidence — a dose/threshold table row
+  // holds the answer even when it doesn't repeat the drug name (RET-H2).
+  const numericEvidenceExempt = hasNumericOrTableEvidence(result);
   const missingCoreConceptPenalty =
     queryClass === "medication_dose_risk" &&
     coreConceptTokens.length > 0 &&
+    !numericEvidenceExempt &&
     !coreConceptTokens.some((token) => texts.combined.includes(token))
       ? -0.22
       : 0;
   const titleOnlyDosePenalty =
-    queryClass === "medication_dose_risk" && titleCoverage >= 0.4 && !hasDoseEvidenceSupport(result) ? -0.18 : 0;
+    queryClass === "medication_dose_risk" &&
+    titleCoverage >= 0.4 &&
+    !hasDoseEvidenceSupport(result) &&
+    !numericEvidenceExempt
+      ? -0.18
+      : 0;
 
   return clampScore(
     base +

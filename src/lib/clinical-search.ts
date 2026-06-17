@@ -527,6 +527,24 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
   );
 }
 
+// A passage carrying a real dose/threshold figure (a numeric table row, or a
+// number paired with a clinical unit) is the passage most likely to hold the
+// answer to a dose/threshold query — and the least likely to repeat the drug
+// name. Such passages must be exempt from the dose/core-concept keyword
+// penalties so they are never demoted below boilerplate. See RET-H2.
+export function hasNumericOrTableEvidence(result: SearchResult) {
+  if ((result.table_facts?.length ?? 0) > 0) return true;
+  if (result.index_unit?.unit_type === "table_fact") return true;
+  const content = `${result.section_heading ?? ""} ${result.content}`;
+  // number + clinical unit, or an explicit threshold/range token.
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(content)
+    ? true
+    : /\b\d/.test(content) &&
+        /\b(?:threshold|cut[\s-]?off|withhold|cease|range|level|anc|wbc|fbc|neutrophil|titrat|maximum|max\b)/i.test(
+          content,
+        );
+}
+
 function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string | null) {
   if (!sectionHeading || !querySignal.sectionedLookup) return 0;
   if (/(protocol|procedure|pathway|workflow|algorithm|escalat|risk|monitor)/i.test(sectionHeading)) return 0.035;
@@ -823,10 +841,20 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const indexQualityBoost = indexQualityRankSignal(result);
   const sourceQualityBoost = sourceQualityRankSignal(result, queryClass);
   const dosingBoost = querySignal.hasDosingSignals && hasDoseEvidenceSupport(result) ? 0.09 : 0;
+  // Passages with real numeric/table evidence are exempt from the dose/core-concept
+  // keyword penalties: they carry the actual dose/threshold even when the surrounding
+  // text doesn't repeat the drug name (RET-H2).
+  const numericEvidenceExempt = hasNumericOrTableEvidence(result);
   const titleOnlyDosePenalty =
-    queryClass === "medication_dose_risk" && titleCoverageBoost >= 0.09 && !hasDoseEvidenceSupport(result) ? -0.42 : 0;
+    queryClass === "medication_dose_risk" &&
+    titleCoverageBoost >= 0.09 &&
+    !hasDoseEvidenceSupport(result) &&
+    !numericEvidenceExempt
+      ? -0.42
+      : 0;
   const administrativeDoseQueryPenalty =
     queryClass === "medication_dose_risk" &&
+    !numericEvidenceExempt &&
     /\b(?:supporting information|relevant standards|references|document owner|review|authorisation|authorised by|published date|effective from|amendment)\b/i.test(
       result.content,
     ) &&
@@ -865,6 +893,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const coreConceptPenalty =
     queryClass === "medication_dose_risk" &&
     coreConceptTokens.length > 0 &&
+    !numericEvidenceExempt &&
     !coreConceptTokens.some((token) => haystack.includes(token))
       ? -0.36
       : 0;
@@ -955,8 +984,14 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     comparisonCoverageBoost +
     sectionDepth +
     indexUnitBoost;
-  const penalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
-  const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty;
+  // Cap the total penalty so stacked keyword penalties can't bury a genuinely
+  // relevant passage (RET-H2). Keep the raw sum in score_explanation for debugging.
+  const rawPenalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
+  const penalty = Math.max(rawPenalty, -0.35);
+  // Clamp the final composite to [0,1] before sorting/exposing so heuristic
+  // boosts/penalties stay comparable across results and to the similarity-derived
+  // strength labels used elsewhere (RET-H1).
+  const finalScore = clamp(clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty);
 
   return {
     vectorScore: roundScore(clamp(result.similarity)),
@@ -969,6 +1004,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     metadataBoost: roundScore(metadataSignals),
     clinicalSignalBoost: roundScore(clinicalSignalBoost),
     penalty: roundScore(penalty),
+    rawPenalty: roundScore(rawPenalty),
     finalScore: roundScore(finalScore),
     strategy: shouldBlendRrf ? "weighted_hybrid_rrf_blend" : "weighted_hybrid",
   };
