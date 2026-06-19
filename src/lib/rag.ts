@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
 import { compactCitations } from "@/lib/citations";
+import { VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
 import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
@@ -12,6 +13,7 @@ import {
   rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
@@ -594,7 +596,13 @@ function clampConfidence(
   return confidenceOrder[proposed] < confidenceOrder[derived] ? proposed : derived;
 }
 
-function sanitizeCitations(proposed: Array<{ chunk_id: string }> | undefined, results: SearchResult[]) {
+type SanitizedCitations = {
+  citations: Citation[];
+  /** True only when the model-provided citations include at least one valid chunk. */
+  modelCited: boolean;
+};
+
+function sanitizeCitations(proposed: Array<{ chunk_id: string }> | undefined, results: SearchResult[]): SanitizedCitations {
   const chunks = allowedChunkMap(results);
   const citations: Citation[] = [];
   const seen = new Set<string>();
@@ -606,8 +614,8 @@ function sanitizeCitations(proposed: Array<{ chunk_id: string }> | undefined, re
     citations.push(resultCitation(source));
   }
 
-  if (proposed && proposed.length > 0) return citations;
-  return compactCitations(results);
+  if (citations.length > 0) return { citations, modelCited: true };
+  return { citations: [], modelCited: false };
 }
 
 function inferAnswerSectionKind(
@@ -733,13 +741,17 @@ function normalizeSearchResults(results: SearchResult[]) {
 }
 
 function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string): RagAnswer {
-  const citations = compactCitations(results);
-  const confidence = deriveConfidence(results, citations.length);
-  return {
+  // B5: on model-JSON parse failure we cannot trust any model-asserted citation
+  // mapping. Do NOT back-fill all retrieved chunks as citations and stamp the
+  // answer grounded — that re-introduces exactly the back-fill GEN-C3 removed,
+  // hidden in the error path. Treat a parse failure as ungrounded/unsupported,
+  // and still run the numeric faithfulness gate over the salvaged prose so any
+  // dose/threshold it contains is surfaced as unverified rather than trusted.
+  const answer: RagAnswer = {
     answer: boldHighYieldClinicalText(sanitizeAnswerText(raw) || machineReadableFallbackAnswer, query),
-    grounded: citations.length > 0 && confidence !== "unsupported",
-    confidence,
-    citations,
+    grounded: false,
+    confidence: "unsupported",
+    citations: [],
     sources: results,
     routingReason: "structured_parse_fallback",
     answerSections: [],
@@ -747,6 +759,7 @@ function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string
     visualEvidence: buildVisualEvidence(results),
     bestSource: selectBestSourceRecommendation(results),
   };
+  return applyNumericVerification(answer);
 }
 
 function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
@@ -1371,7 +1384,17 @@ export function invalidateRagCachesForDocumentMutation(ownerId: string) {
 
 async function insertRagQuery(row: Record<string, unknown>) {
   const supabase = createAdminClient();
-  await supabase.from("rag_queries").insert(row);
+  // Redact potential-PHI raw query text centrally so every logRagQuery caller is
+  // covered, and fold a stable hash + retention flag into metadata (RET-H4).
+  const rawQuery = typeof row.query === "string" ? row.query : "";
+  const existingMetadata =
+    row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
+  const safeRow = {
+    ...row,
+    query: queryTextForStorage(rawQuery),
+    metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
+  };
+  await supabase.from("rag_queries").insert(safeRow);
 }
 
 async function logRagQuery(row: Record<string, unknown>) {
@@ -3544,11 +3567,9 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
 export function parseAnswerJson(raw: string, results: SearchResult[], query?: string): RagAnswer {
   try {
     const parsed = answerJsonSchema.parse(JSON.parse(raw));
-    const citations = sanitizeCitations(parsed.citations, results);
-    const derivedConfidence = parsed.citations.length
-      ? deriveConfidence(results, citations.length)
-      : clampConfidence("low", deriveConfidence(results, citations.length));
-    const confidence = clampConfidence(parsed.confidence, derivedConfidence);
+    const { citations, modelCited } = sanitizeCitations(parsed.citations, results);
+    const derivedConfidence = modelCited ? deriveConfidence(results, citations.length) : "unsupported";
+    const confidence = modelCited ? clampConfidence(parsed.confidence, derivedConfidence) : "unsupported";
     const parsedAnswer = parsed.answer ?? "";
     const nonArtifactParsedAnswer = parsedAnswer.trim() && !looksLikeJsonArtifact(parsedAnswer) ? parsedAnswer : "";
     const sanitizedAnswer =
@@ -3556,9 +3577,10 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       nonArtifactParsedAnswer ||
       machineReadableFallbackAnswer;
     const answerSections = sanitizeAnswerSections(parsed.answerSections, results, query);
-    return {
+    const grounded = modelCited && citations.length > 0 && confidence !== "unsupported";
+    const answer = {
       answer: boldHighYieldClinicalText(sanitizedAnswer, query),
-      grounded: citations.length > 0 && confidence !== "unsupported",
+      grounded,
       confidence,
       citations,
       sources: results,
@@ -3569,6 +3591,11 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       bestSource: null,
       documentBreakdown: [],
     };
+    if (!modelCited) {
+      answer.routingReason = "ungrounded_no_model_citation";
+    }
+    // GEN-C2 / GEN-H2: numeric faithfulness gate.
+    return applyNumericVerification(answer);
   } catch {
     return safeFallbackAnswer(raw, results, query);
   }
@@ -3588,6 +3615,48 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
       retrievalReason: fallbackReason,
     },
   };
+}
+
+// GEN-C2 / GEN-H2: verify every numeric/dose/threshold token in the generated
+// answer against the text of its cited chunks. Unsupported figures are recorded
+// on the answer and an explicit "verify against source" caveat is appended so a
+// paraphrased/mis-transcribed dose can never read as authoritative.
+function applyNumericVerification(answer: RagAnswer): RagAnswer {
+  const sources = answer.sources ?? [];
+  const unverified = new Set<string>();
+
+  // B4: the model is instructed to put dose details in structured
+  // answerSections (kind medication_dose), so a top-level-only scan never sees
+  // section-body doses. Verify the top-level answer AND every section body.
+  // Each section is scoped to its own citation_chunk_ids when present, so a
+  // dose is only credited against the chunks that section actually cites;
+  // sections with no citations fall back to the answer-level citations.
+  const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
+  for (const token of answerVerification.unverifiedTokens) unverified.add(token);
+
+  for (const section of answer.answerSections ?? []) {
+    const sectionCitations =
+      section.citation_chunk_ids.length > 0
+        ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
+        : answer.citations;
+    const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
+    for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
+  }
+
+  if (unverified.size === 0) return answer;
+
+  const unverifiedTokens = [...unverified];
+  answer.unverifiedNumericTokens = unverifiedTokens;
+  answer.faithfulnessWarning = VERIFY_AGAINST_SOURCE_NOTE;
+  // Surface as a source gap so the UI's existing gap rendering shows it, and
+  // never let an answer with unverified clinical numbers claim high confidence.
+  const caveat: ConflictOrGap = {
+    type: "gap",
+    message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${unverifiedTokens.join(", ")}.`,
+  };
+  answer.conflictsOrGaps = [...(answer.conflictsOrGaps ?? []), caveat];
+  if (answer.confidence === "high") answer.confidence = "medium";
+  return answer;
 }
 
 export async function answerQuestion(query: string, documentId?: string) {
@@ -4309,24 +4378,31 @@ ${qualityRetryInstruction}`
       total_latency_ms: Date.now() - startedAt,
     };
 
-    answer = simplifySimpleGeneratedAnswer(answer, args.query, queryClass);
-    const generatedAnswerWasUnusable = isUnusableGeneratedAnswer(answer);
-    const generatedAnswerWasTemplateLike = isTemplateLikeGeneratedAnswer(answer);
-    if (generatedAnswerWasUnusable || generatedAnswerWasTemplateLike) {
-      answer = annotateAnswerWithDiagnostics(
-        await buildGenerationFallbackAnswer(
-          new Error(
-            generatedAnswerWasUnusable
-              ? "The answer model returned unusable structured output."
-              : "The answer model returned template-like source inventory wording.",
-          ),
-          relatedDocuments,
-        ),
-        retrievalDiagnostics,
-      );
-      answer.routingReason = `${routingReason}; ${
-        generatedAnswerWasUnusable ? "structured_output_unusable" : "template_output_unusable"
-      }`;
+    // B5: a structured_parse_fallback answer now fails closed with zero
+    // citations, so we can no longer gate extractive recovery on the parsed
+    // answer's citations. buildExtractiveAnswer derives its own source-backed
+    // citations from the retrieved results, so trigger recovery whenever the
+    // generated answer is unusable and we have retrieved results to extract from.
+    const canRecoverExtractively = answer.citations.length > 0 || answerInputResults.length > 0;
+    if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
+      answer = buildExtractiveAnswer({
+        query: args.query,
+        queryClass,
+        results: answerInputResults,
+        quoteCards,
+        documentBreakdown,
+        evidenceSummary,
+        sourceCoverage,
+        conflictsOrGaps,
+        visualEvidence,
+        bestSource,
+        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+        relatedDocuments,
+        routeReason: `${routingReason}; structured_output_fallback`,
+        timings: answerTimings,
+      });
+      answer.modelUsed = modelUsed;
+      answer.routingReason = `${routingReason}; structured_output_fallback`;
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;
