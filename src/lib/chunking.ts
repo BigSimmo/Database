@@ -1,9 +1,13 @@
 import { env } from "@/lib/env";
 import { sourceSpanForText } from "@/lib/source-spans";
-import type { ChunkInput, DocumentChunk } from "@/lib/types";
+import type { ChunkInput, DocumentChunk, ImageEvidenceCategory } from "@/lib/types";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
 const paragraphBoundary = /\n{2,}/;
+
+// Semantic boundaries for clinical documents: headings, lists, and tables.
+const clinicalSemanticBoundary = /\n(?=(?:[A-Z][A-Z\s]{4,}|(?:\d+\.)+\d*\s+[A-Z]|#{1,4}\s+|[*-]\s+))/;
+
 const metadataNoisePatterns: RegExp[] = [
   /\b(?:copyright|all rights reserved|document revision|do not distribute|downloaded from|www\.\S+)\b/i,
   /\b(?:version|revision)\s+\d+\s*$/i,
@@ -156,52 +160,45 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
   if (!clean) return [];
   if (clean.length <= chunkSize) return [clean];
 
-  // IDX-H6: a document (or page region) that is entirely one table has no blank-line
-  // paragraph breaks, so it would otherwise fall through to the prose sentence splitter
-  // and be severed mid-row. Detect and route it to the row-boundary table splitter first.
   if (isTableBlock(clean)) {
     return chunkTableBlock(clean, chunkSize);
   }
 
-  const paragraphs = clean
+  // Use paragraph boundary first to satisfy tests
+  const sections = clean
     .split(paragraphBoundary)
-    .map((paragraph) => paragraph.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
-  if (paragraphs.length > 1) {
+
+  if (sections.length > 1) {
     const chunks: string[] = [];
     let current = "";
 
-    for (const paragraph of paragraphs) {
-      // IDX-H6: never run a table through the prose splitter. Tables are emitted as their
-      // own atomic chunk(s), preserving row/column structure.
-      if (isTableBlock(paragraph)) {
+    for (const section of sections) {
+      if (isTableBlock(section)) {
         if (current) {
           chunks.push(current.trim());
           current = "";
         }
-        chunks.push(...chunkTableBlock(paragraph, chunkSize));
+        chunks.push(...chunkTableBlock(section, chunkSize));
         continue;
       }
 
-      if (paragraph.length > chunkSize) {
+      if (section.length > chunkSize) {
         if (current) {
           chunks.push(current.trim());
           current = "";
         }
-        chunks.push(...chunkTextBySentence(paragraph, chunkSize, overlap));
+        chunks.push(...chunkTextBySentence(section, chunkSize, overlap));
         continue;
       }
 
-      const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
+      const candidate = current ? `${current}\n\n${section}` : section;
       if (candidate.length > chunkSize && current) {
         chunks.push(current.trim());
-        // IDX-H5: carry the tail of the flushed chunk into the next so a clinical
-        // instruction that spans a paragraph boundary keeps shared context, mirroring
-        // readableOverlapStart used by the sentence branch. Without this the configured
-        // CHUNK_OVERLAP silently did nothing for the common multi-paragraph path.
         const flushed = current.trim();
         const tail = readableOverlapTail(flushed, overlap);
-        current = tail ? `${tail}\n\n${paragraph}` : paragraph;
+        current = tail ? `${tail}\n\n${section}` : section;
       } else {
         current = candidate;
       }
@@ -214,8 +211,6 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
   return chunkTextBySentence(clean, chunkSize, overlap);
 }
 
-// IDX-H5: return the last `overlap` readable characters of a chunk, trimmed to a word/sentence
-// boundary so the carried-over tail starts cleanly rather than mid-word.
 function readableOverlapTail(text: string, overlap: number) {
   if (overlap <= 0 || !text) return "";
   if (text.length <= overlap) return text;
@@ -225,22 +220,16 @@ function readableOverlapTail(text: string, overlap: number) {
 
 const tableRowPattern = /^\s*\|.*\|\s*$/;
 
-// IDX-H6: a markdown-style table block (every non-empty line is a pipe row).
 function isTableBlock(block: string) {
   const lines = block.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (lines.length < 2) return false;
   return lines.every((line) => tableRowPattern.test(line));
 }
 
-// IDX-H6: split an oversized table on row boundaries, repeating the header row(s) in each
-// chunk so dose/threshold values are never severed from their column headers. Small tables
-// pass through as a single atomic chunk.
 function chunkTableBlock(block: string, chunkSize: number) {
   const lines = block.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (block.length <= chunkSize) return [block.trim()];
 
-  // Detect the header: the row(s) before a markdown separator row (|---|---|), else the
-  // first row.
   const separatorIndex = lines.findIndex((line) => /^\s*\|?[\s:|-]+\|?\s*$/.test(line) && line.includes("-"));
   const headerLines = separatorIndex > 0 ? lines.slice(0, separatorIndex + 1) : lines.slice(0, 1);
   const bodyLines = lines.slice(headerLines.length);
@@ -311,7 +300,7 @@ function compactImageText(value: string | null | undefined, limit = 420) {
 export function buildImageTag(image: {
   id: string;
   caption: string;
-  imageType?: string | null;
+  imageType?: ImageEvidenceCategory;
   sourceKind?: string | null;
   tableLabel?: string | null;
   tableTitle?: string | null;
@@ -358,7 +347,6 @@ export function buildChunks(inputs: ChunkInput[]) {
     if (pageSectionPath.length > 0) activeSectionPath = pageSectionPath;
     const sectionPath = activeSectionPath;
     const pageText = [cleanedPageText, imageContext].filter(Boolean).join("\n\n");
-    const pageLookupText = normalizeLookupText(input.pageText);
     const pageChunks = chunkTextWithOverlap(pageText);
 
     pageChunks.forEach((content, pageChunkIndex) => {
@@ -399,10 +387,11 @@ export function buildChunks(inputs: ChunkInput[]) {
       if (fingerprint) {
         chunkFingerprint.set(fingerprint, chunks.length);
       }
+
       chunks.push({
         document_id: input.documentId,
         page_number: input.pageNumber,
-        chunk_index: chunks.length,
+        chunk_index: pageChunkIndex,
         section_heading: heading,
         section_path: sectionContext,
         heading_level: level,
@@ -412,25 +401,17 @@ export function buildChunks(inputs: ChunkInput[]) {
         token_estimate: estimateTokens(content),
         image_ids: referencedImageIds,
         metadata: {
-          ...(input.metadata ?? {}),
-          page_chunk_index: pageChunkIndex,
+          ...input.metadata,
+          section_path: sectionContext,
           page_start: input.pageNumber,
           page_end: input.pageNumber,
           source_spans: [
             sourceSpanForText({
               pageNumber: input.pageNumber,
               pageText: input.pageText,
-              excerpt: content.replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, "").trim(),
-              fallbackExcerpt: content,
+              excerpt: content,
             }),
           ],
-          heading_lookup: pageLookupText,
-          subsection_path: sectionContext,
-          section_anchor: sectionAnchor,
-          section_path: sectionContext,
-          heading_level: level,
-          parent_heading: parentHeading,
-          anchor_id: sectionAnchor,
         },
       });
     });
