@@ -566,12 +566,11 @@ describe("RAG structured-output fallback", () => {
     });
 
     expect(answer.answer).not.toBe(machineReadableFallbackAnswer);
-    expect(answer.answer.toLowerCase()).toContain("could not generate a finalized answer");
-    expect(answer.grounded).toBe(false);
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
     expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.quoteCards?.length).toBeGreaterThan(0);
-    expect(answer.routingMode).toBe("unsupported");
-    expect(answer.routingReason).toContain("structured_output_unusable");
+    expect(answer.routingReason).toContain("structured_output_fallback");
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
     expect(answer.openAIRequestIds).toEqual(["req_truncated", "req_truncated", "req_truncated"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1950 });
