@@ -201,6 +201,10 @@ export type SearchResult = {
   similarity: number;
   text_rank?: number;
   hybrid_score?: number;
+  // Lexical/keyword relevance (0-1) for text-only fallback rows. This is NOT a
+  // cosine similarity — text-only rows leave `similarity` at 0 so a keyword hit
+  // can never masquerade as strong/moderate semantic evidence (RET-C2).
+  lexical_score?: number | null;
   rrf_score?: number;
   score_explanation?: SearchScoreExplanation;
   source_strength?: SourceStrength;
@@ -297,6 +301,7 @@ export type SearchScoreExplanation = {
   metadataBoost: number;
   clinicalSignalBoost: number;
   penalty: number;
+  rawPenalty?: number;
   finalScore: number;
   finalRank?: number;
   strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
@@ -771,12 +776,26 @@ export type RagAnswer = {
   }>;
   scope?: SearchScopeSummary;
   sourceGovernanceWarnings?: SourceGovernanceWarning[];
+  // GEN-C1: set when the model output was cut off (status="incomplete" /
+  // max_output_tokens). The clinical content may be missing a dose/threshold, so
+  // the UI must surface "answer truncated — verify against sources".
+  truncated?: boolean;
+  truncationReason?: string;
+  // GEN-C2/H2: post-generation faithfulness verification. Lists numeric/dose/threshold
+  // tokens asserted in the answer that could not be found verbatim in any cited chunk.
+  // When non-empty the answer should be treated as needing source verification.
+  unverifiedNumericTokens?: string[];
+  faithfulnessWarning?: string;
 };
 
 export type ExtractedPage = {
   pageNumber: number;
   text: string;
   ocrUsed?: boolean;
+  // IDX-H3: set when a page has image content but the extractor produced below-threshold
+  // text (e.g. the JS fallback can't OCR scanned PDFs). Surfaced in index_quality so a
+  // scanned guideline is never silently treated as a healthy, fully-indexed document.
+  needsOcr?: boolean;
 };
 
 export type ExtractedImage = {

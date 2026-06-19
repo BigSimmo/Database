@@ -12,6 +12,14 @@ except Exception as exc:
     sys.exit(2)
 
 
+# IDX-H6: caps on serialized table size. Raised from the previous 80/120-row and 8000-char
+# limits so realistic long clinical tables (dose/threshold grids) are not silently truncated
+# mid-table. When a cap is still hit we record rows_truncated/row_count so the truncation is
+# observable in index_quality rather than dropping tail rows invisibly.
+MAX_TABLE_ROWS = 400
+MAX_TABLE_TEXT_CHARS = 24000
+
+
 def maybe_ocr_page(page):
     try:
         import pytesseract
@@ -34,6 +42,58 @@ def maybe_ocr_page(page):
         return pytesseract.image_to_string(image)
     except Exception:
         return ""
+
+
+def page_image_coverage_ratio(page):
+    """Fraction of the page area covered by raster images (clamped to 1.0).
+
+    IDX-H4: dose/threshold tables are frequently rendered as a large image with only a
+    short heading/caption of real text. A flat character floor misses those pages, so we
+    also use image coverage to decide whether a page is image-dominant.
+    """
+    page_area = float(page.rect.width) * float(page.rect.height)
+    if page_area <= 0:
+        return 0.0
+    covered = 0.0
+    seen = set()
+    for image_info in page.get_images(full=True):
+        xref = image_info[0]
+        if xref in seen:
+            continue
+        seen.add(xref)
+        for rect in page.get_image_rects(xref) or []:
+            covered += abs(float(rect.width) * float(rect.height))
+    return min(1.0, covered / page_area)
+
+
+def should_ocr_page(text, page):
+    """Decide whether to OCR a page based on text density vs. image coverage.
+
+    IDX-H4: OCR when the embedded text layer is near-empty (old behaviour) OR when the page
+    is image-dominant with low text density even though it clears the old 40-char floor —
+    e.g. an image-rendered dose table with a >40-char caption.
+    """
+    stripped = text.strip()
+    if len(stripped) < 40:
+        return True
+    coverage = page_image_coverage_ratio(page)
+    # Low text density for a page that is mostly image -> the real content is in the image.
+    if coverage >= 0.45 and len(stripped) < 220:
+        return True
+    return False
+
+
+def merge_ocr_text(existing_text, ocr_text):
+    """Combine the embedded text layer with OCR output without dropping either (IDX-H4)."""
+    existing = (existing_text or "").strip()
+    ocr = (ocr_text or "").strip()
+    if not ocr:
+        return existing_text
+    if not existing:
+        return ocr_text
+    if ocr in existing:
+        return existing_text
+    return f"{existing_text.rstrip()}\n{ocr}"
 
 
 def rect_payload(rect):
@@ -147,14 +207,23 @@ def extract_table_payload(table):
         column_count = max((len(row) for row in cleaned), default=0)
         return {
             "text": table_rows_to_markdown(rows),
-            "rows": cleaned[:80],
+            "rows": cleaned[:MAX_TABLE_ROWS],
             "columns": table_columns_from_rows(rows)[:24],
             "accessible_markdown": table_rows_to_markdown(rows),
             "row_count": len(cleaned),
+            "rows_truncated": len(cleaned) > MAX_TABLE_ROWS,
             "column_count": column_count,
         }
     except Exception:
-        return {"text": "", "rows": [], "columns": [], "accessible_markdown": "", "row_count": 0, "column_count": 0}
+        return {
+            "text": "",
+            "rows": [],
+            "columns": [],
+            "accessible_markdown": "",
+            "row_count": 0,
+            "rows_truncated": False,
+            "column_count": 0,
+        }
 
 
 def extract_table_text(table):
@@ -459,15 +528,16 @@ def fallback_table_candidates(page, existing_rects):
     return [
         {
             "rect": region,
-            "table_text": text[:8000],
+            "table_text": text[:MAX_TABLE_TEXT_CHARS],
             "table_label": label,
             "table_title": title,
             "table_role": role,
             "table_confidence": table_candidate_confidence(label, title, text, inferred_rows, inferred_columns),
-            "table_rows": rows[:80],
+            "table_rows": rows[:MAX_TABLE_ROWS],
             "table_columns": (rows[0] if rows else [])[:24],
-            "accessible_table_markdown": table_rows_to_markdown(rows) if rows and max((len(row) for row in rows), default=0) > 1 else text[:8000],
+            "accessible_table_markdown": table_rows_to_markdown(rows) if rows and max((len(row) for row in rows), default=0) > 1 else text[:MAX_TABLE_TEXT_CHARS],
             "row_count": inferred_rows,
+            "rows_truncated": len(rows) > MAX_TABLE_ROWS or len(text) > MAX_TABLE_TEXT_CHARS,
             "column_count": inferred_columns,
             "heading_text": heading_text,
             "extraction_method": "text_grid_heuristic",
@@ -523,10 +593,12 @@ def merge_related_table_candidates(candidates, page_rect):
                     merged_text,
                 ),
                 "table_confidence": max(item.get("table_confidence") or 0 for item in group),
-                "table_rows": merged_rows[:120],
+                "table_rows": merged_rows[:MAX_TABLE_ROWS],
                 "table_columns": (merged_rows[0] if merged_rows else candidate.get("table_columns") or [])[:24],
                 "accessible_table_markdown": table_rows_to_markdown(merged_rows) if merged_rows else merged_text,
                 "row_count": sum(item.get("row_count") or 0 for item in group),
+                "rows_truncated": len(merged_rows) > MAX_TABLE_ROWS
+                or any(item.get("rows_truncated") for item in group),
                 "column_count": max(item.get("column_count") or 0 for item in group),
                 "extraction_method": "merged_appendix_tables",
             }
@@ -625,10 +697,14 @@ def extract(pdf_path, output_dir):
         text = page.get_text("text", sort=True) or ""
         ocr_used = False
 
-        if len(text.strip()) < 40:
+        # IDX-H4: trigger OCR by text-density relative to image coverage, not only a flat
+        # 40-char floor. Image-dominant pages with low text density (e.g. a dose table
+        # rendered as an image with a short caption) are OCR'd and merged with the existing
+        # text layer so caption + table contents are both retained.
+        if should_ocr_page(text, page):
             ocr_text = maybe_ocr_page(page)
             if ocr_text.strip():
-                text = ocr_text
+                text = merge_ocr_text(text, ocr_text)
                 ocr_used = True
 
         pages.append(
@@ -693,13 +769,14 @@ def extract(pdf_path, output_dir):
                     "candidate_type": "table",
                     "table_label": table_candidate.get("table_label"),
                     "table_title": table_candidate.get("table_title"),
-                    "table_text": (table_candidate.get("table_text") or "")[:8000],
+                    "table_text": (table_candidate.get("table_text") or "")[:MAX_TABLE_TEXT_CHARS],
                     "table_role": table_candidate.get("table_role"),
                     "table_confidence": table_candidate.get("table_confidence"),
                     "table_rows": table_candidate.get("table_rows") or [],
                     "table_columns": table_candidate.get("table_columns") or [],
-                    "accessible_table_markdown": (table_candidate.get("accessible_table_markdown") or table_candidate.get("table_text") or "")[:8000],
+                    "accessible_table_markdown": (table_candidate.get("accessible_table_markdown") or table_candidate.get("table_text") or "")[:MAX_TABLE_TEXT_CHARS],
                     "row_count": table_candidate.get("row_count"),
+                    "rows_truncated": bool(table_candidate.get("rows_truncated")),
                     "column_count": table_candidate.get("column_count"),
                     "heading_text": table_candidate.get("heading_text"),
                     "bbox": rect_payload(table_rect),

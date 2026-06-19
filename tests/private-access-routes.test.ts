@@ -206,6 +206,8 @@ function mockRuntime(
       RAG_ANSWER_CACHE_SIZE: 0,
       RAG_AWAIT_QUERY_LOGS: false,
       LOCAL_NO_AUTH_OWNER_EMAIL: options.localOwnerEmail,
+      WORKER_STALE_AFTER_MINUTES: 10,
+      WORKER_MAX_ATTEMPTS: 3,
     },
     isDemoMode: () => false,
     isLocalNoAuthMode: () => Boolean(options.localNoAuth),
@@ -698,6 +700,65 @@ describe("private document API access", () => {
     expect(response.status).toBe(401);
     expect(await payload(response)).toEqual({ error: "Authentication required." });
     expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("refuses to retry a job a live worker still holds (IDX-C3, B6)", async () => {
+    // B6: the reset is a single conditional UPDATE guarded on status/locked_at.
+    // A fresh 'processing' lock means the WHERE clause matches 0 rows, so the
+    // update resolves with no row → refuse with 409.
+    const client = createSupabaseMock((call) => {
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok({ id: "job-1", document_id: documentId, batch_id: null, status: "processing", locked_at: null });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "update") {
+        // Guard rejected the reset: no row affected.
+        return ok(null);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }),
+      { params: Promise.resolve({ id: "job-1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(String((await payload(response)).error)).toContain("still being processed");
+    // The guarded update must carry the status/stale-lock filter atomically.
+    const jobUpdate = client.calls.find((call) => call.table === "ingestion_jobs" && call.operation === "update");
+    expect(jobUpdate?.filters.some((f) => f.column === "id")).toBe(true);
+    expect(jobUpdate?.orFilters.some((f) => f.includes("status.neq.processing") && f.includes("locked_at"))).toBe(true);
+    // Must NOT reset the document when the guard refused the job reset.
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+  });
+
+  it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok({ id: "job-1", document_id: documentId, batch_id: null, status: "failed", locked_at: null });
+      }
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "update") {
+        // Guard allowed the reset: one row affected.
+        return ok({ id: "job-1", document_id: documentId, status: "pending" });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }),
+      { params: Promise.resolve({ id: "job-1" }) },
+    );
+    const documentUpdate = client.calls.find((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    // IDX-H1: only re-queue; never zero the chunk/page counts here (the worker resets at start).
+    expect(documentUpdate?.updatePayload).toEqual({ status: "queued", error_message: null });
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   it("runs enrichment-only reindex for owned indexed documents using generic metadata", async () => {

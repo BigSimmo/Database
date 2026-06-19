@@ -6,23 +6,53 @@ type SignedUrlPayload = {
   expiresAt?: string;
 };
 
-const signedUrlCache = new Map<string, SignedUrlPayload>();
+type SignedUrlCacheEntry = {
+  payload: SignedUrlPayload;
+  // Absolute epoch-ms after which the entry must not be served. Always set:
+  // derived from payload.expiresAt when present, otherwise a conservative
+  // default shorter than the issued signed-URL lifetime (RET-H3).
+  expiresAtMs: number;
+};
+
+// Signed URLs are bearer credentials for private document images. Bound the cache
+// and never serve an entry past its hard expiry so a leaked/over-retained URL is
+// not usable indefinitely and a missing-expiry payload cannot be cached forever.
+const SIGNED_URL_CACHE_MAX_SIZE = 256;
+// Issued signed URLs live 10 minutes (see signed-url routes). Use a shorter TTL
+// for payloads that omit expiresAt so they self-heal well before the URL dies.
+const SIGNED_URL_DEFAULT_TTL_MS = 5 * 60_000;
+// Refresh a few seconds before the hard expiry to avoid serving a near-dead URL.
+const SIGNED_URL_EXPIRY_SKEW_MS = 30_000;
+
+const signedUrlCache = new Map<string, SignedUrlCacheEntry>();
 
 export function getCachedSignedUrl(endpoint: string) {
   const cached = signedUrlCache.get(endpoint);
   if (!cached) return null;
 
-  const expiresAt = cached.expiresAt ? Date.parse(cached.expiresAt) : null;
-  if (expiresAt && Number.isFinite(expiresAt) && expiresAt - Date.now() < 30_000) {
+  if (cached.expiresAtMs - Date.now() <= SIGNED_URL_EXPIRY_SKEW_MS) {
     signedUrlCache.delete(endpoint);
     return null;
   }
 
-  return cached;
+  // LRU: mark as most-recently-used.
+  signedUrlCache.delete(endpoint);
+  signedUrlCache.set(endpoint, cached);
+  return cached.payload;
 }
 
 export function setCachedSignedUrl(endpoint: string, payload: SignedUrlPayload) {
-  signedUrlCache.set(endpoint, payload);
+  const parsedExpiry = payload.expiresAt ? Date.parse(payload.expiresAt) : NaN;
+  const expiresAtMs = Number.isFinite(parsedExpiry) ? parsedExpiry : Date.now() + SIGNED_URL_DEFAULT_TTL_MS;
+
+  if (signedUrlCache.has(endpoint)) signedUrlCache.delete(endpoint);
+  signedUrlCache.set(endpoint, { payload, expiresAtMs });
+
+  while (signedUrlCache.size > SIGNED_URL_CACHE_MAX_SIZE) {
+    const oldestKey = signedUrlCache.keys().next().value;
+    if (!oldestKey) break;
+    signedUrlCache.delete(oldestKey);
+  }
   return payload;
 }
 
