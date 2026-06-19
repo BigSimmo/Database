@@ -46,6 +46,7 @@ import {
   PanelHeading,
   premiumHeaderSurface,
   primaryControl,
+  proseMeasure,
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
@@ -179,7 +180,7 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
   return (
     <div data-testid="clinical-document-profile" className="mt-3 space-y-4">
       {profile.overview ? (
-        <p className="whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
+        <p className={cn(proseMeasure, "whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]")}>
           <SafeBoldText text={cleanClinicalSummaryText(profile.overview)} />
         </p>
       ) : null}
@@ -188,7 +189,7 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
           <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
             {section.label}
           </h3>
-          <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
+          <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]")}>
             {section.items.slice(0, section.key === "best_questions" ? 8 : 6).map((item, index) => {
               const text = profileItemText(item);
               if (!text) return null;
@@ -1923,9 +1924,16 @@ export function DocumentViewer({
   }
 
   return (
-    <main className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)]")}>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)] focus:outline-none")}
+    >
       <header
-        className={cn("sticky top-0 z-20 px-3 py-2 sm:px-4 sm:py-3 lg:px-8", premiumHeaderSurface)}
+        className={cn(
+          "sticky top-0 z-20 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 sm:py-3 lg:px-8",
+          premiumHeaderSurface,
+        )}
         style={{ backgroundColor: "var(--app-shell)" }}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:gap-3">

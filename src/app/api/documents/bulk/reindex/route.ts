@@ -7,11 +7,12 @@ import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
 const bulkReindexSchema = z.object({
-  documentIds: z.array(z.string().uuid()).min(1).max(100),
+  documentIds: z.array(z.string().uuid()).min(1).max(10),
   mode: z.enum(["enrichment", "full", "retry_failed"]).default("enrichment"),
 });
 
@@ -77,6 +78,9 @@ export async function POST(request: Request) {
     if (documentError) throw new Error(documentError.message);
     if (!documents?.length) return NextResponse.json({ error: "No selected documents were found." }, { status: 404 });
 
+    const health = await probeSupabaseHealth(supabase);
+    if (!health.ok) return NextResponse.json({ error: `Bulk reindex is paused. ${health.message}` }, { status: 503 });
+
     const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
 
     for (const document of documents) {
@@ -127,9 +131,30 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // IDX-H1: enqueue first, then mark queued. Do NOT reset the index here — the worker
-        // resets at job start (worker/main.ts). Resetting before the job is committed would
-        // leave a previously-searchable clinical document with zero index on failure.
+        const { count: activeJobCount, error: activeJobError } = await supabase
+          .from("ingestion_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("document_id", document.id)
+          .in("status", ["pending", "processing"]);
+        if (activeJobError) throw new Error(activeJobError.message);
+        if ((activeJobCount ?? 0) > 0) {
+          results.push({
+            documentId: document.id,
+            mode: parsed.data.mode,
+            ok: false,
+            error: "Document already has pending or processing indexing work.",
+          });
+          continue;
+        }
+
+        const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: document.id });
+        if (resetError) throw new Error(resetError.message);
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
+          .eq("id", document.id)
+          .eq("owner_id", user.id);
+        if (updateError) throw new Error(updateError.message);
         const { data: job, error: jobError } = await supabase
           .from("ingestion_jobs")
           .insert({
@@ -143,12 +168,6 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         if (jobError) throw new Error(jobError.message);
-        const { error: updateError } = await supabase
-          .from("documents")
-          .update({ status: "queued", error_message: null })
-          .eq("id", document.id)
-          .eq("owner_id", user.id);
-        if (updateError) throw new Error(updateError.message);
         results.push({ documentId: document.id, mode: parsed.data.mode, ok: true, jobId: job.id });
       } catch (error) {
         results.push({

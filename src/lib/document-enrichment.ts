@@ -373,7 +373,7 @@ function normalizeClinicalProfile(args: {
   return profile;
 }
 
-function inferLabels(document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">): GeneratedLabel[] {
+export function inferLabels(document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">): GeneratedLabel[] {
   const haystack = `${document.title} ${document.file_name} ${document.source_path ?? ""}`.toLowerCase();
   const labels: GeneratedLabel[] = [];
 
@@ -402,6 +402,7 @@ function inferLabels(document: Pick<ClinicalDocument, "title" | "file_name" | "s
   if (/mhat|mhct|treatment\s*team/.test(haystack)) add("treatment team process", "workflow", 0.7);
   if (/prescri|medicat|injectable|neuroleptic/.test(haystack)) add("medication management", "topic", 0.72);
   if (/form|checklist|documentation|assessment/.test(haystack)) add("documentation", "document_type", 0.66);
+  add(document.title, "topic", 0.64);
   add("clinical guideline", "document_type", 0.55);
 
   return labels;

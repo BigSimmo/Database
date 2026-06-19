@@ -119,13 +119,20 @@ export function buildAdditionalEmbeddingFieldInputs(args: {
   chunkRows: TableFactChunkRow[];
   insertedImages: TableFactImageRow[];
   tableFacts: TableFactInsert[];
+  qualityHint?: {
+    duplicateChunkRatio?: number | null;
+    headingDensity?: number | null;
+  };
 }) {
   const fields: EmbeddingFieldInput[] = [];
   const seenContent = new Set<string>();
   const extraCountByChunk = new Map<string, number>();
   const tableRowCountByChunk = new Map<string, number>();
-  const maxExtraFieldsPerChunk = 8;
-  const maxTableRowsPerChunk = 3;
+  const duplicateRatio = Number(args.qualityHint?.duplicateChunkRatio ?? 0);
+  const headingDensity = Number(args.qualityHint?.headingDensity ?? 1);
+  const maxExtraFieldsPerChunk = duplicateRatio > 0.22 ? 4 : duplicateRatio > 0.14 ? 6 : 8;
+  const maxTableRowsPerChunk = duplicateRatio > 0.22 ? 2 : 3;
+  const chunkContextLimit = headingDensity < 0.08 ? 1200 : 950;
 
   const addField = (
     chunk: TableFactChunkRow | null,
@@ -156,10 +163,12 @@ export function buildAdditionalEmbeddingFieldInputs(args: {
     const text = `${chunk.section_heading ?? ""} ${chunk.content ?? ""}`;
     if (!highYieldPattern.test(text)) continue;
 
-    addField(chunk, "chunk_high_yield", `High-yield clinical context: ${chunkContext(args.job, chunk)}`, {
+    addField(chunk, "chunk_high_yield", `High-yield clinical context: ${chunkContext(args.job, chunk, chunkContextLimit)}`, {
       source: "chunk_high_yield",
       chunk_index: chunk.chunk_index ?? null,
       page_number: chunk.page_number,
+      duplicate_chunk_ratio: Number.isFinite(duplicateRatio) ? duplicateRatio : null,
+      heading_density: Number.isFinite(headingDensity) ? headingDensity : null,
     });
 
     const actionText = extractClinicalSentences(chunk.content, actionPattern);

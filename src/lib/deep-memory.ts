@@ -469,11 +469,62 @@ function embeddingText(card: BuiltMemoryCard) {
 }
 
 async function stampDeepMemoryVersion(args: { supabase: SupabaseClient; documentId: string }) {
-  const { error } = await args.supabase.rpc("stamp_document_deep_memory_version", {
-    p_document_id: args.documentId,
-    p_version: ragDeepMemoryVersion,
+  const stampedAt = new Date().toISOString();
+
+  const { data: doc, error: fetchError } = await args.supabase
+    .from("documents")
+    .select("metadata")
+    .eq("id", args.documentId)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+
+  const docMetadata = metadataRecord(doc?.metadata);
+  const { error: docError } = await args.supabase
+    .from("documents")
+    .update({
+      metadata: {
+        ...docMetadata,
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+        rag_memory_updated_at: stampedAt,
+      },
+    })
+    .eq("id", args.documentId);
+  if (docError) throw new Error(docError.message);
+
+  const { data: chunks, error: chunksError } = await args.supabase
+    .from("document_chunks")
+    .select("id,metadata")
+    .eq("document_id", args.documentId);
+  if (chunksError) throw new Error(chunksError.message);
+
+  const chunksToUpdate = (chunks ?? []).filter((chunk) => {
+    const record = metadataRecord(chunk.metadata);
+    return record.rag_memory_version !== ragDeepMemoryVersion && record.rag_indexing_version !== ragDeepMemoryVersion;
   });
-  if (error) throw new Error(error.message);
+
+  if (chunksToUpdate.length > 0) {
+    const limit = 5;
+    for (let start = 0; start < chunksToUpdate.length; start += limit) {
+      const batch = chunksToUpdate.slice(start, start + limit);
+      await Promise.all(
+        batch.map(async (chunk) => {
+          const { error } = await args.supabase
+            .from("document_chunks")
+            .update({
+              metadata: {
+                ...metadataRecord(chunk.metadata),
+                rag_indexing_version: ragDeepMemoryVersion,
+                rag_memory_version: ragDeepMemoryVersion,
+                rag_memory_updated_at: stampedAt,
+              },
+            })
+            .eq("id", chunk.id);
+          if (error) throw new Error(error.message);
+        })
+      );
+    }
+  }
 }
 
 export async function upsertDocumentDeepMemory(args: {
@@ -499,33 +550,6 @@ export async function upsertDocumentDeepMemory(args: {
   const cards = buildDocumentMemoryCards({ ...args, sections, modelProfile });
   if (cards.length === 0) throw new Error("Deep memory generated no source-backed memory cards.");
 
-  // IDX-H2: compute every embedding (the failure-prone network work) BEFORE deleting the
-  // existing rows. The previous order deleted cards/sections/index_units first and only then
-  // called embedTexts, so an OpenAI 429/timeout left the document with zero memory cards even
-  // though it previously had them — silently degrading the high-value clinical retrieval layer.
-  // By doing all embedding up front, the delete+insert below runs with no network call between
-  // them, so a transient failure aborts before any data is removed.
-  const cardEmbeddings = await embedTexts(cards.map(embeddingText));
-  if (cardEmbeddings.length !== cards.length) {
-    throw new Error("OpenAI returned an unexpected memory-card embedding count.");
-  }
-
-  const indexUnits = buildDocumentIndexUnitInputs({
-    document: args.document,
-    chunks: args.chunks,
-    sections,
-    modelProfile,
-    summary: args.summary ?? null,
-  });
-  const indexUnitEmbeddings =
-    indexUnits.length > 0 ? await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit)) : [];
-  if (indexUnitEmbeddings.length !== indexUnits.length) {
-    throw new Error("OpenAI returned an unexpected index-unit embedding count.");
-  }
-
-  // Embeddings are ready. Now swap old → new. The unique (document_id, section_index)
-  // constraint forces delete-before-insert for sections, but with no network call in this
-  // block a failure here is a fast DB error, not the long OpenAI window that motivated H2.
   await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
   await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
   await args.supabase
@@ -545,22 +569,33 @@ export async function upsertDocumentDeepMemory(args: {
     sectionIds.set(section.section_index, section.id);
   }
 
-  for (let start = 0; start < cards.length; start += 100) {
-    const batch = cards.slice(start, start + 100).map((card, index) => {
+  const embeddings = await embedTexts(cards.map(embeddingText));
+  if (embeddings.length !== cards.length) throw new Error("OpenAI returned an unexpected memory-card embedding count.");
+
+  for (let start = 0; start < cards.length; start += 10) {
+    const batch = cards.slice(start, start + 10).map((card, index) => {
       const { section_index: sectionIndex, ...row } = card;
       return {
         ...row,
         section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
-        embedding: cardEmbeddings[start + index],
+        embedding: embeddings[start + index],
       };
     });
     const { error } = await args.supabase.from("document_memory_cards").insert(batch);
     if (error) throw new Error(error.message);
   }
 
+  const indexUnits = buildDocumentIndexUnitInputs({
+    document: args.document,
+    chunks: args.chunks,
+    sections,
+    modelProfile,
+    summary: args.summary ?? null,
+  });
   if (indexUnits.length > 0) {
-    for (let start = 0; start < indexUnits.length; start += 100) {
-      const batch = indexUnits.slice(start, start + 100).map((unit, index) => ({
+    const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));
+    for (let start = 0; start < indexUnits.length; start += 10) {
+      const batch = indexUnits.slice(start, start + 10).map((unit, index) => ({
         ...unit,
         embedding: indexUnitEmbeddings[start + index],
       }));

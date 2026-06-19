@@ -262,6 +262,7 @@ create table if not exists public.document_chunks (
   parent_heading text,
   anchor_id text,
   content text not null,
+  retrieval_synopsis text,
   content_hash text,
   index_generation_id uuid,
   token_estimate integer not null default 0,
@@ -269,7 +270,7 @@ create table if not exists public.document_chunks (
   metadata jsonb not null default '{}'::jsonb,
   embedding extensions.vector(1536) not null,
   search_tsv tsvector generated always as (
-    to_tsvector('english', coalesce(section_heading, '') || ' ' || content)
+    to_tsvector('english', coalesce(section_heading, '') || ' ' || coalesce(retrieval_synopsis, '') || ' ' || content)
   ) stored,
   created_at timestamptz not null default now(),
   unique (document_id, chunk_index)
@@ -537,6 +538,17 @@ create index if not exists ingestion_jobs_batch_idx on public.ingestion_jobs(bat
 create index if not exists ingestion_jobs_claim_idx
   on public.ingestion_jobs(status, next_run_at, created_at)
   where status in ('pending', 'processing');
+create index if not exists ingestion_jobs_status_next_run_idx
+  on public.ingestion_jobs(status, next_run_at, created_at)
+  where status in ('pending', 'processing', 'failed');
+create index if not exists ingestion_jobs_document_status_idx
+  on public.ingestion_jobs(document_id, status, created_at);
+create index if not exists import_batches_status_created_idx
+  on public.import_batches(status, created_at desc)
+  where status in ('queued', 'processing');
+create index if not exists storage_cleanup_jobs_status_created_idx
+  on public.storage_cleanup_jobs(status, created_at)
+  where status in ('pending', 'failed');
 create index if not exists rag_queries_owner_idx on public.rag_queries(owner_id, created_at desc);
 create index if not exists rag_queries_source_chunk_ids_gin_idx
   on public.rag_queries using gin(source_chunk_ids);
@@ -571,6 +583,15 @@ create index if not exists storage_cleanup_jobs_owner_status_idx
   on public.storage_cleanup_jobs(owner_id, status, created_at desc);
 create index if not exists storage_cleanup_jobs_document_idx
   on public.storage_cleanup_jobs(document_id);
+
+create index if not exists document_chunks_document_id_idx on public.document_chunks(document_id);
+create index if not exists document_sections_document_id_idx on public.document_sections(document_id);
+create index if not exists document_memory_cards_document_id_idx on public.document_memory_cards(document_id);
+create index if not exists document_images_document_id_idx on public.document_images(document_id);
+create index if not exists document_labels_document_id_idx on public.document_labels(document_id);
+create index if not exists document_embedding_fields_document_id_idx on public.document_embedding_fields(document_id);
+create index if not exists document_table_facts_document_id_idx on public.document_table_facts(document_id);
+create index if not exists document_index_quality_document_id_idx on public.document_index_quality(document_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -652,10 +673,11 @@ set search_path = public, extensions, pg_temp
 as $$
 begin
   return query
-  with candidates as (
-    select j.id
+  with eligible as (
+    select
+      j.id,
+      row_number() over (partition by j.document_id order by j.created_at asc, j.id asc) as document_rank
     from public.ingestion_jobs j
-    join public.documents d on d.id = j.document_id
     where j.attempt_count < j.max_attempts
       and (
         (j.status = 'pending' and coalesce(j.next_run_at, now()) <= now())
@@ -665,15 +687,35 @@ begin
           and j.locked_at < now() - make_interval(mins => p_stale_after_minutes)
         )
       )
-    order by j.created_at asc
+      and not exists (
+        select 1
+        from public.ingestion_jobs active
+        where active.document_id = j.document_id
+          and active.id <> j.id
+          and active.status = 'processing'
+          and active.locked_at is not null
+          and active.locked_at >= now() - make_interval(mins => p_stale_after_minutes)
+      )
+  ),
+  candidates as (
+    select j.id
+    from eligible e
+    join public.ingestion_jobs j on j.id = e.id
+    join public.documents d on d.id = j.document_id
+    where e.document_rank = 1
+    order by j.created_at asc, j.id asc
     limit greatest(p_claim_limit, 1)
-    for update of j skip locked
+    for update of j, d skip locked
   ),
   claimed as (
     update public.ingestion_jobs j
     set
       status = 'processing',
-      stage = case when j.stage in ('queued', 'failed') then 'claimed' else j.stage end,
+      stage = case
+        when j.status = 'processing' then 'reclaimed stale job'
+        when j.stage in ('queued', 'failed') then 'claimed'
+        else j.stage
+      end,
       locked_at = now(),
       locked_by = p_worker_id,
       started_at = coalesce(j.started_at, now()),
@@ -707,6 +749,7 @@ language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
 begin
+  perform set_config('statement_timeout', '180000', true);
   delete from public.document_memory_cards where document_id = p_document_id;
   delete from public.document_sections where document_id = p_document_id;
   delete from public.document_table_facts where document_id = p_document_id;
@@ -715,6 +758,138 @@ begin
   delete from public.document_chunks where document_id = p_document_id;
   delete from public.document_images where document_id = p_document_id;
   delete from public.document_pages where document_id = p_document_id;
+end;
+$$;
+
+create or replace function public.refresh_import_batch_status(p_batch_id uuid)
+returns jsonb
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  queued_count integer := 0;
+  processing_count integer := 0;
+  failed_count integer := 0;
+  next_status text;
+begin
+  if p_batch_id is null then
+    return jsonb_build_object('ok', false, 'reason', 'missing_batch_id');
+  end if;
+
+  select
+    count(*) filter (where status = 'pending'),
+    count(*) filter (where status = 'processing'),
+    count(*) filter (where status = 'failed')
+  into queued_count, processing_count, failed_count
+  from public.ingestion_jobs
+  where batch_id = p_batch_id;
+
+  next_status := case
+    when queued_count > 0 or processing_count > 0 then 'processing'
+    when failed_count > 0 then 'completed_with_errors'
+    else 'completed'
+  end;
+
+  update public.import_batches
+  set
+    status = next_status,
+    failed_files = failed_count,
+    completed_at = case when next_status = 'processing' then null else now() end
+  where id = p_batch_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'status', next_status,
+    'queued', queued_count,
+    'processing', processing_count,
+    'failed', failed_count
+  );
+end;
+$$;
+
+create or replace function public.complete_ingestion_job(
+  p_job_id uuid,
+  p_document_id uuid,
+  p_batch_id uuid default null,
+  p_stage text default 'indexed'
+)
+returns jsonb
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  update public.ingestion_jobs
+  set
+    status = 'completed',
+    stage = p_stage,
+    progress = 100,
+    error_message = null,
+    locked_at = null,
+    locked_by = null,
+    completed_at = now()
+  where id = p_job_id
+    and document_id = p_document_id;
+
+  update public.ingestion_jobs
+  set
+    status = 'completed',
+    stage = 'superseded by successful index',
+    progress = 100,
+    error_message = null,
+    locked_at = null,
+    locked_by = null,
+    completed_at = now()
+  where document_id = p_document_id
+    and id <> p_job_id
+    and status in ('pending', 'processing', 'failed');
+
+  if p_batch_id is not null then
+    perform public.refresh_import_batch_status(p_batch_id);
+  end if;
+
+  return jsonb_build_object('ok', true, 'job_id', p_job_id, 'document_id', p_document_id);
+end;
+$$;
+
+create or replace function public.fail_or_retry_ingestion_job(
+  p_job_id uuid,
+  p_document_id uuid,
+  p_batch_id uuid default null,
+  p_retry boolean default false,
+  p_document_status text default 'failed',
+  p_stage text default 'failed',
+  p_error_message text default null,
+  p_next_run_at timestamptz default null
+)
+returns jsonb
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  update public.documents
+  set
+    status = p_document_status,
+    error_message = p_error_message
+  where id = p_document_id;
+
+  update public.ingestion_jobs
+  set
+    status = case when p_retry then 'pending' else 'failed' end,
+    stage = p_stage,
+    progress = case when p_retry then 0 else 100 end,
+    error_message = p_error_message,
+    locked_at = null,
+    locked_by = null,
+    next_run_at = coalesce(p_next_run_at, next_run_at),
+    completed_at = case when p_retry then null else now() end
+  where id = p_job_id
+    and document_id = p_document_id;
+
+  if p_batch_id is not null then
+    perform public.refresh_import_batch_status(p_batch_id);
+  end if;
+
+  return jsonb_build_object('ok', true, 'job_id', p_job_id, 'document_id', p_document_id, 'retry', p_retry);
 end;
 $$;
 
@@ -841,8 +1016,11 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
+  document_labels jsonb,
+  document_summary text,
   similarity double precision,
   images jsonb
 )
@@ -859,6 +1037,7 @@ as $$
     c.chunk_index,
     c.section_heading,
     c.content,
+    c.retrieval_synopsis,
     c.image_ids,
     d.metadata as source_metadata,
     '[]'::jsonb as document_labels,
@@ -892,6 +1071,7 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
   similarity double precision,
@@ -915,6 +1095,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       1 - (c.embedding <=> query_embedding) as similarity,
       (
@@ -941,6 +1122,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       1 - (c.embedding <=> query_embedding) as similarity,
       (
@@ -982,13 +1164,14 @@ as $$
       chunk_index,
       section_heading,
       content,
+      retrieval_synopsis,
       image_ids,
       max(similarity)::double precision as similarity,
       max(text_rank)::double precision as text_rank,
       min(vector_rank) as vector_rank,
       min(text_match_rank) as text_match_rank
     from combined
-    group by id, document_id, page_number, chunk_index, section_heading, content, image_ids
+    group by id, document_id, page_number, chunk_index, section_heading, content, retrieval_synopsis, image_ids
   ),
   scored_metrics as (
     select
@@ -1042,6 +1225,7 @@ as $$
     c.chunk_index,
     c.section_heading,
     c.content,
+    c.retrieval_synopsis,
     c.image_ids,
     d.metadata as source_metadata,
     c.similarity,
@@ -1196,13 +1380,13 @@ create or replace function public.search_schema_health()
 returns jsonb
 language plpgsql
 stable
-security definer
 set search_path = public, extensions, pg_catalog, pg_temp
 as $$
 declare
   missing text[] := array[]::text[];
   vector_type_oid oid;
   vector_schema text;
+  index_name text;
 begin
   select t.oid, n.nspname
   into vector_type_oid, vector_schema
@@ -1287,6 +1471,25 @@ begin
   if not exists (select 1 from pg_class where relname = 'document_table_facts_source_image_idx') then
     missing := array_append(missing, 'document_table_facts_source_image_idx');
   end if;
+  foreach index_name in array array[
+    'document_pages_document_idx',
+    'document_images_document_idx',
+    'document_sections_document_idx',
+    'document_memory_cards_document_idx',
+    'document_chunks_document_idx',
+    'document_table_facts_document_idx',
+    'document_embedding_fields_document_idx',
+    'document_index_units_document_idx',
+    'ingestion_jobs_status_next_run_idx',
+    'ingestion_jobs_document_status_idx',
+    'documents_owner_status_idx',
+    'import_batches_status_created_idx',
+    'storage_cleanup_jobs_status_created_idx'
+  ] loop
+    if not exists (select 1 from pg_class where relname = index_name) then
+      missing := array_append(missing, index_name);
+    end if;
+  end loop;
 
   return jsonb_build_object(
     'ok', cardinality(missing) = 0,
@@ -1396,6 +1599,7 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
   document_labels jsonb,
@@ -1423,6 +1627,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       d.metadata as source_metadata,
       (
@@ -1451,6 +1656,7 @@ as $$
     ranked.chunk_index,
     ranked.section_heading,
     ranked.content,
+    ranked.retrieval_synopsis,
     ranked.image_ids,
     ranked.source_metadata,
     coalesce(public.document_label_metadata(ranked.document_id), '[]'::jsonb) as document_labels,
@@ -1971,6 +2177,7 @@ language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
 begin
+  perform set_config('statement_timeout', '180000', true);
   delete from public.document_index_units where document_id = p_document_id;
   delete from public.document_memory_cards where document_id = p_document_id;
   delete from public.document_sections where document_id = p_document_id;

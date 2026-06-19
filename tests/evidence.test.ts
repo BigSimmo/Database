@@ -8,6 +8,7 @@ import {
   reconcileQuoteCards,
   selectBestSourceRecommendation,
 } from "../src/lib/evidence";
+import { documentCitationHref } from "../src/lib/citations";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult>): SearchResult {
@@ -124,6 +125,33 @@ The haematologist can assist with altering WCC and ANC thresholds for specific c
       "ranked-lower-hybrid",
       "ranked-higher-hybrid",
     ]);
+  });
+
+  it("uses stable tie-breaks for equal-scored diversified results", () => {
+    const sources = [
+      result({ id: "z-chunk", document_id: "doc-z", hybrid_score: 0.7, similarity: 0.7 }),
+      result({ id: "a-chunk", document_id: "doc-a", hybrid_score: 0.7, similarity: 0.7 }),
+      result({ id: "m-chunk", document_id: "doc-m", hybrid_score: 0.7, similarity: 0.7 }),
+    ];
+
+    expect(diversifySearchResults(sources, 3).map((source) => source.id)).toEqual([
+      "a-chunk",
+      "m-chunk",
+      "z-chunk",
+    ]);
+  });
+
+  it("encodes document ids in citation links", () => {
+    expect(
+      documentCitationHref({
+        chunk_id: "chunk/with space",
+        document_id: "doc/with space",
+        title: "Source",
+        file_name: "source.pdf",
+        page_number: 3,
+        chunk_index: 0,
+      }),
+    ).toBe("/documents/doc%2Fwith%20space?page=3&chunk=chunk%2Fwith+space");
   });
 
   it("falls back to locally extracted exact quotes when proposed quotes are not exact", () => {

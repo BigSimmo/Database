@@ -6,6 +6,7 @@ import { assertAllowedFile, jsonError } from "@/lib/http";
 import { planDocumentName, type SupabaseLike } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
         message: `Exact copy already exists as "${duplicate.title}"; no duplicate job was queued.`,
       });
     }
+
+    const health = await probeSupabaseHealth(supabase);
+    if (!health.ok) return NextResponse.json({ error: `Upload is paused. ${health.message}` }, { status: 503 });
 
     const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
       contentType: file.type,

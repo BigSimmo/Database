@@ -5,6 +5,7 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
+    const health = await probeSupabaseHealth(supabase);
+    if (!health.ok) return NextResponse.json({ error: `Reindex is paused. ${health.message}` }, { status: 503 });
+
     if (mode === "enrichment") {
       const [chunks, images] = await Promise.all([
         selectReindexRowsInPages<ReindexChunk>({
@@ -129,11 +133,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
     }
 
-    // IDX-H1: enqueue the job first, then mark queued. Do NOT reset the index here — the
-    // worker calls resetDocumentIndex at job start (worker/main.ts). Resetting before the
-    // job is committed would leave a previously-searchable clinical document with zero index
-    // if job creation failed or the worker never ran (silent availability regression). The
-    // existing index stays live until the worker commits a fresh one.
+    const { count: activeJobCount, error: activeJobError } = await supabase
+      .from("ingestion_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("document_id", id)
+      .in("status", ["pending", "processing"]);
+    if (activeJobError) throw new Error(activeJobError.message);
+    if ((activeJobCount ?? 0) > 0) {
+      return NextResponse.json({ error: "Document already has pending or processing indexing work." }, { status: 409 });
+    }
+
+    const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: id });
+    if (resetError) throw new Error(resetError.message);
+
+    const { error: updateError } = await supabase
+      .from("documents")
+      .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
+      .eq("id", id)
+      .eq("owner_id", user.id);
+    if (updateError) throw new Error(updateError.message);
+
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
       .insert({
@@ -148,14 +167,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (jobError) throw new Error(jobError.message);
-
-    const { error: updateError } = await supabase
-      .from("documents")
-      .update({ status: "queued", error_message: null })
-      .eq("id", id)
-      .eq("owner_id", user.id);
-    if (updateError) throw new Error(updateError.message);
-
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

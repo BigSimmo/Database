@@ -88,7 +88,7 @@ export function Sheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/65 backdrop-blur-sm motion-safe:animate-overlay-in sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--surface-glass)] backdrop-blur-sm motion-safe:animate-overlay-in motion-reduce:animate-none motion-reduce:transition-none sm:items-center sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -102,7 +102,9 @@ export function Sheet({
         onMouseDown={(event) => event.stopPropagation()}
         className={cn(
           "flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe motion-safe:animate-sheet-up",
+          "transition duration-200 motion-reduce:transition-none sm:duration-150",
           "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+          "sm:motion-reduce:animate-none",
           contentClassName,
         )}
       >

@@ -66,8 +66,18 @@ describe("Supabase schema Data API grants", () => {
       "create unique index if not exists documents_owner_content_hash_unique_idx on public.documents(owner_id, content_hash) where content_hash is not null;",
     );
     expect(schema).toContain("create or replace function public.claim_ingestion_jobs");
-    expect(schema).toContain("for update of j skip locked");
+    expect(schema).toContain("row_number() over (partition by j.document_id order by j.created_at asc, j.id asc)");
+    expect(schema).toContain("where active.document_id = j.document_id");
+    expect(schema).toContain("and active.status = 'processing'");
+    expect(schema).toContain("for update of j, d skip locked");
+    expect(schema).toContain("when j.status = 'processing' then 'reclaimed stale job'");
     expect(schema).toContain("create or replace function public.reset_document_index");
+    expect(schema).toContain("create or replace function public.refresh_import_batch_status");
+    expect(schema).toContain("create or replace function public.complete_ingestion_job");
+    expect(schema).toContain("create or replace function public.fail_or_retry_ingestion_job");
+    expect(schema).toContain("count(*) filter (where status = 'pending')");
+    expect(schema).toContain("failed_files = failed_count");
+    expect(schema).toContain("perform public.refresh_import_batch_status(p_batch_id);");
     expect(schema).toContain("delete from public.document_memory_cards where document_id = p_document_id;");
     expect(schema).toContain("delete from public.document_sections where document_id = p_document_id;");
   });

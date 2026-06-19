@@ -41,7 +41,7 @@ export function documentCitationHref(citation: Citation) {
   const params = new URLSearchParams();
   if (citation.page_number) params.set("page", String(citation.page_number));
   params.set("chunk", citation.chunk_id);
-  return `/documents/${citation.document_id}?${params.toString()}`;
+  return `/documents/${encodeURIComponent(citation.document_id)}?${params.toString()}`;
 }
 
 export function citationIdentity(citation: Pick<Citation, "chunk_id" | "document_id" | "page_number">) {

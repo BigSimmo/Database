@@ -472,7 +472,12 @@ export function diversifySearchResults(results: SearchResult[], limit = 12, maxP
     enriched.sort((a, b) => {
       const aScore = a.hybrid_score ?? a.similarity;
       const bScore = b.hybrid_score ?? b.similarity;
-      return bScore - aScore || b.similarity - a.similarity;
+      return (
+        bScore - aScore ||
+        b.similarity - a.similarity ||
+        a.document_id.localeCompare(b.document_id) ||
+        a.id.localeCompare(b.id)
+      );
     });
   }
 

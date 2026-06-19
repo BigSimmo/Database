@@ -18,7 +18,8 @@ describe("source text sanitizer", () => {
 
     const display = sourceTextForDisplay(text);
 
-    expect(display).toBe("Source mentions: Continue oral medication when indicated.");
+    expect(display).toBe("Continue oral medication when indicated.");
+    expect(display).not.toContain("Source mentions:");
     expect(display).not.toContain("[[IMAGE_DATA_START]]");
     expect(display).not.toContain("Image ID:");
     expect(display).not.toContain("Table text:");

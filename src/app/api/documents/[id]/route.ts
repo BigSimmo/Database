@@ -212,6 +212,49 @@ async function updateStorageCleanupJob(args: {
   return error ? storageWarningsFrom(error, "Cleanup ledger") : null;
 }
 
+async function deleteDocumentIndexTraceRows(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  documentId: string;
+  chunkIds: string[];
+}) {
+  const cleanupErrors: string[] = [];
+
+  if (args.chunkIds.length > 0) {
+    const chunkTraceDeletes = [
+      args.supabase.from("rag_queries").delete().overlaps("source_chunk_ids", args.chunkIds),
+      args.supabase.from("rag_query_misses").delete().overlaps("top_chunk_ids", args.chunkIds),
+      args.supabase.from("rag_query_misses").delete().overlaps("cited_chunk_ids", args.chunkIds),
+    ];
+
+    for (const query of chunkTraceDeletes) {
+      const { error } = await query;
+      if (error) cleanupErrors.push(error.message);
+    }
+  }
+
+  const documentTraceDeletes = [
+    args.supabase
+      .from("rag_query_misses")
+      .delete()
+      .or(`clicked_document_id.eq.${args.documentId},expected_document_id.eq.${args.documentId}`),
+    args.supabase
+      .from("rag_response_cache")
+      .delete()
+      .eq("owner_id", args.ownerId)
+      .in("cache_kind", ["search", "answer"]),
+  ];
+
+  for (const query of documentTraceDeletes) {
+    const { error } = await query;
+    if (error) cleanupErrors.push(error.message);
+  }
+
+  if (cleanupErrors.length > 0) {
+    throw new Error(`Index trace cleanup failed: ${cleanupErrors.join("; ")}`);
+  }
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
@@ -478,21 +521,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       imagePaths,
     });
 
-    if (chunkIds.length > 0) {
-      const { error: queryDeleteError } = await supabase
-        .from("rag_queries")
-        .delete()
-        .overlaps("source_chunk_ids", chunkIds);
-      if (queryDeleteError) {
-        const ledgerWarning = await updateStorageCleanupJob({
-          supabase,
-          cleanupJobId,
-          status: "failed",
-          storageRemoved: 0,
-          warnings: [`Query log delete: ${queryDeleteError.message}`],
-        });
-        throw new Error(ledgerWarning ? `${queryDeleteError.message}; ${ledgerWarning}` : queryDeleteError.message);
-      }
+    try {
+      await deleteDocumentIndexTraceRows({ supabase, ownerId: user.id, documentId: id, chunkIds });
+    } catch (traceCleanupError) {
+      const message = traceCleanupError instanceof Error ? traceCleanupError.message : "Index trace cleanup failed.";
+      const ledgerWarning = await updateStorageCleanupJob({
+        supabase,
+        cleanupJobId,
+        status: "failed",
+        storageRemoved: 0,
+        warnings: [message],
+      });
+      throw new Error(ledgerWarning ? `${message}; ${ledgerWarning}` : message);
     }
 
     const { error: deleteError } = await supabase.from("documents").delete().eq("id", id).eq("owner_id", user.id);

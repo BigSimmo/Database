@@ -92,63 +92,117 @@ function AccessibleTableMarkup({
   expanded?: boolean;
 }) {
   const visibleBody = expanded ? body : body.slice(0, compact ? 6 : 20);
+  const columnCount = Math.max(header.length, 1);
+  const displayRows = visibleBody.map((row) => header.map((_, index) => row[index] ?? ""));
 
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+        "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
         expanded && "max-h-[calc(100dvh-8.5rem)] rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
-      <table className={cn("min-w-full border-collapse text-left", expanded ? "text-[15px]" : "text-sm")}>
-        {caption ? (
-          <caption
-            className={cn(
-              "caption-top px-3 py-2 text-left font-semibold",
-              expanded ? "text-sm text-[color:var(--text-heading)]" : `text-xs ${textMuted}`,
-            )}
-          >
-            {caption}
-          </caption>
-        ) : null}
-        <thead>
-          <tr className="bg-[color:var(--surface-subtle)]">
-            {header.map((cell, index) => (
-              <th
-                key={`${cell}:${index}`}
-                scope="col"
-                className={cn(
-                  "border-b border-[color:var(--border)] align-top font-semibold text-[color:var(--text)]",
-                  expanded ? "px-4 py-3 text-sm" : "px-3 py-2 text-xs",
-                )}
-              >
-                {cell}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {visibleBody.map((row, rowIndex) => {
+      {caption ? (
+        <div
+          className={cn(
+            "border-b border-[color:var(--border)] px-3 py-2 text-left font-semibold",
+            expanded ? "text-sm text-[color:var(--text-heading)]" : `text-xs ${textMuted}`,
+          )}
+        >
+          {caption}
+        </div>
+      ) : null}
+      {!expanded ? (
+        <div className="grid gap-2 p-2 md:hidden">
+          {displayRows.map((row, rowIndex) => {
+            const pairs = header
+              .map((label, index) => ({ label, value: row[index] ?? "" }))
+              .filter((pair) => pair.value || !compact);
             return (
-              <tr key={`${rowIndex}:${row.join("|")}`} className="border-t border-[color:var(--border)]/70">
-                {row.map((cell, cellIndex) => (
-                  <td
-                    key={`${rowIndex}:${cellIndex}`}
-                    className={cn(
-                      "align-top text-[color:var(--text)]",
-                      expanded ? "px-4 py-3 leading-6" : "px-3 py-2 leading-5",
-                    )}
+              <dl
+                key={`${rowIndex}:${row.join("|")}`}
+                className="grid gap-2 rounded-md border border-[color:var(--border)]/75 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
+              >
+                {pairs.map((pair, pairIndex) => (
+                  <div
+                    key={`${rowIndex}:${pair.label}:${pairIndex}`}
+                    className="grid gap-1 border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 last:pb-0"
                   >
-                    {cell || <span className={textMuted}>-</span>}
-                  </td>
+                    <dt className={cn("text-[10px] font-bold uppercase tracking-[0.08em]", textMuted)}>
+                      {pair.label || `Column ${pairIndex + 1}`}
+                    </dt>
+                    <dd className="nums min-w-0 whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text)] [overflow-wrap:anywhere]">
+                      {pair.value || <span className={textMuted}>-</span>}
+                    </dd>
+                  </div>
                 ))}
-              </tr>
+              </dl>
             );
           })}
-        </tbody>
-      </table>
+        </div>
+      ) : null}
+      <div className={cn("overflow-x-auto", !expanded && "hidden md:block")}>
+        <table
+          aria-label={caption ?? undefined}
+          className={cn(
+            "w-full table-fixed border-separate border-spacing-0 text-left",
+            expanded ? "text-[15px]" : "text-sm",
+          )}
+        >
+          <colgroup>
+            {header.map((cell, index) => (
+              <col key={`${cell}:col:${index}`} style={{ width: `${100 / columnCount}%` }} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="bg-[color:var(--surface-subtle)]">
+              {header.map((cell, index) => (
+                <th
+                  key={`${cell}:${index}`}
+                  scope="col"
+                  className={cn(
+                    "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
+                    "whitespace-normal break-words [overflow-wrap:anywhere]",
+                    index > 0 && "border-l border-[color:var(--border)]/70",
+                    expanded ? "px-4 py-3 text-sm" : "px-3 py-2 text-xs",
+                  )}
+                >
+                  {cell}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((row, rowIndex) => {
+              return (
+                <tr
+                  key={`${rowIndex}:${row.join("|")}`}
+                  className="border-t border-[color:var(--border)]/70 even:bg-[color:var(--surface-subtle)]/35"
+                >
+                  {header.map((_, cellIndex) => {
+                    const cell = row[cellIndex] ?? "";
+                    return (
+                      <td
+                        key={`${rowIndex}:${cellIndex}`}
+                        className={cn(
+                          "nums align-top text-[color:var(--text)]",
+                          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                          cellIndex > 0 && "border-l border-[color:var(--border)]/60",
+                          expanded ? "px-4 py-3 leading-6" : "px-3 py-2 leading-5",
+                        )}
+                      >
+                        {cell || <span className={textMuted}>-</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {body.length > visibleBody.length ? (
-        <p className={cn("border-t border-[color:var(--border)] px-3 py-2 text-xs", textMuted)}>
+        <p className={cn("nums border-t border-[color:var(--border)] px-3 py-2 text-xs", textMuted)}>
           Showing {visibleBody.length} of {body.length} rows.
         </p>
       ) : null}
@@ -242,7 +296,7 @@ export function AccessibleTable({
           className={cn(
             "min-w-0",
             canExpand &&
-              "cursor-zoom-in rounded-lg outline-none ring-offset-2 ring-offset-[color:var(--surface)] transition focus-within:ring-4 focus-within:ring-teal-300/20",
+              "cursor-zoom-in rounded-lg outline-none ring-offset-2 ring-offset-[color:var(--surface)] transition focus-within:ring-4 focus-within:ring-[color:var(--focus)]/25",
           )}
         >
           {table}
@@ -258,7 +312,7 @@ export function AccessibleTable({
               event.stopPropagation();
               openDialog(event.currentTarget);
             }}
-            className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus:outline-none focus:ring-4 focus:ring-teal-300/25"
+            className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
             <Maximize2 className="h-4 w-4" />
           </button>
@@ -289,7 +343,7 @@ export function AccessibleTable({
                 ref={closeButtonRef}
                 aria-label="Close full-screen table"
                 onClick={() => setOpen(false)}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus:outline-none focus:ring-4 focus:ring-teal-300/25"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
               >
                 <X className="h-5 w-5" />
               </button>

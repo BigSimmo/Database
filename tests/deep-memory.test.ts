@@ -236,6 +236,7 @@ describe("deep RAG memory indexing", () => {
   it("persists memory cards without leaking internal section indexes into inserts", async () => {
     const insertedMemoryRows: Record<string, unknown>[] = [];
     const insertedIndexUnits: Record<string, unknown>[] = [];
+    const updatedRows = new Map<string, Record<string, unknown>[]>();
     const supabase = {
       from: vi.fn((table: string) => ({
         delete: () => ({ eq: vi.fn(async () => ({ data: null, error: null })) }),
@@ -258,6 +259,30 @@ describe("deep RAG memory indexing", () => {
           insertedMemoryRows.push(...payload);
           return Promise.resolve({ data: null, error: null });
         },
+        select: (columns: string) => ({
+          eq: (column: string, value: unknown) => {
+            if (table === "documents") {
+              return {
+                single: async () => ({ data: { metadata: {} }, error: null }),
+              };
+            }
+            if (table === "document_chunks") {
+              return Promise.resolve({
+                data: [{ id: "chunk-upsert", metadata: {} }],
+                error: null,
+              });
+            }
+            return {
+              single: async () => ({ data: null, error: null }),
+            };
+          },
+        }),
+        update: (payload: Record<string, unknown>) => ({
+          eq: (column: string, value: unknown) => {
+            updatedRows.set(table, [...(updatedRows.get(table) ?? []), payload]);
+            return Promise.resolve({ data: null, error: null });
+          },
+        }),
       })),
       rpc: vi.fn(async () => ({ data: null, error: null })),
     };
@@ -278,9 +303,19 @@ describe("deep RAG memory indexing", () => {
     expect(insertedIndexUnits.some((row) => row.unit_type === "document_profile")).toBe(true);
     expect(insertedMemoryRows.every((row) => !("section_index" in row))).toBe(true);
     expect(insertedMemoryRows.every((row) => typeof row.section_id === "string" || row.section_id === null)).toBe(true);
-    expect(supabase.rpc).toHaveBeenCalledWith("stamp_document_deep_memory_version", {
-      p_document_id: "doc-1",
-      p_version: ragDeepMemoryVersion,
-    });
+    
+    // Verify JS version stamping updates
+    expect(updatedRows.get("documents")?.[0]?.metadata).toEqual(
+      expect.objectContaining({
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+      })
+    );
+    expect(updatedRows.get("document_chunks")?.[0]?.metadata).toEqual(
+      expect.objectContaining({
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+      })
+    );
   });
 });

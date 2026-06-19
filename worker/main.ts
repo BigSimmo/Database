@@ -12,15 +12,23 @@ import {
   cheapImageSkipReason,
   classifiedImageSkipReason,
   clinicalImagePolicyVersion,
+  lowSignalImageTextSkipReason,
   lightweightPerceptualHash,
 } from "../src/lib/image-filtering";
-import { isRetryableIngestionError, nextRetryAt, terminalBatchStatus } from "../src/lib/ingestion";
+import {
+  isPartialIndexWriteConflict,
+  isRetryableIngestionError,
+  nextRetryAt,
+  terminalBatchStatus,
+} from "../src/lib/ingestion";
+import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { createAdminClient } from "../src/lib/supabase/admin";
+import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
-import { checkEmbeddingDimension, checkPythonPdfPrerequisites } from "./prerequisites";
+import { checkPythonPdfPrerequisites } from "./prerequisites";
 import { buildTableFactRows } from "./table-facts";
 
 type JobDocument = {
@@ -47,17 +55,87 @@ type JobRow = {
 
 const supabase = createAdminClient();
 const workerId = `${os.hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
+const progressUpdateState = new Map<string, { updatedAt: number; progress: number; stage: string }>();
+const progressUpdateMinIntervalMs = env.WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS;
+const progressUpdateMinDelta = 4;
+const maxSupabaseBackoffMs = env.WORKER_HEALTH_BACKOFF_MS;
+
+function supabaseStageError(stage: string, error: { message?: string; code?: string; details?: string; hint?: string }) {
+  const wrapped = new Error(`${stage}: ${error.message ?? "Supabase request failed"}`);
+  Object.assign(wrapped, {
+    code: error.code,
+    details: error.details,
+    hint: error.hint,
+  });
+  return wrapped;
+}
 
 async function updateJob(jobId: string, patch: Record<string, unknown>) {
-  await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
+  const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
+  if (error) throw supabaseStageError("update ingestion job", error);
+  if (typeof patch.progress === "number" || typeof patch.stage === "string") {
+    progressUpdateState.set(jobId, {
+      updatedAt: Date.now(),
+      progress: typeof patch.progress === "number" ? patch.progress : (progressUpdateState.get(jobId)?.progress ?? 0),
+      stage: typeof patch.stage === "string" ? patch.stage : (progressUpdateState.get(jobId)?.stage ?? ""),
+    });
+  }
+}
+
+async function updateJobProgress(jobId: string, patch: { stage: string; progress: number }) {
+  const previous = progressUpdateState.get(jobId);
+  const now = Date.now();
+  const enoughTimeElapsed = !previous || now - previous.updatedAt >= progressUpdateMinIntervalMs;
+  const enoughProgressChanged = !previous || Math.abs(patch.progress - previous.progress) >= progressUpdateMinDelta;
+  const stagePrefixChanged = !previous || patch.stage.split(" ")[0] !== previous.stage.split(" ")[0];
+
+  if (!enoughTimeElapsed && !enoughProgressChanged && !stagePrefixChanged) return;
+
+  const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
+  if (error) {
+    console.warn("Ingestion progress update failed", safeErrorLogDetails(supabaseStageError("update ingestion progress", error)));
+    return;
+  }
+  progressUpdateState.set(jobId, { updatedAt: now, progress: patch.progress, stage: patch.stage });
 }
 
 async function updateDocument(documentId: string, patch: Record<string, unknown>) {
-  await supabase.from("documents").update(patch).eq("id", documentId);
+  const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
+  const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
+  if (error) throw supabaseStageError("update document", error);
+}
+
+async function markSupersededSiblingJobs(job: JobRow) {
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .update({
+      status: "completed",
+      stage: "superseded by successful index",
+      progress: 100,
+      error_message: null,
+      locked_at: null,
+      locked_by: null,
+      completed_at: new Date().toISOString(),
+    })
+    .eq("document_id", job.document_id)
+    .neq("id", job.id)
+    .in("status", ["pending", "processing", "failed"]);
+  if (error) throw supabaseStageError("mark superseded ingestion jobs", error);
 }
 
 async function updateBatch(batchId: string | null) {
   if (!batchId) return;
+
+  const { error: refreshError } = await supabase.rpc("refresh_import_batch_status", { p_batch_id: batchId });
+  if (!refreshError) return;
+
+  if (!isMissingSchemaError(refreshError)) {
+    console.warn(
+      "Import batch status refresh failed",
+      safeErrorLogDetails(supabaseStageError("refresh import batch status", refreshError)),
+    );
+    return;
+  }
 
   const { data, error } = await supabase.from("ingestion_jobs").select("status").eq("batch_id", batchId);
   if (error || !data) return;
@@ -77,6 +155,79 @@ async function updateBatch(batchId: string | null) {
     .eq("id", batchId);
 }
 
+async function completeJob(job: JobRow, stage: string) {
+  const { error } = await supabase.rpc("complete_ingestion_job", {
+    p_job_id: job.id,
+    p_document_id: job.document_id,
+    p_batch_id: job.batch_id,
+    p_stage: stage,
+  });
+  if (!error) return;
+  if (!isMissingSchemaError(error)) throw supabaseStageError("complete ingestion job", error);
+
+  await updateJob(job.id, {
+    status: "completed",
+    stage,
+    progress: 100,
+    locked_at: null,
+    locked_by: null,
+    completed_at: new Date().toISOString(),
+  });
+  await markSupersededSiblingJobs(job);
+  await updateBatch(job.batch_id);
+}
+
+async function failOrRetryJob(args: {
+  job: JobRow;
+  retry: boolean;
+  documentStatus: "queued" | "failed";
+  stage: string;
+  errorMessage: string;
+  nextRunAt?: string;
+}) {
+  const { error } = await supabase.rpc("fail_or_retry_ingestion_job", {
+    p_job_id: args.job.id,
+    p_document_id: args.job.document_id,
+    p_batch_id: args.job.batch_id,
+    p_retry: args.retry,
+    p_document_status: args.documentStatus,
+    p_stage: args.stage,
+    p_error_message: args.errorMessage,
+    p_next_run_at: args.nextRunAt ?? null,
+  });
+  if (!error) return;
+  if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
+
+  await updateDocument(args.job.document_id, { status: args.documentStatus, error_message: args.errorMessage });
+  await updateJob(args.job.id, {
+    status: args.retry ? "pending" : "failed",
+    stage: args.stage,
+    progress: args.retry ? 0 : 100,
+    error_message: args.errorMessage,
+    locked_at: null,
+    locked_by: null,
+    ...(args.nextRunAt ? { next_run_at: args.nextRunAt } : {}),
+    completed_at: args.retry ? null : new Date().toISOString(),
+  });
+  await updateBatch(args.job.batch_id);
+}
+
+function isMissingSchemaError(error: { message?: string; code?: string }) {
+  return /could not find the function|schema cache|PGRST20\d/i.test(error.message ?? "") || error.code === "PGRST202";
+}
+
+function workerBackoffMs(failures: number) {
+  return Math.min(maxSupabaseBackoffMs, env.WORKER_POLL_MS * 2 ** Math.max(0, failures - 1));
+}
+
+function optionalIndexWriteWarning(stage: string, error: unknown) {
+  console.warn(`Optional ${stage} write failed`, safeErrorLogDetails(error));
+}
+
+function noteSkippedImage(skipReasons: Map<string, number>, reason: string) {
+  skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
+}
+
 async function claimJobs() {
   const { data, error } = await supabase.rpc("claim_ingestion_jobs", {
     p_worker_id: workerId,
@@ -84,7 +235,7 @@ async function claimJobs() {
     p_stale_after_minutes: env.WORKER_STALE_AFTER_MINUTES,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw supabaseStageError("claim ingestion jobs", error);
   return ((data ?? []) as Array<Omit<JobRow, "documents"> & { documents: JobDocument }>).map((job) => ({
     ...job,
     documents: job.documents,
@@ -99,23 +250,52 @@ async function downloadDocument(storagePath: string) {
   return Buffer.from(await data.arrayBuffer());
 }
 
+function cleanString(val: string): string {
+  if (typeof val !== "string") return val;
+  return val.replace(/\u0000/g, "").replace(/\\u0000/g, "").toWellFormed();
+}
+
+type JsonbValue = string | number | boolean | null | { [key: string]: JsonbValue } | JsonbValue[];
+type JsonbRecord = { [key: string]: JsonbValue };
+
+function sanitizeJsonb(val: unknown): JsonbValue {
+  if (typeof val === "string") return cleanString(val);
+  if (Array.isArray(val)) return val.map((entry) => sanitizeJsonb(entry));
+  if (val !== null && typeof val === "object") {
+    const raw = val as { [key: string]: unknown };
+    const res: JsonbRecord = {};
+    for (const [key, value] of Object.entries(raw)) {
+      res[key] = sanitizeJsonb(value);
+    }
+    return res;
+  }
+  return val as JsonbValue;
+}
+
+function sanitizeJsonbRecord(value: unknown): Record<string, unknown> {
+  const sanitized = sanitizeJsonb(value);
+  return typeof sanitized === "object" && sanitized !== null && !Array.isArray(sanitized) ? sanitized : {};
+}
+
 async function resetDocumentIndex(documentId: string) {
   const { error } = await supabase.rpc("reset_document_index", { p_document_id: documentId });
-  if (error) throw new Error(error.message);
+  if (error) throw supabaseStageError("reset_document_index", error);
 }
 
 async function insertPages(documentId: string, extracted: ExtractedDocument) {
   const pages = extracted.pages.map((page) => ({
     document_id: documentId,
     page_number: page.pageNumber,
-    text: page.text,
+    text: cleanString(page.text),
     ocr_used: Boolean(page.ocrUsed),
     metadata: {},
   }));
 
   if (pages.length === 0) return;
-  const { error } = await supabase.from("document_pages").insert(pages);
-  if (error) throw new Error(error.message);
+  const { error } = await supabase.from("document_pages").upsert(pages, {
+    onConflict: "document_id,page_number",
+  });
+  if (error) throw supabaseStageError("upsert document_pages", error);
 }
 
 function hashBytes(bytes: Buffer) {
@@ -188,9 +368,6 @@ function imageTableMetadata(image: ExtractedDocument["images"][number]) {
     accessibleTableMarkdown: metadataString(metadata, "accessible_table_markdown") ?? tableText,
     tableRows: Array.isArray(metadata.table_rows) ? metadata.table_rows : null,
     tableColumns: Array.isArray(metadata.table_columns) ? metadata.table_columns : null,
-    // IDX-H6: true when the Python extractor hit a row/char cap, so truncation is surfaced
-    // in index_quality rather than silently dropping tail rows of a long clinical table.
-    rowsTruncated: metadata.rows_truncated === true,
   };
 }
 
@@ -329,15 +506,16 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     accessibleTableMarkdown: string | null;
     tableRows: string[][] | null;
     tableColumns: string[] | null;
-    rowsTruncated: boolean;
   }> = [];
   const seenHashes = new Set<string>();
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
   const imageTypeCounts = new Map<string, number>();
+  const captionedImagesByPage = new Map<number | "unknown", number>();
+  let captionedImages = 0;
 
   for (const [index, image] of extracted.images.entries()) {
-    await updateJob(job.id, {
+    await updateJobProgress(job.id, {
       stage: `captioning image ${index + 1}/${extracted.images.length}`,
       progress: Math.min(70, 35 + Math.round((index / Math.max(extracted.images.length, 1)) * 25)),
     });
@@ -353,13 +531,41 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     });
     if (skipReason) {
       skippedImages += 1;
-      skipReasons.set(skipReason, (skipReasons.get(skipReason) ?? 0) + 1);
+      noteSkippedImage(skipReasons, skipReason);
       continue;
     }
     seenHashes.add(imageHash);
 
     const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
     const tableMetadata = imageTableMetadata(image);
+    const lowSignalSkipReason = lowSignalImageTextSkipReason({
+      sourceKind: image.sourceKind ?? null,
+      tableRole: tableMetadata.tableRole,
+      tableText: tableMetadata.tableText,
+      tableTitle: tableMetadata.tableTitle,
+      tableLabel: tableMetadata.tableLabel,
+      width: image.width ?? null,
+      height: image.height ?? null,
+    });
+    if (lowSignalSkipReason && !["administrative table without clinical facts"].includes(lowSignalSkipReason)) {
+      skippedImages += 1;
+      noteSkippedImage(skipReasons, lowSignalSkipReason);
+      continue;
+    }
+    const pageKey = image.pageNumber ?? "unknown";
+    const pageCaptionedImages = captionedImagesByPage.get(pageKey) ?? 0;
+    if (captionedImages >= env.WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT) {
+      skippedImages += 1;
+      noteSkippedImage(skipReasons, "document image caption cap reached");
+      continue;
+    }
+    if (pageCaptionedImages >= env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE) {
+      skippedImages += 1;
+      noteSkippedImage(skipReasons, "page image caption cap reached");
+      continue;
+    }
+    captionedImages += 1;
+    captionedImagesByPage.set(pageKey, pageCaptionedImages + 1);
     let classification: ImageClassification | null =
       image.sourceKind === "table_crop"
         ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
@@ -419,7 +625,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       classification.image_type !== "logo_decorative";
     if (classifiedSkipReason && !retainAsAuditTable) {
       skippedImages += 1;
-      skipReasons.set(classifiedSkipReason, (skipReasons.get(classifiedSkipReason) ?? 0) + 1);
+      noteSkippedImage(skipReasons, classifiedSkipReason);
       continue;
     }
     const persistedSearchable = policyAssessment.searchable;
@@ -445,7 +651,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         page_number: image.pageNumber,
         storage_path: imagePath,
         mime_type: image.mimeType,
-        caption: classification.caption,
+        caption: cleanString(classification.caption),
         bbox: image.bbox ?? null,
         image_type: classification.image_type,
         searchable: persistedSearchable,
@@ -455,8 +661,8 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         height: image.height ?? null,
         image_hash: imageHash,
         perceptual_hash: perceptualHash,
-        labels: classification.labels,
-        metadata: {
+        labels: classification.labels.map(cleanString),
+        metadata: sanitizeJsonbRecord({
           ...(image.metadata ?? {}),
           extractor: "local-worker",
           image_hash: imageHash,
@@ -480,7 +686,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
           retained_for_audit: retainAsAuditTable || undefined,
           retained_for_document_view: retainAsAuditTable || undefined,
           skip_reason: retainAsAuditTable ? classifiedSkipReason : classification.skip_reason,
-        },
+        }),
       })
       .select("id,caption,page_number,image_type,labels,searchable")
       .single();
@@ -501,7 +707,6 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         accessibleTableMarkdown: tableMetadata.accessibleTableMarkdown,
         tableRows: tableMetadata.tableRows,
         tableColumns: tableMetadata.tableColumns,
-        rowsTruncated: tableMetadata.rowsTruncated,
       });
     }
   }
@@ -570,71 +775,40 @@ function buildIndexQualityPayload(args: {
   insertedImages: Awaited<ReturnType<typeof uploadAndCaptionImages>>["insertedImages"];
   sectionCount: number;
   memoryCardCount: number;
+  documentEmbeddingFieldTypes?: string[];
 }) {
-  const chunkCount = args.chunks.length;
-  const headingCount = args.chunks.filter((chunk) => chunk.section_heading).length;
-  const tableImages = args.insertedImages.filter((image) => image.sourceKind === "table_crop");
-  const tableImagesWithRows = tableImages.filter((image) => image.tableRows?.length);
-  // IDX-H6: count tables the extractor truncated at a row/char cap.
-  const truncatedTableCount = args.insertedImages.filter((image) => image.rowsTruncated).length;
-  const fingerprints = args.chunks.map((chunk) => hashText(chunk.content));
-  const duplicateChunkRatio = chunkCount ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1) : 0;
-  const avgChunkLength = chunkCount
-    ? args.chunks.reduce((sum, chunk) => sum + chunk.content.length, 0) / chunkCount
-    : 0;
-  const headingDensity = chunkCount ? headingCount / chunkCount : 0;
-  const tableExtractionCoverage = tableImages.length ? tableImagesWithRows.length / tableImages.length : null;
-  const ocrCoverage = args.metrics.page_count ? args.metrics.ocr_page_count / args.metrics.page_count : 0;
-  const issues: string[] = [];
-  if (chunkCount === 0) issues.push("no indexed chunks");
-  if (avgChunkLength < 120 && chunkCount > 0) issues.push("short average chunks");
-  if (headingDensity < 0.08 && chunkCount >= 8) issues.push("low heading density");
-  if (duplicateChunkRatio > 0.18) issues.push("high duplicate chunk ratio");
-  if (tableImages.length > 0 && tableExtractionCoverage !== null && tableExtractionCoverage < 0.5)
-    issues.push("low table row extraction coverage");
-  if (args.metrics.text_character_count < 80) issues.push("low extracted text volume");
-  if (args.sectionCount === 0) issues.push("no structured sections");
-  if (args.memoryCardCount === 0) issues.push("no memory cards");
-  // IDX-H3: surface scanned/image-only pages that were never OCR'd as a hard quality issue
-  // so a degraded scanned guideline is visible rather than silently treated as healthy.
-  const needsOcrPageCount = args.metrics.needs_ocr_page_count ?? 0;
-  if (needsOcrPageCount > 0) issues.push(`needs OCR (${needsOcrPageCount} image-only page(s))`);
-  // IDX-H6: a truncated table may have dropped tail dose/threshold rows.
-  if (truncatedTableCount > 0) issues.push(`table truncated (${truncatedTableCount} table(s) hit row/char cap)`);
-
-  let qualityScore = 1;
-  qualityScore -= issues.length * 0.08;
-  // IDX-H3: image-only pages with no text are a serious extraction gap, weight beyond the
-  // flat per-issue penalty so the document is clearly flagged partial/poor.
-  if (needsOcrPageCount > 0) {
-    const needsOcrRatio = args.metrics.page_count ? needsOcrPageCount / args.metrics.page_count : 0;
-    qualityScore -= Math.min(0.35, 0.12 + needsOcrRatio * 0.4);
-  }
-  qualityScore -= Math.min(0.2, duplicateChunkRatio * 0.5);
-  if (tableExtractionCoverage !== null) qualityScore -= Math.max(0, 0.7 - tableExtractionCoverage) * 0.12;
-  if (headingDensity < 0.08 && chunkCount >= 8) qualityScore -= 0.08;
-  qualityScore = Math.max(0, Math.min(1, qualityScore));
-  const extractionQuality = qualityScore >= 0.78 ? "good" : qualityScore >= 0.48 ? "partial" : "poor";
+  const assessment = assessDocumentIndexQuality({
+    metrics: args.metrics,
+    chunks: args.chunks,
+    insertedImages: args.insertedImages,
+    sectionCount: args.sectionCount,
+    memoryCardCount: args.memoryCardCount,
+    documentEmbeddingFieldTypes: args.documentEmbeddingFieldTypes,
+  });
 
   return {
     document_id: args.job.document_id,
     owner_id: args.job.documents.owner_id,
-    quality_score: Number(qualityScore.toFixed(3)),
-    extraction_quality: extractionQuality,
-    issues,
+    quality_score: assessment.qualityScore,
+    extraction_quality: assessment.extractionQuality,
+    issues: assessment.issues,
     metrics: {
       ...args.metrics,
-      avg_chunk_length: Number(avgChunkLength.toFixed(1)),
-      duplicate_chunk_ratio: Number(duplicateChunkRatio.toFixed(3)),
-      heading_density: Number(headingDensity.toFixed(3)),
-      table_extraction_coverage: tableExtractionCoverage === null ? null : Number(tableExtractionCoverage.toFixed(3)),
-      ocr_coverage: Number(ocrCoverage.toFixed(3)),
+      ...assessment.metrics,
       search_eval_hit_rate: null,
-      section_count: args.sectionCount,
-      memory_card_count: args.memoryCardCount,
-      truncated_table_count: truncatedTableCount,
     },
     updated_at: new Date().toISOString(),
+  };
+}
+
+function buildChunkQualityHint(chunks: ReturnType<typeof buildChunks>) {
+  const chunkCount = chunks.length;
+  const fingerprints = chunks.map((chunk) => hashText(chunk.content));
+  const duplicateChunkRatio = chunkCount ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1) : 0;
+  const headingDensity = chunkCount ? chunks.filter((chunk) => chunk.section_heading).length / chunkCount : 0;
+  return {
+    duplicateChunkRatio: Number(duplicateChunkRatio.toFixed(3)),
+    headingDensity: Number(headingDensity.toFixed(3)),
   };
 }
 
@@ -644,7 +818,7 @@ async function insertDocumentLevelEmbeddingFields(args: {
   summary: string | null;
 }) {
   const sourceChunkId = args.chunkRows[0]?.id;
-  if (!sourceChunkId) return;
+  if (!sourceChunkId) return [];
   const inputs = [
     {
       field_type: "document_title",
@@ -655,7 +829,7 @@ async function insertDocumentLevelEmbeddingFields(args: {
       content: compactSearchText(`${args.job.documents.title} ${args.summary ?? ""}`, 1200),
     },
   ].filter((field) => field.content);
-  if (inputs.length === 0) return;
+  if (inputs.length === 0) return [];
   const embeddings = await embedTexts(inputs.map((field) => field.content));
   const rows = inputs.map((field, index) => ({
     owner_id: args.job.documents.owner_id,
@@ -669,7 +843,8 @@ async function insertDocumentLevelEmbeddingFields(args: {
     },
   }));
   const { error } = await supabase.from("document_embedding_fields").insert(rows);
-  if (error) throw new Error(error.message);
+  if (error) throw supabaseStageError("insert document-level embedding fields", error);
+  return rows.map((row) => row.field_type);
 }
 
 async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
@@ -704,7 +879,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
 
   for (let start = 0; start < chunks.length; start += env.WORKER_BATCH_SIZE) {
     const batch = chunks.slice(start, start + env.WORKER_BATCH_SIZE);
-    await updateJob(job.id, {
+    await updateJobProgress(job.id, {
       stage: `embedding chunks ${start + 1}-${start + batch.length}/${chunks.length}`,
       progress: Math.min(94, 75 + Math.round((start / Math.max(chunks.length, 1)) * 18)),
     });
@@ -712,10 +887,22 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     const embeddings = await embedTexts(batch.map((chunk) => chunk.content));
     const rows = batch.map((chunk, index) => ({
       id: randomUUID(),
-      ...chunk,
+      document_id: chunk.document_id,
+      page_number: chunk.page_number,
+      chunk_index: chunk.chunk_index,
+      section_heading: chunk.section_heading ? cleanString(chunk.section_heading) : null,
+      section_path: Array.isArray(chunk.section_path) ? chunk.section_path.map(cleanString) : [],
+      heading_level: chunk.heading_level,
+      parent_heading: chunk.parent_heading ? cleanString(chunk.parent_heading) : null,
+      anchor_id: chunk.anchor_id ? cleanString(chunk.anchor_id) : null,
+      content: cleanString(chunk.content),
+      retrieval_synopsis: chunk.retrieval_synopsis ? cleanString(chunk.retrieval_synopsis) : undefined,
+      token_estimate: chunk.token_estimate,
+      image_ids: chunk.image_ids,
       content_hash: hashText(`${chunk.section_heading ?? ""}\n${chunk.content}`),
       index_generation_id: indexGenerationId,
       embedding: embeddings[index],
+      metadata: sanitizeJsonbRecord(chunk.metadata),
     })) satisfies IndexedChunkRow[];
     indexedChunkRows.push(...rows);
 
@@ -724,20 +911,37 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
 
     const fieldInputs = buildEmbeddingFieldInputs(job, rows);
     if (fieldInputs.length > 0) {
-      const fieldEmbeddings = await embedTexts(fieldInputs.map((field) => field.content));
-      const fieldRows = fieldInputs.map((field, index) => ({
-        ...field,
-        embedding: fieldEmbeddings[index],
-      }));
-      const { error: fieldsError } = await supabase.from("document_embedding_fields").insert(fieldRows);
-      if (fieldsError) throw new Error(fieldsError.message);
+      try {
+        const fieldEmbeddings = await embedTexts(fieldInputs.map((field) => field.content));
+        const fieldRows = fieldInputs.map((field, index) => ({
+          ...field,
+          content: cleanString(field.content),
+          embedding: fieldEmbeddings[index],
+          metadata: sanitizeJsonbRecord(field.metadata),
+        }));
+        for (let start = 0; start < fieldRows.length; start += 10) {
+          const batch = fieldRows.slice(start, start + 10);
+          const { error: fieldsError } = await supabase.from("document_embedding_fields").insert(batch);
+          if (fieldsError) throw supabaseStageError("insert section-context embedding fields", fieldsError);
+        }
+      } catch (error) {
+        optionalIndexWriteWarning("section-context embedding field", error);
+      }
     }
   }
 
-  const tableFacts = buildTableFactRows({ job, chunkRows: indexedChunkRows, insertedImages });
+  const tableFacts = buildTableFactRows({ job, chunkRows: indexedChunkRows, insertedImages }).map((row) => ({
+    ...row,
+    table_title: row.table_title ? cleanString(row.table_title) : null,
+    row_label: row.row_label ? cleanString(row.row_label) : null,
+    clinical_parameter: row.clinical_parameter ? cleanString(row.clinical_parameter) : null,
+    threshold_value: row.threshold_value ? cleanString(row.threshold_value) : null,
+    action: row.action ? cleanString(row.action) : null,
+    metadata: sanitizeJsonbRecord(row.metadata),
+  }));
   if (tableFacts.length > 0) {
     const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
-    if (factsError) throw new Error(factsError.message);
+    if (factsError) optionalIndexWriteWarning("table fact", supabaseStageError("insert table facts", factsError));
   }
 
   const additionalFieldInputs = buildAdditionalEmbeddingFieldInputs({
@@ -745,15 +949,25 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     chunkRows: indexedChunkRows,
     insertedImages,
     tableFacts,
+    qualityHint: buildChunkQualityHint(chunks),
   });
   if (additionalFieldInputs.length > 0) {
-    const additionalEmbeddings = await embedTexts(additionalFieldInputs.map((field) => field.content));
-    const additionalRows = additionalFieldInputs.map((field, index) => ({
-      ...field,
-      embedding: additionalEmbeddings[index],
-    }));
-    const { error: additionalFieldsError } = await supabase.from("document_embedding_fields").insert(additionalRows);
-    if (additionalFieldsError) throw new Error(additionalFieldsError.message);
+    try {
+      const additionalEmbeddings = await embedTexts(additionalFieldInputs.map((field) => field.content));
+      const additionalRows = additionalFieldInputs.map((field, index) => ({
+        ...field,
+        content: cleanString(field.content),
+        embedding: additionalEmbeddings[index],
+        metadata: sanitizeJsonbRecord(field.metadata),
+      }));
+      for (let start = 0; start < additionalRows.length; start += 10) {
+        const batch = additionalRows.slice(start, start + 10);
+        const { error: additionalFieldsError } = await supabase.from("document_embedding_fields").insert(batch);
+        if (additionalFieldsError) throw supabaseStageError("insert supplemental embedding fields", additionalFieldsError);
+      }
+    } catch (error) {
+      optionalIndexWriteWarning("supplemental embedding field", error);
+    }
   }
 
   return {
@@ -776,15 +990,12 @@ function extractionMetrics(
 ) {
   const textCharacterCount = extracted.pages.reduce((sum, page) => sum + page.text.length, 0);
   const ocrPageCount = extracted.pages.filter((page) => page.ocrUsed).length;
-  // IDX-H3: pages flagged by the extractor as image-only with un-OCR'd content.
-  const needsOcrPageCount = extracted.pages.filter((page) => page.needsOcr).length;
   const warnings = [...(extracted.warnings ?? [])];
   if (textCharacterCount < 80) warnings.push("Low extracted text volume; inspect OCR quality.");
 
   return {
     page_count: extracted.pages.length,
     ocr_page_count: ocrPageCount,
-    needs_ocr_page_count: needsOcrPageCount,
     text_character_count: textCharacterCount,
     extracted_image_count: extracted.images.length,
     searchable_image_count: Object.values(imageTypeCounts).reduce((sum, count) => sum + count, 0),
@@ -830,13 +1041,9 @@ async function loadEnrichmentRows(documentId: string) {
 }
 
 async function processJob(job: JobRow) {
-  await updateJob(job.id, {
-    status: "processing",
+  await updateJobProgress(job.id, {
     stage: "downloading",
     progress: 5,
-    locked_at: new Date().toISOString(),
-    locked_by: workerId,
-    started_at: new Date().toISOString(),
   });
   await updateDocument(job.document_id, { status: "processing", error_message: null });
   await updateBatch(job.batch_id);
@@ -844,14 +1051,14 @@ async function processJob(job: JobRow) {
   try {
     await resetDocumentIndex(job.document_id);
     const buffer = await downloadDocument(job.documents.storage_path);
-    await updateJob(job.id, { stage: "extracting text/images", progress: 20 });
+    await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
     const extracted = await extractDocument({
       buffer,
       fileName: job.documents.file_name,
       mimeType: job.documents.file_type,
     });
 
-    await updateJob(job.id, { stage: "saving pages", progress: 32 });
+    await updateJobProgress(job.id, { stage: "saving pages", progress: 32 });
     await insertPages(job.document_id, extracted);
     const {
       chunks,
@@ -865,53 +1072,20 @@ async function processJob(job: JobRow) {
     } = await insertEmbeddedChunks(job, extracted);
     const metrics = extractionMetrics(extracted, skippedImages, imageSkipReasons, imageTypeCounts);
 
-    await updateJob(job.id, { stage: "summarising and labelling", progress: 95 });
-    const enrichmentRows = await loadEnrichmentRows(job.document_id);
-    const enrichment = await upsertDocumentEnrichment({
-      supabase,
-      document: job.documents,
-      chunks: enrichmentRows.chunks,
-      images: enrichmentRows.images,
-    });
-    await insertDocumentLevelEmbeddingFields({
-      job,
-      chunkRows: indexedChunkRows,
-      summary: enrichment.summary.summary,
-    });
-    await updateJob(job.id, { stage: "building structured memory", progress: 98 });
-    const deepMemory = await upsertDocumentDeepMemory({
-      supabase,
-      document: job.documents,
-      chunks: enrichmentRows.chunks,
-      images: enrichmentRows.images,
-      summary: enrichment.summary.summary,
-    });
-    const quality = buildIndexQualityPayload({
+    const initialQuality = buildIndexQualityPayload({
       job,
       metrics,
       chunks,
       insertedImages,
-      sectionCount: deepMemory.sections.length,
-      memoryCardCount: deepMemory.memoryCards.length,
+      sectionCount: 0,
+      memoryCardCount: 0,
     });
-    const { error: qualityError } = await supabase.from("document_index_quality").upsert(quality, {
+    const { error: initialQualityError } = await supabase
+      .from("document_index_quality")
+      .upsert(sanitizeJsonbRecord(initialQuality), {
       onConflict: "document_id",
     });
-    if (qualityError) throw new Error(qualityError.message);
-
-    // IDX-H3: refuse to mark an image-only / scanned PDF as "indexed". When the JS fallback
-    // (no OCR) yields almost no text but pages clearly carry image content, the document is
-    // functionally invisible to retrieval. Fail loud instead of silently completing so the
-    // operator installs the Python OCR prerequisites and re-runs, rather than trusting an
-    // empty clinical document. The message is non-retryable (terminal "failed").
-    const needsOcrPages = metrics.needs_ocr_page_count ?? 0;
-    const isImageOnly = needsOcrPages > 0 && needsOcrPages >= metrics.page_count && metrics.text_character_count < 80;
-    if (isImageOnly) {
-      throw new Error(
-        `Document appears image-only (${needsOcrPages}/${metrics.page_count} pages need OCR) and was not OCR'd. ` +
-          `Install the Python PDF/OCR prerequisites and reindex; not marking as indexed.`,
-      );
-    }
+    if (initialQualityError) throw new Error(initialQualityError.message);
 
     const indexedAt = new Date().toISOString();
     await updateDocument(job.document_id, {
@@ -927,82 +1101,182 @@ async function processJob(job: JobRow) {
         rag_enrichment_version: ragEnrichmentVersion,
         rag_indexing_version: ragDeepMemoryVersion,
         rag_memory_version: ragDeepMemoryVersion,
-        rag_memory_updated_at: indexedAt,
-        rag_enrichment_updated_at: indexedAt,
-        section_count: deepMemory.sections.length,
-        memory_card_count: deepMemory.memoryCards.length,
-        extraction_quality: quality.extraction_quality,
-        index_quality_score: quality.quality_score,
-        index_quality_issues: quality.issues,
-        index_quality_metrics: quality.metrics,
+        rag_memory_updated_at: null,
+        rag_enrichment_updated_at: null,
+        enrichment_status: "pending",
+        section_count: 0,
+        memory_card_count: 0,
+        extraction_quality: initialQuality.extraction_quality,
+        index_quality_score: initialQuality.quality_score,
+        index_quality_issues: initialQuality.issues,
+        index_quality_metrics: initialQuality.metrics,
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,
       },
     });
-    await updateJob(job.id, {
-      status: "completed",
-      stage: "indexed",
-      progress: 100,
-      locked_at: null,
-      locked_by: null,
-      completed_at: new Date().toISOString(),
+
+    let enrichmentStatus = env.WORKER_INLINE_ENRICHMENT ? "completed" : "pending";
+    let enrichmentErrorMessage: string | null = null;
+    let finalQuality = initialQuality;
+    let sectionCount = 0;
+    let memoryCardCount = 0;
+    let enrichmentUpdatedAt: string | null = null;
+    let documentEmbeddingFieldTypes: string[] = [];
+
+    if (env.WORKER_INLINE_ENRICHMENT) {
+      await updateJobProgress(job.id, { stage: "enriching indexed document", progress: 96 });
+      try {
+        const enrichmentRows = await loadEnrichmentRows(job.document_id);
+        const enrichment = await upsertDocumentEnrichment({
+          supabase,
+          document: job.documents,
+          chunks: enrichmentRows.chunks,
+          images: enrichmentRows.images,
+        });
+        documentEmbeddingFieldTypes = await insertDocumentLevelEmbeddingFields({
+          job,
+          chunkRows: indexedChunkRows,
+          summary: enrichment.summary.summary,
+        });
+        await updateJobProgress(job.id, { stage: "building structured memory", progress: 98 });
+        const deepMemory = await upsertDocumentDeepMemory({
+          supabase,
+          document: job.documents,
+          chunks: enrichmentRows.chunks,
+          images: enrichmentRows.images,
+          summary: enrichment.summary.summary,
+        });
+        sectionCount = deepMemory.sections.length;
+        memoryCardCount = deepMemory.memoryCards.length;
+        finalQuality = buildIndexQualityPayload({
+          job,
+          metrics,
+          chunks,
+          insertedImages,
+          sectionCount,
+          memoryCardCount,
+          documentEmbeddingFieldTypes,
+        });
+        const { error: qualityError } = await supabase
+          .from("document_index_quality")
+          .upsert(sanitizeJsonbRecord(finalQuality), {
+            onConflict: "document_id",
+          });
+        if (qualityError) throw new Error(qualityError.message);
+        enrichmentUpdatedAt = new Date().toISOString();
+      } catch (enrichmentError) {
+        enrichmentStatus = "failed";
+        enrichmentErrorMessage = enrichmentError instanceof Error ? enrichmentError.message : String(enrichmentError);
+        console.warn("Optional document enrichment failed", safeErrorLogDetails(enrichmentError));
+      }
+    } else {
+      await updateJob(job.id, { stage: "core index complete; enrichment deferred", progress: 98 });
+    }
+
+    await updateDocument(job.document_id, {
+      metadata: {
+        ...(job.documents.metadata ?? {}),
+        indexed_at: indexedAt,
+        index_generation_id: indexGenerationId,
+        rag_enrichment_version: ragEnrichmentVersion,
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+        rag_memory_updated_at: enrichmentUpdatedAt,
+        rag_enrichment_updated_at: enrichmentUpdatedAt,
+        enrichment_status: enrichmentStatus,
+        enrichment_error: enrichmentErrorMessage,
+        section_count: sectionCount,
+        memory_card_count: memoryCardCount,
+        extraction_quality: finalQuality.extraction_quality,
+        index_quality_score: finalQuality.quality_score,
+        index_quality_issues: finalQuality.issues,
+        index_quality_metrics: finalQuality.metrics,
+        embedding_model: env.OPENAI_EMBEDDING_MODEL,
+        ...metrics,
+      },
     });
+
+    await completeJob(job, enrichmentStatus === "completed" ? "indexed" : "indexed; enrichment deferred");
   } catch (error) {
+    console.error(`Ingestion job ${job.id} failed:`, error);
     const message = error instanceof Error ? error.message : String(error);
+    const partialConflict = isPartialIndexWriteConflict(error);
     const shouldRetry = isRetryableIngestionError(error) && job.attempt_count < job.max_attempts;
 
-    if (shouldRetry) {
-      await updateDocument(job.document_id, { status: "queued", error_message: message });
-      await updateJob(job.id, {
-        status: "pending",
+    if (partialConflict) {
+      await failOrRetryJob({
+        job,
+        retry: false,
+        documentStatus: "failed",
+        stage: "needs recovery after partial index write",
+        errorMessage: `${message}. Run npm run recover:ingestion -- --apply before retrying this document.`,
+      });
+    } else if (shouldRetry) {
+      await failOrRetryJob({
+        job,
+        retry: true,
+        documentStatus: "queued",
         stage: `retry scheduled after attempt ${job.attempt_count}/${job.max_attempts}`,
-        progress: 0,
-        error_message: message,
-        locked_at: null,
-        locked_by: null,
-        next_run_at: nextRetryAt(job.attempt_count),
+        errorMessage: message,
+        nextRunAt: nextRetryAt(job.attempt_count),
       });
     } else {
-      await updateDocument(job.document_id, { status: "failed", error_message: message });
-      await updateJob(job.id, {
-        status: "failed",
+      await failOrRetryJob({
+        job,
+        retry: false,
+        documentStatus: "failed",
         stage: "failed",
-        progress: 100,
-        error_message: message,
-        locked_at: null,
-        locked_by: null,
-        completed_at: new Date().toISOString(),
+        errorMessage: message,
       });
     }
-  } finally {
-    await updateBatch(job.batch_id);
   }
 }
 
 async function main() {
   const once = process.argv.includes("--once");
   const prereqs = await checkPythonPdfPrerequisites();
+  let consecutiveClaimFailures = 0;
   console.log(`Clinical KB worker started. worker=${workerId}`);
   if (!prereqs.ok) {
     console.warn(`PDF/OCR prerequisite warning: ${prereqs.detail}`);
   }
 
-  // IDX-C2: hard-fail before claiming any job if the embedding dimension is wrong, so a
-  // misconfigured model never produces a half-indexed clinical document.
-  const dimensionCheck = await checkEmbeddingDimension();
-  if (!dimensionCheck.ok) {
-    console.error(`Embedding dimension check failed: ${dimensionCheck.detail}`);
-    process.exit(1);
-  }
-  console.log(dimensionCheck.detail);
-
   while (true) {
-    const jobs = await claimJobs();
+    let jobs: JobRow[] = [];
+    try {
+      const health = await probeSupabaseHealth(supabase);
+      if (!health.ok) {
+        console.warn("Supabase health check failed; worker is backing off", { message: health.message });
+        if (once) {
+          process.exitCode = 1;
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
+        continue;
+      }
+      jobs = await claimJobs();
+      consecutiveClaimFailures = 0;
+    } catch (error) {
+      consecutiveClaimFailures += 1;
+      console.warn("Ingestion job claim failed", safeErrorLogDetails(error));
+      if (once) throw error;
+      if (consecutiveClaimFailures >= env.WORKER_MAX_CLAIM_FAILURES) {
+        await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
+        continue;
+      }
+      await new Promise((resolve) => setTimeout(resolve, workerBackoffMs(consecutiveClaimFailures)));
+      continue;
+    }
+
     if (jobs.length > 0) {
       await Promise.all(
         jobs.map(async (job) => {
           console.log(safeIngestionJobLog(job.id));
-          await processJob(job);
+          try {
+            await processJob(job);
+          } catch (error) {
+            console.error("Ingestion job processing failed", safeErrorLogDetails(error));
+          }
         }),
       );
       if (once) break;
@@ -1016,5 +1290,5 @@ async function main() {
 
 main().catch((error) => {
   console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
-  process.exit(1);
+  process.exitCode = 1;
 });

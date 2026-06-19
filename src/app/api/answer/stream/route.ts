@@ -21,6 +21,7 @@ const answerSchema = z.object({
   documentIds: z.array(z.string().uuid()).max(25).optional(),
   filters: searchScopeFiltersSchema.optional(),
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
+  skipCache: z.boolean().optional().default(false),
 });
 
 type AnswerBody = z.infer<typeof answerSchema>;
@@ -142,6 +143,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
                 ownerId,
                 allowGlobalSearch: !ownerId,
                 queryMode: body.queryMode,
+                skipCache: body.skipCache,
                 onProgress,
               });
           send("final", {

@@ -42,6 +42,8 @@ export type GoldenRetrievalResult = {
   actualQueryClass: string | null;
   documentRecallAt5: number;
   contentRecallAt5: number;
+  hitAtK: boolean;
+  topK: number;
   reciprocalRankAt10: number;
   latencyMs: number;
   retrievalStrategy: string | null;
@@ -178,6 +180,7 @@ function resultContentText(result: SearchResult) {
       result.file_name,
       result.section_heading,
       result.section_path?.join(" "),
+      result.retrieval_synopsis,
       result.content,
       tableFactText,
       imageText,
@@ -243,7 +246,7 @@ function topResultSummary(results: SearchResult[]) {
     text_rank: result.text_rank ?? null,
     rrf_score: result.rrf_score ?? null,
     score_explanation: result.score_explanation,
-    content_preview: result.content.replace(/\s+/g, " ").trim().slice(0, 220),
+    content_preview: (result.retrieval_synopsis || result.content).replace(/\s+/g, " ").trim().slice(0, 220),
   }));
 }
 
@@ -255,6 +258,9 @@ export function evaluateGoldenRetrievalCase(args: {
 }): GoldenRetrievalResult {
   const documentHits = expectedDocumentHits(args.testCase.expectedDocumentSubstrings, args.results, 5);
   const contentHits = expectedContentHits(args.testCase.expectedContentTerms, args.results, 5);
+  const topK = args.testCase.topK;
+  const documentHitsAtK = expectedDocumentHits(args.testCase.expectedDocumentSubstrings, args.results, topK);
+  const contentHitsAtK = expectedContentHits(args.testCase.expectedContentTerms, args.results, topK);
   const documentRecallAt5 =
     args.testCase.expectedDocumentSubstrings.length === 0
       ? 1
@@ -264,8 +270,13 @@ export function evaluateGoldenRetrievalCase(args: {
       ? 1
       : contentHits.hits.length / args.testCase.expectedContentTerms.length;
   const tableEvidenceFound = hasTableEvidence(args.results, 5);
+  const tableEvidenceFoundAtK = hasTableEvidence(args.results, topK);
   const actualQueryClass = args.telemetry.query_class ?? null;
   const failures: string[] = [];
+  const hitAtK =
+    documentHitsAtK.missing.length === 0 &&
+    contentHitsAtK.missing.length === 0 &&
+    (!args.testCase.expectTableEvidence || tableEvidenceFoundAtK);
 
   if (actualQueryClass !== args.testCase.expectedQueryClass) {
     failures.push(`expected query class ${args.testCase.expectedQueryClass}, got ${actualQueryClass ?? "none"}`);
@@ -287,6 +298,8 @@ export function evaluateGoldenRetrievalCase(args: {
     actualQueryClass,
     documentRecallAt5,
     contentRecallAt5,
+    hitAtK,
+    topK,
     reciprocalRankAt10: reciprocalRankAt10(args.testCase.expectedDocumentSubstrings, args.results),
     latencyMs: args.latencyMs,
     retrievalStrategy: args.telemetry.retrieval_strategy ?? null,
@@ -312,6 +325,9 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
     ),
     content_recall_at_5: Number(
       (results.reduce((sum, result) => sum + result.contentRecallAt5, 0) / contentRecallDenominator).toFixed(4),
+    ),
+    top_k_hit_rate: Number(
+      (results.filter((result) => result.hitAtK).length / Math.max(results.length, 1)).toFixed(4),
     ),
     mrr_at_10: Number(
       (results.reduce((sum, result) => sum + result.reciprocalRankAt10, 0) / Math.max(results.length, 1)).toFixed(4),
@@ -343,6 +359,7 @@ function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalRe
   console.log(`  cases=${summary.case_count}`);
   console.log(`  document_recall@5=${summary.document_recall_at_5}`);
   console.log(`  content_recall@5=${summary.content_recall_at_5}`);
+  console.log(`  top_k_hit_rate=${summary.top_k_hit_rate}`);
   console.log(`  mrr@10=${summary.mrr_at_10}`);
   console.log(`  median_latency_ms=${summary.median_latency_ms}`);
   console.log(`  retrieval_strategy_counts=${JSON.stringify(summary.retrieval_strategy_counts)}`);
@@ -404,7 +421,7 @@ async function main() {
     if (!args.json) {
       const status = result.failures.length ? "FAIL" : "PASS";
       console.log(
-        `${status} ${result.id} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"}`,
+        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"}`,
       );
     }
   }

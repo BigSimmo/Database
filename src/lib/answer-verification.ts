@@ -15,16 +15,17 @@ import type { Citation, DocumentTableFact, SearchResult } from "@/lib/types";
 // which asserted figures are unsupported by the cited evidence.
 
 // Matches clinical numeric tokens: doses, thresholds, ranges, percentages,
-// and unit-bearing figures.
-// Hardened to include complex clinical units (mg/kg/day, mmol/L, etc.) and
-// ensure boundary safety to prevent hallucinated decimal bypass.
+// and unit-bearing figures. Examples it should catch:
+//   12.5 mg, 25-50 mg, 2.0 ×10⁹/L, 1500 mg/day, 0.4 mmol/L, 100 mcg, 12 hours,
+//   ANC 2.0, 80%. Bare integers like "1" or "3" are excluded by default
+//   (too noisy / rarely a clinical figure) unless attached to a unit or range.
 // The ×10^n / ×10⁹ scientific-notation branch is listed BEFORE the bare unit
 // branches so "2.0 ×10⁹/L" is captured whole rather than truncated to "2.0".
 // The percentage branch must NOT be followed by \b: "%" is a non-word char, so
 // a trailing \b after it can never match (it would require a word char to its
 // right), which previously dropped every percentage token.
 const NUMERIC_TOKEN_PATTERN =
-  /\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|kg|m2|dose)|mg|mcg|micrograms?|μg|g\b|kg|ml|mL|l\b|mmol\/[lL]|mmol|mol\/[lL]|umol\/[lL]|µmol\/[lL]|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
+  /\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|kg|m2|dose)?|mg|mcg|microgram(?:s)?|micrograms?|μg|g\b|kg|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
 
 // Decimal numbers and ranges that, while not unit-bearing, are very likely
 // clinical thresholds in context (e.g. "ANC 2.0", "INR 2-3"). We only treat a

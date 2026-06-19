@@ -21,7 +21,7 @@ export type DocumentNamePlan = {
   duplicateReason: "none" | "same_title_or_filename";
 };
 
-type ExistingDocumentName = {
+export type ExistingDocumentName = {
   id?: string;
   title?: string | null;
   file_name?: string | null;
@@ -163,24 +163,30 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase: SupabaseLike;
+  supabase?: SupabaseLike;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;
   contentHash?: string | null;
+  existingDocs?: ExistingDocumentName[];
 }): Promise<DocumentNamePlan> {
   const originalTitle = args.requestedTitle?.trim() || null;
   const baseTitle = smartDocumentTitle(originalTitle || args.fileName);
   const duplicateGroupKey = documentTitleKey(baseTitle);
 
-  const { data, error } = await args.supabase
-    .from("documents")
-    .select("id,title,file_name,content_hash,metadata")
-    .eq("owner_id", args.ownerId)
-    .limit(1000);
-  if (error) throw new Error(error.message);
-
-  const documents = Array.isArray(data) ? (data as ExistingDocumentName[]) : [];
+  let documents: ExistingDocumentName[] = [];
+  if (args.existingDocs) {
+    documents = args.existingDocs;
+  } else {
+    if (!args.supabase) throw new Error("supabase client or existingDocs is required");
+    const { data, error } = await args.supabase
+      .from("documents")
+      .select("id,title,file_name,content_hash")
+      .eq("owner_id", args.ownerId)
+      .limit(1000);
+    if (error) throw new Error(error.message);
+    documents = Array.isArray(data) ? (data as ExistingDocumentName[]) : [];
+  }
   const matching = documents.filter((document) => {
     if (args.contentHash && document.content_hash === args.contentHash) return false;
     const metadata = metadataRecord(document.metadata);

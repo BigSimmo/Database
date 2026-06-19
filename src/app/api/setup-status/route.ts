@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 export const dynamic = "force-dynamic";
@@ -39,12 +40,41 @@ const ACTIVE_INDEXING_POLL_MS = Math.max(3_000, Math.min(env.WORKER_POLL_MS, 15_
 const SETUP_RECHECK_POLL_MS = 60_000;
 const SETUP_STATUS_ACTIVE_CACHE_MS = Math.max(2_000, Math.min(ACTIVE_INDEXING_POLL_MS, 5_000));
 const SETUP_STATUS_IDLE_CACHE_MS = 30_000;
+const SETUP_STATUS_OUTAGE_CACHE_MS = 120_000;
 
 let setupStatusCache: { expiresAt: number; payload: SetupStatusPayload } | null = null;
 let setupStatusInFlight: Promise<SetupStatusPayload> | null = null;
+let supabaseOutageBackoffUntil = 0;
+let supabaseOutageDetail: string | null = null;
 
 function check(id: SetupCheckId, label: string, status: SetupCheckStatus, detail: string): SetupCheck {
   return { id, label, status, detail };
+}
+
+async function readSupabaseAvailability(supabase: AdminClient | null) {
+  if (!requiredSupabaseEnvPresent || !supabaseProjectCanBeQueried || !supabase) return null;
+  const now = Date.now();
+  if (supabaseOutageBackoffUntil > now) {
+    return supabaseOutageDetail ?? "Supabase is temporarily unavailable; setup checks are backing off.";
+  }
+
+  try {
+    const health = await probeSupabaseHealth(supabase);
+    if (!health.ok) {
+      supabaseOutageBackoffUntil = Date.now() + SETUP_STATUS_OUTAGE_CACHE_MS;
+      supabaseOutageDetail = health.message;
+      return health.message;
+    }
+    supabaseOutageBackoffUntil = 0;
+    supabaseOutageDetail = null;
+    return null;
+  } catch (error) {
+    if (!isSupabaseUnavailableError(error)) return null;
+    const message = formatSupabaseUnavailableError(error);
+    supabaseOutageBackoffUntil = Date.now() + SETUP_STATUS_OUTAGE_CACHE_MS;
+    supabaseOutageDetail = message;
+    return message;
+  }
 }
 
 async function readSchemaStatus(supabase: AdminClient | null) {
@@ -235,6 +265,9 @@ async function readWorkerStatus(supabase: AdminClient | null): Promise<WorkerSta
 }
 
 function setupStatusCacheTtl(payload: SetupStatusPayload) {
+  if (payload.checks.some((item) => item.detail.includes("temporarily unavailable"))) {
+    return SETUP_STATUS_OUTAGE_CACHE_MS;
+  }
   return payload.indexingActive ? SETUP_STATUS_ACTIVE_CACHE_MS : SETUP_STATUS_IDLE_CACHE_MS;
 }
 
@@ -249,6 +282,59 @@ function setupStatusResponse(payload: SetupStatusPayload) {
 
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
   const supabase = supabaseProjectCanBeQueried ? createAdminClient() : null;
+  const unavailable = await readSupabaseAvailability(supabase);
+  if (unavailable) {
+    const checks = [
+      check(
+        "env",
+        ".env.local configured",
+        requiredSupabaseEnvPresent ? "ready" : "needs_setup",
+        requiredSupabaseEnvPresent
+          ? "Required Supabase server environment variables are present."
+          : "Set the required Supabase URL and server key.",
+      ),
+      check(
+        "project",
+        "Clinical KB Database target",
+        supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+        formatSupabaseProjectCheck(supabaseProjectCheck),
+      ),
+      check(
+        "schema",
+        "supabase/schema.sql applied",
+        "unknown",
+        `Supabase is temporarily unavailable; schema fan-out checks are backing off. Last error: ${unavailable}`,
+      ),
+      check(
+        "search",
+        "Search RPC and vector indexes",
+        "unknown",
+        `Supabase is temporarily unavailable; search health checks are backing off. Last error: ${unavailable}`,
+      ),
+      check(
+        "openai",
+        "OpenAI API key available",
+        env.OPENAI_API_KEY ? "ready" : "needs_setup",
+        env.OPENAI_API_KEY
+          ? "OPENAI_API_KEY is present for answers, embeddings, and captions."
+          : "Set OPENAI_API_KEY before real indexing or answers.",
+      ),
+      check(
+        "worker",
+        "npm run worker running",
+        "unknown",
+        `Supabase is temporarily unavailable; worker fan-out checks are backing off. Last error: ${unavailable}`,
+      ),
+    ];
+    return {
+      demoMode: isDemoMode(),
+      checks,
+      indexingActive: false,
+      pollAfterMs: SETUP_STATUS_OUTAGE_CACHE_MS,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   const [schema, search, worker] = await Promise.all([
     readSchemaStatus(supabase),
     readSearchSchemaStatus(supabase),

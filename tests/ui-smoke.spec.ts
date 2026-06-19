@@ -431,9 +431,16 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mo
   }
 }
 
+// The document-scope control renders as two breakpoint-complementary triggers
+// (a mobile sheet button and a desktop popover summary). Both share a stable
+// data-testid; :visible resolves to whichever one applies at the current width.
+function scopeTrigger(page: Page) {
+  return page.locator('[data-testid="scope-trigger"]:visible');
+}
+
 async function waitForDemoDashboardReady(page: Page) {
   await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeEnabled();
-  await expect(page.getByLabel("Open document scope")).toBeVisible({ timeout: 30000 });
+  await expect(scopeTrigger(page)).toBeVisible({ timeout: 30000 });
 }
 
 async function scrollDashboardToBottom(page: Page) {
@@ -495,7 +502,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
       const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
       expect(headerHeight).toBeLessThanOrEqual(viewport.width >= 640 ? 185 : 180);
-      await expect(page.getByLabel("Open document scope")).toBeVisible();
+      await expect(scopeTrigger(page)).toBeVisible();
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
@@ -555,7 +562,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await expect(questionInput).toBeEnabled();
-    await expect(page.getByLabel("Open document scope")).toBeVisible();
+    await expect(scopeTrigger(page)).toBeVisible();
     const question = "What clozapine monitoring items are shown in the table image?";
     await questionInput.click();
     await questionInput.pressSequentially(question);
@@ -693,7 +700,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Top source detail")).toHaveCount(0);
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
 
-    await page.getByLabel("Open document scope").click();
+    await scopeTrigger(page).click();
     const scopePopover = page.getByTestId("scope-command-popover");
     await expect(scopePopover).toBeVisible();
     const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
@@ -716,7 +723,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(page.getByLabel("Open document scope")).toBeFocused();
+    await expect(scopeTrigger(page)).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1022,7 +1029,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
     await expect(uploadDrawer.getByText("Document title optional")).toBeVisible();
-    await expect(uploadDrawer.getByText("Guideline file required")).toBeVisible();
+    await expect(uploadDrawer.getByText("Guideline files required")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
