@@ -18,8 +18,13 @@ import type { Citation, DocumentTableFact, SearchResult } from "@/lib/types";
 // and unit-bearing figures.
 // Hardened to include complex clinical units (mg/kg/day, mmol/L, etc.) and
 // ensure boundary safety to prevent hallucinated decimal bypass.
+// The ×10^n / ×10⁹ scientific-notation branch is listed BEFORE the bare unit
+// branches so "2.0 ×10⁹/L" is captured whole rather than truncated to "2.0".
+// The percentage branch must NOT be followed by \b: "%" is a non-word char, so
+// a trailing \b after it can never match (it would require a word char to its
+// right), which previously dropped every percentage token.
 const NUMERIC_TOKEN_PATTERN =
-  /\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:%|mg\/(?:day|kg|m2|dose)|mg|mcg|micrograms?|μg|g\b|kg|ml|mL|l\b|mmol\/[lL]|mmol|mol\/[lL]|umol\/[lL]|µmol\/[lL]|ng\/ml|units?\/?\w*|iu\b|×10\^?\d*\/?l?|x10\^?\d*\/?l?|×10⁹\/l|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b/giu;
+  /\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|kg|m2|dose)|mg|mcg|micrograms?|μg|g\b|kg|ml|mL|l\b|mmol\/[lL]|mmol|mol\/[lL]|umol\/[lL]|µmol\/[lL]|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
 
 // Decimal numbers and ranges that, while not unit-bearing, are very likely
 // clinical thresholds in context (e.g. "ANC 2.0", "INR 2-3"). We only treat a
@@ -27,45 +32,48 @@ const NUMERIC_TOKEN_PATTERN =
 // flagging incidental integers.
 const SIGNIFICANT_BARE_NUMBER_PATTERN = /\b\d+(?:[.,]\d+)?\s*[-–—]\s*\d+(?:[.,]\d+)?\b|\b\d+\.\d+\b/gu;
 
+// Unicode superscript digits ⁰¹²³⁴⁵⁶⁷⁸⁹ → ASCII. Sources and answers mix
+// "×10⁹/L" with "x10^9/L"; folding superscripts to ASCII before extraction and
+// matching keeps ANC/WBC thresholds (central to the clozapine use-case) from
+// being mangled or silently dropped.
+const SUPERSCRIPT_DIGITS: Record<string, string> = {
+  "⁰": "0",
+  "¹": "1",
+  "²": "2",
+  "³": "3",
+  "⁴": "4",
+  "⁵": "5",
+  "⁶": "6",
+  "⁷": "7",
+  "⁸": "8",
+  "⁹": "9",
+};
+
+function foldSuperscripts(text: string): string {
+  return text.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (ch) => SUPERSCRIPT_DIGITS[ch] ?? ch);
+}
+
 function normalizeNumericToken(raw: string): string {
-  return raw
+  return foldSuperscripts(raw)
     .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/[–—]/g, "-")
     .replace(/,/g, ".")
     .replace(/µ/g, "μ")
+    .replace(/×10\^?(\d+)/g, "x10^$1")
+    .replace(/x10(\d)/g, "x10^$1")
     .trim();
-}
-
-// Build a normalized haystack from a single text blob so token lookups are
-// whitespace/case/dash insensitive (matches how normalizeNumericToken folds).
-function normalizeHaystack(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[–—]/g, "-")
-    .replace(/,/g, ".")
-    .replace(/µ/g, "μ")
-    .replace(/\s+/g, " ");
-}
-
-// A token "appears" in the source if either the spaced or the de-spaced form is
-// present, so "2.0 mg" in the answer matches "2.0mg" or "2.0 mg" in the source.
-function haystackContainsToken(haystack: string, despacedHaystack: string, token: string): boolean {
-  const normalized = token; // already normalized/de-spaced by caller
-  if (despacedHaystack.includes(normalized)) return true;
-  // Also try a spaced variant: re-insert a space between number and unit.
-  const spaced = normalized.replace(/^(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?)/, "$1 ");
-  return haystack.includes(spaced);
 }
 
 export function extractNumericTokens(text: string): string[] {
   if (!text) return [];
+  const folded = foldSuperscripts(text);
   const tokens = new Set<string>();
-  for (const match of text.matchAll(NUMERIC_TOKEN_PATTERN)) {
+  for (const match of folded.matchAll(NUMERIC_TOKEN_PATTERN)) {
     const normalized = normalizeNumericToken(match[0]);
     if (normalized) tokens.add(normalized);
   }
-  for (const match of text.matchAll(SIGNIFICANT_BARE_NUMBER_PATTERN)) {
+  for (const match of folded.matchAll(SIGNIFICANT_BARE_NUMBER_PATTERN)) {
     const normalized = normalizeNumericToken(match[0]);
     if (normalized) tokens.add(normalized);
   }
@@ -97,9 +105,15 @@ export type NumericVerification = {
   hasUnverifiedNumbers: boolean;
 };
 
-// Verify every numeric token in `answerText` against the combined text of the
+// Verify every numeric token in `answerText` against the numeric tokens of the
 // chunks the answer actually cites. Only cited chunks count — an answer that
 // cites nothing has no support, so all of its numbers are unverified.
+//
+// B1: matching is by SET MEMBERSHIP of normalized numeric tokens, never by
+// substring. Substring matching let "2.5 mg" match inside "12.5 mg" (a 5x dose
+// error) and "500 mg" inside "1500 mg". We extract the source's tokens with the
+// SAME extractor used on the answer, so a number is verified only when an exact
+// normalized token (e.g. "2.5mg") is present in the source's token set.
 export function verifyAnswerNumbers(
   answerText: string,
   citations: Array<Pick<Citation, "chunk_id">>,
@@ -112,23 +126,35 @@ export function verifyAnswerNumbers(
 
   const citedIds = new Set(citations.map((citation) => citation.chunk_id));
   const citedResults = results.filter((result) => citedIds.has(result.id));
-  // If no citation maps to a known chunk, fall back to all results so we don't
-  // over-flag during transitional states; cited-only is preferred when present.
-  const sourceResults = citedResults.length > 0 ? citedResults : results;
+  // N1: fail closed. If nothing the answer cites maps to a known chunk, we have
+  // no scoped evidence — treat every numeric token as unverified rather than
+  // matching against the full unfiltered result set (which could "verify" a
+  // number that lives in a chunk the answer never cited).
+  if (citedResults.length === 0) {
+    return { answerTokens, unverifiedTokens: answerTokens, hasUnverifiedNumbers: answerTokens.length > 0 };
+  }
 
-  const combined = sourceResults.map(sourceTextForResult).join(" \n ");
-  const haystack = normalizeHaystack(combined);
-  const despacedHaystack = haystack.replace(/\s+/g, "");
-
-  const unverifiedTokens = answerTokens.filter(
-    (token) => !haystackContainsToken(haystack, despacedHaystack, token),
-  );
+  const sourceTokens = sourceNumericTokenSet(citedResults);
+  const unverifiedTokens = answerTokens.filter((token) => !sourceTokens.has(token));
 
   return {
     answerTokens,
     unverifiedTokens,
     hasUnverifiedNumbers: unverifiedTokens.length > 0,
   };
+}
+
+// Build the union of normalized numeric tokens across a set of source chunks
+// using the same extractor applied to the answer, so verification is an exact
+// token-membership test rather than a substring scan.
+function sourceNumericTokenSet(results: SearchResult[]): Set<string> {
+  const tokens = new Set<string>();
+  for (const result of results) {
+    for (const token of extractNumericTokens(sourceTextForResult(result))) {
+      tokens.add(token);
+    }
+  }
+  return tokens;
 }
 
 export const VERIFY_AGAINST_SOURCE_NOTE =

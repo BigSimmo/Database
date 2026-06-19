@@ -617,13 +617,17 @@ function normalizeSearchResults(results: SearchResult[]) {
 }
 
 function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string): RagAnswer {
-  const citations = compactCitations(results);
-  const confidence = deriveConfidence(results, citations.length);
-  return {
+  // B5: on model-JSON parse failure we cannot trust any model-asserted citation
+  // mapping. Do NOT back-fill all retrieved chunks as citations and stamp the
+  // answer grounded — that re-introduces exactly the back-fill GEN-C3 removed,
+  // hidden in the error path. Treat a parse failure as ungrounded/unsupported,
+  // and still run the numeric faithfulness gate over the salvaged prose so any
+  // dose/threshold it contains is surfaced as unverified rather than trusted.
+  const answer: RagAnswer = {
     answer: boldHighYieldClinicalText(sanitizeAnswerText(raw) || machineReadableFallbackAnswer, query),
-    grounded: citations.length > 0 && confidence !== "unsupported",
-    confidence,
-    citations,
+    grounded: false,
+    confidence: "unsupported",
+    citations: [],
     sources: results,
     routingReason: "structured_parse_fallback",
     answerSections: [],
@@ -631,6 +635,7 @@ function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string
     visualEvidence: buildVisualEvidence(results),
     bestSource: selectBestSourceRecommendation(results),
   };
+  return applyNumericVerification(answer);
 }
 
 function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
@@ -3395,7 +3400,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       answer.routingReason = "ungrounded_no_model_citation";
     }
     // GEN-C2 / GEN-H2: numeric faithfulness gate.
-    return applyNumericVerification(answer, query);
+    return applyNumericVerification(answer);
   } catch {
     return safeFallbackAnswer(raw, results, query);
   }
@@ -3405,21 +3410,41 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
 // answer against the text of its cited chunks. Unsupported figures are recorded
 // on the answer and an explicit "verify against source" caveat is appended so a
 // paraphrased/mis-transcribed dose can never read as authoritative.
-function applyNumericVerification(answer: RagAnswer, query?: string): RagAnswer {
-  const verification = verifyAnswerNumbers(answer.answer, answer.citations, answer.sources ?? []);
-  if (!verification.hasUnverifiedNumbers) return answer;
+function applyNumericVerification(answer: RagAnswer): RagAnswer {
+  const sources = answer.sources ?? [];
+  const unverified = new Set<string>();
 
-  answer.unverifiedNumericTokens = verification.unverifiedTokens;
+  // B4: the model is instructed to put dose details in structured
+  // answerSections (kind medication_dose), so a top-level-only scan never sees
+  // section-body doses. Verify the top-level answer AND every section body.
+  // Each section is scoped to its own citation_chunk_ids when present, so a
+  // dose is only credited against the chunks that section actually cites;
+  // sections with no citations fall back to the answer-level citations.
+  const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
+  for (const token of answerVerification.unverifiedTokens) unverified.add(token);
+
+  for (const section of answer.answerSections ?? []) {
+    const sectionCitations =
+      section.citation_chunk_ids.length > 0
+        ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
+        : answer.citations;
+    const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
+    for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
+  }
+
+  if (unverified.size === 0) return answer;
+
+  const unverifiedTokens = [...unverified];
+  answer.unverifiedNumericTokens = unverifiedTokens;
   answer.faithfulnessWarning = VERIFY_AGAINST_SOURCE_NOTE;
   // Surface as a source gap so the UI's existing gap rendering shows it, and
   // never let an answer with unverified clinical numbers claim high confidence.
   const caveat: ConflictOrGap = {
     type: "gap",
-    message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${verification.unverifiedTokens.join(", ")}.`,
+    message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${unverifiedTokens.join(", ")}.`,
   };
   answer.conflictsOrGaps = [...(answer.conflictsOrGaps ?? []), caveat];
   if (answer.confidence === "high") answer.confidence = "medium";
-  void query;
   return answer;
 }
 
@@ -4015,7 +4040,13 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
       total_latency_ms: Date.now() - startedAt,
     };
 
-    if (answer.citations.length > 0 && isUnusableGeneratedAnswer(answer)) {
+    // B5: a structured_parse_fallback answer now fails closed with zero
+    // citations, so we can no longer gate extractive recovery on the parsed
+    // answer's citations. buildExtractiveAnswer derives its own source-backed
+    // citations from the retrieved results, so trigger recovery whenever the
+    // generated answer is unusable and we have retrieved results to extract from.
+    const canRecoverExtractively = answer.citations.length > 0 || answerInputResults.length > 0;
+    if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
         queryClass,

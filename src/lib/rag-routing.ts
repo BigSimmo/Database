@@ -335,10 +335,16 @@ export function chooseAnswerRoute(args: {
 
 export function shouldRetryWithStrongAfterFast(args: {
   route: AnswerRoute;
-  answer: Pick<RagAnswer, "grounded" | "confidence" | "citations">;
+  answer: Pick<RagAnswer, "grounded" | "confidence" | "citations" | "routingReason">;
   results: SearchResult[];
 }) {
   if (args.route.mode !== "fast") return false;
+  // A structured-parse failure is a generation/format problem, not a weak-
+  // retrieval signal. Since B5 made that fallback fail closed (ungrounded, no
+  // citations), retrying with the strong model would re-run generation (often
+  // re-truncating) instead of letting extractive recovery use the retrieved
+  // sources. Skip the strong retry here; extractive recovery handles it.
+  if (args.answer.routingReason === "structured_parse_fallback") return false;
   if (args.answer.grounded && args.answer.confidence !== "unsupported" && args.answer.citations.length > 0) {
     return false;
   }
