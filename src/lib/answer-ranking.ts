@@ -8,10 +8,12 @@ import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { lowYieldSourceNoiseScore, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
-const answerRankStrategy = "query_focused_answer_evidence_v1";
+const answerRankStrategy = "query_focused_answer_evidence_v2";
 
+// Hardened boilerplate patterns to suppress generic medical disclaimers and 
+// document control noise that can bury unique clinical instructions.
 const answerBoilerplatePattern =
-  /\b(?:uncontrolled when printed|document control|review date|version\s+\d|page\s+\d+\s+of\s+\d+|copyright|confidential)\b/i;
+  /\b(?:uncontrolled when printed|document control|review date|version\s+\d|page\s+\d+\s+of\s+\d+|copyright|confidential|all rights reserved|refer to the electronic version|consult your doctor|seek medical advice|this is not medical advice|intended for healthcare professionals|disclaimer)\b/i;
 
 const queryTermExclusions = new Set([
   "recommended",
@@ -181,8 +183,12 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
     contentCoverage * 0.34 + titleCoverage * 0.12 + sectionCoverage * 0.1 + metadataCoverage * 0.08;
   const weakOverlapPenalty = combinedCoverage < 0.2 ? -0.18 : combinedCoverage < 0.34 ? -0.07 : 0;
   const adjacentOnlyPenalty = contentCoverage < 0.16 && adjacentCoverage > contentCoverage ? -0.08 : 0;
-  const boilerplatePenalty = answerBoilerplatePattern.test(result.content) && contentCoverage < 0.35 ? -0.08 : 0;
+  
+  // Dynamic boilerplate suppression: heavier penalty for common disclaimers 
+  // that don't match the specific clinical query.
+  const boilerplatePenalty = answerBoilerplatePattern.test(result.content) && contentCoverage < 0.35 ? -0.15 : 0;
   const lowYieldPenalty = lowYieldSourceNoiseScore(result.content) >= 0.35 && contentCoverage < 0.45 ? -0.12 : 0;
+  
   const coreConceptTokens = tokens.filter(
     (token) =>
       ![
