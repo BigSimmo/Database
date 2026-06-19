@@ -186,4 +186,36 @@ describe("high-yield answer bolding", () => {
     expect(answer.answer).toContain("**FBC**");
     expect(answer.answerSections?.[0]?.body).toContain("**4 hours**");
   });
+
+  it("removes clipped trailing fragments from generated answer sections", () => {
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Use CBT with nutritional support.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [
+          {
+            heading: "Adjunct medication",
+            body: "SSRIs may be used as adjunct treatment when supported by the source. Escalation may follow if a 60% decrease in b",
+            citation_chunk_ids: ["chunk-1"],
+          },
+        ],
+        citations: [{ chunk_id: "chunk-1" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      }),
+      [
+        result({
+          id: "chunk-1",
+          content: "SSRIs may be used as adjunct treatment when supported by the source.",
+          similarity: 0.9,
+        }),
+      ],
+      "management of bulimia nervosa",
+    );
+
+    expect(answer.answerSections?.[0]?.body.replace(/\*\*/g, "")).toBe(
+      "SSRIs may be used as adjunct treatment when supported by the source.",
+    );
+  });
 });

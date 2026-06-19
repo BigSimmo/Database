@@ -7,6 +7,7 @@ import {
   analyzeClinicalQuery,
   expandClinicalQuery,
   hasDoseEvidenceSupport,
+  hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "@/lib/clinical-search";
@@ -415,7 +416,8 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     const leftSimilarity = left.similarity ?? 0;
     const rightSimilarity = right.similarity ?? 0;
     if (rightSimilarity !== leftSimilarity) return rightSimilarity - leftSimilarity;
-    if (right.relevance?.score !== left.relevance?.score) return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
+    if (right.relevance?.score !== left.relevance?.score)
+      return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
     return left.id.localeCompare(right.id);
   };
 
@@ -435,7 +437,9 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   );
   telemetry.rrf_top_score = Number(Math.max(0, ...results.map((result) => result.rrf_score ?? 0)).toFixed(4));
   telemetry.top_score = Number(results[0] ? Math.max(0, results[0].hybrid_score ?? results[0].similarity ?? 0) : 0);
-  telemetry.second_top_score = Number(results[1] ? Math.max(0, results[1].hybrid_score ?? results[1].similarity ?? 0) : 0);
+  telemetry.second_top_score = Number(
+    results[1] ? Math.max(0, results[1].hybrid_score ?? results[1].similarity ?? 0) : 0,
+  );
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
@@ -546,7 +550,7 @@ function buildRetrievalDiagnostics(args: {
     queryClass: args.queryClass,
     routeMode: args.answerMode,
     gateStatus,
-    fallbackReason: weakSignal ? "low_signal_retrieval_gate" : args.fallbackReason ?? null,
+    fallbackReason: weakSignal ? "low_signal_retrieval_gate" : (args.fallbackReason ?? null),
     retrievalReason:
       weakSignal && args.fallbackReason
         ? args.fallbackReason
@@ -640,6 +644,18 @@ function normalizeAnswerSectionSupportLevel(
   return sources.length ? "direct" : "unsupported";
 }
 
+function removeIncompleteTrailingSentence(value: string) {
+  const text = value.trim();
+  if (!text || /[.!?]["')\]]*$/.test(text)) return text;
+
+  const sentenceEndMatches = Array.from(text.matchAll(/[.!?](?=\s+[A-Z0-9])/g));
+  const lastCompleteEnd = sentenceEndMatches.at(-1)?.index;
+  if (lastCompleteEnd === undefined || lastCompleteEnd < 32) return text;
+
+  const complete = text.slice(0, lastCompleteEnd + 1).trim();
+  return complete.length >= 32 ? complete : text;
+}
+
 function sanitizeAnswerSections(
   sections: AnswerSection[] | undefined,
   results: SearchResult[],
@@ -651,7 +667,9 @@ function sanitizeAnswerSections(
   return (sections ?? [])
     .map((section) => {
       const heading = sanitizeStructuredText(section.heading, { minLength: 1, minTokens: 1 });
-      const body = sanitizeStructuredText(section.body, { minLength: 8, minTokens: 2 });
+      const body = removeIncompleteTrailingSentence(
+        sanitizeStructuredText(section.body, { minLength: 8, minTokens: 2 }),
+      );
       const citation_chunk_ids = [...new Set(section.citation_chunk_ids.filter((id) => allowed.has(id)))];
       const citationSources = citation_chunk_ids
         .map((id) => allowed.get(id))
@@ -752,13 +770,15 @@ function fallbackReasonFromRouting(reason?: string | null) {
     reason
       .split(";")
       .map((part) => part.trim())
-      .find((part) => /fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(part)) ?? null
+      .find((part) =>
+        /fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(part),
+      ) ?? null
   );
 }
 
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer }>();
 const searchCache = new Map<string, { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry }>();
-const ragCacheDependencyVersion = "rag-cache-v2";
+const ragCacheDependencyVersion = "rag-cache-v8";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 
@@ -994,6 +1014,7 @@ function scopedAnswerCacheKey(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
 ) {
   return [
+    ragCacheDependencyVersion,
     args.ownerId ?? "anonymous",
     scopeKey(args),
     modeKey(args),
@@ -2372,13 +2393,14 @@ async function packAdjacentSourceContext(
       const adjacent = [result.chunk_index - 1, result.chunk_index + 1]
         .map((index) => chunksByDocumentAndIndex.get(`${result.document_id}:${index}`))
         .filter(
-          (chunk): chunk is {
+          (
+            chunk,
+          ): chunk is {
             id: string;
             section_heading: string | null;
             content: string;
             retrieval_synopsis?: string | null;
-          } =>
-          Boolean(chunk && chunk.id !== result.id && chunk.content.trim()),
+          } => Boolean(chunk && chunk.id !== result.id && chunk.content.trim()),
         )
         .map((chunk) => {
           const heading = chunk.section_heading ? `${chunk.section_heading}: ` : "";
@@ -2468,6 +2490,12 @@ function shouldReturnTextFastPath(query: string, results: SearchResult[]) {
 
   const queryClass = classifyRagQuery(query).queryClass;
   if (queryClass === "comparison") return false;
+  if (
+    queryClass === "table_threshold" &&
+    !results.slice(0, 5).some((result) => hasStructuredThresholdEvidence(result))
+  ) {
+    return false;
+  }
   if (queryClass === "medication_dose_risk" && !results.slice(0, 5).some((result) => hasDoseEvidenceSupport(result))) {
     return false;
   }
@@ -2931,6 +2959,76 @@ function isUnusableGeneratedAnswer(answer: Pick<RagAnswer, "answer" | "citations
   if (normalized === machineReadableFallbackAnswer) return true;
   if (answer.routingReason === "structured_parse_fallback") return true;
   return looksLikeJsonArtifact(normalized);
+}
+
+const templateLikeGeneratedTextPattern =
+  /\b(?:the\s+(?:strongest\s+)?retrieved\s+(?:source|sources|passages|excerpts)\s+(?:support|supports|show|shows|indicate|indicates)|retrieved\s+(?:source|sources|passages|excerpts)|source-backed|based\s+on\s+(?:the\s+)?(?:provided\s+)?(?:sources|excerpts|passages|retrieved\s+sources)|the\s+(?:cited\s+)?source\s+(?:states|supports|says|indicates)|provided\s+excerpts)\b/i;
+const templateLikeGeneratedPrefixPattern = /^(?:answer|summary|bottom line|required actions|direct answer)\s*[:.-]\s+/i;
+const templateLikeGeneratedSectionHeadingPattern =
+  /^(?:direct answer|bottom line|high-yield summary|source-backed answer|direct source-backed answer)$/i;
+const simpleDirectQuestionPattern =
+  /^(?:what\s+(?:is|are)|what's|define|who\s+(?:is|are)|when\s+(?:is|are)|where\s+(?:is|are)|is\s+|are\s+|does\s+|do\s+)/i;
+const simpleQuestionExpansionPattern =
+  /\b(?:management|manage|managed|treatment|treat|therapy|care|approach|pathway|dose|dosing|threshold|compare|versus|vs|monitoring|required|requirements|risk|side effect|contraindicat\w*|urgent|escalat\w*)\b/i;
+
+function isTemplateLikeGeneratedAnswer(answer: Pick<RagAnswer, "answer" | "answerSections">) {
+  const answerText = normalizeSectionText(answer.answer ?? "");
+  if (
+    answerText &&
+    (templateLikeGeneratedTextPattern.test(answerText) || templateLikeGeneratedPrefixPattern.test(answerText))
+  ) {
+    return true;
+  }
+
+  return (answer.answerSections ?? []).some((section) => {
+    const heading = normalizeSectionText(section.heading ?? "");
+    const body = normalizeSectionText(section.body ?? "");
+    return (
+      (heading && templateLikeGeneratedSectionHeadingPattern.test(heading)) ||
+      (body && (templateLikeGeneratedTextPattern.test(body) || templateLikeGeneratedPrefixPattern.test(body)))
+    );
+  });
+}
+
+function isSimpleDirectQuestion(query: string, queryClass: RagQueryClass) {
+  const normalized = normalizeSectionText(query);
+  if (!normalized || normalized.length > 100) return false;
+  if (queryClass === "comparison" || queryClass === "table_threshold" || queryClass === "medication_dose_risk") {
+    return false;
+  }
+  if (queryClass === "broad_summary" || queryClass === "document_lookup") return false;
+  return simpleDirectQuestionPattern.test(normalized) && !simpleQuestionExpansionPattern.test(normalized);
+}
+
+function wordCount(value: string) {
+  return normalizeSectionText(value).split(/\s+/).filter(Boolean).length;
+}
+
+function isOverExpandedSimpleGeneratedAnswer(
+  query: string,
+  queryClass: RagQueryClass,
+  answer: Pick<RagAnswer, "answer" | "answerSections">,
+) {
+  if (!isSimpleDirectQuestion(query, queryClass)) return false;
+  const sections = answer.answerSections ?? [];
+  const nonEssentialSectionCount = sections.filter((section) => !isEssentialSimpleQuestionSection(section)).length;
+  return nonEssentialSectionCount > 0 || sections.length > 1 || wordCount(answer.answer ?? "") > 95;
+}
+
+function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading" | "body">) {
+  return /\b(?:gap|not enough|insufficient|unsupported|urgent|escalat\w*|risk|safety)\b/i.test(
+    `${section.heading} ${section.body}`,
+  );
+}
+
+function simplifySimpleGeneratedAnswer(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
+  if (!isSimpleDirectQuestion(query, queryClass)) return answer;
+  const sections = answer.answerSections ?? [];
+  if (sections.length === 0) return answer;
+
+  const essentialSection = sections.find((section) => isEssentialSimpleQuestionSection(section));
+  answer.answerSections = essentialSection ? [essentialSection] : [];
+  return answer;
 }
 
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
@@ -3580,10 +3678,11 @@ export async function answerQuestionWithScope(args: {
     skipCache: args.skipCache,
     queryMode: args.queryMode,
   });
+  const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
+  const cachedQueryClass = search.telemetry.query_class ?? null;
   const queryClass =
     queryClassForClinicalMode(args.queryMode ?? "auto") ??
-    search.telemetry.query_class ??
-    classifyRagQuery(args.query).queryClass;
+    (cachedQueryClass && cachedQueryClass !== "unsupported_or_general" ? cachedQueryClass : currentQueryClass);
   const queryAnalysis = analyzeClinicalQuery(answerFocusQuery);
   if (queryClassForClinicalMode(args.queryMode ?? "auto")) queryAnalysis.queryClass = queryClass;
   const answerRanking = rankAnswerEvidence(answerFocusQuery, normalizeSearchResults(search.results), queryClass);
@@ -3654,30 +3753,35 @@ export async function answerQuestionWithScope(args: {
     answerMode: routeFromRouting.mode,
   });
   const gatedRoute = applyConfidenceGate(routeFromRouting, queryClass, initialRetrievalDiagnostics);
-    const route = gatedRoute.route;
-    const retrievalDiagnostics = {
-      ...initialRetrievalDiagnostics,
-      routeMode: route.mode,
-      fallbackReason: gatedRoute.fallbackReason ?? initialRetrievalDiagnostics.fallbackReason,
-      retrievalReason: (
-        gatedRoute.fallbackReason
-        ? gatedRoute.fallbackReason
-        : initialRetrievalDiagnostics.retrievalReason
-    ) ?? null,
+  const route =
+    gatedRoute.route.mode === "extractive"
+      ? {
+          ...gatedRoute.route,
+          mode: "fast" as const,
+          model: env.OPENAI_FAST_ANSWER_MODEL,
+          reason: `${gatedRoute.route.reason}; upgraded_to_model_synthesis`,
+        }
+      : gatedRoute.route;
+  const retrievalDiagnostics: RetrievalDiagnostics = {
+    ...initialRetrievalDiagnostics,
+    routeMode: route.mode,
+    fallbackReason: gatedRoute.fallbackReason ?? initialRetrievalDiagnostics.fallbackReason,
+    retrievalReason:
+      (gatedRoute.fallbackReason ? gatedRoute.fallbackReason : initialRetrievalDiagnostics.retrievalReason) ?? null,
   };
-  const retrievalLogMetadata = {
-    retrieval_depth: retrievalDiagnostics.retrievalDepth,
-    retrieval_distinct_documents: retrievalDiagnostics.distinctDocumentCount,
-    retrieval_candidate_count: retrievalDiagnostics.candidateCount,
-    retrieval_top_score: retrievalDiagnostics.topScore,
-    retrieval_second_score: retrievalDiagnostics.secondScore,
-    retrieval_score_spread: retrievalDiagnostics.scoreSpread,
-    retrieval_gate_status: retrievalDiagnostics.gateStatus,
-    retrieval_fallback_reason: retrievalDiagnostics.fallbackReason,
-    retrieval_reason: retrievalDiagnostics.retrievalReason,
-    retrieval_query_class: retrievalDiagnostics.queryClass,
-    retrieval_route_mode: retrievalDiagnostics.routeMode,
-  };
+  const retrievalLogMetadata = (diagnostics: RetrievalDiagnostics) => ({
+    retrieval_depth: diagnostics.retrievalDepth,
+    retrieval_distinct_documents: diagnostics.distinctDocumentCount,
+    retrieval_candidate_count: diagnostics.candidateCount,
+    retrieval_top_score: diagnostics.topScore,
+    retrieval_second_score: diagnostics.secondScore,
+    retrieval_score_spread: diagnostics.scoreSpread,
+    retrieval_gate_status: diagnostics.gateStatus,
+    retrieval_fallback_reason: diagnostics.fallbackReason,
+    retrieval_reason: diagnostics.retrievalReason,
+    retrieval_query_class: diagnostics.queryClass,
+    retrieval_route_mode: diagnostics.routeMode,
+  });
   const buildCurrentSmartApiPlan = (
     mode: RagAnswer["routingMode"] = route.mode,
     reason = route.reason,
@@ -3724,52 +3828,52 @@ export async function answerQuestionWithScope(args: {
   if (route.mode === "unsupported") {
     const relatedDocuments = await relatedDocumentsPromise;
     const unsupportedWithNearbySources = results.length > 0;
-    const answer = annotateAnswerWithDiagnostics(
+    const answer: RagAnswer = annotateAnswerWithDiagnostics(
       {
-      answer: unsupportedWithNearbySources
-        ? "I found nearby indexed passages, but they are not strong enough to support a reliable answer. Try refining the query or selecting a more relevant document."
-        : "I could not find enough support in the indexed documents to answer this query. Upload or index a relevant guideline, then search again.",
-      grounded: false,
-      confidence: "unsupported",
-      citations: [],
-      sources: results,
-      modelUsed: null,
-      routingMode: route.mode,
-      routingReason: route.reason,
-      queryClass,
-      queryAnalysis,
-      responseMode: smartApiPlan.displayMode,
-      latencyTimings: {
-        search_cache_hit: search.telemetry.search_cache_hit,
-        text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
-        embedding_skipped: search.telemetry.embedding_skipped,
-        embedding_latency_ms: search.telemetry.embedding_latency_ms,
-        embedding_cache_hit: search.telemetry.embedding_cache_hit,
-        supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
-        rerank_latency_ms: search.telemetry.rerank_latency_ms,
-        context_pack_latency_ms: 0,
-        search_latency_ms: searchLatencyMs,
-        generation_latency_ms: 0,
-        total_latency_ms: Date.now() - startedAt,
-      },
-      answerSections: [],
-      quoteCards: unsupportedWithNearbySources ? quoteCards : [],
-      visualEvidence: unsupportedWithNearbySources ? visualEvidence : [],
-      bestSource: unsupportedWithNearbySources ? bestSource : null,
-      documentBreakdown: unsupportedWithNearbySources ? documentBreakdown : [],
-      evidenceSummary: unsupportedWithNearbySources ? evidenceSummary : emptyPanel.evidenceSummary,
-      sourceCoverage: unsupportedWithNearbySources ? sourceCoverage : emptyPanel.sourceCoverage,
-      conflictsOrGaps,
-      smartPanel: unsupportedWithNearbySources
-        ? { ...smartPanel, relevance, bestSource, relatedDocuments }
-        : { ...emptyPanel, relevance, relatedDocuments },
-      relatedDocuments,
-      relevance,
-      memoryCardsUsed: unsupportedWithNearbySources ? memoryCardsUsed : [],
-      indexingVersion: ragDeepMemoryVersion,
-      indexingQuality,
-      smartApiPlan,
-      scoreExplanations: answerScoreExplanations,
+        answer: unsupportedWithNearbySources
+          ? "I found nearby indexed passages, but they are not strong enough to support a reliable answer. Try refining the query or selecting a more relevant document."
+          : "I could not find enough support in the indexed documents to answer this query. Upload or index a relevant guideline, then search again.",
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: results,
+        modelUsed: null,
+        routingMode: route.mode,
+        routingReason: route.reason,
+        queryClass,
+        queryAnalysis,
+        responseMode: smartApiPlan.displayMode,
+        latencyTimings: {
+          search_cache_hit: search.telemetry.search_cache_hit,
+          text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
+          embedding_skipped: search.telemetry.embedding_skipped,
+          embedding_latency_ms: search.telemetry.embedding_latency_ms,
+          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
+          rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          context_pack_latency_ms: 0,
+          search_latency_ms: searchLatencyMs,
+          generation_latency_ms: 0,
+          total_latency_ms: Date.now() - startedAt,
+        },
+        answerSections: [],
+        quoteCards: unsupportedWithNearbySources ? quoteCards : [],
+        visualEvidence: unsupportedWithNearbySources ? visualEvidence : [],
+        bestSource: unsupportedWithNearbySources ? bestSource : null,
+        documentBreakdown: unsupportedWithNearbySources ? documentBreakdown : [],
+        evidenceSummary: unsupportedWithNearbySources ? evidenceSummary : emptyPanel.evidenceSummary,
+        sourceCoverage: unsupportedWithNearbySources ? sourceCoverage : emptyPanel.sourceCoverage,
+        conflictsOrGaps,
+        smartPanel: unsupportedWithNearbySources
+          ? { ...smartPanel, relevance, bestSource, relatedDocuments }
+          : { ...emptyPanel, relevance, relatedDocuments },
+        relatedDocuments,
+        relevance,
+        memoryCardsUsed: unsupportedWithNearbySources ? memoryCardsUsed : [],
+        indexingVersion: ragDeepMemoryVersion,
+        indexingQuality,
+        smartApiPlan,
+        scoreExplanations: answerScoreExplanations,
       } satisfies RagAnswer,
       retrievalDiagnostics,
     );
@@ -3811,10 +3915,10 @@ export async function answerQuestionWithScope(args: {
           rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
-          total_latency_ms: answer.latencyTimings.total_latency_ms,
+          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? searchLatencyMs,
           evidence_summary: answer.evidenceSummary,
           source_coverage: answer.sourceCoverage,
-          ...retrievalLogMetadata,
+          ...retrievalLogMetadata(answer.retrievalDiagnostics ?? retrievalDiagnostics),
           related_document_count: relatedDocuments.length,
         },
       });
@@ -3827,32 +3931,32 @@ export async function answerQuestionWithScope(args: {
     const relatedDocuments = await relatedDocumentsPromise;
     const answer: RagAnswer = annotateAnswerWithDiagnostics(
       buildExtractiveAnswer({
-      query: args.query,
-      queryClass,
-      results: answerInputResults,
-      quoteCards,
-      documentBreakdown,
-      evidenceSummary,
-      sourceCoverage,
-      conflictsOrGaps,
-      visualEvidence,
-      bestSource,
-      smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
-      relatedDocuments,
-      routeReason: route.reason,
-      timings: {
-        search_cache_hit: search.telemetry.search_cache_hit,
-        text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
-        embedding_skipped: search.telemetry.embedding_skipped,
-        embedding_latency_ms: search.telemetry.embedding_latency_ms,
-        embedding_cache_hit: search.telemetry.embedding_cache_hit,
-        supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
-        rerank_latency_ms: search.telemetry.rerank_latency_ms,
-        context_pack_latency_ms: 0,
-        search_latency_ms: searchLatencyMs,
-        generation_latency_ms: 0,
-        total_latency_ms: Date.now() - startedAt,
-      },
+        query: args.query,
+        queryClass,
+        results: answerInputResults,
+        quoteCards,
+        documentBreakdown,
+        evidenceSummary,
+        sourceCoverage,
+        conflictsOrGaps,
+        visualEvidence,
+        bestSource,
+        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+        relatedDocuments,
+        routeReason: route.reason,
+        timings: {
+          search_cache_hit: search.telemetry.search_cache_hit,
+          text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
+          embedding_skipped: search.telemetry.embedding_skipped,
+          embedding_latency_ms: search.telemetry.embedding_latency_ms,
+          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
+          rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          context_pack_latency_ms: 0,
+          search_latency_ms: searchLatencyMs,
+          generation_latency_ms: 0,
+          total_latency_ms: Date.now() - startedAt,
+        },
       }),
       retrievalDiagnostics,
     );
@@ -3889,7 +3993,7 @@ export async function answerQuestionWithScope(args: {
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
           related_document_count: relatedDocuments.length,
-          ...retrievalLogMetadata,
+          ...retrievalLogMetadata(answer.retrievalDiagnostics ?? retrievalDiagnostics),
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
@@ -3919,7 +4023,13 @@ Rules:
 - Use a layered response. The answer field is the first layer: write a short, high-yield clinical paragraph that can stand alone before any structured sections.
 - The answer field must be plain prose, usually 1-3 short sentences and 35-75 words. Do not use bullets, numbered lists, labels, icons, headings, or prefixes such as "Answer", "Summary", "Bottom line", "Required actions", or "Direct answer" inside the answer field.
 - Start the answer field with the direct clinical answer in the first sentence. Keep only the vital and most relevant information there.
+- First, silently interpret what the clinician is really asking: clinical task, population/scope, likely decision point, urgency/risk, and whether they need a pathway, threshold, comparison, or document lookup. Use that interpretation to shape the answer.
+- Write like a clinician who has read the source material and is explaining the logical clinical approach. Avoid template language, source-inventory wording, and generic phrases such as "the strongest retrieved sources support", "source-backed", "the source states", or "based on the provided excerpts".
+- For broad management, treatment, care, pathway, or approach questions, organize the synthesis naturally: immediate risk/specialist referral if supported, core first-line intervention, adjunctive medication or monitoring when supported, special populations, and important gaps. Do not dump every treatment option with equal weight.
+- For simple definition or direct fact questions, answer only the direct question. Do not broaden into management, treatment, monitoring, or pathway content unless the user explicitly asks for it. Return no answerSections unless one source-gap or safety caveat is essential.
 - Use model-generated clinical synthesis by default; do not stitch disconnected source quotes into the answer.
+- Treat retrieval as source selection, not the final answer. The final answer must be a coherent clinical synthesis of the supplied excerpts, never a concatenation of chunk fragments.
+- If the retrieved excerpts contain only headings, partial table fragments, or disconnected text that cannot support a logical response, state the source gap instead of filling from general knowledge.
 - Integrate all relevant retrieved sources intelligently: merge overlapping guidance, prioritize stronger/direct support, and call out weak, nearby, or missing support.
 - Put supporting detail, secondary caveats, thresholds, monitoring timing, actions, risks, comparisons, documentation, and source gaps into answerSections rather than the answer field.
 - Use answerSections as the second layer when they add scanability, decision support, or verification value. Good sections include Required actions, Monitoring/timing, Medication/dose details, Thresholds, Escalation/risk, Contraindications/cautions, Comparison, Documentation/forms, and Source gaps.
@@ -3959,9 +4069,26 @@ Rules:
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentFusionBrief?.text ?? "";
     const crossDocumentContext = [sourceGuide, fusedBrief].filter(Boolean).join("\n\n");
+    const interpretedTask = [
+      `intent: ${smartApiPlan.intent}`,
+      `query_class: ${queryClass}`,
+      `answer_focus: ${smartApiPlan.answerFocus}`,
+      `answer_scope: ${
+        isSimpleDirectQuestion(args.query, queryClass)
+          ? "simple direct question: answer only the definition or direct fact requested; do not broaden into management unless asked"
+          : "use the question wording to decide the necessary clinical scope"
+      }`,
+      `display_mode: ${smartApiPlan.displayMode}`,
+      `route: ${route.mode} (${route.reason})`,
+      `source_count: ${contextResults.length}`,
+      `source_relevance: ${relevance.label}`,
+    ].join("\n");
     return `Question:
 ${args.query}
 ${clinicalModePrompt(args.queryMode ?? "auto") ? `\nSelected clinical query mode:\n${clinicalModePrompt(args.queryMode ?? "auto")}\n` : ""}
+
+Interpreted clinical task:
+${interpretedTask}
 
 Sources:
 ${crossDocumentContext ? `${crossDocumentContext}\n\n` : ""}
@@ -3976,8 +4103,17 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   const openAIRequestIds: string[] = [];
   let contextPackLatencyMs = 0;
 
-  async function generateWithModel(model: string, contextResults: SearchResult[]): Promise<OpenAITextResult> {
-    const input = buildAnswerInput(contextResults);
+  async function generateWithModel(
+    model: string,
+    contextResults: SearchResult[],
+    qualityRetryInstruction?: string,
+  ): Promise<OpenAITextResult> {
+    const input = qualityRetryInstruction
+      ? `${buildAnswerInput(contextResults)}
+
+Quality retry instruction:
+${qualityRetryInstruction}`
+      : buildAnswerInput(contextResults);
     const generationStartedAt = Date.now();
     try {
       const result = await generateStructuredTextResult(input, answerJsonOutputSchema, {
@@ -3986,7 +4122,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
-        promptCacheKey: "clinical-rag-answer-v7",
+        promptCacheKey: "clinical-rag-answer-v11",
         reasoningEffort:
           model === env.OPENAI_STRONG_ANSWER_MODEL
             ? env.OPENAI_STRONG_REASONING_EFFORT
@@ -4085,14 +4221,36 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     });
     contextPackLatencyMs += Date.now() - contextPackStartedAt;
     let generated = await generateWithModel(route.model!, packedContextResults);
-    let answer = annotateAnswerWithDiagnostics(parseAnswerJson(generated.text, packedContextResults, args.query), retrievalDiagnostics);
-    if (shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults })) {
+    let answer = annotateAnswerWithDiagnostics(
+      parseAnswerJson(generated.text, packedContextResults, args.query),
+      retrievalDiagnostics,
+    );
+    const fastAnswerWasUnsupported = shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
+    const fastAnswerWasUnusable = route.mode === "fast" && isUnusableGeneratedAnswer(answer);
+    const fastAnswerWasTemplateLike = route.mode === "fast" && isTemplateLikeGeneratedAnswer(answer);
+    const fastAnswerWasOverExpanded =
+      route.mode === "fast" && isOverExpandedSimpleGeneratedAnswer(args.query, queryClass, answer);
+    if (fastAnswerWasUnsupported || fastAnswerWasUnusable || fastAnswerWasTemplateLike || fastAnswerWasOverExpanded) {
+      const retryReason = fastAnswerWasUnsupported
+        ? "fast_unsupported_retry_strong"
+        : fastAnswerWasUnusable
+          ? "fast_unusable_retry_strong"
+          : fastAnswerWasTemplateLike
+            ? "fast_template_retry_strong"
+            : "fast_overexpanded_simple_retry_strong";
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
-      routingReason = `${route.reason}; fast_unsupported_retry_strong`;
+      routingReason = `${route.reason}; ${retryReason}`;
       retriedWithStrong = true;
       await args.onProgress?.({
         stage: "retrying",
-        message: "Fast answer was unsupported, retrying with the strong model.",
+        message:
+          retryReason === "fast_unsupported_retry_strong"
+            ? "Fast answer was unsupported, retrying with the strong model."
+            : retryReason === "fast_unusable_retry_strong"
+              ? "Fast answer was not usable, retrying with the strong model."
+              : retryReason === "fast_template_retry_strong"
+                ? "Fast answer was too template-like, retrying with the strong model."
+                : "Fast answer over-expanded a simple question, retrying with the strong model.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -4103,8 +4261,36 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
       });
       contextPackLatencyMs += Date.now() - retryContextPackStartedAt;
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults);
-      answer = annotateAnswerWithDiagnostics(parseAnswerJson(generated.text, packedContextResults, args.query), retrievalDiagnostics);
       retrievalDiagnostics.routeMode = "strong";
+      answer = annotateAnswerWithDiagnostics(
+        parseAnswerJson(generated.text, packedContextResults, args.query),
+        retrievalDiagnostics,
+      );
+    }
+    const answerNeedsStrongQualityRepair =
+      modelUsed === env.OPENAI_STRONG_ANSWER_MODEL &&
+      (isUnusableGeneratedAnswer(answer) ||
+        isTemplateLikeGeneratedAnswer(answer) ||
+        isOverExpandedSimpleGeneratedAnswer(args.query, queryClass, answer));
+    if (answerNeedsStrongQualityRepair) {
+      routingReason = `${routingReason}; strong_quality_retry`;
+      await args.onProgress?.({
+        stage: "retrying",
+        message: "Strong answer failed quality checks, retrying once with stricter synthesis instructions.",
+        mode: "strong",
+        model: env.OPENAI_STRONG_ANSWER_MODEL,
+        reason: routingReason,
+      });
+      generated = await generateWithModel(
+        env.OPENAI_STRONG_ANSWER_MODEL,
+        packedContextResults,
+        "The previous answer failed validation. Return schema-valid output only, with a natural clinical synthesis in the answer field. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.",
+      );
+      retrievalDiagnostics.routeMode = "strong";
+      answer = annotateAnswerWithDiagnostics(
+        parseAnswerJson(generated.text, packedContextResults, args.query),
+        retrievalDiagnostics,
+      );
     }
     await args.onProgress?.({ stage: "finalizing", message: "Checking citations and source metadata." });
 
@@ -4123,24 +4309,24 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
       total_latency_ms: Date.now() - startedAt,
     };
 
-    if (answer.citations.length > 0 && isUnusableGeneratedAnswer(answer)) {
-      answer = buildExtractiveAnswer({
-        query: args.query,
-        queryClass,
-        results: answerInputResults,
-        quoteCards,
-        documentBreakdown,
-        evidenceSummary,
-        sourceCoverage,
-        conflictsOrGaps,
-        visualEvidence,
-        bestSource,
-        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
-        relatedDocuments,
-        routeReason: `${routingReason}; structured_output_fallback`,
-        timings: answerTimings,
-      });
-      answer.modelUsed = modelUsed;
+    answer = simplifySimpleGeneratedAnswer(answer, args.query, queryClass);
+    const generatedAnswerWasUnusable = isUnusableGeneratedAnswer(answer);
+    const generatedAnswerWasTemplateLike = isTemplateLikeGeneratedAnswer(answer);
+    if (generatedAnswerWasUnusable || generatedAnswerWasTemplateLike) {
+      answer = annotateAnswerWithDiagnostics(
+        await buildGenerationFallbackAnswer(
+          new Error(
+            generatedAnswerWasUnusable
+              ? "The answer model returned unusable structured output."
+              : "The answer model returned template-like source inventory wording.",
+          ),
+          relatedDocuments,
+        ),
+        retrievalDiagnostics,
+      );
+      answer.routingReason = `${routingReason}; ${
+        generatedAnswerWasUnusable ? "structured_output_unusable" : "template_output_unusable"
+      }`;
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;
@@ -4171,8 +4357,13 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     answer.relevance = relevance;
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
 
-      if (args.logQuery !== false)
-        await logRagQuery({
+    answer = annotateAnswerWithDiagnostics(answer, {
+      ...retrievalDiagnostics,
+      routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
+    });
+
+    if (args.logQuery !== false)
+      await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: answer.answer,
@@ -4191,7 +4382,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
           fast_model: env.OPENAI_FAST_ANSWER_MODEL,
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,
-          ...smartApiLogMetadata(answer.smartApiPlan),
+          ...(answer.smartApiPlan ? smartApiLogMetadata(answer.smartApiPlan) : {}),
           ...answerRankMetadata,
           ...memoryLogMetadata,
           ...scoreLogMetadata,
@@ -4212,11 +4403,12 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
           rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: generationLatencyMs,
-          total_latency_ms: answer.latencyTimings.total_latency_ms,
+          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
           openai_request_ids: openAIRequestIds,
           openai_usage: answer.openAIUsage ?? null,
           evidence_summary: answer.evidenceSummary,
           source_coverage: answer.sourceCoverage,
+          ...retrievalLogMetadata(answer.retrievalDiagnostics ?? retrievalDiagnostics),
         },
       });
 
@@ -4261,7 +4453,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
-          ...retrievalLogMetadata,
+          ...retrievalLogMetadata(fallbackAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
           related_document_count: relatedDocuments.length,
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,

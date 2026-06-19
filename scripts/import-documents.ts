@@ -12,6 +12,7 @@ import {
   scanImportFiles,
 } from "@/lib/bulk-import";
 import { planDocumentName } from "@/lib/document-naming";
+import { assertSupabaseHealthy, probeSupabaseHealth } from "@/lib/supabase/health";
 
 loadEnvConfig(process.cwd());
 
@@ -116,15 +117,33 @@ async function main() {
   const files = await scanImportFiles(root, args.include, args.limit);
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
   const batchName = args.batchName ?? `Clinical guideline import ${new Date().toISOString().slice(0, 10)}`;
+  const [{ env, requireServerEnv }, supabase] = args.dryRun
+    ? [await import("@/lib/env"), null as SupabaseAdmin | null]
+    : await Promise.all([import("@/lib/env"), loadAdminClient()]);
 
   console.log(`Scanned ${files.length} file(s), ${(totalBytes / 1024 / 1024).toFixed(1)} MB total.`);
 
   if (!files.length) return;
+  if (!args.forceLargeImport) {
+    if (files.length > env.MAX_IMPORT_JOBS_PER_RUN) {
+      throw new Error(
+        `Import wave has ${files.length} file(s), above MAX_IMPORT_JOBS_PER_RUN=${env.MAX_IMPORT_JOBS_PER_RUN}. Re-run with --limit ${env.MAX_IMPORT_JOBS_PER_RUN} or --force-large-import after confirming Supabase health.`,
+      );
+    }
+    if (totalBytes > env.MAX_IMPORT_BYTES_PER_RUN) {
+      throw new Error(
+        `Import wave is ${totalBytes} byte(s), above MAX_IMPORT_BYTES_PER_RUN=${env.MAX_IMPORT_BYTES_PER_RUN}. Split the import or use --force-large-import after confirming Supabase health.`,
+      );
+    }
+  }
+
   if (args.dryRun) {
     let existing = new Map<string, ExistingImportDocument>();
     const dryRunOwnerId = args.ownerId ?? process.env.LOCAL_NO_AUTH_OWNER_ID;
     if (dryRunOwnerId) {
       const supabase = await loadAdminClient();
+      requireServerEnv();
+      assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Import dry-run duplicate check");
       existing = await existingDocumentsByHash(
         supabase,
         dryRunOwnerId,
@@ -132,6 +151,8 @@ async function main() {
       );
     } else if (args.ownerEmail) {
       const supabase = await loadAdminClient();
+      requireServerEnv();
+      assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Import dry-run duplicate check");
       const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
       existing = await existingDocumentsByHash(
         supabase,
@@ -163,7 +184,9 @@ async function main() {
     return;
   }
 
-  const [{ env }, supabase] = await Promise.all([import("@/lib/env"), loadAdminClient()]);
+  requireServerEnv();
+  if (!supabase) throw new Error("Supabase admin client is unavailable.");
+  assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Document import");
   const configuredOwnerId = args.ownerId ?? process.env.LOCAL_NO_AUTH_OWNER_ID;
   if (!configuredOwnerId && !args.ownerEmail && !args.resume) {
     throw new Error("Provide --owner-id, set LOCAL_NO_AUTH_OWNER_ID, or provide --owner-email for a new import batch.");
@@ -192,6 +215,15 @@ async function main() {
     ownerId,
     Array.from(new Set(files.map((file) => file.contentHash))),
   );
+
+  console.log("Pre-loading existing documents for name planning...");
+  const { data: dbDocs, error: dbDocsErr } = await supabase
+    .from("documents")
+    .select("id,title,file_name,content_hash")
+    .eq("owner_id", ownerId)
+    .limit(5000);
+  if (dbDocsErr) throw new Error(dbDocsErr.message);
+  const existingDocsForPlanning = dbDocs || [];
 
   let queued = 0;
   let skipped = 0;
@@ -248,11 +280,11 @@ async function main() {
         const storagePath = buildImportStoragePath(ownerId, documentId, file.fileName);
         const fileType = importMimeType(file.fileName);
         const namePlan = await planDocumentName({
-          supabase: supabase as never,
           ownerId,
           fileName: file.fileName,
           requestedTitle: null,
           contentHash: file.contentHash,
+          existingDocs: existingDocsForPlanning,
         });
         const upload = await supabase.storage
           .from(env.SUPABASE_DOCUMENT_BUCKET)
@@ -313,6 +345,16 @@ async function main() {
         });
         if (jobError) throw new Error(jobError.message);
 
+        existingDocsForPlanning.push({
+          id: documentId,
+          title: namePlan.title,
+          file_name: file.fileName,
+          content_hash: file.contentHash,
+          metadata: {
+            smart_title_group_key: namePlan.duplicateGroupKey,
+          },
+        });
+
         existing.set(file.contentHash, {
           id: documentId,
           storage_path: storagePath,
@@ -360,5 +402,5 @@ async function main() {
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
+  process.exitCode = 1;
 });

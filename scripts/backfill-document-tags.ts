@@ -11,6 +11,7 @@ type BackfillArgs = {
   limit: number;
   write: boolean;
   confirm: boolean;
+  onlyMissing: boolean;
 };
 
 type DocumentRow = {
@@ -18,6 +19,7 @@ type DocumentRow = {
   owner_id: string | null;
   title: string;
   file_name: string;
+  source_path?: string | null;
   status: string;
 };
 
@@ -41,6 +43,7 @@ function parseArgs(argv: string[]): BackfillArgs {
     limit: 100,
     write: false,
     confirm: false,
+    onlyMissing: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -55,6 +58,10 @@ function parseArgs(argv: string[]): BackfillArgs {
     }
     if (token === "--confirm") {
       args.confirm = true;
+      continue;
+    }
+    if (token === "--only-missing") {
+      args.onlyMissing = true;
       continue;
     }
 
@@ -77,7 +84,7 @@ function parseArgs(argv: string[]): BackfillArgs {
 async function loadDocuments(supabase: Awaited<ReturnType<typeof loadAdminClient>>, args: BackfillArgs) {
   let query = supabase
     .from("documents")
-    .select("id,owner_id,title,file_name,status")
+    .select("id,owner_id,title,file_name,source_path,status")
     .eq("status", "indexed")
     .order("created_at", { ascending: true })
     .limit(args.documentId ? 1 : args.limit);
@@ -134,10 +141,27 @@ function cleanGeneratedLabels(labels: DocumentLabel[]) {
   return { cleaned: [...cleaned.values()], dropped };
 }
 
-function planDocument(document: DocumentRow, labels: DocumentLabel[]) {
+function planDocument(
+  document: DocumentRow,
+  labels: DocumentLabel[],
+  inferLabels: (
+    document: Pick<DocumentRow, "title" | "file_name" | "source_path">,
+  ) => Array<Pick<CleanGeneratedLabel, "label" | "label_type" | "confidence">>,
+) {
   const generated = labels.filter((label) => label.source === "generated");
   const manualCount = labels.filter((label) => label.source === "manual").length;
   const { cleaned, dropped } = cleanGeneratedLabels(labels);
+  if (generated.length === 0) {
+    cleaned.push(
+      ...inferLabels(document).map((label) => ({
+        label: label.label,
+        label_type: label.label_type,
+        confidence: label.confidence,
+        sourceLabelIds: [],
+        examples: [label.label],
+      })),
+    );
+  }
   const currentKeys = generated
     .map((label) => `${label.label_type}:${label.label}:${Math.round(label.confidence * 1000)}`)
     .sort();
@@ -224,7 +248,7 @@ function printPlan(plans: Array<ReturnType<typeof planDocument>>, write: boolean
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const { ragEnrichmentVersion } = await import("@/lib/document-enrichment");
+  const { inferLabels, ragEnrichmentVersion } = await import("@/lib/document-enrichment");
   const supabase = await loadAdminClient();
   const documents = await loadDocuments(supabase, args);
   const labels = await loadLabels(
@@ -234,7 +258,9 @@ async function main() {
   const labelsByDocument = new Map<string, DocumentLabel[]>();
   for (const label of labels)
     labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
-  const plans = documents.map((document) => planDocument(document, labelsByDocument.get(document.id) ?? []));
+  const plans = documents
+    .map((document) => planDocument(document, labelsByDocument.get(document.id) ?? [], inferLabels))
+    .filter((plan) => !args.onlyMissing || plan.generatedCount === 0);
 
   printPlan(plans, args.write);
   if (!args.write) return;

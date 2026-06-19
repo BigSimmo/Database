@@ -56,6 +56,12 @@ describe("bulk import helpers", () => {
     expect(args.queueBatchSize).toBe(10);
   });
 
+  it("parses explicit large import override", () => {
+    const args = parseImportCliArgs(["--path", "D:\\Clinical PDFs", "--force-large-import"]);
+
+    expect(args.forceLargeImport).toBe(true);
+  });
+
   it("rejects invalid queue batch sizes", () => {
     expect(() => parseImportCliArgs(["--path", "D:\\Clinical PDFs", "--queue-batch-size", "0"])).toThrow(
       "--queue-batch-size must be a positive integer.",

@@ -23,6 +23,8 @@ const extractiveQuestionPattern =
   /\b(what|when|where|which|who|list|include|includes|required|requirements|process|procedure|steps|monitoring|summary|summarise|summarize|show|tell)\b/i;
 const extractiveBlockPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|risk\w*|suicid\w*|toxicity|myocarditis|neutropenia|urgent|escalat\w*|withhold|cease|stop|dose|dosing|prescrib\w*|recommend\w*|decide|decision)\b/i;
+const broadManagementSynthesisPattern =
+  /\b(?:management|manage|managed|treatment|treat|therapy|care|approach|pathway)\s+(?:of|for|in)\b|\bhow\s+(?:is|are|should)\b.{0,80}\b(?:managed|treated)\b/i;
 const queryStopWords = new Set([
   "what",
   "when",
@@ -118,8 +120,9 @@ export function shouldUseExtractiveAnswer(args: {
   const singleDocumentStrongMatch =
     documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
 
+  if (queryClass === "broad_summary" || broadManagementSynthesisPattern.test(args.query)) return false;
   if (documents > 1 && comparisonQueryPattern.test(args.query)) return false;
-  if (queryClass === "comparison" || queryClass === "broad_summary") return false;
+  if (queryClass === "comparison") return false;
   if (extractiveBlockPattern.test(args.query) && !directTitleSupport) return false;
   if (!extractiveQuestionPattern.test(args.query) && !directTitleSupport) return false;
 
@@ -232,6 +235,16 @@ export function chooseAnswerRoute(args: {
   const crossDocumentIntent = routineCrossDocumentPattern.test(args.query) || queryClass === "broad_summary";
   const actionableConflictOrGap = hasActionableConflictOrGap(args.conflictsOrGaps);
 
+  if (queryClass === "broad_summary" && broadManagementSynthesisPattern.test(args.query)) {
+    return {
+      mode: "strong",
+      model: args.strongModel,
+      reason: "broad_clinical_management_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
   if (
     documents > 1 &&
     (queryClass === "comparison" || comparisonQueryPattern.test(args.query)) &&
@@ -273,22 +286,6 @@ export function chooseAnswerRoute(args: {
       mode: "strong",
       model: args.strongModel,
       reason: "multi_document_comparison_synthesis",
-      strongestScore,
-      documentCount: documents,
-    };
-  }
-
-  if (shouldUseExtractiveAnswer({ ...args, queryClass })) {
-    const reason =
-      queryClass === "table_threshold"
-        ? "table_or_threshold_source_extractive"
-        : queryClass === "document_lookup"
-          ? "document_lookup_source_extractive"
-          : "high_confidence_source_extractive";
-    return {
-      mode: "extractive",
-      model: null,
-      reason,
       strongestScore,
       documentCount: documents,
     };

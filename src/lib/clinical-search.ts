@@ -118,11 +118,33 @@ const textSearchStopWords = new Set([
 ]);
 
 const synonymGroups = [
-  ["monitor", "monitoring", "monitoring plan", "monitoring schedule", "baseline", "review", "follow-up", "blood test", "level"],
+  [
+    "monitor",
+    "monitoring",
+    "monitoring plan",
+    "monitoring schedule",
+    "baseline",
+    "review",
+    "follow-up",
+    "blood test",
+    "level",
+  ],
   ["contraindication", "avoid", "do not use", "caution", "exclusion"],
   ["escalation", "urgent", "senior review", "specialist review", "red flag"],
   ["adverse effect", "side effect", "toxicity", "safety-net", "warning"],
-  ["dose", "dosage", "dosing", "dose limit", "maximum dose", "frequency", "route", "oral", "intramuscular", "IM", "PRN"],
+  [
+    "dose",
+    "dosage",
+    "dosing",
+    "dose limit",
+    "maximum dose",
+    "frequency",
+    "route",
+    "oral",
+    "intramuscular",
+    "IM",
+    "PRN",
+  ],
   ["threshold", "cutoff", "cut off", "level", "range", "criteria", "withhold", "cease", "stop"],
   ["documentation", "document", "record", "form", "checklist", "required", "requirement"],
 ];
@@ -256,7 +278,7 @@ const documentIncludePattern =
 const explicitDocumentLookupPattern =
   /\b(?:find|search|lookup|open|show|where)\b.{0,80}\b(?:document|file|pdf|protocol|guideline|procedure|page|section|form|table)\b|\bwhich\s+document\b/i;
 const broadSummaryPattern =
-  /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b/i;
+  /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b|\b(?:management|manage|managed|treatment|treat|therapy|care|approach|pathway)\s+(?:of|for|in)\b|\bhow\s+(?:is|are|should)\b.{0,80}\b(?:managed|treated)\b/i;
 const explicitDocumentTitleNoisePattern =
   /\b(?:newly uploaded|future|not uploaded|2027|airport|travel policy|gardening|equipment|checklist)\b/i;
 const outsideCorpusMedicalPattern =
@@ -592,6 +614,32 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
   );
 }
 
+export function hasStructuredThresholdEvidence(result: SearchResult) {
+  const fieldType = result.match_explanation?.fieldType ?? null;
+  const unitType = result.index_unit?.unit_type ?? result.match_explanation?.indexUnitType ?? null;
+  const tableFacts = result.table_facts ?? [];
+  const images = result.images ?? [];
+  const haystack = `${result.section_heading ?? ""} ${result.content} ${tableFacts
+    .map(
+      (fact) =>
+        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
+    )
+    .join(" ")} ${images
+    .map((image) => `${image.tableTitle ?? ""} ${image.tableTextSnippet ?? ""} ${image.caption ?? ""}`)
+    .join(" ")}`.toLowerCase();
+
+  return (
+    tableFacts.length > 0 ||
+    fieldType === "threshold_fact" ||
+    fieldType === "table_row" ||
+    unitType === "table_fact" ||
+    images.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop") ||
+    /\b(?:threshold|cut[\s-]?off|withhold|cease|stop|maximum|minimum|range|criteria|anc|fbc|neutrophil|white cell|level)\b/i.test(
+      haystack,
+    )
+  );
+}
+
 function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string | null) {
   if (!sectionHeading || !querySignal.sectionedLookup) return 0;
   if (/(protocol|procedure|pathway|workflow|algorithm|escalat|risk|monitor)/i.test(sectionHeading)) return 0.035;
@@ -799,6 +847,45 @@ function documentMetadataBoost(query: string, result: SearchResult, normalizedTo
   );
 }
 
+function queryClassAssetBoost(args: { queryClass: RagQueryClass; normalizedQuery: string; result: SearchResult }) {
+  const fieldType = args.result.match_explanation?.fieldType ?? null;
+  const unitType = args.result.index_unit?.unit_type ?? args.result.match_explanation?.indexUnitType ?? null;
+  const tableFactCount = args.result.table_facts?.length ?? 0;
+  const hasClinicalImage = (args.result.images ?? []).some((image) => isClinicalImageEvidence(image));
+  const summaryHit = Boolean(args.result.document_summary);
+  const titleOrSummaryField = fieldType === "document_title" || fieldType === "document_summary";
+  const monitoringIntent = /\b(?:monitor|monitoring|baseline|review|follow.?up|blood|level|fbc|anc)\b/i.test(
+    args.normalizedQuery,
+  );
+  const cautionIntent = /\b(?:caution|avoid|contraindicat|toxicity|side effect|adverse|withhold|cease|stop)\b/i.test(
+    args.normalizedQuery,
+  );
+  const escalationIntent = /\b(?:escalat|urgent|senior|red flag|crisis|rapid|specialist)\b/i.test(args.normalizedQuery);
+  const documentationIntent = /\b(?:document|documentation|form|checklist|record|required|requirement)\b/i.test(
+    args.normalizedQuery,
+  );
+
+  let score = 0;
+  if (args.queryClass === "document_lookup" && fieldType === "document_title") score += 0.075;
+  if ((args.queryClass === "document_lookup" || args.queryClass === "broad_summary") && titleOrSummaryField)
+    score += 0.045;
+  if (args.queryClass === "comparison" && (fieldType === "document_summary" || unitType === "section_summary"))
+    score += 0.045;
+  if ((args.queryClass === "table_threshold" || args.queryClass === "medication_dose_risk") && tableFactCount > 0)
+    score += 0.075;
+  if (args.queryClass === "table_threshold" && (fieldType === "threshold_fact" || unitType === "table_fact"))
+    score += 0.085;
+  if (args.queryClass === "medication_dose_risk" && fieldType === "clinical_action") score += 0.055;
+  if (monitoringIntent && (fieldType === "threshold_fact" || fieldType === "table_row" || tableFactCount > 0))
+    score += 0.045;
+  if (cautionIntent && (fieldType === "clinical_action" || fieldType === "threshold_fact")) score += 0.05;
+  if (escalationIntent && (fieldType === "clinical_action" || unitType === "clinical_fact")) score += 0.055;
+  if (documentationIntent && (fieldType === "section_context" || unitType === "section_summary" || summaryHit))
+    score += 0.035;
+  if (hasClinicalImage && fieldType === "image_caption" && args.queryClass === "table_threshold") score += 0.04;
+  return Math.min(0.16, score);
+}
+
 export function normalizedClinicalSearchTokens(query: string) {
   const baseTokens = correctedTokens(query);
   return baseTokens
@@ -948,6 +1035,11 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
       : 0;
   const sectionDepth = sectionDepthSignal(querySignal, result.section_heading);
   const metadataBoost = documentMetadataBoost(query, result, normalizedTokens);
+  const assetBoost = queryClassAssetBoost({
+    queryClass,
+    normalizedQuery: analysis.normalizedQuery,
+    result,
+  });
   const tableThresholdBoost =
     queryClass === "table_threshold" &&
     /(threshold|cut[\s-]?off|withhold|cease|stop|anc|fbc|table|chart|criteria|level|range|monitor)/i.test(haystack)
@@ -1036,7 +1128,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     directAnswerBoost +
     comparisonCoverageBoost +
     sectionDepth +
-    indexUnitBoost;
+    indexUnitBoost +
+    assetBoost;
   const penalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
   const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty;
 

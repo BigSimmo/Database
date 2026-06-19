@@ -164,7 +164,11 @@ export function DocumentManagementActions({
             : "The original file name and storage path will stay unchanged."
         }
       >
-        {error && <div className={cn("mb-4 rounded-lg border p-3 text-sm font-semibold", toneDanger)}>{error}</div>}
+        {error && (
+          <div role="alert" className={cn("mb-4 rounded-lg border p-3 text-sm font-semibold", toneDanger)}>
+            {error}
+          </div>
+        )}
 
         {mode === "delete" ? (
           <form onSubmit={submitDelete} className="space-y-4">

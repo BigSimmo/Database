@@ -6,6 +6,7 @@ import {
   clinicalRankExplanation,
   expandClinicalQuery,
   hasDoseEvidenceSupport,
+  hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "../src/lib/clinical-search";
@@ -50,6 +51,7 @@ describe("clinical search query normalization", () => {
       classifyRagQuery("Combine community admission steps with discharge documentation requirements.").queryClass,
     ).toBe("comparison");
     expect(classifyRagQuery("Summarize the discharge guidance").queryClass).toBe("broad_summary");
+    expect(classifyRagQuery("management of bulimia nervosa").queryClass).toBe("broad_summary");
     expect(classifyRagQuery("What is the diabetic ketoacidosis insulin protocol?").queryClass).toBe(
       "unsupported_or_general",
     );
@@ -483,28 +485,101 @@ describe("clinical search query normalization", () => {
   });
 
   it("treats structured table facts as dose and threshold evidence", () => {
+    const tableResult = result({
+      content: "Administrative table text.",
+      table_facts: [
+        {
+          id: "fact-1",
+          document_id: "doc-1",
+          source_chunk_id: "chunk-1",
+          source_image_id: "image-1",
+          page_number: 2,
+          table_title: "Medication dose table",
+          row_label: "Lorazepam",
+          clinical_parameter: "Route",
+          threshold_value: "1 mg IM",
+          action: "Review before repeat PRN dose.",
+          match_reason: "table_threshold",
+        },
+      ],
+    });
+
+    expect(hasDoseEvidenceSupport(tableResult)).toBe(true);
+    expect(hasStructuredThresholdEvidence(tableResult)).toBe(true);
+  });
+
+  it("detects structured threshold support from index units and table images", () => {
     expect(
-      hasDoseEvidenceSupport(
+      hasStructuredThresholdEvidence(
         result({
-          content: "Administrative table text.",
-          table_facts: [
-            {
-              id: "fact-1",
-              document_id: "doc-1",
-              source_chunk_id: "chunk-1",
-              source_image_id: "image-1",
-              page_number: 2,
-              table_title: "Medication dose table",
-              row_label: "Lorazepam",
-              clinical_parameter: "Route",
-              threshold_value: "1 mg IM",
-              action: "Review before repeat PRN dose.",
-              match_reason: "table_threshold",
-            },
-          ],
+          content: "General clinical note.",
+          match_explanation: { fieldType: "threshold_fact", reasons: ["threshold_fact"] },
         }),
       ),
     ).toBe(true);
+
+    expect(
+      hasStructuredThresholdEvidence(
+        result({
+          content: "General clinical note.",
+          index_unit: {
+            id: "unit-1",
+            unit_type: "table_fact",
+            title: "Threshold table",
+            content: "ANC threshold and action",
+            source_chunk_id: "chunk-1",
+            source_image_id: null,
+            page_start: 2,
+            page_end: 2,
+            heading_path: ["Monitoring"],
+            normalized_terms: ["anc", "threshold"],
+            quality_score: 0.9,
+            extraction_mode: "hybrid",
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("boosts query-class matching embedding fields for threshold evidence", () => {
+    const ranked = rankClinicalResults("What ANC threshold should withhold clozapine?", [
+      result({
+        id: "generic-clozapine",
+        title: "Clozapine Monitoring",
+        content: "Clozapine monitoring is discussed in this document.",
+        hybrid_score: 0.68,
+      }),
+      result({
+        id: "threshold-field",
+        title: "Clozapine Monitoring",
+        content: "ANC thresholds are listed with actions for withholding clozapine.",
+        hybrid_score: 0.62,
+        match_explanation: {
+          fieldType: "threshold_fact",
+          tableHit: true,
+          reasons: ["threshold_fact"],
+        },
+        table_facts: [
+          {
+            id: "fact-threshold",
+            document_id: "doc-1",
+            source_chunk_id: "threshold-field",
+            source_image_id: null,
+            page_number: 4,
+            table_title: "ANC thresholds",
+            row_label: "ANC",
+            clinical_parameter: "ANC",
+            threshold_value: "Below threshold",
+            action: "Withhold clozapine.",
+          },
+        ],
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("threshold-field");
+    expect(ranked[0].score_explanation?.clinicalSignalBoost).toBeGreaterThan(
+      ranked[1].score_explanation?.clinicalSignalBoost ?? 0,
+    );
   });
 });
 

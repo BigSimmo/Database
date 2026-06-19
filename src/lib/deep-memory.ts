@@ -469,11 +469,62 @@ function embeddingText(card: BuiltMemoryCard) {
 }
 
 async function stampDeepMemoryVersion(args: { supabase: SupabaseClient; documentId: string }) {
-  const { error } = await args.supabase.rpc("stamp_document_deep_memory_version", {
-    p_document_id: args.documentId,
-    p_version: ragDeepMemoryVersion,
+  const stampedAt = new Date().toISOString();
+
+  const { data: doc, error: fetchError } = await args.supabase
+    .from("documents")
+    .select("metadata")
+    .eq("id", args.documentId)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+
+  const docMetadata = metadataRecord(doc?.metadata);
+  const { error: docError } = await args.supabase
+    .from("documents")
+    .update({
+      metadata: {
+        ...docMetadata,
+        rag_indexing_version: ragDeepMemoryVersion,
+        rag_memory_version: ragDeepMemoryVersion,
+        rag_memory_updated_at: stampedAt,
+      },
+    })
+    .eq("id", args.documentId);
+  if (docError) throw new Error(docError.message);
+
+  const { data: chunks, error: chunksError } = await args.supabase
+    .from("document_chunks")
+    .select("id,metadata")
+    .eq("document_id", args.documentId);
+  if (chunksError) throw new Error(chunksError.message);
+
+  const chunksToUpdate = (chunks ?? []).filter((chunk) => {
+    const record = metadataRecord(chunk.metadata);
+    return record.rag_memory_version !== ragDeepMemoryVersion && record.rag_indexing_version !== ragDeepMemoryVersion;
   });
-  if (error) throw new Error(error.message);
+
+  if (chunksToUpdate.length > 0) {
+    const limit = 5;
+    for (let start = 0; start < chunksToUpdate.length; start += limit) {
+      const batch = chunksToUpdate.slice(start, start + limit);
+      await Promise.all(
+        batch.map(async (chunk) => {
+          const { error } = await args.supabase
+            .from("document_chunks")
+            .update({
+              metadata: {
+                ...metadataRecord(chunk.metadata),
+                rag_indexing_version: ragDeepMemoryVersion,
+                rag_memory_version: ragDeepMemoryVersion,
+                rag_memory_updated_at: stampedAt,
+              },
+            })
+            .eq("id", chunk.id);
+          if (error) throw new Error(error.message);
+        })
+      );
+    }
+  }
 }
 
 export async function upsertDocumentDeepMemory(args: {
@@ -521,8 +572,8 @@ export async function upsertDocumentDeepMemory(args: {
   const embeddings = await embedTexts(cards.map(embeddingText));
   if (embeddings.length !== cards.length) throw new Error("OpenAI returned an unexpected memory-card embedding count.");
 
-  for (let start = 0; start < cards.length; start += 100) {
-    const batch = cards.slice(start, start + 100).map((card, index) => {
+  for (let start = 0; start < cards.length; start += 10) {
+    const batch = cards.slice(start, start + 10).map((card, index) => {
       const { section_index: sectionIndex, ...row } = card;
       return {
         ...row,
@@ -543,8 +594,8 @@ export async function upsertDocumentDeepMemory(args: {
   });
   if (indexUnits.length > 0) {
     const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));
-    for (let start = 0; start < indexUnits.length; start += 100) {
-      const batch = indexUnits.slice(start, start + 100).map((unit, index) => ({
+    for (let start = 0; start < indexUnits.length; start += 10) {
+      const batch = indexUnits.slice(start, start + 10).map((unit, index) => ({
         ...unit,
         embedding: indexUnitEmbeddings[start + index],
       }));

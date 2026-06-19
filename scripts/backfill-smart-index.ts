@@ -173,6 +173,8 @@ async function repairChunkIndexingMetadata(args: {
       ? documentMetadata.index_generation_id
       : randomUUID();
 
+  const chunksToUpdate: { chunk: Record<string, unknown>; contentHash: string; sectionPath: string[]; anchorId: string; metadata: Record<string, unknown> }[] = [];
+
   for (const chunk of args.chunks) {
     const sectionPath = chunkSectionPath(chunk);
     const anchorId = chunkAnchorId(chunk);
@@ -180,27 +182,61 @@ async function repairChunkIndexingMetadata(args: {
       typeof chunk.content_hash === "string" && chunk.content_hash
         ? chunk.content_hash
         : hashText(`${chunk.section_heading ?? ""}\n${chunk.content ?? ""}`);
-    const metadata = {
-      ...metadataRecord(chunk.metadata),
-      content_hash: contentHash,
-      index_generation_id: generationId,
-      section_path: sectionPath,
-      anchor_id: anchorId,
-      rag_indexing_version: args.ragDeepMemoryVersion,
-      rag_memory_version: args.ragDeepMemoryVersion,
-    };
-    const { error } = await writable
-      .from("document_chunks")
-      .update({
+    
+    const chunkMetadata = metadataRecord(chunk.metadata);
+    const needsUpdate =
+      chunk.content_hash !== contentHash ||
+      chunk.index_generation_id !== generationId ||
+      chunk.anchor_id !== anchorId ||
+      chunkMetadata.rag_indexing_version !== args.ragDeepMemoryVersion ||
+      chunkMetadata.rag_memory_version !== args.ragDeepMemoryVersion ||
+      !Array.isArray(chunk.section_path) ||
+      chunk.section_path.length !== sectionPath.length ||
+      !chunk.section_path.every((val, i) => val === sectionPath[i]);
+
+    if (needsUpdate) {
+      const metadata = {
+        ...chunkMetadata,
         content_hash: contentHash,
         index_generation_id: generationId,
         section_path: sectionPath,
         anchor_id: anchorId,
+        rag_indexing_version: args.ragDeepMemoryVersion,
+        rag_memory_version: args.ragDeepMemoryVersion,
+      };
+      chunksToUpdate.push({
+        chunk,
+        contentHash,
+        sectionPath,
+        anchorId,
         metadata,
-      })
-      .eq("id", chunk.id);
-    if (error) throw new Error(error.message);
+      });
+    }
   }
+
+  if (chunksToUpdate.length > 0) {
+    console.log(`Updating ${chunksToUpdate.length} / ${args.chunks.length} chunks that need repair...`);
+    const limit = 5;
+    for (let start = 0; start < chunksToUpdate.length; start += limit) {
+      const batch = chunksToUpdate.slice(start, start + limit);
+      await Promise.all(
+        batch.map(async (item) => {
+          const { error } = await writable
+            .from("document_chunks")
+            .update({
+              content_hash: item.contentHash,
+              index_generation_id: generationId,
+              section_path: item.sectionPath,
+              anchor_id: item.anchorId,
+              metadata: item.metadata,
+            })
+            .eq("id", item.chunk.id);
+          if (error) throw new Error(error.message);
+        })
+      );
+    }
+  }
+
   return generationId;
 }
 

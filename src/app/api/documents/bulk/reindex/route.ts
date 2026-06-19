@@ -7,11 +7,12 @@ import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
 const bulkReindexSchema = z.object({
-  documentIds: z.array(z.string().uuid()).min(1).max(100),
+  documentIds: z.array(z.string().uuid()).min(1).max(10),
   mode: z.enum(["enrichment", "full", "retry_failed"]).default("enrichment"),
 });
 
@@ -77,6 +78,9 @@ export async function POST(request: Request) {
     if (documentError) throw new Error(documentError.message);
     if (!documents?.length) return NextResponse.json({ error: "No selected documents were found." }, { status: 404 });
 
+    const health = await probeSupabaseHealth(supabase);
+    if (!health.ok) return NextResponse.json({ error: `Bulk reindex is paused. ${health.message}` }, { status: 503 });
+
     const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
 
     for (const document of documents) {
@@ -123,6 +127,22 @@ export async function POST(request: Request) {
             mode: parsed.data.mode,
             ok: true,
             jobId: `${enrichment.labels.length}:${memory.memoryCards.length}:${memory.indexUnits.length}`,
+          });
+          continue;
+        }
+
+        const { count: activeJobCount, error: activeJobError } = await supabase
+          .from("ingestion_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("document_id", document.id)
+          .in("status", ["pending", "processing"]);
+        if (activeJobError) throw new Error(activeJobError.message);
+        if ((activeJobCount ?? 0) > 0) {
+          results.push({
+            documentId: document.id,
+            mode: parsed.data.mode,
+            ok: false,
+            error: "Document already has pending or processing indexing work.",
           });
           continue;
         }

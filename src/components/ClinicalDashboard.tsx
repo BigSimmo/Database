@@ -65,6 +65,7 @@ import {
   panelSubtle,
   premiumHeaderSurface,
   primaryControl,
+  proseMeasure,
   raisedCard,
   shellChip,
   SourceProvenance,
@@ -104,6 +105,7 @@ import {
 } from "@/lib/answer-formatting";
 import {
   clinicalProseUsefulness,
+  sourceTextForCompactDisplay,
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
 } from "@/lib/source-text-sanitizer";
@@ -181,6 +183,10 @@ const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const setupRecheckPollMs = 60_000;
 const indexingWorkDetailsPollMs = 15_000;
+const mobileSheetMediaQuery = "(max-width: 639px)";
+const stagedDashboardExtraction = {
+  answerSurface: true,
+} as const;
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
 type SetupCheck = {
@@ -858,6 +864,7 @@ function MasterSearchHeader({
   const compactMobile = hasAnswer;
   const [scopeFilter, setScopeFilter] = useState("");
   const [scopeOpen, setScopeOpen] = useState(false);
+  const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const scopeSummaryRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -915,8 +922,8 @@ function MasterSearchHeader({
   }, []);
 
   useEffect(() => {
-    onScopeOpenChange?.(scopeOpen);
-  }, [onScopeOpenChange, scopeOpen]);
+    onScopeOpenChange?.(scopeOpen || scopeSheetOpen);
+  }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
 
   useEffect(() => {
     const details = scopeDetailsRef.current;
@@ -1207,6 +1214,16 @@ function MasterSearchHeader({
                 Demo
               </span>
             )}
+            <Link
+              href="/tools"
+              aria-label="Open clinical tools"
+              title="Open clinical tools"
+              className="group relative grid h-[44px] w-[44px] shrink-0 place-items-center overflow-hidden rounded-lg border border-cyan-100/20 bg-cyan-100/[0.08] text-cyan-50 shadow-[inset_0_1px_0_rgb(255_255_255_/_12%),var(--shadow-tight)] transition hover:-translate-y-0.5 hover:border-cyan-100/35 hover:bg-cyan-100/[0.13] hover:text-white"
+            >
+              <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/70 to-transparent" />
+              <Sparkles className="relative h-4.5 w-4.5" />
+              <span className="sr-only">Clinical tools</span>
+            </Link>
             <button
               type="button"
               onClick={onOpenGuide}
@@ -1396,41 +1413,72 @@ function MasterSearchHeader({
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             <span className="sr-only sm:not-sr-only">{submitLabel}</span>
           </button>
-          <details
-            ref={scopeDetailsRef}
-            onToggle={(event) => {
-              const open = event.currentTarget.open;
-              setScopeOpen(open);
-              if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
-            }}
-            className="group relative"
-          >
-            <summary
-              ref={scopeSummaryRef}
-              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
+          <>
+            <button
+              type="button"
+              data-testid="scope-trigger"
+              onClick={() => setScopeSheetOpen(true)}
+              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:hidden"
               aria-label="Open document scope"
-              aria-expanded={scopeOpen}
+              aria-expanded={scopeSheetOpen}
             >
               <Filter className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only">Scope</span>
+              <span className="sr-only">Scope</span>
               {selectedDocumentIds.length ? (
                 <span className="rounded-md bg-teal-200/15 px-1.5 py-0.5 text-[10px] font-bold text-teal-50">
                   {selectedDocumentIds.length}
                 </span>
               ) : null}
-            </summary>
-            <div
-              aria-hidden
-              className="pointer-events-none fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm motion-safe:animate-overlay-in sm:hidden"
-            />
-            <div
-              data-testid="scope-command-popover"
-              className="polished-scroll fixed inset-x-0 bottom-0 z-50 max-h-[82dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-3 pb-safe text-[color:var(--text)] shadow-[var(--shadow-elevated)] motion-safe:animate-sheet-up sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-[calc(100%+0.5rem)] sm:z-40 sm:max-h-[min(70dvh,28rem)] sm:w-[28rem] sm:rounded-xl sm:p-2.5 sm:pb-2.5 sm:backdrop-blur-xl sm:motion-safe:animate-pop-in"
+            </button>
+
+            <details
+              ref={scopeDetailsRef}
+              onToggle={(event) => {
+                const open = event.currentTarget.open;
+                setScopeOpen(open);
+                if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
+              }}
+              className="group relative hidden sm:block"
             >
+              <summary
+                ref={scopeSummaryRef}
+                data-testid="scope-trigger"
+                className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
+                aria-label="Toggle document scope"
+                aria-expanded={scopeOpen}
+              >
+                <Filter className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Scope</span>
+                {selectedDocumentIds.length ? (
+                  <span className="rounded-md bg-teal-200/15 px-1.5 py-0.5 text-[10px] font-bold text-teal-50">
+                    {selectedDocumentIds.length}
+                  </span>
+                ) : null}
+              </summary>
               <div
-                className="mx-auto mb-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)] sm:hidden"
-                aria-hidden
-              />
+                data-testid="scope-command-popover"
+                className="polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(70dvh,28rem)] w-[28rem] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
+              >
+                <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                  <span>Document scope</span>
+                  <span className="nums">{scopeSummary}</span>
+                </div>
+                {scopePreview ? (
+                  <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+                ) : null}
+                {renderScopeRows()}
+              </div>
+            </details>
+
+            <Sheet
+              open={scopeSheetOpen}
+              onClose={() => setScopeSheetOpen(false)}
+              title="Document scope"
+              description="Choose documents and filters for the next search."
+              closeLabel="Close document scope"
+              initialFocusRef={scopeFilterInputRef}
+              contentClassName="sm:hidden"
+            >
               <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
                 <span>Document scope</span>
                 <span className="nums">{scopeSummary}</span>
@@ -1439,8 +1487,8 @@ function MasterSearchHeader({
                 <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
               ) : null}
               {renderScopeRows()}
-            </div>
-          </details>
+            </Sheet>
+          </>
         </form>
       </div>
     </header>
@@ -1770,7 +1818,7 @@ function NaturalLanguageAnswer({ text }: { text: string }) {
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-base leading-[1.7] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 motion-safe:animate-fade-up sm:px-4 sm:py-4"
+      className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-base leading-[1.7] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 sm:px-4 sm:py-4"
     >
       <div className="mb-2 min-w-0">
         <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Bottom line</h3>
@@ -1960,11 +2008,12 @@ function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
         )}
       >
         {line ? <AnswerSymbolTile line={line} /> : null}
-        <p className="min-w-0 font-medium text-[color:var(--text-heading)]">
+        <div className="min-w-0 space-y-1 font-medium text-[color:var(--text-heading)]">
           {line ? <AnswerLineLabel line={line} /> : null}
-          {line?.displayLabel ? " " : null}
-          <SafeBoldText text={line?.text ?? "No usable answer text for this result."} />
-        </p>
+          <p className="min-w-0 break-words [overflow-wrap:anywhere]">
+            <SafeBoldText text={line?.text ?? "No usable answer text for this result."} />
+          </p>
+        </div>
       </div>
     );
   }
@@ -1975,7 +2024,7 @@ function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
       : content.mode === "comparison" || content.mode === "comparison_matrix"
         ? "grid gap-2.5 md:grid-cols-2"
         : content.mode === "threshold_table"
-          ? "grid gap-2.5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]"
+          ? "grid gap-2.5 md:grid-cols-2"
           : "space-y-2.5";
 
   return (
@@ -1989,10 +2038,11 @@ function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
           )}
         >
           <AnswerSymbolTile line={line} />
-          <span className="min-w-0 font-medium text-[color:var(--text)]">
+          <span className="min-w-0 space-y-1 font-medium text-[color:var(--text)]">
             <AnswerLineLabel line={line} />
-            {line.displayLabel ? " " : null}
-            <SafeBoldText text={line.text} />
+            <span className="block min-w-0 break-words [overflow-wrap:anywhere]">
+              <SafeBoldText text={line.text} />
+            </span>
           </span>
         </li>
       ))}
@@ -2284,7 +2334,7 @@ function EvidenceSummaryCard({
                 page {bestSource.page_number ?? "n/a"} · {sourceStrength} support
               </p>
             </div>
-            <span className={subtleStatusPill}>
+            <span className={cn(subtleStatusPill, "nums")}>
               {Math.round(Math.max(0, Math.min(1, bestSource.score)) * 100)}% match
             </span>
           </div>
@@ -2727,7 +2777,7 @@ function QuoteCards({
                 <span className={cn(iconTilePremium, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>{index + 1}</span>
                 <StrengthBadge strength={quote.source_strength} />
               </div>
-              <blockquote className="text-[15px] font-medium leading-6 text-[color:var(--text)]">
+              <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
                 &ldquo;{quote.quote}&rdquo;
               </blockquote>
               <div
@@ -3110,7 +3160,7 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">{source.title}</p>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                <p className={cn("nums mt-1 text-xs leading-5", textMuted)}>
                   page {source.page_number ?? "n/a"} · chunk {source.chunk_index}
                 </p>
               </div>
@@ -3592,7 +3642,7 @@ function DocumentSearchResultsPanel({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className={cn(metadataPill, "inline-flex min-h-8 w-fit max-w-full flex-wrap gap-x-1.5 leading-5")}>
+        <div className={cn(metadataPill, "nums inline-flex min-h-8 w-fit max-w-full flex-wrap gap-x-1.5 leading-5")}>
           {matches.length} document match{matches.length === 1 ? "" : "es"} for &quot;{query.trim()}&quot;
         </div>
         {relevance ? <RelevanceBadge relevance={relevance} /> : null}
@@ -3693,6 +3743,7 @@ function normalizeDisplayText(value: string) {
 type DisplayTextSanitizeOptions = {
   minLength?: number;
   minTokens?: number;
+  compactSource?: boolean;
 };
 
 function looksLikeDisplayArtifact(value: string) {
@@ -3708,7 +3759,9 @@ function looksLikeDisplayArtifact(value: string) {
 }
 
 function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = normalizeDisplayText(sourceTextForClinicalProse(value));
+  const normalized = normalizeDisplayText(
+    options.compactSource ? sourceTextForCompactDisplay(value) : sourceTextForClinicalProse(value),
+  );
   if (!normalized) return "";
   const artifactStart = normalized.search(
     /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,
@@ -3722,6 +3775,66 @@ function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions 
   if (tokenCount < minTokens) return "";
   if (!/[A-Za-z]{2,}/.test(trimmed)) return "";
   return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
+}
+
+function truncateWords(value: string, maxWords: number) {
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return value;
+  return `${words.slice(0, maxWords).join(" ")}...`;
+}
+
+function sourceSnippetKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\b(?:page|chunk|source|citation|document|file)\b\s*[:#=-]?\s*[\w.-]+/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .slice(0, 160);
+}
+
+function compactSourceSnippet(value: string) {
+  const normalized = sanitizeDisplayText(value, { minLength: 10, minTokens: 2, compactSource: true });
+  if (!normalized) return "";
+  const fragments = normalized
+    .replace(
+      /\b(?:source excerpt|relevant excerpt|source text|table text|clinical table|image caption|caption)\s*[:=-]\s*/gi,
+      " ",
+    )
+    .match(/[^.!?]+[.!?]?/g) ?? [normalized];
+  const seen = new Set<string>();
+  const selected: string[] = [];
+
+  for (const fragment of fragments) {
+    const cleaned = fragment.replace(/\s+/g, " ").trim();
+    if (!cleaned || cleaned.length < 10) continue;
+    if (/^(?:source|citation|document|file|filename|chunk|page|image|provenance)\b/i.test(cleaned)) continue;
+    const key = sourceSnippetKey(cleaned);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    selected.push(cleaned);
+    if (selected.length >= 4) break;
+  }
+
+  return truncateWords((selected.length ? selected : [normalized]).join(" "), 90);
+}
+
+function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[number]) {
+  const fields = [
+    { label: "Table", value: fact.table_title },
+    { label: "Row", value: fact.row_label },
+    { label: "Threshold", value: fact.threshold_value },
+    { label: "Action", value: fact.action },
+  ];
+  const seen = new Set<string>();
+  const cleanedFields = fields.flatMap((field) => {
+    const value = sanitizeDisplayText(String(field.value ?? ""), { minLength: 2, minTokens: 1, compactSource: true });
+    const key = sourceSnippetKey(value);
+    if (!value || !key || seen.has(key)) return [];
+    seen.add(key);
+    return [{ ...field, value: truncateWords(value, 28) }];
+  });
+
+  return cleanedFields.length ? { id: fact.id, fields: cleanedFields } : null;
 }
 
 function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
@@ -3772,19 +3885,19 @@ function SourceList({
       {sources.map((source) => (
         <article key={source.id} className={cn(sourceCard, "overflow-hidden p-0")}>
           {(() => {
-            const snippet = sanitizeDisplayText(source.content);
-            const fallback = "No usable snippet text for this passage.";
+            const snippet = compactSourceSnippet(source.content);
+            const fallback = "No high-yield excerpt available for this passage.";
             const sourceTitle = source.title.replace(/^Synthetic /, "").replace(/\.pdf$/i, "");
             const fileBase = source.file_name.replace(/\.pdf$/i, "").toLowerCase();
             const titleBase = sourceTitle.toLowerCase();
             const showFileName = fileBase !== titleBase && !fileBase.startsWith(titleBase);
-            const sourceMeta = [
-              showFileName ? source.file_name : null,
-              `page ${source.page_number ?? "n/a"}`,
-              `chunk ${source.chunk_index}`,
-            ]
+            const sourceMeta = [showFileName ? source.file_name : null, `page ${source.page_number ?? "n/a"}`]
               .filter(Boolean)
               .join(" · ");
+            const tableFacts = (source.table_facts ?? [])
+              .slice(0, 3)
+              .map(compactTableFact)
+              .filter((fact): fact is NonNullable<ReturnType<typeof compactTableFact>> => Boolean(fact));
 
             return (
               <>
@@ -3797,12 +3910,10 @@ function SourceList({
                     >
                       {sourceTitle}
                     </Link>
-                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>{sourceMeta}</p>
+                    {sourceMeta ? <p className={cn("mt-1 text-xs leading-5", textMuted)}>{sourceMeta}</p> : null}
                     <SourceProvenance metadata={source.source_metadata} />
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <QueryCoverageChips relevance={source.relevance} />
-                      <span className={metadataPill}>Page {source.page_number ?? "n/a"}</span>
-                      <span className={metadataPill}>Chunk {source.chunk_index}</span>
                     </div>
                     <MatchExplanationChips source={source} />
                   </div>
@@ -3835,27 +3946,37 @@ function SourceList({
                     <span className="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--primary)] ring-1 ring-[color:var(--primary)]/20">
                       <Quote className="h-4 w-4" />
                     </span>
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">Excerpt</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
+                      Relevant excerpt
+                    </p>
                   </div>
-                  <p className="border-l-4 border-[color:var(--primary)] pl-3">
+                  <p
+                    className={cn(
+                      proseMeasure,
+                      "border-l-4 border-[color:var(--primary)] pl-3 break-words [overflow-wrap:anywhere]",
+                    )}
+                  >
                     {snippet ? <SafeBoldText text={snippet} /> : <span className="italic">{fallback}</span>}
                   </p>
                 </blockquote>
-                {source.table_facts?.length ? (
+                {tableFacts.length ? (
                   <div className="border-t border-[color:var(--border)] px-3 py-3 sm:px-4">
                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                       Structured table matches
                     </p>
-                    <div className="mt-2 grid gap-2">
-                      {source.table_facts.slice(0, 3).map((fact) => (
-                        <div
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {tableFacts.map((fact) => (
+                        <dl
                           key={fact.id}
-                          className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs leading-5 text-[color:var(--text)]"
+                          className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs leading-5 text-[color:var(--text)]"
                         >
-                          <span className="font-semibold">{fact.table_title ?? fact.row_label ?? "Table row"}</span>
-                          {fact.threshold_value ? ` · ${fact.threshold_value}` : ""}
-                          {fact.action ? ` · ${fact.action}` : ""}
-                        </div>
+                          {fact.fields.map((field) => (
+                            <div key={`${fact.id}:${field.label}`} className="grid gap-0.5">
+                              <dt className={cn("font-bold uppercase tracking-[0.06em]", textMuted)}>{field.label}</dt>
+                              <dd className="break-words [overflow-wrap:anywhere]">{field.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
                       ))}
                     </div>
                   </div>
@@ -3892,6 +4013,207 @@ function AnswerSkeleton() {
         <div className="h-28 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
         <div className="hidden h-28 animate-pulse rounded-lg bg-[color:var(--surface-subtle)] sm:block" />
       </div>
+    </div>
+  );
+}
+
+function StagedAnswerResultSurface({
+  answer,
+  query,
+  safeAnswerText,
+  bestSource,
+  currentRelevance,
+  queryMode,
+  sourceGovernanceWarnings,
+  sourceSummary,
+  weakEvidence,
+  groupedGovernanceWarningCount,
+  answerViewMode,
+  onAnswerViewModeChange,
+  onQueryModeChange,
+  answerEvidenceMapRows,
+  onLimitToLocalCurrent,
+  onScopeDocument,
+  onShowQuotes,
+  onTryBroaderSearch,
+  answerGrounded,
+  sources,
+  gaps,
+  searchScope,
+  demoMode,
+  safeAnswerSections,
+  evalAction,
+  evalStatus,
+  canUsePrivateApis,
+  onSaveAnswerEval,
+  safetyFindings,
+}: {
+  answer: RagAnswer;
+  query: string;
+  safeAnswerText: string;
+  bestSource: BestSourceRecommendation | null;
+  currentRelevance: EvidenceRelevance | null | undefined;
+  queryMode: ClinicalQueryMode;
+  sourceGovernanceWarnings: SourceGovernanceWarning[];
+  sourceSummary?: EvidenceSummary;
+  weakEvidence: boolean;
+  groupedGovernanceWarningCount: number;
+  answerViewMode: AnswerViewMode;
+  onAnswerViewModeChange: (mode: AnswerViewMode) => void;
+  onQueryModeChange: (mode: ClinicalQueryMode) => void;
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  onLimitToLocalCurrent: () => void;
+  onScopeDocument: (documentId: string) => void;
+  onShowQuotes: () => void;
+  onTryBroaderSearch: () => void;
+  answerGrounded: boolean;
+  sources: SearchResult[];
+  gaps: ConflictOrGap[];
+  searchScope: SearchScopeSummary | null;
+  demoMode: boolean;
+  safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
+  evalAction: "good" | "needs_fixing" | null;
+  evalStatus: string | null;
+  canUsePrivateApis: boolean;
+  onSaveAnswerEval: (rating: "good" | "needs_fixing") => void;
+  safetyFindings: ReturnType<typeof extractSafetyFindings>;
+}) {
+  return (
+    <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
+      <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
+        <NaturalLanguageAnswer text={safeAnswerText || answer.answer} />
+        <AnswerInsightBar
+          answer={answer}
+          bestSource={bestSource}
+          relevance={currentRelevance}
+          queryMode={queryMode}
+          sourceGovernanceWarnings={sourceGovernanceWarnings}
+        />
+        <EvidenceVerificationStrip
+          answer={answer}
+          bestSource={bestSource}
+          sourceSummary={sourceSummary}
+          weakEvidence={weakEvidence}
+          governanceWarningCount={groupedGovernanceWarningCount}
+        />
+
+        <ClinicalOutputPanel
+          answer={answer}
+          showLead={false}
+          viewMode={answerViewMode}
+          onViewModeChange={onAnswerViewModeChange}
+          evidenceMapRows={answerEvidenceMapRows}
+        />
+        <SmartFollowUpChips
+          answer={answer}
+          bestSource={bestSource}
+          weakEvidence={weakEvidence}
+          onViewModeChange={onAnswerViewModeChange}
+          onQueryModeChange={onQueryModeChange}
+          onLimitToLocalCurrent={onLimitToLocalCurrent}
+          onScopeDocument={onScopeDocument}
+          onShowQuotes={onShowQuotes}
+          onTryBroaderSearch={onTryBroaderSearch}
+        />
+
+        <UtilityDrawer
+          icon={Target}
+          title="Evidence & sources"
+          summary={evidenceDrawerSummary({ answer, bestSource, sourceSummary, gaps })}
+          mobileSummary="Evidence"
+        >
+          <div className="space-y-3">
+            <EvidenceSummaryCard
+              answer={answer}
+              bestSource={bestSource}
+              grounded={answerGrounded}
+              relevance={currentRelevance}
+              sourceSummary={sourceSummary}
+              weakEvidence={weakEvidence}
+              sources={sources}
+              gaps={gaps}
+              onScopeDocument={onScopeDocument}
+              supporting
+            />
+            <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+            <AnswerSafetyNotice
+              demoMode={demoMode}
+              weakEvidence={weakEvidence}
+              retrievalDiagnostics={answer.retrievalDiagnostics}
+            />
+            <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
+            <WhyThisMatchedPanel sources={sources} />
+          </div>
+        </UtilityDrawer>
+
+        <UtilityDrawer
+          icon={CheckCircle2}
+          title="Quality feedback"
+          summary="Save this answer as an eval case for later regression testing."
+          mobileSummary="Eval case"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className={cn("text-sm leading-6", textMuted)}>Record this answer for future regression checks.</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!canUsePrivateApis || Boolean(evalAction)}
+                onClick={() => onSaveAnswerEval("good")}
+                className={cn(floatingControl, "px-3 text-xs")}
+              >
+                {evalAction === "good" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Good eval
+              </button>
+              <button
+                type="button"
+                disabled={!canUsePrivateApis || Boolean(evalAction)}
+                onClick={() => onSaveAnswerEval("needs_fixing")}
+                className={cn(floatingControl, "px-3 text-xs")}
+              >
+                {evalAction === "needs_fixing" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                Needs fixing
+              </button>
+            </div>
+            {evalStatus ? (
+              <p className="basis-full text-xs font-semibold text-[color:var(--text-muted)]">{evalStatus}</p>
+            ) : null}
+          </div>
+        </UtilityDrawer>
+
+        <details data-testid="raw-answer-narrative" className={cn("group", panelSubtle)}>
+          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className={cn(iconTilePremium, "h-8 w-8")}>
+                <FileText className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[color:var(--text)]">Source narrative</span>
+                <span className={cn("block truncate text-xs", textMuted)}>
+                  Secondary source-linked answer text and section citations
+                </span>
+              </span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-[color:var(--border)] p-3 sm:p-4">
+            <SourceLinkedAnswer
+              sections={safeAnswerSections}
+              fallbackText={safeAnswerText}
+              responseMode={answer.responseMode}
+            />
+          </div>
+        </details>
+      </div>
+
+      <SafetyFindingsPanel findings={safetyFindings} />
     </div>
   );
 }
@@ -4125,7 +4447,7 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "text-[11px]")}>
+              <span className={cn(metadataPill, "nums text-[11px]")}>
                 index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
               </span>
             </div>
@@ -4992,20 +5314,37 @@ function UtilityDrawer({
   className?: string;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const [usesSheet, setUsesSheet] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (controlledOpen === undefined) setUncontrolledOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(mobileSheetMediaQuery);
+    const sync = () => setUsesSheet(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, []);
 
   return (
-    <details
-      id={id}
-      open={open}
-      onToggle={(event) => {
-        const nextOpen = event.currentTarget.open;
-        setUncontrolledOpen(nextOpen);
-        onOpenChange?.(nextOpen);
-      }}
-      className={cn("group", panelSubtle, className)}
-    >
-      <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]">
+    <>
+      <button
+        type="button"
+        id={id ? `${id}-mobile-trigger` : undefined}
+        onClick={() => setOpen(true)}
+        aria-expanded={usesSheet ? open : undefined}
+        className={cn(
+          "group flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)] sm:hidden",
+          panelSubtle,
+          className,
+        )}
+      >
         <span className="flex min-w-0 items-center gap-3">
           <span className={iconTilePremium}>
             <Icon className="h-4 w-4" />
@@ -5013,17 +5352,47 @@ function UtilityDrawer({
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[color:var(--text)]">{title}</span>
             {(mobileSummary || summary) && (
-              <span className={cn("mt-0.5 block truncate text-xs sm:hidden", textMuted)}>
-                {mobileSummary ?? summary}
-              </span>
+              <span className={cn("mt-0.5 block truncate text-xs", textMuted)}>{mobileSummary ?? summary}</span>
             )}
-            {summary && <span className={cn("mt-0.5 hidden truncate text-xs sm:block", textMuted)}>{summary}</span>}
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180" />
-      </summary>
-      {open && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
-    </details>
+        <ChevronDown className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-150" />
+      </button>
+
+      <details
+        id={id}
+        open={open && !usesSheet}
+        onToggle={(event) => {
+          const nextOpen = event.currentTarget.open;
+          if (nextOpen !== open) setOpen(nextOpen);
+        }}
+        className={cn("group hidden sm:block", panelSubtle, className)}
+      >
+        <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className={iconTilePremium}>
+              <Icon className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-[color:var(--text)]">{title}</span>
+              {summary && <span className={cn("mt-0.5 block truncate text-xs", textMuted)}>{summary}</span>}
+            </span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180" />
+        </summary>
+        {open && !usesSheet && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
+      </details>
+
+      <Sheet
+        open={usesSheet && open}
+        onClose={() => setOpen(false)}
+        title={title}
+        description={mobileSummary ?? summary}
+        closeLabel={`Close ${title}`}
+      >
+        <div className="space-y-3">{children}</div>
+      </Sheet>
+    </>
   );
 }
 
@@ -5238,8 +5607,8 @@ function MobileSectionFab({
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--primary)]/25 bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[0_18px_38px_rgb(14_143_133_/_22%),var(--shadow-tight)] ring-1 ring-white/30 transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--primary-strong)] active:translate-y-px dark:ring-white/10",
-          open && "bg-[color:var(--primary-strong)] shadow-[0_14px_30px_rgb(14_143_133_/_20%),var(--shadow-tight)]",
+          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--primary)]/25 bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[var(--glow-soft)] ring-1 ring-white/30 transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--primary-strong)] active:translate-y-px dark:ring-white/10",
+          open && "bg-[color:var(--primary-strong)] shadow-[var(--glow-primary)]",
         )}
         style={{
           right: "max(0.75rem, env(safe-area-inset-right))",
@@ -5567,6 +5936,7 @@ export function ClinicalDashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -5943,7 +6313,12 @@ export function ClinicalDashboard() {
       setDocumentMatches((current) => current.filter((document) => document.document_id !== result.documentId));
       setAnswer((current) => (answerReferencesDocument(current, result.documentId) ? null : current));
       if (result.storageWarnings.length > 0) {
-        setError(`Document deleted, but storage cleanup needs review: ${result.storageWarnings.join("; ")}`);
+        setActionNotice({
+          tone: "warning",
+          message: `Document deleted. Storage cleanup needs review: ${result.storageWarnings.join("; ")}`,
+        });
+      } else {
+        setActionNotice({ tone: "success", message: "Document deleted." });
       }
       void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false }).catch(
         () => undefined,
@@ -5951,6 +6326,12 @@ export function ClinicalDashboard() {
     },
     [refresh],
   );
+
+  useEffect(() => {
+    if (actionNotice?.tone !== "success") return undefined;
+    const timer = window.setTimeout(() => setActionNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [actionNotice]);
 
   const activeIndexingWork = useMemo(
     () => hasActiveIndexingWork(documents, jobs, batches, indexingActive),
@@ -6524,18 +6905,28 @@ export function ClinicalDashboard() {
   }
 
   async function copyText(action: string, text: string) {
+    let copied = false;
     try {
       await navigator.clipboard.writeText(text);
+      copied = true;
     } catch {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.setAttribute("readonly", "");
-      textArea.style.position = "fixed";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.setAttribute("readonly", "");
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+      } catch {
+        copied = false;
+      }
+    }
+    if (!copied) {
+      setError("Couldn't copy to the clipboard. Select the text and copy it manually.");
+      return;
     }
     setCopiedAction(action);
     window.setTimeout(() => setCopiedAction((current) => (current === action ? null : current)), 1800);
@@ -6731,11 +7122,32 @@ export function ClinicalDashboard() {
       />
 
       <main
+        id="main-content"
         ref={mainRef}
+        tabIndex={-1}
         onScroll={scheduleActiveSectionSync}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none"
       >
         <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-6 max-[768px]:!pb-28 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-8 lg:px-8">
+          {actionNotice && (
+            <div
+              role="status"
+              className={cn(
+                "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
+                actionNotice.tone === "success" ? toneSuccess : toneWarning,
+              )}
+            >
+              <span className="min-w-0">{actionNotice.message}</span>
+              <button
+                type="button"
+                onClick={() => setActionNotice(null)}
+                aria-label="Dismiss notification"
+                className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {showDegradedNotice && renderDegradedNotice()}
           {showAuthPanel && <AuthPanel />}
           {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
@@ -6799,148 +7211,39 @@ export function ClinicalDashboard() {
               ) : loading && !answer ? (
                 <AnswerSkeleton />
               ) : answer ? (
-                <div className="min-w-0 space-y-4 sm:space-y-5">
-                  <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-                    <NaturalLanguageAnswer text={safeAnswerText || answer.answer} />
-                    <AnswerInsightBar
-                      answer={answer}
-                      bestSource={bestSource}
-                      relevance={currentRelevance}
-                      queryMode={queryMode}
-                      sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    />
-                    <EvidenceVerificationStrip
-                      answer={answer}
-                      bestSource={bestSource}
-                      sourceSummary={sourceSummary}
-                      weakEvidence={weakEvidence}
-                      governanceWarningCount={groupedGovernanceWarningCount}
-                    />
-
-                    <ClinicalOutputPanel
-                      answer={answer}
-                      showLead={false}
-                      viewMode={answerViewMode}
-                      onViewModeChange={setAnswerViewMode}
-                      evidenceMapRows={answerEvidenceMapRows}
-                    />
-                    <SmartFollowUpChips
-                      answer={answer}
-                      bestSource={bestSource}
-                      weakEvidence={weakEvidence}
-                      onViewModeChange={setAnswerViewMode}
-                      onQueryModeChange={setQueryMode}
-                      onLimitToLocalCurrent={limitToLocalCurrentSources}
-                      onScopeDocument={scopeOnlyDocument}
-                      onShowQuotes={() => navigateMobileSection("#quotes")}
-                      onTryBroaderSearch={tryBroaderAnswerSearch}
-                    />
-
-                    <UtilityDrawer
-                      icon={Target}
-                      title="Evidence & sources"
-                      summary={evidenceDrawerSummary({ answer, bestSource, sourceSummary, gaps })}
-                      mobileSummary="Evidence"
-                    >
-                      <div className="space-y-3">
-                        <EvidenceSummaryCard
-                          answer={answer}
-                          bestSource={bestSource}
-                          grounded={answerGrounded}
-                          relevance={currentRelevance}
-                          sourceSummary={sourceSummary}
-                          weakEvidence={weakEvidence}
-                          sources={sources}
-                          gaps={gaps}
-                          onScopeDocument={scopeOnlyDocument}
-                          supporting
-                        />
-                        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                        <AnswerSafetyNotice
-                          demoMode={demoMode}
-                          weakEvidence={weakEvidence}
-                          retrievalDiagnostics={answer?.retrievalDiagnostics}
-                        />
-                        <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
-                        <WhyThisMatchedPanel sources={sources} />
-                      </div>
-                    </UtilityDrawer>
-
-                    <UtilityDrawer
-                      icon={CheckCircle2}
-                      title="Quality feedback"
-                      summary="Save this answer as an eval case for later regression testing."
-                      mobileSummary="Eval case"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className={cn("text-sm leading-6", textMuted)}>
-                          Record this answer for future regression checks.
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={!canUsePrivateApis || Boolean(evalAction)}
-                            onClick={() => saveAnswerEval("good")}
-                            className={cn(floatingControl, "px-3 text-xs")}
-                          >
-                            {evalAction === "good" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="h-4 w-4" />
-                            )}
-                            Good eval
-                          </button>
-                          <button
-                            type="button"
-                            disabled={!canUsePrivateApis || Boolean(evalAction)}
-                            onClick={() => saveAnswerEval("needs_fixing")}
-                            className={cn(floatingControl, "px-3 text-xs")}
-                          >
-                            {evalAction === "needs_fixing" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4" />
-                            )}
-                            Needs fixing
-                          </button>
-                        </div>
-                        {evalStatus ? (
-                          <p className="basis-full text-xs font-semibold text-[color:var(--text-muted)]">
-                            {evalStatus}
-                          </p>
-                        ) : null}
-                      </div>
-                    </UtilityDrawer>
-
-                    <details data-testid="raw-answer-narrative" className={cn("group", panelSubtle)}>
-                      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className={cn(iconTilePremium, "h-8 w-8")}>
-                            <FileText className="h-4 w-4" />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block text-sm font-semibold text-[color:var(--text)]">
-                              Source narrative
-                            </span>
-                            <span className={cn("block truncate text-xs", textMuted)}>
-                              Secondary source-linked answer text and section citations
-                            </span>
-                          </span>
-                        </span>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-                      </summary>
-                      <div className="border-t border-[color:var(--border)] p-3 sm:p-4">
-                        <SourceLinkedAnswer
-                          sections={safeAnswerSections}
-                          fallbackText={safeAnswerText}
-                          responseMode={answer.responseMode}
-                        />
-                      </div>
-                    </details>
-                  </div>
-
-                  <SafetyFindingsPanel findings={safetyFindings} />
-                </div>
+                stagedDashboardExtraction.answerSurface ? (
+                  <StagedAnswerResultSurface
+                    answer={answer}
+                    query={query}
+                    safeAnswerText={safeAnswerText}
+                    bestSource={bestSource}
+                    currentRelevance={currentRelevance}
+                    queryMode={queryMode}
+                    sourceGovernanceWarnings={sourceGovernanceWarnings}
+                    sourceSummary={sourceSummary}
+                    weakEvidence={weakEvidence}
+                    groupedGovernanceWarningCount={groupedGovernanceWarningCount}
+                    answerViewMode={answerViewMode}
+                    onAnswerViewModeChange={setAnswerViewMode}
+                    onQueryModeChange={setQueryMode}
+                    answerEvidenceMapRows={answerEvidenceMapRows}
+                    onLimitToLocalCurrent={limitToLocalCurrentSources}
+                    onScopeDocument={scopeOnlyDocument}
+                    onShowQuotes={() => navigateMobileSection("#quotes")}
+                    onTryBroaderSearch={tryBroaderAnswerSearch}
+                    answerGrounded={answerGrounded}
+                    sources={sources}
+                    gaps={gaps}
+                    searchScope={searchScope}
+                    demoMode={demoMode}
+                    safeAnswerSections={safeAnswerSections}
+                    evalAction={evalAction}
+                    evalStatus={evalStatus}
+                    canUsePrivateApis={canUsePrivateApis}
+                    onSaveAnswerEval={saveAnswerEval}
+                    safetyFindings={safetyFindings}
+                  />
+                ) : null
               ) : (
                 <AnswerEmptyState
                   onPickSample={setQuery}

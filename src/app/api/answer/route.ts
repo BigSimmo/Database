@@ -21,6 +21,7 @@ const answerSchema = z.object({
   documentIds: z.array(z.string().uuid()).max(25).optional(),
   filters: searchScopeFiltersSchema.optional(),
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
+  skipCache: z.boolean().optional().default(false),
 });
 
 export async function POST(request: Request) {
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
         : (scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
       ownerId: user.id,
       queryMode: body.queryMode,
+      skipCache: body.skipCache,
     });
     return NextResponse.json({
       ...answer,

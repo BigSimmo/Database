@@ -69,21 +69,51 @@ function missingSchemaMessage(error: { message: string } | Error | null | undefi
     : "";
 }
 
+function readableReadinessError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/<!doctype html|<html[\s>]/i.test(message)) {
+    const title = message.match(/<title>\s*([^<]+)\s*<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
+    const code = message.match(/\b5\d\d\b/)?.[0];
+    return `Supabase readiness query failed with an HTML gateway response${
+      title ? ` (${title})` : code ? ` (${code})` : ""
+    }. Retry once the Supabase project is responding normally.`;
+  }
+  if (/fetch failed|ECONNRESET|ETIMEDOUT|Connection timed out|network/i.test(message)) {
+    return `Supabase readiness query failed due to a network timeout: ${message.slice(0, 240)}`;
+  }
+  return message;
+}
+
 async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[]) {
   const summaries: MetadataRow[] = [];
   const labels: MetadataRow[] = [];
 
-  for (let start = 0; start < documentIds.length; start += 100) {
-    const ids = documentIds.slice(start, start + 100);
+  for (let start = 0; start < documentIds.length; start += 5) {
+    const ids = documentIds.slice(start, start + 5);
     const [summaryResult, labelResult] = await Promise.all([
-      supabase.from("document_summaries").select("document_id,metadata").in("document_id", ids),
-      supabase.from("document_labels").select("document_id,source,metadata").in("document_id", ids),
+      supabase.from("document_summaries")
+        .select("document_id,metadata->rag_enrichment_version")
+        .in("document_id", ids),
+      supabase.from("document_labels")
+        .select("document_id,source,metadata->rag_enrichment_version")
+        .in("document_id", ids),
     ]);
 
     if (summaryResult.error) throw new Error(summaryResult.error.message);
     if (labelResult.error) throw new Error(labelResult.error.message);
-    summaries.push(...((summaryResult.data ?? []) as MetadataRow[]));
-    labels.push(...((labelResult.data ?? []) as MetadataRow[]));
+
+    const mappedSummaries = (summaryResult.data ?? []).map((row: any) => ({
+      document_id: row.document_id,
+      metadata: { rag_enrichment_version: row.rag_enrichment_version }
+    }));
+    const mappedLabels = (labelResult.data ?? []).map((row: any) => ({
+      document_id: row.document_id,
+      source: row.source,
+      metadata: { rag_enrichment_version: row.rag_enrichment_version }
+    }));
+
+    summaries.push(...(mappedSummaries as MetadataRow[]));
+    labels.push(...(mappedLabels as MetadataRow[]));
   }
 
   return { summaries, labels };
@@ -91,8 +121,8 @@ async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[])
 
 async function loadRowsForDocuments(supabase: SupabaseLike, table: string, select: string, documentIds: string[]) {
   const rows: MetadataRow[] = [];
-  for (let start = 0; start < documentIds.length; start += 100) {
-    const ids = documentIds.slice(start, start + 100);
+  for (let start = 0; start < documentIds.length; start += 5) {
+    const ids = documentIds.slice(start, start + 5);
     for (let rangeStart = 0; ; rangeStart += 1000) {
       const { data, error } = await supabase
         .from(table)
@@ -100,7 +130,23 @@ async function loadRowsForDocuments(supabase: SupabaseLike, table: string, selec
         .in("document_id", ids)
         .range(rangeStart, rangeStart + 999);
       if (error) throw new Error(error.message);
-      rows.push(...((data ?? []) as MetadataRow[]));
+
+      const mapped = (data ?? []).map((row: any) => {
+        if ("rag_memory_version" in row || "rag_indexing_version" in row || "rag_enrichment_version" in row) {
+          const { rag_memory_version, rag_indexing_version, rag_enrichment_version, ...rest } = row;
+          return {
+            ...rest,
+            metadata: {
+              rag_memory_version,
+              rag_indexing_version,
+              rag_enrichment_version,
+            }
+          };
+        }
+        return row;
+      });
+
+      rows.push(...(mapped as MetadataRow[]));
       if (!data || data.length < 1000) break;
     }
   }
@@ -108,23 +154,51 @@ async function loadRowsForDocuments(supabase: SupabaseLike, table: string, selec
 }
 
 async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[]) {
-  const [sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows] = await Promise.all([
-    loadRowsForDocuments(supabase, "document_sections", "document_id,metadata", documentIds),
-    loadRowsForDocuments(supabase, "document_memory_cards", "document_id,metadata", documentIds),
-    loadRowsForDocuments(
-      supabase,
-      "document_chunks",
-      "document_id,metadata,content_hash,index_generation_id,section_path,anchor_id",
-      documentIds,
-    ),
-    loadRowsForDocuments(supabase, "document_table_facts", "document_id,metadata", documentIds),
-    loadRowsForDocuments(supabase, "document_embedding_fields", "document_id,metadata", documentIds),
-    loadRowsForDocuments(supabase, "document_index_quality", "document_id,quality_score,issues", documentIds),
-  ]);
+  const sections = await loadRowsForDocuments(
+    supabase, 
+    "document_sections", 
+    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version", 
+    documentIds
+  );
+  const memoryCards = await loadRowsForDocuments(
+    supabase, 
+    "document_memory_cards", 
+    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version", 
+    documentIds
+  );
+  const chunks = await loadRowsForDocuments(
+    supabase,
+    "document_chunks",
+    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version,content_hash,index_generation_id,section_path,anchor_id",
+    documentIds,
+  );
+  const tableFacts = await loadRowsForDocuments(
+    supabase, 
+    "document_table_facts", 
+    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version", 
+    documentIds
+  );
+  const embeddingFields = await loadRowsForDocuments(
+    supabase, 
+    "document_embedding_fields", 
+    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version", 
+    documentIds
+  );
+  const qualityRows = await loadRowsForDocuments(
+    supabase, 
+    "document_index_quality", 
+    "document_id,quality_score,issues", 
+    documentIds
+  );
   let indexUnits: MetadataRow[] = [];
   const missingSchema: string[] = [];
   try {
-    indexUnits = await loadRowsForDocuments(supabase, "document_index_units", "document_id,metadata", documentIds);
+    indexUnits = await loadRowsForDocuments(
+      supabase, 
+      "document_index_units", 
+      "document_id,metadata->rag_memory_version,metadata->rag_indexing_version", 
+      documentIds
+    );
   } catch (error) {
     const message = missingSchemaMessage(error instanceof Error ? error : null);
     if (!message) throw error;
@@ -137,12 +211,14 @@ async function main() {
   const [
     { env, requireOpenAIEnv, requireServerEnv },
     { createAdminClient },
+    { assertSupabaseHealthy, probeSupabaseHealth },
     { checkPythonPdfPrerequisites },
     { ragEnrichmentVersion },
     { ragDeepMemoryVersion },
   ] = await Promise.all([
     import("@/lib/env"),
     import("@/lib/supabase/admin"),
+    import("@/lib/supabase/health"),
     import("../worker/prerequisites"),
     import("@/lib/document-enrichment"),
     import("@/lib/deep-memory"),
@@ -157,6 +233,7 @@ async function main() {
   }
 
   const supabase = createAdminClient();
+  assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Indexing check");
   const { error: batchError } = await supabase.from("import_batches").select("id").limit(1);
   if (batchError) throw new Error(batchError.message);
   const { error: jobError } = await supabase.from("ingestion_jobs").select("id,attempt_count,max_attempts").limit(1);
@@ -283,35 +360,25 @@ async function main() {
   });
   const requireCurrentEnrichmentVersion = strictEnrichmentVersionRequired();
 
-  const [
-    missingEmbeddingResult,
-    failedJobsResult,
-    activeJobsResult,
-    imageCountResult,
-    searchableImageResult,
-    oversizedBatchesResult,
-    cleanupIssuesResult,
-  ] = await Promise.all([
-    supabase.from("document_chunks").select("id", { count: "exact", head: true }).is("embedding", null),
-    supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
-    supabase
+  const missingEmbeddingResult = await supabase.from("document_chunks").select("id", { count: "exact", head: true }).is("embedding", null);
+  const failedJobsResult = await supabase.from("ingestion_jobs").select("id,documents!inner(status,chunk_count)").eq("status", "failed");
+  const activeJobsResult = await supabase
       .from("ingestion_jobs")
       .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "processing"]),
-    supabase.from("document_images").select("id", { count: "exact", head: true }),
-    supabase.from("document_images").select("id", { count: "exact", head: true }).eq("searchable", true),
-    supabase
+      .in("status", ["pending", "processing"]);
+  const imageCountResult = await supabase.from("document_images").select("id", { count: "exact", head: true });
+  const searchableImageResult = await supabase.from("document_images").select("id", { count: "exact", head: true }).eq("searchable", true);
+  const oversizedBatchesResult = await supabase
       .from("import_batches")
       .select("id,name,total_files,status")
       .gt("total_files", 150)
-      .in("status", ["queued", "processing"]),
-    supabase
+      .in("status", ["queued", "processing"]);
+  const cleanupIssuesResult = await supabase
       .from("storage_cleanup_jobs")
       .select("id,status,last_error")
       .in("status", ["pending", "failed"])
       .order("created_at", { ascending: true })
-      .limit(5),
-  ]);
+      .limit(5);
 
   for (const result of [
     missingEmbeddingResult,
@@ -324,6 +391,10 @@ async function main() {
   ]) {
     if (result.error) throw new Error(result.error.message);
   }
+  const actionableFailedJobs = (failedJobsResult.data ?? []).filter((job) => {
+    const document = Array.isArray(job.documents) ? job.documents[0] : job.documents;
+    return document?.status !== "indexed" || Number(document?.chunk_count ?? 0) === 0;
+  });
 
   const issues: string[] = [];
   if (schemaHealthError) {
@@ -371,7 +442,7 @@ async function main() {
   if (requireCurrentEnrichmentVersion && documentsMissingCurrentDeepMemoryVersion > 0) {
     issues.push(`indexed documents missing current deep-memory version: ${documentsMissingCurrentDeepMemoryVersion}`);
   }
-  if ((failedJobsResult.count ?? 0) > 0) issues.push(`failed ingestion jobs: ${failedJobsResult.count}`);
+  if (actionableFailedJobs.length > 0) issues.push(`actionable failed ingestion jobs: ${actionableFailedJobs.length}`);
   if ((oversizedBatchesResult.data ?? []).length > 0) {
     issues.push(`active oversized import batches: ${(oversizedBatchesResult.data ?? []).length}`);
   }
@@ -414,7 +485,9 @@ async function main() {
   );
   console.log(`Duplicate content-hash groups: ${duplicateGroups.length}`);
   console.log(`Chunks missing embeddings: ${missingEmbeddingResult.count ?? 0}`);
-  console.log(`Failed jobs: ${failedJobsResult.count ?? 0}; pending/processing jobs: ${activeJobsResult.count ?? 0}`);
+  console.log(
+    `Failed jobs: ${(failedJobsResult.data ?? []).length}; actionable failed: ${actionableFailedJobs.length}; pending/processing jobs: ${activeJobsResult.count ?? 0}`,
+  );
   console.log(`Images: ${imageCountResult.count ?? 0}; searchable: ${searchableImageResult.count ?? 0}`);
   console.log(`Active oversized batches: ${(oversizedBatchesResult.data ?? []).length}`);
   console.log(`Pending/failed storage cleanup jobs: ${(cleanupIssuesResult.data ?? []).length}`);
@@ -425,6 +498,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
+  console.error(readableReadinessError(error));
+  process.exitCode = 1;
 });

@@ -5,6 +5,7 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
+    const health = await probeSupabaseHealth(supabase);
+    if (!health.ok) return NextResponse.json({ error: `Reindex is paused. ${health.message}` }, { status: 503 });
+
     if (mode === "enrichment") {
       const [chunks, images] = await Promise.all([
         selectReindexRowsInPages<ReindexChunk>({
@@ -127,6 +131,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           indexUnitCount: deepMemory.indexUnits.length,
         },
       });
+    }
+
+    const { count: activeJobCount, error: activeJobError } = await supabase
+      .from("ingestion_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("document_id", id)
+      .in("status", ["pending", "processing"]);
+    if (activeJobError) throw new Error(activeJobError.message);
+    if ((activeJobCount ?? 0) > 0) {
+      return NextResponse.json({ error: "Document already has pending or processing indexing work." }, { status: 409 });
     }
 
     const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: id });

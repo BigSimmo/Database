@@ -66,9 +66,16 @@ async function main() {
     .limit(args.limit);
   if (ownerId) documentQuery = documentQuery.eq("owner_id", ownerId);
   if (args.document) {
-    documentQuery = documentQuery.or(
-      `id.eq.${args.document},file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
-    );
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.document);
+    if (isUuid) {
+      documentQuery = documentQuery.or(
+        `id.eq.${args.document},file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
+      );
+    } else {
+      documentQuery = documentQuery.or(
+        `file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
+      );
+    }
   }
 
   const { data: documents, error: documentsError } = await documentQuery;
@@ -79,16 +86,29 @@ async function main() {
     return;
   }
 
-  const [imagesResult, pagesResult] = await Promise.all([
-    supabase
-      .from("document_images")
-      .select("document_id,source_kind,searchable,image_type,clinical_relevance_score,metadata")
-      .in("document_id", documentIds)
-      .neq("image_type", "logo_decorative"),
-    supabase.from("document_pages").select("document_id,page_number,text").in("document_id", documentIds),
-  ]);
-  if (imagesResult.error) throw new Error(imagesResult.error.message);
-  if (pagesResult.error) throw new Error(pagesResult.error.message);
+  const imagesResultData: any[] = [];
+  const pagesResultData: any[] = [];
+
+  for (let start = 0; start < documentIds.length; start += 5) {
+    const ids = documentIds.slice(start, start + 5);
+    const [imagesRes, pagesRes] = await Promise.all([
+      supabase
+        .from("document_images")
+        .select("document_id,source_kind,searchable,image_type,clinical_relevance_score,metadata")
+        .in("document_id", ids)
+        .neq("image_type", "logo_decorative"),
+      supabase.from("document_pages").select("document_id,page_number,text").in("document_id", ids),
+    ]);
+
+    if (imagesRes.error) throw new Error(imagesRes.error.message);
+    if (pagesRes.error) throw new Error(pagesRes.error.message);
+
+    imagesResultData.push(...(imagesRes.data ?? []));
+    pagesResultData.push(...(pagesRes.data ?? []));
+  }
+
+  const imagesResult = { data: imagesResultData };
+  const pagesResult = { data: pagesResultData };
 
   const counts = new Map<
     string,

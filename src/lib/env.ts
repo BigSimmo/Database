@@ -42,13 +42,24 @@ const envSchema = z.object({
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(150),
+  MAX_IMPORT_JOBS_PER_RUN: z.coerce.number().int().positive().default(5),
+  MAX_IMPORT_BYTES_PER_RUN: z.coerce.number().int().positive().default(157286400),
   CHUNK_SIZE: z.coerce.number().int().positive().default(2000),
   CHUNK_OVERLAP: z.coerce.number().int().nonnegative().default(200),
-  WORKER_POLL_MS: z.coerce.number().int().positive().default(5000),
-  WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(24),
-  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  WORKER_POLL_MS: z.coerce.number().int().positive().default(30000),
+  WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(1),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
   WORKER_STALE_AFTER_MINUTES: z.coerce.number().int().positive().default(45),
+  WORKER_HEALTH_BACKOFF_MS: z.coerce.number().int().positive().default(120000),
+  WORKER_MAX_CLAIM_FAILURES: z.coerce.number().int().positive().default(3),
+  WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS: z.coerce.number().int().positive().default(60000),
+  WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT: z.coerce.number().int().nonnegative().default(15),
+  WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE: z.coerce.number().int().nonnegative().default(2),
+  WORKER_INLINE_ENRICHMENT: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   PYTHON_BIN: z.string().default("python"),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });

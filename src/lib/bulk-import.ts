@@ -17,6 +17,7 @@ export type ImportCliArgs = {
   queueBatchSize: number;
   dryRun: boolean;
   force: boolean;
+  forceLargeImport: boolean;
   resume?: string;
 };
 
@@ -42,14 +43,17 @@ export function parseImportCliArgs(argv: string[]): ImportCliArgs {
     queueBatchSize: String(DEFAULT_IMPORT_BATCH_SIZE),
     dryRun: false,
     force: false,
+    forceLargeImport: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith("--")) continue;
     const key = token.slice(2);
-    if (key === "dry-run" || key === "force") {
-      args[key === "dry-run" ? "dryRun" : "force"] = true;
+    if (key === "dry-run" || key === "force" || key === "force-large-import") {
+      const normalizedKey =
+        key === "dry-run" ? "dryRun" : key === "force-large-import" ? "forceLargeImport" : "force";
+      args[normalizedKey] = true;
       continue;
     }
     const value = argv[index + 1];
@@ -84,6 +88,7 @@ export function parseImportCliArgs(argv: string[]): ImportCliArgs {
     queueBatchSize,
     dryRun: Boolean(args.dryRun),
     force: Boolean(args.force),
+    forceLargeImport: Boolean(args.forceLargeImport),
     resume: typeof args.resume === "string" ? args.resume : undefined,
   };
 }

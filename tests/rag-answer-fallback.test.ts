@@ -75,7 +75,7 @@ afterEach(() => {
 });
 
 describe("RAG structured-output fallback", () => {
-  it("returns natural extractive answers instead of packed source-card labels", async () => {
+  it("uses model synthesis for strong source answers instead of packed source-card labels", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
@@ -121,9 +121,41 @@ describe("RAG structured-output fallback", () => {
         from: vi.fn(() => new EmptyQuery()),
       }),
     }));
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer:
+          "Clozapine monitoring requires supported initiation documentation and completion of the Clozapine Monitoring Form.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [
+          {
+            heading: "Monitoring documents",
+            kind: "documentation",
+            supportLevel: "direct",
+            body: "Use consent documentation, initiation/titration prescribing, and the Clozapine Monitoring Form during clozapine initiation.",
+            citation_chunk_ids: ["clozapine-monitoring-1"],
+          },
+        ],
+        citations: [{ chunk_id: "clozapine-monitoring-1" }],
+        quoteCards: [
+          {
+            chunk_id: "clozapine-monitoring-1",
+            quote: "Ensure consumers complete the Clozapine Monitoring Form on initiation.",
+            section_heading: "Monitoring",
+          },
+        ],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_model_synthesis",
+      usage: { input_tokens: 120, output_tokens: 90, total_tokens: 210 },
+    }));
+
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(),
-      generateStructuredTextResult: vi.fn(),
+      generateStructuredTextResult,
     }));
 
     const { answerQuestionWithScope } = await import("../src/lib/rag");
@@ -135,13 +167,259 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(answer.routingMode).toBe("extractive");
-    expect(answer.answer.replace(/\*\*/g, "")).toContain("retrieved clozapine sources");
+    expect(generateStructuredTextResult).toHaveBeenCalled();
+    expect(answer.routingMode).toBe("fast");
     expect(answer.answer.replace(/\*\*/g, "")).toContain("Clozapine Monitoring Form");
     expect(answer.answer).not.toContain("- Medication point");
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
-    expect(answer.answerSections?.[0]?.heading).toBe("Direct source-backed answer");
+    expect(answer.answerSections?.[0]?.heading).toBe("Monitoring documents");
     expect(answer.answerSections?.[0]?.body).not.toContain("- Medication point");
+  });
+
+  it("retries template-like fast answers with the strong model before returning", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const clozapineSource = source({
+      id: "clozapine-monitoring-template-1",
+      document_id: "clozapine-doc",
+      title: "Clozapine Monitoring",
+      file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+      page_number: 11,
+      section_heading: "Monitoring",
+      content:
+        "Copy the Consent to Clozapine Treatment Form EMR0270, prescribe initiation on the WA Adult Clozapine Initiation and Titration form, and ensure consumers complete the Clozapine Monitoring Form on initiation.",
+      similarity: 0.94,
+      hybrid_score: 0.94,
+      text_rank: 1.2,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [clozapineSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    const generateStructuredTextResult = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer: "The retrieved source supports clozapine monitoring documentation during initiation.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [
+            {
+              heading: "Monitoring documents",
+              kind: "documentation",
+              supportLevel: "direct",
+              body: "The retrieved source supports consent documentation and completion of the Clozapine Monitoring Form.",
+              citation_chunk_ids: ["clozapine-monitoring-template-1"],
+            },
+          ],
+          citations: [{ chunk_id: "clozapine-monitoring-template-1" }],
+          quoteCards: [
+            {
+              chunk_id: "clozapine-monitoring-template-1",
+              quote: "ensure consumers complete the Clozapine Monitoring Form on initiation.",
+              section_heading: "Monitoring",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_fast_template",
+        usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Clozapine initiation requires consent documentation, initiation/titration prescribing, and completion of the **Clozapine Monitoring Form**.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [
+            {
+              heading: "Documentation",
+              kind: "documentation",
+              supportLevel: "direct",
+              body: "Complete the consent form, prescribe initiation on the WA Adult Clozapine Initiation and Titration form, and complete the monitoring form at initiation.",
+              citation_chunk_ids: ["clozapine-monitoring-template-1"],
+            },
+          ],
+          citations: [{ chunk_id: "clozapine-monitoring-template-1" }],
+          quoteCards: [
+            {
+              chunk_id: "clozapine-monitoring-template-1",
+              quote: "ensure consumers complete the Clozapine Monitoring Form on initiation.",
+              section_heading: "Monitoring",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1",
+        operation: "answer",
+        latencyMs: 24,
+        requestId: "req_strong_natural",
+        usage: { input_tokens: 160, output_tokens: 100, total_tokens: 260 },
+      });
+
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "what monitoring is required for clozapine",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("fast_template_retry_strong");
+    expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_natural"]);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("Clozapine Monitoring Form");
+    expect(answer.answer).not.toMatch(/retrieved source|source-backed|based on the provided excerpts/i);
+    expect(answer.answerSections?.[0]?.body).not.toMatch(/retrieved source|source-backed/i);
+  });
+
+  it("retries over-expanded fast answers for simple direct questions", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const bulimiaSource = source({
+      id: "bulimia-definition-1",
+      document_id: "bulimia-doc",
+      title: "Bulimia Nervosa",
+      file_name: "bulimia-nervosa.pdf",
+      page_number: 1,
+      section_heading: "Overview",
+      content:
+        "Bulimia nervosa is an eating disorder with recurrent binge eating and compensatory behaviours. The guideline also discusses CBT, nutritional support, monitoring, and referral.",
+      similarity: 0.94,
+      hybrid_score: 0.94,
+      text_rank: 1.2,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [bulimiaSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    const generateStructuredTextResult = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          queryClass: "unsupported_or_general",
+          confidence: 0.4,
+          reasons: ["direct definition question"],
+          expandedTerms: ["bulimia nervosa"],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "text_generation",
+        latencyMs: 6,
+        requestId: "req_classifier",
+        usage: { input_tokens: 80, output_tokens: 20, total_tokens: 100 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Bulimia nervosa is an eating disorder involving recurrent binge eating and compensatory behaviours. Management includes CBT, nutritional support, medication options, monitoring, and referral when risks are present.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [
+            {
+              heading: "Management",
+              kind: "required_actions",
+              supportLevel: "direct",
+              body: "CBT and nutritional support are central treatments.",
+              citation_chunk_ids: ["bulimia-definition-1"],
+            },
+            {
+              heading: "Monitoring",
+              kind: "required_actions",
+              supportLevel: "direct",
+              body: "Monitoring and referral are required when clinical risks are present.",
+              citation_chunk_ids: ["bulimia-definition-1"],
+            },
+          ],
+          citations: [{ chunk_id: "bulimia-definition-1" }],
+          quoteCards: [
+            {
+              chunk_id: "bulimia-definition-1",
+              quote: "Bulimia nervosa is an eating disorder with recurrent binge eating and compensatory behaviours.",
+              section_heading: "Overview",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_fast_overexpanded",
+        usage: { input_tokens: 120, output_tokens: 120, total_tokens: 240 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Bulimia nervosa is an eating disorder involving recurrent binge eating followed by compensatory behaviours.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "bulimia-definition-1" }],
+          quoteCards: [
+            {
+              chunk_id: "bulimia-definition-1",
+              quote: "Bulimia nervosa is an eating disorder with recurrent binge eating and compensatory behaviours.",
+              section_heading: "Overview",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1",
+        operation: "answer",
+        latencyMs: 24,
+        requestId: "req_strong_concise",
+        usage: { input_tokens: 150, output_tokens: 60, total_tokens: 210 },
+      });
+
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "what is bulimia nervosa",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("fast_overexpanded_simple_retry_strong");
+    expect(answer.openAIRequestIds).toEqual(["req_fast_overexpanded", "req_strong_concise"]);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("Bulimia nervosa is an eating disorder");
+    expect(answer.answerSections ?? []).toHaveLength(0);
   });
 
   it("filters table-caption metadata from extractive answer points", async () => {
@@ -190,9 +468,42 @@ describe("RAG structured-output fallback", () => {
         from: vi.fn(() => new EmptyQuery()),
       }),
     }));
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer:
+          "For red-range blood results during clozapine therapy, clozapine therapy must be discontinued immediately and reported to the patient monitoring system.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [
+          {
+            heading: "Required action",
+            kind: "required_actions",
+            supportLevel: "direct",
+            body: "Red-range blood results require immediate discontinuation of clozapine therapy and reporting to the monitoring system.",
+            citation_chunk_ids: ["clozapine-table-1"],
+          },
+        ],
+        citations: [{ chunk_id: "clozapine-table-1" }],
+        quoteCards: [
+          {
+            chunk_id: "clozapine-table-1",
+            quote:
+              "If the consumer's blood results return in the red range, Clozapine therapy must be discontinued immediately and reported to the patient monitoring system.",
+            section_heading: "Roles and responsibilities",
+          },
+        ],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_table_synthesis",
+      usage: { input_tokens: 130, output_tokens: 100, total_tokens: 230 },
+    }));
+
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(),
-      generateStructuredTextResult: vi.fn(),
+      generateStructuredTextResult,
     }));
 
     const { answerQuestionWithScope } = await import("../src/lib/rag");
@@ -205,13 +516,15 @@ describe("RAG structured-output fallback", () => {
     });
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(generateStructuredTextResult).toHaveBeenCalled();
+    expect(answer.routingMode).not.toBe("extractive");
     expect(plainAnswer).toContain("must be discontinued immediately");
     expect(plainAnswer).not.toContain("Table detailing roles and responsibilities");
     expect(plainAnswer).not.toContain("clinical_table");
     expect(plainAnswer).not.toContain("table_crop");
   });
 
-  it("returns an extractive source-backed answer when structured model output is truncated", async () => {
+  it("retries malformed fast output with the strong model and fails safely without extractive stitching", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_MAX_OUTPUT_TOKENS", "650");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -253,14 +566,15 @@ describe("RAG structured-output fallback", () => {
     });
 
     expect(answer.answer).not.toBe(machineReadableFallbackAnswer);
-    expect(answer.answer.toLowerCase()).toContain("agitation and arousal");
-    expect(answer.grounded).toBe(true);
+    expect(answer.answer.toLowerCase()).toContain("could not generate a finalized answer");
+    expect(answer.grounded).toBe(false);
     expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.quoteCards?.length).toBeGreaterThan(0);
-    expect(answer.routingMode).toBe("extractive");
-    expect(answer.routingReason).toContain("structured_output_fallback");
-    expect(answer.openAIRequestIds).toEqual(["req_truncated"]);
-    expect(answer.openAIUsage).toMatchObject({ output_tokens: 650 });
+    expect(answer.routingMode).toBe("unsupported");
+    expect(answer.routingReason).toContain("structured_output_unusable");
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(answer.openAIRequestIds).toEqual(["req_truncated", "req_truncated", "req_truncated"]);
+    expect(answer.openAIUsage).toMatchObject({ output_tokens: 1950 });
     expect(answer.citations[0]?.source_metadata?.document_status).toBe("current");
   });
 
@@ -282,7 +596,7 @@ describe("RAG structured-output fallback", () => {
         confidence: "high",
         answerSections: [
           {
-            heading: "Bottom line",
+            heading: "Approach",
             body: "Use a stepwise agitation and arousal approach based on rating and route.",
             citation_chunk_ids: ["agitation-chunk-1"],
           },
@@ -390,6 +704,13 @@ describe("RAG structured-output fallback", () => {
     expect(answer.retrievalDiagnostics).toMatchObject({
       gateStatus: "blocked",
       fallbackReason: "low_signal_document_lookup_strong",
+      candidateCount: 2,
+      retrievalDepth: 2,
+      distinctDocumentCount: 2,
+      topScore: 0.6,
+      secondScore: 0.58,
+      scoreSpread: 0.02,
+      routeMode: "unsupported",
     });
     expect(answer.grounded).toBe(false);
     expect(answer.citations).toHaveLength(0);

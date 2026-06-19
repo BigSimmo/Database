@@ -268,16 +268,33 @@ export function sourceTextForModel(text: string) {
 }
 
 export function sourceTextForDisplay(text: string) {
-  return stripInternalImageDataBlocks(text);
+  return readableWhitespace(stripLowYieldSourceNoise(stripInternalImageDataBlocks(text)));
 }
 
 export function sourceTextForDisplayPreservingBreaks(text: string) {
   return readableWhitespace(
-    text
-      .replace(completeImageDataBlockPattern, " ")
-      .replace(trailingImageDataBlockPattern, " ")
-      .replace(leadingImageDataBlockRemainderPattern, " ")
-      .replace(internalImageMetadataPattern, " "),
+    stripLowYieldSourceNoise(
+      text
+        .replace(completeImageDataBlockPattern, " ")
+        .replace(trailingImageDataBlockPattern, " ")
+        .replace(leadingImageDataBlockRemainderPattern, " ")
+        .replace(internalImageMetadataPattern, " "),
+    ),
+  );
+}
+
+export function sourceTextForCompactDisplay(text: string) {
+  return readableWhitespace(
+    sourceTextForDisplayPreservingBreaks(text)
+      .replace(
+        /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
+        " ",
+      )
+      .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
+      .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
+      .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
+      .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " ")
+      .replace(/\s+([,.;:])/g, "$1"),
   );
 }
 

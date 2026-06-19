@@ -300,6 +300,20 @@ select {
   font: inherit;
 }
 
+/*
+ * iOS Safari zooms the viewport when a focused form control renders below 16px.
+ * This rule is intentionally unlayered so it wins over Tailwind's layered
+ * text-* utilities, giving every control a 16px floor on small screens
+ * (search field, scope filter, PDF page input) without per-call-site edits.
+ */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 button,
 a,
 summary,

@@ -9,6 +9,46 @@ alter table public.document_chunks
   ) stored;
 create index if not exists document_chunks_search_idx on public.document_chunks using gin(search_tsv);
 
+create or replace function public.document_label_metadata(p_document_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', l.id,
+        'document_id', l.document_id,
+        'owner_id', l.owner_id,
+        'label', l.label,
+        'label_type', l.label_type,
+        'source', l.source,
+        'confidence', l.confidence,
+        'metadata', l.metadata,
+        'created_at', l.created_at,
+        'updated_at', l.updated_at
+      )
+      order by l.confidence desc, l.label
+    ),
+    '[]'::jsonb
+  )
+  from public.document_labels l
+  where l.document_id = p_document_id;
+$$;
+
+create or replace function public.document_summary_text(p_document_id uuid)
+returns text
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select s.summary
+  from public.document_summaries s
+  where s.document_id = p_document_id
+  limit 1;
+$$;
+
 drop function if exists public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid);
 drop function if exists public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid);
 drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid);
@@ -317,3 +357,5 @@ $$;
 grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid) to service_role;
 grant execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) to service_role;
 grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) to service_role;
+grant execute on function public.document_label_metadata(uuid) to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
