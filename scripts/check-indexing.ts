@@ -3,6 +3,7 @@ import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 type MetadataRow = {
+  [key: string]: unknown;
   document_id: string;
   metadata?: unknown;
   source?: string | null;
@@ -13,6 +14,28 @@ type MetadataRow = {
   quality_score?: number | null;
   issues?: string[] | null;
 };
+
+type MetadataProjectionRow = {
+  document_id?: unknown;
+  source?: unknown;
+  rag_memory_version?: unknown;
+  rag_indexing_version?: unknown;
+  rag_enrichment_version?: unknown;
+  [key: string]: unknown;
+};
+
+function asMetadataProjection(row: unknown): MetadataProjectionRow {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return {};
+  return row as MetadataProjectionRow;
+}
+
+function asNullableString(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function isMetadataRow(row: MetadataRow | Record<string, unknown>): row is MetadataRow {
+  return typeof row.document_id === "string" && row.document_id.length > 0;
+}
 type QueryResponse<T = unknown> = {
   data: T[] | null;
   error: { message: string } | null;
@@ -102,18 +125,32 @@ async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[])
     if (summaryResult.error) throw new Error(summaryResult.error.message);
     if (labelResult.error) throw new Error(labelResult.error.message);
 
-    const mappedSummaries = (summaryResult.data ?? []).map((row: any) => ({
-      document_id: row.document_id,
-      metadata: { rag_enrichment_version: row.rag_enrichment_version }
-    }));
-    const mappedLabels = (labelResult.data ?? []).map((row: any) => ({
-      document_id: row.document_id,
-      source: row.source,
-      metadata: { rag_enrichment_version: row.rag_enrichment_version }
-    }));
+    const mappedSummaries = (summaryResult.data ?? [])
+      .map((row) => {
+        const source = asMetadataProjection(row);
+        const documentId = typeof source.document_id === "string" ? source.document_id : null;
+        if (!documentId) return null;
+        return {
+          document_id: documentId,
+          metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
+        };
+      })
+      .filter((row): row is MetadataRow => !!row);
+    const mappedLabels = (labelResult.data ?? [])
+      .map((row) => {
+        const source = asMetadataProjection(row);
+        const documentId = typeof source.document_id === "string" ? source.document_id : null;
+        if (!documentId) return null;
+        return {
+          document_id: documentId,
+          source: typeof source.source === "string" ? source.source : null,
+          metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
+        };
+      })
+      .filter((row): row is MetadataRow => !!row);
 
-    summaries.push(...(mappedSummaries as MetadataRow[]));
-    labels.push(...(mappedLabels as MetadataRow[]));
+    summaries.push(...mappedSummaries);
+    labels.push(...mappedLabels);
   }
 
   return { summaries, labels };
@@ -131,22 +168,26 @@ async function loadRowsForDocuments(supabase: SupabaseLike, table: string, selec
         .range(rangeStart, rangeStart + 999);
       if (error) throw new Error(error.message);
 
-      const mapped = (data ?? []).map((row: any) => {
-        if ("rag_memory_version" in row || "rag_indexing_version" in row || "rag_enrichment_version" in row) {
-          const { rag_memory_version, rag_indexing_version, rag_enrichment_version, ...rest } = row;
+      const mapped = (data ?? []).map((row) => {
+        const source = asMetadataProjection(row);
+        const ragMemoryVersion = asNullableString(source.rag_memory_version);
+        const ragIndexingVersion = asNullableString(source.rag_indexing_version);
+        const ragEnrichmentVersion = asNullableString(source.rag_enrichment_version);
+        const { rag_memory_version: _ragMemoryVersion, rag_indexing_version: _ragIndexingVersion, rag_enrichment_version: _ragEnrichmentVersion, ...rest } = source;
+        if (_ragMemoryVersion !== undefined || _ragIndexingVersion !== undefined || _ragEnrichmentVersion !== undefined) {
           return {
             ...rest,
             metadata: {
-              rag_memory_version,
-              rag_indexing_version,
-              rag_enrichment_version,
-            }
+              rag_memory_version: ragMemoryVersion,
+              rag_indexing_version: ragIndexingVersion,
+              rag_enrichment_version: ragEnrichmentVersion,
+            },
           };
         }
-        return row;
+        return source;
       });
 
-      rows.push(...(mapped as MetadataRow[]));
+      rows.push(...mapped.filter(isMetadataRow));
       if (!data || data.length < 1000) break;
     }
   }

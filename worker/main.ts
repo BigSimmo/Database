@@ -255,21 +255,20 @@ function cleanString(val: string): string {
   return val.replace(/\u0000/g, "").replace(/\\u0000/g, "").toWellFormed();
 }
 
-function sanitizeJsonb(val: any): any {
-  if (typeof val === "string") {
-    return cleanString(val);
-  }
-  if (Array.isArray(val)) {
-    return val.map(sanitizeJsonb);
-  }
+type JsonbValue = string | number | boolean | null | { [key: string]: JsonbValue } | JsonbValue[];
+
+function sanitizeJsonb(val: unknown): JsonbValue {
+  if (typeof val === "string") return cleanString(val);
+  if (Array.isArray(val)) return val.map((entry) => sanitizeJsonb(entry));
   if (val !== null && typeof val === "object") {
-    const res: Record<string, any> = {};
-    for (const [key, value] of Object.entries(val)) {
+    const raw = val as { [key: string]: unknown };
+    const res: { [key: string]: JsonbValue } = {};
+    for (const [key, value] of Object.entries(raw)) {
       res[key] = sanitizeJsonb(value);
     }
     return res;
   }
-  return val;
+  return val as JsonbValue;
 }
 
 async function resetDocumentIndex(documentId: string) {
@@ -891,7 +890,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       parent_heading: chunk.parent_heading ? cleanString(chunk.parent_heading) : null,
       anchor_id: chunk.anchor_id ? cleanString(chunk.anchor_id) : null,
       content: cleanString(chunk.content),
-      retrieval_synopsis: chunk.retrieval_synopsis ? cleanString(chunk.retrieval_synopsis) : null,
+      retrieval_synopsis: chunk.retrieval_synopsis ? cleanString(chunk.retrieval_synopsis) : undefined,
       token_estimate: chunk.token_estimate,
       image_ids: chunk.image_ids,
       content_hash: hashText(`${chunk.section_heading ?? ""}\n${chunk.content}`),

@@ -12,6 +12,21 @@ type Args = {
   failOnMissed: boolean;
 };
 
+type DocumentImageRow = {
+  document_id: string;
+  source_kind: string | null;
+  searchable: boolean | null;
+  image_type: string | null;
+  clinical_relevance_score: number | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type DocumentPageRow = {
+  document_id: string;
+  page_number: number | null;
+  text: string | null;
+};
+
 function parseArgs(): Args {
   const args: Args = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
@@ -86,8 +101,8 @@ async function main() {
     return;
   }
 
-  const imagesResultData: any[] = [];
-  const pagesResultData: any[] = [];
+  const imagesResultData: DocumentImageRow[] = [];
+  const pagesResultData: DocumentPageRow[] = [];
 
   for (let start = 0; start < documentIds.length; start += 5) {
     const ids = documentIds.slice(start, start + 5);
@@ -103,8 +118,8 @@ async function main() {
     if (imagesRes.error) throw new Error(imagesRes.error.message);
     if (pagesRes.error) throw new Error(pagesRes.error.message);
 
-    imagesResultData.push(...(imagesRes.data ?? []));
-    pagesResultData.push(...(pagesRes.data ?? []));
+    imagesResultData.push(...((imagesRes.data ?? []) as DocumentImageRow[]));
+    pagesResultData.push(...((pagesRes.data ?? []) as DocumentPageRow[]));
   }
 
   const imagesResult = { data: imagesResultData };

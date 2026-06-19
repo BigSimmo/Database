@@ -614,6 +614,24 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
   );
 }
 
+// A passage carrying a real dose/threshold figure (a numeric table row, or a
+// number paired with a clinical unit) is the passage most likely to hold the
+// answer to a dose/threshold query — and the least likely to repeat the drug
+// name. Such passages must be exempt from the dose/core-concept keyword
+// penalties so they are never demoted below boilerplate. See RET-H2.
+export function hasNumericOrTableEvidence(result: SearchResult) {
+  if ((result.table_facts?.length ?? 0) > 0) return true;
+  if (result.index_unit?.unit_type === "table_fact") return true;
+  const content = `${result.section_heading ?? ""} ${result.content}`;
+  // number + clinical unit, or an explicit threshold/range token.
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(content)
+    ? true
+    : /\b\d/.test(content) &&
+        /\b(?:threshold|cut[\s-]?off|withhold|cease|range|level|anc|wbc|fbc|neutrophil|titrat|maximum|max\b)/i.test(
+          content,
+        );
+}
+
 export function hasStructuredThresholdEvidence(result: SearchResult) {
   const fieldType = result.match_explanation?.fieldType ?? null;
   const unitType = result.index_unit?.unit_type ?? result.match_explanation?.indexUnitType ?? null;
@@ -988,10 +1006,17 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const indexQualityBoost = indexQualityRankSignal(result);
   const sourceQualityBoost = sourceQualityRankSignal(result, queryClass);
   const dosingBoost = querySignal.hasDosingSignals && hasDoseEvidenceSupport(result) ? 0.09 : 0;
+  const numericEvidenceExempt = hasNumericOrTableEvidence(result);
   const titleOnlyDosePenalty =
-    queryClass === "medication_dose_risk" && titleCoverageBoost >= 0.09 && !hasDoseEvidenceSupport(result) ? -0.42 : 0;
+    queryClass === "medication_dose_risk" &&
+    titleCoverageBoost >= 0.09 &&
+    !hasDoseEvidenceSupport(result) &&
+    !numericEvidenceExempt
+      ? -0.42
+      : 0;
   const administrativeDoseQueryPenalty =
     queryClass === "medication_dose_risk" &&
+    !numericEvidenceExempt &&
     /\b(?:supporting information|relevant standards|references|document owner|review|authorisation|authorised by|published date|effective from|amendment)\b/i.test(
       result.content,
     ) &&
@@ -1030,6 +1055,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const coreConceptPenalty =
     queryClass === "medication_dose_risk" &&
     coreConceptTokens.length > 0 &&
+    !numericEvidenceExempt &&
     !coreConceptTokens.some((token) => haystack.includes(token))
       ? -0.36
       : 0;
@@ -1130,8 +1156,9 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     sectionDepth +
     indexUnitBoost +
     assetBoost;
-  const penalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
-  const finalScore = clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty;
+  const rawPenalty = titleOnlyDosePenalty + administrativeDoseQueryPenalty + coreConceptPenalty;
+  const penalty = Math.max(rawPenalty, -0.35);
+  const finalScore = clamp(clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty);
 
   return {
     vectorScore: roundScore(clamp(result.similarity)),
@@ -1148,6 +1175,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     metadataBoost: roundScore(metadataSignals),
     clinicalSignalBoost: roundScore(clinicalSignalBoost),
     penalty: roundScore(penalty),
+    rawPenalty: roundScore(rawPenalty),
     finalScore: roundScore(finalScore),
     strategy: shouldBlendRrf ? "weighted_hybrid_rrf_blend" : "weighted_hybrid",
   };

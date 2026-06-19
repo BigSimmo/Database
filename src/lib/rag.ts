@@ -3498,6 +3498,19 @@ function formatTableFactForSourceBlock(
   );
 }
 
+function neutralizeInstructions(text: string): string {
+  let cleaned = text;
+  cleaned = cleaned.replace(
+    /\bignore\s+(?:all\s+)?(?:previous\s+)?instructions(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
+    "[neutralized-instruction: ignore instructions]"
+  );
+  cleaned = cleaned.replace(
+    /\byou\s+are\s+now\s+an?\s+(?:unrestricted|jailbroken|assistant)(?:\s+\w+){0,3}/gi,
+    "[neutralized-instruction: unrestricted assistant]"
+  );
+  return cleaned;
+}
+
 export function buildRagSourceBlock(results: SearchResult[], options?: RagSourceBlockOptions) {
   const richTableContext = richTableSourceContextEnabled(options);
   return results
@@ -3545,6 +3558,8 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
       const retrievalSynopsis = result.retrieval_synopsis
         ? `\nRetrieval synopsis: ${compactContextText(result.retrieval_synopsis, 700)}`
         : "";
+      const neutralizedContent = neutralizeInstructions(result.content);
+      const fencedContent = `<<<SOURCE_EXCERPT>>>\n${compactContextText(neutralizedContent, 1800)}\n<<<END_SOURCE_EXCERPT>>>`;
       return [
         [
           `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
@@ -3553,7 +3568,7 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
         ].join("\n"),
         sectionPath,
         retrievalSynopsis,
-        compactContextText(result.content, 1800),
+        fencedContent,
         adjacentContext,
         tableFacts,
         memoryCards,

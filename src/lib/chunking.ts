@@ -196,6 +196,10 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
   if (!clean) return [];
   if (clean.length <= chunkSize) return [clean];
 
+  if (isTableBlock(clean)) {
+    return chunkTableBlock(clean, chunkSize);
+  }
+
   const paragraphs = clean
     .split(paragraphBoundary)
     .map((paragraph) => paragraph.trim())
@@ -205,6 +209,15 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
     let current = "";
 
     for (const paragraph of paragraphs) {
+      if (isTableBlock(paragraph)) {
+        if (current) {
+          chunks.push(current.trim());
+          current = "";
+        }
+        chunks.push(...chunkTableBlock(paragraph, chunkSize));
+        continue;
+      }
+
       if (paragraph.length > chunkSize) {
         if (current) {
           chunks.push(current.trim());
@@ -217,7 +230,9 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
       const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
       if (candidate.length > chunkSize && current) {
         chunks.push(current.trim());
-        current = paragraph;
+        const flushed = current.trim();
+        const tail = readableOverlapTail(flushed, overlap);
+        current = tail ? `${tail}\n\n${paragraph}` : paragraph;
       } else {
         current = candidate;
       }
@@ -228,6 +243,45 @@ export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, o
   }
 
   return chunkTextBySentence(clean, chunkSize, overlap);
+}
+
+function readableOverlapTail(text: string, overlap: number) {
+  if (overlap <= 0 || !text) return "";
+  if (text.length <= overlap) return text;
+  const start = readableOverlapStart(text, text.length, overlap);
+  return text.slice(start).trim();
+}
+
+const tableRowPattern = /^\s*\|.*\|\s*$/;
+
+function isTableBlock(block: string) {
+  const lines = block.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (lines.length < 2) return false;
+  return lines.every((line) => tableRowPattern.test(line));
+}
+
+function chunkTableBlock(block: string, chunkSize: number) {
+  const lines = block.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (block.length <= chunkSize) return [block.trim()];
+
+  const separatorIndex = lines.findIndex((line) => /^\s*\|?[\s:|-]+\|?\s*$/.test(line) && line.includes("-"));
+  const headerLines = separatorIndex > 0 ? lines.slice(0, separatorIndex + 1) : lines.slice(0, 1);
+  const bodyLines = lines.slice(headerLines.length);
+  const header = headerLines.join("\n");
+
+  const chunks: string[] = [];
+  let current = header;
+  for (const row of bodyLines) {
+    const candidate = `${current}\n${row}`;
+    if (candidate.length > chunkSize && current !== header) {
+      chunks.push(current.trim());
+      current = `${header}\n${row}`;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [block.trim()];
 }
 
 function readableOverlapStart(clean: string, end: number, overlap: number) {

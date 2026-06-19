@@ -219,11 +219,24 @@ async function main() {
   console.log("Pre-loading existing documents for name planning...");
   const { data: dbDocs, error: dbDocsErr } = await supabase
     .from("documents")
-    .select("id,title,file_name,content_hash")
+    .select("id,title,file_name,content_hash,metadata")
     .eq("owner_id", ownerId)
     .limit(5000);
   if (dbDocsErr) throw new Error(dbDocsErr.message);
-  const existingDocsForPlanning = dbDocs || [];
+  const existingDocsForPlanning = (dbDocs ?? [])
+    .map((row) => {
+    const existing = (row as { id?: unknown; title?: unknown; file_name?: unknown; content_hash?: unknown; metadata?: unknown });
+    return {
+      id: typeof existing.id === "string" ? existing.id : "",
+      title: typeof existing.title === "string" ? existing.title : "",
+      file_name: typeof existing.file_name === "string" ? existing.file_name : null,
+      content_hash: typeof existing.content_hash === "string" ? existing.content_hash : null,
+      metadata: existing.metadata,
+    };
+  })
+    .filter((document): document is { id: string; title: string; file_name: string | null; content_hash: string | null; metadata?: unknown } =>
+      document.id.length > 0 && document.title.length > 0
+    );
 
   let queued = 0;
   let skipped = 0;
