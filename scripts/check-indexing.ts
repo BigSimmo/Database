@@ -147,29 +147,28 @@ async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[])
     if (summaryResult.error) throw new Error(summaryResult.error.message);
     if (labelResult.error) throw new Error(labelResult.error.message);
 
-  const mappedSummaries = (summaryResult.data ?? [])
-      .reduce((acc, row) => {
-        const source = asMetadataProjection(row);
-        const documentId = typeof source.document_id === "string" ? source.document_id : null;
-        if (!documentId) return acc;
-        acc.push({
-          document_id: documentId,
-          metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
-        });
-        return acc;
-      }, [] as MetadataRow[]);
-  const mappedLabels = (labelResult.data ?? [])
-      .reduce((acc, row) => {
-        const source = asMetadataProjection(row);
-        const documentId = typeof source.document_id === "string" ? source.document_id : null;
-        if (!documentId) return acc;
-        acc.push({
-          document_id: documentId,
-          source: typeof source.source === "string" ? source.source : null,
-          metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
-        });
-        return acc;
-      }, [] as MetadataRow[]);
+  const mappedSummaries: MetadataRow[] = [];
+  for (const row of summaryResult.data ?? []) {
+    const source = asMetadataProjection(row);
+    const documentId = typeof source.document_id === "string" ? source.document_id : null;
+    if (!documentId) continue;
+    mappedSummaries.push({
+      document_id: documentId,
+      metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
+    });
+  }
+
+  const mappedLabels: MetadataRow[] = [];
+  for (const row of labelResult.data ?? []) {
+    const source = asMetadataProjection(row);
+    const documentId = typeof source.document_id === "string" ? source.document_id : null;
+    if (!documentId) continue;
+    mappedLabels.push({
+      document_id: documentId,
+      source: typeof source.source === "string" ? source.source : null,
+      metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
+    });
+  }
 
     summaries.push(...mappedSummaries);
     labels.push(...mappedLabels);

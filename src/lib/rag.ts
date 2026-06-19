@@ -3593,7 +3593,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       machineReadableFallbackAnswer;
     const answerSections = sanitizeAnswerSections(parsed.answerSections, results, query);
     const grounded = modelCited && citations.length > 0 && confidence !== "unsupported";
-  const answer = {
+  const answer: RagAnswer = {
     answer: boldHighYieldClinicalText(sanitizedAnswer, query),
     grounded,
     confidence,

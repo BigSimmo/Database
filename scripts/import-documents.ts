@@ -232,12 +232,15 @@ async function main() {
   };
   const existingDocsForPlanning: ExistingDocForPlan[] = [];
   for (const row of dbDocs ?? []) {
-    const id = typeof (row as { id?: unknown }).id === "string" ? (row as { id?: unknown }).id : "";
-    const title = typeof (row as { title?: unknown }).title === "string" ? (row as { title?: unknown }).title : "";
+    const rawId = (row as { id?: unknown }).id;
+    const rawTitle = (row as { title?: unknown }).title;
+    const rawFileName = (row as { file_name?: unknown }).file_name;
+    const rawContentHash = (row as { content_hash?: unknown }).content_hash;
+    const id = typeof rawId === "string" ? rawId : "";
+    const title = typeof rawTitle === "string" ? rawTitle : "";
     if (!id || !title) continue;
-    const file_name = typeof (row as { file_name?: unknown }).file_name === "string" ? (row as { file_name?: unknown }).file_name : null;
-    const content_hash =
-      typeof (row as { content_hash?: unknown }).content_hash === "string" ? (row as { content_hash?: unknown }).content_hash : null;
+    const file_name = typeof rawFileName === "string" ? rawFileName : null;
+    const content_hash = typeof rawContentHash === "string" ? rawContentHash : null;
     existingDocsForPlanning.push({
       id,
       title,
