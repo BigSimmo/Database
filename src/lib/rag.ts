@@ -3593,19 +3593,20 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       machineReadableFallbackAnswer;
     const answerSections = sanitizeAnswerSections(parsed.answerSections, results, query);
     const grounded = modelCited && citations.length > 0 && confidence !== "unsupported";
-    const answer = {
-      answer: boldHighYieldClinicalText(sanitizedAnswer, query),
-      grounded,
-      confidence,
-      citations,
-      sources: results,
+  const answer = {
+    answer: boldHighYieldClinicalText(sanitizedAnswer, query),
+    grounded,
+    confidence,
+    citations,
+    sources: results,
       answerSections,
-      conflictsOrGaps: sanitizeConflictsOrGaps(parsed.conflictsOrGaps, results),
-      quoteCards: sanitizeQuoteCards(parsed.quoteCards, results),
-      visualEvidence: [],
-      bestSource: null,
-      documentBreakdown: [],
-    };
+    conflictsOrGaps: sanitizeConflictsOrGaps(parsed.conflictsOrGaps, results),
+    quoteCards: sanitizeQuoteCards(parsed.quoteCards, results),
+    visualEvidence: [],
+    bestSource: null,
+    documentBreakdown: [],
+    routingReason: undefined,
+  };
     if (!modelCited) {
       answer.routingReason = "ungrounded_no_model_citation";
     }
@@ -4398,26 +4399,11 @@ ${qualityRetryInstruction}`
     // answer's citations. buildExtractiveAnswer derives its own source-backed
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
-    const canRecoverExtractively = answer.citations.length > 0 || answerInputResults.length > 0;
-    if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
-      answer = buildExtractiveAnswer({
-        query: args.query,
-        queryClass,
-        results: answerInputResults,
-        quoteCards,
-        documentBreakdown,
-        evidenceSummary,
-        sourceCoverage,
-        conflictsOrGaps,
-        visualEvidence,
-        bestSource,
-        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+    if (isUnusableGeneratedAnswer(answer)) {
+      answer = await buildGenerationFallbackAnswer(
+        new Error("structured_output_unusable"),
         relatedDocuments,
-        routeReason: `${routingReason}; structured_output_fallback`,
-        timings: answerTimings,
-      });
-      answer.modelUsed = modelUsed;
-      answer.routingReason = `${routingReason}; structured_output_fallback`;
+      );
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;

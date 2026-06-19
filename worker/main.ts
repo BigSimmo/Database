@@ -100,7 +100,7 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 }
 
 async function updateDocument(documentId: string, patch: Record<string, unknown>) {
-  const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonb(patch.metadata) } : patch;
+  const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
   const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
   if (error) throw supabaseStageError("update document", error);
 }
@@ -256,19 +256,25 @@ function cleanString(val: string): string {
 }
 
 type JsonbValue = string | number | boolean | null | { [key: string]: JsonbValue } | JsonbValue[];
+type JsonbRecord = { [key: string]: JsonbValue };
 
 function sanitizeJsonb(val: unknown): JsonbValue {
   if (typeof val === "string") return cleanString(val);
   if (Array.isArray(val)) return val.map((entry) => sanitizeJsonb(entry));
   if (val !== null && typeof val === "object") {
     const raw = val as { [key: string]: unknown };
-    const res: { [key: string]: JsonbValue } = {};
+    const res: JsonbRecord = {};
     for (const [key, value] of Object.entries(raw)) {
       res[key] = sanitizeJsonb(value);
     }
     return res;
   }
   return val as JsonbValue;
+}
+
+function sanitizeJsonbRecord(value: unknown): Record<string, unknown> {
+  const sanitized = sanitizeJsonb(value);
+  return typeof sanitized === "object" && sanitized !== null && !Array.isArray(sanitized) ? sanitized : {};
 }
 
 async function resetDocumentIndex(documentId: string) {
@@ -656,7 +662,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         image_hash: imageHash,
         perceptual_hash: perceptualHash,
         labels: classification.labels.map(cleanString),
-        metadata: sanitizeJsonb({
+        metadata: sanitizeJsonbRecord({
           ...(image.metadata ?? {}),
           extractor: "local-worker",
           image_hash: imageHash,
@@ -896,7 +902,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       content_hash: hashText(`${chunk.section_heading ?? ""}\n${chunk.content}`),
       index_generation_id: indexGenerationId,
       embedding: embeddings[index],
-      metadata: sanitizeJsonb(chunk.metadata),
+      metadata: sanitizeJsonbRecord(chunk.metadata),
     })) satisfies IndexedChunkRow[];
     indexedChunkRows.push(...rows);
 
@@ -911,7 +917,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           ...field,
           content: cleanString(field.content),
           embedding: fieldEmbeddings[index],
-          metadata: sanitizeJsonb(field.metadata),
+          metadata: sanitizeJsonbRecord(field.metadata),
         }));
         for (let start = 0; start < fieldRows.length; start += 10) {
           const batch = fieldRows.slice(start, start + 10);
@@ -931,7 +937,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     clinical_parameter: row.clinical_parameter ? cleanString(row.clinical_parameter) : null,
     threshold_value: row.threshold_value ? cleanString(row.threshold_value) : null,
     action: row.action ? cleanString(row.action) : null,
-    metadata: sanitizeJsonb(row.metadata),
+    metadata: sanitizeJsonbRecord(row.metadata),
   }));
   if (tableFacts.length > 0) {
     const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
@@ -952,7 +958,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
         ...field,
         content: cleanString(field.content),
         embedding: additionalEmbeddings[index],
-        metadata: sanitizeJsonb(field.metadata),
+        metadata: sanitizeJsonbRecord(field.metadata),
       }));
       for (let start = 0; start < additionalRows.length; start += 10) {
         const batch = additionalRows.slice(start, start + 10);
@@ -1074,7 +1080,9 @@ async function processJob(job: JobRow) {
       sectionCount: 0,
       memoryCardCount: 0,
     });
-    const { error: initialQualityError } = await supabase.from("document_index_quality").upsert(sanitizeJsonb(initialQuality), {
+    const { error: initialQualityError } = await supabase
+      .from("document_index_quality")
+      .upsert(sanitizeJsonbRecord(initialQuality), {
       onConflict: "document_id",
     });
     if (initialQualityError) throw new Error(initialQualityError.message);
@@ -1149,9 +1157,11 @@ async function processJob(job: JobRow) {
           memoryCardCount,
           documentEmbeddingFieldTypes,
         });
-        const { error: qualityError } = await supabase.from("document_index_quality").upsert(sanitizeJsonb(finalQuality), {
-          onConflict: "document_id",
-        });
+        const { error: qualityError } = await supabase
+          .from("document_index_quality")
+          .upsert(sanitizeJsonbRecord(finalQuality), {
+            onConflict: "document_id",
+          });
         if (qualityError) throw new Error(qualityError.message);
         enrichmentUpdatedAt = new Date().toISOString();
       } catch (enrichmentError) {

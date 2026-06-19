@@ -33,8 +33,30 @@ function asNullableString(value: unknown) {
   return typeof value === "string" ? value : null;
 }
 
-function isMetadataRow(row: MetadataRow | Record<string, unknown>): row is MetadataRow {
-  return typeof row.document_id === "string" && row.document_id.length > 0;
+function metadataRowFromProjection(row: MetadataProjectionRow): MetadataRow | null {
+  if (typeof row.document_id !== "string" || row.document_id.length === 0) return null;
+
+  const {
+    rag_memory_version,
+    rag_indexing_version,
+    rag_enrichment_version,
+    ...rest
+  } = row;
+
+  const nextMetadata: unknown =
+    rag_memory_version !== undefined || rag_indexing_version !== undefined || rag_enrichment_version !== undefined
+      ? {
+          rag_memory_version: asNullableString(rag_memory_version),
+          rag_indexing_version: asNullableString(rag_indexing_version),
+          rag_enrichment_version: asNullableString(rag_enrichment_version),
+        }
+      : undefined;
+
+  return {
+    ...rest,
+    document_id: row.document_id,
+    ...(nextMetadata !== undefined ? { metadata: nextMetadata } : {}),
+  } as MetadataRow;
 }
 type QueryResponse<T = unknown> = {
   data: T[] | null;
@@ -125,29 +147,29 @@ async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[])
     if (summaryResult.error) throw new Error(summaryResult.error.message);
     if (labelResult.error) throw new Error(labelResult.error.message);
 
-    const mappedSummaries = (summaryResult.data ?? [])
-      .map((row) => {
+  const mappedSummaries = (summaryResult.data ?? [])
+      .reduce((acc, row) => {
         const source = asMetadataProjection(row);
         const documentId = typeof source.document_id === "string" ? source.document_id : null;
-        if (!documentId) return null;
-        return {
+        if (!documentId) return acc;
+        acc.push({
           document_id: documentId,
           metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
-        };
-      })
-      .filter((row): row is MetadataRow => !!row);
-    const mappedLabels = (labelResult.data ?? [])
-      .map((row) => {
+        });
+        return acc;
+      }, [] as MetadataRow[]);
+  const mappedLabels = (labelResult.data ?? [])
+      .reduce((acc, row) => {
         const source = asMetadataProjection(row);
         const documentId = typeof source.document_id === "string" ? source.document_id : null;
-        if (!documentId) return null;
-        return {
+        if (!documentId) return acc;
+        acc.push({
           document_id: documentId,
           source: typeof source.source === "string" ? source.source : null,
           metadata: { rag_enrichment_version: asNullableString(source.rag_enrichment_version) },
-        };
-      })
-      .filter((row): row is MetadataRow => !!row);
+        });
+        return acc;
+      }, [] as MetadataRow[]);
 
     summaries.push(...mappedSummaries);
     labels.push(...mappedLabels);
@@ -168,26 +190,10 @@ async function loadRowsForDocuments(supabase: SupabaseLike, table: string, selec
         .range(rangeStart, rangeStart + 999);
       if (error) throw new Error(error.message);
 
-      const mapped = (data ?? []).map((row) => {
-        const source = asMetadataProjection(row);
-        const ragMemoryVersion = asNullableString(source.rag_memory_version);
-        const ragIndexingVersion = asNullableString(source.rag_indexing_version);
-        const ragEnrichmentVersion = asNullableString(source.rag_enrichment_version);
-        const { rag_memory_version: _ragMemoryVersion, rag_indexing_version: _ragIndexingVersion, rag_enrichment_version: _ragEnrichmentVersion, ...rest } = source;
-        if (_ragMemoryVersion !== undefined || _ragIndexingVersion !== undefined || _ragEnrichmentVersion !== undefined) {
-          return {
-            ...rest,
-            metadata: {
-              rag_memory_version: ragMemoryVersion,
-              rag_indexing_version: ragIndexingVersion,
-              rag_enrichment_version: ragEnrichmentVersion,
-            },
-          };
-        }
-        return source;
-      });
-
-      rows.push(...mapped.filter(isMetadataRow));
+      for (const row of data ?? []) {
+        const metadataRow = metadataRowFromProjection(asMetadataProjection(row));
+        if (metadataRow) rows.push(metadataRow);
+      }
       if (!data || data.length < 1000) break;
     }
   }
@@ -293,7 +299,9 @@ async function main() {
   if (documentsError) throw new Error(documentsError.message);
 
   const supabaseForChecks = supabase as unknown as SupabaseLike;
-  const indexedDocuments = (documents ?? []).filter((document) => document.status === "indexed");
+  const indexedDocuments = (documents ?? []).filter(
+    (document) => document.status === "indexed" && metadataRecord(document.metadata).enrichment_status !== "pending",
+  );
   const enrichmentRows = await loadEnrichmentRows(
     supabaseForChecks,
     indexedDocuments.map((document) => document.id),

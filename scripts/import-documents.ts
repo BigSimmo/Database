@@ -223,20 +223,29 @@ async function main() {
     .eq("owner_id", ownerId)
     .limit(5000);
   if (dbDocsErr) throw new Error(dbDocsErr.message);
-  const existingDocsForPlanning = (dbDocs ?? [])
-    .map((row) => {
-    const existing = (row as { id?: unknown; title?: unknown; file_name?: unknown; content_hash?: unknown; metadata?: unknown });
-    return {
-      id: typeof existing.id === "string" ? existing.id : "",
-      title: typeof existing.title === "string" ? existing.title : "",
-      file_name: typeof existing.file_name === "string" ? existing.file_name : null,
-      content_hash: typeof existing.content_hash === "string" ? existing.content_hash : null,
-      metadata: existing.metadata,
-    };
-  })
-    .filter((document): document is { id: string; title: string; file_name: string | null; content_hash: string | null; metadata?: unknown } =>
-      document.id.length > 0 && document.title.length > 0
-    );
+  type ExistingDocForPlan = {
+    id: string;
+    title: string;
+    file_name: string | null;
+    content_hash: string | null;
+    metadata?: unknown;
+  };
+  const existingDocsForPlanning: ExistingDocForPlan[] = [];
+  for (const row of dbDocs ?? []) {
+    const id = typeof (row as { id?: unknown }).id === "string" ? (row as { id?: unknown }).id : "";
+    const title = typeof (row as { title?: unknown }).title === "string" ? (row as { title?: unknown }).title : "";
+    if (!id || !title) continue;
+    const file_name = typeof (row as { file_name?: unknown }).file_name === "string" ? (row as { file_name?: unknown }).file_name : null;
+    const content_hash =
+      typeof (row as { content_hash?: unknown }).content_hash === "string" ? (row as { content_hash?: unknown }).content_hash : null;
+    existingDocsForPlanning.push({
+      id,
+      title,
+      file_name,
+      content_hash,
+      metadata: (row as { metadata?: unknown }).metadata,
+    });
+  }
 
   let queued = 0;
   let skipped = 0;
