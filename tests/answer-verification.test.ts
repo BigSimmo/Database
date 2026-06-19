@@ -62,6 +62,75 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     expect(verification.unverifiedTokens).toContain("12.5mg");
   });
 
+  // B1: substring matching previously let a wrong dose verify against a longer
+  // number ("2.5 mg" inside "12.5 mg" = a 5x dose error). Matching is now by
+  // exact normalized token membership, so these must be flagged UNVERIFIED.
+  it("flags a dose that is only a substring of a source number (B1: 2.5 vs 12.5)", () => {
+    const result = source({ content: "Start clozapine 12.5 mg on day 1." });
+    const verification = verifyAnswerNumbers("Give 2.5 mg.", [{ chunk_id: "chunk-1" }], [result]);
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+    expect(verification.unverifiedTokens).toContain("2.5mg");
+  });
+
+  it("flags 500 mg against a source that only contains 1500 mg (B1)", () => {
+    const result = source({ content: "Maximum dose is 1500 mg per day." });
+    const verification = verifyAnswerNumbers("Use 500 mg.", [{ chunk_id: "chunk-1" }], [result]);
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+    expect(verification.unverifiedTokens).toContain("500mg");
+  });
+
+  it("flags 2.0 against a source that only contains 12.0 (B1)", () => {
+    const result = source({ content: "Threshold is 12.0 units." });
+    const verification = verifyAnswerNumbers("Use 2.0 units.", [{ chunk_id: "chunk-1" }], [result]);
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+    expect(verification.unverifiedTokens).toContain("2.0units");
+  });
+
+  it("still verifies an exact dose match (B1)", () => {
+    const result = source({ content: "Start clozapine 12.5 mg on day 1." });
+    const verification = verifyAnswerNumbers("Give 12.5 mg.", [{ chunk_id: "chunk-1" }], [result]);
+    expect(verification.hasUnverifiedNumbers).toBe(false);
+    expect(verification.unverifiedTokens).toEqual([]);
+  });
+
+  // B2: unicode superscript ANC/WBC thresholds must be extracted whole and
+  // match a source written in either superscript (×10⁹/L) or ASCII (x10^9/L).
+  it("extracts a unicode superscript threshold token whole (B2)", () => {
+    const tokens = extractNumericTokens("ANC below 2.0 ×10⁹/L.");
+    expect(tokens.some((t) => t.includes("x10^9"))).toBe(true);
+    expect(tokens.some((t) => t === "2.0x10")).toBe(false);
+  });
+
+  it("matches a superscript answer threshold against an ASCII source (B2)", () => {
+    const result = source({ content: "Withhold if ANC below 2.0 x10^9/L." });
+    const verification = verifyAnswerNumbers("Withhold below 2.0 ×10⁹/L.", [{ chunk_id: "chunk-1" }], [result]);
+    expect(verification.hasUnverifiedNumbers).toBe(false);
+  });
+
+  // B3: the percentage branch never matched because of a trailing \b. Percentages
+  // must now extract, and a percentage mismatch must be flagged.
+  it("extracts percentage tokens (B3)", () => {
+    const tokens = extractNumericTokens("Seen in 80% and 50% of cases.");
+    expect(tokens).toContain("80%");
+    expect(tokens).toContain("50%");
+  });
+
+  it("flags a percentage absent from the cited source (B3)", () => {
+    const result = source({ content: "Occurs in 80% of patients." });
+    const verification = verifyAnswerNumbers("Occurs in 50% of patients.", [{ chunk_id: "chunk-1" }], [result]);
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+    expect(verification.unverifiedTokens).toContain("50%");
+  });
+
+  // N1: with no cited chunk mapping to a known result, fail closed — numbers are
+  // unverified rather than checked against the full unfiltered result set.
+  it("fails closed when no citation maps to a known chunk (N1)", () => {
+    const uncited = source({ id: "chunk-2", content: "Dose is 12.5 mg." });
+    const verification = verifyAnswerNumbers("Give 12.5 mg.", [{ chunk_id: "missing" }], [uncited]);
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+    expect(verification.unverifiedTokens).toContain("12.5mg");
+  });
+
   it("matches numbers in table facts of a cited chunk", () => {
     const result = source({
       content: "See monitoring table.",

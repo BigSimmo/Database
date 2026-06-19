@@ -34,12 +34,27 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe("RAG trust validation", () => {
-  it("falls back safely when model JSON is invalid", () => {
+  // B5: on model-JSON parse failure the fallback must fail closed — it must NOT
+  // back-fill retrieved chunks as citations or stamp the answer grounded (that
+  // is exactly the back-fill GEN-C3 removed). It must drop to ungrounded /
+  // unsupported with no citations.
+  it("falls back safely (ungrounded, no citation back-fill) when model JSON is invalid (B5)", () => {
     const answer = parseAnswerJson("not json", [source()]);
 
     expect(answer.answer).toBe("not json");
-    expect(answer.citations).toHaveLength(1);
-    expect(answer.grounded).toBe(true);
+    expect(answer.citations).toHaveLength(0);
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+  });
+
+  // B5: a salvaged dose in the parse-failure path must still run the numeric
+  // gate and surface the verify-against-source caveat rather than read as trusted.
+  it("runs the numeric gate on parse-failure prose and flags unverified doses (B5)", () => {
+    const answer = parseAnswerJson("Give 500 mg now.", [source()]);
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.unverifiedNumericTokens).toContain("500mg");
+    expect(answer.faithfulnessWarning).toBeTruthy();
   });
 
   it("rejects hallucinated citations that are not retrieved chunks", () => {
@@ -406,6 +421,58 @@ describe("RAG trust validation", () => {
         grounded: true,
         confidence: "medium",
         citations: [{ chunk_id: "chunk-1" }],
+      }),
+      [source({ content: "Start clozapine 12.5 mg on day one, then titrate slowly." })],
+    );
+
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.faithfulnessWarning).toBeUndefined();
+  });
+
+  // B4: a dose that lives only in an answerSections[].body (kind medication_dose)
+  // and is absent from the cited chunks must be flagged — the gate previously
+  // scanned only the top-level answer string.
+  it("flags a dose present only in a medication_dose section body (B4)", () => {
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Titrate clozapine cautiously.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: "chunk-1" }],
+        answerSections: [
+          {
+            heading: "Medication/dose details",
+            kind: "medication_dose",
+            supportLevel: "direct",
+            body: "Start at 200 mg on day one.",
+            citation_chunk_ids: ["chunk-1"],
+          },
+        ],
+      }),
+      [source({ content: "Start clozapine 12.5 mg on day one, then titrate slowly." })],
+    );
+
+    expect(answer.unverifiedNumericTokens).toContain("200mg");
+    expect(answer.faithfulnessWarning).toBeTruthy();
+    expect(answer.confidence).not.toBe("high");
+  });
+
+  it("does not flag a section dose that is present in the cited source (B4)", () => {
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Titrate clozapine cautiously.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: "chunk-1" }],
+        answerSections: [
+          {
+            heading: "Medication/dose details",
+            kind: "medication_dose",
+            supportLevel: "direct",
+            body: "Start at 12.5 mg on day one.",
+            citation_chunk_ids: ["chunk-1"],
+          },
+        ],
       }),
       [source({ content: "Start clozapine 12.5 mg on day one, then titrate slowly." })],
     );
