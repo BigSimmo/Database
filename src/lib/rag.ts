@@ -4399,11 +4399,25 @@ ${qualityRetryInstruction}`
     // answer's citations. buildExtractiveAnswer derives its own source-backed
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
-    if (isUnusableGeneratedAnswer(answer)) {
-      answer = await buildGenerationFallbackAnswer(
-        new Error("structured_output_unusable"),
+    const canRecoverExtractively = answer.citations.length > 0 || answerInputResults.length > 0;
+    if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
+      answer = buildExtractiveAnswer({
+        query: args.query,
+        queryClass,
+        results: answerInputResults,
+        quoteCards,
+        documentBreakdown,
+        evidenceSummary,
+        sourceCoverage,
+        conflictsOrGaps,
+        visualEvidence,
+        bestSource,
+        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
         relatedDocuments,
-      );
+        routeReason: `${routingReason}; structured_output_fallback`,
+        timings: answerTimings,
+      });
+      answer.modelUsed = modelUsed;
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;
