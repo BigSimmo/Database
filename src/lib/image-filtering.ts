@@ -152,7 +152,11 @@ export function lowSignalImageTextSkipReason(input: {
   if (sourceKind === "table_crop" && tokens.length >= 12 && uniqueRatio < 0.34 && clinicalHits < 2) {
     return "repetitive noisy table OCR";
   }
-  if (sourceKind === "table_crop" && noisyTablePatterns.some((pattern) => pattern.test(text)) && adminHits > clinicalHits) {
+  if (
+    sourceKind === "table_crop" &&
+    noisyTablePatterns.some((pattern) => pattern.test(text)) &&
+    adminHits > clinicalHits
+  ) {
     return "document-control table OCR";
   }
   if (sourceKind !== "table_crop" && shortestSide !== null && shortestSide < 96 && clinicalHits === 0) {

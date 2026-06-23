@@ -18,7 +18,9 @@ describe("ingestion retry helpers", () => {
   });
 
   it("classifies duplicate unique-key failures as partial-write conflicts", () => {
-    const error = new Error('duplicate key value violates unique constraint "document_chunks_document_id_chunk_index_key"');
+    const error = new Error(
+      'duplicate key value violates unique constraint "document_chunks_document_id_chunk_index_key"',
+    );
     expect(isPartialIndexWriteConflict(error)).toBe(true);
     expect(isRetryableIngestionError(error)).toBe(false);
   });

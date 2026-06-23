@@ -56,3 +56,31 @@ Entries are appended as work lands. Format: what changed / why better / consider
 
 **Why better:** restores the ≤180 budget the project already enforces, keeps the newer command-style features, and clears merge debris. **Rejected:** raising the test budget (would bless an over-tall mobile header); deleting the FAB menu (other branch's feature).
 **Verification:** the 6 header-height tests + the `:778` doc-search test pass on a warm server; typecheck, lint (no warnings), prettier clean; full chromium smoke re-run.
+
+## D7 — Scoped run excludes Tools
+
+**What:** `/tools`, `src/app/tools/page.tsx`, and `src/lib/tools.ts` are explicitly excluded from this run and tracked in deferred items.
+**Why better:** The user asked to leave launcher/tools IA and card changes for the next run; preserving that boundary prevents unrelated dirty worktree changes from being mixed into the dashboard/viewer redesign.
+**Rejected:** Opportunistically polishing the tools launcher while touching the broader shell (out of scope for this run).
+**Verification:** Git diff was reviewed with those paths excluded from the implemented patch set.
+
+## D8 — Upload and indexing mobile workspace
+
+**What:** Rebuilt the upload/indexing drawer content into mobile segmented sections: `Setup`, `Upload`, and `Jobs`. The single upload form remains mounted once; desktop keeps an efficient two-column operational layout.
+**Why better:** Mobile no longer presents setup, upload, health, and worker queues as one long sheet. Users can move directly to the section they need, and health-strip targets open the right section.
+**Rejected:** Rendering separate mobile and desktop copies (would duplicate form state and test IDs); moving upload/indexing to a new route (Tier 3 route/capability change).
+**Verification:** Focused eslint and `npm run typecheck` pass; full technical and browser verification is recorded in `06-verification.md`.
+
+## D9 — Document viewer mobile actions sheet
+
+**What:** Replaced the mobile rename/delete icon pair in the sticky viewer header with a single `Document actions` trigger. The sheet contains provenance, summarise, and existing document management actions.
+**Why better:** The primary header now preserves back + title + summarise without a crowded action cluster, while all original admin capabilities remain available.
+**Rejected:** Hiding summarise inside the sheet (adds friction and risks smoke coverage); removing admin actions from mobile (capability loss, Tier 3).
+**Verification:** Focused eslint and `npm run typecheck` pass; browser verification covers the mobile action sheet.
+
+## D10 — Compact no-citation evidence hint
+
+**What:** When no citation chunk is active, the viewer shows a compact source-evidence hint instead of a full pinned evidence card before the PDF. The full highlighted passage card still appears for active chunks.
+**Why better:** The PDF regains priority on mobile when there is no citation to inspect, while source evidence remains discoverable and anchored for navigation.
+**Rejected:** Removing the evidence anchor entirely (would weaken navigation and tests); always showing the full card (kept the original hierarchy problem).
+**Verification:** Focused eslint and `npm run typecheck` pass; pinned evidence and PDF ordering are included in visual QA.

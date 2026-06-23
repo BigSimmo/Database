@@ -53,11 +53,7 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
   it("only credits chunks the answer actually cites", () => {
     const cited = source({ id: "chunk-1", content: "Monitor weekly." });
     const uncited = source({ id: "chunk-2", content: "Dose is 12.5 mg." });
-    const verification = verifyAnswerNumbers(
-      "Give 12.5 mg.",
-      [{ chunk_id: "chunk-1" }],
-      [cited, uncited],
-    );
+    const verification = verifyAnswerNumbers("Give 12.5 mg.", [{ chunk_id: "chunk-1" }], [cited, uncited]);
     expect(verification.hasUnverifiedNumbers).toBe(true);
     expect(verification.unverifiedTokens).toContain("12.5mg");
   });

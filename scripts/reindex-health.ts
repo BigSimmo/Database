@@ -60,19 +60,34 @@ async function main() {
     failedJobs,
     chunksWithSynopsis,
   ] = await Promise.all([
-    safeCount("documents_indexed", supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "indexed")),
-    safeCount("documents_queued", supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued")),
+    safeCount(
+      "documents_indexed",
+      supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "indexed"),
+    ),
+    safeCount(
+      "documents_queued",
+      supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued"),
+    ),
     safeCount(
       "documents_processing",
       supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "processing"),
     ),
-    safeCount("documents_failed", supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed")),
-    safeCount("jobs_pending", supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "pending")),
+    safeCount(
+      "documents_failed",
+      supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    ),
+    safeCount(
+      "jobs_pending",
+      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ),
     safeCount(
       "jobs_processing",
       supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "processing"),
     ),
-    safeCount("jobs_failed", supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed")),
+    safeCount(
+      "jobs_failed",
+      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    ),
     safeCount(
       "chunks_with_retrieval_synopsis",
       supabase

@@ -701,7 +701,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
 
     await scopeTrigger(page).click();
-    const scopePopover = page.getByTestId("scope-command-popover");
+    const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
     await expect(scopePopover).toBeVisible();
     const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
     await expect(scopeFilter).toBeVisible();
@@ -1016,11 +1016,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
 
     await scrollDashboardToBottom(page);
-    const uploadSummary = page.locator("summary").filter({ hasText: "Upload and indexing" }).first();
-    await uploadSummary.scrollIntoViewIfNeeded();
-    await uploadSummary.click({ force: true });
-    const uploadDrawer = page.locator("details").filter({ hasText: "Upload and indexing" }).first();
+    const uploadTrigger = page.locator("#dashboard-upload-drawer-mobile-trigger");
+    await uploadTrigger.scrollIntoViewIfNeeded();
+    await uploadTrigger.click();
+    const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
+    await expect(uploadDrawer).toBeVisible();
 
+    await uploadDrawer.getByRole("tab", { name: /Setup/ }).click();
     await expect(uploadDrawer.getByText("First-run setup checklist")).toBeVisible();
     await expect(uploadDrawer.getByText(".env.local configured")).toBeVisible();
     await expect(uploadDrawer.getByText("Clinical KB Database target")).toBeVisible();
@@ -1028,6 +1030,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText("Search RPC and vector indexes")).toBeVisible();
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
+    await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
     await expect(uploadDrawer.getByText("Document title optional")).toBeVisible();
     await expect(uploadDrawer.getByText("Guideline files required")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
@@ -1040,13 +1043,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     await scrollDashboardToBottom(page);
-    const uploadSummary = page.locator("summary").filter({ hasText: "Upload and indexing" }).first();
-    await uploadSummary.scrollIntoViewIfNeeded();
-    await uploadSummary.click({ force: true });
-    const uploadDrawer = page.locator("details").filter({ hasText: "Upload and indexing" }).first();
+    const uploadTrigger = page.locator("#dashboard-upload-drawer-mobile-trigger");
+    await uploadTrigger.scrollIntoViewIfNeeded();
+    await uploadTrigger.click();
+    const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
+    await expect(uploadDrawer).toBeVisible();
 
-    await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
+    await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
     await expect(uploadDrawer.getByText("2 exact copies skipped")).toBeVisible();
+    await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
+    await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
     await uploadDrawer.locator('input[name="file"]').setInputFiles({
       name: "guideline.pdf",
       mimeType: "application/pdf",

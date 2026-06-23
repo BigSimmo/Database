@@ -103,6 +103,8 @@ npm run ensure    # check/start this project's dev server in the background
 npm run start     # production preview on the same safe port selection
 npm run worker    # local ingestion worker
 npm run check:supabase-project
+npm run check:production-readiness # run production readiness validation preflight
+npm run check:production-readiness:ci # CI-safe readiness preflight (env-absent tolerant)
 npm run samples   # generate synthetic upload corpus
 npm run samples:check
 npm run lint
@@ -110,8 +112,13 @@ npm run typecheck
 npm run test
 npm run test:coverage
 npm run test:e2e
+npm run test:e2e:all
+npm run test:e2e:accessibility
 npm run test:e2e:chromium
 npm run test:e2e:visual
+npm run verify:cheap
+npm run verify:ui
+npm run verify:release
 npm run format
 npm run format:check
 npm run build

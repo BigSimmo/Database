@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "supabase.postgres-meta",
+    "ms-azuretools.vscode-docker",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "vitest.explorer",
+    "wallabyjs.quokka-vscode",
+    "ms-vscode.live-server",
+    "mutianwang.vitest-runner"
+  ]
+}

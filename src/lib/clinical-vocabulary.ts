@@ -92,16 +92,58 @@ const entries: ClinicalVocabularyEntry[] = [
   { canonical: "metabolic monitoring", aliases: ["metbolic monitoring", "metabolic screening"], type: "workflow" },
   { canonical: "patient safety plan", aliases: ["safety plan", "pt safety plan"], type: "form", weight: 1.1 },
   // Systematic Medical Term Expansion (RAG-E1)
-  { canonical: "extrapyramidal side effects", aliases: ["epse", "eps", "dystonia", "akathisia", "parkinsonism", "tardive dyskinesia"], type: "risk", weight: 1.1 },
-  { canonical: "neuroleptic malignant syndrome", aliases: ["nms", "hyperthermia", "muscle rigidity", "autonomic instability"], type: "risk", weight: 1.2 },
-  { canonical: "serotonin syndrome", aliases: ["serotonin toxicity", "shivering", "diarrhea", "muscle rigidity", "fever", "seizures"], type: "risk", weight: 1.2 },
-  { canonical: "anticholinergic side effects", aliases: ["anticholinergic toxicity", "dry mouth", "blurred vision", "constipation", "urinary retention", "tachycardia"], type: "risk", weight: 1.1 },
-  { canonical: "metabolic syndrome", aliases: ["weight gain", "dyslipidemia", "hyperglycemia", "hypertension", "waist circumference"], type: "risk", weight: 1.1 },
-  { canonical: "renal function", aliases: ["egfr", "creatinine", "kidney function", "urea", "electrolytes", "u&e"], type: "lab", weight: 1.1 },
+  {
+    canonical: "extrapyramidal side effects",
+    aliases: ["epse", "eps", "dystonia", "akathisia", "parkinsonism", "tardive dyskinesia"],
+    type: "risk",
+    weight: 1.1,
+  },
+  {
+    canonical: "neuroleptic malignant syndrome",
+    aliases: ["nms", "hyperthermia", "muscle rigidity", "autonomic instability"],
+    type: "risk",
+    weight: 1.2,
+  },
+  {
+    canonical: "serotonin syndrome",
+    aliases: ["serotonin toxicity", "shivering", "diarrhea", "muscle rigidity", "fever", "seizures"],
+    type: "risk",
+    weight: 1.2,
+  },
+  {
+    canonical: "anticholinergic side effects",
+    aliases: [
+      "anticholinergic toxicity",
+      "dry mouth",
+      "blurred vision",
+      "constipation",
+      "urinary retention",
+      "tachycardia",
+    ],
+    type: "risk",
+    weight: 1.1,
+  },
+  {
+    canonical: "metabolic syndrome",
+    aliases: ["weight gain", "dyslipidemia", "hyperglycemia", "hypertension", "waist circumference"],
+    type: "risk",
+    weight: 1.1,
+  },
+  {
+    canonical: "renal function",
+    aliases: ["egfr", "creatinine", "kidney function", "urea", "electrolytes", "u&e"],
+    type: "lab",
+    weight: 1.1,
+  },
   { canonical: "thyroid function", aliases: ["tft", "tsh", "free t4", "t3"], type: "lab", weight: 1.1 },
   { canonical: "prolactin level", aliases: ["hyperprolactinemia", "prolactin"], type: "lab", weight: 1.1 },
   { canonical: "body mass index", aliases: ["bmi", "weight", "height"], type: "lab", weight: 1.05 },
-  { canonical: "blood pressure", aliases: ["bp", "hypertension", "hypotension", "orthostatic hypotension"], type: "lab", weight: 1.1 },
+  {
+    canonical: "blood pressure",
+    aliases: ["bp", "hypertension", "hypotension", "orthostatic hypotension"],
+    type: "lab",
+    weight: 1.1,
+  },
 ];
 
 function normalize(value: string) {

@@ -87,9 +87,7 @@ async function main() {
         `id.eq.${args.document},file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
       );
     } else {
-      documentQuery = documentQuery.or(
-        `file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
-      );
+      documentQuery = documentQuery.or(`file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`);
     }
   }
 

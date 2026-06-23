@@ -8,7 +8,7 @@ const localUrlPattern = /^http:\/\/localhost:\d+$/;
 const identityScript = `
 const http = require("node:http");
 const url = process.argv[1] + "/api/local-project-id";
-const request = http.get(url, { timeout: 1500 }, (response) => {
+const request = http.get(url, { timeout: 5000 }, (response) => {
   let body = "";
   response.setEncoding("utf8");
   response.on("data", (chunk) => { body += chunk; });

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { normalizeAccessibleTable } from "../src/lib/accessible-table-normalization";
 
@@ -104,5 +105,14 @@ describe("normalizeAccessibleTable", () => {
       "Community clinician to provide formal referral",
       "Facilitating appointment with alternative provider",
     ]);
+  });
+
+  it("keeps the mobile table presentation on one visible semantic table", () => {
+    const source = readFileSync(new URL("../src/components/AccessibleTable.tsx", import.meta.url), "utf8");
+
+    expect(source).not.toContain("<dl");
+    expect(source).not.toContain("hidden md:block");
+    expect(source).toContain("md:table-row");
+    expect(source).toContain("rowActions");
   });
 });

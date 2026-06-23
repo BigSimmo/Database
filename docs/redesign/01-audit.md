@@ -1,5 +1,21 @@
 # Design Audit — Clinical KB (June 2026 redesign)
 
+## June 20 scoped run — dashboard and document viewer only
+
+This run intentionally excludes `/tools`, `src/app/tools/page.tsx`, and `src/lib/tools.ts` by user request. Those files may already be dirty in the worktree, but they are not part of this redesign pass and remain deferred for the next run.
+
+| Location                 | Finding                                                                      | Class   | Planned action                                                                                    | Tier |
+| ------------------------ | ---------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------- | ---- |
+| `/` header               | Compact and functional, but visually heavy near the mobile height budget.    | Upgrade | Refine shell spacing, hierarchy, and controls while preserving smoke budgets.                     | 1    |
+| Answer result            | Evidence, warnings, modes, and follow-ups can compete after an answer.       | Upgrade | Keep primary answer first; move dense verification into calmer progressive drawers/sheets.        | 2    |
+| Scope control            | Mobile sheet direction is sound; test contract and density need protection.  | Polish  | Preserve stable test IDs on the visible mobile sheet and refine spacing/focus flow.               | 2    |
+| Documents sheet          | Loading/empty states, counts, list search, and tag quality feel utilitarian. | Upgrade | Add clearer health summary, tighter list hierarchy, and polished empty states.                    | 1    |
+| Upload/indexing sheet    | Setup, upload, health, and job queue compete in one long mobile sheet.       | Rebuild | Use mobile segmented sections: Setup, Upload, Jobs; keep desktop efficient.                       | 2    |
+| Document viewer mobile   | Header/action cluster and PDF controls consume too much vertical space.      | Rebuild | Compact header; move admin actions into a mobile sheet/menu; simplify visible controls.           | 2    |
+| Document viewer evidence | Empty pinned evidence card appears before PDF when no chunk is selected.     | Upgrade | Show a compact hint until a citation chunk exists; use full pinned card only for active chunks.   | 1    |
+| Baseline checks          | Lint, unit, and smoke baselines were not green before redesign.              | Polish  | Fix missing JSX key state, provenance cleanup test, and stale mobile scope smoke assertion first. | 1    |
+| Strong areas             | Focus rings, reduced motion, guide sheet, local server guard, bottom nav.    | Keep    | Protect behavior while refining visuals only.                                                     | —    |
+
 ## 1. Application map (regression baseline)
 
 ### Routes

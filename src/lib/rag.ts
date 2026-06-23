@@ -370,6 +370,9 @@ export type SearchTelemetry = {
   search_cache_hit: boolean;
   shared_cache_hit?: boolean;
   query_class?: RagQueryClass;
+  vector_candidate_count?: number;
+  text_candidate_count?: number;
+  embedding_field_count?: number;
   retrieval_query_variant_count?: number;
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
@@ -602,7 +605,10 @@ type SanitizedCitations = {
   modelCited: boolean;
 };
 
-function sanitizeCitations(proposed: Array<{ chunk_id: string }> | undefined, results: SearchResult[]): SanitizedCitations {
+function sanitizeCitations(
+  proposed: Array<{ chunk_id: string }> | undefined,
+  results: SearchResult[],
+): SanitizedCitations {
   const chunks = allowedChunkMap(results);
   const citations: Citation[] = [];
   const seen = new Set<string>();
@@ -1221,6 +1227,9 @@ async function getSharedCachedSearch(args: SearchChunksArgs) {
         search_cache_hit: true,
         shared_cache_hit: true,
         query_class: payload.telemetry?.query_class,
+        vector_candidate_count: payload.telemetry?.vector_candidate_count,
+        text_candidate_count: payload.telemetry?.text_candidate_count,
+        embedding_field_count: payload.telemetry?.embedding_field_count,
         retrieval_query_variant_count: payload.telemetry?.retrieval_query_variant_count ?? 0,
         text_fast_path_latency_ms: 0,
         embedding_skipped: true,
@@ -3082,6 +3091,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const telemetry: SearchTelemetry = {
     search_cache_hit: false,
     query_class: queryClassification.queryClass,
+    vector_candidate_count: 0,
+    text_candidate_count: 0,
+    embedding_field_count: 0,
     retrieval_query_variant_count: 0,
     rag_alias_count: 0,
     rag_alias_expansion_count: 0,
@@ -3138,6 +3150,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     documentIds: documentFilterList,
     matchCount: candidateCount,
   });
+  telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;
   telemetry.supabase_rpc_latency_ms += telemetry.text_fast_path_latency_ms;
 
@@ -3293,6 +3306,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     documentIds: documentFilterList,
     matchCount: Math.min(candidateCount, 48),
   });
+  telemetry.embedding_field_count = embeddingFieldCandidates.length;
   telemetry.supabase_rpc_latency_ms += Date.now() - embeddingFieldStartedAt;
   if (embeddingFieldCandidates.length > 0) {
     textFastResults = mergeSearchResults(embeddingFieldCandidates, textFastResults);
@@ -3326,6 +3340,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     owner_filter: args.ownerId ?? null,
   });
   telemetry.supabase_rpc_latency_ms += Date.now() - hybridRpcStartedAt;
+  telemetry.vector_candidate_count = hybridData?.length ?? 0;
 
   if (!hybridError) {
     const rerankStartedAt = Date.now();
@@ -3382,6 +3397,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     throw error;
   });
   telemetry.supabase_rpc_latency_ms += Date.now() - fallbackRpcStartedAt;
+  telemetry.vector_candidate_count = resultSets.reduce((count, resultSet) => count + resultSet.length, 0);
 
   const rerankStartedAt = Date.now();
   const mergedWithMetadata = await attachDocumentRankingMetadata(
@@ -3502,11 +3518,11 @@ function neutralizeInstructions(text: string): string {
   let cleaned = text;
   cleaned = cleaned.replace(
     /\bignore\s+(?:all\s+)?(?:previous\s+)?instructions(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
-    "[neutralized-instruction: ignore instructions]"
+    "[neutralized-instruction: ignore instructions]",
   );
   cleaned = cleaned.replace(
     /\byou\s+are\s+now\s+an?\s+(?:unrestricted|jailbroken|assistant)(?:\s+\w+){0,3}/gi,
-    "[neutralized-instruction: unrestricted assistant]"
+    "[neutralized-instruction: unrestricted assistant]",
   );
   return cleaned;
 }
@@ -3593,20 +3609,20 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       machineReadableFallbackAnswer;
     const answerSections = sanitizeAnswerSections(parsed.answerSections, results, query);
     const grounded = modelCited && citations.length > 0 && confidence !== "unsupported";
-  const answer: RagAnswer = {
-    answer: boldHighYieldClinicalText(sanitizedAnswer, query),
-    grounded,
-    confidence,
-    citations,
-    sources: results,
+    const answer: RagAnswer = {
+      answer: boldHighYieldClinicalText(sanitizedAnswer, query),
+      grounded,
+      confidence,
+      citations,
+      sources: results,
       answerSections,
-    conflictsOrGaps: sanitizeConflictsOrGaps(parsed.conflictsOrGaps, results),
-    quoteCards: sanitizeQuoteCards(parsed.quoteCards, results),
-    visualEvidence: [],
-    bestSource: null,
-    documentBreakdown: [],
-    routingReason: undefined,
-  };
+      conflictsOrGaps: sanitizeConflictsOrGaps(parsed.conflictsOrGaps, results),
+      quoteCards: sanitizeQuoteCards(parsed.quoteCards, results),
+      visualEvidence: [],
+      bestSource: null,
+      documentBreakdown: [],
+      routingReason: undefined,
+    };
     if (!modelCited) {
       answer.routingReason = "ungrounded_no_model_citation";
     }

@@ -383,7 +383,9 @@ describe("ward output helpers", () => {
       quoteCards: [],
     });
 
-    expect(sections.find((section) => section.id === "source-gap")?.items[0]).toContain("do not provide");
+    const sourceGapSections = sections.filter((section) => section.id === "source-gap");
+    expect(sourceGapSections).toHaveLength(1);
+    expect(sourceGapSections[0]?.items.join(" ")).toContain("do not provide");
     expect(sections.find((section) => section.id === "thresholds")).toBeUndefined();
   });
 
@@ -552,7 +554,17 @@ describe("ward output helpers", () => {
   });
 
   it("formats copyable answer and quote text with citations", () => {
-    expect(formatAnswerForClipboard(answer)).toContain("Lithium source, p. 1");
+    const copy = formatAnswerForClipboard(answer);
+
+    expect(copy).toContain("Bottom line");
+    expect(copy).toContain("- Monitor renal function");
+    expect(copy).toContain("Monitoring");
+    expect(copy).toContain("Thresholds");
+    expect(copy).toContain("Citations");
+    expect(copy).toContain("Lithium source, p. 1");
+    expect(copy).toContain("Source status");
+    expect(copy).toContain("Review requirement");
+    expect(copy.match(/Monitor renal function and escalate review/g)).toHaveLength(1);
     expect(formatQuotesForClipboard(answer.quoteCards)).toContain('"Escalate review');
   });
 
@@ -560,7 +572,10 @@ describe("ward output helpers", () => {
     const note = formatWardNote(answer, true);
 
     expect(note).toContain("Synthetic demo only");
+    expect(note).toContain("Bottom line");
+    expect(note).toContain("Review requirement");
     expect(note).toContain("Citations");
+    expect(note.match(/Monitor renal function and escalate review/g)).toHaveLength(1);
   });
 
   it("creates a focused follow-up question from a quote", () => {

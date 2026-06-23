@@ -22,9 +22,7 @@ describe("embedTexts integrity (IDX-C1, IDX-C2)", () => {
       default: class MockOpenAI {
         embeddings = {
           create: vi.fn(async ({ input }: { input: string[] }) => ({
-            data: input
-              .map((_text, index) => ({ index, embedding: [index, index] as number[] }))
-              .reverse(),
+            data: input.map((_text, index) => ({ index, embedding: [index, index] as number[] })).reverse(),
           })),
         };
 

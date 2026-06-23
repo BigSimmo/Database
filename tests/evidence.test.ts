@@ -134,11 +134,7 @@ The haematologist can assist with altering WCC and ANC thresholds for specific c
       result({ id: "m-chunk", document_id: "doc-m", hybrid_score: 0.7, similarity: 0.7 }),
     ];
 
-    expect(diversifySearchResults(sources, 3).map((source) => source.id)).toEqual([
-      "a-chunk",
-      "m-chunk",
-      "z-chunk",
-    ]);
+    expect(diversifySearchResults(sources, 3).map((source) => source.id)).toEqual(["a-chunk", "m-chunk", "z-chunk"]);
   });
 
   it("encodes document ids in citation links", () => {

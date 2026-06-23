@@ -1,5 +1,9 @@
 # Deferred Items
 
+## 0. Tools page redesign (resolved June 23, 2026)
+
+`/tools`, `src/app/tools/page.tsx`, and `src/lib/tools.ts` are no longer deferred. The launcher now has dedicated mobile and desktop Playwright coverage through `tests/ui-tools.spec.ts`, included in `npm run verify:ui`.
+
 ## 1. ESLint 10 / eslint-plugin-react incompatibility (pre-existing, Tier 3)
 
 There is a lockfile/install mismatch around ESLint that predates and is independent of the redesign:
@@ -18,6 +22,6 @@ The 4,655-line `src/components/ClinicalDashboard.tsx` was not split into `clinic
 - **Restart point:** the Plan-verified move map (lowest-coupling first) is in the approved plan — `use-theme.ts`, `badges.tsx`, `display-text.ts`, `guide-dialog.tsx`, `utility-drawer.tsx`, `setup-checklist.tsx`, `upload-drawer.tsx`, `master-search-header.tsx`, `answer-content.tsx`, `evidence-panels.tsx`, `output-panel.tsx`, `visual-evidence.tsx`, `document-results.tsx`, `auth-panel.tsx`.
 - **Constraint reminder:** moving `ClinicalOutputPanel` requires updating `dashboardPath` in `tests/clinical-dashboard-merge-artifacts.test.ts` (it AST-pins the panel's location); all `data-testid`/`aria-label` strings must move verbatim.
 
-## 3. Pre-existing smoke failures (not redesign-caused)
+## 3. Pre-existing smoke failures (resolved in current UI gate)
 
-Three `ui-smoke` tests fail deterministically on a warm server independent of styling (answer "Structured details" heading, private-source pdf-preview state, duplicate-upload "Queue document" enable logic). See `01-audit.md` baseline. Out of scope to fix here; flagged so they are not mistaken for redesign regressions.
+The previously flagged answer, private-source preview, and duplicate-upload smoke cases now pass in the current Chromium UI gate. `npm run verify:ui` passed 26/26 on June 23, 2026, including the accessibility media smoke and `/tools` launcher smoke coverage.

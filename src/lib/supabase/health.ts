@@ -1,7 +1,12 @@
 type SupabaseProbeClient = {
   from(table: string): {
-    select(columns: string, options?: Record<string, unknown>): {
-      limit(count: number): PromiseLike<{ error: { message?: string; code?: string; details?: string; hint?: string } | null }>;
+    select(
+      columns: string,
+      options?: Record<string, unknown>,
+    ): {
+      limit(
+        count: number,
+      ): PromiseLike<{ error: { message?: string; code?: string; details?: string; hint?: string } | null }>;
     };
   };
 };
@@ -28,14 +33,19 @@ export function isSupabaseUnavailableError(error: unknown) {
 
 export function formatSupabaseUnavailableError(error: unknown) {
   const message = errorMessage(error);
-  const title = message.match(/<title>\s*([^<]+?)\s*<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
+  const title = message
+    .match(/<title>\s*([^<]+?)\s*<\/title>/i)?.[1]
+    ?.replace(/\s+/g, " ")
+    .trim();
   if (title) return `Supabase is temporarily unavailable (${title}).`;
   if (/connection terminated/i.test(message)) return "Supabase SQL connection was terminated due to a timeout.";
   if (/statement timeout/i.test(message)) return "Supabase cancelled the query due to statement timeout.";
   if (/544/.test(message)) return "Supabase Storage is timing out with a 544 response.";
   if (/522/.test(message)) return "Supabase API is timing out with a 522 response.";
   if (/504/.test(message)) return "Supabase API is timing out with a 504 response.";
-  return message ? `Supabase is temporarily unavailable: ${message.slice(0, 240)}` : "Supabase is temporarily unavailable.";
+  return message
+    ? `Supabase is temporarily unavailable: ${message.slice(0, 240)}`
+    : "Supabase is temporarily unavailable.";
 }
 
 export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promise<SupabaseHealthResult> {

@@ -521,7 +521,7 @@ async function stampDeepMemoryVersion(args: { supabase: SupabaseClient; document
             })
             .eq("id", chunk.id);
           if (error) throw new Error(error.message);
-        })
+        }),
       );
     }
   }
@@ -572,8 +572,8 @@ export async function upsertDocumentDeepMemory(args: {
   const embeddings = await embedTexts(cards.map(embeddingText));
   if (embeddings.length !== cards.length) throw new Error("OpenAI returned an unexpected memory-card embedding count.");
 
-  for (let start = 0; start < cards.length; start += 10) {
-    const batch = cards.slice(start, start + 10).map((card, index) => {
+  for (let start = 0; start < cards.length; start += 50) {
+    const batch = cards.slice(start, start + 50).map((card, index) => {
       const { section_index: sectionIndex, ...row } = card;
       return {
         ...row,
@@ -594,8 +594,8 @@ export async function upsertDocumentDeepMemory(args: {
   });
   if (indexUnits.length > 0) {
     const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));
-    for (let start = 0; start < indexUnits.length; start += 10) {
-      const batch = indexUnits.slice(start, start + 10).map((unit, index) => ({
+    for (let start = 0; start < indexUnits.length; start += 50) {
+      const batch = indexUnits.slice(start, start + 50).map((unit, index) => ({
         ...unit,
         embedding: indexUnitEmbeddings[start + index],
       }));

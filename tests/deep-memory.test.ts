@@ -303,19 +303,19 @@ describe("deep RAG memory indexing", () => {
     expect(insertedIndexUnits.some((row) => row.unit_type === "document_profile")).toBe(true);
     expect(insertedMemoryRows.every((row) => !("section_index" in row))).toBe(true);
     expect(insertedMemoryRows.every((row) => typeof row.section_id === "string" || row.section_id === null)).toBe(true);
-    
+
     // Verify JS version stamping updates
     expect(updatedRows.get("documents")?.[0]?.metadata).toEqual(
       expect.objectContaining({
         rag_indexing_version: ragDeepMemoryVersion,
         rag_memory_version: ragDeepMemoryVersion,
-      })
+      }),
     );
     expect(updatedRows.get("document_chunks")?.[0]?.metadata).toEqual(
       expect.objectContaining({
         rag_indexing_version: ragDeepMemoryVersion,
         rag_memory_version: ragDeepMemoryVersion,
-      })
+      }),
     );
   });
 });

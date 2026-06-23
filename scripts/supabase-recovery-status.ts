@@ -47,12 +47,18 @@ async function main() {
 
   const staleCutoff = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
   const [pendingJobs, processingJobs, failedJobs, staleJobs, queuedDocuments, failedDocuments] = await Promise.all([
-    safeCount("jobs_pending", supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "pending")),
+    safeCount(
+      "jobs_pending",
+      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ),
     safeCount(
       "jobs_processing",
       supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "processing"),
     ),
-    safeCount("jobs_failed", supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed")),
+    safeCount(
+      "jobs_failed",
+      supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    ),
     safeCount(
       "jobs_stale_processing",
       supabase
@@ -61,8 +67,14 @@ async function main() {
         .eq("status", "processing")
         .lt("locked_at", staleCutoff),
     ),
-    safeCount("documents_queued", supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued")),
-    safeCount("documents_failed", supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed")),
+    safeCount(
+      "documents_queued",
+      supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued"),
+    ),
+    safeCount(
+      "documents_failed",
+      supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    ),
   ]);
 
   const counts = [pendingJobs, processingJobs, failedJobs, staleJobs, queuedDocuments, failedDocuments];

@@ -59,8 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!data) {
       return NextResponse.json(
         {
-          error:
-            "This job is still being processed by a worker. Wait for it to finish or go stale before retrying.",
+          error: "This job is still being processed by a worker. Wait for it to finish or go stale before retrying.",
         },
         { status: 409 },
       );

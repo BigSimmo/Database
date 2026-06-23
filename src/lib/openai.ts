@@ -414,11 +414,9 @@ export async function embedTexts(texts: string[]) {
     const byIndex = new Array<number[]>(uniqueTexts.length);
     for (const item of response.data) {
       if (item.index < 0 || item.index >= uniqueTexts.length) {
-        throw new PublicApiError(
-          `OpenAI returned an out-of-range embedding index ${item.index}.`,
-          502,
-          { code: "openai_embedding_index_range" },
-        );
+        throw new PublicApiError(`OpenAI returned an out-of-range embedding index ${item.index}.`, 502, {
+          code: "openai_embedding_index_range",
+        });
       }
       // IDX-C2: guard against a model whose dimension does not match the schema.
       if (item.embedding.length !== env.EMBEDDING_DIMENSIONS) {
