@@ -133,6 +133,12 @@ function strictEnrichmentVersionRequired() {
   );
 }
 
+function maxPendingEnrichmentAllowed() {
+  const raw = process.env.RAG_MAX_PENDING_ENRICHMENT ?? "0";
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
 function missingSchemaMessage(error: { message: string } | Error | null | undefined) {
   const message = error instanceof Error ? error.message : error?.message;
   if (!message) return "";
@@ -444,6 +450,7 @@ async function main() {
     );
   });
   const requireCurrentEnrichmentVersion = strictEnrichmentVersionRequired();
+  const pendingEnrichmentLimit = maxPendingEnrichmentAllowed();
 
   const missingEmbeddingResult = await supabase
     .from("document_chunks")
@@ -536,6 +543,9 @@ async function main() {
   if (requireCurrentEnrichmentVersion && documentsMissingCurrentDeepMemoryVersion > 0) {
     issues.push(`indexed documents missing current deep-memory version: ${documentsMissingCurrentDeepMemoryVersion}`);
   }
+  if (pendingIndexedDocuments.length > pendingEnrichmentLimit) {
+    issues.push(`pending enrichment queue exceeds limit: ${pendingIndexedDocuments.length}/${pendingEnrichmentLimit}`);
+  }
   if (actionableFailedJobs.length > 0) issues.push(`actionable failed ingestion jobs: ${actionableFailedJobs.length}`);
   if ((cleanupIssuesResult.data ?? []).length > 0) {
     issues.push(`pending or failed storage cleanup jobs: ${(cleanupIssuesResult.data ?? []).length}`);
@@ -561,7 +571,7 @@ async function main() {
     `Indexed documents: completed=${indexedDocuments.length}; pending=${pendingIndexedDocuments.length}; empty=${emptyIndexedDocuments.length}`,
   );
   if (pendingIndexedDocuments.length > 0) {
-    console.log(`Pending enrichment queue: ${pendingIndexedDocuments.length}`);
+    console.log(`Pending enrichment queue: ${pendingIndexedDocuments.length}; limit=${pendingEnrichmentLimit}`);
   }
   console.log(`Chunk-count mismatches: ${documentsWithChunkCountMismatch.length}`);
   console.log(

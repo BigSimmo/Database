@@ -12,7 +12,7 @@ import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
-import { consumePublicSearchRateLimit } from "@/lib/public-rate-limit";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
@@ -753,19 +753,11 @@ export async function POST(request: Request) {
     const user = await serverAuth.requireAuthenticatedUser(request, supabase);
     ownerId = user.id;
 
-    const rateLimit = consumePublicSearchRateLimit(request.headers);
+    const rateLimit = await consumeApiRateLimit({ supabase, ownerId, bucket: "search" });
     if (rateLimit.limited) {
-      return NextResponse.json(
-        {
-          error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
-          retryAfterSeconds: rateLimit.retryAfterSeconds,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(rateLimit.retryAfterSeconds),
-          },
-        },
+      return rateLimitJsonResponse(
+        "Search is temporarily rate limited because too many requests were received. Retry shortly.",
+        rateLimit,
       );
     }
 
@@ -786,6 +778,9 @@ export async function POST(request: Request) {
     }
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
+    }
+    if (error instanceof PublicApiError) {
+      return jsonError(error, error.status);
     }
     if (error instanceof Error && error.message.trim()) {
       const code = classifySearchFailure(error);

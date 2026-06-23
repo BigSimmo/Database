@@ -27,6 +27,9 @@ export type GroupedSourceGovernanceWarning = {
   titles: string[];
 };
 
+export const sourceGovernanceRefusalAnswer =
+  "I cannot provide a source-backed clinical answer because one or more supporting sources are marked outdated or have poor extraction quality. Review or reindex the source material before using it for clinical guidance.";
+
 function isLocalMetadataText(value: string) {
   return /\b(?:wa|western australia|perth|north metropolitan|east metropolitan|south metropolitan|health service)\b/i.test(
     value,
@@ -192,4 +195,8 @@ export function groupSourceGovernanceWarnings(warnings: SourceGovernanceWarning[
 
   const severityRank = { danger: 0, warning: 1, info: 2 } satisfies Record<SourceGovernanceWarning["severity"], number>;
   return Array.from(grouped.values()).sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
+
+export function hasDangerSourceGovernanceWarning(warnings: SourceGovernanceWarning[]) {
+  return warnings.some((warning) => warning.severity === "danger");
 }

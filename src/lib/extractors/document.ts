@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
@@ -57,72 +57,79 @@ async function extractPdf(buffer: Buffer) {
   await writeFile(pdfPath, buffer);
 
   try {
-    return await runPythonPdfExtractor(pdfPath, imageDir);
+    const extracted = await runPythonPdfExtractor(pdfPath, imageDir);
+    return { ...extracted, temporaryPaths: [tempRoot] };
   } catch {
     // Fallback for developer machines without PyMuPDF/pytesseract. It still
     // indexes text PDFs, but scanned PDFs and image extraction need the Python
     // helper dependencies listed in worker/python/requirements.txt.
     const parser = new PDFParse({ data: buffer });
-    const parsed = await parser.getText();
-    const imageResult = await parser.getImage({
-      imageBuffer: true,
-      imageDataUrl: true,
-      imageThreshold: 20,
-    });
-    const images: ExtractedDocument["images"] = [];
-    for (const page of imageResult.pages) {
-      for (const [index, image] of page.images.entries()) {
-        const dataUrlMatch = image.dataUrl?.match(/^data:(.*?);base64,(.*)$/);
-        const mimeType = dataUrlMatch?.[1] ?? "image/png";
-        const extension = mimeType.includes("jpeg") ? "jpg" : "png";
-        const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
-        const bytes = dataUrlMatch ? Buffer.from(dataUrlMatch[2], "base64") : Buffer.from(image.data);
-        await writeFile(outputPath, bytes);
-        images.push({
-          pageNumber: page.pageNumber,
-          path: outputPath,
-          mimeType,
-          bbox: null,
-          width: null,
-          height: null,
-          sourceKind: "fallback",
-          metadata: { source_kind: "fallback" },
-        });
+    try {
+      const parsed = await parser.getText();
+      const imageResult = await parser.getImage({
+        imageBuffer: true,
+        imageDataUrl: true,
+        imageThreshold: 20,
+      });
+      const images: ExtractedDocument["images"] = [];
+      for (const page of imageResult.pages) {
+        for (const [index, image] of page.images.entries()) {
+          const dataUrlMatch = image.dataUrl?.match(/^data:(.*?);base64,(.*)$/);
+          const mimeType = dataUrlMatch?.[1] ?? "image/png";
+          const extension = mimeType.includes("jpeg") ? "jpg" : "png";
+          const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
+          const bytes = dataUrlMatch ? Buffer.from(dataUrlMatch[2], "base64") : Buffer.from(image.data);
+          await writeFile(outputPath, bytes);
+          images.push({
+            pageNumber: page.pageNumber,
+            path: outputPath,
+            mimeType,
+            bbox: null,
+            width: null,
+            height: null,
+            sourceKind: "fallback",
+            metadata: { source_kind: "fallback" },
+          });
+        }
       }
+      await parser.destroy();
+
+      // IDX-H3: the JS fallback cannot OCR. A scanned / image-only page yields little or no
+      // embedded text, so without flagging it the document would index as near-empty yet still
+      // be marked "indexed" — invisible to retrieval. Mark any page that has image content but
+      // below-threshold text as needsOcr so index_quality surfaces it (and the worker refuses
+      // to mark an image-only PDF as fully indexed).
+      const JS_FALLBACK_MIN_TEXT_CHARS = 40;
+      const imageCountByPage = new Map<number, number>();
+      for (const image of images) {
+        if (image.pageNumber === null) continue;
+        imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
+      }
+
+      const rawPages =
+        parsed.pages.length > 0
+          ? parsed.pages.map((page) => ({ pageNumber: page.num, text: page.text || "" }))
+          : [{ pageNumber: 1, text: parsed.text || "" }];
+
+      const pages = rawPages.map((page) => {
+        const textLength = page.text.trim().length;
+        const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
+        const needsOcr = textLength < JS_FALLBACK_MIN_TEXT_CHARS && hasImages;
+        return { pageNumber: page.pageNumber, text: page.text, ocrUsed: false, needsOcr };
+      });
+
+      const warnings = ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."];
+      const ocrNeededPages = pages.filter((page) => page.needsOcr).length;
+      if (ocrNeededPages > 0) {
+        warnings.push(`needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`);
+      }
+
+      return { pages, images, warnings, temporaryPaths: [tempRoot] };
+    } catch (fallbackError) {
+      await parser.destroy().catch(() => undefined);
+      await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+      throw fallbackError;
     }
-    await parser.destroy();
-
-    // IDX-H3: the JS fallback cannot OCR. A scanned / image-only page yields little or no
-    // embedded text, so without flagging it the document would index as near-empty yet still
-    // be marked "indexed" — invisible to retrieval. Mark any page that has image content but
-    // below-threshold text as needsOcr so index_quality surfaces it (and the worker refuses
-    // to mark an image-only PDF as fully indexed).
-    const JS_FALLBACK_MIN_TEXT_CHARS = 40;
-    const imageCountByPage = new Map<number, number>();
-    for (const image of images) {
-      if (image.pageNumber === null) continue;
-      imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
-    }
-
-    const rawPages =
-      parsed.pages.length > 0
-        ? parsed.pages.map((page) => ({ pageNumber: page.num, text: page.text || "" }))
-        : [{ pageNumber: 1, text: parsed.text || "" }];
-
-    const pages = rawPages.map((page) => {
-      const textLength = page.text.trim().length;
-      const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
-      const needsOcr = textLength < JS_FALLBACK_MIN_TEXT_CHARS && hasImages;
-      return { pageNumber: page.pageNumber, text: page.text, ocrUsed: false, needsOcr };
-    });
-
-    const warnings = ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."];
-    const ocrNeededPages = pages.filter((page) => page.needsOcr).length;
-    if (ocrNeededPages > 0) {
-      warnings.push(`needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`);
-    }
-
-    return { pages, images, warnings };
   }
 }
 
@@ -132,31 +139,37 @@ async function extractDocx(buffer: Buffer) {
   const tempRoot = await mkdtemp(path.join(tmpdir(), "clinical-kb-docx-"));
   const images: ExtractedDocument["images"] = [];
 
-  const media = Object.keys(zip.files).filter((name) => name.startsWith("word/media/"));
-  for (const [index, name] of media.entries()) {
-    const file = zip.files[name];
-    if (file.dir) continue;
-    const bytes = await file.async("nodebuffer");
-    const ext = path.extname(name).toLowerCase() || ".png";
-    const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".webp" ? "image/webp" : "image/png";
-    const outputPath = path.join(tempRoot, `docx-image-${index}${ext}`);
-    await writeFile(outputPath, bytes);
-    images.push({
-      pageNumber: null,
-      path: outputPath,
-      mimeType,
-      bbox: null,
-      width: null,
-      height: null,
-      sourceKind: "embedded",
-      metadata: { source_kind: "docx_media", file_name: name },
-    });
-  }
+  try {
+    const media = Object.keys(zip.files).filter((name) => name.startsWith("word/media/"));
+    for (const [index, name] of media.entries()) {
+      const file = zip.files[name];
+      if (file.dir) continue;
+      const bytes = await file.async("nodebuffer");
+      const ext = path.extname(name).toLowerCase() || ".png";
+      const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".webp" ? "image/webp" : "image/png";
+      const outputPath = path.join(tempRoot, `docx-image-${index}${ext}`);
+      await writeFile(outputPath, bytes);
+      images.push({
+        pageNumber: null,
+        path: outputPath,
+        mimeType,
+        bbox: null,
+        width: null,
+        height: null,
+        sourceKind: "embedded",
+        metadata: { source_kind: "docx_media", file_name: name },
+      });
+    }
 
-  return {
-    pages: [{ pageNumber: 1, text: raw.value || "", ocrUsed: false }],
-    images,
-  } satisfies ExtractedDocument;
+    return {
+      pages: [{ pageNumber: 1, text: raw.value || "", ocrUsed: false }],
+      images,
+      temporaryPaths: [tempRoot],
+    } satisfies ExtractedDocument;
+  } catch (error) {
+    await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
 }
 
 async function extractXlsx(buffer: Buffer) {

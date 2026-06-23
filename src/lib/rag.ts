@@ -386,6 +386,7 @@ export type SearchTelemetry = {
   memory_top_score?: number;
   index_unit_count?: number;
   index_unit_top_score?: number;
+  retrieval_layer_counts?: Record<string, number>;
   weighted_top_score?: number;
   rrf_top_score?: number;
   top_score?: number;
@@ -448,6 +449,15 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  telemetry.retrieval_layer_counts = results.reduce<Record<string, number>>((counts, result) => {
+    const layers = new Set<string>(["chunk"]);
+    if (result.memory_cards?.length) layers.add("memory_card");
+    if (result.index_unit?.unit_type) layers.add(`index_unit:${result.index_unit.unit_type}`);
+    if (result.match_explanation?.tableHit || result.index_unit?.unit_type === "table_fact") layers.add("table_fact");
+    if (result.match_explanation?.fieldType) layers.add(`field:${result.match_explanation.fieldType}`);
+    for (const layer of layers) counts[layer] = (counts[layer] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 const citationSchema = z.object({
@@ -3051,16 +3061,6 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
   return /\b(?:gap|not enough|insufficient|unsupported|urgent|escalat\w*|risk|safety)\b/i.test(
     `${section.heading} ${section.body}`,
   );
-}
-
-function simplifySimpleGeneratedAnswer(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
-  if (!isSimpleDirectQuestion(query, queryClass)) return answer;
-  const sections = answer.answerSections ?? [];
-  if (sections.length === 0) return answer;
-
-  const essentialSection = sections.find((section) => isEssentialSimpleQuestionSection(section));
-  answer.answerSections = essentialSection ? [essentialSection] : [];
-  return answer;
 }
 
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {

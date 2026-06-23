@@ -36,6 +36,17 @@ function fail(message: string): QueryResult {
   return { data: null, error: { message } };
 }
 
+function rateLimitRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    limited: false,
+    limit_value: 100,
+    remaining: 99,
+    retry_after_seconds: 60,
+    reset_at: new Date(Date.now() + 60_000).toISOString(),
+    ...overrides,
+  };
+}
+
 class QueryBuilder implements PromiseLike<QueryResult> {
   constructor(
     private readonly call: QueryCall,
@@ -159,7 +170,14 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
       ? { data: { user: { id: userId } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
-  const rpc = vi.fn(async () => ok([]));
+  const rpc = vi.fn(async (name: string) =>
+    name === "consume_api_rate_limit"
+      ? {
+          data: [rateLimitRow()],
+          error: null,
+        }
+      : ok([]),
+  );
   const client = {
     auth: { getUser, admin: { listUsers } },
     calls,
@@ -611,25 +629,29 @@ describe("private document API access", () => {
       }
       return ok([]);
     });
-    client.rpc.mockResolvedValue({
-      data: [
-        {
-          document_id: documentId,
-          labels: [
-            {
-              id: "label-1",
-              document_id: documentId,
-              label: "agitation",
-              label_type: "topic",
-              source: "generated",
-              confidence: 0.9,
-            },
-          ],
-          summary: "High-yield agitation management guidance.",
-        },
-      ],
-      error: null,
-    });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit"
+        ? { data: [rateLimitRow()], error: null }
+        : {
+            data: [
+              {
+                document_id: documentId,
+                labels: [
+                  {
+                    id: "label-1",
+                    document_id: documentId,
+                    label: "agitation",
+                    label_type: "topic",
+                    source: "generated",
+                    confidence: 0.9,
+                  },
+                ],
+                summary: "High-yield agitation management guidance.",
+              },
+            ],
+            error: null,
+          },
+    );
     mockRuntime(client, {
       searchChunksWithTelemetry: vi.fn(async () => ({
         results: [
@@ -1500,6 +1522,13 @@ describe("private document API access", () => {
       sources: [],
     }));
     const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && args?.p_bucket === "answer"
+        ? { data: [rateLimitRow({ limited: true, limit_value: 30, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
     mockRuntime(client, { searchChunksWithTelemetry, answerQuestionWithScope });
 
     const answerRoute = await import("../src/app/api/answer/route");
@@ -1511,16 +1540,14 @@ describe("private document API access", () => {
         body: JSON.stringify({ query: "monitoring" }),
       });
 
-    for (let index = 0; index < 30; index += 1) {
-      const response = await answerRoute.POST(answerRequest());
-      expect(response.status).toBe(200);
-    }
-
     const limited = await answerRoute.POST(answerRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({ error: "Too many public answer requests. Retry shortly." });
-    expect(answerQuestionWithScope).toHaveBeenCalledTimes(30);
+    expect(await payload(limited)).toEqual({
+      error: "Too many answer requests. Retry shortly.",
+      retryAfterSeconds: 60,
+    });
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
 
     const searchResponse = await searchRoute.POST(
       authenticatedRequest("/api/search", {
@@ -1532,6 +1559,14 @@ describe("private document API access", () => {
 
     expect(searchResponse.status).toBe(200);
     expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: userId }));
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
+    );
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "search" }),
+    );
   });
 
   it("rate limits abnormal authenticated search bursts with retry metadata", async () => {
@@ -1551,15 +1586,14 @@ describe("private document API access", () => {
       },
     }));
     const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && args?.p_bucket === "search"
+        ? { data: [rateLimitRow({ limited: true, limit_value: 2, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
     mockRuntime(client, { searchChunksWithTelemetry });
-    vi.doMock("@/lib/public-rate-limit", async () => {
-      const actual = await vi.importActual<typeof import("../src/lib/public-rate-limit")>("@/lib/public-rate-limit");
-      return {
-        ...actual,
-        consumePublicSearchRateLimit: (headers: Headers) =>
-          actual.consumePublicSearchRateLimit(headers, Date.now(), { limit: 2, windowMs: 60_000 }),
-      };
-    });
     const searchRoute = await import("../src/app/api/search/route");
     const searchRequest = () =>
       authenticatedRequest("/api/search", {
@@ -1568,9 +1602,6 @@ describe("private document API access", () => {
         body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
       });
 
-    expect((await searchRoute.POST(searchRequest())).status).toBe(200);
-    expect((await searchRoute.POST(searchRequest())).status).toBe(200);
-
     const limited = await searchRoute.POST(searchRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
@@ -1578,7 +1609,40 @@ describe("private document API access", () => {
       error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
       retryAfterSeconds: 60,
     });
-    expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(2);
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the durable rate limit check is unavailable", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await payload(response)).toEqual({ error: "Rate limit check is temporarily unavailable." });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
   it("coalesces identical in-flight authenticated search requests", async () => {
@@ -1674,21 +1738,16 @@ describe("private document API access", () => {
       sources: [],
     }));
     const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && args?.p_bucket === "answer"
+        ? { data: [rateLimitRow({ limited: true, limit_value: 30, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
     mockRuntime(client, { answerQuestionWithScope });
 
-    const answerRoute = await import("../src/app/api/answer/route");
     const streamRoute = await import("../src/app/api/answer/stream/route");
-    const answerRequest = () =>
-      authenticatedRequest("/api/answer", {
-        method: "POST",
-        headers: { "x-real-ip": "203.0.113.11" },
-        body: JSON.stringify({ query: "monitoring" }),
-      });
-
-    for (let index = 0; index < 30; index += 1) {
-      const response = await answerRoute.POST(answerRequest());
-      expect(response.status).toBe(200);
-    }
 
     const response = await streamRoute.POST(
       authenticatedRequest("/api/answer/stream", {
@@ -1703,8 +1762,157 @@ describe("private document API access", () => {
     expect(response.headers.get("Retry-After")).toBe("60");
     expect(body).toContain("event: error");
     expect(body).toContain('"status":429');
-    expect(body).toContain("Too many public answer requests. Retry shortly.");
-    expect(answerQuestionWithScope).toHaveBeenCalledTimes(30);
+    expect(body).toContain("Too many answer requests. Retry shortly.");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("does not stream internal PublicApiError details to clients", async () => {
+    const answerQuestionWithScope = vi.fn(async () => {
+      const { PublicApiError } = await import("../src/lib/http");
+      throw new PublicApiError("Stream failed safely.", 503, {
+        code: "stream_failed",
+        causeMessage: "secret table public.private_data does not exist",
+        sqlState: "42P01",
+      });
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("Stream failed safely.");
+    expect(body).toContain("stream_failed");
+    expect(body).not.toContain("private_data");
+    expect(body).not.toContain("42P01");
+  });
+
+  it("refuses answer responses backed by danger-class source governance warnings", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Use the old protocol.",
+      grounded: true,
+      confidence: "high",
+      citations: [{ chunk_id: "chunk-1", page_number: 1, quote: "old protocol", document_id: documentId }],
+      sources: [
+        {
+          id: "chunk-1",
+          document_id: documentId,
+          title: "Outdated guideline",
+          file_name: "old.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          content: "old protocol",
+          image_ids: [],
+          similarity: 0.9,
+          source_metadata: {
+            source_title: "Outdated guideline",
+            publisher: "Local WA service",
+            jurisdiction: "WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "outdated",
+            clinical_validation_status: "approved",
+            extraction_quality: "good",
+          },
+          images: [],
+        },
+      ],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.grounded).toBe(false);
+    expect(body.confidence).toBe("unsupported");
+    expect(body.citations).toEqual([]);
+    expect(String(body.answer)).toContain("cannot provide a source-backed clinical answer");
+    expect(body.sourceGovernanceWarnings).toEqual([
+      expect.objectContaining({ code: "outdated_source", severity: "danger" }),
+    ]);
+  });
+
+  it("rate limits document summarization before OpenAI work", async () => {
+    const summarizeDocument = vi.fn(async () => ({ summary: "Expensive summary" }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && args?.p_bucket === "document_summarize"
+        ? { data: [rateLimitRow({ limited: true, limit_value: 12, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/documents/[id]/summarize/route");
+
+    const response = await POST(authenticatedRequest(`/api/documents/${documentId}/summarize`, { method: "POST" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(await payload(response)).toMatchObject({
+      error: "Too many document summary requests. Retry shortly.",
+      retryAfterSeconds: 60,
+    });
+    expect(summarizeDocument).not.toHaveBeenCalled();
+  });
+
+  it("rate limits single and bulk reindex before enrichment or queue work", async () => {
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && (args?.p_bucket === "document_reindex" || args?.p_bucket === "bulk_reindex")
+        ? { data: [rateLimitRow({ limited: true, limit_value: 1, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
+    const upsertDocumentEnrichment = vi.fn();
+    const upsertDocumentDeepMemory = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    const singleRoute = await import("../src/app/api/documents/[id]/reindex/route");
+    const bulkRoute = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const singleResponse = await singleRoute.POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const bulkResponse = await bulkRoute.POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId], mode: "enrichment" }),
+      }),
+    );
+
+    expect(singleResponse.status).toBe(429);
+    expect(bulkResponse.status).toBe(429);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
+    expect(client.calls.some((call) => call.table === "documents")).toBe(false);
   });
 
   it("returns a generic not found response when summarizing an unowned document", async () => {

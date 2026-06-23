@@ -813,6 +813,7 @@ export type ExtractedDocument = {
   pages: ExtractedPage[];
   images: ExtractedImage[];
   warnings?: string[];
+  temporaryPaths?: string[];
 };
 
 export type ChunkInput = {

@@ -4,12 +4,16 @@ import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { consumePublicAnswerRateLimit } from "@/lib/public-rate-limit";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
-import { sourceGovernanceWarnings } from "@/lib/source-governance";
+import {
+  hasDangerSourceGovernanceWarning,
+  sourceGovernanceRefusalAnswer,
+  sourceGovernanceWarnings,
+} from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 
@@ -48,12 +52,9 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const user = await serverAuth.requireAuthenticatedUser(request, supabase);
 
-    const rateLimit = consumePublicAnswerRateLimit(request.headers);
+    const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "answer" });
     if (rateLimit.limited) {
-      return NextResponse.json(
-        { error: "Too many public answer requests. Retry shortly." },
-        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
-      );
+      return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
 
     const scope = await resolveSearchScope({
@@ -86,13 +87,26 @@ export async function POST(request: Request) {
       queryMode: body.queryMode,
       skipCache: body.skipCache,
     });
+    const warnings = sourceGovernanceWarnings({
+      results: answer.sources ?? [],
+      relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
+    });
+    if (hasDangerSourceGovernanceWarning(warnings)) {
+      return NextResponse.json({
+        ...answer,
+        answer: sourceGovernanceRefusalAnswer,
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        scope: { ...scope, queryMode: body.queryMode },
+        sourceGovernanceWarnings: warnings,
+      });
+    }
+
     return NextResponse.json({
       ...answer,
       scope: { ...scope, queryMode: body.queryMode },
-      sourceGovernanceWarnings: sourceGovernanceWarnings({
-        results: answer.sources ?? [],
-        relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
-      }),
+      sourceGovernanceWarnings: warnings,
     });
   } catch (error) {
     if (error instanceof serverAuth.AuthenticationError) {

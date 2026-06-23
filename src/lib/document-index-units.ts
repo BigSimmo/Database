@@ -4,6 +4,7 @@ import type { ModelIndexProfile, ModelIndexProfileItem, ModelIndexTableFact } fr
 import type { ClinicalDocument, DocumentSectionMemory } from "@/lib/types";
 
 export const documentIndexUnitVersion = "document-index-units-v1" as const;
+export const documentIntelligenceVersion = "document-intelligence-v2" as const;
 
 export type DocumentIndexUnitType =
   | "document_profile"
@@ -13,6 +14,10 @@ export type DocumentIndexUnitType =
   | "table_fact"
   | "askable_question"
   | "clinical_fact"
+  | "threshold"
+  | "workflow_step"
+  | "medication_monitoring"
+  | "alias"
   | "vocabulary_term";
 
 export type DocumentIndexUnitInput = {
@@ -52,6 +57,14 @@ function compact(value: unknown, limit = 900) {
   return compacted.length <= limit ? compacted : `${compacted.slice(0, limit - 3).trim()}...`;
 }
 
+const sentenceBoundary = /(?<=[.!?])\s+|\n+/;
+const thresholdPattern =
+  /\b(?:threshold|cut[\s-]?off|level|range|score|scale|criteria|criterion|maximum|minimum|baseline|anc|fbc|wbc|neutrophil|withhold|cease|stop|urgent|review|<|>|<=|>=|\d+(?:\.\d+)?\s*(?:mg|mcg|mmol|x\s*10\^?9\/l|%))\b/i;
+const medicationMonitoringPattern =
+  /\b(?:clozapine|lithium|antipsychotic|benzodiazepine|olanzapine|lorazepam|diazepam|haloperidol|depot|lai|neuroleptic|dose|mg|mcg|route|oral|im\b|po\b|titrate|monitor|fbc|anc|level|toxicity)\b/i;
+const workflowPattern =
+  /\b(?:workflow|pathway|process|procedure|step|refer|review|document|record|complete|form|responsib\w*|follow[- ]?up|appointment|escalat\w*|urgent|required|must|should)\b/i;
+
 function termsFor(...values: unknown[]) {
   return Array.from(
     new Set(
@@ -66,6 +79,47 @@ function termsFor(...values: unknown[]) {
         ]),
     ),
   ).slice(0, 48);
+}
+
+function splitSourceSentences(content: string) {
+  return content
+    .replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, " ")
+    .split(sentenceBoundary)
+    .map((sentence) => compact(sentence, 520))
+    .filter((sentence) => sentence.length >= 20);
+}
+
+function deterministicTypedCandidates(chunk: IndexUnitChunk) {
+  const candidates: Array<{ unit_type: DocumentIndexUnitType; title: string; content: string; score: number }> = [];
+  const sentences = splitSourceSentences(chunk.content);
+  const add = (unit_type: DocumentIndexUnitType, title: string, content: string, score: number) => {
+    if (!content) return;
+    if (candidates.some((candidate) => candidate.unit_type === unit_type && candidate.content === content)) return;
+    candidates.push({ unit_type, title, content, score });
+  };
+
+  for (const sentence of sentences) {
+    if (thresholdPattern.test(sentence)) {
+      add("threshold", chunk.section_heading || "Threshold", sentence, 0.7);
+    }
+    if (medicationMonitoringPattern.test(sentence)) {
+      add("medication_monitoring", chunk.section_heading || "Medication monitoring", sentence, 0.68);
+    }
+    if (workflowPattern.test(sentence)) {
+      add("workflow_step", chunk.section_heading || "Workflow step", sentence, 0.64);
+    }
+    if (candidates.length >= 6) break;
+  }
+
+  return candidates.slice(0, 4);
+}
+
+function unitTypeForClinicalItem(item: ModelIndexProfileItem): DocumentIndexUnitType {
+  const text = `${item.title} ${item.content}`;
+  if (thresholdPattern.test(text)) return "threshold";
+  if (medicationMonitoringPattern.test(text)) return "medication_monitoring";
+  if (workflowPattern.test(text)) return "workflow_step";
+  return "clinical_fact";
 }
 
 function firstChunk(chunks: IndexUnitChunk[], chunkIds: string[] = []) {
@@ -119,6 +173,7 @@ function buildUnit(args: {
     extraction_mode: args.extraction_mode,
     metadata: {
       document_index_unit_version: documentIndexUnitVersion,
+      document_intelligence_version: documentIntelligenceVersion,
       chunk_index: args.sourceChunk?.chunk_index ?? null,
       section_heading: args.sourceChunk?.section_heading ?? null,
       ...args.metadata,
@@ -247,6 +302,24 @@ export function buildDocumentIndexUnitInputs(args: {
         metadata: { source: "document_chunks" },
       }),
     );
+
+    for (const candidate of deterministicTypedCandidates(chunk)) {
+      add(
+        buildUnit({
+          document: args.document,
+          unit_type: candidate.unit_type,
+          sourceChunk: chunk,
+          title: candidate.title,
+          content: candidate.content,
+          quality_score: candidate.score,
+          extraction_mode: "deterministic",
+          metadata: {
+            source: "deterministic_chunk_signal",
+            typed_signal: candidate.unit_type,
+          },
+        }),
+      );
+    }
   }
 
   for (const item of args.modelProfile?.sections ?? []) {
@@ -277,8 +350,8 @@ export function buildDocumentIndexUnitInputs(args: {
         document: args.document,
         chunks: args.chunks,
         item,
-        unit_type: "clinical_fact",
-        metadata: { source: "model_clinical_facts" },
+        unit_type: unitTypeForClinicalItem(item),
+        metadata: { source: "model_clinical_facts", original_unit_type: "clinical_fact" },
       }),
     );
   }
@@ -290,7 +363,7 @@ export function buildDocumentIndexUnitInputs(args: {
     add(
       buildUnit({
         document: args.document,
-        unit_type: "vocabulary_term",
+        unit_type: "alias",
         sourceChunk,
         title: alias.canonical,
         content: `${alias.alias} means ${alias.canonical}`,
@@ -314,6 +387,13 @@ export function buildDocumentIndexUnitInputs(args: {
     seen.add(key);
     return true;
   });
+}
+
+export function countDocumentIndexUnitsByType(units: Array<Pick<DocumentIndexUnitInput, "unit_type">>) {
+  return units.reduce<Record<string, number>>((counts, unit) => {
+    counts[unit.unit_type] = (counts[unit.unit_type] ?? 0) + 1;
+    return counts;
+  }, {});
 }
 
 export function embeddingTextForDocumentIndexUnit(unit: DocumentIndexUnitInput) {

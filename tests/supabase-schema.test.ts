@@ -82,6 +82,18 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("delete from public.document_sections where document_id = p_document_id;");
   });
 
+  it("supports service-role-only durable API rate limiting", () => {
+    expect(schema).toContain("create table if not exists public.api_rate_limits");
+    expect(schema).toContain("primary key (owner_id, bucket)");
+    expect(schema).toContain("create or replace function public.consume_api_rate_limit");
+    expect(schema).toContain("returns table ( limited boolean, limit_value integer, remaining integer");
+    expect(schema).toContain("grant select, insert, update, delete on table");
+    expect(schema).toContain("public.api_rate_limits,");
+    expect(schema).toContain("alter table public.api_rate_limits enable row level security");
+    expect(schema).toContain('create policy "api rate limits service role all"');
+    expect(schema).not.toMatch(/grant [^;]*public\.api_rate_limits[^;]* to authenticated;/);
+  });
+
   it("stores deep structured memory privately for source-backed answers", () => {
     expect(schema).toContain("create table if not exists public.document_sections");
     expect(schema).toContain("create table if not exists public.document_memory_cards");
@@ -204,6 +216,10 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("create table if not exists public.document_index_units");
     expect(schema).toContain("'document_profile'");
     expect(schema).toContain("'askable_question'");
+    expect(schema).toContain("'threshold'");
+    expect(schema).toContain("'workflow_step'");
+    expect(schema).toContain("'medication_monitoring'");
+    expect(schema).toContain("'alias'");
     expect(schema).toContain("'vocabulary_term'");
     expect(schema).toContain("source_span jsonb");
     expect(schema).toContain("create index if not exists document_index_units_embedding_hnsw_idx");

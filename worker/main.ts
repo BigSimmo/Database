@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { env } from "../src/lib/env";
@@ -61,6 +61,12 @@ const progressUpdateMinDelta = 4;
 const maxSupabaseBackoffMs = env.WORKER_HEALTH_BACKOFF_MS;
 const analyzeRagTablesThrottleMs = 45_000;
 let lastAnalyzeRagTablesAt = 0;
+
+type OptionalIndexWriteIssue = {
+  stage: string;
+  message: string;
+  code?: string | null;
+};
 
 function supabaseStageError(
   stage: string,
@@ -228,8 +234,25 @@ function workerBackoffMs(failures: number) {
   return Math.min(maxSupabaseBackoffMs, env.WORKER_POLL_MS * 2 ** Math.max(0, failures - 1));
 }
 
-function optionalIndexWriteWarning(stage: string, error: unknown) {
-  console.warn(`Optional ${stage} write failed`, safeErrorLogDetails(error));
+function optionalIndexWriteWarning(stage: string, error: unknown): OptionalIndexWriteIssue {
+  const details = safeErrorLogDetails(error);
+  console.warn(`Optional ${stage} write failed`, details);
+  return {
+    stage,
+    message: String(details.message ?? "Optional index write failed."),
+    code: typeof details.code === "string" ? details.code : null,
+  };
+}
+
+async function cleanupExtractedTemporaryPaths(extracted: ExtractedDocument | null) {
+  const temporaryPaths = Array.from(new Set(extracted?.temporaryPaths ?? []));
+  for (const temporaryPath of temporaryPaths) {
+    try {
+      await rm(temporaryPath, { recursive: true, force: true });
+    } catch (error) {
+      console.warn("Temporary extraction cleanup failed", safeErrorLogDetails(error));
+    }
+  }
 }
 
 async function refreshRagTableStats() {
@@ -802,6 +825,7 @@ function buildIndexQualityPayload(args: {
   sectionCount: number;
   memoryCardCount: number;
   documentEmbeddingFieldTypes?: string[];
+  optionalIndexWriteIssues?: OptionalIndexWriteIssue[];
 }) {
   const assessment = assessDocumentIndexQuality({
     metrics: args.metrics,
@@ -811,16 +835,21 @@ function buildIndexQualityPayload(args: {
     memoryCardCount: args.memoryCardCount,
     documentEmbeddingFieldTypes: args.documentEmbeddingFieldTypes,
   });
+  const optionalIssues = args.optionalIndexWriteIssues ?? [];
+  const optionalIssueMessages = optionalIssues.map((issue) => `Optional ${issue.stage} write failed.`);
+  const extractionQuality =
+    optionalIssues.length > 0 && assessment.extractionQuality === "good" ? "partial" : assessment.extractionQuality;
 
   return {
     document_id: args.job.document_id,
     owner_id: args.job.documents.owner_id,
     quality_score: assessment.qualityScore,
-    extraction_quality: assessment.extractionQuality,
-    issues: assessment.issues,
+    extraction_quality: extractionQuality,
+    issues: [...assessment.issues, ...optionalIssueMessages],
     metrics: {
       ...args.metrics,
       ...assessment.metrics,
+      optional_index_write_issues: optionalIssues,
       search_eval_hit_rate: null,
     },
     updated_at: new Date().toISOString(),
@@ -879,6 +908,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
   const imageResult = await uploadAndCaptionImages(job, extracted, pagesByNumber);
   const { insertedImages } = imageResult;
   const indexGenerationId = randomUUID();
+  const optionalIndexWriteIssues: OptionalIndexWriteIssue[] = [];
 
   await updateJob(job.id, { stage: "chunking", progress: 72 });
   const chunkMetadata = {
@@ -953,7 +983,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           if (fieldsError) throw supabaseStageError("insert section-context embedding fields", fieldsError);
         }
       } catch (error) {
-        optionalIndexWriteWarning("section-context embedding field", error);
+        optionalIndexWriteIssues.push(optionalIndexWriteWarning("section-context embedding field", error));
       }
     }
   }
@@ -969,7 +999,10 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
   }));
   if (tableFacts.length > 0) {
     const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
-    if (factsError) optionalIndexWriteWarning("table fact", supabaseStageError("insert table facts", factsError));
+    if (factsError)
+      optionalIndexWriteIssues.push(
+        optionalIndexWriteWarning("table fact", supabaseStageError("insert table facts", factsError)),
+      );
   }
 
   const additionalFieldInputs = buildAdditionalEmbeddingFieldInputs({
@@ -999,7 +1032,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           throw supabaseStageError("insert supplemental embedding fields", additionalFieldsError);
       }
     } catch (error) {
-      optionalIndexWriteWarning("supplemental embedding field", error);
+      optionalIndexWriteIssues.push(optionalIndexWriteWarning("supplemental embedding field", error));
     }
   }
 
@@ -1012,6 +1045,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     skippedImages: imageResult.skippedImages,
     imageSkipReasons: imageResult.skipReasons,
     imageTypeCounts: imageResult.imageTypeCounts,
+    optionalIndexWriteIssues,
   };
 }
 
@@ -1080,12 +1114,13 @@ async function processJob(job: JobRow) {
   });
   await updateDocument(job.document_id, { status: "processing", error_message: null });
   await updateBatch(job.batch_id);
+  let extracted: ExtractedDocument | null = null;
 
   try {
     await resetDocumentIndex(job.document_id);
     const buffer = await downloadDocument(job.documents.storage_path);
     await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
-    const extracted = await extractDocument({
+    extracted = await extractDocument({
       buffer,
       fileName: job.documents.file_name,
       mimeType: job.documents.file_type,
@@ -1102,6 +1137,7 @@ async function processJob(job: JobRow) {
       skippedImages,
       imageSkipReasons,
       imageTypeCounts,
+      optionalIndexWriteIssues,
     } = await insertEmbeddedChunks(job, extracted);
     const metrics = extractionMetrics(extracted, skippedImages, imageSkipReasons, imageTypeCounts);
 
@@ -1112,6 +1148,7 @@ async function processJob(job: JobRow) {
       insertedImages,
       sectionCount: 0,
       memoryCardCount: 0,
+      optionalIndexWriteIssues,
     });
     const { error: initialQualityError } = await supabase
       .from("document_index_quality")
@@ -1143,6 +1180,7 @@ async function processJob(job: JobRow) {
         index_quality_score: initialQuality.quality_score,
         index_quality_issues: initialQuality.issues,
         index_quality_metrics: initialQuality.metrics,
+        optional_index_write_issues: optionalIndexWriteIssues,
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,
       },
@@ -1189,6 +1227,7 @@ async function processJob(job: JobRow) {
           sectionCount,
           memoryCardCount,
           documentEmbeddingFieldTypes,
+          optionalIndexWriteIssues,
         });
         const { error: qualityError } = await supabase
           .from("document_index_quality")
@@ -1224,6 +1263,7 @@ async function processJob(job: JobRow) {
         index_quality_score: finalQuality.quality_score,
         index_quality_issues: finalQuality.issues,
         index_quality_metrics: finalQuality.metrics,
+        optional_index_write_issues: optionalIndexWriteIssues,
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,
       },
@@ -1263,6 +1303,8 @@ async function processJob(job: JobRow) {
         errorMessage: message,
       });
     }
+  } finally {
+    await cleanupExtractedTemporaryPaths(extracted);
   }
 }
 

@@ -176,7 +176,9 @@ async function loadEvidence(supabase: SupabaseAdmin, documentId: string) {
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
       .from("document_chunks")
-      .select("id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata")
+      .select(
+        "id,document_id,page_number,chunk_index,section_heading,section_path,anchor_id,content,image_ids,metadata",
+      )
       .eq("document_id", documentId)
       .order("chunk_index", { ascending: true })
       .range(start, start + 999);

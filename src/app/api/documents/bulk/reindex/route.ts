@@ -4,6 +4,7 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+    const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "bulk_reindex" });
+    if (rateLimit.limited) return rateLimitJsonResponse("Too many bulk reindex requests. Retry shortly.", rateLimit);
+
     const documentIds = Array.from(new Set(parsed.data.documentIds));
     const { data: documents, error: documentError } = await supabase
       .from("documents")
