@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
-import { isDemoMode } from "@/lib/env";
+import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
@@ -52,7 +52,12 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const user = await serverAuth.requireAuthenticatedUser(request, supabase);
 
-    const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "answer" });
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "answer",
+      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+    });
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }

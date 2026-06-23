@@ -30,6 +30,18 @@ type RateLimitRpcRow = {
   reset_at?: string;
 };
 
+type InMemoryRateLimitWindow = {
+  windowStartMs: number;
+  requestCount: number;
+};
+
+type GlobalWithRateLimitFallback = typeof globalThis & {
+  __clinicalKbInMemoryApiRateLimits?: Map<string, InMemoryRateLimitWindow>;
+};
+
+const inMemoryApiRateLimits = ((globalThis as GlobalWithRateLimitFallback).__clinicalKbInMemoryApiRateLimits ??=
+  new Map<string, InMemoryRateLimitWindow>());
+
 export class ApiRateLimitUnavailableError extends PublicApiError {
   constructor() {
     super("Rate limit check is temporarily unavailable.", 503, { code: "rate_limit_unavailable" });
@@ -48,6 +60,7 @@ export async function consumeApiRateLimit(args: {
   bucket: ApiRateLimitBucket;
   limit?: number;
   windowSeconds?: number;
+  allowInMemoryFallbackOnUnavailable?: boolean;
 }): Promise<ApiRateLimitResult> {
   const defaults = apiRateLimitDefaults[args.bucket];
   const limit = args.limit ?? defaults.limit;
@@ -59,9 +72,27 @@ export async function consumeApiRateLimit(args: {
     p_window_seconds: windowSeconds,
   });
 
-  if (error) throw new ApiRateLimitUnavailableError();
+  if (error) {
+    if (args.allowInMemoryFallbackOnUnavailable) {
+      console.warn("Durable API rate limit check unavailable; using local in-memory fallback.", {
+        bucket: args.bucket,
+        code: error.code,
+        message: error.message,
+      });
+      return consumeInMemoryApiRateLimit({ ownerId: args.ownerId, bucket: args.bucket, limit, windowSeconds });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
   const row = parseRateLimitRow(data);
-  if (!row || typeof row.limited !== "boolean") throw new ApiRateLimitUnavailableError();
+  if (!row || typeof row.limited !== "boolean") {
+    if (args.allowInMemoryFallbackOnUnavailable) {
+      console.warn("Durable API rate limit check returned an invalid payload; using local in-memory fallback.", {
+        bucket: args.bucket,
+      });
+      return consumeInMemoryApiRateLimit({ ownerId: args.ownerId, bucket: args.bucket, limit, windowSeconds });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
 
   return {
     limited: row.limited,
@@ -69,6 +100,36 @@ export async function consumeApiRateLimit(args: {
     remaining: Number(row.remaining ?? 0),
     retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
     resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
+  };
+}
+
+function consumeInMemoryApiRateLimit({
+  ownerId,
+  bucket,
+  limit,
+  windowSeconds,
+}: {
+  ownerId: string;
+  bucket: ApiRateLimitBucket;
+  limit: number;
+  windowSeconds: number;
+}): ApiRateLimitResult {
+  const now = Date.now();
+  const windowMs = windowSeconds * 1000;
+  const key = `${ownerId}:${bucket}`;
+  const current = inMemoryApiRateLimits.get(key);
+  const windowStartMs = current && now - current.windowStartMs < windowMs ? current.windowStartMs : now;
+  const requestCount = (current && current.windowStartMs === windowStartMs ? current.requestCount : 0) + 1;
+  const resetAtMs = windowStartMs + windowMs;
+
+  inMemoryApiRateLimits.set(key, { windowStartMs, requestCount });
+
+  return {
+    limited: requestCount > limit,
+    limit,
+    remaining: Math.max(limit - requestCount, 0),
+    retryAfterSeconds: Math.max(1, Math.ceil((resetAtMs - now) / 1000)),
+    resetAt: new Date(resetAtMs).toISOString(),
   };
 }
 

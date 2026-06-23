@@ -655,11 +655,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await waitForDemoDashboardReady(page);
 
       await page
-        .getByRole("button", {
-          name: "Use sample question: What clozapine monitoring items are shown in the table image?",
-        })
-        .click();
-      await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+        .getByLabel("Search indexed guidelines by question or keyword")
+        .fill("What clozapine monitoring items are shown in the table image?");
+      const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+      await expect(submitAnswer).toBeEnabled();
+      await submitAnswer.click();
 
       const clinicalTable = page.getByTestId("clinical-action-view").getByTestId("clinical-detail-table").first();
       await expect(clinicalTable).toBeVisible();

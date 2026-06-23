@@ -1645,6 +1645,46 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
+  it("uses an in-memory limiter fallback for managed local no-auth search when the durable check is unavailable", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
+    const client = createSupabaseMock();
+    client.auth.admin.listUsers.mockResolvedValueOnce({
+      data: { users: [{ id: userId, email: "clinician@example.test" }], nextPage: 0 },
+      error: null,
+    });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry }, { localNoAuth: true, localOwnerEmail: "clinician@example.test" });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      localPortRequest(4298, "/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: userId }));
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "search" }),
+    );
+  });
+
   it("coalesces identical in-flight authenticated search requests", async () => {
     let releaseSearch!: () => void;
     const searchGate = new Promise<void>((resolve) => {
@@ -1764,6 +1804,44 @@ describe("private document API access", () => {
     expect(body).toContain('"status":429');
     expect(body).toContain("Too many answer requests. Retry shortly.");
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("uses an in-memory limiter fallback for managed local no-auth streaming answers when the durable check is unavailable", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Owned evidence.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    client.auth.admin.listUsers.mockResolvedValueOnce({
+      data: { users: [{ id: userId, email: "clinician@example.test" }], nextPage: 0 },
+      error: null,
+    });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope }, { localNoAuth: true, localOwnerEmail: "clinician@example.test" });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      localPortRequest(4298, "/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("event: final");
+    expect(answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
+    );
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
+    );
   });
 
   it("does not stream internal PublicApiError details to clients", async () => {

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const scriptSrc = `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}; `;
+const upgradeInsecureRequests = isDevelopment ? "" : "upgrade-insecure-requests; ";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -20,7 +21,7 @@ const securityHeaders = [
       "object-src 'none'; " +
       "frame-ancestors 'none'; " +
       "form-action 'self'; " +
-      "upgrade-insecure-requests; " +
+      upgradeInsecureRequests +
       "img-src 'self' data: blob: https:; " +
       "media-src 'self' https:; " +
       "connect-src 'self' https://sjrfecxgysukkwxsowpy.supabase.co https://*.supabase.co https://api.openai.com; " +

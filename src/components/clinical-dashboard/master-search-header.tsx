@@ -172,6 +172,11 @@ export function MasterSearchHeader({
     if (restoreFocus) scopeSummaryRef.current?.focus();
   }, []);
 
+  const closeScopeSheet = useCallback(() => {
+    setScopeSheetOpen(false);
+    window.requestAnimationFrame(() => scopeSummaryRef.current?.focus());
+  }, []);
+
   useEffect(() => {
     const mediaQuery = window.matchMedia(mobileSheetMediaQuery);
     const sync = () => setUsesScopeSheet(mediaQuery.matches);
@@ -660,13 +665,16 @@ export function MasterSearchHeader({
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             <span className="sr-only sm:not-sr-only">{submitLabel}</span>
           </button>
-          <>
+          {usesScopeSheet ? (
             <button
               type="button"
+              ref={(element) => {
+                scopeSummaryRef.current = element;
+              }}
               data-testid="scope-trigger"
               onClick={() => setScopeSheetOpen(true)}
-              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:hidden"
-              aria-label={usesScopeSheet ? "Open document scope" : "Open mobile document scope"}
+              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12"
+              aria-label="Open document scope"
               aria-expanded={scopeSheetOpen}
             >
               <Filter className="h-4 w-4" />
@@ -677,7 +685,7 @@ export function MasterSearchHeader({
                 </span>
               ) : null}
             </button>
-
+          ) : (
             <details
               ref={scopeDetailsRef}
               onToggle={(event) => {
@@ -685,13 +693,15 @@ export function MasterSearchHeader({
                 setScopeOpen(open);
                 if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
               }}
-              className="group relative hidden sm:block"
+              className="group relative"
             >
               <summary
-                ref={scopeSummaryRef}
+                ref={(element) => {
+                  scopeSummaryRef.current = element;
+                }}
                 data-testid="scope-trigger"
                 className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
-                aria-label={usesScopeSheet ? "Open desktop document scope" : "Open document scope"}
+                aria-label="Open document scope"
                 aria-expanded={scopeOpen}
               >
                 <Filter className="h-4 w-4" />
@@ -716,31 +726,30 @@ export function MasterSearchHeader({
                 {renderScopeRows()}
               </div>
             </details>
+          )}
 
-            <Sheet
-              open={scopeSheetOpen}
-              onClose={() => setScopeSheetOpen(false)}
-              title="Document scope"
-              description="Choose documents and filters for the next search."
-              closeLabel="Close document scope"
-              initialFocusRef={scopeFilterInputRef}
-              contentClassName="sm:hidden"
+          <Sheet
+            open={usesScopeSheet && scopeSheetOpen}
+            onClose={closeScopeSheet}
+            title="Document scope"
+            description="Choose documents and filters for the next search."
+            closeLabel="Close document scope"
+            initialFocusRef={scopeFilterInputRef}
+          >
+            <div
+              data-testid={usesScopeSheet ? "scope-command-popover" : undefined}
+              className="polished-scroll max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain pr-1"
             >
-              <div
-                data-testid={usesScopeSheet ? "scope-command-popover" : undefined}
-                className="polished-scroll max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain pr-1"
-              >
-                <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  <span>Document scope</span>
-                  <span className="nums">{scopeSummary}</span>
-                </div>
-                {scopePreview ? (
-                  <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
-                ) : null}
-                {renderScopeRows()}
+              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                <span>Document scope</span>
+                <span className="nums">{scopeSummary}</span>
               </div>
-            </Sheet>
-          </>
+              {scopePreview ? (
+                <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              ) : null}
+              {renderScopeRows()}
+            </div>
+          </Sheet>
         </form>
       </div>
     </header>

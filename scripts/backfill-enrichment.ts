@@ -116,8 +116,28 @@ function compactSearchText(value: unknown, limit = 1200) {
 }
 
 function isRateLimitError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = formatError(error);
   return /\b(?:429|rate limit|rate_limit|too many requests)\b/i.test(message);
+}
+
+function formatError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error instanceof Error && error.stack) return error.stack;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const parts = [record.message, record.details, record.hint, record.code]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean);
+    if (parts.length) return parts.join(" | ");
+    const serialized = JSON.stringify(record);
+    if (serialized && serialized !== "{}") return serialized;
+  }
+  const fallback = String(error ?? "");
+  return fallback.trim() || "Unknown error";
+}
+
+function supabaseErrorMessage(error: unknown) {
+  return formatError(error);
 }
 
 async function sleep(ms: number) {
@@ -140,7 +160,7 @@ async function updateDocumentStage(
   };
   document.metadata = metadata;
   const { error } = await supabase.from("documents").update({ metadata }).eq("id", document.id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(supabaseErrorMessage(error));
 }
 
 async function loadDocuments(supabase: SupabaseAdmin, args: BackfillArgs) {
@@ -155,7 +175,7 @@ async function loadDocuments(supabase: SupabaseAdmin, args: BackfillArgs) {
   if (!args.includeCurrent)
     query = query.or("metadata->>enrichment_status.eq.pending,metadata->>enrichment_status.is.null");
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(supabaseErrorMessage(error));
   return ((data ?? []) as BackfillDocument[]).slice(0, args.limit);
 }
 
@@ -171,7 +191,7 @@ async function selectRowsInPages<T>(
     let query = supabase.from(table).select(select).eq("document_id", documentId);
     if (searchableOnly) query = query.eq("searchable", true);
     const { data, error } = await query.range(offset, offset + pageSize - 1);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(supabaseErrorMessage(error));
     rows.push(...((data ?? []) as T[]));
     if (!data || data.length < pageSize) break;
   }
@@ -224,8 +244,8 @@ async function insertDocumentLevelEmbeddingFields(args: {
     .in(
       "field_type",
       inputs.map((input) => input.field_type),
-    );
-  if (existing.error) throw new Error(existing.error.message);
+  );
+  if (existing.error) throw new Error(supabaseErrorMessage(existing.error));
   const existingKeys = new Set((existing.data ?? []).map((row) => `${row.field_type}:${row.content_hash}`));
   const missing = inputs.filter((input) => !existingKeys.has(`${input.field_type}:${hashContent(input.content)}`));
   if (missing.length === 0) return inputs.map((input) => input.field_type);
@@ -246,18 +266,28 @@ async function insertDocumentLevelEmbeddingFields(args: {
     },
   }));
   const { error } = await args.supabase.from("document_embedding_fields").insert(rows);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(supabaseErrorMessage(error));
   return inputs.map((input) => input.field_type);
 }
 
 async function countRows(supabase: SupabaseAdmin, table: string, documentId: string) {
-  const query = supabase.from(table).select("id", { count: "exact", head: true }).eq("document_id", documentId);
+  const query = supabase.from(table).select("document_id", { count: "exact", head: true }).eq("document_id", documentId);
   const result = await query;
-  if (result.error) throw new Error(result.error.message);
+  if (result.error) throw new Error(supabaseErrorMessage(result.error));
   return result.count ?? 0;
 }
 
-async function verifyBackfill(supabase: SupabaseAdmin, documentId: string) {
+type BackfillVerificationCounts = {
+  summaries: number;
+  labels: number;
+  sections: number;
+  memoryCards: number;
+  indexUnits: number;
+  embeddingFields: number;
+  qualityRows: number;
+};
+
+async function readBackfillCounts(supabase: SupabaseAdmin, documentId: string): Promise<BackfillVerificationCounts> {
   const [summaries, labels, sections, memoryCards, indexUnits, embeddingFields, qualityRows] = await Promise.all([
     countRows(supabase, "document_summaries", documentId),
     countRows(supabase, "document_labels", documentId),
@@ -267,11 +297,77 @@ async function verifyBackfill(supabase: SupabaseAdmin, documentId: string) {
     countRows(supabase, "document_embedding_fields", documentId),
     countRows(supabase, "document_index_quality", documentId),
   ]);
-  const counts = { summaries, labels, sections, memoryCards, indexUnits, embeddingFields, qualityRows };
+  return { summaries, labels, sections, memoryCards, indexUnits, embeddingFields, qualityRows };
+}
+
+function missingBackfillCounts(counts: BackfillVerificationCounts) {
+  return Object.entries(counts)
+    .filter(([, count]) => count <= 0)
+    .map(([key]) => key);
+}
+
+async function verifyBackfill(supabase: SupabaseAdmin, documentId: string) {
+  const counts = await readBackfillCounts(supabase, documentId);
+  const missing = missingBackfillCounts(counts);
+  if (missing.length) throw new Error(`Backfill verification failed; missing ${missing.join(", ")}.`);
+  return counts;
+}
+
+async function countIndexUnitsByType(supabase: SupabaseAdmin, documentId: string) {
+  const rows: { unit_type: string }[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("document_index_units")
+      .select("unit_type")
+      .eq("document_id", documentId)
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(supabaseErrorMessage(error));
+    rows.push(...((data ?? []) as { unit_type: string }[]));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows.reduce<Record<string, number>>((counts, row) => {
+    counts[row.unit_type] = (counts[row.unit_type] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+async function markBackfillCompleted(args: {
+  supabase: SupabaseAdmin;
+  document: BackfillDocument;
+  counts: BackfillVerificationCounts;
+  generatedLabelCount?: number;
+  sectionCount?: number;
+  memoryCardCount?: number;
+  indexUnitCount?: number;
+  documentEmbeddingFieldTypes?: string[];
+}) {
+  const indexUnitCountsByType = await countIndexUnitsByType(args.supabase, args.document.id);
+  const patch: Record<string, unknown> = {
+    enrichment_status: "completed",
+    enrichment_error: null,
+    rag_enrichment_version: ragEnrichmentVersion,
+    rag_indexing_version: ragDeepMemoryVersion,
+    rag_memory_version: ragDeepMemoryVersion,
+    rag_enrichment_updated_at: new Date().toISOString(),
+    rag_memory_updated_at: new Date().toISOString(),
+    generated_label_count: args.generatedLabelCount ?? args.counts.labels,
+    section_count: args.sectionCount ?? args.counts.sections,
+    memory_card_count: args.memoryCardCount ?? args.counts.memoryCards,
+    index_unit_count: args.indexUnitCount ?? args.counts.indexUnits,
+    index_unit_counts_by_type: indexUnitCountsByType,
+    backfill_verification_counts: args.counts,
+  };
+  if (args.documentEmbeddingFieldTypes) patch.document_embedding_field_types = args.documentEmbeddingFieldTypes;
+  await updateDocumentStage(args.supabase, args.document, "completed", patch);
+}
+
+async function tryFinalizeExistingBackfill(supabase: SupabaseAdmin, document: BackfillDocument) {
+  const counts = await readBackfillCounts(supabase, document.id);
   const missing = Object.entries(counts)
     .filter(([, count]) => count <= 0)
     .map(([key]) => key);
-  if (missing.length) throw new Error(`Backfill verification failed; missing ${missing.join(", ")}.`);
+  if (missing.length) return null;
+  await markBackfillCompleted({ supabase, document, counts });
   return counts;
 }
 
@@ -279,6 +375,18 @@ async function processDocument(supabase: SupabaseAdmin, document: BackfillDocume
   await updateDocumentStage(supabase, document, "loading_evidence");
   const evidence = await loadEvidence(supabase, document.id);
   if (evidence.chunks.length === 0) throw new Error("Document has no indexed chunks to enrich.");
+
+  const finalizedCounts = await tryFinalizeExistingBackfill(supabase, document);
+  if (finalizedCounts) {
+    return {
+      reusedExisting: true,
+      labels: finalizedCounts.labels,
+      sections: finalizedCounts.sections,
+      memoryCards: finalizedCounts.memoryCards,
+      indexUnits: finalizedCounts.indexUnits,
+      counts: finalizedCounts,
+    };
+  }
 
   await updateDocumentStage(supabase, document, "generating_enrichment", {
     enrichment_error: null,
@@ -311,20 +419,15 @@ async function processDocument(supabase: SupabaseAdmin, document: BackfillDocume
 
   await updateDocumentStage(supabase, document, "verifying_backfill");
   const counts = await verifyBackfill(supabase, document.id);
-  await updateDocumentStage(supabase, document, "completed", {
-    enrichment_status: "completed",
-    enrichment_error: null,
-    rag_enrichment_version: ragEnrichmentVersion,
-    rag_indexing_version: ragDeepMemoryVersion,
-    rag_memory_version: ragDeepMemoryVersion,
-    rag_enrichment_updated_at: new Date().toISOString(),
-    rag_memory_updated_at: new Date().toISOString(),
-    generated_label_count: enrichment.labels.length,
-    section_count: memory.sections.length,
-    memory_card_count: memory.memoryCards.length,
-    index_unit_count: memory.indexUnits.length,
-    document_embedding_field_types: documentEmbeddingFieldTypes,
-    backfill_verification_counts: counts,
+  await markBackfillCompleted({
+    supabase,
+    document,
+    counts,
+    generatedLabelCount: enrichment.labels.length,
+    sectionCount: memory.sections.length,
+    memoryCardCount: memory.memoryCards.length,
+    indexUnitCount: memory.indexUnits.length,
+    documentEmbeddingFieldTypes: documentEmbeddingFieldTypes,
   });
 
   return {
@@ -390,7 +493,7 @@ async function main() {
         await sleep(stageDelayMs);
         break;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = formatError(error);
         if (isRateLimitError(error) && attempt < args.retryAttempts) {
           const delayMs = Math.min(120_000, 8000 * 2 ** (attempt - 1));
           console.warn(
@@ -415,6 +518,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(formatError(error));
   process.exitCode = 1;
 });

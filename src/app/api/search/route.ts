@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoSearch } from "@/lib/demo-data";
-import { isDemoMode } from "@/lib/env";
+import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { buildSmartPanel, buildVisualEvidence, diversifySearchResults } from "@/lib/evidence";
 import { annotateDocumentMatches, annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichment";
@@ -753,7 +753,12 @@ export async function POST(request: Request) {
     const user = await serverAuth.requireAuthenticatedUser(request, supabase);
     ownerId = user.id;
 
-    const rateLimit = await consumeApiRateLimit({ supabase, ownerId, bucket: "search" });
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId,
+      bucket: "search",
+      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+    });
     if (rateLimit.limited) {
       return rateLimitJsonResponse(
         "Search is temporarily rate limited because too many requests were received. Retry shortly.",

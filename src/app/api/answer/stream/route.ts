@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
-import { isDemoMode } from "@/lib/env";
+import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import { consumeApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
@@ -203,7 +203,12 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
 
-    const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "answer" });
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "answer",
+      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+    });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
     return streamAnswer(body, user.id);
