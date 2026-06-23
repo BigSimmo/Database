@@ -53,90 +53,6 @@ async function mockPrivateUnauthenticatedApi(page: Page) {
   });
 }
 
-async function seedAuthenticatedSession(page: Page) {
-  await page.addInitScript(() => {
-    const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
-    window.localStorage.setItem(
-      "sb-sjrfecxgysukkwxsowpy-auth-token",
-      JSON.stringify({
-        access_token: "test-access-token",
-        refresh_token: "test-refresh-token",
-        token_type: "bearer",
-        expires_in: 3600,
-        expires_at: expiresAt,
-        user: {
-          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          aud: "authenticated",
-          role: "authenticated",
-          email: "test@example.com",
-          app_metadata: { provider: "email", providers: ["email"] },
-          user_metadata: { email: "test@example.com" },
-          created_at: new Date().toISOString(),
-        },
-      }),
-    );
-  });
-}
-
-async function mockPrivateAuthenticatedApi(page: Page) {
-  await page.route(/\/api\/setup-status$/, async (route) => {
-    await route.fulfill({
-      json: { demoMode: false, checks: readySetupChecks },
-    });
-  });
-  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
-    await route.fulfill({
-      json: {
-        documents: [],
-        pagination: { limit: 150, offset: 0, total: 0, nextOffset: 0, hasMore: false },
-      },
-    });
-  });
-  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
-    await route.fulfill({ json: { jobs: [] } });
-  });
-  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
-    await route.fulfill({
-      json: {
-        batches: [
-          {
-            id: "batch-1",
-            owner_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-            name: "Duplicate dry run",
-            source_root: "D:\\Clinical PDFs",
-            include_glob: "**/*.pdf",
-            status: "completed",
-            total_files: 3,
-            queued_files: 1,
-            skipped_files: 2,
-            failed_files: 0,
-            total_bytes: 1024,
-            metadata: {},
-            completed_at: "2026-05-27T00:00:00.000Z",
-            created_at: "2026-05-27T00:00:00.000Z",
-            updated_at: "2026-05-27T00:00:00.000Z",
-          },
-        ],
-      },
-    });
-  });
-  await page.route(/\/api\/upload$/, async (route) => {
-    await route.fulfill({
-      json: {
-        duplicate: true,
-        duplicateReason: "exact_content_hash",
-        document: {
-          id: "11111111-1111-4111-8111-111111111111",
-          title: "Existing guideline",
-          file_name: "guideline.pdf",
-          status: "indexed",
-        },
-        message: 'Exact copy already exists as "Existing guideline"; no duplicate job was queued.',
-      },
-    });
-  });
-}
-
 function answerStreamBody(payload: unknown) {
   return [
     `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
@@ -1050,10 +966,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("duplicate upload warning is visible", async ({ page }) => {
+  test("upload drawer disables uploads in demo mode", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
-    await seedAuthenticatedSession(page);
-    await mockPrivateAuthenticatedApi(page);
+    await mockDemoApi(page);
     await gotoApp(page, "/");
 
     await scrollDashboardToBottom(page);
@@ -1066,17 +981,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
     await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
-    await uploadDrawer.locator('input[name="file"]').setInputFiles({
-      name: "guideline.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.7"),
-    });
-    await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
-    await uploadDrawer.getByRole("button", { name: "Queue document" }).click();
-
     await expect(
-      uploadDrawer.getByText('Exact copy already exists as "Existing guideline"; no duplicate job was queued.'),
+      uploadDrawer.getByText(
+        "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files.",
+      ),
     ).toBeVisible();
+    await expect(uploadDrawer.locator('input[name="file"]')).toBeDisabled();
     await expectNoPageHorizontalOverflow(page);
   });
 
