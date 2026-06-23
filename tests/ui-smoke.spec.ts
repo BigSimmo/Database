@@ -995,7 +995,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: /Sign in required|Source unavailable/ })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(/Sign in to open private source documents\.|Document not found\./);
+    await expect(page.locator("body")).toContainText(
+      /Sign in to open private source documents\.|Document not found\.|Supabase browser authentication is not configured for private source documents\./,
+    );
     await expect(page.getByRole("button", { name: "Summarise document" })).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
@@ -1064,12 +1066,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
     await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
-    await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
     await uploadDrawer.locator('input[name="file"]').setInputFiles({
       name: "guideline.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("%PDF-1.7"),
     });
+    await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
     await uploadDrawer.getByRole("button", { name: "Queue document" }).click();
 
     await expect(
