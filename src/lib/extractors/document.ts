@@ -119,9 +119,7 @@ async function extractPdf(buffer: Buffer) {
     const warnings = ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."];
     const ocrNeededPages = pages.filter((page) => page.needsOcr).length;
     if (ocrNeededPages > 0) {
-      warnings.push(
-        `needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`,
-      );
+      warnings.push(`needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`);
     }
 
     return { pages, images, warnings };

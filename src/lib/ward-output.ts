@@ -295,15 +295,15 @@ function buildVerifySourceItems(answer: RagAnswer) {
   return uniqueShortItems(
     [
       citationCount
-        ? `${citationCount} linked citation${citationCount === 1 ? "" : "s"} available for source verification.`
-        : "No linked citations were returned for this answer.",
+        ? `${citationCount} linked citation${citationCount === 1 ? "" : "s"} for verification.`
+        : "No linked citations.",
       quoteCount
-        ? `${quoteCount} exact source quote${quoteCount === 1 ? "" : "s"} available before clinical use.`
-        : "No exact source quote was returned; verify the answer against the source document.",
+        ? `${quoteCount} exact source quote${quoteCount === 1 ? "" : "s"} available.`
+        : "No exact source quote returned.",
       sourceStrength && sourceStrength !== "none" ? `Strongest retrieved source support: ${sourceStrength}.` : "",
       answer.confidence === "unsupported"
-        ? "Treat as unsupported: do not use clinically without opening and checking source text."
-        : "Open the cited source passage before copying into the medical record.",
+        ? "Unsupported: verify against source text before use."
+        : "Verify source passage before copying into the medical record.",
     ],
     4,
   );
@@ -336,6 +336,19 @@ const sectionKindLabels: Record<AnswerSectionKind, string> = {
   verification: "Verify source",
 };
 
+const genericBottomLinePlaceholders = [
+  "no usable answer text.",
+  "no usable answer text for this result",
+  "no usable section text available",
+  "no usable section text for this result",
+];
+
+function isGenericBottomLine(value: string) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) return true;
+  return genericBottomLinePlaceholders.some((placeholder) => normalized.includes(placeholder));
+}
+
 function sectionKindToClinicalSection(kind?: AnswerSectionKind): { id: ClinicalOutputSectionId; title: string } | null {
   if (kind === "bottom_line") return { id: "bottom-line", title: "Bottom line" };
   if (kind === "required_actions") return { id: "action", title: "Action" };
@@ -367,11 +380,17 @@ function sectionDisplayLines(answer: RagAnswer) {
     .filter((section) => isPromotableAnswerSection(section, answer))
     .flatMap((section) => {
       const label = section.kind ? sectionKindLabels[section.kind] : section.heading;
-      return parseAnswerDisplayContent(`${label}: ${section.body}`).lines;
+      return parseAnswerDisplayContent(`${label}: ${section.body}`, answer.responseMode).lines;
     });
 }
 
 function compactTableCell(value: string, limit = 180) {
+  const normalized = normalizeClinicalItem(value);
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit - 3).trim()}...`;
+}
+
+function compactEvidencePassage(value: string, limit = 140) {
   const normalized = normalizeClinicalItem(value);
   if (normalized.length <= limit) return normalized;
   return `${normalized.slice(0, limit - 3).trim()}...`;
@@ -526,7 +545,7 @@ export function buildAnswerEvidenceMap(answer: RagAnswer | null | undefined): An
       citationCount: citationIds.length,
       sourceStatus: sourceStatusSummary(metadata),
       bestSourceLabel,
-      bestLinkedPassage,
+      bestLinkedPassage: compactEvidencePassage(bestLinkedPassage, 130),
       href,
     });
   }
@@ -536,12 +555,12 @@ export function buildAnswerEvidenceMap(answer: RagAnswer | null | undefined): An
   return answer.citations.slice(0, 6).map((citation, index) => ({
     id: `citation:${citation.chunk_id}:${index}`,
     section: "Citation",
-    detail: "Linked source passage available for review.",
+    detail: "Source passage available.",
     supportLevel: supportLevelLabel(answer.evidenceSummary?.source_strength),
     citationCount: 1,
     sourceStatus: sourceStatusSummary(citation.source_metadata),
     bestSourceLabel: formatCitationLabel(citation),
-    bestLinkedPassage: "Open the linked passage to verify the source text.",
+    bestLinkedPassage: "Open source passage.",
     href: evidenceHref(citation.document_id, citation.page_number, citation.chunk_id),
   }));
 }
@@ -586,9 +605,14 @@ function clinicalTableToTextRows(table: ClinicalThresholdTable) {
 export function buildClinicalOutputSections(answer: RagAnswer | null | undefined) {
   if (!answer) return [];
 
-  const answerContent = parseAnswerDisplayContent(answer.answer);
-  const answerLead = answerContent.lead ?? answerContent.lines[0];
-  const answerDetailLines = answerContent.lines.filter((line) => line.id !== answerLead?.id);
+  const answerContent = parseAnswerDisplayContent(answer.answer, answer.responseMode);
+  const answerLead =
+    (answerContent.lead && !isGenericBottomLine(answerContent.lead.text) ? answerContent.lead : undefined) ??
+    answerContent.lines.find((line) => !isGenericBottomLine(line.text) && line.group === "bottom_line") ??
+    answerContent.lines.find((line) => !isGenericBottomLine(line.text));
+  const answerDetailLines = answerLead
+    ? answerContent.lines.filter((line) => line.id !== answerLead.id)
+    : answerContent.lines;
   const parsedLines = [...answerDetailLines, ...sectionDisplayLines(answer)];
   const quoteTexts = answer.quoteCards?.map((quote) => quote.quote) ?? [];
   const allTexts = [...parsedLines.map((line) => line.text), ...quoteTexts];
@@ -636,7 +660,12 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
       group === "bottom_line" ? 1 : 4,
     );
     if (items.length === 0) continue;
-    sections.push({ ...section, items });
+    const existing = sections.find((candidate) => candidate.id === section.id);
+    if (existing) {
+      existing.items = uniqueShortItems([...existing.items, ...items], group === "bottom_line" ? 1 : 4);
+    } else {
+      sections.push({ ...section, items });
+    }
   }
 
   for (const section of answer.answerSections ?? []) {
@@ -685,24 +714,108 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
   return sections;
 }
 
-export function formatAnswerForClipboard(answer: RagAnswer) {
-  const citations = answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`);
-  const provenance = answer.citations.map(
+function normalizedOutputText(text: string) {
+  return normalizeClinicalToken(normalizeText(text));
+}
+
+function isRepeatedBottomLine(item: string, bottomLine: string) {
+  const normalizedItem = normalizedOutputText(item);
+  const normalizedBottomLine = normalizedOutputText(bottomLine);
+  if (!normalizedItem || !normalizedBottomLine) return false;
+  if (normalizedItem === normalizedBottomLine) return true;
+  if (item.length >= 80 && normalizedBottomLine.includes(normalizedItem)) return true;
+  if (bottomLine.length >= 80 && normalizedItem.includes(normalizedBottomLine)) return true;
+  return false;
+}
+
+function bottomLineForOutput(answer: RagAnswer, sections: ClinicalOutputSection[]) {
+  const bottomLineSection = sections.find((section) => section.id === "bottom-line");
+  const parsedLead = parseAnswerDisplayContent(answer.answer, answer.responseMode).lead;
+  const fallbackFromSections = (answer.answerSections ?? [])
+    .map((section) => normalizeClinicalItem(section.body))
+    .find((item) => Boolean(item) && !isGenericBottomLine(item));
+  const fallbackFromParsed = parseAnswerDisplayContent(answer.answer, answer.responseMode)
+    .lines.map((line) => normalizeClinicalItem(line.text))
+    .find((item) => Boolean(item) && !isGenericBottomLine(item));
+
+  const candidateBottomLine =
+    bottomLineSection?.items[0] ??
+    fallbackFromParsed ??
+    fallbackFromSections ??
+    parsedLead?.text ??
+    normalizeClinicalItem(answer.answer) ??
+    normalizeText(answer.answer);
+  return isGenericBottomLine(candidateBottomLine)
+    ? "No stable source-backed lead. Review cited passages before reuse."
+    : candidateBottomLine;
+}
+
+function highYieldSectionsForOutput(answer: RagAnswer, bottomLine: string) {
+  return buildHighYieldClinicalOutputSections(answer)
+    .filter((section) => section.id !== "bottom-line" && section.id !== "verify-source")
+    .map((section) => ({
+      ...section,
+      items: uniqueShortItems(
+        section.items.filter((item) => !isRepeatedBottomLine(item, bottomLine)),
+        4,
+      ),
+    }))
+    .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
+}
+
+function sectionOutputLines(section: ClinicalOutputSection) {
+  return [
+    section.title,
+    ...section.items.map((item) => `- ${item}`),
+    ...(section.tables ?? []).flatMap(clinicalTableToTextRows),
+    "",
+  ];
+}
+
+function citationOutputLines(answer: RagAnswer) {
+  if (answer.citations.length === 0) return ["No linked citations."];
+  return answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`);
+}
+
+function sourceStatusOutputLines(answer: RagAnswer) {
+  if (answer.citations.length === 0) return ["No source provenance."];
+  return answer.citations.map(
     (citation, index) =>
       `${index + 1}. ${formatCitationLabel(citation)} | ${clipboardProvenanceLine(citation.source_metadata)}`,
   );
-  return [
+}
+
+const clinicalReviewRequirement =
+  "Draft for clinician review only. Verify source text, local policy, patient context, and medication details before use.";
+
+function compactOutputDocument(lines: string[]) {
+  return lines
+    .filter((line, index, allLines) => line || (allLines[index - 1] && allLines[index + 1]))
+    .join("\n")
+    .trim();
+}
+
+export function formatAnswerForClipboard(answer: RagAnswer) {
+  const sections = buildClinicalOutputSections(answer);
+  const bottomLine = bottomLineForOutput(answer, sections);
+  const highYieldSections = highYieldSectionsForOutput(answer, bottomLine);
+  return compactOutputDocument([
     "Source-backed answer draft",
-    "Clinician must verify against linked source documents before clinical use.",
+    "Verify against linked source documents before clinical use.",
     "",
-    normalizeText(answer.answer),
-    citations.length ? "\nCitations" : "",
-    ...citations,
-    provenance.length ? "\nSource status" : "",
-    ...provenance,
-  ]
-    .filter(Boolean)
-    .join("\n");
+    "Bottom line",
+    `- ${bottomLine}`,
+    "",
+    ...highYieldSections.flatMap(sectionOutputLines),
+    "Citations",
+    ...citationOutputLines(answer),
+    "",
+    "Source status",
+    ...sourceStatusOutputLines(answer),
+    "",
+    "Review requirement",
+    clinicalReviewRequirement,
+  ]);
 }
 
 export function formatQuotesForClipboard(quotes: QuoteCard[] = []) {
@@ -713,6 +826,8 @@ export function formatQuotesForClipboard(quotes: QuoteCard[] = []) {
 
 export function formatWardNote(answer: RagAnswer, demoMode = false) {
   const clinicalSections = buildClinicalOutputSections(answer);
+  const bottomLine = bottomLineForOutput(answer, clinicalSections);
+  const highYieldSections = highYieldSectionsForOutput(answer, bottomLine);
   const generatedAt = new Intl.DateTimeFormat("en-AU", {
     day: "2-digit",
     month: "2-digit",
@@ -723,38 +838,25 @@ export function formatWardNote(answer: RagAnswer, demoMode = false) {
     timeZone: "Australia/Perth",
     timeZoneName: "short",
   }).format(new Date());
-  const sourceStatus = answer.citations.map(
-    (citation, index) =>
-      `${index + 1}. ${formatCitationLabel(citation)} | ${clipboardProvenanceLine(citation.source_metadata)}`,
-  );
-  const body = [
+  return compactOutputDocument([
     "Source-backed clinical draft",
-    "Clinician must verify against linked source documents before clinical use.",
+    "Verify against linked source documents before clinical use.",
     demoMode ? "Synthetic demo only: not clinical guidance." : "Generated only from indexed source documents.",
     `Generated: ${generatedAt}`,
     "",
-    normalizeText(answer.answer),
+    "Bottom line",
+    `- ${bottomLine}`,
     "",
-    ...clinicalSections.flatMap((section) => [
-      section.title,
-      ...section.items.map((item) => `- ${item}`),
-      ...(section.tables ?? []).flatMap(clinicalTableToTextRows),
-      "",
-    ]),
+    ...highYieldSections.flatMap(sectionOutputLines),
     "Citations",
-    ...answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`),
+    ...citationOutputLines(answer),
     "",
     "Source status",
-    ...sourceStatus,
+    ...sourceStatusOutputLines(answer),
     "",
     "Review requirement",
-    "This is a draft for clinician review only. Verify source text, source status, local policy, patient context, and medication details before use.",
-  ];
-
-  return body
-    .filter((line, index, lines) => line || lines[index - 1])
-    .join("\n")
-    .trim();
+    clinicalReviewRequirement,
+  ]);
 }
 
 export function createQuoteFollowUp(quote: QuoteCard) {

@@ -44,7 +44,7 @@ async function isPortBusy(port) {
   return false;
 }
 
-function requestJson(url, timeoutMs = 900) {
+function requestJson(url, timeoutMs = 3500) {
   return new Promise((resolve) => {
     const request = http.get(url, { timeout: timeoutMs }, (response) => {
       let body = "";
@@ -69,8 +69,12 @@ function requestJson(url, timeoutMs = 900) {
 }
 
 async function isThisProject(port) {
-  const payload = await requestJson(`http://localhost:${port}${identityPath}`);
-  return payload?.appName === appName && payload?.projectId === localProjectId(projectRoot);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const payload = await requestJson(`http://localhost:${port}${identityPath}`);
+    if (payload?.appName === appName && payload?.projectId === localProjectId(projectRoot)) return true;
+    if (attempt < 2) await sleep(250);
+  }
+  return false;
 }
 
 async function findExistingProjectServer(startPort) {

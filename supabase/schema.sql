@@ -263,7 +263,7 @@ create table if not exists public.document_chunks (
   anchor_id text,
   content text not null,
   retrieval_synopsis text,
-  content_hash text,
+  content_hash text not null,
   index_generation_id uuid,
   token_estimate integer not null default 0,
   image_ids uuid[] not null default '{}',
@@ -322,11 +322,11 @@ create table if not exists public.document_embedding_fields (
     )
   ),
   content text not null,
+  content_hash text,
   embedding extensions.vector(1536) not null,
   metadata jsonb not null default '{}'::jsonb,
   search_tsv tsvector generated always as (to_tsvector('english', content)) stored,
-  created_at timestamptz not null default now(),
-  unique (document_id, source_chunk_id, field_type, content)
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.document_index_quality (
@@ -431,6 +431,38 @@ create table if not exists public.rag_response_cache (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.rag_retrieval_logs (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  query text not null,
+  normalized_query text,
+  query_class text,
+  retrieval_strategy text,
+  candidate_count integer not null default 0,
+  top_similarity double precision,
+  top_text_rank double precision,
+  top_hybrid_score double precision,
+  top_rrf_score double precision,
+  mean_hybrid_score double precision,
+  selected_chunk_ids uuid[] not null default '{}',
+  selected_document_ids uuid[] not null default '{}',
+  selected_count integer not null default 0,
+  embedding_latency_ms integer,
+  rpc_latency_ms integer,
+  rerank_latency_ms integer,
+  total_latency_ms integer,
+  vector_candidate_count integer,
+  text_candidate_count integer,
+  memory_card_count integer,
+  index_unit_count integer,
+  embedding_field_count integer,
+  is_miss boolean not null default false,
+  miss_reason text,
+  embedding_cache_hit boolean,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.storage_cleanup_jobs (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -462,7 +494,7 @@ create index if not exists documents_owner_hash_idx on public.documents(owner_id
 create index if not exists documents_search_idx on public.documents using gin(search_tsv);
 create index if not exists documents_title_search_idx on public.documents using gin(title_search_tsv);
 create index if not exists documents_title_trgm_idx
-  on public.documents using gin ((lower(coalesce(title, '') || ' ' || coalesce(file_name, ''))) gin_trgm_ops);
+  on public.documents using gin (lower(coalesce(title, '') || ' ' || coalesce(file_name, '')) gin_trgm_ops);
 create index if not exists document_pages_document_idx on public.document_pages(document_id, page_number);
 create index if not exists document_images_document_idx on public.document_images(document_id, page_number);
 create index if not exists document_images_searchable_idx
@@ -476,10 +508,10 @@ create index if not exists document_labels_owner_label_idx
   on public.document_labels(owner_id, label_type, label);
 create index if not exists document_labels_document_idx on public.document_labels(document_id);
 create index if not exists document_labels_label_trgm_idx
-  on public.document_labels using gin ((lower(label)) gin_trgm_ops);
+  on public.document_labels using gin (lower(label) gin_trgm_ops);
 create index if not exists document_summaries_owner_idx on public.document_summaries(owner_id, generated_at desc);
 create index if not exists document_summaries_summary_trgm_idx
-  on public.document_summaries using gin ((lower(summary)) gin_trgm_ops);
+  on public.document_summaries using gin (lower(summary) gin_trgm_ops);
 create index if not exists document_sections_document_idx
   on public.document_sections(document_id, section_index);
 create index if not exists document_sections_owner_idx
@@ -493,7 +525,8 @@ create index if not exists document_memory_cards_section_idx
 create index if not exists document_memory_cards_search_idx
   on public.document_memory_cards using gin(search_tsv);
 create index if not exists document_memory_cards_embedding_hnsw_idx
-  on public.document_memory_cards using hnsw (embedding vector_cosine_ops);
+  on public.document_memory_cards using hnsw (embedding vector_cosine_ops)
+  with (m = 24, ef_construction = 128);
 create index if not exists document_chunks_document_idx on public.document_chunks(document_id, chunk_index);
 create index if not exists document_chunks_generation_idx on public.document_chunks(document_id, index_generation_id);
 create index if not exists document_chunks_content_hash_idx on public.document_chunks(document_id, content_hash);
@@ -504,9 +537,10 @@ create index if not exists document_chunks_anchor_idx
   where anchor_id is not null;
 create index if not exists document_chunks_search_idx on public.document_chunks using gin(search_tsv);
 create index if not exists document_chunks_content_trgm_idx
-  on public.document_chunks using gin ((lower(coalesce(section_heading, '') || ' ' || content)) gin_trgm_ops);
+  on public.document_chunks using gin (lower(coalesce(section_heading, '') || ' ' || coalesce(content, '')) gin_trgm_ops);
 create index if not exists document_chunks_embedding_hnsw_idx
-  on public.document_chunks using hnsw (embedding vector_cosine_ops);
+  on public.document_chunks using hnsw (embedding vector_cosine_ops)
+  with (m = 24, ef_construction = 128);
 create index if not exists document_table_facts_document_idx
   on public.document_table_facts(document_id, page_number);
 create index if not exists document_table_facts_chunk_idx
@@ -530,7 +564,35 @@ create index if not exists document_embedding_fields_chunk_idx
 create index if not exists document_embedding_fields_search_idx
   on public.document_embedding_fields using gin(search_tsv);
 create index if not exists document_embedding_fields_embedding_hnsw_idx
-  on public.document_embedding_fields using hnsw (embedding vector_cosine_ops);
+  on public.document_embedding_fields using hnsw (embedding vector_cosine_ops)
+  with (m = 24, ef_construction = 128);
+create unique index if not exists document_embedding_fields_dedup_idx
+  on public.document_embedding_fields(document_id, source_chunk_id, field_type, content_hash);
+
+create or replace function public.set_document_embedding_field_content_hash()
+returns trigger
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  if tg_op = 'INSERT' then
+    NEW.content_hash := md5(coalesce(NEW.content, ''));
+  elsif tg_op = 'UPDATE' then
+    if NEW.content_hash is null or NEW.content is distinct from OLD.content then
+      NEW.content_hash := md5(coalesce(NEW.content, ''));
+    end if;
+  end if;
+  return NEW;
+end;
+$$;
+
+drop trigger if exists set_document_embedding_field_content_hash on public.document_embedding_fields;
+create trigger set_document_embedding_field_content_hash
+before insert or update
+on public.document_embedding_fields
+for each row
+execute function public.set_document_embedding_field_content_hash();
+
 create index if not exists document_index_quality_owner_score_idx
   on public.document_index_quality(owner_id, quality_score, updated_at desc);
 create index if not exists ingestion_jobs_document_idx on public.ingestion_jobs(document_id);
@@ -565,7 +627,7 @@ create index if not exists rag_aliases_owner_enabled_idx
 create index if not exists rag_aliases_type_enabled_idx
   on public.rag_aliases(alias_type, enabled);
 create index if not exists rag_aliases_alias_trgm_idx
-  on public.rag_aliases using gin ((lower(alias)) gin_trgm_ops);
+  on public.rag_aliases using gin (lower(alias) gin_trgm_ops);
 create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx
@@ -584,14 +646,16 @@ create index if not exists storage_cleanup_jobs_owner_status_idx
 create index if not exists storage_cleanup_jobs_document_idx
   on public.storage_cleanup_jobs(document_id);
 
-create index if not exists document_chunks_document_id_idx on public.document_chunks(document_id);
-create index if not exists document_sections_document_id_idx on public.document_sections(document_id);
-create index if not exists document_memory_cards_document_id_idx on public.document_memory_cards(document_id);
-create index if not exists document_images_document_id_idx on public.document_images(document_id);
-create index if not exists document_labels_document_id_idx on public.document_labels(document_id);
-create index if not exists document_embedding_fields_document_id_idx on public.document_embedding_fields(document_id);
-create index if not exists document_table_facts_document_id_idx on public.document_table_facts(document_id);
-create index if not exists document_index_quality_document_id_idx on public.document_index_quality(document_id);
+create index if not exists rag_retrieval_logs_owner_created_idx
+  on public.rag_retrieval_logs(owner_id, created_at desc);
+create index if not exists rag_retrieval_logs_miss_idx
+  on public.rag_retrieval_logs(is_miss, created_at desc)
+  where is_miss = true;
+create index if not exists rag_retrieval_logs_strategy_idx
+  on public.rag_retrieval_logs(retrieval_strategy, created_at desc);
+
+-- Redundant single-column FK indexes removed (covered by composite indexes
+-- with the same leading column, e.g. document_chunks_document_idx).
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -1103,7 +1167,13 @@ as $$
         (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
       )::double precision as text_rank,
       row_number() over (order by c.embedding <=> query_embedding) as vector_rank,
-      null::bigint as text_match_rank
+      null::bigint as text_match_rank,
+      coalesce((d.metadata->'rag_indexing_version') is not null, false) as has_deep_index,
+      d.updated_at as doc_updated_at,
+      coalesce(
+        (select q.quality_score from public.document_index_quality q where q.document_id = c.document_id),
+        0.7
+      ) as quality_score
     from public.document_chunks c
     join public.documents d on d.id = c.document_id
     cross join query
@@ -1137,7 +1207,13 @@ as $$
             (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
           ) desc,
           c.embedding <=> query_embedding
-      ) as text_match_rank
+      ) as text_match_rank,
+      coalesce((d.metadata->'rag_indexing_version') is not null, false) as has_deep_index,
+      d.updated_at as doc_updated_at,
+      coalesce(
+        (select q.quality_score from public.document_index_quality q where q.document_id = c.document_id),
+        0.7
+      ) as quality_score
     from public.document_chunks c
     join public.documents d on d.id = c.document_id
     cross join query
@@ -1169,14 +1245,22 @@ as $$
       max(similarity)::double precision as similarity,
       max(text_rank)::double precision as text_rank,
       min(vector_rank) as vector_rank,
-      min(text_match_rank) as text_match_rank
+      min(text_match_rank) as text_match_rank,
+      max(quality_score)::double precision as quality_score,
+      bool_or(has_deep_index) as has_deep_index,
+      max(doc_updated_at) as doc_updated_at
     from combined
     group by id, document_id, page_number, chunk_index, section_heading, content, retrieval_synopsis, image_ids
   ),
   scored_metrics as (
     select
       scored.*,
-      ((scored.similarity * 0.72) + (least(scored.text_rank, 1) * 0.28))::double precision as hybrid_score,
+      (
+        (scored.similarity * 0.62)
+        + (least(scored.text_rank, 1) * 0.22)
+        + (scored.quality_score * 0.10)
+        + (case when scored.doc_updated_at > now() - interval '90 days' then 0.06 else 0 end)
+      )::double precision as hybrid_score,
       (
         coalesce(1.0 / (60 + scored.vector_rank), 0) +
         coalesce(1.0 / (60 + scored.text_match_rank), 0)
@@ -1376,17 +1460,64 @@ as $$
   limit match_count;
 $$;
 
+create or replace function public.detect_legacy_ivfflat_indexes()
+returns text[]
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select coalesce(array_agg(idx.relname order by idx.relname), array[]::text[])
+  from pg_class idx
+  join pg_index ix on ix.indexrelid = idx.oid
+  join pg_class tab on tab.oid = ix.indrelid
+  join pg_namespace tab_ns on tab_ns.oid = tab.relnamespace
+  join pg_am am on idx.relam = am.oid
+  where idx.relkind = 'i'
+    and am.amname = 'ivfflat'
+    and tab_ns.nspname = 'public'
+    and tab.relname = any (
+      array[
+        'document_chunks',
+        'document_embedding_fields',
+        'document_index_units',
+        'document_memory_cards',
+        'document_table_facts'
+      ]
+    );
+$$;
+
 create or replace function public.search_schema_health()
 returns jsonb
 language plpgsql
 stable
-set search_path = public, extensions, pg_catalog, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
 declare
   missing text[] := array[]::text[];
   vector_type_oid oid;
   vector_schema text;
   index_name text;
+  legacy_ivfflat_indexes text[];
+  required_indexes constant text[] := array[
+    'documents_title_trgm_idx',
+    'document_chunks_content_trgm_idx',
+    'document_labels_label_trgm_idx',
+    'document_summaries_summary_trgm_idx',
+    'document_index_units_embedding_hnsw_idx',
+    'document_chunks_embedding_hnsw_idx',
+    'document_embedding_fields_embedding_hnsw_idx',
+    'document_table_facts_source_image_idx',
+    'document_pages_document_idx',
+    'document_sections_document_idx',
+    'document_chunks_document_idx',
+    'document_memory_cards_document_idx',
+    'document_embedding_fields_document_idx',
+    'document_table_facts_document_idx',
+    'document_index_units_document_idx',
+    'rag_retrieval_logs_owner_created_idx',
+    'rag_retrieval_logs_miss_idx',
+    'rag_retrieval_logs_strategy_idx'
+  ];
 begin
   select t.oid, n.nspname
   into vector_type_oid, vector_schema
@@ -1400,101 +1531,55 @@ begin
     missing := array_append(missing, 'extensions.vector_type');
   end if;
 
-  if vector_type_oid is not null and not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'match_document_chunks'
-      and p.proargtypes[0] = vector_type_oid
-  ) then
+  if to_regprocedure('public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)') is null then
     missing := array_append(missing, 'match_document_chunks.extensions_vector_signature');
   end if;
-
-  if vector_type_oid is not null and not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'match_document_chunks_hybrid'
-      and p.proargtypes[0] = vector_type_oid
-  ) then
+  if to_regprocedure('public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_chunks_hybrid.extensions_vector_signature');
   end if;
-
-  if vector_type_oid is not null and not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'match_document_memory_cards_hybrid'
-      and p.proargtypes[0] = vector_type_oid
-  ) then
+  if to_regprocedure('public.match_document_chunks_text(text, integer, uuid[], uuid)') is null then
+    missing := array_append(missing, 'match_document_chunks_text.signature');
+  end if;
+  if to_regprocedure('public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_memory_cards_hybrid.extensions_vector_signature');
   end if;
-
-  if vector_type_oid is not null and not exists (
-    select 1
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'match_document_index_units_hybrid'
-      and p.proargtypes[0] = vector_type_oid
-  ) then
+  if to_regprocedure('public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_index_units_hybrid.extensions_vector_signature');
   end if;
+  if to_regprocedure('public.match_document_embedding_fields_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
+    missing := array_append(missing, 'match_document_embedding_fields_hybrid.extensions_vector_signature');
+  end if;
+  if to_regprocedure('public.match_documents_for_query(text, integer, uuid)') is null then
+    missing := array_append(missing, 'match_documents_for_query.signature');
+  end if;
+  if to_regprocedure('public.match_document_table_facts_text(text, integer, uuid[], uuid)') is null then
+    missing := array_append(missing, 'match_document_table_facts_text.signature');
+  end if;
+  if to_regclass('public.rag_retrieval_logs') is null then
+    missing := array_append(missing, 'rag_retrieval_logs.table');
+  end if;
 
-  if to_regclass('public.document_index_units') is null then
-    missing := array_append(missing, 'document_index_units.table');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'documents_title_trgm_idx') then
-    missing := array_append(missing, 'documents_title_trgm_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_chunks_content_trgm_idx') then
-    missing := array_append(missing, 'document_chunks_content_trgm_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_labels_label_trgm_idx') then
-    missing := array_append(missing, 'document_labels_label_trgm_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_summaries_summary_trgm_idx') then
-    missing := array_append(missing, 'document_summaries_summary_trgm_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_index_units_embedding_hnsw_idx') then
-    missing := array_append(missing, 'document_index_units_embedding_hnsw_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_embedding_fields_owner_idx') then
-    missing := array_append(missing, 'document_embedding_fields_owner_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_table_facts_owner_idx') then
-    missing := array_append(missing, 'document_table_facts_owner_idx');
-  end if;
-  if not exists (select 1 from pg_class where relname = 'document_table_facts_source_image_idx') then
-    missing := array_append(missing, 'document_table_facts_source_image_idx');
-  end if;
-  foreach index_name in array array[
-    'document_pages_document_idx',
-    'document_images_document_idx',
-    'document_sections_document_idx',
-    'document_memory_cards_document_idx',
-    'document_chunks_document_idx',
-    'document_table_facts_document_idx',
-    'document_embedding_fields_document_idx',
-    'document_index_units_document_idx',
-    'ingestion_jobs_status_next_run_idx',
-    'ingestion_jobs_document_status_idx',
-    'documents_owner_status_idx',
-    'import_batches_status_created_idx',
-    'storage_cleanup_jobs_status_created_idx'
-  ] loop
-    if not exists (select 1 from pg_class where relname = index_name) then
+  foreach index_name in array required_indexes loop
+    if not exists (
+      select 1
+      from pg_class c
+      join pg_namespace ns on ns.oid = c.relnamespace
+      where ns.nspname = 'public'
+        and c.relname = index_name
+        and c.relkind = 'i'
+    ) then
       missing := array_append(missing, index_name);
     end if;
   end loop;
+
+  select public.detect_legacy_ivfflat_indexes() into legacy_ivfflat_indexes;
 
   return jsonb_build_object(
     'ok', cardinality(missing) = 0,
     'missing', missing,
     'vector_extension_schema', vector_schema,
+    'legacy_ivfflat_indexes', coalesce(legacy_ivfflat_indexes, array[]::text[]),
+    'deferred_hnsw_indexes', array[]::text[],
     'checked_at', now()
   );
 end;
@@ -1933,7 +2018,8 @@ grant select, insert, update, delete on table
   public.rag_query_misses,
   public.rag_aliases,
   public.rag_response_cache,
-  public.storage_cleanup_jobs
+  public.storage_cleanup_jobs,
+  public.rag_retrieval_logs
 to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
@@ -1954,7 +2040,8 @@ grant select on table
   public.rag_queries,
   public.rag_query_misses,
   public.rag_aliases,
-  public.storage_cleanup_jobs
+  public.storage_cleanup_jobs,
+  public.rag_retrieval_logs
 to authenticated;
 
 grant insert, update, delete on table public.document_labels to authenticated;
@@ -1978,6 +2065,7 @@ alter table public.rag_query_misses enable row level security;
 alter table public.rag_aliases enable row level security;
 alter table public.rag_response_cache enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
+alter table public.rag_retrieval_logs enable row level security;
 
 create policy "import batches owner read" on public.import_batches
   for select to authenticated using (owner_id = (select auth.uid()));
@@ -2053,6 +2141,9 @@ create policy "rag owner read" on public.rag_queries
 create policy "rag misses owner read" on public.rag_query_misses
   for select to authenticated using (owner_id = (select auth.uid()));
 
+create policy "rag retrieval logs owner read" on public.rag_retrieval_logs
+  for select to authenticated using (owner_id = (select auth.uid()));
+
 create policy "rag aliases owner read" on public.rag_aliases
   for select to authenticated using (owner_id is null or owner_id = (select auth.uid()));
 
@@ -2102,7 +2193,7 @@ create index if not exists document_index_units_image_idx on public.document_ind
 create index if not exists document_index_units_terms_idx on public.document_index_units using gin(normalized_terms);
 create index if not exists document_index_units_heading_path_idx on public.document_index_units using gin(heading_path);
 create index if not exists document_index_units_search_idx on public.document_index_units using gin(search_tsv);
-create index if not exists document_index_units_embedding_hnsw_idx on public.document_index_units using hnsw (embedding vector_cosine_ops);
+create index if not exists document_index_units_embedding_hnsw_idx on public.document_index_units using hnsw (embedding vector_cosine_ops) with (m = 24, ef_construction = 128);
 
 drop trigger if exists document_index_units_updated_at on public.document_index_units;
 create trigger document_index_units_updated_at
@@ -2149,7 +2240,12 @@ as $$
     select u.id, u.document_id, u.source_chunk_id, u.source_image_id, u.unit_type, u.title, u.content, u.page_start,
       u.page_end, u.heading_path, u.normalized_terms, u.source_span, u.quality_score, u.extraction_mode,
       (1 - (u.embedding <=> query_embedding))::double precision as similarity,
-      (ts_rank_cd(u.search_tsv, query.tsq) + case when u.normalized_terms && query.terms then 0.25 else 0 end + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact') then 0.06 when u.unit_type = 'section_summary' then 0.03 else 0 end)::double precision as text_rank,
+      (ts_rank_cd(u.search_tsv, query.tsq)
+        + case when u.normalized_terms && query.terms then 0.25 else 0 end
+        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact') then 0.06
+               when u.unit_type = 'section_summary' then 0.03
+               else 0 end
+      )::double precision as text_rank,
       u.metadata
     from public.document_index_units u
     join public.documents d on d.id = u.document_id
@@ -2164,7 +2260,13 @@ as $$
   )
   select id, document_id, source_chunk_id, source_image_id, unit_type, title, content, page_start, page_end, heading_path,
     normalized_terms, source_span, quality_score, extraction_mode, similarity, text_rank,
-    ((similarity * 0.58) + (least(text_rank, 1) * 0.32) + (quality_score * 0.1))::double precision as hybrid_score,
+    (
+      (similarity * 0.52)
+      + (least(text_rank, 1) * 0.28)
+      + (quality_score * 0.12)
+      + (case when extraction_mode in ('model_heavy', 'hybrid') then 0.04 else 0 end)
+      + (case when unit_type = 'askable_question' then 0.04 else 0 end)
+    )::double precision as hybrid_score,
     metadata
   from ranked
   order by hybrid_score desc, similarity desc, text_rank desc
@@ -2189,6 +2291,24 @@ begin
   delete from public.document_pages where document_id = p_document_id;
 end;
 $$;
+
+create or replace function public.analyze_rag_tables()
+returns void
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  analyze public.document_chunks;
+  analyze public.document_memory_cards;
+  analyze public.document_index_units;
+  analyze public.document_embedding_fields;
+  analyze public.document_table_facts;
+  analyze public.documents;
+end;
+$$;
+
+revoke execute on function public.analyze_rag_tables() from public, anon, authenticated;
+grant execute on function public.analyze_rag_tables() to service_role;
 
 alter table public.document_index_units enable row level security;
 grant select, insert, update, delete on table public.document_index_units to service_role;

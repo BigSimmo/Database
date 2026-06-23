@@ -1,6 +1,10 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
-import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
+import {
+  clinicalProseUsefulness,
+  sourceTextForCompactDisplay,
+  sourceTextForDisplay,
+} from "@/lib/source-text-sanitizer";
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
 export type SafetyFindingKind =
@@ -64,7 +68,14 @@ function normalizeText(text: string) {
 }
 
 function conciseSourceText(text: string) {
-  const normalized = normalizeText(sourceTextForDisplay(text));
+  const useful = clinicalProseUsefulness(text);
+  const normalized = normalizeText(
+    (sourceTextForCompactDisplay(useful.text || text) || sourceTextForDisplay(text))
+      .replace(/\bsource mentions\s*:?\s*/gi, "")
+      .replace(/\b(?:procedure|policy|protocol)\s+[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/gi, "")
+      .replace(/\bpage\s+\d+\s+of\s+\d+\b[\s.:-]*/gi, "")
+      .replace(/\bchunk\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]+\b[\s.:-]*/gi, ""),
+  );
   if (normalized.length <= 260) return normalized;
   return `${normalized.slice(0, 257).trim()}...`;
 }
@@ -141,7 +152,7 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
       id: `${match.kind}:${candidate.id}`,
       kind: match.kind,
       label: match.label,
-      text: `Source mentions: ${text}`,
+      text,
       citation: candidate.citation,
       href: documentCitationHref(candidate.citation),
     });

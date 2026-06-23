@@ -124,9 +124,7 @@ describe("bulk import helpers", () => {
   it("chunks imports into configured queue batches", () => {
     expect(chunkImportFiles([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(chunkImportFiles(Array.from({ length: 41 }, (_, index) => index)).map((batch) => batch.length)).toEqual([
-      20,
-      20,
-      1,
+      20, 20, 1,
     ]);
   });
 

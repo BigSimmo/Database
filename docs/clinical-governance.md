@@ -26,3 +26,13 @@ Clinical KB is currently a source-backed clinical reference prototype. Before pr
 - Generated answers and copied drafts must be verified against linked source text, local policy, and patient context before use.
 - Do not add dose calculators, diagnostic scores, patient-facing recommendations, or automated treatment recommendations without dedicated clinical validation.
 - Keep demo content clearly synthetic and separated from real clinical content.
+
+## Pull Request Preflight
+
+Use the `.github/pull_request_template.md` clinical governance section for any change that touches ingestion, answer generation, search/ranking, source rendering, document access, privacy, production environment behavior, or clinical output.
+
+- Confirm the Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`).
+- Confirm service-role credentials and private document access remain server-only.
+- Confirm unknown or outdated source metadata is treated conservatively.
+- Confirm demo/synthetic content remains separated from real clinical sources.
+- Confirm clinical decision-support behavior changes have deployment classification and TGA SaMD impact reviewed before production use.

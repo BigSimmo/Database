@@ -8,7 +8,6 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronDown,
-  Clipboard,
   ClipboardCheck,
   ExternalLink,
   FileImage,
@@ -19,14 +18,12 @@ import {
   LogIn,
   LogOut,
   Mail,
-  Moon,
   Quote,
   RefreshCw,
   Search,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
-  Sun,
   Tag,
   Target,
   UploadCloud,
@@ -48,26 +45,21 @@ import {
   answerSurface,
   clinicalDivider,
   cn,
-  commandInput,
   evidenceSurface,
   EmptyState,
-  eyebrowText,
   fieldControlPlain,
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
   iconTilePremium,
   fieldLabel,
-  LoadingPanel,
   metadataPill,
   navPill,
   panel,
   panelSubtle,
-  premiumHeaderSurface,
   primaryControl,
   proseMeasure,
   raisedCard,
-  shellChip,
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
@@ -81,8 +73,23 @@ import {
 } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
-import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
+import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
+import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  DocumentSearchResultsPanel,
+  MatchExplanationChips,
+  type SearchFacets,
+} from "@/components/clinical-dashboard/document-search-results";
+import {
+  hasStrongRelevanceIcon,
+  isWeakRelevance,
+  QueryCoverageChips,
+  relevanceChipLabel,
+  RelevanceBadge,
+} from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   isRetryableError,
@@ -98,6 +105,12 @@ import {
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
 import {
+  logSourceOpen,
+  SourceActionRow,
+  SourcePassageLinks,
+  sourceResultHref,
+} from "@/components/clinical-dashboard/source-actions";
+import {
   parseAnswerDisplayContent,
   type AnswerDisplayLine,
   type AnswerDisplayTone,
@@ -112,14 +125,10 @@ import {
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
-  buildSmartDocumentTagFacets,
-  filterDocumentsBySmartTagFacets,
   reviewDocumentTagQuality,
-  smartDocumentFacetGroups,
   tagSearchText,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
-  type SmartDocumentTagGroup,
   type SmartDocumentTagQualityIssueKind,
 } from "@/lib/document-tags";
 import type {
@@ -136,7 +145,6 @@ import type {
   RelatedDocument,
   EvidenceSummary,
   SearchResult,
-  SourceEvidenceRelevance,
   SearchScopeSummary,
   VisualEvidenceCard,
   ClinicalQueryMode,
@@ -153,30 +161,8 @@ import {
   shouldPollForUpdates,
 } from "@/lib/ward-output";
 
-const sampleQueries = [
-  {
-    label: "Monitoring overview",
-    query: "What monitoring and escalation issues should I consider across these documents?",
-  },
-  {
-    label: "Lithium safety-net",
-    query: "What toxicity safety-net symptoms should be reviewed for lithium?",
-  },
-  {
-    label: "Clozapine table",
-    query: "What clozapine monitoring items are shown in the table image?",
-  },
-  {
-    label: "Risk escalation",
-    query: "When should acute risk be escalated for senior review?",
-  },
-] as const;
-
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
-
-const themeStorageKey = "clinical-kb-theme";
-const themeChangeEvent = "clinical-kb-theme-change";
 const authEmailChangeEvent = "clinical-kb-auth-email-change";
 const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
@@ -241,17 +227,6 @@ type BatchesPayload = {
   pollAfterMs?: number | null;
 };
 
-type SearchFacet = { value: string; count: number };
-type SearchFacets = {
-  status?: SearchFacet[];
-  validation?: SearchFacet[];
-  extractionQuality?: SearchFacet[];
-  sections?: SearchFacet[];
-  labels?: SearchFacet[];
-  documentTypes?: SearchFacet[];
-  evidence?: SearchFacet[];
-};
-
 const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "monitoring_schedule", label: "Monitoring" },
@@ -261,17 +236,6 @@ const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string 
   { value: "required_documentation", label: "Documentation" },
   { value: "compare_guidance", label: "Compare" },
 ];
-
-function splitFilterText(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function filterText(values?: string[]) {
-  return (values ?? []).join(", ");
-}
 
 function compactScopeFilters(filters: SearchScopeFilters) {
   const next: SearchScopeFilters = {};
@@ -398,33 +362,6 @@ function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
 
-function getThemeSnapshot(): ResolvedTheme {
-  if (typeof window === "undefined") return "light";
-  const storedTheme = window.localStorage.getItem(themeStorageKey);
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return resolveThemePreference(storedTheme, prefersDark);
-}
-
-function getServerThemeSnapshot(): ResolvedTheme {
-  return "light";
-}
-
-function subscribeTheme(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => undefined;
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  const notify = () => onStoreChange();
-
-  window.addEventListener("storage", notify);
-  window.addEventListener(themeChangeEvent, notify);
-  mediaQuery.addEventListener("change", notify);
-
-  return () => {
-    window.removeEventListener("storage", notify);
-    window.removeEventListener(themeChangeEvent, notify);
-    mediaQuery.removeEventListener("change", notify);
-  };
-}
-
 function getAuthEmailSnapshot() {
   if (typeof window === "undefined") return "";
   try {
@@ -449,79 +386,6 @@ function subscribeAuthEmail(onStoreChange: () => void) {
     window.removeEventListener("storage", notify);
     window.removeEventListener(authEmailChangeEvent, notify);
   };
-}
-
-function useTheme() {
-  const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getServerThemeSnapshot);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
-  function toggleTheme() {
-    const resolved = nextTheme(theme);
-    window.localStorage.setItem(themeStorageKey, resolved);
-    document.documentElement.classList.toggle("dark", resolved === "dark");
-    window.dispatchEvent(new Event(themeChangeEvent));
-  }
-
-  return { theme, toggleTheme };
-}
-
-function statusTone(status: string) {
-  if (status === "indexed" || status === "completed") {
-    return {
-      icon: CheckCircle2,
-      className: toneSuccess,
-    };
-  }
-  if (status === "failed") {
-    return {
-      icon: AlertCircle,
-      className: toneDanger,
-    };
-  }
-  if (status === "processing") {
-    return {
-      icon: Loader2,
-      className: toneInfo,
-    };
-  }
-  return {
-    icon: FileText,
-    className: toneNeutral,
-  };
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const tone = statusTone(status);
-  const Icon = tone.icon;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold",
-        tone.className,
-      )}
-    >
-      <Icon className={cn("h-3.5 w-3.5", status === "processing" && "animate-spin")} />
-      {status}
-    </span>
-  );
-}
-
-function StrengthBadge({ strength }: { strength?: string }) {
-  const label = strength ?? "source";
-  const className = strength === "strong" ? toneSuccess : strength === "limited" ? toneWarning : toneInfo;
-
-  return (
-    <span
-      className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold", className)}
-    >
-      <CheckCircle2 className="h-3.5 w-3.5" />
-      {label}
-    </span>
-  );
 }
 
 function SourceImage({
@@ -674,97 +538,6 @@ function SectionHeading({
   );
 }
 
-function relevanceChipLabel(
-  relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined,
-  grounded = false,
-) {
-  if (!relevance) return grounded ? "Source-backed" : "No direct support";
-  if (relevance.verdict === "direct") return "Source-backed";
-  if (relevance.verdict === "partial") return "Partial support";
-  if (relevance.verdict === "nearby") return "Nearby only";
-  return "No direct support";
-}
-
-function relevanceChipClasses(
-  relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined,
-  grounded = false,
-) {
-  const verdict = relevance?.verdict ?? (grounded ? "direct" : "none");
-  if (verdict === "direct") {
-    return "border-[color:var(--success)]/20 bg-[color:var(--success-soft)]/45 text-[color:var(--success)]";
-  }
-  if (verdict === "partial") {
-    return "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)]/45 text-[color:var(--primary)]";
-  }
-  return "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
-}
-
-function hasStrongRelevanceIcon(
-  relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined,
-  grounded = false,
-) {
-  const verdict = relevance?.verdict ?? (grounded ? "direct" : "none");
-  return verdict === "direct" || verdict === "partial";
-}
-
-function isWeakRelevance(relevance: EvidenceRelevance | SourceEvidenceRelevance | null | undefined) {
-  return !relevance?.isSourceBacked || relevance.verdict === "nearby" || relevance.verdict === "none";
-}
-
-function RelevanceBadge({
-  relevance,
-  grounded = false,
-  testId,
-}: {
-  relevance?: EvidenceRelevance | SourceEvidenceRelevance | null;
-  grounded?: boolean;
-  testId?: string;
-}) {
-  const showStrongIcon = hasStrongRelevanceIcon(relevance, grounded);
-  const label = relevanceChipLabel(relevance, grounded);
-  return (
-    <span
-      data-testid={testId}
-      className={cn(
-        "inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold leading-none sm:min-h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs",
-        relevanceChipClasses(relevance, grounded),
-      )}
-      aria-label={label}
-      title={relevance?.supportReason ?? label}
-    >
-      {showStrongIcon ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-      <span>{label}</span>
-    </span>
-  );
-}
-
-function QueryCoverageChips({
-  relevance,
-  limit = 4,
-}: {
-  relevance?: SourceEvidenceRelevance | EvidenceRelevance | null;
-  limit?: number;
-}) {
-  if (!relevance) return null;
-  const chips =
-    "chips" in relevance && relevance.chips.length
-      ? relevance.chips
-      : [
-          relevance.matchedTerms.length ? `matched: ${relevance.matchedTerms.slice(0, 3).join(", ")}` : "",
-          relevance.missingTerms.length ? `missing: ${relevance.missingTerms.slice(0, 3).join(", ")}` : "",
-          relevanceChipLabel(relevance),
-        ].filter(Boolean);
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {chips.slice(0, limit).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-          {chip}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function ScopeAndGovernanceNotice({
   scope,
   warnings,
@@ -812,907 +585,9 @@ function ScopeAndGovernanceNotice({
   );
 }
 
-function MasterSearchHeader({
-  documents,
-  query,
-  searchMode,
-  loading,
-  selectedDocumentIds,
-  queryMode,
-  scopeFilters,
-  hasAnswer,
-  demoMode,
-  realDataReady,
-  theme,
-  onQueryChange,
-  onSearchModeChange,
-  onAsk,
-  onClearQuery,
-  onClearScope,
-  onQueryModeChange,
-  onScopeFiltersChange,
-  onToggleScope,
-  onScopeOpenChange,
-  onOpenGuide,
-  onToggleTheme,
-}: {
-  documents: ClinicalDocument[];
-  query: string;
-  searchMode: SearchMode;
-  loading: boolean;
-  selectedDocumentIds: string[];
-  queryMode: ClinicalQueryMode;
-  scopeFilters: SearchScopeFilters;
-  hasAnswer: boolean;
-  demoMode: boolean;
-  realDataReady: boolean;
-  theme: ResolvedTheme;
-  onQueryChange: (query: string) => void;
-  onSearchModeChange: (mode: SearchMode) => void;
-  onAsk: () => void;
-  onClearQuery: () => void;
-  onClearScope: () => void;
-  onQueryModeChange: (mode: ClinicalQueryMode) => void;
-  onScopeFiltersChange: (filters: SearchScopeFilters) => void;
-  onToggleScope: (documentId: string) => void;
-  onScopeOpenChange?: (open: boolean) => void;
-  onOpenGuide: () => void;
-  onToggleTheme: () => void;
-}) {
-  const trimmedQuery = query.trim();
-  const canAsk = trimmedQuery.length >= 1 && !loading && realDataReady;
-  const compactMobile = hasAnswer;
-  const [scopeFilter, setScopeFilter] = useState("");
-  const [scopeOpen, setScopeOpen] = useState(false);
-  const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
-  const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
-  const scopeSummaryRef = useRef<HTMLElement | null>(null);
-  const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
-  const selectedDocuments = selectedDocumentIds
-    .map((id) => documents.find((document) => document.id === id))
-    .filter((document): document is ClinicalDocument => Boolean(document));
-  const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
-  const scopePreview = selectedDocuments
-    .slice(0, 2)
-    .map((document) => document?.title.replace(/^Synthetic /, ""))
-    .filter(Boolean)
-    .join(", ");
-  const normalizedScopeFilter = scopeFilter.trim().toLowerCase();
-  const recentlyUpdatedDocuments = [...documents].sort((a, b) => {
-    const bTime = Date.parse(b.updated_at || b.created_at || "");
-    const aTime = Date.parse(a.updated_at || a.created_at || "");
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
-  });
-  const matchingDocuments = normalizedScopeFilter
-    ? recentlyUpdatedDocuments.filter((document) =>
-        [document.title, document.file_name, document.description, tagSearchText(document)]
-          .filter(Boolean)
-          .some((value) => value?.toLowerCase().includes(normalizedScopeFilter)),
-      )
-    : recentlyUpdatedDocuments;
-  const largeScopeSet = documents.length > 12;
-  const requireScopeFilter = largeScopeSet && !normalizedScopeFilter;
-  const visibleScopeDocuments = [
-    ...selectedDocuments,
-    ...(requireScopeFilter ? [] : matchingDocuments.filter((document) => !selectedDocumentIds.includes(document.id))),
-  ].slice(0, 12);
-  const hiddenScopeMatchCount = requireScopeFilter
-    ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocuments.length : documents.length)
-    : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
-  const submitLabel = searchMode === "answer" ? (trimmedQuery ? "Answer" : "Ask") : "Docs";
-  const collectionOptions = useMemo(() => {
-    const values = new Set<string>();
-    for (const document of documents) {
-      const metadata =
-        document.metadata && typeof document.metadata === "object"
-          ? (document.metadata as Record<string, unknown>)
-          : {};
-      const collection = metadata.collection;
-      if (typeof collection === "string" && collection.trim()) values.add(collection.trim());
-    }
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [documents]);
-
-  const closeScope = useCallback((restoreFocus = false) => {
-    const details = scopeDetailsRef.current;
-    if (!details?.open) return;
-    details.open = false;
-    setScopeOpen(false);
-    if (restoreFocus) scopeSummaryRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    onScopeOpenChange?.(scopeOpen || scopeSheetOpen);
-  }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
-
-  useEffect(() => {
-    const details = scopeDetailsRef.current;
-    if (!scopeOpen || !details?.open) return undefined;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!scopeDetailsRef.current?.contains(target)) closeScope(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeScope(true);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [closeScope, scopeOpen]);
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onAsk();
-  }
-
-  function documentScopeTitle(document: ClinicalDocument) {
-    return document.title.replace(/^Synthetic /, "").replace(/\.pdf$/i, "");
-  }
-
-  function documentScopeMeta(document: ClinicalDocument) {
-    const title = documentScopeTitle(document).toLowerCase();
-    const fileName = document.file_name;
-    const fileBase = fileName.replace(/\.pdf$/i, "").toLowerCase();
-    if (fileBase === title || fileBase.startsWith(title)) return `${document.page_count ?? "?"} pages`;
-    return `${fileName} · ${document.page_count ?? "?"} pages`;
-  }
-
-  function renderScopeRows() {
-    return (
-      <div className="grid gap-3">
-        <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 sm:hidden">
-          <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
-            <p className={eyebrowText}>Refine search</p>
-            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">Mode, status, topics</span>
-          </div>
-          <div className="grid gap-2">
-            <select
-              value={queryMode}
-              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
-              aria-label="Clinical query mode"
-              className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-            >
-              {clinicalQueryModeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                value={filterText(scopeFilters.medications)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
-                }
-                placeholder="Medication"
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              />
-              <input
-                value={filterText(scopeFilters.topics)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
-                }
-                placeholder="Topic"
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              />
-              <select
-                value={scopeFilters.sourceStatuses?.[0] ?? ""}
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    sourceStatuses: event.target.value
-                      ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
-                      : [],
-                  })
-                }
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              >
-                <option value="">Any status</option>
-                <option value="current">Current</option>
-                <option value="review_due">Review due</option>
-                <option value="outdated">Outdated</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <select
-                value={scopeFilters.locality ?? ""}
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
-                  })
-                }
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              >
-                <option value="">Any locality</option>
-                <option value="local">Local only</option>
-                <option value="non_local">Non-local only</option>
-              </select>
-            </div>
-            <input
-              value={filterText(scopeFilters.collections)}
-              onChange={(event) =>
-                onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
-              }
-              placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
-              className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-            />
-            <button
-              type="button"
-              onClick={() => onScopeFiltersChange({})}
-              className={cn(floatingControl, "min-h-9 px-3 text-xs")}
-            >
-              Clear refine filters
-            </button>
-          </div>
-        </section>
-        <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
-          <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
-            <p className={eyebrowText}>Document scope</p>
-            <span className="nums shrink-0 text-[11px] font-semibold text-[color:var(--text-soft)]">
-              {selectedDocumentIds.length ? `${selectedDocumentIds.length} selected` : `${documents.length} available`}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-              <input
-                ref={scopeFilterInputRef}
-                value={scopeFilter}
-                onChange={(event) => setScopeFilter(event.target.value)}
-                data-testid="document-scope-filter"
-                aria-label="Filter document scope"
-                placeholder="Filter documents by title or file"
-                className="h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              />
-            </label>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onClearScope}
-                className={cn(
-                  shellChip,
-                  selectedDocumentIds.length === 0
-                    ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                )}
-              >
-                All documents
-              </button>
-              {scopeFilter ? (
-                <span className="nums rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  {matchingDocuments.length} match{matchingDocuments.length === 1 ? "" : "es"}
-                </span>
-              ) : (
-                <span className="rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  Recently updated first
-                </span>
-              )}
-            </div>
-            <div className="max-h-72 overflow-y-auto pr-1 polished-scroll">
-              <div className="grid gap-1.5">
-                {requireScopeFilter && visibleScopeDocuments.length === 0 ? (
-                  <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
-                    Type to filter {documents.length} documents. Selected documents stay pinned here.
-                  </p>
-                ) : null}
-                {visibleScopeDocuments.map((document) => {
-                  const selected = selectedDocumentIds.includes(document.id);
-                  return (
-                    <button
-                      key={document.id}
-                      type="button"
-                      onClick={() => onToggleScope(document.id)}
-                      title={document.title}
-                      className={cn(
-                        "grid min-h-[44px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
-                        selected
-                          ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-5 w-5 place-items-center rounded-md border",
-                          selected
-                            ? "border-[color:var(--primary)]/50 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
-                            : "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]",
-                        )}
-                        aria-hidden
-                      >
-                        {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
-                        <span className="nums block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
-                          {documentScopeMeta(document)}
-                        </span>
-                        <DocumentTagCloud
-                          labels={document.labels}
-                          query={scopeFilter}
-                          limit={2}
-                          compact
-                          expandable={false}
-                          className="mt-1"
-                        />
-                      </span>
-                      {selected ? (
-                        <span className="rounded-md bg-[color:var(--primary-soft)] px-2 py-1 text-[11px] font-bold text-[color:var(--primary-strong)]">
-                          In scope
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-                {!requireScopeFilter && visibleScopeDocuments.length === 0 ? (
-                  <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
-                    No documents match that filter. Clear the filter or search by file name.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            {hiddenScopeMatchCount > 0 ? (
-              <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
-                {requireScopeFilter
-                  ? `${documents.length} documents available. Type a title or file name to narrow the list.`
-                  : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
-              </p>
-            ) : null}
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  return (
-    <header
-      id="search"
-      className={cn(
-        "sticky top-0 z-30 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 lg:px-8",
-        premiumHeaderSurface,
-        "sm:py-2.5",
-      )}
-      style={{ backgroundColor: "var(--app-shell)" }}
-    >
-      <div className="mx-auto max-w-7xl space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div
-              className={cn(
-                "grid shrink-0 place-items-center rounded-lg border border-white/20 bg-[linear-gradient(135deg,var(--primary),var(--primary-strong))] text-[color:var(--primary-contrast)] shadow-[var(--glow-soft)]",
-                compactMobile ? "h-9 w-9 sm:h-[44px] sm:w-[44px]" : "h-[44px] w-[44px]",
-              )}
-            >
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
-                <h1 className="truncate text-base font-semibold">Clinical Guide</h1>
-                {demoMode && (
-                  <span className="hidden shrink-0 rounded-md border border-amber-300/25 bg-amber-300/12 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-amber-100 sm:inline-flex">
-                    Demo data
-                  </span>
-                )}
-              </div>
-              <p className={cn("truncate text-xs font-medium text-slate-300", compactMobile && "hidden sm:block")}>
-                {demoMode ? "Synthetic data only" : "Ask indexed guidelines"}
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {demoMode && (
-              <span className="inline-flex rounded-md border border-amber-300/25 bg-amber-300/12 px-2 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-amber-100 sm:hidden">
-                Demo
-              </span>
-            )}
-            <Link
-              href="/tools"
-              aria-label="Open clinical tools"
-              title="Open clinical tools"
-              className="group relative grid h-[44px] w-[44px] shrink-0 place-items-center overflow-hidden rounded-lg border border-cyan-100/20 bg-cyan-100/[0.08] text-cyan-50 shadow-[inset_0_1px_0_rgb(255_255_255_/_12%),var(--shadow-tight)] transition hover:-translate-y-0.5 hover:border-cyan-100/35 hover:bg-cyan-100/[0.13] hover:text-white"
-            >
-              <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/70 to-transparent" />
-              <Sparkles className="relative h-4.5 w-4.5" />
-              <span className="sr-only">Clinical tools</span>
-            </Link>
-            <button
-              type="button"
-              onClick={onOpenGuide}
-              className="hidden h-[44px] shrink-0 items-center gap-2 rounded-lg border border-white/15 bg-white/7 px-3 text-xs font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition hover:border-white/25 hover:bg-white/12 sm:inline-flex"
-              aria-label="Open user guide"
-            >
-              <BookOpen className="h-4 w-4" />
-              Guide
-            </button>
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:border-white/25 hover:bg-white/12"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid gap-2 rounded-[var(--radius-lg)] border border-white/10 bg-white/6 p-1 shadow-[var(--shadow-inset)] sm:flex sm:flex-wrap sm:items-center sm:justify-between">
-          <div role="group" aria-label="Search mode" className="grid grid-cols-2 gap-1 sm:min-w-[14rem]">
-            {[
-              { mode: "answer" as const, label: "Answer", icon: Sparkles },
-              { mode: "documents" as const, label: "Documents", icon: FileText },
-            ].map((item) => {
-              const active = searchMode === item.mode;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.mode}
-                  type="button"
-                  onClick={() => onSearchModeChange(item.mode)}
-                  className={cn(
-                    "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-md)] px-3 text-sm font-semibold transition",
-                    active
-                      ? "bg-white text-slate-950 shadow-[var(--shadow-tight)]"
-                      : "text-slate-200 hover:bg-white/10 hover:text-white",
-                  )}
-                  aria-pressed={active}
-                  aria-label={item.mode === "answer" ? "Switch to answer mode" : "Switch to document search mode"}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-          <span className="hidden px-2 text-xs font-medium text-slate-300 lg:inline">
-            {searchMode === "answer" ? "Synthesize cited clinical guidance" : "List matching source documents"}
-          </span>
-          <div className="ml-auto hidden min-w-0 items-center gap-2 sm:flex">
-            <details className="group relative">
-              <summary className="flex h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-md border border-white/15 bg-white/7 px-3 text-xs font-semibold text-slate-100">
-                <SlidersHorizontal className="h-4 w-4 shrink-0" />
-                Refine
-                <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
-              </summary>
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(42rem,calc(100vw-2rem))] gap-2 rounded-lg border border-white/15 bg-[color:var(--surface-glass)] p-3 shadow-[var(--shadow-elevated)] backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-3">
-                <select
-                  value={queryMode}
-                  onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
-                  aria-label="Clinical query mode"
-                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-                >
-                  {clinicalQueryModeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={filterText(scopeFilters.medications)}
-                  onChange={(event) =>
-                    onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
-                  }
-                  placeholder="Medication labels"
-                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-                />
-                <input
-                  value={filterText(scopeFilters.topics)}
-                  onChange={(event) =>
-                    onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
-                  }
-                  placeholder="Topic labels"
-                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-                />
-                <input
-                  value={filterText(scopeFilters.collections)}
-                  onChange={(event) =>
-                    onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
-                  }
-                  placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
-                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-                />
-                <select
-                  value={scopeFilters.sourceStatuses?.[0] ?? ""}
-                  onChange={(event) =>
-                    onScopeFiltersChange({
-                      ...scopeFilters,
-                      sourceStatuses: event.target.value
-                        ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
-                        : [],
-                    })
-                  }
-                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-                >
-                  <option value="">Any status</option>
-                  <option value="current">Current</option>
-                  <option value="review_due">Review due</option>
-                  <option value="outdated">Outdated</option>
-                  <option value="unknown">Unknown</option>
-                </select>
-                <select
-                  value={scopeFilters.locality ?? ""}
-                  onChange={(event) =>
-                    onScopeFiltersChange({
-                      ...scopeFilters,
-                      locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
-                    })
-                  }
-                  className="h-9 rounded-md border border-white/15 bg-white/95 px-2 text-xs font-semibold text-slate-950 outline-none dark:bg-slate-950/90 dark:text-slate-50"
-                >
-                  <option value="">Any locality</option>
-                  <option value="local">Local only</option>
-                  <option value="non_local">Non-local only</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => onScopeFiltersChange({})}
-                  className="h-9 rounded-md border border-white/15 bg-white/7 px-2 text-xs font-semibold text-slate-100 hover:bg-white/12"
-                >
-                  Clear filters
-                </button>
-              </div>
-            </details>
-          </div>
-        </div>
-
-        <form
-          onSubmit={submit}
-          className="grid grid-cols-[minmax(0,1fr)_52px_52px] gap-2 sm:grid-cols-[minmax(0,1fr)_136px_108px] lg:grid-cols-[minmax(0,1fr)_148px_116px]"
-        >
-          <label className="relative min-w-0">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-            <input
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
-              }}
-              aria-label="Search indexed guidelines by question or keyword"
-              placeholder="Ask a question"
-              className={commandInput}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={onClearQuery}
-                className="absolute right-2 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:hover:bg-slate-800 dark:hover:text-slate-50"
-                aria-label="Clear search question"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </label>
-          <button
-            type="submit"
-            disabled={!canAsk}
-            title={
-              !realDataReady
-                ? "Search setup is not ready"
-                : trimmedQuery.length < 1
-                  ? searchMode === "answer"
-                    ? "Enter a clinical question"
-                    : "Enter a document search term"
-                  : searchMode === "answer"
-                    ? "Generate a source-backed answer"
-                    : "Find matching documents"
-            }
-            className={cn(
-              primaryControl,
-              "min-h-[44px] whitespace-nowrap rounded-[var(--radius-lg)] px-0 text-sm sm:px-5",
-            )}
-            aria-label={searchMode === "answer" ? "Generate source-backed answer" : "Find matching documents"}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            <span className="sr-only sm:not-sr-only">{submitLabel}</span>
-          </button>
-          <>
-            <button
-              type="button"
-              data-testid="scope-trigger"
-              onClick={() => setScopeSheetOpen(true)}
-              className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:hidden"
-              aria-label="Open document scope"
-              aria-expanded={scopeSheetOpen}
-            >
-              <Filter className="h-4 w-4" />
-              <span className="sr-only">Scope</span>
-              {selectedDocumentIds.length ? (
-                <span className="rounded-md bg-teal-200/15 px-1.5 py-0.5 text-[10px] font-bold text-teal-50">
-                  {selectedDocumentIds.length}
-                </span>
-              ) : null}
-            </button>
-
-            <details
-              ref={scopeDetailsRef}
-              onToggle={(event) => {
-                const open = event.currentTarget.open;
-                setScopeOpen(open);
-                if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
-              }}
-              className="group relative hidden sm:block"
-            >
-              <summary
-                ref={scopeSummaryRef}
-                data-testid="scope-trigger"
-                className="flex min-h-[44px] cursor-pointer list-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-lg)] border border-white/15 bg-white/7 px-0 text-sm font-semibold text-slate-100 shadow-[var(--shadow-tight)] transition motion-safe:duration-150 hover:border-white/25 hover:bg-white/12 sm:gap-2 sm:px-3 sm:text-xs"
-                aria-label="Toggle document scope"
-                aria-expanded={scopeOpen}
-              >
-                <Filter className="h-4 w-4" />
-                <span className="sr-only sm:not-sr-only">Scope</span>
-                {selectedDocumentIds.length ? (
-                  <span className="rounded-md bg-teal-200/15 px-1.5 py-0.5 text-[10px] font-bold text-teal-50">
-                    {selectedDocumentIds.length}
-                  </span>
-                ) : null}
-              </summary>
-              <div
-                data-testid="scope-command-popover"
-                className="polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(70dvh,28rem)] w-[28rem] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
-              >
-                <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  <span>Document scope</span>
-                  <span className="nums">{scopeSummary}</span>
-                </div>
-                {scopePreview ? (
-                  <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
-                ) : null}
-                {renderScopeRows()}
-              </div>
-            </details>
-
-            <Sheet
-              open={scopeSheetOpen}
-              onClose={() => setScopeSheetOpen(false)}
-              title="Document scope"
-              description="Choose documents and filters for the next search."
-              closeLabel="Close document scope"
-              initialFocusRef={scopeFilterInputRef}
-              contentClassName="sm:hidden"
-            >
-              <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                <span>Document scope</span>
-                <span className="nums">{scopeSummary}</span>
-              </div>
-              {scopePreview ? (
-                <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
-              ) : null}
-              {renderScopeRows()}
-            </Sheet>
-          </>
-        </form>
-      </div>
-    </header>
-  );
-}
-
-function CopyButton({
-  label,
-  shortLabel,
-  ariaLabel,
-  copied,
-  onClick,
-}: {
-  label: string;
-  shortLabel?: string;
-  ariaLabel?: string;
-  copied: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel ?? label}
-      className={cn(floatingControl, "px-3 text-xs")}
-    >
-      {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
-      <span className="sm:hidden">{copied ? "Copied" : (shortLabel ?? label)}</span>
-      <span className="hidden sm:inline">{copied ? "Copied" : label}</span>
-    </button>
-  );
-}
-
-function AnswerEmptyState({
-  onPickSample,
-  recentQueries = [],
-  documentsLoading = false,
-}: {
-  onPickSample: (sample: string) => void;
-  recentQueries?: string[];
-  documentsLoading?: boolean;
-}) {
-  return (
-    <div className="space-y-3">
-      <EmptyState
-        icon={Search}
-        title="Ask indexed guidelines"
-        body="The answer, quotes, source PDFs, and diagrams will appear here."
-      />
-      {documentsLoading ? (
-        <LoadingPanel label="Checking indexed library before showing document status" variant="skeleton" lines={2} />
-      ) : null}
-      {recentQueries.length > 0 ? (
-        <section
-          aria-label="Recent questions"
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
-        >
-          <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              Recent questions
-            </p>
-            <span className={cn("text-[11px] font-semibold", textMuted)}>Resume</span>
-          </div>
-          <div className="grid gap-2">
-            {recentQueries.map((recent) => (
-              <button
-                key={recent}
-                type="button"
-                onClick={() => onPickSample(recent)}
-                title={recent}
-                className={cn(
-                  floatingControl,
-                  "min-h-10 justify-start px-3 text-left text-xs font-semibold sm:text-sm",
-                )}
-              >
-                <Search className="h-3.5 w-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{recent}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      <section
-        aria-label="Example questions"
-        className={cn(
-          "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-inset)]",
-        )}
-      >
-        <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-            Starter actions
-          </p>
-          <span className={cn("text-[11px] font-semibold", textMuted)}>Set question</span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {sampleQueries.map((sample) => (
-            <button
-              key={sample.query}
-              type="button"
-              onClick={() => onPickSample(sample.query)}
-              title={sample.query}
-              aria-label={`Use sample question: ${sample.query}`}
-              className={cn(
-                floatingControl,
-                "min-h-10 justify-start px-3 text-left text-xs motion-safe:transition-colors motion-safe:duration-150",
-              )}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="min-w-0 truncate">{sample.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function SourceActionRow({
-  viewerHref,
-  sourceTitle,
-  documentId,
-  onScopeDocument,
-  onFollowUp,
-  imageCount = 0,
-  divider = true,
-}: {
-  viewerHref: string;
-  sourceTitle: string;
-  documentId: string;
-  onScopeDocument: (documentId: string) => void;
-  onFollowUp?: () => void;
-  imageCount?: number;
-  divider?: boolean;
-}) {
-  return (
-    <div className={cn("flex flex-wrap gap-2", divider && "border-t border-[color:var(--border)] pt-3")}>
-      <Link href={viewerHref} className={cn(primaryControl, "min-h-[44px] px-4 text-xs")}>
-        <FileText className="h-4 w-4" />
-        Open page
-      </Link>
-      {onFollowUp && (
-        <button
-          type="button"
-          onClick={onFollowUp}
-          className={cn(floatingControl, "px-3 text-xs")}
-          aria-label={`Ask a follow-up from ${sourceTitle}`}
-        >
-          <Search className="h-4 w-4" />
-          <span className="sm:hidden">Follow-up</span>
-          <span className="hidden sm:inline">Ask follow-up</span>
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => onScopeDocument(documentId)}
-        className={cn(floatingControl, "px-3 text-xs")}
-        aria-label={`Search only ${sourceTitle}`}
-      >
-        <Filter className="h-4 w-4" />
-        <span className="sm:hidden">Scope</span>
-        <span className="hidden sm:inline">Use as scope</span>
-      </button>
-      {imageCount > 0 && (
-        <span className={cn(metadataPill, "min-h-[44px] rounded-lg px-3")}>
-          {imageCount} indexed image{imageCount === 1 ? "" : "s"}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function sourceResultHref(source: SearchResult) {
-  return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;
-}
-
-function logSourceOpen(query: string, source: SearchResult) {
-  if (!query.trim()) return;
-  void fetch("/api/search/interaction", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query,
-      documentId: source.document_id,
-      chunkId: source.id,
-      fileName: source.file_name,
-      title: source.title,
-    }),
-    keepalive: true,
-  }).catch(() => undefined);
-}
-
-function SourcePassageLinks({
-  heading,
-  sources,
-  compact = false,
-}: {
-  heading: string;
-  sources: SearchResult[];
-  compact?: boolean;
-}) {
-  if (sources.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {sources.slice(0, compact ? 2 : 3).map((source, index) => (
-        <Link
-          key={`${heading}:${source.id}:${index}`}
-          href={sourceResultHref(source)}
-          className={cn(
-            compact ? metadataPill : floatingControl,
-            "min-h-8 gap-1.5 px-2.5 text-[11px] sm:min-h-9 sm:px-3",
-          )}
-          title={`${source.title} · page ${source.page_number ?? "n/a"} · chunk ${source.chunk_index}`}
-          aria-label={`Open source passage ${index + 1} for ${heading}`}
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          <span>p.{source.page_number ?? "n/a"}</span>
-          <span className="hidden sm:inline">chunk {source.chunk_index}</span>
-          {source.source_strength ? <span className="hidden sm:inline">· {source.source_strength}</span> : null}
-        </Link>
-      ))}
-    </div>
-  );
-}
+const ragTextFallback = "No usable answer text.";
+const sectionTextFallback = "No usable section text.";
+const sourceExcerptFallback = "No excerpt available.";
 
 function SourceLinkedAnswer({
   sections,
@@ -1727,9 +602,7 @@ function SourceLinkedAnswer({
 
   if (sections.length === 0) {
     return (
-      <FormattedAnswerContent
-        content={parseAnswerDisplayContent(fallbackText || "No usable answer text for this result.", responseMode)}
-      />
+      <FormattedAnswerContent content={parseAnswerDisplayContent(fallbackText || ragTextFallback, responseMode)} />
     );
   }
 
@@ -2011,7 +884,7 @@ function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
         <div className="min-w-0 space-y-1 font-medium text-[color:var(--text-heading)]">
           {line ? <AnswerLineLabel line={line} /> : null}
           <p className="min-w-0 break-words [overflow-wrap:anywhere]">
-            <SafeBoldText text={line?.text ?? "No usable answer text for this result."} />
+            <SafeBoldText text={line?.text ?? ragTextFallback} />
           </p>
         </div>
       </div>
@@ -2064,7 +937,7 @@ function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extract
       <SectionHeading
         icon={ShieldAlert}
         title="Safety-critical source findings"
-        description="Items are extracted only from retrieved source text. Verify the linked source before clinical use."
+        description="Items come from source text. Verify before clinical use."
         hideDescriptionOnMobile
         compactMobile
       />
@@ -2084,7 +957,7 @@ function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extract
                   raisedCard,
                   "inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
                 )}
-                aria-label={`Open source for ${formatSafetyFindingLabel(finding)}`}
+                aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
                 <ExternalLink className="h-4 w-4" />
                 Source
@@ -2347,7 +1220,7 @@ function EvidenceSummaryCard({
               className={cn(primaryControl, "min-h-[44px] px-3 text-xs")}
               aria-label={`Open ${sourceLabel.toLowerCase()}: ${formatCitationLabel(bestSource)}`}
             >
-              Open page
+              Open source
               <ExternalLink className="h-4 w-4" />
             </Link>
             <button
@@ -2357,7 +1230,7 @@ function EvidenceSummaryCard({
               aria-label={`Search only ${bestSource.title}`}
             >
               <Filter className="h-4 w-4" />
-              Use as scope
+              Add scope
             </button>
           </div>
         </article>
@@ -2385,7 +1258,7 @@ function EvidenceSummaryCard({
 
       <QueryCoverageChips relevance={relevance} limit={compact ? 3 : 5} />
       <p className={cn("text-xs leading-5", textMuted)}>
-        {supportLabel}. Open the source before using copied text or clinical drafts.
+        {supportLabel}. Verify source before copying, including any clinical draft text.
       </p>
     </aside>
   );
@@ -2511,12 +1384,12 @@ function EvidenceVerificationStrip({
   const retrievalGateBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
   const checks = [
     {
-      label: "Bottom line cited",
-      value: citationCount ? `${citationCount} citation${citationCount === 1 ? "" : "s"}` : "No citations",
+      label: "Citations",
+      value: citationCount ? `${citationCount} citation${citationCount === 1 ? "" : "s"}` : "None",
       ready: citationCount > 0,
     },
     {
-      label: "Sources retrieved",
+      label: "Sources",
       value: `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
       ready: sourceCount > 0,
     },
@@ -2531,12 +1404,12 @@ function EvidenceVerificationStrip({
       ready: !retrievalGateBlocked,
     },
     {
-      label: "Gaps reviewed",
+      label: "Gaps",
       value: governanceWarningCount
         ? `${governanceWarningCount} status note${governanceWarningCount === 1 ? "" : "s"}`
         : gapCount
           ? `${gapCount} gap${gapCount === 1 ? "" : "s"}`
-          : "No gaps flagged",
+          : "None",
       ready: !weakEvidence && !gapCount && !governanceWarningCount,
     },
   ];
@@ -2591,10 +1464,10 @@ function AnswerViewModeControl({
   value: AnswerViewMode;
   onChange: (mode: AnswerViewMode) => void;
 }) {
-  const modes: Array<{ value: AnswerViewMode; label: string; icon: typeof Search }> = [
-    { value: "standard", label: "Standard", icon: ListChecks },
-    { value: "high_yield", label: "High-yield", icon: Target },
-    { value: "evidence_map", label: "Evidence map", icon: BookOpen },
+  const modes: Array<{ value: AnswerViewMode; label: string; shortLabel: string; icon: typeof Search }> = [
+    { value: "standard", label: "Standard", shortLabel: "All", icon: ListChecks },
+    { value: "high_yield", label: "High-yield", shortLabel: "Key", icon: Target },
+    { value: "evidence_map", label: "Evidence map", shortLabel: "Map", icon: BookOpen },
   ];
 
   return (
@@ -2613,20 +1486,33 @@ function AnswerViewModeControl({
             type="button"
             onClick={() => onChange(mode.value)}
             aria-pressed={active}
+            aria-label={`Show ${mode.label.toLowerCase()} answer view`}
+            title={mode.label}
             className={cn(
-              "inline-flex min-h-9 min-w-0 flex-1 basis-[7rem] items-center justify-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition sm:flex-none sm:basis-auto",
+              "inline-flex min-h-9 min-w-0 flex-1 basis-[4.75rem] items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition sm:flex-none sm:basis-auto sm:px-2.5",
               active
                 ? "bg-[color:var(--primary)] text-white shadow-sm"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
             <Icon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{mode.label}</span>
+            <span className="truncate sm:hidden">{mode.shortLabel}</span>
+            <span className="hidden truncate sm:inline">{mode.label}</span>
           </button>
         );
       })}
     </div>
   );
+}
+
+const simpleClinicalTableProps = {
+  compact: false,
+  expandOnMobile: true,
+} as const;
+
+function compactEvidenceCell(value: string | null | undefined, max = 140) {
+  const text = value ? value.replace(/\s+/g, " ").trim() : "";
+  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
 }
 
 function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
@@ -2640,58 +1526,24 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
     );
   }
 
+  const tableRows = rows.map((row) => [
+    compactEvidenceCell(row.section),
+    row.supportLevel,
+    String(row.citationCount),
+    compactEvidenceCell(row.sourceStatus),
+    compactEvidenceCell(row.bestSourceLabel, 72),
+    row.bestLinkedPassage || "Open source passage.",
+  ]);
+
   return (
-    <div
-      data-testid="answer-evidence-map"
-      className="overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
-    >
-      <table className="min-w-full border-collapse text-left text-sm">
-        <caption className={cn("caption-top px-3 py-2 text-left text-xs font-semibold", textMuted)}>
-          Source support by answer section
-        </caption>
-        <thead>
-          <tr className="bg-[color:var(--surface-subtle)]">
-            {["Answer section", "Support", "Citations", "Source status", "Best linked passage"].map((heading) => (
-              <th
-                key={heading}
-                scope="col"
-                className="border-b border-[color:var(--border)] px-3 py-2 align-top text-xs font-semibold text-[color:var(--text)]"
-              >
-                {heading}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-t border-[color:var(--border)]/70">
-              <td className="max-w-56 px-3 py-2 align-top font-semibold text-[color:var(--text-heading)]">
-                {row.section}
-              </td>
-              <td className="px-3 py-2 align-top">
-                <span className={metadataPill}>{row.supportLevel}</span>
-              </td>
-              <td className="px-3 py-2 align-top text-[color:var(--text)]">{row.citationCount}</td>
-              <td className={cn("max-w-56 px-3 py-2 align-top text-xs leading-5", textMuted)}>{row.sourceStatus}</td>
-              <td className="min-w-72 px-3 py-2 align-top">
-                <p className="text-[13px] font-semibold text-[color:var(--text)]">{row.bestSourceLabel}</p>
-                <p className={cn("mt-1 line-clamp-3 text-xs leading-5", textMuted)}>
-                  <SafeBoldText text={row.bestLinkedPassage} />
-                </p>
-                {row.href ? (
-                  <Link
-                    href={row.href}
-                    className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] px-2 text-xs font-semibold text-[color:var(--primary)] hover:bg-[color:var(--primary-soft)]"
-                  >
-                    Open passage
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Link>
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div data-testid="answer-evidence-map">
+      <AccessibleTable
+        caption="Source support by answer section"
+        columns={["Section", "Support level", "Citations", "Evidence status", "Top source", "Passage sample"]}
+        rows={tableRows}
+        dialogTitle="Source support by answer section"
+        {...simpleClinicalTableProps}
+      />
     </div>
   );
 }
@@ -2767,7 +1619,7 @@ function QuoteCards({
         <EmptyState
           icon={Quote}
           title="No exact quotes returned"
-          body="This answer did not include separate quote cards. Use the answer citations and source passages to verify the source text."
+          body="No separate quote cards. Verify linked citations and source passages before use."
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -2842,7 +1694,6 @@ function ClinicalOutputPanel({
     .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
   const orderedDetailSections = sortClinicalDetailSections(detailSections);
   const summaryItems = clinicalDetailSummaryItems(orderedDetailSections);
-  const verifySection = sections.find((section) => section.id === "verify-source");
   const title =
     viewMode === "evidence_map"
       ? "Evidence map"
@@ -2857,7 +1708,7 @@ function ClinicalOutputPanel({
       : viewMode === "high_yield"
         ? "Actions, thresholds, cautions, escalation triggers, monitoring, and dose details."
         : showLead
-          ? "Dense source-backed structure for review before clinical use."
+          ? "Dense source-backed structure for review."
           : "Adaptive source-backed support below the concise answer.";
 
   const content = (
@@ -2965,10 +1816,9 @@ function ClinicalOutputPanel({
                           markdown={table.markdown}
                           rows={table.rows}
                           columns={table.columns}
-                          compact
-                          expandOnMobile
+                          {...simpleClinicalTableProps}
                           clinicalOnly
-                          dialogTitle={table.caption}
+                          dialogTitle={table.caption || "Clinical table"}
                         />
                       </div>
                     ))}
@@ -2979,7 +1829,7 @@ function ClinicalOutputPanel({
                     {section.items.map((item, index) => (
                       <li
                         key={`${section.id}:${index}:${item.slice(0, 48)}`}
-                        className="grid min-h-12 min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border border-[color:var(--border)]/70 bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)]"
+                        className="grid min-h-10 min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border border-[color:var(--border)]/70 bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)] sm:min-h-9"
                       >
                         <span
                           className={cn("mt-1 h-4 w-1 shrink-0 rounded-full", meta.accentClassName)}
@@ -2995,19 +1845,6 @@ function ClinicalOutputPanel({
               </article>
             );
           })}
-        </div>
-      ) : null}
-      {verifySection ? (
-        <div className={cn("mt-3 border-t border-[color:var(--border)] pt-3", textMuted)}>
-          <div className="flex items-start gap-2.5">
-            <Target className="mt-1 h-4 w-4 shrink-0 text-[color:var(--primary)]" />
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.08em]">Verify source</p>
-              <p className="mt-1 text-sm leading-6">
-                <SafeBoldText text={verifySection.items[0] ?? "Open the cited source passage before clinical use."} />
-              </p>
-            </div>
-          </div>
         </div>
       ) : null}
     </section>
@@ -3059,9 +1896,16 @@ function SmartFollowUpChips({
     answer.queryClass === "comparison" ||
     (answer.documentBreakdown?.length ?? 0) >= 2 ||
     (answer.sources?.length ?? 0) >= 2;
-  const chips: Array<{ label: string; icon: typeof Search; onClick: () => void; hidden?: boolean }> = [
+  const chips: Array<{
+    label: string;
+    shortLabel: string;
+    icon: typeof Search;
+    onClick: () => void;
+    hidden?: boolean;
+  }> = [
     {
       label: "Show thresholds only",
+      shortLabel: "Thresholds",
       icon: Target,
       hidden: !hasThresholdEvidence,
       onClick: () => {
@@ -3071,6 +1915,7 @@ function SmartFollowUpChips({
     },
     {
       label: "Compare sources",
+      shortLabel: "Compare",
       icon: BookOpen,
       hidden: !hasComparisonEvidence,
       onClick: () => {
@@ -3080,11 +1925,13 @@ function SmartFollowUpChips({
     },
     {
       label: "Limit to local/current sources",
+      shortLabel: "Local/current",
       icon: Filter,
       onClick: onLimitToLocalCurrent,
     },
     {
       label: "Search this document only",
+      shortLabel: "This doc",
       icon: FileText,
       hidden: !bestSource,
       onClick: () => {
@@ -3093,12 +1940,14 @@ function SmartFollowUpChips({
     },
     {
       label: "Show exact quotes",
+      shortLabel: "Quotes",
       icon: Quote,
       hidden: !answer.quoteCards?.length,
       onClick: onShowQuotes,
     },
     {
       label: "Try broader search",
+      shortLabel: "Broader",
       icon: SlidersHorizontal,
       hidden: !weakEvidence,
       onClick: onTryBroaderSearch,
@@ -3120,10 +1969,13 @@ function SmartFollowUpChips({
             key={chip.label}
             type="button"
             onClick={chip.onClick}
+            aria-label={chip.label}
+            title={chip.label}
             className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
           >
             <Icon className="h-3.5 w-3.5" />
-            {chip.label}
+            <span className="sm:hidden">{chip.shortLabel}</span>
+            <span className="hidden sm:inline">{chip.label}</span>
           </button>
         );
       })}
@@ -3194,6 +2046,32 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
   );
 }
 
+function compactClinicalTableCaption(item: VisualEvidenceCard) {
+  const raw = item.tableTitle || item.tableLabel || item.caption || "Clinical table";
+  const cleaned = sourceTextForCompactDisplay(raw)
+    .replace(/\btable\s+\d+\s*[:.-]?\s*/i, "")
+    .replace(/\b(?:page|p\.)\s*\d+\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const caption = cleaned || "Clinical table";
+  return caption.length <= 72 ? caption : `${caption.slice(0, 69).trim()}...`;
+}
+
+function visualEvidenceHeader(item: VisualEvidenceCard) {
+  const titleSource = [item.tableLabel, item.tableTitle].filter(Boolean).join(" · ");
+  const titleText = sourceTextForCompactDisplay(titleSource).trim();
+  const captionText = sourceTextForCompactDisplay(item.caption ?? "").trim();
+  const normalizedTitle = titleText.toLowerCase();
+  const normalizedCaption = captionText.toLowerCase();
+  const isDuplicateCaption =
+    Boolean(normalizedCaption) &&
+    (normalizedCaption.startsWith(normalizedTitle) || normalizedCaption === normalizedTitle);
+  return {
+    title: titleText || captionText || "Visual evidence",
+    caption: isDuplicateCaption ? null : captionText,
+  };
+}
+
 function VisualEvidenceStrip({
   evidence,
   collapsed = false,
@@ -3213,7 +2091,7 @@ function VisualEvidenceStrip({
         <UtilityDrawer
           icon={FileImage}
           title="Nearby visual evidence"
-          summary="Collapsed because only nearby source support was found."
+          summary="Nearby source support only."
           mobileSummary={`${evidence.length} visuals`}
         >
           <VisualEvidenceStrip evidence={evidence} embedded />
@@ -3227,16 +2105,12 @@ function VisualEvidenceStrip({
       <SectionHeading
         icon={FileImage}
         title="Tables and diagrams"
-        description="Clinical tables, diagrams, and images extracted from indexed source documents."
+        description="Clinical tables, diagrams, and images from indexed documents."
         hideDescriptionOnMobile
         compactMobile
       />
       {evidence.length === 0 ? (
-        <EmptyState
-          icon={FileImage}
-          title="No indexed images cited"
-          body="This answer did not cite extracted diagrams or image captions."
-        />
+        <EmptyState icon={FileImage} title="No indexed visuals" body="This answer did not cite any indexed images." />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {evidence.map((item) => {
@@ -3246,7 +2120,8 @@ function VisualEvidenceStrip({
                 ? item.tableTextSnippet
                 : null;
             const hasStructuredTable = Boolean(tableMarkdown || item.tableRows?.length || item.tableColumns?.length);
-            const tableCaption = [item.tableTitle, item.caption].filter(Boolean)[0] ?? "Clinical table";
+            const tableCaption = compactClinicalTableCaption(item);
+            const sourceHeader = visualEvidenceHeader(item);
             const displayLabels = smartEvidenceTags(
               item.labels,
               [[item.tableLabel, item.tableTitle].filter(Boolean).join(": "), item.caption, item.tableTextSnippet]
@@ -3259,17 +2134,16 @@ function VisualEvidenceStrip({
                   <SourceImage endpoint={item.signed_url_endpoint} caption={item.caption} />
                 </div>
                 <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
-                  {item.tableTitle ? <p className="font-semibold">{item.tableTitle}</p> : null}
-                  {!hasStructuredTable ? <p>{item.caption}</p> : null}
+                  {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
+                  {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
                   <AccessibleTable
                     caption={tableCaption}
                     markdown={tableMarkdown}
                     rows={item.tableRows}
                     columns={item.tableColumns}
-                    compact
-                    expandOnMobile
+                    {...simpleClinicalTableProps}
                     clinicalOnly
-                    dialogTitle={tableCaption}
+                    dialogTitle={tableCaption || "Clinical table"}
                   />
                   {!hasStructuredTable && item.tableTextSnippet ? (
                     <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>{item.tableTextSnippet}</p>
@@ -3290,17 +2164,13 @@ function VisualEvidenceStrip({
                     clinicalDivider,
                   )}
                 >
-                  {!hasStructuredTable ? (
-                    <>
-                      <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
-                        {formatCompactCitationLabel(item)}
-                      </span>
-                      <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
-                        {item.title}, page {item.page_number ?? "n/a"}
-                      </span>
-                    </>
-                  ) : null}
-                  {!hasStructuredTable && item.image_type && (
+                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                    {formatCompactCitationLabel(item)}
+                  </span>
+                  <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
+                    {item.title}, page {item.page_number ?? "n/a"}
+                  </span>
+                  {item.image_type && (
                     <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
                       {item.image_type.replaceAll("_", " ")}
                     </span>
@@ -3308,7 +2178,7 @@ function VisualEvidenceStrip({
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
                   <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
                     <ExternalLink className="h-4 w-4" />
-                    Open page
+                    Open source
                   </Link>
                 </div>
               </figure>
@@ -3380,356 +2250,6 @@ function RelatedDocumentsPanel({
         ))}
       </div>
     </UtilityDrawer>
-  );
-}
-
-function SearchFacetDisclosure({ facets }: { facets?: SearchFacets | null }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!facets) return null;
-  const chips = [
-    ...(facets.status ?? []).map((facet) => ({ ...facet, prefix: "status" })),
-    ...(facets.documentTypes ?? []).map((facet) => ({ ...facet, prefix: "type" })),
-    ...(facets.sections ?? []).map((facet) => ({ ...facet, prefix: "section" })),
-    ...(facets.evidence ?? []).map((facet) => ({ ...facet, prefix: "evidence" })),
-  ].slice(0, 14);
-  if (chips.length === 0) return null;
-  return (
-    <div className="w-fit max-w-full">
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        aria-expanded={expanded}
-        className={cn(
-          metadataPill,
-          "min-h-8 cursor-pointer list-none gap-1.5 px-2.5 text-[11px] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-        )}
-      >
-        <Filter className="h-3.5 w-3.5" />
-        Result filters
-        <span className="text-[color:var(--text-soft)]">({chips.length})</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 transition", expanded && "rotate-180")} />
-      </button>
-      {expanded ? (
-        <div className="mt-2 flex max-w-3xl flex-wrap gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
-          {chips.map((facet) => (
-            <span key={`${facet.prefix}:${facet.value}`} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-              {facet.prefix}: {facet.value} ({facet.count})
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-const documentFacetIcons: Record<SmartDocumentTagGroup, typeof Tag> = {
-  Medication: Target,
-  Risk: ShieldAlert,
-  Workflow: ListChecks,
-  Topic: Tag,
-  Population: FileText,
-  Setting: FileText,
-  Service: Sparkles,
-  "Document type": FileText,
-  Manual: Sparkles,
-};
-
-function DocumentTagFacetRail({
-  groups,
-  activeKeys,
-  onToggle,
-  onClear,
-}: {
-  groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
-  activeKeys: string[];
-  onToggle: (facet: SmartDocumentTagFacet) => void;
-  onClear: () => void;
-}) {
-  if (groups.length === 0) return null;
-  const active = new Set(activeKeys);
-
-  return (
-    <aside
-      aria-label="Document tag filters"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
-        {activeKeys.length > 0 ? (
-          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}>
-            <X className="h-3.5 w-3.5" />
-            Clear
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {smartDocumentFacetGroups
-          .map((group) => groups.find((item) => item.group === group))
-          .filter((group): group is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(group))
-          .map(({ group, facets }) => {
-            const Icon = documentFacetIcons[group];
-            return (
-              <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
-                  {group}
-                </h3>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {facets.map((facet) => {
-                    const selected = active.has(facet.key);
-                    return (
-                      <button
-                        key={facet.key}
-                        type="button"
-                        onClick={() => onToggle(facet)}
-                        aria-pressed={selected}
-                        title={`Filter to ${facet.label}`}
-                        className={cn(
-                          "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-[11px] font-semibold shadow-[var(--shadow-inset)] transition",
-                          selected
-                            ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
-                            : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                        )}
-                      >
-                        <span className="truncate">{facet.label}</span>
-                        <span className="rounded bg-[color:var(--surface)] px-1 text-[10px] text-[color:var(--text-soft)]">
-                          {facet.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
-      </div>
-    </aside>
-  );
-}
-
-function MatchExplanationChips({ source }: { source: SearchResult }) {
-  const explanation = source.match_explanation;
-  const reasons = explanation?.reasons?.length
-    ? explanation.reasons
-    : [
-        source.score_explanation?.titleBoost ? "title" : "",
-        source.score_explanation?.textRank ? "text" : "",
-        source.score_explanation?.vectorScore ? "vector" : "",
-        source.source_metadata?.document_status ? `status:${source.source_metadata.document_status}` : "",
-      ].filter(Boolean);
-  const score = source.score_explanation?.finalScore ?? source.hybrid_score ?? source.similarity;
-  const chips = [
-    ...reasons.slice(0, 5),
-    Number.isFinite(score) ? `score:${Number(score).toFixed(2)}` : "",
-    explanation?.indexQualityScore !== undefined && explanation.indexQualityScore !== null
-      ? `index:${Number(explanation.indexQualityScore).toFixed(2)}`
-      : "",
-    explanation?.indexQualityIssues?.length ? "index warning" : "",
-    explanation?.tableHit ? "table fact" : "",
-    explanation?.indexUnitType ? `unit:${explanation.indexUnitType.replaceAll("_", " ")}` : "",
-  ].filter(Boolean);
-  if (chips.length === 0) return null;
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {chips.slice(0, 7).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-          {chip}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function DocumentSearchResultsPanel({
-  matches,
-  query,
-  loading,
-  documentCount,
-  realDataReady,
-  authUnavailable,
-  apiUnavailable,
-  setupWarning,
-  relevance,
-  facets,
-  onScopeDocument,
-  onAnswerFromDocument,
-  onTagSearch,
-}: {
-  matches: DocumentMatch[];
-  query: string;
-  loading: boolean;
-  documentCount: number;
-  realDataReady: boolean;
-  authUnavailable: boolean;
-  apiUnavailable: boolean;
-  setupWarning: string | null;
-  relevance?: EvidenceRelevance | null;
-  facets?: SearchFacets | null;
-  onScopeDocument: (documentId: string) => void;
-  onAnswerFromDocument: (documentId: string) => void;
-  onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
-}) {
-  const trimmedQuery = query.trim();
-  const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
-  const activeFacetKeys = useMemo(
-    () => (activeFacetState.query === query ? activeFacetState.keys : []),
-    [activeFacetState, query],
-  );
-  const tagFacetGroups = useMemo(() => buildSmartDocumentTagFacets(matches, { query }), [matches, query]);
-  const visibleMatches = useMemo(
-    () => filterDocumentsBySmartTagFacets(matches, activeFacetKeys),
-    [matches, activeFacetKeys],
-  );
-
-  function toggleTagFacet(facet: SmartDocumentTagFacet) {
-    setActiveFacetState((current) => {
-      const keys = current.query === query ? current.keys : [];
-      return {
-        query,
-        keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
-      };
-    });
-  }
-
-  if (loading) return <LoadingPanel label="Finding matching documents" />;
-
-  if (apiUnavailable || !realDataReady || authUnavailable) {
-    return (
-      <EmptyState
-        icon={AlertCircle}
-        title="Document search unavailable"
-        body={
-          apiUnavailable
-            ? "The local API is unavailable. Check the app server before searching documents."
-            : authUnavailable
-              ? "Sign in or enable local no-auth mode before listing private indexed documents."
-              : setupWarning || "Complete the search setup before using Documents mode."
-        }
-      />
-    );
-  }
-
-  if (matches.length === 0) {
-    if (documentCount === 0) {
-      return (
-        <EmptyState
-          icon={FileText}
-          title="No indexed documents"
-          body="Upload and index source documents before using Documents mode."
-        />
-      );
-    }
-
-    if (!trimmedQuery) {
-      return (
-        <EmptyState
-          icon={FileText}
-          title="Search documents"
-          body="Enter a clinical topic, medication, workflow, or policy name to list matching source documents."
-        />
-      );
-    }
-
-    return (
-      <EmptyState
-        icon={FileText}
-        title="No matching documents"
-        body={`No indexed documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className={cn(metadataPill, "nums inline-flex min-h-8 w-fit max-w-full flex-wrap gap-x-1.5 leading-5")}>
-          {matches.length} document match{matches.length === 1 ? "" : "es"} for &quot;{query.trim()}&quot;
-        </div>
-        {relevance ? <RelevanceBadge relevance={relevance} /> : null}
-      </div>
-      <SearchFacetDisclosure facets={facets} />
-      <DocumentTagFacetRail
-        groups={tagFacetGroups}
-        activeKeys={activeFacetKeys}
-        onToggle={toggleTagFacet}
-        onClear={() => setActiveFacetState({ query, keys: [] })}
-      />
-      {activeFacetKeys.length > 0 ? (
-        <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-[11px]")}>
-          {visibleMatches.length} result{visibleMatches.length === 1 ? "" : "s"} after tag filters
-        </div>
-      ) : null}
-      <div className="grid gap-3">
-        {visibleMatches.length === 0 ? (
-          <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
-            No document matches include all selected tag facets.
-          </div>
-        ) : null}
-        {visibleMatches.map((document) => (
-          <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-              <div className="min-w-0">
-                <Link
-                  href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-base font-semibold text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
-                >
-                  <span className="line-clamp-2">{document.title}</span>
-                </Link>
-                <p className={cn("text-xs leading-5", textMuted)}>
-                  {document.file_name} · pages {document.bestPages.join(", ") || "n/a"} · {document.tableCount} tables ·{" "}
-                  {document.imageCount} images
-                </p>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>{document.matchReason}</p>
-                <div className="mt-2">
-                  <QueryCoverageChips relevance={document.relevance} />
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <RelevanceBadge relevance={document.relevance} />
-                <Link
-                  href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
-                  className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                  aria-label={`Open ${document.title}`}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Open
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => onScopeDocument(document.document_id)}
-                  className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                  aria-label={`Scope search to ${document.title}`}
-                >
-                  <Filter className="h-4 w-4" />
-                  Scope
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onAnswerFromDocument(document.document_id)}
-                  className={cn(primaryControl, "min-h-[44px] rounded-lg px-3 text-xs")}
-                  aria-label={`Answer from ${document.title}`}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Answer
-                </button>
-              </div>
-            </div>
-            {document.summarySnippet && (
-              <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6", textMuted)}>
-                <SafeBoldText text={document.summarySnippet} />
-              </p>
-            )}
-            <DocumentTagCloud
-              labels={document.labels}
-              query={query}
-              limit={4}
-              className="mt-3"
-              onTagClick={onTagSearch}
-            />
-          </article>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -3858,11 +2378,27 @@ function sectionBodyContent(body: string, responseMode?: RagAnswer["responseMode
   const normalized = sanitizeAnswerDisplayText(body, { minLength: 8, minTokens: 2 });
   if (!normalized) {
     return {
-      ...parseAnswerDisplayContent("No usable section text available.", responseMode),
+      ...parseAnswerDisplayContent(sectionTextFallback, responseMode),
       safe: false,
     };
   }
   return { ...parseAnswerDisplayContent(normalized, responseMode), safe: true };
+}
+
+function sourceDisplayTitle(source: SearchResult) {
+  return source.title
+    .replace(/^Synthetic /, "")
+    .replace(/\.pdf$/i, "")
+    .trim();
+}
+
+function sourceDisplayMeta(source: SearchResult, title: string) {
+  const fileBase = source.file_name?.replace(/\.pdf$/i, "").trim();
+  const titleBase = title.toLowerCase();
+  const fileBaseNormalized = (fileBase ?? "").toLowerCase();
+  const includeFile =
+    Boolean(fileBase) && fileBaseNormalized !== titleBase && !fileBaseNormalized.startsWith(titleBase);
+  return [includeFile ? source.file_name : null, `page ${source.page_number ?? "n/a"}`].filter(Boolean).join(" · ");
 }
 
 function SourceList({
@@ -3886,14 +2422,9 @@ function SourceList({
         <article key={source.id} className={cn(sourceCard, "overflow-hidden p-0")}>
           {(() => {
             const snippet = compactSourceSnippet(source.content);
-            const fallback = "No high-yield excerpt available for this passage.";
-            const sourceTitle = source.title.replace(/^Synthetic /, "").replace(/\.pdf$/i, "");
-            const fileBase = source.file_name.replace(/\.pdf$/i, "").toLowerCase();
-            const titleBase = sourceTitle.toLowerCase();
-            const showFileName = fileBase !== titleBase && !fileBase.startsWith(titleBase);
-            const sourceMeta = [showFileName ? source.file_name : null, `page ${source.page_number ?? "n/a"}`]
-              .filter(Boolean)
-              .join(" · ");
+            const fallback = sourceExcerptFallback;
+            const sourceTitle = sourceDisplayTitle(source);
+            const sourceMeta = sourceDisplayMeta(source, sourceTitle);
             const tableFacts = (source.table_facts ?? [])
               .slice(0, 3)
               .map(compactTableFact)
@@ -3925,10 +2456,10 @@ function SourceList({
                       href={sourceResultHref(source)}
                       onClick={() => logSourceOpen(query, source)}
                       className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                      aria-label={`Open source page for ${source.title}`}
+                      aria-label={`Open source for ${source.title}`}
                     >
                       <ExternalLink className="h-4 w-4" />
-                      Open page
+                      Open source
                     </Link>
                     <button
                       type="button"
@@ -3937,7 +2468,7 @@ function SourceList({
                       aria-label={`Scope search to ${source.title}`}
                     >
                       <Filter className="h-4 w-4" />
-                      Use as scope
+                      Add scope
                     </button>
                   </div>
                 </div>
@@ -3946,14 +2477,12 @@ function SourceList({
                     <span className="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--primary)] ring-1 ring-[color:var(--primary)]/20">
                       <Quote className="h-4 w-4" />
                     </span>
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
-                      Relevant excerpt
-                    </p>
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">Excerpt</p>
                   </div>
                   <p
                     className={cn(
                       proseMeasure,
-                      "border-l-4 border-[color:var(--primary)] pl-3 break-words [overflow-wrap:anywhere]",
+                      "line-clamp-3 border-l-4 border-[color:var(--primary)] pl-3 break-words [overflow-wrap:anywhere]",
                     )}
                   >
                     {snippet ? <SafeBoldText text={snippet} /> : <span className="italic">{fallback}</span>}
@@ -3962,7 +2491,7 @@ function SourceList({
                 {tableFacts.length ? (
                   <div className="border-t border-[color:var(--border)] px-3 py-3 sm:px-4">
                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                      Structured table matches
+                      Structured matches
                     </p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {tableFacts.map((fact) => (
@@ -3986,33 +2515,6 @@ function SourceList({
           })()}
         </article>
       ))}
-    </div>
-  );
-}
-
-function AnswerSkeleton() {
-  return (
-    <div className="space-y-4" aria-label="Loading answer">
-      <div className="space-y-3 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/45 p-4">
-        <div className="h-4 w-10/12 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-        <div className="h-4 w-full animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-        <div className="h-4 w-8/12 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-        <div className={cn(sourceCard, "mt-4 flex min-h-[60px] items-center justify-between gap-3 p-3")}>
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-24 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-            <div className="h-4 w-48 max-w-full animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-          </div>
-          <div className="h-[44px] w-20 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <div className="h-[44px] w-48 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
-        <div className="h-[44px] w-40 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="h-28 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
-        <div className="hidden h-28 animate-pulse rounded-lg bg-[color:var(--surface-subtle)] sm:block" />
-      </div>
     </div>
   );
 }
@@ -4082,20 +2584,6 @@ function StagedAnswerResultSurface({
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
         <NaturalLanguageAnswer text={safeAnswerText || answer.answer} />
-        <AnswerInsightBar
-          answer={answer}
-          bestSource={bestSource}
-          relevance={currentRelevance}
-          queryMode={queryMode}
-          sourceGovernanceWarnings={sourceGovernanceWarnings}
-        />
-        <EvidenceVerificationStrip
-          answer={answer}
-          bestSource={bestSource}
-          sourceSummary={sourceSummary}
-          weakEvidence={weakEvidence}
-          governanceWarningCount={groupedGovernanceWarningCount}
-        />
 
         <ClinicalOutputPanel
           answer={answer}
@@ -4121,8 +2609,23 @@ function StagedAnswerResultSurface({
           title="Evidence & sources"
           summary={evidenceDrawerSummary({ answer, bestSource, sourceSummary, gaps })}
           mobileSummary="Evidence"
+          mobileInline
         >
           <div className="space-y-3">
+            <AnswerInsightBar
+              answer={answer}
+              bestSource={bestSource}
+              relevance={currentRelevance}
+              queryMode={queryMode}
+              sourceGovernanceWarnings={sourceGovernanceWarnings}
+            />
+            <EvidenceVerificationStrip
+              answer={answer}
+              bestSource={bestSource}
+              sourceSummary={sourceSummary}
+              weakEvidence={weakEvidence}
+              governanceWarningCount={groupedGovernanceWarningCount}
+            />
             <EvidenceSummaryCard
               answer={answer}
               bestSource={bestSource}
@@ -5186,6 +3689,7 @@ function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
 type IndexingMonitorFilter = "all" | "active" | "failed";
+type UploadIndexingTab = "setup" | "upload" | "jobs";
 
 function documentStatusMatchesFilter(document: ClinicalDocument, filter: DocumentDrawerStatusFilter) {
   if (filter === "all") return true;
@@ -5276,7 +3780,7 @@ function LibraryHealthStrip({
             type="button"
             onClick={() => onSelectTarget?.(item.target)}
             className={cn(
-              "rounded-md border px-2.5 py-2 text-left transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ring)] active:translate-y-0",
+              "rounded-md border px-2.5 py-2 text-left transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-0",
               item.tone,
             )}
             aria-label={item.actionLabel}
@@ -5301,6 +3805,7 @@ function UtilityDrawer({
   open: controlledOpen,
   onOpenChange,
   className,
+  mobileInline = false,
 }: {
   id?: string;
   title: string;
@@ -5312,6 +3817,7 @@ function UtilityDrawer({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   className?: string;
+  mobileInline?: boolean;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [usesSheet, setUsesSheet] = useState(false);
@@ -5342,6 +3848,7 @@ function UtilityDrawer({
         className={cn(
           "group flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)] sm:hidden",
           panelSubtle,
+          mobileInline && "hidden",
           className,
         )}
       >
@@ -5361,12 +3868,12 @@ function UtilityDrawer({
 
       <details
         id={id}
-        open={open && !usesSheet}
+        open={open && (!usesSheet || mobileInline)}
         onToggle={(event) => {
           const nextOpen = event.currentTarget.open;
           if (nextOpen !== open) setOpen(nextOpen);
         }}
-        className={cn("group hidden sm:block", panelSubtle, className)}
+        className={cn("group", mobileInline ? "block" : "hidden sm:block", panelSubtle, className)}
       >
         <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]">
           <span className="flex min-w-0 items-center gap-3">
@@ -5380,11 +3887,11 @@ function UtilityDrawer({
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180" />
         </summary>
-        {open && !usesSheet && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
+        {open && (!usesSheet || mobileInline) && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
       </details>
 
       <Sheet
-        open={usesSheet && open}
+        open={usesSheet && open && !mobileInline}
         onClose={() => setOpen(false)}
         title={title}
         description={mobileSummary ?? summary}
@@ -5749,7 +4256,7 @@ function MobileSectionFab({
 const guideSections = [
   {
     title: "Ask and verify",
-    body: "Ask a focused guideline question, then verify the answer against linked citations and source passages before clinical use.",
+    body: "Ask a focused guideline question, then verify linked citations and source passages before use.",
   },
   {
     title: "Top source and citations",
@@ -5761,7 +4268,7 @@ const guideSections = [
   },
   {
     title: "Quotes, images, sources",
-    body: "The bottom nav jumps to exact quotes, extracted diagrams, and source passages. Empty sections simply mean none were cited.",
+    body: "Bottom nav jumps to quotes, diagrams, and source passages. Empty sections had no citations.",
   },
   {
     title: "Upload and indexing",
@@ -5941,6 +4448,7 @@ export function ClinicalDashboard() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
@@ -5974,12 +4482,15 @@ export function ClinicalDashboard() {
       setDocumentDrawerStatusFilter("indexed");
       setDocumentsDrawerOpen(true);
     } else if (target === "indexing") {
+      setUploadMobileTab("jobs");
       setIndexingMonitorFilter("active");
       setUploadDrawerOpen(true);
     } else if (target === "failures") {
+      setUploadMobileTab("jobs");
       setIndexingMonitorFilter("failed");
       setUploadDrawerOpen(true);
     } else {
+      setUploadMobileTab("setup");
       setIndexingMonitorFilter("all");
       setUploadDrawerOpen(true);
     }
@@ -6592,7 +5103,7 @@ export function ClinicalDashboard() {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
     if (!canRunSearch) {
-      setError("Search setup is not ready.");
+      setError("Search setup not ready.");
       return;
     }
 
@@ -6689,7 +5200,7 @@ export function ClinicalDashboard() {
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
     if (!canRunSearch) {
-      setError("Search setup is not ready.");
+      setError("Search setup not ready.");
       return;
     }
 
@@ -7088,6 +5599,50 @@ export function ClinicalDashboard() {
       </p>
     </UtilityDrawer>
   );
+  const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
+  const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
+  const activeUploadWork =
+    jobs.filter((job) => job.status === "pending" || job.status === "processing").length +
+    batches.filter((batch) => batch.status === "queued" || batch.status === "processing").length;
+  const failedUploadWork =
+    jobs.filter((job) => job.status === "failed").length + batches.filter((batch) => batch.status === "failed").length;
+  const uploadTabs: Array<{
+    id: UploadIndexingTab;
+    label: string;
+    summary: string;
+    panelId: string;
+    icon: typeof UploadCloud;
+  }> = [
+    {
+      id: "setup",
+      label: "Setup",
+      summary: `${setupReadyCount}/${setupCheckCount} ready`,
+      panelId: "dashboard-setup-section",
+      icon: ListChecks,
+    },
+    {
+      id: "upload",
+      label: "Upload",
+      summary: uploadReadOnlyMode || !canUsePrivateApis ? "Locked" : "Ready",
+      panelId: "dashboard-upload-section",
+      icon: UploadCloud,
+    },
+    {
+      id: "jobs",
+      label: "Jobs",
+      summary: activeUploadWork
+        ? `${activeUploadWork} active`
+        : failedUploadWork
+          ? `${failedUploadWork} failed`
+          : "Idle",
+      panelId: "dashboard-indexing-section",
+      icon: RefreshCw,
+    },
+  ];
+  const handleUploadQueued = () => {
+    setUploadMobileTab("jobs");
+    void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
+  };
 
   return (
     <div
@@ -7119,6 +5674,7 @@ export function ClinicalDashboard() {
         onScopeOpenChange={setScopeMenuOpen}
         onOpenGuide={openGuide}
         onToggleTheme={toggleTheme}
+        queryModeOptions={clinicalQueryModeOptions}
       />
 
       <main
@@ -7159,7 +5715,7 @@ export function ClinicalDashboard() {
                 title={searchMode === "answer" ? "Answer" : "Document matches"}
                 description={
                   searchMode === "answer"
-                    ? "Sourced synthesis with quotes, PDFs, and indexed diagrams."
+                    ? "Sourced synthesis with quotes, PDFs, and diagrams."
                     : "Natural-language document search across indexed guideline titles, labels, summaries, and passages."
                 }
                 testId="answer-section-heading"
@@ -7355,24 +5911,80 @@ export function ClinicalDashboard() {
                 loading={dashboardDataLoading}
                 onSelectTarget={openLibraryHealthTarget}
               />
+              <div
+                role="tablist"
+                aria-label="Upload and indexing sections"
+                className="grid grid-cols-3 gap-2 lg:hidden"
+              >
+                {uploadTabs.map((tab) => {
+                  const active = uploadMobileTab === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      aria-controls={tab.panelId}
+                      onClick={() => setUploadMobileTab(tab.id)}
+                      className={cn(
+                        "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                        active
+                          ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
+                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-bold">
+                        <Icon className="h-3.5 w-3.5" />
+                        {tab.label}
+                      </span>
+                      <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">{tab.summary}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <div className="grid gap-4 lg:grid-cols-2">
-                <div id="dashboard-setup-section" className="space-y-3 scroll-mt-4">
+                <div
+                  id="dashboard-setup-section"
+                  role="tabpanel"
+                  aria-label="Setup"
+                  className={cn(
+                    "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                    uploadMobileTab !== "setup" && "hidden lg:block",
+                  )}
+                >
                   <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
                     Developer setup status
                   </p>
                   <SetupChecklist checks={setupChecks} />
                   {showAuthPanel && <AuthPanel />}
-                  <p className={cn("pt-1 text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical upload</p>
+                </div>
+                <div
+                  id="dashboard-upload-section"
+                  role="tabpanel"
+                  aria-label="Upload"
+                  className={cn(
+                    "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                    uploadMobileTab !== "upload" && "hidden lg:block",
+                  )}
+                >
+                  <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical upload</p>
                   <UploadPanel
-                    onUploaded={() => {
-                      void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
-                    }}
+                    onUploaded={handleUploadQueued}
                     demoMode={uploadReadOnlyMode}
                     canUpload={canUsePrivateApis}
                     authorizationHeader={authorizationHeader}
                   />
                 </div>
-                <div id="dashboard-indexing-section" className="space-y-3 scroll-mt-4">
+                <div
+                  id="dashboard-indexing-section"
+                  role="tabpanel"
+                  aria-label="Jobs"
+                  className={cn(
+                    "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                    uploadMobileTab !== "jobs" && "hidden lg:block",
+                  )}
+                >
                   <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Indexing progress</p>
                   <IndexingMonitor
                     jobs={jobs}

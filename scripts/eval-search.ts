@@ -211,14 +211,43 @@ async function main() {
   if (!args.json) console.log(`Running ${cases.length} search eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
-    const startedAt = Date.now();
-    const search = await searchChunksWithTelemetry({
-      query: testCase.question,
-      ownerId,
-      topK: 12,
-      minSimilarity: 0.12,
-      skipCache: true,
-    });
+    let attempts = 0;
+    const maxAttempts = 6;
+    let search;
+    let startedAt = Date.now();
+
+    while (attempts < maxAttempts) {
+      try {
+        startedAt = Date.now();
+        search = await searchChunksWithTelemetry({
+          query: testCase.question,
+          ownerId,
+          topK: 12,
+          minSimilarity: 0.12,
+          skipCache: true,
+        });
+        break;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isRateLimit = /rate limit|rate_limit|429/i.test(errorMessage);
+        attempts += 1;
+        if (isRateLimit && attempts < maxAttempts) {
+          const delayMs = Math.pow(2, attempts) * 8000 + Math.random() * 3000;
+          console.warn(
+            `Rate limit hit on query: "${testCase.question}". Waiting ${Math.round(delayMs / 1000)}s before retry ${attempts}/${maxAttempts}...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } else {
+          console.error(`ERROR running search eval for "${testCase.question}":`, errorMessage);
+          throw error;
+        }
+      }
+    }
+
+    if (!search) {
+      throw new Error(`Failed to perform search for question: ${testCase.question}`);
+    }
+
     const latencyMs =
       search.telemetry.supabase_rpc_latency_ms +
         search.telemetry.embedding_latency_ms +
@@ -264,6 +293,9 @@ async function main() {
       console.log(`  Q: ${testCase.question}`);
       console.log(`  Top files: ${result.topFiles.join("; ") || "none"} payloadBytes=${result.payloadBytes}`);
     }
+
+    // Small delay to space out OpenAI calls
+    await new Promise((resolve) => setTimeout(resolve, 1200));
   }
 
   const thresholdFailures = summarizeFailures(results);

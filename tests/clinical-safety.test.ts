@@ -53,7 +53,9 @@ describe("clinical safety findings", () => {
     const findings = extractSafetyFindings(answer);
 
     expect(findings).toHaveLength(1);
-    expect(findings[0].text).toContain("Source mentions:");
+    expect(findings[0].label).toBe("Red flag");
+    expect(findings[0].text).toContain("Escalate for urgent review");
+    expect(findings[0].text).not.toContain("Source mentions:");
     expect(findings[0].href).toBe("/documents/doc-1?page=1&chunk=chunk-1");
   });
 
@@ -99,5 +101,29 @@ describe("clinical safety findings", () => {
     expect(findings[0].text).not.toContain("[[IMAGE_DATA_START]]");
     expect(findings[0].text).not.toContain("Image ID:");
     expect(findings[0].text).not.toContain("Table text:");
+  });
+
+  it("removes provenance boilerplate from extracted finding text", () => {
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote:
+            "Source mentions: Procedure PAE-PRO-0338/16 Page 5 of 5. Chunk index: 12. Monitor FBC weekly and escalate urgent toxicity symptoms.",
+        },
+      ],
+      sources: [],
+    });
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].text).toContain("Monitor FBC weekly");
+    expect(findings[0].text).not.toMatch(/Source mentions|PAE-PRO-0338|Page 5 of 5|Chunk index/i);
   });
 });

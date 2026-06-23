@@ -326,9 +326,7 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
     content_recall_at_5: Number(
       (results.reduce((sum, result) => sum + result.contentRecallAt5, 0) / contentRecallDenominator).toFixed(4),
     ),
-    top_k_hit_rate: Number(
-      (results.filter((result) => result.hitAtK).length / Math.max(results.length, 1)).toFixed(4),
-    ),
+    top_k_hit_rate: Number((results.filter((result) => result.hitAtK).length / Math.max(results.length, 1)).toFixed(4)),
     mrr_at_10: Number(
       (results.reduce((sum, result) => sum + result.reciprocalRankAt10, 0) / Math.max(results.length, 1)).toFixed(4),
     ),

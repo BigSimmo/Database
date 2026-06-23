@@ -2,6 +2,45 @@
 
 Scope: ultra-premium mobile-first redesign — token system, component layer, dashboard + document-viewer mobile surfaces, plus reconciliation of merge-integration regressions that landed in `main` from parallel branches. Checks were run in `C:\Dev\Apps\Database` on the reconciliation branch after isolating the final `main` fixes.
 
+## June 20 scoped run — dashboard/viewer only, Tools deferred
+
+Branch: `codex/premium-redesign`. Local server: `npm run ensure` confirmed `http://localhost:4298`; `/api/local-project-id` confirmed `Clinical KB` with `safeLocalOrigin: true`.
+
+| Check            | Command                                                                                                                               | Result                                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Focused lint     | `npx eslint src\components\ClinicalDashboard.tsx src\components\DocumentViewer.tsx src\lib\clinical-safety.ts tests\ui-smoke.spec.ts` | Pass                                                                                                                                       |
+| Repo lint        | `npm run lint`                                                                                                                        | Pass exit code; 10 warnings remain in pre-existing `.tmp-visual`, `src/lib/rag.ts`, and `tests/deep-memory.test.ts` files                  |
+| Typecheck        | `npm run typecheck`                                                                                                                   | Pass                                                                                                                                       |
+| Unit tests       | `npm run test`                                                                                                                        | Pass, 58 files / 412 tests                                                                                                                 |
+| Production build | `npm run build`                                                                                                                       | Pass                                                                                                                                       |
+| Scoped format    | `npx prettier --check` on touched files                                                                                               | Pass                                                                                                                                       |
+| Repo format      | `npm run format:check`                                                                                                                | Fail: 53 unrelated pre-existing files remain unformatted, mostly staged `.tmp-visual`, `scratch`, scripts, and existing library/test files |
+| Chromium smoke   | `npx playwright test tests/ui-smoke.spec.ts --project=chromium --reporter=line`                                                       | Pass, 22/22                                                                                                                                |
+| Chromium stress  | `npx playwright test tests/ui-stress.spec.ts --project=chromium --reporter=line`                                                      | Pass, 2/2                                                                                                                                  |
+
+Browser QA:
+
+- Browser/IAB was attempted first per frontend validation policy. It opened the mobile upload sheet, but `Page.captureScreenshot` timed out; screenshots fell back to repo Playwright and this fallback is recorded here.
+- Playwright screenshots captured outside the repo:
+  - `C:\Users\joshs\AppData\Local\Temp\clinical-kb-premium-redesign\desktop-dashboard.png`
+  - `C:\Users\joshs\AppData\Local\Temp\clinical-kb-premium-redesign\mobile-upload-sheet.png`
+  - `C:\Users\joshs\AppData\Local\Temp\clinical-kb-premium-redesign\mobile-document-actions.png`
+- Screenshot states verified: desktop dashboard at 1280×900, mobile upload sheet at 390×820, mobile real document actions sheet at 390×820. No horizontal overflow in all three captures.
+- Console health: final screenshot pass had no console warnings/errors. An earlier desktop capture produced a React hydration mismatch caused by Playwright screenshotting before hydration finished; recapturing after a longer hydration settle cleared it.
+
+Functional/regression notes:
+
+- Upload/indexing sheet: mobile trigger opens the sheet; `Setup`, `Upload`, and `Jobs` tabs are reachable; setup checklist and upload labels remain visible; duplicate-upload smoke still completes.
+- Document viewer: mobile header keeps summarise visible and moves admin actions behind `Open document actions`; action sheet opens on a real `/documents/{id}` route.
+- Active PDF/chunk evidence states are verified through mocked Chromium smoke. The live first 150 local documents did not include an indexed document with pages/chunks, so live viewer screenshot used a queued PDF record for shell/action verification.
+- `/tools`, `src/app/tools/page.tsx`, and `src/lib/tools.ts` were not edited by this scoped run. Existing staged `/tools` changes remain in the dirty worktree and are deferred.
+
+Unverified or limited:
+
+- Full Firefox/WebKit smoke not run.
+- Reduced-motion and forced-colors were verified by code/token review and existing smoke coverage, not by a dedicated browser emulation pass in this run.
+- Repo-wide format is not green because of unrelated dirty/staged files; touched scoped files are Prettier-clean.
+
 ## 1. Technical checks (main checkout) — all green
 
 | Check            | Command                                                         | Result               |

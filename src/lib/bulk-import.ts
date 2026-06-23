@@ -51,8 +51,7 @@ export function parseImportCliArgs(argv: string[]): ImportCliArgs {
     if (!token.startsWith("--")) continue;
     const key = token.slice(2);
     if (key === "dry-run" || key === "force" || key === "force-large-import") {
-      const normalizedKey =
-        key === "dry-run" ? "dryRun" : key === "force-large-import" ? "forceLargeImport" : "force";
+      const normalizedKey = key === "dry-run" ? "dryRun" : key === "force-large-import" ? "forceLargeImport" : "force";
       args[normalizedKey] = true;
       continue;
     }

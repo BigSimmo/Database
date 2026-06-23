@@ -101,6 +101,18 @@ After setup:
 - Do not run a permanent watcher. Only start or verify the server when the current chat task needs the app or the user asks to run it.
 <!-- END:local-server-safety -->
 
+<!-- BEGIN:process-hardening -->
+
+# Process hardening phases
+
+- For non-trivial source/config/test changes, prefer `npm run verify:cheap` as the first broad gate.
+- For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors changes, run `npm run ensure` before browser work and use `npm run verify:ui` as the Chromium UI gate.
+- For release or handoff confidence, use `npm run verify:release`; this includes the full Playwright project set.
+- For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
+- For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
+- Track known verification debts and staged process improvements in `docs/process-hardening.md` instead of relying on chat-only memory.
+<!-- END:process-hardening -->
+
 <!-- BEGIN:supabase-project-safety -->
 
 # Supabase project safety
@@ -210,3 +222,19 @@ Run the smallest relevant checks that are available and appropriate, such as tes
 After completing `upload`, summarize the current branch and worktree state, whether the worktree is clean, what changed, files committed, commit hash and message if created, whether anything was pushed, remote branch and likely PR target, checks run and results, checks not run and why, branch cleanup candidates, branch references found or updated, risky actions skipped, and exact confirmation needed for any recommended follow-up.
 
 <!-- END:upload-shortcut -->
+
+<!-- BEGIN:codex-productivity-defaults -->
+
+## Codex productivity defaults
+
+- Treat terse prompts as workflow shortcuts when the intent is clear. If the user says `run`, execute `npm run ensure`, verify the project identity through that helper, and return the printed local URL without a long log dump.
+- For non-trivial changes, start from concrete repo state: branch, `git status`, relevant package scripts, recent failures, and local logs such as `dev-server.log` when runtime behavior is involved.
+- For UI, browser, styling, routing, accessibility, or screenshot work, run `npm run ensure` before opening the app, then use browser QA and the smallest relevant UI proof before broader gates.
+- Prefer the smallest failing check first. For this repo, use focused Vitest or Playwright targets before widening to `npm run verify:cheap`, `npm run verify:ui`, or `npm run verify:release`.
+- When the user says `safely`, preserve unrelated staged, unstaged, and untracked work; stop only clearly repo-owned transient processes; and verify the result instead of doing broad cleanup.
+- After auth, Supabase, ingestion, answer generation, search/ranking, clinical output, or source-governance changes, run the smallest domain check plus `npm run check:production-readiness`. Run `npm run check:supabase-project` after Supabase env/config changes.
+- For handoff, archive-safety, or upload-style requests, inspect branch/upstream/status first, run the appropriate verification gate, and only commit or push when the request explicitly asks for that workflow.
+- For codebase appraisal exports, stage outside the repo, include `EXPORT_MANIFEST.md`, exclude secrets/dependencies/build outputs/local state, and verify the archive can be opened before handoff.
+- When a repeated repo-specific workflow is discovered, update this file or ask the user whether it should be remembered.
+
+<!-- END:codex-productivity-defaults -->

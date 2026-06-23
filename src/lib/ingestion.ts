@@ -1,8 +1,11 @@
 export function isRetryableIngestionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   if (isPartialIndexWriteConflict(error)) return false;
-  return /\b(429|rate limit|timeout|temporar|network|fetch failed|ECONNRESET|ETIMEDOUT|5\d\d|502|503|504|bad gateway|gateway timeout|service unavailable)\b/i.test(message) ||
-    /document_pages_document_id_page_number_key/i.test(message);
+  return (
+    /\b(429|rate limit|timeout|temporar|network|fetch failed|ECONNRESET|ETIMEDOUT|5\d\d|502|503|504|bad gateway|gateway timeout|service unavailable)\b/i.test(
+      message,
+    ) || /document_pages_document_id_page_number_key/i.test(message)
+  );
 }
 
 export function isPartialIndexWriteConflict(error: unknown) {

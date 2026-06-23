@@ -35,9 +35,7 @@ export function buildIngestionRecoveryPlan(args: {
     const chunkCount = Number(job.documents?.chunk_count ?? 0);
     const isIndexedDocument = documentStatus === "indexed" && chunkCount > 0;
     const isRecoverableStatus =
-      job.status === "failed" ||
-      job.status === "pending" ||
-      isStaleProcessingJob(job, now, args.staleAfterMinutes);
+      job.status === "failed" || job.status === "pending" || isStaleProcessingJob(job, now, args.staleAfterMinutes);
 
     if (isIndexedDocument && job.status !== "completed") {
       actions.push({ action: "supersede", jobId: job.id, documentId: job.document_id });

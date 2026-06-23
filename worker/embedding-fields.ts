@@ -163,13 +163,18 @@ export function buildAdditionalEmbeddingFieldInputs(args: {
     const text = `${chunk.section_heading ?? ""} ${chunk.content ?? ""}`;
     if (!highYieldPattern.test(text)) continue;
 
-    addField(chunk, "chunk_high_yield", `High-yield clinical context: ${chunkContext(args.job, chunk, chunkContextLimit)}`, {
-      source: "chunk_high_yield",
-      chunk_index: chunk.chunk_index ?? null,
-      page_number: chunk.page_number,
-      duplicate_chunk_ratio: Number.isFinite(duplicateRatio) ? duplicateRatio : null,
-      heading_density: Number.isFinite(headingDensity) ? headingDensity : null,
-    });
+    addField(
+      chunk,
+      "chunk_high_yield",
+      `High-yield clinical context: ${chunkContext(args.job, chunk, chunkContextLimit)}`,
+      {
+        source: "chunk_high_yield",
+        chunk_index: chunk.chunk_index ?? null,
+        page_number: chunk.page_number,
+        duplicate_chunk_ratio: Number.isFinite(duplicateRatio) ? duplicateRatio : null,
+        heading_density: Number.isFinite(headingDensity) ? headingDensity : null,
+      },
+    );
 
     const actionText = extractClinicalSentences(chunk.content, actionPattern);
     if (actionText) {

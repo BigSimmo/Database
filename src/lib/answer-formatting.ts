@@ -112,6 +112,7 @@ const groupTones: Record<AnswerDisplayGroup, AnswerDisplayTone> = {
   gap: "gap",
   summary: "summary",
 };
+const answerFormatFallbackText = "No usable answer text.";
 
 const highSignalGroups = new Set<AnswerDisplayGroup>([
   "bottom_line",
@@ -181,6 +182,24 @@ function normalizeInline(value: string) {
 
 function stripBulletPrefix(value: string) {
   return value.replace(/^(?:[-*•]|\d+[.)])\s+/, "").trim();
+}
+
+function splitBySemicolonList(value: string) {
+  const semicolonCount = (value.match(/;/g) ?? []).length;
+  if (semicolonCount < 2 || semicolonCount > 5) return [];
+  if (value.length > 340) return [];
+
+  const parts = value
+    .split(/\s*;\s*/)
+    .map((part) => normalizeInline(part))
+    .filter((part) => part.length >= 24);
+
+  if (parts.length < 3 || parts.length > 6) return [];
+
+  const avgWordsPerPart = parts.reduce((sum, part) => sum + part.split(/\s+/).filter(Boolean).length, 0) / parts.length;
+  if (avgWordsPerPart < 4) return [];
+
+  return parts;
 }
 
 function splitInlineBullets(value: string) {
@@ -420,7 +439,7 @@ export function parseAnswerDisplayContent(
           id: "empty",
           label: null,
           displayLabel: "Source gap",
-          text: "No usable answer text for this result.",
+          text: answerFormatFallbackText,
           group: "gap",
           explicitLabel: false,
           isLead: true,
@@ -442,10 +461,7 @@ export function parseAnswerDisplayContent(
     return { ...parsed, mode: coerceAnswerDisplayMode(preferredMode, parsed.mode) };
   }
 
-  const semicolonParts = cleaned
-    .split(/\s*;\s*/)
-    .map((part) => normalizeInline(part))
-    .filter((part) => part.length > 18);
+  const semicolonParts = splitBySemicolonList(cleaned);
   if (semicolonParts.length >= 3) {
     const lines = semicolonParts.map((part, index) => buildAnswerLine(part, index, "semicolon"));
     const parsed = parsedAnswer("bullets", lines);

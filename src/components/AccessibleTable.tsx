@@ -1,7 +1,17 @@
 "use client";
 
 import { Maximize2, X } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 
@@ -60,40 +70,28 @@ function clinicalOnlyTable(table: NormalizedAccessibleTable) {
   return { header, body, lowConfidence: table.lowConfidence, lowConfidenceReason: table.lowConfidenceReason };
 }
 
-function useMobileTableExpansion(enabled: boolean) {
-  const subscribe = useCallback(
-    (callback: () => void) => {
-      if (!enabled || typeof window === "undefined") return () => undefined;
-      const media = window.matchMedia(tableExpandMediaQuery);
-      media.addEventListener("change", callback);
-      return () => media.removeEventListener("change", callback);
-    },
-    [enabled],
-  );
-
-  const getSnapshot = useCallback(() => {
-    return enabled && typeof window !== "undefined" && window.matchMedia(tableExpandMediaQuery).matches;
-  }, [enabled]);
-
-  return useSyncExternalStore(subscribe, getSnapshot, () => false);
-}
-
 function AccessibleTableMarkup({
   caption,
   header,
   body,
   compact,
   expanded = false,
+  rowActions,
+  actionsHeader = "Actions",
 }: {
   caption?: string | null;
   header: string[];
   body: string[][];
   compact: boolean;
   expanded?: boolean;
+  rowActions?: Array<ReactNode | null>;
+  actionsHeader?: string;
 }) {
   const visibleBody = expanded ? body : body.slice(0, compact ? 6 : 20);
-  const columnCount = Math.max(header.length, 1);
+  const hasActions = Boolean(rowActions?.some(Boolean));
+  const columnCount = Math.max(header.length + (hasActions ? 1 : 0), 1);
   const displayRows = visibleBody.map((row) => header.map((_, index) => row[index] ?? ""));
+  const displayActions = visibleBody.map((_, index) => rowActions?.[index] ?? null);
 
   return (
     <div
@@ -112,49 +110,21 @@ function AccessibleTableMarkup({
           {caption}
         </div>
       ) : null}
-      {!expanded ? (
-        <div className="grid gap-2 p-2 md:hidden">
-          {displayRows.map((row, rowIndex) => {
-            const pairs = header
-              .map((label, index) => ({ label, value: row[index] ?? "" }))
-              .filter((pair) => pair.value || !compact);
-            return (
-              <dl
-                key={`${rowIndex}:${row.join("|")}`}
-                className="grid gap-2 rounded-md border border-[color:var(--border)]/75 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
-              >
-                {pairs.map((pair, pairIndex) => (
-                  <div
-                    key={`${rowIndex}:${pair.label}:${pairIndex}`}
-                    className="grid gap-1 border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 last:pb-0"
-                  >
-                    <dt className={cn("text-[10px] font-bold uppercase tracking-[0.08em]", textMuted)}>
-                      {pair.label || `Column ${pairIndex + 1}`}
-                    </dt>
-                    <dd className="nums min-w-0 whitespace-pre-wrap break-words text-sm leading-6 text-[color:var(--text)] [overflow-wrap:anywhere]">
-                      {pair.value || <span className={textMuted}>-</span>}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            );
-          })}
-        </div>
-      ) : null}
-      <div className={cn("overflow-x-auto", !expanded && "hidden md:block")}>
+      <div className="overflow-x-auto">
         <table
           aria-label={caption ?? undefined}
           className={cn(
-            "w-full table-fixed border-separate border-spacing-0 text-left",
+            "w-full border-separate border-spacing-0 text-left md:table-fixed",
             expanded ? "text-[15px]" : "text-sm",
           )}
         >
-          <colgroup>
+          <colgroup className="hidden md:table-column-group">
             {header.map((cell, index) => (
               <col key={`${cell}:col:${index}`} style={{ width: `${100 / columnCount}%` }} />
             ))}
+            {hasActions ? <col style={{ width: `${100 / columnCount}%` }} /> : null}
           </colgroup>
-          <thead>
+          <thead className="sr-only md:not-sr-only md:table-header-group">
             <tr className="bg-[color:var(--surface-subtle)]">
               {header.map((cell, index) => (
                 <th
@@ -170,14 +140,29 @@ function AccessibleTableMarkup({
                   {cell}
                 </th>
               ))}
+              {hasActions ? (
+                <th
+                  scope="col"
+                  className={cn(
+                    "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
+                    "whitespace-normal break-words [overflow-wrap:anywhere]",
+                    expanded ? "px-4 py-3 text-sm" : "px-3 py-2 text-xs",
+                  )}
+                >
+                  {actionsHeader}
+                </th>
+              ) : null}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block space-y-2 p-2 md:table-row-group md:space-y-0 md:p-0">
             {displayRows.map((row, rowIndex) => {
               return (
                 <tr
                   key={`${rowIndex}:${row.join("|")}`}
-                  className="border-t border-[color:var(--border)]/70 even:bg-[color:var(--surface-subtle)]/35"
+                  className={cn(
+                    "block rounded-md border border-[color:var(--border)]/75 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]",
+                    "md:table-row md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none md:even:bg-[color:var(--surface-subtle)]/35",
+                  )}
                 >
                   {header.map((_, cellIndex) => {
                     const cell = row[cellIndex] ?? "";
@@ -185,16 +170,47 @@ function AccessibleTableMarkup({
                       <td
                         key={`${rowIndex}:${cellIndex}`}
                         className={cn(
-                          "nums align-top text-[color:var(--text)]",
+                          "nums block align-top text-[color:var(--text)] md:table-cell",
                           "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-                          cellIndex > 0 && "border-l border-[color:var(--border)]/60",
-                          expanded ? "px-4 py-3 leading-6" : "px-3 py-2 leading-5",
+                          "border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 md:border-b-0 md:border-t md:border-[color:var(--border)]/70 md:last:border-b-0",
+                          cellIndex > 0 && "md:border-l md:border-[color:var(--border)]/60",
+                          expanded ? "md:px-4 md:py-3 md:leading-6" : "md:px-3 md:py-2 md:leading-5",
+                          cellIndex > 0 && "pt-2 md:pt-0",
                         )}
                       >
-                        {cell || <span className={textMuted}>-</span>}
+                        <span
+                          className={cn(
+                            "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
+                            textMuted,
+                          )}
+                        >
+                          {header[cellIndex] || `Column ${cellIndex + 1}`}
+                        </span>
+                        <span className="block min-w-0 text-sm leading-6 md:text-inherit md:leading-inherit">
+                          {cell || <span className={textMuted}>-</span>}
+                        </span>
                       </td>
                     );
                   })}
+                  {hasActions ? (
+                    <td
+                      className={cn(
+                        "block pt-2 align-top md:table-cell md:border-l md:border-t md:border-[color:var(--border)]/60",
+                        expanded ? "md:px-4 md:py-3" : "md:px-3 md:py-2",
+                      )}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <span
+                        className={cn(
+                          "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
+                          textMuted,
+                        )}
+                      >
+                        {actionsHeader}
+                      </span>
+                      {displayActions[rowIndex] || <span className={textMuted}>-</span>}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -210,6 +226,27 @@ function AccessibleTableMarkup({
   );
 }
 
+function useMobileTableExpansion(enabledByDefault: boolean) {
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      if (!enabledByDefault || typeof window === "undefined" || typeof window.matchMedia !== "function")
+        return () => {};
+      const media = window.matchMedia(tableExpandMediaQuery);
+      media.addEventListener("change", callback);
+      return () => media.removeEventListener("change", callback);
+    },
+    [enabledByDefault],
+  );
+
+  const getSnapshot = useCallback(() => {
+    if (!enabledByDefault || typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia(tableExpandMediaQuery).matches;
+  }, [enabledByDefault]);
+
+  const isMobile = useSyncExternalStore(subscribe, getSnapshot, () => false);
+  return enabledByDefault && isMobile;
+}
+
 export function AccessibleTable({
   caption,
   markdown,
@@ -219,6 +256,8 @@ export function AccessibleTable({
   expandOnMobile = false,
   dialogTitle,
   clinicalOnly = false,
+  rowActions,
+  actionsHeader,
 }: {
   caption?: string | null;
   markdown?: string | null;
@@ -228,6 +267,8 @@ export function AccessibleTable({
   expandOnMobile?: boolean;
   dialogTitle?: string | null;
   clinicalOnly?: boolean;
+  rowActions?: Array<ReactNode | null>;
+  actionsHeader?: string;
 }) {
   const dialogId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -249,7 +290,7 @@ export function AccessibleTable({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -270,14 +311,18 @@ export function AccessibleTable({
   const table = (
     <>
       {lowConfidence ? (
-        <p
-          data-testid="table-low-confidence-note"
-          className={cn("mb-1 text-xs", textMuted)}
-        >
+        <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
           Table structure could not be confidently reconstructed — verify values against the source document.
         </p>
       ) : null}
-      <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={compact} />
+      <AccessibleTableMarkup
+        caption={displayCaption}
+        header={header}
+        body={body}
+        compact={compact}
+        rowActions={rowActions}
+        actionsHeader={actionsHeader}
+      />
     </>
   );
 
@@ -287,12 +332,26 @@ export function AccessibleTable({
     setOpen(true);
   }
 
+  function handleSurfaceKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!canExpand) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openDialog(event.currentTarget);
+  }
+
   return (
     <>
       <div className="relative min-w-0">
         <div
           data-testid="accessible-table-surface"
           onClick={(event) => openDialog(event.currentTarget)}
+          onKeyDown={handleSurfaceKeyDown}
+          role={canExpand ? "button" : undefined}
+          tabIndex={canExpand ? 0 : -1}
+          aria-label={canExpand ? `Open ${title} full table` : undefined}
+          aria-haspopup={canExpand ? "dialog" : undefined}
+          aria-expanded={canExpand ? dialogOpen : undefined}
+          aria-controls={dialogOpen ? dialogId : undefined}
           className={cn(
             "min-w-0",
             canExpand &&
@@ -314,6 +373,7 @@ export function AccessibleTable({
             }}
             className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
+            <span className="sr-only">Open {title} full table</span>
             <Maximize2 className="h-4 w-4" />
           </button>
         ) : null}
@@ -349,7 +409,15 @@ export function AccessibleTable({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <AccessibleTableMarkup caption={displayCaption} header={header} body={body} compact={false} expanded />
+              <AccessibleTableMarkup
+                caption={displayCaption}
+                header={header}
+                body={body}
+                compact={false}
+                expanded
+                rowActions={rowActions}
+                actionsHeader={actionsHeader}
+              />
             </div>
           </div>
         </div>

@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
-import {
-  ArrowUp,
-  ClipboardCopy,
-  ExternalLink,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
+import { ArrowUp, ClipboardCopy, ExternalLink, Plus, Search, X } from "lucide-react";
 import { cn, floatingControl } from "@/components/ui-primitives";
 
 export function DashboardFloatingFab() {
@@ -45,7 +38,7 @@ export function DashboardFloatingFab() {
 
   const handleFocusSearch = useCallback(() => {
     const candidates = document.querySelectorAll<HTMLInputElement>(
-      "input[aria-label*=\"search\" i], input[aria-label*=\"Search\" i], input[placeholder*=\"search\" i], input[type='search']",
+      'input[aria-label*="search" i], input[aria-label*="Search" i], input[placeholder*="search" i], input[type=\'search\']',
     );
     const target = candidates[0];
     if (target) {
@@ -122,7 +115,11 @@ export function DashboardFloatingFab() {
           <span className="sr-only">{open ? "Close quick actions" : "Open quick actions"}</span>
         </button>
       </div>
-      {copyNotice && <p className="sr-only" aria-live="polite">{copyNotice}</p>}
+      {copyNotice && (
+        <p className="sr-only" aria-live="polite">
+          {copyNotice}
+        </p>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   Loader2,
   Maximize2,
   Minus,
+  MoreHorizontal,
   Plus,
   Quote,
   RefreshCw,
@@ -60,6 +61,7 @@ import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
+import { Sheet } from "@/components/ui/sheet";
 import type {
   ClinicalDocument,
   ClinicalDocumentSummaryProfile,
@@ -317,6 +319,8 @@ function DocumentImage({ image }: { image: ImageRow }) {
       ? image.tableTextSnippet
       : null;
   const hasStructuredTable = Boolean(tableMarkdown || image.tableRows?.length || image.tableColumns?.length);
+  const tableCaption = tableHeading || image.caption || "Document table";
+  const showImageCaptionLine = image.caption && image.caption !== tableCaption;
   const displayLabels = smartEvidenceTags(
     image.labels,
     [tableHeading, image.caption, image.tableTextSnippet].filter(Boolean).join(" "),
@@ -368,14 +372,16 @@ function DocumentImage({ image }: { image: ImageRow }) {
         )}
       </div>
       <figcaption className="mt-3 space-y-2 text-[15px] leading-6 text-[color:var(--text)]">
-        {tableHeading && <p className="font-semibold">{tableHeading}</p>}
-        <p>{image.caption}</p>
+        {tableHeading ? <p className="font-semibold">{tableHeading}</p> : null}
+        {showImageCaptionLine ? <p className={textMuted}>{image.caption}</p> : null}
         <AccessibleTable
-          caption={tableHeading || image.caption}
+          caption={tableCaption}
           markdown={tableMarkdown}
           rows={image.tableRows}
           columns={image.tableColumns}
-          compact
+          compact={false}
+          expandOnMobile
+          dialogTitle={tableCaption}
         />
         {!hasStructuredTable && image.tableTextSnippet ? (
           <p className={cn("text-sm leading-6", textMuted)}>{image.tableTextSnippet}</p>
@@ -522,6 +528,31 @@ function PinnedSourceEvidence({
     ? [`Page ${chunk.page_number ?? "n/a"}`, `chunk ${chunk.chunk_index}`].filter(Boolean).join(" · ")
     : "";
 
+  if (!loading && !chunk) {
+    return (
+      <section
+        id={sectionId}
+        data-testid="pinned-source-evidence"
+        className={cn(
+          sourceCard,
+          "scroll-mt-24 border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]",
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
+            <Quote className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[color:var(--text)]">Source evidence</p>
+            <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+              Open a cited answer passage to pin the exact indexed excerpt here.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       id={sectionId}
@@ -564,7 +595,7 @@ function PinnedSourceEvidence({
             <div className="flex flex-wrap gap-2">
               <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
                 <ExternalLink className="h-4 w-4" />
-                Open page
+                Open source
               </a>
               {compact && isLong ? (
                 <button
@@ -647,7 +678,16 @@ function IndexedSourceText({
         }
 
         if (block.type === "table") {
-          return <AccessibleTable key={block.id} caption={block.caption} rows={block.rows} compact={compact} />;
+          return (
+            <AccessibleTable
+              key={block.id}
+              caption={block.caption}
+              rows={block.rows}
+              compact={false}
+              expandOnMobile
+              dialogTitle={block.caption ?? "Document table"}
+            />
+          );
         }
 
         return (
@@ -925,7 +965,7 @@ function IndexedTextPanel({
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-3">
                     <a href="#pdf-preview-section" className={cn(secondaryButton, "min-h-9 px-3 text-xs")}>
                       <ExternalLink className="h-4 w-4" />
-                      Open page
+                      Open source
                     </a>
                   </div>
                 </div>
@@ -1247,7 +1287,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open source PDF
+              Source PDF
             </a>
           </div>
         )}
@@ -1267,7 +1307,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
                 </button>
                 <a href={url} target="_blank" rel="noreferrer" className={secondaryButton}>
                   <ExternalLink className="h-4 w-4" />
-                  Open source PDF
+                  Source PDF
                 </a>
               </div>
             </div>
@@ -1559,6 +1599,7 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !isConfigured);
@@ -1993,18 +2034,75 @@ export function DocumentViewer({
                     onDeleted={handleDocumentDeleted}
                   />
                 </div>
-                <DocumentManagementActions
-                  document={readyDocument}
-                  disabled={!canUsePrivateApis}
-                  className="gap-1 sm:hidden"
-                  onRenamed={handleDocumentRenamed}
-                  onDeleted={handleDocumentDeleted}
-                />
+                <button
+                  type="button"
+                  onClick={() => setMobileActionsOpen(true)}
+                  className={cn(
+                    iconButton,
+                    "border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] hover:border-white/25 hover:bg-white/12 sm:hidden",
+                  )}
+                  aria-label="Open document actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
               </>
             )}
           </div>
         </div>
       </header>
+
+      {readyDocument ? (
+        <Sheet
+          open={mobileActionsOpen}
+          onClose={() => setMobileActionsOpen(false)}
+          title="Document actions"
+          description="Source-backed summary, provenance, and admin controls."
+          closeLabel="Close document actions"
+        >
+          <div className="space-y-3">
+            <section className={cn(sourceCard, "p-3")}>
+              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{readyDocument.title}</p>
+              <p className={cn("mt-1 truncate text-xs", textMuted)}>{readyDocument.file_name}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <SourceStatusBadge metadata={readyDocument.metadata} showTitle={false} />
+                <span className={cn("text-xs font-semibold", textMuted)}>
+                  Review {formatClinicalDate(normalizeSourceMetadata(readyDocument.metadata).review_date)}
+                </span>
+                {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
+              </div>
+            </section>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileActionsOpen(false);
+                void summarize();
+              }}
+              disabled={!canSummarizeDocument}
+              title={summarizeTitle}
+              className={cn(primaryButton, "w-full justify-center")}
+            >
+              {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Summarise document
+            </button>
+            <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                Admin controls
+              </p>
+              <DocumentManagementActions
+                document={readyDocument}
+                disabled={!canUsePrivateApis}
+                className="mt-3 justify-start gap-2"
+                onRenamed={handleDocumentRenamed}
+                onDeleted={handleDocumentDeleted}
+              />
+              <p className={cn("mt-3 text-xs leading-5", textMuted)}>
+                Rename changes the display title only. Delete permanently removes this source and its extracted
+                evidence.
+              </p>
+            </section>
+          </div>
+        </Sheet>
+      ) : null}
 
       <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 pb-24 sm:gap-5 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
         {(summary || summaryError) && (
@@ -2018,7 +2116,7 @@ export function DocumentViewer({
                 <PanelHeading
                   icon={Sparkles}
                   title="Clinical summary"
-                  description="Generated from indexed source passages and cleaned for practical review."
+                  description="From indexed passages, cleaned for practical use."
                 />
                 <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
                   <SafeBoldText text={generatedSummaryText} />
@@ -2093,7 +2191,7 @@ export function DocumentViewer({
                     {signedUrl && (
                       <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "mt-3")}>
                         <ExternalLink className="h-4 w-4" />
-                        Open source PDF
+                        Source PDF
                       </a>
                     )}
                   </div>
@@ -2111,7 +2209,7 @@ export function DocumentViewer({
                       {signedUrl && (
                         <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
                           <ExternalLink className="h-4 w-4" />
-                          Open source PDF
+                          Source PDF
                         </a>
                       )}
                     </div>
@@ -2166,7 +2264,7 @@ export function DocumentViewer({
             <PanelHeading
               icon={FileText}
               title="Evidence status"
-              description="Source provenance, review date, and indexing health."
+              description="Source provenance and indexing health."
             />
             <SourceMetadataSummary metadata={document?.metadata} />
             {indexHealth ? (
@@ -2258,7 +2356,7 @@ export function DocumentViewer({
             <PanelHeading
               icon={FileImage}
               title="Tables and diagrams"
-              description="Indexed clinical tables, diagrams, and image captions extracted from the source document."
+              description="Indexed tables, diagrams, and image captions."
             />
             <div className="mt-3 space-y-3">
               <TableReviewPanel
@@ -2270,9 +2368,7 @@ export function DocumentViewer({
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading extracted tables" />
               ) : clinicalImages.length === 0 ? (
-                <p className={cn("text-[15px]", textMuted)}>
-                  No clinically useful tables or diagrams have been indexed for this document.
-                </p>
+                <p className={cn("text-[15px]", textMuted)}>No indexed clinically useful tables or diagrams.</p>
               ) : (
                 clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
               )}

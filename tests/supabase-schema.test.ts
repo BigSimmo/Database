@@ -38,7 +38,7 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("public.document_summaries,");
     expect(schema).toContain("public.storage_cleanup_jobs");
     expect(schema).toMatch(
-      /grant select, insert, update, delete on table .*public\.documents, .*public\.document_pages, .*public\.document_images, .*public\.image_caption_cache, .*public\.document_labels, .*public\.document_summaries, .*public\.document_sections, .*public\.document_memory_cards, .*public\.document_chunks, .*public\.ingestion_jobs, .*public\.rag_queries, .*public\.storage_cleanup_jobs to service_role;/,
+      /grant select, insert, update, delete on table .*public\.documents, .*public\.document_pages, .*public\.document_images, .*public\.image_caption_cache, .*public\.document_labels, .*public\.document_summaries, .*public\.document_sections, .*public\.document_memory_cards, .*public\.document_chunks, .*public\.ingestion_jobs, .*public\.rag_queries, .*public\.storage_cleanup_jobs.* to service_role;/,
     );
     expect(schema).toContain("grant execute on all functions in schema public to service_role;");
   });
@@ -47,7 +47,7 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("revoke all privileges on all tables in schema public from anon, authenticated;");
     expect(schema).toContain("revoke execute on all functions in schema public from public, anon, authenticated;");
     expect(schema).toMatch(
-      /grant select on table .*public\.documents, .*public\.document_pages, .*public\.document_images, .*public\.document_labels, .*public\.document_summaries, .*public\.document_chunks, .*public\.ingestion_jobs, .*public\.rag_queries, .*public\.storage_cleanup_jobs to authenticated;/,
+      /grant select on table .*public\.documents, .*public\.document_pages, .*public\.document_images, .*public\.document_labels, .*public\.document_summaries, .*public\.document_chunks, .*public\.ingestion_jobs, .*public\.rag_queries, .*public\.storage_cleanup_jobs.* to authenticated;/,
     );
     expect(schema).not.toContain("grant select, insert, update, delete on table public.documents to authenticated;");
     expect(schema).not.toContain("grant select, insert on table public.rag_queries to authenticated;");

@@ -1,5 +1,9 @@
 # Design Direction — Clinical KB
 
+## June 20 scoped run
+
+The active direction for the dashboard and document viewer is a quiet clinical command instrument: neutral, precise, source-first. Teal remains reserved for primary action, evidence, and focus; dense operational details should collapse into progressive sheets/drawers on mobile rather than competing with the answer or PDF.
+
 ## Point of view
 
 A precision clinical instrument: calm, quiet, and trustworthy. A teal-tinted neutral foundation carries almost everything; the single teal accent is spent only on primary actions, evidence highlights, and focus. Depth comes from hairline borders and small layered shadows — never from heavy blur — and typography does the hierarchy work: confident headings, a 16px reading body with a capped measure, and tabular numerals wherever data lives.

@@ -88,13 +88,9 @@ async function loadDocuments(supabase: SupabaseAdmin, args: EnrichArgs, ownerId?
   if (args.document) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(args.document);
     if (isUuid) {
-      query = query.or(
-        `id.eq.${args.document},file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
-      );
+      query = query.or(`id.eq.${args.document},file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`);
     } else {
-      query = query.or(
-        `file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`,
-      );
+      query = query.or(`file_name.ilike.%${args.document}%,title.ilike.%${args.document}%`);
     }
   }
 
@@ -153,7 +149,12 @@ async function loadRowsForDocuments(supabase: SupabaseAdmin, table: string, sele
 
 async function loadDeepMemoryCoverage(supabase: SupabaseAdmin, documentIds: string[]) {
   const sections = await loadRowsForDocuments(supabase, "document_sections", "document_id,metadata", documentIds);
-  const memoryCards = await loadRowsForDocuments(supabase, "document_memory_cards", "document_id,metadata", documentIds);
+  const memoryCards = await loadRowsForDocuments(
+    supabase,
+    "document_memory_cards",
+    "document_id,metadata",
+    documentIds,
+  );
 
   const coverage = new Map<string, { sections: MetadataRow[]; memoryCards: MetadataRow[] }>();
   for (const documentId of documentIds) coverage.set(documentId, { sections: [], memoryCards: [] });
@@ -536,80 +537,120 @@ async function main() {
   for (const document of documents) {
     const documentCoverage = coverage.get(document.id);
     const taskPromise = (async () => {
-      try {
-        if (args.mode === "metadata-stamp") {
-          if (!documentCoverage?.summary || documentCoverage.labels.every((label) => label.source !== "generated")) {
-            console.log(`SKIP cannot metadata-stamp missing enrichment: ${document.file_name}`);
+      let attempts = 0;
+      const maxAttempts = 6;
+      let success = false;
+
+      while (attempts < maxAttempts && !success) {
+        try {
+          if (args.mode === "metadata-stamp") {
+            if (!documentCoverage?.summary || documentCoverage.labels.every((label) => label.source !== "generated")) {
+              console.log(`SKIP cannot metadata-stamp missing enrichment: ${document.file_name}`);
+              return;
+            }
+            await stampExistingEnrichmentVersion({
+              supabase,
+              document,
+              coverage: documentCoverage,
+              ragEnrichmentVersion,
+            });
+            completed += 1;
+            console.log(`STAMPED ${document.file_name}`);
             return;
           }
-          await stampExistingEnrichmentVersion({
-            supabase,
-            document,
-            coverage: documentCoverage,
-            ragEnrichmentVersion,
-          });
-          completed += 1;
-          console.log(`STAMPED ${document.file_name}`);
-          return;
-        }
 
-        let imageMetadata = metadataRecord(document.metadata);
-        let imageStats = { searchable: 0, skipped: 0, total: 0 };
-        if (args.mode === "summaries-labels-images") {
-          imageStats = await classifyExistingImages(supabase, document.id);
-          imageMetadata = {
-            ...imageMetadata,
-            searchable_image_count: imageStats.searchable,
-            skipped_image_count: imageStats.skipped,
-            image_enriched_at: new Date().toISOString(),
-          };
-          await supabase
-            .from("documents")
-            .update({
-              image_count: imageStats.searchable,
-              metadata: imageMetadata,
-            })
-            .eq("id", document.id);
-        }
+          let imageMetadata = metadataRecord(document.metadata);
+          let imageStats = { searchable: 0, skipped: 0, total: 0 };
+          if (args.mode === "summaries-labels-images") {
+            imageStats = await classifyExistingImages(supabase, document.id);
+            imageMetadata = {
+              ...imageMetadata,
+              searchable_image_count: imageStats.searchable,
+              skipped_image_count: imageStats.skipped,
+              image_enriched_at: new Date().toISOString(),
+            };
+            await supabase
+              .from("documents")
+              .update({
+                image_count: imageStats.searchable,
+                metadata: imageMetadata,
+              })
+              .eq("id", document.id);
+          }
 
-        const evidence = await loadEvidence(supabase, document.id);
-        if (evidence.chunks.length === 0) {
-          console.log(`SKIP no chunks: ${document.file_name}`);
-          return;
-        }
+          const evidence = await loadEvidence(supabase, document.id);
+          if (evidence.chunks.length === 0) {
+            console.log(`SKIP no chunks: ${document.file_name}`);
+            return;
+          }
 
-        let enrichmentSummary: string | null = null;
-        if (args.mode === "summaries-labels-images") {
-          const enrichment = await upsertDocumentEnrichment({
+          let enrichmentSummary: string | null = null;
+          if (args.mode === "summaries-labels-images") {
+            const enrichment = await upsertDocumentEnrichment({
+              supabase,
+              document: { ...document, metadata: imageMetadata },
+              chunks: evidence.chunks,
+              images: evidence.images,
+            });
+            enrichmentSummary = enrichment.summary.summary;
+          } else if (args.mode === "deep-memory") {
+            const { data: sumData } = await supabase
+              .from("document_summaries")
+              .select("summary")
+              .eq("document_id", document.id)
+              .maybeSingle();
+            if (sumData?.summary) {
+              enrichmentSummary = sumData.summary;
+            }
+          }
+          const deepMemory = await upsertDocumentDeepMemory({
             supabase,
             document: { ...document, metadata: imageMetadata },
             chunks: evidence.chunks,
             images: evidence.images,
+            summary: enrichmentSummary,
           });
-          enrichmentSummary = enrichment.summary.summary;
-        } else if (args.mode === "deep-memory") {
-          const { data: sumData } = await supabase
-            .from("document_summaries")
-            .select("summary")
-            .eq("document_id", document.id)
-            .maybeSingle();
-          if (sumData?.summary) {
-            enrichmentSummary = sumData.summary;
+          const { data: latestDoc } = await supabase
+            .from("documents")
+            .select("metadata")
+            .eq("id", document.id)
+            .single();
+          const latestMetadata = metadataRecord(latestDoc?.metadata);
+          await supabase
+            .from("documents")
+            .update({
+              metadata: {
+                ...latestMetadata,
+                enrichment_status: "completed",
+                enrichment_error: null,
+              },
+            })
+            .eq("id", document.id);
+
+          completed += 1;
+          console.log(
+            `ENRICHED ${document.file_name} chunks=${evidence.chunks.length} sections=${deepMemory.sections.length} memory=${deepMemory.memoryCards.length} images=${imageStats.searchable}/${imageStats.total} skipped=${imageStats.skipped}`,
+          );
+          success = true;
+
+          // Small delay to space out OpenAI calls
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const isRateLimit = /rate limit|rate_limit|429/i.test(errorMessage);
+
+          if (isRateLimit && attempts < maxAttempts - 1) {
+            attempts += 1;
+            const delayMs = Math.pow(2, attempts) * 8000 + Math.random() * 3000;
+            console.warn(
+              `Rate limit hit on ${document.file_name}. Waiting ${Math.round(delayMs / 1000)}s before retry ${attempts}/${maxAttempts}...`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          } else {
+            console.error(`ERROR enriching ${document.file_name}:`, errorMessage);
+            break; // Break the retry loop for non-rate-limit errors
           }
         }
-        const deepMemory = await upsertDocumentDeepMemory({
-          supabase,
-          document: { ...document, metadata: imageMetadata },
-          chunks: evidence.chunks,
-          images: evidence.images,
-          summary: enrichmentSummary,
-        });
-        completed += 1;
-        console.log(
-          `ENRICHED ${document.file_name} chunks=${evidence.chunks.length} sections=${deepMemory.sections.length} memory=${deepMemory.memoryCards.length} images=${imageStats.searchable}/${imageStats.total} skipped=${imageStats.skipped}`,
-        );
-      } catch (error) {
-        console.error(`ERROR enriching ${document.file_name}:`, error instanceof Error ? error.message : error);
       }
     })();
 

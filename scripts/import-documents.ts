@@ -163,9 +163,7 @@ async function main() {
 
     const exactCopyCount = files.filter((file) => existing.has(file.contentHash)).length;
     const dryRunBatches = chunkImportFiles(files, args.queueBatchSize);
-    console.log(
-      `DRY RUN queue plan: ${dryRunBatches.length} batch(es) of up to ${args.queueBatchSize} file(s).`,
-    );
+    console.log(`DRY RUN queue plan: ${dryRunBatches.length} batch(es) of up to ${args.queueBatchSize} file(s).`);
     for (const file of files.slice(0, args.queueBatchSize)) {
       const duplicate = existing.get(file.contentHash);
       console.log(
@@ -255,9 +253,7 @@ async function main() {
   let failed = 0;
   const importBatches = chunkImportFiles(files, args.queueBatchSize);
 
-  console.log(
-    `Queueing ${files.length} file(s) in ${importBatches.length} batch(es) of up to ${args.queueBatchSize}.`,
-  );
+  console.log(`Queueing ${files.length} file(s) in ${importBatches.length} batch(es) of up to ${args.queueBatchSize}.`);
 
   for (const [batchIndex, fileBatch] of importBatches.entries()) {
     const start = batchIndex * args.queueBatchSize + 1;

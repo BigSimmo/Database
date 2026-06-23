@@ -719,10 +719,9 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(
-      authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }),
-      { params: Promise.resolve({ id: "job-1" }) },
-    );
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: "job-1" }),
+    });
 
     expect(response.status).toBe(409);
     expect(String((await payload(response)).error)).toContain("still being processed");
@@ -749,10 +748,9 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(
-      authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }),
-      { params: Promise.resolve({ id: "job-1" }) },
-    );
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: "job-1" }),
+    });
     const documentUpdate = client.calls.find((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(200);

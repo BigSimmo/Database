@@ -9,3 +9,5 @@ sample-documents/
 dev-server*.log
 package-lock.json
 public/demo-documents/
+.tmp-visual/
+scratch/

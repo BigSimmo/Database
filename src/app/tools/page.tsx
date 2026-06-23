@@ -6,6 +6,7 @@ import {
   Brain,
   CheckCircle2,
   CircleDashed,
+  ClipboardCheck,
   ClipboardList,
   ExternalLink,
   FileImage,
@@ -21,26 +22,29 @@ import {
   Sparkles,
   Target,
   UploadCloud,
-  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/components/ui-primitives";
-import { type ToolCategory, type ToolIconName, type ToolItem, toolCatalog } from "@/lib/tools";
+import { defaultFavoriteToolIds, type ToolCategory, type ToolIconName, type ToolItem, toolCatalog } from "@/lib/tools";
 
-type CardTheme = {
-  accent: string;
+type ToneName = "primary" | "info" | "success" | "warning" | "danger";
+
+type ToneTheme = {
+  aura: string;
   border: string;
   button: string;
   glow: string;
   icon: string;
-  pill: string;
   rail: string;
   surface: string;
+  text: string;
 };
 
-type ClinicalSignal = {
-  label: string;
-  value: string;
+type ToolPresentation = {
+  cadence: string;
+  role: string;
+  shortLabel: string;
+  tone: ToneName;
 };
 
 const iconRegistry = {
@@ -64,210 +68,251 @@ const iconRegistry = {
   Clipboard: ClipboardCheck,
 } satisfies Record<ToolIconName, LucideIcon>;
 
-const clinicalSignals: ClinicalSignal[] = [
-  { label: "Project suite", value: "9 local clinical apps" },
-  { label: "Clinical workflow", value: "Assessment to handover" },
-  { label: "Fast path", value: "One click to each workspace" },
-];
-
-const categoryTheme: Record<ToolCategory, CardTheme> = {
-  Clinical: {
-    accent: "text-cyan-100",
-    border: "border-cyan-200/24",
-    button: "bg-cyan-200 text-slate-950 hover:bg-white",
-    glow: "shadow-[0_20px_70px_rgb(34_211_238_/_11%)]",
-    icon: "border-cyan-200/30 bg-cyan-200/14 text-cyan-100",
-    pill: "border-cyan-100/20 bg-cyan-100/[0.08] text-cyan-100",
-    rail: "from-cyan-200 via-teal-200 to-emerald-200",
-    surface: "from-cyan-950/72 via-slate-950 to-slate-950",
+const toneTheme: Record<ToneName, ToneTheme> = {
+  primary: {
+    aura: "bg-[radial-gradient(circle_at_18%_0%,color-mix(in_srgb,var(--primary)_20%,transparent),transparent_18rem)]",
+    border: "border-[color:color-mix(in_srgb,var(--primary)_28%,transparent)]",
+    button: "bg-[color:var(--primary)] text-[color:var(--primary-contrast)] hover:bg-[color:var(--primary-strong)]",
+    glow: "shadow-[0_18px_52px_color-mix(in_srgb,var(--primary)_14%,transparent)]",
+    icon: "border-[color:color-mix(in_srgb,var(--primary)_34%,transparent)] bg-[color:color-mix(in_srgb,var(--primary)_14%,transparent)] text-[color:var(--primary-100)]",
+    rail: "bg-[color:var(--primary)]",
+    surface:
+      "bg-[linear-gradient(145deg,color-mix(in_srgb,var(--app-shell-muted)_82%,transparent),color-mix(in_srgb,var(--app-shell)_96%,black))]",
+    text: "text-[color:var(--primary-100)]",
   },
-  Operations: {
-    accent: "text-amber-100",
-    border: "border-amber-200/24",
-    button: "bg-amber-200 text-slate-950 hover:bg-white",
-    glow: "shadow-[0_20px_70px_rgb(251_191_36_/_11%)]",
-    icon: "border-amber-200/30 bg-amber-200/14 text-amber-100",
-    pill: "border-amber-100/20 bg-amber-100/[0.08] text-amber-100",
-    rail: "from-amber-200 via-orange-200 to-rose-200",
-    surface: "from-amber-950/62 via-slate-950 to-slate-950",
+  info: {
+    aura: "bg-[radial-gradient(circle_at_18%_0%,color-mix(in_srgb,var(--info)_20%,transparent),transparent_18rem)]",
+    border: "border-[color:color-mix(in_srgb,var(--info)_30%,transparent)]",
+    button: "bg-[color:var(--info-soft)] text-[color:var(--app-shell)] hover:bg-white",
+    glow: "shadow-[0_18px_52px_color-mix(in_srgb,var(--info)_14%,transparent)]",
+    icon: "border-[color:color-mix(in_srgb,var(--info)_34%,transparent)] bg-[color:color-mix(in_srgb,var(--info)_14%,transparent)] text-[color:var(--info-bg)]",
+    rail: "bg-[color:var(--info)]",
+    surface:
+      "bg-[linear-gradient(145deg,color-mix(in_srgb,var(--info)_16%,var(--app-shell-muted)),color-mix(in_srgb,var(--app-shell)_96%,black))]",
+    text: "text-[color:var(--info-bg)]",
   },
-  Docs: {
-    accent: "text-violet-100",
-    border: "border-violet-200/24",
-    button: "bg-violet-200 text-slate-950 hover:bg-white",
-    glow: "shadow-[0_20px_70px_rgb(196_181_253_/_11%)]",
-    icon: "border-violet-200/30 bg-violet-200/14 text-violet-100",
-    pill: "border-violet-100/20 bg-violet-100/[0.08] text-violet-100",
-    rail: "from-violet-200 via-fuchsia-200 to-cyan-100",
-    surface: "from-violet-950/66 via-slate-950 to-slate-950",
+  success: {
+    aura: "bg-[radial-gradient(circle_at_18%_0%,color-mix(in_srgb,var(--success)_20%,transparent),transparent_18rem)]",
+    border: "border-[color:color-mix(in_srgb,var(--success)_30%,transparent)]",
+    button: "bg-[color:var(--success-soft)] text-[color:var(--app-shell)] hover:bg-white",
+    glow: "shadow-[0_18px_52px_color-mix(in_srgb,var(--success)_14%,transparent)]",
+    icon: "border-[color:color-mix(in_srgb,var(--success)_34%,transparent)] bg-[color:color-mix(in_srgb,var(--success)_14%,transparent)] text-[color:var(--success-bg)]",
+    rail: "bg-[color:var(--success)]",
+    surface:
+      "bg-[linear-gradient(145deg,color-mix(in_srgb,var(--success)_16%,var(--app-shell-muted)),color-mix(in_srgb,var(--app-shell)_96%,black))]",
+    text: "text-[color:var(--success-bg)]",
   },
-  Research: {
-    accent: "text-emerald-100",
-    border: "border-emerald-200/24",
-    button: "bg-emerald-200 text-slate-950 hover:bg-white",
-    glow: "shadow-[0_20px_70px_rgb(110_231_183_/_11%)]",
-    icon: "border-emerald-200/30 bg-emerald-200/14 text-emerald-100",
-    pill: "border-emerald-100/20 bg-emerald-100/[0.08] text-emerald-100",
-    rail: "from-emerald-200 via-lime-100 to-cyan-100",
-    surface: "from-emerald-950/62 via-slate-950 to-slate-950",
+  warning: {
+    aura: "bg-[radial-gradient(circle_at_18%_0%,color-mix(in_srgb,var(--warning)_20%,transparent),transparent_18rem)]",
+    border: "border-[color:color-mix(in_srgb,var(--warning)_30%,transparent)]",
+    button: "bg-[color:var(--warning-soft)] text-[color:var(--app-shell)] hover:bg-white",
+    glow: "shadow-[0_18px_52px_color-mix(in_srgb,var(--warning)_14%,transparent)]",
+    icon: "border-[color:color-mix(in_srgb,var(--warning)_34%,transparent)] bg-[color:color-mix(in_srgb,var(--warning)_14%,transparent)] text-[color:var(--warning-bg)]",
+    rail: "bg-[color:var(--warning)]",
+    surface:
+      "bg-[linear-gradient(145deg,color-mix(in_srgb,var(--warning)_16%,var(--app-shell-muted)),color-mix(in_srgb,var(--app-shell)_96%,black))]",
+    text: "text-[color:var(--warning-bg)]",
   },
-  Admin: {
-    accent: "text-fuchsia-100",
-    border: "border-fuchsia-200/24",
-    button: "bg-fuchsia-200 text-slate-950 hover:bg-white",
-    glow: "shadow-[0_20px_70px_rgb(244_114_182_/_11%)]",
-    icon: "border-fuchsia-200/30 bg-fuchsia-200/14 text-fuchsia-100",
-    pill: "border-fuchsia-100/20 bg-fuchsia-100/[0.08] text-fuchsia-100",
-    rail: "from-fuchsia-200 via-rose-200 to-amber-100",
-    surface: "from-fuchsia-950/62 via-slate-950 to-slate-950",
+  danger: {
+    aura: "bg-[radial-gradient(circle_at_18%_0%,color-mix(in_srgb,var(--danger)_20%,transparent),transparent_18rem)]",
+    border: "border-[color:color-mix(in_srgb,var(--danger)_30%,transparent)]",
+    button: "bg-[color:var(--danger-soft)] text-[color:var(--app-shell)] hover:bg-white",
+    glow: "shadow-[0_18px_52px_color-mix(in_srgb,var(--danger)_14%,transparent)]",
+    icon: "border-[color:color-mix(in_srgb,var(--danger)_34%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_14%,transparent)] text-[color:var(--danger-bg)]",
+    rail: "bg-[color:var(--danger)]",
+    surface:
+      "bg-[linear-gradient(145deg,color-mix(in_srgb,var(--danger)_16%,var(--app-shell-muted)),color-mix(in_srgb,var(--app-shell)_96%,black))]",
+    text: "text-[color:var(--danger-bg)]",
   },
 };
+
+const categoryTone: Record<ToolCategory, ToneName> = {
+  Admin: "danger",
+  Clinical: "primary",
+  Docs: "info",
+  Operations: "warning",
+  Research: "success",
+};
+
+const toolPresentation: Record<string, ToolPresentation> = {
+  differentials: {
+    cadence: "Rule-outs",
+    role: "Check likely rule-outs, red flags, and competing DSM-5 explanations.",
+    shortLabel: "Diffs",
+    tone: "success",
+  },
+  "dsm-5-diagnoses": {
+    cadence: "DSM-5 criteria",
+    role: "Open criteria, symptom clusters, and diagnostic anchors.",
+    shortLabel: "DSM",
+    tone: "success",
+  },
+  forms: {
+    cadence: "Capture",
+    role: "Start structured intake, review, and patient-facing form workflows.",
+    shortLabel: "Forms",
+    tone: "warning",
+  },
+  formulation: {
+    cadence: "Case theory",
+    role: "Build formulation from problems, risks, maintaining factors, and treatment direction.",
+    shortLabel: "Form",
+    tone: "primary",
+  },
+  medications: {
+    cadence: "Prescribing",
+    role: "Check prescribing context, monitoring, safety issues, and medication review.",
+    shortLabel: "Meds",
+    tone: "primary",
+  },
+  "psychiatry-notes": {
+    cadence: "Output",
+    role: "Open summaries, documentation flows, and review-ready note outputs.",
+    shortLabel: "Notes",
+    tone: "danger",
+  },
+  services: {
+    cadence: "Pathways",
+    role: "Find referral pathways, access points, and service-matching options.",
+    shortLabel: "Svc",
+    tone: "warning",
+  },
+  specifiers: {
+    cadence: "Qualifiers",
+    role: "Review severity, course, and specifier language for a diagnosis.",
+    shortLabel: "Spec",
+    tone: "info",
+  },
+  therapy: {
+    cadence: "Treatment",
+    role: "Open treatment planning, session structure, and intervention options.",
+    shortLabel: "Tx",
+    tone: "primary",
+  },
+};
+
+const favoriteTools = defaultFavoriteToolIds
+  .map((id) => toolCatalog.find((tool) => tool.id === id))
+  .filter((tool): tool is ToolItem => Boolean(tool));
 
 function isInactive(tool: ToolItem) {
   return tool.status === "offline" || tool.status === "coming-soon";
 }
 
-function getClinicalTrack(tool: ToolItem) {
-  const trackById: Partial<Record<ToolItem["id"], string>> = {
-    differentials: "Differential",
-    "dsm-5-diagnoses": "Diagnosis",
-    forms: "Capture",
-    formulation: "Case theory",
-    medications: "Prescribing",
-    "psychiatry-notes": "Notes",
-    services: "Pathways",
-    specifiers: "Qualifiers",
-    therapy: "Treatment",
-  };
-
-  return trackById[tool.id] ?? "Clinical";
-}
-
-function getShortProjectLabel(tool: ToolItem) {
-  const shortLabelById: Partial<Record<ToolItem["id"], string>> = {
-    differentials: "Diffs",
-    "dsm-5-diagnoses": "DSM",
-    forms: "Forms",
-    formulation: "Form",
-    medications: "Meds",
-    "psychiatry-notes": "Notes",
-    services: "Svc",
-    specifiers: "Specs",
-    therapy: "Tx",
-  };
-
-  return shortLabelById[tool.id] ?? tool.title;
+function getPresentation(tool: ToolItem) {
+  return (
+    toolPresentation[tool.id] ?? {
+      cadence: tool.category,
+      role: tool.description,
+      shortLabel: tool.title,
+      tone: categoryTone[tool.category],
+    }
+  );
 }
 
 function getLaunchContext(tool: ToolItem) {
   try {
     const url = new URL(tool.href);
-    const port = url.port ? `:${url.port}` : "";
-    return `Local ${port}`;
+    return `${url.hostname}${url.port ? `:${url.port}` : ""}`;
   } catch {
-    return tool.target === "external" ? "External" : "Internal";
+    return tool.target === "external" ? "External app" : "Internal route";
   }
 }
 
 function getStatusLabel(tool: ToolItem) {
-  if (tool.status === "coming-soon") {
-    return "Soon";
-  }
-
-  if (tool.status === "offline") {
-    return "Paused";
-  }
-
-  if (tool.status === "beta") {
-    return "Preview";
-  }
-
-  return "Local";
+  if (tool.status === "coming-soon") return "Soon";
+  if (tool.status === "offline") return "Paused";
+  if (tool.status === "beta") return "Preview";
+  return "Live";
 }
 
 function LaunchCard({ tool }: { tool: ToolItem }) {
   const Icon = iconRegistry[tool.icon];
   const disabled = isInactive(tool);
+  const presentation = getPresentation(tool);
+  const theme = toneTheme[presentation.tone];
   const target = tool.target === "external" && tool.openInNewTab ? "_blank" : undefined;
   const rel = tool.target === "external" ? "noopener noreferrer" : undefined;
-  const theme = categoryTheme[tool.category];
-  const statusLabel = getStatusLabel(tool);
-  const track = getClinicalTrack(tool);
-  const launchContext = getLaunchContext(tool);
 
   return (
     <article
       className={cn(
-        "group relative isolate overflow-hidden rounded-md border bg-gradient-to-br p-4 text-white transition duration-300 hover:-translate-y-1",
+        "group relative isolate overflow-hidden rounded-xl border p-4 text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] motion-safe:transition motion-safe:duration-200 motion-safe:ease-[var(--ease-out-soft)] motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-[var(--shadow-hover)] dark:text-[color:var(--text-heading)]",
+        "bg-[linear-gradient(145deg,color-mix(in_srgb,var(--app-shell-muted)_76%,transparent),color-mix(in_srgb,var(--app-shell)_96%,black))]",
         theme.border,
-        theme.glow,
-        theme.surface,
-        disabled && "opacity-70",
+        disabled && "opacity-60",
       )}
     >
-      <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", theme.rail)} />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.11] [background-image:linear-gradient(rgba(255,255,255,.16)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.12)_1px,transparent_1px)] [background-size:34px_34px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,.1),transparent_34%,rgba(255,255,255,.04))]" />
-      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/[0.04] blur-2xl transition duration-300 group-hover:bg-white/[0.08]" />
+      <div className={cn("pointer-events-none absolute inset-0 opacity-45", theme.aura)} aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:linear-gradient(color-mix(in_srgb,white_22%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,white_18%,transparent)_1px,transparent_1px)] [background-size:32px_32px]"
+        aria-hidden
+      />
+      <div className={cn("absolute inset-x-0 top-0 h-0.5 opacity-70", theme.rail)} aria-hidden />
 
-      <div className="relative z-10 flex min-h-[16rem] flex-col">
-        <div className="flex items-start justify-between gap-4">
-          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-md border", theme.icon)}>
-            <Icon className="h-6 w-6" />
+      <div className="relative z-10 flex min-h-52 flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-lg border", theme.icon)}>
+            <Icon className="h-5 w-5" aria-hidden />
           </span>
           <span
             className={cn(
-              "inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-black",
-              disabled ? "border-white/14 bg-white/[0.06] text-white/54" : theme.pill,
+              "inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold",
+              disabled
+                ? "border-white/10 bg-white/[0.045] text-white/48"
+                : "border-[color:color-mix(in_srgb,var(--success)_28%,transparent)] bg-[color:color-mix(in_srgb,var(--success)_10%,transparent)] text-[color:var(--success-bg)]",
             )}
           >
-            {disabled ? <CircleDashed className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            {statusLabel}
+            {disabled ? (
+              <CircleDashed className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {getStatusLabel(tool)}
           </span>
         </div>
 
-        <div className="mt-6">
-          <p className={cn("text-xs font-black uppercase tracking-[0.18em]", theme.accent)}>{track}</p>
-          <h2 className="mt-2 text-2xl font-black leading-none text-white">{tool.title}</h2>
-          <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/68">{tool.description}</p>
+        <div className="mt-5">
+          <p className={cn("text-xs font-semibold uppercase", theme.text)}>{presentation.cadence}</p>
+          <h2 className="mt-2 text-2xl font-black leading-none text-[color:var(--primary-contrast)] dark:text-[color:var(--text-heading)]">
+            {tool.title}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-white/68">{presentation.role}</p>
         </div>
 
-        <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-          <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/48">
-            <ExternalLink className="h-3.5 w-3.5" />
-            {launchContext}
-          </span>
-          {disabled ? (
-            <span className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/14 bg-white/[0.05] px-4 text-sm font-bold text-white/48">
-              Unavailable
-            </span>
-          ) : (
-            <a
-              href={tool.href}
-              target={target}
-              rel={rel}
-              className={cn(
-                "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-black transition",
-                theme.button,
-              )}
-              aria-label={`Launch ${tool.title}`}
-            >
-              Launch
-              <ArrowRight className="h-4 w-4" />
-            </a>
-          )}
+        <div className="mt-auto pt-5">
+          <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+            <span className="nums min-w-0 truncate text-xs font-semibold text-white/48">{getLaunchContext(tool)}</span>
+            {disabled ? (
+              <span className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] px-3 text-sm font-semibold text-white/46">
+                Unavailable
+              </span>
+            ) : (
+              <a
+                href={tool.href}
+                target={target}
+                rel={rel}
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--primary)] px-3 text-sm font-black text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset)] outline-none motion-safe:transition motion-safe:duration-150 motion-safe:ease-[var(--ease-out-soft)] motion-safe:hover:-translate-y-0.5 hover:bg-[color:var(--primary-strong)] focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/30"
+                aria-label={`Launch ${tool.title}`}
+              >
+                Launch
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </article>
   );
 }
 
-function ProjectTabStrip() {
+function AppDock({ tools }: { tools: ToolItem[] }) {
   return (
-    <div className="mt-6 grid max-w-2xl grid-cols-2 gap-1.5 sm:flex sm:max-w-3xl sm:flex-wrap sm:gap-1">
-      {toolCatalog.map((tool) => {
+    <div className="grid grid-cols-3 gap-2">
+      {tools.map((tool) => {
         const Icon = iconRegistry[tool.icon];
-        const theme = categoryTheme[tool.category];
+        const presentation = getPresentation(tool);
+        const theme = toneTheme[presentation.tone];
 
         return (
           <a
@@ -275,15 +320,18 @@ function ProjectTabStrip() {
             href={tool.href}
             target={tool.openInNewTab ? "_blank" : undefined}
             rel={tool.target === "external" ? "noopener noreferrer" : undefined}
-            aria-label={`Open ${tool.title}`}
             className={cn(
-              "group/tab relative inline-flex min-h-7 min-w-0 items-center gap-1.5 overflow-hidden rounded-md border bg-white/[0.045] px-2 text-[0.64rem] font-black text-white/68 shadow-[inset_0_1px_0_rgb(255_255_255_/_7%)] transition hover:-translate-y-0.5 hover:bg-white/[0.075] hover:text-white sm:px-1.5",
+              "group flex min-h-[56px] items-center gap-2 overflow-hidden rounded-lg border bg-white/[0.055] px-3 text-left shadow-[var(--shadow-inset)] outline-none motion-safe:transition motion-safe:duration-150 motion-safe:ease-[var(--ease-out-soft)] motion-safe:hover:-translate-y-0.5 hover:bg-white/[0.085] focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/30",
               theme.border,
             )}
+            aria-label={`Launch priority tool ${tool.title}`}
           >
-            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-r", theme.rail)} />
-            <Icon className={cn("h-3 w-3 shrink-0 transition group-hover/tab:scale-110", theme.accent)} />
-            <span className="truncate">{getShortProjectLabel(tool)}</span>
+            <span className={cn("h-2 w-2 shrink-0 rounded-full", theme.rail)} aria-hidden />
+            <Icon className={cn("h-4 w-4 shrink-0 transition group-hover:scale-110", theme.text)} aria-hidden />
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-black leading-4 text-white">{presentation.shortLabel}</span>
+              <span className="sr-only">{presentation.cadence}</span>
+            </span>
           </a>
         );
       })}
@@ -291,119 +339,109 @@ function ProjectTabStrip() {
   );
 }
 
-function ClinicalSignalPanel() {
+function HeroConsole() {
   return (
-    <div className="relative hidden min-h-[31rem] lg:block">
-      <div className="absolute left-6 top-0 h-52 w-52 rounded-md border border-cyan-200/20 bg-cyan-200/[0.08] shadow-[0_24px_90px_rgb(34_211_238_/_12%)]" />
-      <div className="absolute right-0 top-24 h-52 w-52 rounded-md border border-violet-200/20 bg-violet-200/[0.08] shadow-[0_24px_90px_rgb(196_181_253_/_10%)]" />
-      <div className="absolute bottom-0 left-20 h-52 w-52 rounded-md border border-emerald-200/20 bg-emerald-200/[0.08] shadow-[0_24px_90px_rgb(110_231_183_/_10%)]" />
-      <div className="absolute left-1/2 top-[45%] w-80 -translate-x-1/2 -translate-y-1/2 rounded-md border border-white/16 bg-slate-950/84 p-5 shadow-[inset_0_1px_0_rgb(255_255_255_/_10%),0_30px_90px_rgb(0_0_0_/_36%)]">
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
-          <span className="grid h-12 w-12 place-items-center rounded-md border border-cyan-100/24 bg-cyan-100/[0.1] text-cyan-100">
-            <Sparkles className="h-6 w-6" />
-          </span>
-          <div className="text-right">
-            <p className="text-xs font-black text-white/44">Clinical launch room</p>
-            <p className="mt-1 text-sm font-black text-cyan-100">Project suite</p>
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {clinicalSignals.map((signal) => (
-            <div
-              key={signal.label}
-              className="flex items-center justify-between gap-4 rounded-md border border-white/10 bg-white/[0.045] px-3 py-3"
-            >
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/34">{signal.label}</p>
-                <p className="mt-1 text-sm font-bold text-white/78">{signal.value}</p>
-              </div>
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-100" />
+    <aside className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.055] p-3 shadow-[var(--shadow-lux)] backdrop-blur-xl lg:p-4">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_26%_0%,color-mix(in_srgb,var(--primary)_20%,transparent),transparent_16rem),linear-gradient(180deg,color-mix(in_srgb,white_9%,transparent),transparent)]"
+        aria-hidden
+      />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/[0.07] text-[color:var(--primary-100)]">
+              <Sparkles className="h-5 w-5" aria-hidden />
+            </span>
+            <div>
+              <p className="text-sm font-black text-white">Priority handoffs</p>
+              <p className="text-xs font-semibold text-white/46">Pinned clinical tasks</p>
             </div>
-          ))}
+          </div>
+          <span className="inline-flex min-h-8 items-center rounded-md border border-[color:color-mix(in_srgb,var(--success)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--success)_12%,transparent)] px-2 text-xs font-semibold text-[color:var(--success-bg)]">
+            {favoriteTools.length} pinned
+          </span>
         </div>
-
-        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-white/34">
-          <div className="h-px bg-white/12" />
-          <Target className="h-5 w-5 text-violet-100" />
-          <div className="h-px bg-white/12" />
+        <div className="mt-3">
+          <AppDock tools={favoriteTools} />
         </div>
       </div>
-      <Search className="absolute left-16 top-14 h-10 w-10 text-cyan-100" />
-      <ShieldAlert className="absolute bottom-14 left-36 h-10 w-10 text-emerald-100" />
-      <Target className="absolute right-14 top-40 h-10 w-10 text-violet-100" />
-    </div>
+    </aside>
   );
 }
 
 export default function ToolsLauncherPage() {
   return (
-    <div className="min-h-full bg-[#050d10] text-white">
+    <div className="min-h-full bg-[color:var(--app-shell)] text-[color:var(--primary-contrast)] dark:text-[color:var(--text-heading)]">
       <div className="relative isolate min-h-full overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,#07161b_0%,#071014_42%,#020608_100%)]" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,.13)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.11)_1px,transparent_1px)] [background-size:56px_56px]" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-cyan-200/[0.08] to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/58 to-transparent" />
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_-8%,color-mix(in_srgb,var(--primary)_20%,transparent),transparent_34rem),radial-gradient(circle_at_86%_8%,color-mix(in_srgb,var(--info)_16%,transparent),transparent_30rem),linear-gradient(180deg,var(--app-shell-muted)_0%,var(--app-shell)_46%,color-mix(in_srgb,var(--app-shell)_70%,black)_100%)]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.1] [background-image:linear-gradient(color-mix(in_srgb,white_18%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,white_14%,transparent)_1px,transparent_1px)] [background-size:48px_48px]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-80 bg-gradient-to-t from-black/70 to-transparent"
+          aria-hidden
+        />
 
-        <section className="relative z-10 mx-auto flex min-h-svh max-w-7xl flex-col px-4 py-6 sm:px-6 sm:py-8">
-          <nav className="flex items-center justify-between gap-3">
-            <p className="text-sm font-black text-cyan-100">Clinical KB Tools Atelier</p>
-            <Link
-              href="/"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/14 bg-white/[0.06] px-3 text-sm font-bold text-white/84 transition hover:border-white/28 hover:bg-white/[0.1]"
-            >
-              <LayoutList className="h-4 w-4" />
-              Dashboard
-            </Link>
-          </nav>
+        <main id="main-content" className="relative z-10">
+          <section className="mx-auto flex min-h-[68svh] max-w-7xl flex-col px-4 pb-6 pt-safe sm:px-6 lg:min-h-[64svh]">
+            <nav className="flex items-center justify-between gap-3 py-4">
+              <Link
+                href="/"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-3 text-white/76 shadow-[var(--shadow-inset)] outline-none transition hover:border-white/20 hover:bg-white/[0.1] hover:text-white focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/30"
+                aria-label="Return to Clinical KB dashboard"
+              >
+                <LayoutList className="h-5 w-5" aria-hidden />
+              </Link>
+              <a
+                href="#launchers"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3 text-sm font-semibold text-white/76 shadow-[var(--shadow-inset)] outline-none transition hover:border-white/20 hover:bg-white/[0.1] hover:text-white focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/30"
+              >
+                Launchers
+                <ArrowDown className="h-4 w-4" aria-hidden />
+              </a>
+            </nav>
 
-          <div className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[minmax(0,1fr)_26rem]">
-            <div className="max-w-4xl">
-              <p className="text-sm font-black text-white/54">Command studio</p>
-              <h1 className="mt-4 text-6xl font-black leading-[0.88] text-white sm:text-8xl lg:text-9xl">
-                Launch the clinical stack.
-              </h1>
-              <p className="mt-7 max-w-2xl text-lg font-medium leading-8 text-white/68 sm:text-xl sm:leading-9">
-                A refined command surface for formulation, diagnosis, therapy, medications, services, differentials,
-                forms, specifiers, and psychiatry notes.
-              </p>
-
-              <div className="mt-8 h-px max-w-xl bg-gradient-to-r from-cyan-100/42 via-white/16 to-transparent" />
-              <ProjectTabStrip />
-            </div>
-
-            <ClinicalSignalPanel />
-          </div>
-
-          <a
-            href="#launchers"
-            className="mb-2 inline-flex w-fit items-center gap-2 rounded-md border border-white/14 bg-white/[0.06] px-4 py-3 text-sm font-black text-white/84 transition hover:border-white/28 hover:bg-white/[0.1]"
-          >
-            Open launchers
-            <ArrowDown className="h-4 w-4" />
-          </a>
-        </section>
-
-        <main id="launchers" className="relative z-10 mx-auto max-w-7xl px-4 pb-10 sm:px-6">
-          <div className="border-t border-white/10 pt-8">
-            <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-              <div>
-                <h2 className="text-3xl font-black leading-none text-white sm:text-4xl">Clinical app launchers</h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/58">
-                  Direct routes into the main local clinical applications in this workspace.
+            <div className="grid flex-1 items-center gap-5 py-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-8">
+              <div className="max-w-4xl">
+                <h1 className="max-w-3xl text-5xl font-black leading-[0.92] text-white sm:text-6xl lg:text-7xl xl:text-8xl">
+                  Open the right clinical tool.
+                </h1>
+                <p className="mt-5 max-w-2xl text-base font-semibold leading-7 text-white/68 sm:text-lg sm:leading-8">
+                  Jump to formulation, DSM-5 criteria, medications, differentials, notes, forms, therapy, specifiers, or
+                  service pathways. Each launch opens the local app shown on the card.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-sm font-bold text-white/48">
-                <Sparkles className="h-4 w-4 text-cyan-100" />
-                Launch only, no dashboard noise
+
+              <HeroConsole />
+            </div>
+          </section>
+
+          <section id="launchers" className="scroll-mt-8 px-4 pb-10 sm:px-6">
+            <div className="mx-auto max-w-7xl border-t border-white/10 pt-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-3xl font-black leading-none text-white sm:text-4xl">All clinical tools</h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/56">
+                    Use the host label to confirm the local app, then open the tool in a new tab.
+                  </p>
+                </div>
+                <span className="inline-flex min-h-9 w-fit items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 text-xs font-semibold text-white/54 shadow-[var(--shadow-inset)]">
+                  <ExternalLink className="h-4 w-4 text-[color:var(--primary-100)]" aria-hidden />
+                  Opens in a new tab
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {toolCatalog.map((tool) => (
+                  <LaunchCard key={tool.id} tool={tool} />
+                ))}
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {toolCatalog.map((tool) => (
-                <LaunchCard key={tool.id} tool={tool} />
-              ))}
-            </div>
-          </div>
+          </section>
         </main>
       </div>
     </div>

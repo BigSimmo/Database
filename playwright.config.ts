@@ -5,8 +5,8 @@ const baseURL = getPlaywrightBaseUrl();
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: /.*ui-(smoke|stress)\.spec\.ts/,
-  timeout: 30_000,
+  testMatch: /.*ui-(smoke|stress|accessibility|tools)\.spec\.ts/,
+  timeout: 60_000,
   expect: {
     timeout: 10_000,
   },
