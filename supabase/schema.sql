@@ -563,6 +563,9 @@ create index if not exists document_embedding_fields_chunk_idx
   where source_chunk_id is not null;
 create index if not exists document_embedding_fields_search_idx
   on public.document_embedding_fields using gin(search_tsv);
+create index if not exists document_embedding_fields_embedding_hnsw_idx
+  on public.document_embedding_fields using hnsw (embedding vector_cosine_ops)
+  with (m = 24, ef_construction = 128);
 create unique index if not exists document_embedding_fields_dedup_idx
   on public.document_embedding_fields(document_id, source_chunk_id, field_type, content_hash);
 
@@ -1502,6 +1505,7 @@ declare
     'document_summaries_summary_trgm_idx',
     'document_index_units_embedding_hnsw_idx',
     'document_chunks_embedding_hnsw_idx',
+    'document_embedding_fields_embedding_hnsw_idx',
     'document_table_facts_source_image_idx',
     'document_pages_document_idx',
     'document_sections_document_idx',
@@ -1575,7 +1579,7 @@ begin
     'missing', missing,
     'vector_extension_schema', vector_schema,
     'legacy_ivfflat_indexes', coalesce(legacy_ivfflat_indexes, array[]::text[]),
-    'deferred_hnsw_indexes', array['document_embedding_fields_embedding_hnsw_idx'],
+    'deferred_hnsw_indexes', array[]::text[],
     'checked_at', now()
   );
 end;
