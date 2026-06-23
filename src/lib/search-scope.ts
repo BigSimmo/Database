@@ -90,19 +90,9 @@ function isLocalSource(metadata: ClinicalSourceMetadata) {
   );
 }
 
-function metadataMatches(row: ScopeDocumentRow, filters: SearchScopeFilters) {
+function metadataMatchesLocality(row: ScopeDocumentRow, filters: SearchScopeFilters) {
+  if (!filters.locality) return true;
   const source = normalizeSourceMetadata(row.metadata);
-  const metadata = row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
-  const collection = typeof metadata.collection === "string" ? metadata.collection.trim().toLowerCase() : "";
-
-  if (filters.sourceStatuses?.length && !filters.sourceStatuses.includes(source.document_status)) return false;
-  if (filters.validationStatuses?.length && !filters.validationStatuses.includes(source.clinical_validation_status))
-    return false;
-  if (filters.extractionQualities?.length && !filters.extractionQualities.includes(source.extraction_quality))
-    return false;
-  if (filters.importBatchIds?.length && (!row.import_batch_id || !filters.importBatchIds.includes(row.import_batch_id)))
-    return false;
-  if (filters.collections?.length && !filters.collections.map(normalizeFilterText).includes(collection)) return false;
   if (filters.locality === "local" && !isLocalSource(source)) return false;
   if (filters.locality === "non_local" && isLocalSource(source)) return false;
   return true;
@@ -134,30 +124,58 @@ export async function resolveSearchScope(args: {
   }
 
   const maxResolvedDocuments = args.maxResolvedDocuments ?? 5000;
-  const documentRows: ScopeDocumentRow[] = [];
-  const pageSize = 1000;
-  for (let offset = 0; offset < maxResolvedDocuments; offset += pageSize) {
-    let documentQuery = args.supabase
-      .from("documents")
-      .select("id,metadata,import_batch_id")
-      .eq("status", "indexed")
-      .range(offset, Math.min(offset + pageSize - 1, maxResolvedDocuments - 1));
-    if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
-    if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);
 
-    const { data, error: documentError } = await documentQuery;
-    if (documentError) throw new Error(documentError.message);
-    const page = (data ?? []) as ScopeDocumentRow[];
-    documentRows.push(...page);
-    if (page.length < pageSize || documentRows.length >= maxResolvedDocuments) break;
+  // Build a single SQL query with filters pushed down to avoid O(N) full scans.
+  let documentQuery = args.supabase
+    .from("documents")
+    .select("id,metadata,import_batch_id")
+    .eq("status", "indexed")
+    .limit(maxResolvedDocuments + 1); // fetch one extra to detect overflow
+  if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
+  if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);
+
+  // Push metadata enum filters into SQL using JSONB text extraction. For each
+  // filter that includes the fallback "unknown"/"unverified" value we also
+  // accept rows where the field is absent (NULL in JSON extraction).
+  if (filters.sourceStatuses?.length) {
+    const parts = filters.sourceStatuses.map((s) => `metadata->>document_status.eq.${s}`);
+    if (filters.sourceStatuses.includes("unknown")) parts.push("metadata->>document_status.is.null");
+    documentQuery = documentQuery.or(parts.join(","));
   }
-  if (documentRows.length >= maxResolvedDocuments) {
+  if (filters.validationStatuses?.length) {
+    const parts = filters.validationStatuses.map((s) => `metadata->>clinical_validation_status.eq.${s}`);
+    if (filters.validationStatuses.includes("unverified")) parts.push("metadata->>clinical_validation_status.is.null");
+    documentQuery = documentQuery.or(parts.join(","));
+  }
+  if (filters.extractionQualities?.length) {
+    const parts = filters.extractionQualities.map((q) => `metadata->>extraction_quality.eq.${q}`);
+    if (filters.extractionQualities.includes("unknown")) parts.push("metadata->>extraction_quality.is.null");
+    documentQuery = documentQuery.or(parts.join(","));
+  }
+  if (filters.importBatchIds?.length) {
+    documentQuery = documentQuery.in("import_batch_id", filters.importBatchIds);
+  }
+  if (filters.collections?.length) {
+    // Use ilike for case-insensitive collection matching (mirrors the in-memory
+    // toLowerCase comparison in the original metadataMatches helper).
+    const parts = filters.collections.map((c) => `metadata->>collection.ilike.${normalizeFilterText(c)}`);
+    documentQuery = documentQuery.or(parts.join(","));
+  }
+
+  const { data, error: documentError } = await documentQuery;
+  if (documentError) throw new Error(documentError.message);
+
+  let documentRows = (data ?? []) as ScopeDocumentRow[];
+  if (documentRows.length > maxResolvedDocuments) {
+    documentRows = documentRows.slice(0, maxResolvedDocuments);
     warnings.push(
-      `Scope resolution read the first ${maxResolvedDocuments} indexed documents; narrow the filters if expected documents are missing.`,
+      `Scope resolution matched more than ${maxResolvedDocuments} indexed documents; narrow the filters if expected documents are missing.`,
     );
   }
 
-  const rows = documentRows.filter((row) => metadataMatches(row, filters));
+  // Apply locality filter in application code — it requires a regex match
+  // across two JSONB fields that cannot be expressed via PostgREST alone.
+  const rows = filters.locality ? documentRows.filter((row) => metadataMatchesLocality(row, filters)) : documentRows;
   const candidateIds = rows.map((row) => row.id);
   if (candidateIds.length === 0) {
     warnings.push("No indexed documents matched the selected filters.");
