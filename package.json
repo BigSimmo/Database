@@ -57,7 +57,7 @@
     "workflow:clean-state": "node ../.local-dev/workflow-clean-state.mjs"
   },
   "dependencies": {
-    "@next/env": "^16.2.7",
+    "@next/env": "^16.2.9",
     "@supabase/supabase-js": "^2.107.0",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
