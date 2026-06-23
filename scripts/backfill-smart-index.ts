@@ -78,6 +78,10 @@ function hashText(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function hashEmbeddingFieldText(value: string) {
+  return createHash("md5").update(value).digest("hex");
+}
+
 function compactSearchText(value: unknown, limit = 900) {
   const clean = String(value ?? "")
     .replace(/\s+/g, " ")
@@ -173,7 +177,13 @@ async function repairChunkIndexingMetadata(args: {
       ? documentMetadata.index_generation_id
       : randomUUID();
 
-  const chunksToUpdate: { chunk: Record<string, unknown>; contentHash: string; sectionPath: string[]; anchorId: string; metadata: Record<string, unknown> }[] = [];
+  const chunksToUpdate: {
+    chunk: Record<string, unknown>;
+    contentHash: string;
+    sectionPath: string[];
+    anchorId: string;
+    metadata: Record<string, unknown>;
+  }[] = [];
 
   for (const chunk of args.chunks) {
     const sectionPath = chunkSectionPath(chunk);
@@ -182,7 +192,7 @@ async function repairChunkIndexingMetadata(args: {
       typeof chunk.content_hash === "string" && chunk.content_hash
         ? chunk.content_hash
         : hashText(`${chunk.section_heading ?? ""}\n${chunk.content ?? ""}`);
-    
+
     const chunkMetadata = metadataRecord(chunk.metadata);
     const needsUpdate =
       chunk.content_hash !== contentHash ||
@@ -232,7 +242,7 @@ async function repairChunkIndexingMetadata(args: {
             })
             .eq("id", item.chunk.id);
           if (error) throw new Error(error.message);
-        })
+        }),
       );
     }
   }
@@ -313,6 +323,7 @@ async function upsertDocumentLevelEmbeddingFields(args: {
     source_chunk_id: sourceChunkId,
     field_type: input.field_type,
     content: input.content,
+    content_hash: hashEmbeddingFieldText(input.content),
     embedding: embeddings[index],
     metadata: { source: "backfill_document_level" },
   }));

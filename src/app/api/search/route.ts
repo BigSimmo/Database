@@ -21,6 +21,20 @@ import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/typ
 
 export const runtime = "nodejs";
 
+type RetrievalLogWriteMetrics = {
+  attempts: number;
+  failures: number;
+  lastFailureAt: string | null;
+  lastFailureMessage: string | null;
+};
+
+const retrievalLogWriteMetrics: RetrievalLogWriteMetrics = {
+  attempts: 0,
+  failures: 0,
+  lastFailureAt: null,
+  lastFailureMessage: null,
+};
+
 const searchSchema = z.object({
   query: z.string().trim().min(1),
   topK: z.number().int().min(1).max(20).optional(),
@@ -388,6 +402,88 @@ function latencyBucket(ms: number) {
   return "gte_5000ms";
 }
 
+function logRetrievalDiagnostics(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  query: string;
+  results: SearchResult[];
+  telemetry: Record<string, unknown>;
+  relevance: { verdict: string; score: number };
+}) {
+  void (async () => {
+    retrievalLogWriteMetrics.attempts += 1;
+    try {
+      const topResult = args.results[0] ?? null;
+      const topScore = topResult ? (topResult.hybrid_score ?? topResult.similarity ?? 0) : 0;
+      const scores = args.results.slice(0, 20).map((r) => r.hybrid_score ?? r.similarity ?? 0);
+      const meanScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+      const isMiss =
+        args.results.length === 0 ||
+        args.relevance.verdict === "none" ||
+        args.relevance.verdict === "nearby" ||
+        topScore < 0.48;
+      const latencyMs = telemetryLatencyMs(args.telemetry);
+
+      await args.supabase.from("rag_retrieval_logs").insert({
+        owner_id: args.ownerId,
+        query: queryTextForStorage(args.query),
+        normalized_query: normalizeQueryText(args.query),
+        query_class: (args.telemetry.query_class as string) ?? null,
+        retrieval_strategy: (args.telemetry.retrieval_strategy as string) ?? null,
+        candidate_count: args.results.length,
+        top_similarity: topResult?.similarity ?? null,
+        top_text_rank: topResult?.text_rank ?? null,
+        top_hybrid_score: Number.isFinite(topScore) ? topScore : null,
+        top_rrf_score: topResult?.rrf_score ?? null,
+        mean_hybrid_score: meanScore || null,
+        selected_chunk_ids: args.results
+          .slice(0, 12)
+          .map((r) => r.id)
+          .filter((id) => /^[0-9a-f-]{36}$/i.test(id)),
+        selected_document_ids: Array.from(new Set(args.results.slice(0, 12).map((r) => r.document_id))).filter((id) =>
+          /^[0-9a-f-]{36}$/i.test(id),
+        ),
+        selected_count: Math.min(args.results.length, 12),
+        embedding_latency_ms:
+          typeof args.telemetry.embedding_latency_ms === "number" ? args.telemetry.embedding_latency_ms : null,
+        vector_candidate_count:
+          typeof args.telemetry.vector_candidate_count === "number" ? args.telemetry.vector_candidate_count : null,
+        text_candidate_count:
+          typeof args.telemetry.text_candidate_count === "number" ? args.telemetry.text_candidate_count : null,
+        embedding_field_count:
+          typeof args.telemetry.embedding_field_count === "number" ? args.telemetry.embedding_field_count : null,
+        rpc_latency_ms:
+          typeof args.telemetry.supabase_rpc_latency_ms === "number" ? args.telemetry.supabase_rpc_latency_ms : null,
+        rerank_latency_ms:
+          typeof args.telemetry.rerank_latency_ms === "number" ? args.telemetry.rerank_latency_ms : null,
+        total_latency_ms: latencyMs || null,
+        memory_card_count:
+          typeof args.telemetry.memory_card_count === "number" ? args.telemetry.memory_card_count : null,
+        index_unit_count: typeof args.telemetry.index_unit_count === "number" ? args.telemetry.index_unit_count : null,
+        is_miss: isMiss,
+        miss_reason: isMiss ? (args.results.length === 0 ? "no_results" : `weak_${args.relevance.verdict}`) : null,
+        embedding_cache_hit:
+          typeof args.telemetry.embedding_cache_hit === "boolean" ? args.telemetry.embedding_cache_hit : null,
+        metadata: {
+          relevance_score: args.relevance.score,
+          latency_bucket: latencyBucket(latencyMs),
+        },
+      });
+    } catch (error) {
+      retrievalLogWriteMetrics.failures += 1;
+      retrievalLogWriteMetrics.lastFailureAt = new Date().toISOString();
+      retrievalLogWriteMetrics.lastFailureMessage =
+        error instanceof Error ? `${error.name}: ${error.message}` : "Unknown retrieval logging error";
+      if (retrievalLogWriteMetrics.failures <= 3 || retrievalLogWriteMetrics.failures % 25 === 0) {
+        console.warn("rag_retrieval_logs insert failed", {
+          ...retrievalLogWriteMetrics,
+          ownerId: args.ownerId,
+        });
+      }
+    }
+  })();
+}
+
 function logSearchObservation(args: {
   supabase: ReturnType<typeof createAdminClient>;
   ownerId: string;
@@ -577,6 +673,7 @@ async function buildScopedSearchPayload(
       rrf_top_score: search.telemetry.rrf_top_score,
     },
   };
+  logRetrievalDiagnostics({ supabase, ownerId, query: body.query, results, telemetry: search.telemetry, relevance });
   logSearchObservation({ supabase, ownerId, query: body.query, results, payload });
   return payload;
 }

@@ -59,8 +59,13 @@ const progressUpdateState = new Map<string, { updatedAt: number; progress: numbe
 const progressUpdateMinIntervalMs = env.WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS;
 const progressUpdateMinDelta = 4;
 const maxSupabaseBackoffMs = env.WORKER_HEALTH_BACKOFF_MS;
+const analyzeRagTablesThrottleMs = 45_000;
+let lastAnalyzeRagTablesAt = 0;
 
-function supabaseStageError(stage: string, error: { message?: string; code?: string; details?: string; hint?: string }) {
+function supabaseStageError(
+  stage: string,
+  error: { message?: string; code?: string; details?: string; hint?: string },
+) {
   const wrapped = new Error(`${stage}: ${error.message ?? "Supabase request failed"}`);
   Object.assign(wrapped, {
     code: error.code,
@@ -93,7 +98,10 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 
   const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
   if (error) {
-    console.warn("Ingestion progress update failed", safeErrorLogDetails(supabaseStageError("update ingestion progress", error)));
+    console.warn(
+      "Ingestion progress update failed",
+      safeErrorLogDetails(supabaseStageError("update ingestion progress", error)),
+    );
     return;
   }
   progressUpdateState.set(jobId, { updatedAt: now, progress: patch.progress, stage: patch.stage });
@@ -224,6 +232,17 @@ function optionalIndexWriteWarning(stage: string, error: unknown) {
   console.warn(`Optional ${stage} write failed`, safeErrorLogDetails(error));
 }
 
+async function refreshRagTableStats() {
+  const now = Date.now();
+  if (now - lastAnalyzeRagTablesAt < analyzeRagTablesThrottleMs) return;
+
+  const { error } = await supabase.rpc("analyze_rag_tables");
+  lastAnalyzeRagTablesAt = now;
+  if (!error) return;
+
+  optionalIndexWriteWarning("rag table statistics refresh", supabaseStageError("analyze_rag_tables", error));
+}
+
 function noteSkippedImage(skipReasons: Map<string, number>, reason: string) {
   skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
 }
@@ -252,7 +271,10 @@ async function downloadDocument(storagePath: string) {
 
 function cleanString(val: string): string {
   if (typeof val !== "string") return val;
-  return val.replace(/\u0000/g, "").replace(/\\u0000/g, "").toWellFormed();
+  return val
+    .replace(/\u0000/g, "")
+    .replace(/\\u0000/g, "")
+    .toWellFormed();
 }
 
 type JsonbValue = string | number | boolean | null | { [key: string]: JsonbValue } | JsonbValue[];
@@ -304,6 +326,10 @@ function hashBytes(bytes: Buffer) {
 
 function hashText(text: string) {
   return createHash("sha256").update(text.replace(/\s+/g, " ").trim()).digest("hex");
+}
+
+function hashEmbeddingFieldContent(content: string) {
+  return createHash("md5").update(content).digest("hex");
 }
 
 function compactSearchText(value: unknown, limit = 900) {
@@ -837,6 +863,7 @@ async function insertDocumentLevelEmbeddingFields(args: {
     source_chunk_id: sourceChunkId,
     field_type: field.field_type,
     content: field.content,
+    content_hash: hashEmbeddingFieldContent(field.content),
     embedding: embeddings[index],
     metadata: {
       source: "document_level",
@@ -916,11 +943,12 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
         const fieldRows = fieldInputs.map((field, index) => ({
           ...field,
           content: cleanString(field.content),
+          content_hash: hashEmbeddingFieldContent(cleanString(field.content)),
           embedding: fieldEmbeddings[index],
           metadata: sanitizeJsonbRecord(field.metadata),
         }));
-        for (let start = 0; start < fieldRows.length; start += 10) {
-          const batch = fieldRows.slice(start, start + 10);
+        for (let start = 0; start < fieldRows.length; start += 50) {
+          const batch = fieldRows.slice(start, start + 50);
           const { error: fieldsError } = await supabase.from("document_embedding_fields").insert(batch);
           if (fieldsError) throw supabaseStageError("insert section-context embedding fields", fieldsError);
         }
@@ -954,16 +982,21 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
   if (additionalFieldInputs.length > 0) {
     try {
       const additionalEmbeddings = await embedTexts(additionalFieldInputs.map((field) => field.content));
-      const additionalRows = additionalFieldInputs.map((field, index) => ({
-        ...field,
-        content: cleanString(field.content),
-        embedding: additionalEmbeddings[index],
-        metadata: sanitizeJsonbRecord(field.metadata),
-      }));
-      for (let start = 0; start < additionalRows.length; start += 10) {
-        const batch = additionalRows.slice(start, start + 10);
+      const additionalRows = additionalFieldInputs.map((field, index) => {
+        const content = cleanString(field.content);
+        return {
+          ...field,
+          content,
+          content_hash: hashEmbeddingFieldContent(content),
+          embedding: additionalEmbeddings[index],
+          metadata: sanitizeJsonbRecord(field.metadata),
+        };
+      });
+      for (let start = 0; start < additionalRows.length; start += 50) {
+        const batch = additionalRows.slice(start, start + 50);
         const { error: additionalFieldsError } = await supabase.from("document_embedding_fields").insert(batch);
-        if (additionalFieldsError) throw supabaseStageError("insert supplemental embedding fields", additionalFieldsError);
+        if (additionalFieldsError)
+          throw supabaseStageError("insert supplemental embedding fields", additionalFieldsError);
       }
     } catch (error) {
       optionalIndexWriteWarning("supplemental embedding field", error);
@@ -1083,8 +1116,8 @@ async function processJob(job: JobRow) {
     const { error: initialQualityError } = await supabase
       .from("document_index_quality")
       .upsert(sanitizeJsonbRecord(initialQuality), {
-      onConflict: "document_id",
-    });
+        onConflict: "document_id",
+      });
     if (initialQualityError) throw new Error(initialQualityError.message);
 
     const indexedAt = new Date().toISOString();
@@ -1197,6 +1230,7 @@ async function processJob(job: JobRow) {
     });
 
     await completeJob(job, enrichmentStatus === "completed" ? "indexed" : "indexed; enrichment deferred");
+    await refreshRagTableStats();
   } catch (error) {
     console.error(`Ingestion job ${job.id} failed:`, error);
     const message = error instanceof Error ? error.message : String(error);
