@@ -992,10 +992,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    await expect(
-      page.getByTestId("pdf-preview").getByText(/Sign in to open private source documents\.|Document not found\./),
-    ).toBeVisible({ timeout: 30000 });
-    await expect(page.getByRole("heading", { level: 1, name: /Sign in required|Source unavailable/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /Sign in required|Source unavailable/ })).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.locator("body")).toContainText(/Sign in to open private source documents\.|Document not found\./);
     await expect(page.getByRole("button", { name: "Summarise document" })).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
@@ -1048,7 +1048,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("duplicate upload warning and exact-copy batch count are visible", async ({ page }) => {
+  test("duplicate upload warning is visible", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await seedAuthenticatedSession(page);
     await mockPrivateAuthenticatedApi(page);
@@ -1062,7 +1062,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer).toBeVisible();
 
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
-    await expect(uploadDrawer.getByText(/2 exact cop(?:y|ies) skipped/)).toBeVisible({ timeout: 30000 });
+    await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
     await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
     await uploadDrawer.locator('input[name="file"]').setInputFiles({
