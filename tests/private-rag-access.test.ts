@@ -9,7 +9,7 @@ const allowedRateLimit = {
   limit: 100,
   remaining: 99,
   retryAfterSeconds: 0,
-  resetAt: Date.now() + 60_000,
+  resetAt: new Date(Date.now() + 60_000).toISOString(),
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -123,10 +123,13 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     requireAuthenticatedUser,
     unauthorizedResponse,
   }));
-  vi.doMock("@/lib/public-rate-limit", () => ({
-    consumePublicAnswerRateLimit: vi.fn(() => allowedRateLimit),
-    consumePublicSearchRateLimit: vi.fn(() => allowedRateLimit),
-  }));
+  vi.doMock("@/lib/api-rate-limit", async () => {
+    const actual = await vi.importActual<typeof import("../src/lib/api-rate-limit")>("@/lib/api-rate-limit");
+    return {
+      ...actual,
+      consumeApiRateLimit: vi.fn(async () => allowedRateLimit),
+    };
+  });
   vi.doMock("@/lib/demo-data", () => ({ demoAnswer, demoSearch }));
   vi.doMock("@/lib/rag", () => ({ answerQuestionWithScope, searchChunksWithTelemetry }));
   vi.doMock("@/lib/document-enrichment", () => ({

@@ -3,6 +3,7 @@ import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
@@ -71,6 +72,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const mode = await readMode(request);
+    const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "document_reindex" });
+    if (rateLimit.limited)
+      return rateLimitJsonResponse("Too many document reindex requests. Retry shortly.", rateLimit);
 
     const { data: document, error: documentError } = await supabase
       .from("documents")

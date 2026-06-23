@@ -463,6 +463,16 @@ create table if not exists public.rag_retrieval_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.api_rate_limits (
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  bucket text not null,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 0 check (request_count >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (owner_id, bucket),
+  constraint api_rate_limits_bucket_nonempty check (btrim(bucket) <> '')
+);
+
 create table if not exists public.storage_cleanup_jobs (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -653,6 +663,8 @@ create index if not exists rag_retrieval_logs_miss_idx
   where is_miss = true;
 create index if not exists rag_retrieval_logs_strategy_idx
   on public.rag_retrieval_logs(retrieval_strategy, created_at desc);
+create index if not exists api_rate_limits_bucket_updated_idx
+  on public.api_rate_limits(bucket, updated_at desc);
 
 -- Redundant single-column FK indexes removed (covered by composite indexes
 -- with the same leading column, e.g. document_chunks_document_idx).
@@ -665,6 +677,81 @@ as $$
 begin
   new.updated_at = now();
   return new;
+end;
+$$;
+
+create or replace function public.consume_api_rate_limit(
+  p_owner_id uuid,
+  p_bucket text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns table (
+  limited boolean,
+  limit_value integer,
+  remaining integer,
+  retry_after_seconds integer,
+  reset_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_now timestamptz := now();
+  v_window_start timestamptz := v_now;
+  v_count integer;
+  v_reset_at timestamptz;
+begin
+  if p_owner_id is null then
+    raise exception 'owner_id is required';
+  end if;
+  if p_bucket is null or btrim(p_bucket) = '' then
+    raise exception 'bucket is required';
+  end if;
+  if p_limit < 1 then
+    raise exception 'limit must be positive';
+  end if;
+  if p_window_seconds < 1 then
+    raise exception 'window must be positive';
+  end if;
+
+  loop
+    update public.api_rate_limits
+    set
+      window_start = case
+        when window_start + make_interval(secs => p_window_seconds) <= v_now then v_window_start
+        else window_start
+      end,
+      request_count = case
+        when window_start + make_interval(secs => p_window_seconds) <= v_now then 1
+        else request_count + 1
+      end,
+      updated_at = v_now
+    where owner_id = p_owner_id
+      and bucket = p_bucket
+    returning request_count, window_start + make_interval(secs => p_window_seconds)
+      into v_count, v_reset_at;
+
+    exit when found;
+
+    begin
+      insert into public.api_rate_limits(owner_id, bucket, window_start, request_count, updated_at)
+      values (p_owner_id, p_bucket, v_window_start, 1, v_now)
+      returning request_count, window_start + make_interval(secs => p_window_seconds)
+        into v_count, v_reset_at;
+      exit;
+    exception when unique_violation then
+    end;
+  end loop;
+
+  return query
+  select
+    v_count > p_limit as limited,
+    p_limit as limit_value,
+    greatest(p_limit - v_count, 0) as remaining,
+    greatest(1, ceiling(extract(epoch from (v_reset_at - v_now)))::integer) as retry_after_seconds,
+    v_reset_at as reset_at;
 end;
 $$;
 
@@ -2018,6 +2105,7 @@ grant select, insert, update, delete on table
   public.rag_query_misses,
   public.rag_aliases,
   public.rag_response_cache,
+  public.api_rate_limits,
   public.storage_cleanup_jobs,
   public.rag_retrieval_logs
 to service_role;
@@ -2064,6 +2152,7 @@ alter table public.rag_queries enable row level security;
 alter table public.rag_query_misses enable row level security;
 alter table public.rag_aliases enable row level security;
 alter table public.rag_response_cache enable row level security;
+alter table public.api_rate_limits enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
 alter table public.rag_retrieval_logs enable row level security;
 
@@ -2152,6 +2241,11 @@ create policy "rag response cache service role all" on public.rag_response_cache
   using (true)
   with check (true);
 
+create policy "api rate limits service role all" on public.api_rate_limits
+  for all to service_role
+  using (true)
+  with check (true);
+
 create policy "storage cleanup owner read" on public.storage_cleanup_jobs
   for select to authenticated using (owner_id = (select auth.uid()));
 
@@ -2167,7 +2261,7 @@ create table if not exists public.document_index_units (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
   document_id uuid not null references public.documents(id) on delete cascade,
-  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'vocabulary_term')),
+  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'vocabulary_term')),
   source_chunk_id uuid references public.document_chunks(id) on delete cascade,
   source_image_id uuid references public.document_images(id) on delete set null,
   page_start integer,
@@ -2242,7 +2336,7 @@ as $$
       (1 - (u.embedding <=> query_embedding))::double precision as similarity,
       (ts_rank_cd(u.search_tsv, query.tsq)
         + case when u.normalized_terms && query.terms then 0.25 else 0 end
-        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact') then 0.06
+        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias') then 0.06
                when u.unit_type = 'section_summary' then 0.03
                else 0 end
       )::double precision as text_rank,
@@ -2265,7 +2359,9 @@ as $$
       + (least(text_rank, 1) * 0.28)
       + (quality_score * 0.12)
       + (case when extraction_mode in ('model_heavy', 'hybrid') then 0.04 else 0 end)
-      + (case when unit_type = 'askable_question' then 0.04 else 0 end)
+      + (case when unit_type in ('askable_question', 'threshold', 'table_fact') then 0.04
+              when unit_type in ('workflow_step', 'medication_monitoring') then 0.03
+              else 0 end)
     )::double precision as hybrid_score,
     metadata
   from ranked

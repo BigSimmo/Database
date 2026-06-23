@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
-import { buildDocumentIndexUnitInputs, embeddingTextForDocumentIndexUnit } from "@/lib/document-index-units";
+import {
+  buildDocumentIndexUnitInputs,
+  countDocumentIndexUnitsByType,
+  documentIntelligenceVersion,
+  embeddingTextForDocumentIndexUnit,
+} from "@/lib/document-index-units";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import {
   fallbackModelIndexProfile,
@@ -27,6 +32,8 @@ type MemoryChunk = {
   page_number: number | null;
   chunk_index: number;
   section_heading: string | null;
+  section_path?: string[] | null;
+  anchor_id?: string | null;
   content: string;
   image_ids?: string[] | null;
   metadata?: Record<string, unknown> | null;
@@ -468,7 +475,66 @@ function embeddingText(card: BuiltMemoryCard) {
   return `${card.title}\n${card.card_type}\n${card.content}\nTerms: ${card.normalized_terms.join(", ")}`;
 }
 
-async function stampDeepMemoryVersion(args: { supabase: SupabaseClient; documentId: string }) {
+function slugForAnchor(value: string) {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+      .slice(0, 48) || "section"
+  );
+}
+
+function derivedChunkAnchor(chunk: MemoryChunk) {
+  const page = Number.isFinite(chunk.page_number) ? `p${chunk.page_number}` : "pna";
+  const heading = slugForAnchor(chunk.section_heading || chunk.section_path?.join(" ") || "chunk");
+  return `${page}-c${chunk.chunk_index}-${heading}`.slice(0, 80);
+}
+
+async function repairMissingChunkAnchors(supabase: SupabaseClient, chunks: MemoryChunk[]) {
+  const missing = chunks.filter((chunk) => chunk.anchor_id === null);
+  let repaired = 0;
+
+  for (let start = 0; start < missing.length; start += 10) {
+    const batch = missing.slice(start, start + 10);
+    await Promise.all(
+      batch.map(async (chunk) => {
+        const anchor = derivedChunkAnchor(chunk);
+        const { error } = await supabase
+          .from("document_chunks")
+          .update({
+            anchor_id: anchor,
+            metadata: {
+              ...metadataRecord(chunk.metadata),
+              anchor_id: anchor,
+              anchor_repaired_by: documentIntelligenceVersion,
+            },
+          })
+          .eq("id", chunk.id)
+          .is("anchor_id", null);
+        if (error) throw new Error(error.message);
+        chunk.anchor_id = anchor;
+        chunk.metadata = {
+          ...metadataRecord(chunk.metadata),
+          anchor_id: anchor,
+          anchor_repaired_by: documentIntelligenceVersion,
+        };
+        repaired += 1;
+      }),
+    );
+  }
+
+  return repaired;
+}
+
+async function stampDeepMemoryVersion(args: {
+  supabase: SupabaseClient;
+  documentId: string;
+  sectionCount: number;
+  memoryCardCount: number;
+  indexUnitCountsByType: Record<string, number>;
+  repairedAnchorCount: number;
+}) {
   const stampedAt = new Date().toISOString();
 
   const { data: doc, error: fetchError } = await args.supabase
@@ -487,6 +553,13 @@ async function stampDeepMemoryVersion(args: { supabase: SupabaseClient; document
         rag_indexing_version: ragDeepMemoryVersion,
         rag_memory_version: ragDeepMemoryVersion,
         rag_memory_updated_at: stampedAt,
+        document_intelligence_version: documentIntelligenceVersion,
+        document_intelligence_updated_at: stampedAt,
+        section_count: args.sectionCount,
+        memory_card_count: args.memoryCardCount,
+        index_unit_count: Object.values(args.indexUnitCountsByType).reduce((sum, count) => sum + count, 0),
+        index_unit_counts_by_type: args.indexUnitCountsByType,
+        repaired_anchor_count: args.repairedAnchorCount,
       },
     })
     .eq("id", args.documentId);
@@ -517,6 +590,7 @@ async function stampDeepMemoryVersion(args: { supabase: SupabaseClient; document
                 rag_indexing_version: ragDeepMemoryVersion,
                 rag_memory_version: ragDeepMemoryVersion,
                 rag_memory_updated_at: stampedAt,
+                document_intelligence_version: documentIntelligenceVersion,
               },
             })
             .eq("id", chunk.id);
@@ -629,7 +703,15 @@ export async function upsertDocumentDeepMemory(args: {
     }
   }
 
-  await stampDeepMemoryVersion({ supabase: args.supabase, documentId: args.document.id });
+  const repairedAnchorCount = await repairMissingChunkAnchors(args.supabase, args.chunks);
+  await stampDeepMemoryVersion({
+    supabase: args.supabase,
+    documentId: args.document.id,
+    sectionCount: sections.length,
+    memoryCardCount: cards.length,
+    indexUnitCountsByType: countDocumentIndexUnitsByType(indexUnits),
+    repairedAnchorCount,
+  });
   return { sections, memoryCards: cards, indexUnits, modelProfile };
 }
 

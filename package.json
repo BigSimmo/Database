@@ -32,6 +32,7 @@
     "import:docs": "tsx scripts/import-documents.ts",
     "import:docs:20": "tsx scripts/import-documents.ts --queue-batch-size 20",
     "enrich:documents": "tsx scripts/enrich-documents.ts",
+    "enrich:backfill": "tsx scripts/backfill-enrichment.ts",
     "tags:backfill": "tsx scripts/backfill-document-tags.ts",
     "index:backfill": "tsx scripts/backfill-smart-index.ts",
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
@@ -54,7 +55,9 @@
     "workflow:status": "node ../.local-dev/workflow-status.mjs",
     "workflow:verify": "node ../.local-dev/workflow-verify.mjs",
     "workflow:deps": "node ../.local-dev/workflow-deps.mjs",
-    "workflow:clean-state": "node ../.local-dev/workflow-clean-state.mjs"
+    "workflow:clean-state": "node ../.local-dev/workflow-clean-state.mjs",
+    "workflow:export": "node ../.local-dev/workflow-export.mjs",
+    "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs"
   },
   "dependencies": {
     "@next/env": "^16.2.9",
