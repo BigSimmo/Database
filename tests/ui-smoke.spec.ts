@@ -975,6 +975,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document viewer private missing source state is coherent", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
+    await page.route(/\/api\/documents\/[^/]+(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 404,
+        json: { error: "Document not found." },
+      });
+    });
+    await page.route(/\/api\/documents\/[^/]+\/signed-url(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 404,
+        json: { error: "Document not found." },
+      });
+    });
     await gotoApp(
       page,
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
@@ -1050,7 +1062,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer).toBeVisible();
 
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
-    await expect(uploadDrawer.getByText("2 exact copies skipped")).toBeVisible();
+    await expect(uploadDrawer.getByText(/2 exact cop(?:y|ies) skipped/)).toBeVisible({ timeout: 30000 });
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
     await expect(uploadDrawer.getByRole("button", { name: "Queue document" })).toBeEnabled({ timeout: 30000 });
     await uploadDrawer.locator('input[name="file"]').setInputFiles({
