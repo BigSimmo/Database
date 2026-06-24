@@ -77,4 +77,68 @@ describe("document index units", () => {
       alias: 1,
     });
   });
+
+  it("creates source-image-backed visual units from structured visual profiles", () => {
+    const units = buildDocumentIndexUnitInputs({
+      document,
+      chunks: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          page_number: 5,
+          chunk_index: 0,
+          section_heading: "Visual algorithm",
+          section_path: ["Visual algorithm"],
+          content: "The page contains a risk matrix and flowchart.",
+          metadata: {},
+        },
+      ],
+      images: [
+        {
+          id: "image-1",
+          pageNumber: 5,
+          imageType: "risk_matrix",
+          sourceKind: "page_region",
+          caption: "Risk matrix with red-zone escalation action.",
+          tableTitle: "Risk matrix",
+          structuredVisualProfile: {
+            clinical_purpose: "Risk matrix red-zone action",
+            key_terms: ["risk", "red zone", "escalation"],
+            medications: [],
+            thresholds: [{ label: "Red zone", value: "high risk", action: "Escalate urgently", confidence: 0.8 }],
+            actions: ["Escalate urgently"],
+            monitoring_items: [],
+            flowchart_nodes: [{ id: "assess", label: "Assess risk", type: "step" }],
+            flowchart_edges: [{ from: "assess", to: "escalate", label: "red zone" }],
+            risk_matrix_axes: ["likelihood", "consequence"],
+            risk_matrix_cells: [
+              { row: "High likelihood", column: "Severe consequence", risk: "Red", action: "Escalate", confidence: 0.9 },
+            ],
+            chart_axes: [],
+            chart_findings: [],
+            table_column_roles: {},
+            source_regions: [],
+            confidence: 0.86,
+          },
+          candidatePriorityScore: 0.9,
+          imageQualityScore: 0.8,
+        },
+      ],
+    });
+
+    expect(units.map((unit) => unit.unit_type)).toEqual(
+      expect.arrayContaining([
+        "visual_summary",
+        "visual_askable_question",
+        "table_threshold",
+        "flowchart_step",
+        "diagram_decision",
+        "risk_matrix_cell",
+      ]),
+    );
+    expect(units.filter((unit) => unit.unit_type.startsWith("visual")).every((unit) => unit.source_image_id === "image-1")).toBe(true);
+    expect(units.find((unit) => unit.unit_type === "risk_matrix_cell")?.metadata.visual_intelligence_version).toBe(
+      "visual-intelligence-v1",
+    );
+  });
 });

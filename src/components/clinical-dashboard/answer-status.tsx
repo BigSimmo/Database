@@ -1,27 +1,8 @@
 "use client";
 
-import { Clipboard, ClipboardCheck, Search, Sparkles } from "lucide-react";
+import { Clipboard, ClipboardCheck, MessageSquareText, Search, Sparkles, UploadCloud } from "lucide-react";
 
-import { cn, EmptyState, floatingControl, LoadingPanel, sourceCard, textMuted } from "@/components/ui-primitives";
-
-const sampleQueries = [
-  {
-    label: "Monitoring overview",
-    query: "What monitoring and escalation issues should I consider across these documents?",
-  },
-  {
-    label: "Lithium safety-net",
-    query: "What toxicity safety-net symptoms should be reviewed for lithium?",
-  },
-  {
-    label: "Clozapine table",
-    query: "What clozapine monitoring items are shown in the table image?",
-  },
-  {
-    label: "Risk escalation",
-    query: "When should acute risk be escalated for senior review?",
-  },
-] as const;
+import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
 
 export function CopyButton({
   label,
@@ -52,83 +33,63 @@ export function CopyButton({
 
 export function AnswerEmptyState({
   onPickSample,
-  recentQueries = [],
-  documentsLoading = false,
+  onSearchDocuments,
+  onUploadDocument,
 }: {
   onPickSample: (sample: string) => void;
-  recentQueries?: string[];
-  documentsLoading?: boolean;
+  onSearchDocuments: () => void;
+  onUploadDocument: () => void;
 }) {
+  const starterButtonClass = cn(
+    floatingControl,
+    "min-h-[68px] flex-col items-start justify-center gap-1.5 rounded-xl px-4 py-3 text-left sm:min-h-[7rem] sm:items-center sm:text-center",
+  );
+
   return (
-    <div className="space-y-3">
-      <EmptyState
-        icon={Search}
-        title="Ask indexed guidelines"
-        body="Results, source quotes, and diagrams will appear here."
-      />
-      {documentsLoading ? (
-        <LoadingPanel label="Checking indexed library before showing document status" variant="skeleton" lines={2} />
-      ) : null}
-      {recentQueries.length > 0 ? (
-        <section
-          aria-label="Recent questions"
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+    <div className="mx-auto grid w-full max-w-xl place-items-center gap-5 py-10 text-center sm:py-16">
+      <div className="grid h-20 w-20 place-items-center rounded-3xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+        <MessageSquareText className="h-9 w-9" />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">How can I help?</h2>
+        <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>
+          Ask a clinical question or search your documents.
+        </p>
+      </div>
+      <section aria-label="Starter actions" className={cn("grid w-full gap-3 sm:grid-cols-3")}>
+        <button
+          type="button"
+          onClick={() =>
+            onPickSample("What monitoring and escalation issues should I consider across these documents?")
+          }
+          className={starterButtonClass}
         >
-          <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              Recent questions
-            </p>
-            <span className={cn("text-[11px] font-semibold", textMuted)}>Resume</span>
-          </div>
-          <div className="grid gap-2">
-            {recentQueries.map((recent) => (
-              <button
-                key={recent}
-                type="button"
-                onClick={() => onPickSample(recent)}
-                title={recent}
-                className={cn(
-                  floatingControl,
-                  "min-h-10 justify-start px-3 text-left text-xs font-semibold sm:text-sm",
-                )}
-              >
-                <Search className="h-3.5 w-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{recent}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      <section
-        aria-label="Example questions"
-        className={cn(
-          "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-inset)]",
-        )}
-      >
-        <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-            Starter actions
-          </p>
-          <span className={cn("text-[11px] font-semibold", textMuted)}>Set question</span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {sampleQueries.map((sample) => (
-            <button
-              key={sample.query}
-              type="button"
-              onClick={() => onPickSample(sample.query)}
-              title={sample.query}
-              aria-label={`Use sample question: ${sample.query}`}
-              className={cn(
-                floatingControl,
-                "min-h-10 justify-start px-3 text-left text-xs motion-safe:transition-colors motion-safe:duration-150",
-              )}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="min-w-0 truncate">{sample.label}</span>
-            </button>
-          ))}
-        </div>
+          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
+            <Sparkles className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
+            Ask a question
+          </span>
+          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
+            Start a source-backed clinical answer.
+          </span>
+        </button>
+        <button type="button" onClick={onSearchDocuments} className={starterButtonClass}>
+          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
+            <Search className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
+            Search documents
+          </span>
+          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
+            Browse matching files and source sections.
+          </span>
+        </button>
+        <button type="button" onClick={onUploadDocument} className={starterButtonClass}>
+          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
+            <UploadCloud className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
+            Upload document
+          </span>
+          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
+            Add a guideline, PDF, or local source.
+          </span>
+        </button>
       </section>
     </div>
   );

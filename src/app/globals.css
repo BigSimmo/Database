@@ -112,6 +112,19 @@
   --primary-soft: #d6f2ec;
   --primary-contrast: #f8fffe;
 
+  /* Clinical chat redesign aliases. These are intentionally conservative and
+     functional: teal for active/source/send, sand for clinical notes, blue-grey
+     for document/search surfaces, and tiny dots for source status. */
+  --clinical-chat-teal: #006c67;
+  --clinical-chat-teal-soft: #e7f4f2;
+  --clinical-chat-sand: #f7f1e6;
+  --clinical-chat-sand-border: #eadcc7;
+  --clinical-chat-sand-border-strong: #ddc7a8;
+  --clinical-chat-document: #eef3f6;
+  --clinical-chat-table-header: #f4f7f8;
+  --clinical-chat-amber: #c88719;
+  --clinical-chat-ready: #1a8f5a;
+
   /* Semantic triads (text / background / border), AA on their own bg */
   --info-text: #2563eb;
   --info-bg: #e4eeff;
@@ -225,6 +238,16 @@
   --primary-strong: var(--primary-700);
   --primary-soft: #0a3838;
   --primary-contrast: #04111a;
+
+  --clinical-chat-teal: #76ded3;
+  --clinical-chat-teal-soft: #0a3838;
+  --clinical-chat-sand: #2d2418;
+  --clinical-chat-sand-border: #5a4427;
+  --clinical-chat-sand-border-strong: #806034;
+  --clinical-chat-document: #13202b;
+  --clinical-chat-table-header: #14212a;
+  --clinical-chat-amber: #f2b743;
+  --clinical-chat-ready: #42c77a;
 
   --info-text: #7db7ff;
   --info-bg: #102c4f;

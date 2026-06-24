@@ -25,6 +25,27 @@ async function gotoApp(page: Page, path: string) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
+function visibleQuestionInput(page: Page) {
+  return page.locator('[aria-label="Search indexed guidelines by question or keyword"]:visible').first();
+}
+
+async function fillVisibleQuestionInput(page: Page, value: string) {
+  const questionInput = visibleQuestionInput(page);
+  const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+
+  await expect(async () => {
+    await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
+      timeout: 1_000,
+    });
+    await expect(questionInput).toBeEditable({ timeout: 1_000 });
+    await questionInput.fill(value);
+    await expect(questionInput).toHaveValue(value, { timeout: 1_000 });
+    await expect(submitAnswer).toBeEnabled({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+
+  return questionInput;
+}
+
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
@@ -355,41 +376,16 @@ function scopeTrigger(page: Page) {
 }
 
 async function waitForDemoDashboardReady(page: Page) {
-  await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeEnabled();
+  await expect(visibleQuestionInput(page)).toBeEnabled();
   await expect(scopeTrigger(page)).toBeVisible({ timeout: 30000 });
 }
 
-async function scrollDashboardToBottom(page: Page) {
-  await page
-    .locator("main")
-    .first()
-    .evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-    });
-}
-
-async function expectMobileNavTarget(page: Page, label: string, hash: string, sectionText: string) {
-  const fabButton = page.getByTestId("mobile-section-fab-button");
-  const fabMenu = page.getByTestId("mobile-section-fab-menu");
-  await fabButton.click();
-  await expect(fabMenu).toBeVisible();
-  await fabMenu.getByRole("link", { name: new RegExp(`^${label}`) }).click();
-  await expect(fabMenu).toBeHidden();
-  await expect(fabButton).toBeFocused();
-  await fabButton.click();
-  await expect(fabMenu.locator(`a[href="${hash}"]`)).toHaveAttribute("aria-current", "page");
-  await page.keyboard.press("Escape");
-  await expect(fabMenu).toBeHidden();
-  await expect(fabButton).toBeFocused();
-  await expect(page.locator(hash)).toBeVisible();
-  await expect(page.locator(hash)).toContainText(sectionText);
-  await expectNoPageHorizontalOverflow(page);
-}
-
 async function openGuide(page: Page) {
-  await scrollDashboardToBottom(page);
-  const trigger = page.getByTestId("dashboard-guide-trigger");
-  await trigger.scrollIntoViewIfNeeded();
+  const viewport = page.viewportSize();
+  const trigger =
+    viewport && viewport.width >= 1024
+      ? page.getByRole("button", { name: "Guide & help" }).first()
+      : page.getByRole("button", { name: "Open guide and navigation menu" });
   await expect(trigger).toBeVisible();
   await trigger.click();
 
@@ -412,7 +408,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mockPrivateUnauthenticatedApi(page);
       await gotoApp(page, "/");
 
-      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
       await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
@@ -422,7 +418,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: /Use sample question/i }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Ask a question" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
       if (viewport.width <= 768) {
         await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
@@ -486,13 +484,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    await expect(page.getByRole("button", { name: /Use sample question/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
     const plainAnswer = page.getByTestId("plain-answer-response");
     await expect(plainAnswer).toBeVisible();
     await expect(plainAnswer).toContainText("synthetic clozapine table image highlights");
     await expect(plainAnswer.getByTestId("plain-answer-prose")).toBeVisible();
     await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
-    await expect(plainAnswer.locator("svg")).toHaveCount(0);
+    await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
+    await page.locator("#answer-more-detail-drawer > summary").click();
     await expect(page.getByTestId("clinical-action-view")).toBeVisible();
     await expect(
       page
@@ -541,36 +540,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
         .getByText("Draft only; verify source first before pasting into the medical record."),
     ).toHaveCount(0);
     await expect(page.getByTestId("answer-safety-notice")).toHaveCount(0);
-    const fabButton = page.getByTestId("mobile-section-fab-button");
-    const fabMenu = page.getByTestId("mobile-section-fab-menu");
-    await expect(fabButton).toBeVisible();
-    await fabButton.click();
-    await expect(fabMenu).toContainText("Answer navigator");
-    await expect(page.getByTestId("mobile-section-fab-status")).toHaveText("Ready to verify");
-    await expect(page.getByTestId("mobile-section-fab-next-step")).toHaveText("Next: review exact quotes");
-    await expect(fabMenu.getByRole("link", { name: /Quotes, \d+ items?/ })).toBeVisible();
-    await expect(fabMenu.getByRole("link", { name: /Images, \d+ items?/ })).toBeVisible();
-    await expect(fabMenu.getByRole("link", { name: /Sources, \d+ items?/ })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(fabMenu).toBeHidden();
-    await expect(fabButton).toBeFocused();
-    await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: true });
+    await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
+    await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
+    await expectDomIntegrity(page, { mobileNav: true });
 
-    const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
+    const evidenceDrawer = page.locator("#answer-evidence-drawer");
     await expect(evidenceDrawer).toBeVisible();
-    await expect(evidenceDrawer).toContainText(/top source/i);
-    await expect(evidenceDrawer).toContainText(/citations?/i);
-    await expect(page.getByText("Clinical evidence")).toBeVisible();
-    await expect(page.getByText("Library and admin")).toBeVisible();
+    await expect(evidenceDrawer).toContainText("Evidence");
+    await expect(evidenceDrawer).toContainText(/sources?/i);
+    await expect(evidenceDrawer).toContainText(/quotes?/i);
     expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     const hierarchy = await page.evaluate(() => {
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const structured = document.querySelector('[data-testid="clinical-action-view"]');
-      const evidence = Array.from(document.querySelectorAll("details")).find((element) =>
-        element.textContent?.includes("Evidence & sources"),
-      );
+      const evidence = document.querySelector("#answer-evidence-drawer");
       return {
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
         structuredTop: structured?.getBoundingClientRect().top ?? 9999,
@@ -592,27 +577,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(safetyNotice).toContainText("Draft only; verify source first before pasting into the medical record.");
     await expect(safetyNotice).toContainText("Synthetic demo only: this is not clinical guidance.");
 
-    const headingMetrics = await page.getByTestId("answer-section-heading").evaluate((element) => {
-      const icon = element.querySelector("[data-section-heading-icon]");
-      const title = element.querySelector("h2");
-      const actions = element.querySelector('[data-testid="answer-header-actions"]');
-      const iconRect = icon?.getBoundingClientRect();
-      const titleRect = title?.getBoundingClientRect();
-      const actionsRect = actions?.getBoundingClientRect();
-      return {
-        iconTitleCenterDelta:
-          iconRect && titleRect
-            ? Math.abs(iconRect.top + iconRect.height / 2 - (titleRect.top + titleRect.height / 2))
-            : 999,
-        hasActions: Boolean(actionsRect),
-      };
-    });
-    expect(headingMetrics.iconTitleCenterDelta).toBeLessThanOrEqual(3);
-    expect(headingMetrics.hasActions).toBe(false);
+    await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
+    await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
 
-    await expectMobileNavTarget(page, "Quotes", "#quotes", "Source quotes");
-    await expectMobileNavTarget(page, "Images", "#images", "Tables and diagrams");
-    await expectMobileNavTarget(page, "Sources", "#sources", "Source passages");
     await expect(page.getByText("Top source detail")).toHaveCount(0);
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
 
@@ -654,13 +621,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
 
-      await page
-        .getByLabel("Search indexed guidelines by question or keyword")
-        .fill("What clozapine monitoring items are shown in the table image?");
+      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
       const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
-      await expect(submitAnswer).toBeEnabled();
       await submitAnswer.click();
 
+      await page.locator("#answer-more-detail-drawer > summary").click();
       const clinicalTable = page.getByTestId("clinical-action-view").getByTestId("clinical-detail-table").first();
       await expect(clinicalTable).toBeVisible();
       await expect(clinicalTable).toContainText("FBC/ANC");
@@ -701,7 +666,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
 
     await page.getByRole("button", { name: "Switch to document search mode" }).click();
-    await expect(page.getByRole("heading", { name: "Document matches" })).toBeVisible();
+    await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
     await expect(page.getByRole("main").getByText("Search documents")).toBeVisible();
 
@@ -945,10 +910,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
 
-    await scrollDashboardToBottom(page);
-    const uploadTrigger = page.locator("#dashboard-upload-drawer-mobile-trigger");
-    await uploadTrigger.scrollIntoViewIfNeeded();
-    await uploadTrigger.click();
+    await page.getByRole("button", { name: /Upload document/i }).click();
     const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
     await expect(uploadDrawer).toBeVisible();
 
@@ -971,10 +933,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    await scrollDashboardToBottom(page);
-    const uploadTrigger = page.locator("#dashboard-upload-drawer-mobile-trigger");
-    await uploadTrigger.scrollIntoViewIfNeeded();
-    await uploadTrigger.click();
+    await page.getByRole("button", { name: /Upload document/i }).click();
     const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
     await expect(uploadDrawer).toBeVisible();
 

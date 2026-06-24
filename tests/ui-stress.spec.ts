@@ -217,12 +217,18 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
+      await page.getByRole("button", { name: "Open daily actions" }).click();
+      await page.getByRole("button", { name: "Add document" }).click();
       await expect(
         page
           .locator("#sources")
           .getByText(viewport.name === "mobile" ? "24 documents" : "24 indexed documents available")
           .first(),
       ).toBeVisible();
+      const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
+      if (await closeUploadSheet.isVisible().catch(() => false)) {
+        await closeUploadSheet.click();
+      }
       await expectNoPageHorizontalOverflow(page);
 
       await page.getByLabel("Open document scope").click();
@@ -247,6 +253,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Open document scope")).toBeFocused();
       await expectNoPageHorizontalOverflow(page);
 
+      await page.getByRole("button", { name: "Switch to answer mode" }).click();
       await page
         .getByLabel("Search indexed guidelines by question or keyword")
         .fill("Show all stress citations and source cards");
@@ -254,12 +261,13 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+      await page.locator("#answer-more-detail-drawer > summary").click();
       await expect(page.getByTestId("clinical-action-view")).toBeVisible();
       await expect(page.getByRole("button", { name: "Copy clinical draft" })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
       await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
       await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
-      const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
+      const evidenceDrawer = page.locator("#answer-evidence-drawer");
       await expect(evidenceDrawer).toBeVisible();
       expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
       await evidenceDrawer.locator("summary").click();

@@ -2468,24 +2468,50 @@ async function attachPageVisualEvidence(
   const pageNumbers = Array.from(
     new Set(results.map((result) => result.page_number).filter((page): page is number => Boolean(page))),
   );
-  if (documentIds.length === 0 || pageNumbers.length === 0) return results;
+  const sourceImageIds = Array.from(
+    new Set(
+      results.flatMap((result) => [
+        result.index_unit?.source_image_id ?? null,
+        ...(result.table_facts ?? []).map((fact) => fact.source_image_id),
+      ]),
+    ),
+  )
+    .filter((id): id is string => Boolean(id))
+    .slice(0, 80);
+  if (documentIds.length === 0 || (pageNumbers.length === 0 && sourceImageIds.length === 0)) return results;
 
-  const { data, error } = await supabase
-    .from("document_images")
-    .select(
-      "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata",
-    )
-    .in("document_id", documentIds)
-    .in("page_number", pageNumbers)
-    .eq("searchable", true)
-    .neq("image_type", "logo_decorative")
-    .order("clinical_relevance_score", { ascending: false })
-    .limit(80);
+  const selectColumns =
+    "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
+  const pageData =
+    pageNumbers.length > 0
+      ? await supabase
+          .from("document_images")
+          .select(selectColumns)
+          .in("document_id", documentIds)
+          .in("page_number", pageNumbers)
+          .eq("searchable", true)
+          .neq("image_type", "logo_decorative")
+          .order("clinical_relevance_score", { ascending: false })
+          .limit(80)
+      : { data: [], error: null };
+  const directData =
+    sourceImageIds.length > 0
+      ? await supabase
+          .from("document_images")
+          .select(selectColumns)
+          .in("id", sourceImageIds)
+          .eq("searchable", true)
+          .neq("image_type", "logo_decorative")
+          .limit(sourceImageIds.length)
+      : { data: [], error: null };
 
-  if (error || !data?.length) return results;
+  const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
+  if ((pageData.error && directData.error) || data.length === 0) return results;
 
   const imagesByPage = new Map<string, ChunkImage[]>();
+  const imagesById = new Map<string, ChunkImage>();
   for (const image of data) {
+    if (imagesById.has(image.id)) continue;
     const metadata = safeRecord(image.metadata);
     const rawTableText = metadataText(metadata, "table_text");
     const tableText = metadataText(metadata, "table_text_snippet") ?? rawTableText;
@@ -2514,15 +2540,32 @@ async function attachPageVisualEvidence(
       labels: Array.isArray(image.labels) ? image.labels : [],
       metadata,
     };
+    imagesById.set(image.id, publicImage);
     const key = `${image.document_id}:${image.page_number}`;
     imagesByPage.set(key, [...(imagesByPage.get(key) ?? []), publicImage]);
   }
 
   return results.map((result) => {
     const pageImages = imagesByPage.get(`${result.document_id}:${result.page_number}`) ?? [];
-    if (pageImages.length === 0) return result;
+    const directImages = [
+      result.index_unit?.source_image_id ? imagesById.get(result.index_unit.source_image_id) : null,
+      ...(result.table_facts ?? []).map((fact) => (fact.source_image_id ? imagesById.get(fact.source_image_id) : null)),
+    ].filter((image): image is ChunkImage => Boolean(image));
+    if (pageImages.length === 0 && directImages.length === 0) return result;
     const seen = new Set((result.images ?? []).map((image) => image.id));
-    const mergedImages = [...(result.images ?? []), ...pageImages.filter((image) => !seen.has(image.id))].slice(0, 4);
+    const mergedImages = [
+      ...(result.images ?? []),
+      ...directImages.filter((image) => {
+        if (seen.has(image.id)) return false;
+        seen.add(image.id);
+        return true;
+      }),
+      ...pageImages.filter((image) => {
+        if (seen.has(image.id)) return false;
+        seen.add(image.id);
+        return true;
+      }),
+    ].slice(0, 4);
     return { ...result, images: mergedImages };
   });
 }

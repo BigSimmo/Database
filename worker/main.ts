@@ -8,6 +8,18 @@ import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/docum
 import { ragDeepMemoryVersion, upsertDocumentDeepMemory } from "../src/lib/deep-memory";
 import { extractDocument, fileToBase64 } from "../src/lib/extractors/document";
 import {
+  buildVisualDocumentIndexUnitInputs,
+  embeddingTextForDocumentIndexUnit,
+} from "../src/lib/document-index-units";
+import {
+  deterministicStructuredVisualProfile,
+  normalizeStructuredVisualProfile,
+  rankVisualCandidates,
+  selectCaptionCandidateIndexes,
+  visualIntelligenceVersion,
+  type StructuredVisualProfile,
+} from "../src/lib/visual-intelligence";
+import {
   assessClinicalImageUse,
   cheapImageSkipReason,
   classifiedImageSkipReason,
@@ -364,6 +376,10 @@ function compactSearchText(value: unknown, limit = 900) {
 }
 
 type ImageClassification = Awaited<ReturnType<typeof classifyAndCaptionImageFromBase64>>;
+type ImageClassificationWithVisualProfile = ImageClassification & {
+  structured_visual_profile?: StructuredVisualProfile;
+  structured_extraction_confidence?: number;
+};
 
 const imageEvidenceCategories = new Set<ImageEvidenceCategory>([
   "clinical_table",
@@ -393,6 +409,12 @@ function cachedImageLabels(labels: unknown) {
 function metadataString(metadata: Record<string, unknown> | undefined, key: string) {
   const value = metadata?.[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function metadataNumber(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key];
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function compactMetadataText(value: string | null, limit = 1200) {
@@ -452,6 +474,20 @@ function nonClinicalTableClassification(args: {
     clinical_use_reason: assessment.clinical_use_reason,
     clinical_signal_score: assessment.clinical_signal_score,
     admin_signal_score: assessment.admin_signal_score,
+    structured_visual_profile: deterministicStructuredVisualProfile({
+      imageType: args.imageType ?? "clinical_table",
+      caption:
+        assessment.clinical_use_class === "administrative"
+          ? "Administrative document-control table retained for audit, not clinical evidence."
+          : "Reference table retained for audit, not clinical evidence.",
+      tableTitle: args.tableMetadata.tableTitle,
+      tableLabel: args.tableMetadata.tableLabel,
+      tableTextSnippet: args.tableMetadata.tableTextSnippet,
+      tableRows: args.tableMetadata.tableRows as string[][] | null,
+      tableColumns: args.tableMetadata.tableColumns as string[] | null,
+      metadata: {},
+    }),
+    structured_extraction_confidence: 0.45,
   } satisfies ImageClassification;
 }
 
@@ -486,6 +522,10 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     labels,
     skipReason: typeof metadata.skip_reason === "string" ? metadata.skip_reason : null,
   });
+  const structuredProfile = normalizeStructuredVisualProfile(metadata.structured_visual_profile, {
+    fallbackText: String(data.caption || ""),
+    fallbackConfidence: score,
+  });
 
   return {
     image_type: imageType,
@@ -499,6 +539,9 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     clinical_use_reason: assessment.clinical_use_reason,
     clinical_signal_score: assessment.clinical_signal_score,
     admin_signal_score: assessment.admin_signal_score,
+    structured_visual_profile: structuredProfile,
+    structured_extraction_confidence:
+      metadataNumber(metadata, "structured_extraction_confidence") ?? structuredProfile.confidence,
   } satisfies ImageClassification;
 }
 
@@ -528,7 +571,12 @@ async function setCachedImageClassification(args: {
         clinical_use_reason: args.classification.clinical_use_reason,
         clinical_signal_score: args.classification.clinical_signal_score,
         admin_signal_score: args.classification.admin_signal_score,
+        structured_visual_profile: (args.classification as ImageClassificationWithVisualProfile)
+          .structured_visual_profile,
+        structured_extraction_confidence: (args.classification as ImageClassificationWithVisualProfile)
+          .structured_extraction_confidence,
         image_policy_version: clinicalImagePolicyVersion,
+        visual_intelligence_version: visualIntelligenceVersion,
       },
       updated_at: new Date().toISOString(),
     },
@@ -555,15 +603,36 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     accessibleTableMarkdown: string | null;
     tableRows: string[][] | null;
     tableColumns: string[] | null;
+    structuredVisualProfile: StructuredVisualProfile | null;
+    candidatePriorityScore: number;
+    imageQualityScore: number;
+    cropCompleteness: number;
+    ocrTextDensity: number;
   }> = [];
   const seenHashes = new Set<string>();
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
   const imageTypeCounts = new Map<string, number>();
-  const captionedImagesByPage = new Map<number | "unknown", number>();
-  let captionedImages = 0;
+  const scoredCandidates = rankVisualCandidates(
+    extracted.images.map((image) => ({
+      pageNumber: image.pageNumber,
+      width: image.width ?? null,
+      height: image.height ?? null,
+      bbox: image.bbox ?? null,
+      sourceKind: image.sourceKind ?? null,
+      metadata: image.metadata ?? {},
+      nearbyText: image.pageNumber ? pagesByNumber.get(image.pageNumber) : null,
+    })),
+  );
+  const selectedCaptionCandidateIndexes = selectCaptionCandidateIndexes(
+    scoredCandidates,
+    env.WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT,
+    env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE,
+  );
 
-  for (const [index, image] of extracted.images.entries()) {
+  for (const candidate of scoredCandidates) {
+    const index = candidate.originalIndex;
+    const image = extracted.images[index];
     await updateJobProgress(job.id, {
       stage: `captioning image ${index + 1}/${extracted.images.length}`,
       progress: Math.min(70, 35 + Math.round((index / Math.max(extracted.images.length, 1)) * 25)),
@@ -601,25 +670,17 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       noteSkippedImage(skipReasons, lowSignalSkipReason);
       continue;
     }
-    const pageKey = image.pageNumber ?? "unknown";
-    const pageCaptionedImages = captionedImagesByPage.get(pageKey) ?? 0;
-    if (captionedImages >= env.WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT) {
-      skippedImages += 1;
-      noteSkippedImage(skipReasons, "document image caption cap reached");
-      continue;
-    }
-    if (pageCaptionedImages >= env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE) {
-      skippedImages += 1;
-      noteSkippedImage(skipReasons, "page image caption cap reached");
-      continue;
-    }
-    captionedImages += 1;
-    captionedImagesByPage.set(pageKey, pageCaptionedImages + 1);
     let classification: ImageClassification | null =
       image.sourceKind === "table_crop"
         ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
         : null;
     let classificationCacheHit = false;
+    const usesModelCaptionBudget = !classification;
+    if (usesModelCaptionBudget && !selectedCaptionCandidateIndexes.has(index)) {
+      skippedImages += 1;
+      noteSkippedImage(skipReasons, "visual intelligence candidate below caption budget");
+      continue;
+    }
     if (!classification) {
       classification = await getCachedImageClassification(job.documents.owner_id, imageHash);
       classificationCacheHit = Boolean(classification);
@@ -665,7 +726,27 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       clinical_use_reason: policyAssessment.clinical_use_reason,
       clinical_signal_score: policyAssessment.clinical_signal_score,
       admin_signal_score: policyAssessment.admin_signal_score,
+      structured_visual_profile: normalizeStructuredVisualProfile(
+        (classification as ImageClassificationWithVisualProfile).structured_visual_profile,
+        {
+          fallbackText: [
+            tableMetadata.tableTitle,
+            tableMetadata.tableLabel,
+            classification.caption,
+            tableMetadata.tableTextSnippet,
+            nearbyText,
+          ]
+            .filter(Boolean)
+            .join(" | "),
+          fallbackConfidence: classification.clinical_relevance_score,
+        },
+      ),
     };
+    const structuredVisualProfile = (classification as ImageClassificationWithVisualProfile).structured_visual_profile;
+    const structuredExtractionConfidence =
+      (classification as ImageClassificationWithVisualProfile).structured_extraction_confidence ??
+      structuredVisualProfile?.confidence ??
+      0.5;
 
     const classifiedSkipReason = classifiedImageSkipReason(classification);
     const retainAsAuditTable =
@@ -732,6 +813,19 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
           clinical_signal_score: policyAssessment.clinical_signal_score,
           admin_signal_score: policyAssessment.admin_signal_score,
           image_policy_version: clinicalImagePolicyVersion,
+          visual_intelligence_version: visualIntelligenceVersion,
+          visual_family_id: image.metadata?.visual_family_id ?? perceptualHash,
+          parent_visual_id: image.metadata?.parent_visual_id ?? null,
+          candidate_priority_score: candidate.candidatePriorityScore,
+          image_quality_score: candidate.imageQualityScore,
+          crop_completeness: candidate.cropCompleteness,
+          ocr_text_density: candidate.ocrTextDensity,
+          caption_confidence: classification.clinical_relevance_score,
+          structured_extraction_confidence: structuredExtractionConfidence,
+          visual_duplicate_group: candidate.duplicateGroup,
+          structured_visual_profile: structuredVisualProfile,
+          visual_budget_class: candidate.captionBudgetClass,
+          visual_priority_reasons: candidate.reasons,
           retained_for_audit: retainAsAuditTable || undefined,
           retained_for_document_view: retainAsAuditTable || undefined,
           skip_reason: retainAsAuditTable ? classifiedSkipReason : classification.skip_reason,
@@ -756,6 +850,11 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         accessibleTableMarkdown: tableMetadata.accessibleTableMarkdown,
         tableRows: tableMetadata.tableRows,
         tableColumns: tableMetadata.tableColumns,
+        structuredVisualProfile: structuredVisualProfile ?? null,
+        candidatePriorityScore: candidate.candidatePriorityScore,
+        imageQualityScore: candidate.imageQualityScore,
+        cropCompleteness: candidate.cropCompleteness,
+        ocrTextDensity: candidate.ocrTextDensity,
       });
     }
   }
@@ -1003,6 +1102,34 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       optionalIndexWriteIssues.push(
         optionalIndexWriteWarning("table fact", supabaseStageError("insert table facts", factsError)),
       );
+  }
+
+  const visualIndexUnits = buildVisualDocumentIndexUnitInputs({
+    document: {
+      id: job.document_id,
+      owner_id: job.documents.owner_id,
+      title: job.documents.title,
+      file_name: job.documents.file_name,
+    },
+    chunks: indexedChunkRows,
+    images: insertedImages,
+    tableFacts,
+  });
+  if (visualIndexUnits.length > 0) {
+    try {
+      const unitEmbeddings = await embedTexts(visualIndexUnits.map(embeddingTextForDocumentIndexUnit));
+      for (let start = 0; start < visualIndexUnits.length; start += 50) {
+        const batch = visualIndexUnits.slice(start, start + 50).map((unit, index) => ({
+          ...unit,
+          embedding: unitEmbeddings[start + index],
+          metadata: sanitizeJsonbRecord(unit.metadata),
+        }));
+        const { error: visualUnitError } = await supabase.from("document_index_units").insert(batch);
+        if (visualUnitError) throw supabaseStageError("insert visual index units", visualUnitError);
+      }
+    } catch (error) {
+      optionalIndexWriteIssues.push(optionalIndexWriteWarning("visual index unit", error));
+    }
   }
 
   const additionalFieldInputs = buildAdditionalEmbeddingFieldInputs({

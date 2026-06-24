@@ -6,21 +6,31 @@ import Link from "next/link";
 import {
   AlertCircle,
   BookOpen,
+  Brain,
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
+  Copy,
   ExternalLink,
   FileImage,
   FileText,
   Filter,
+  Layers,
   ListChecks,
   Loader2,
   LogIn,
   LogOut,
   Mail,
+  MessageSquare,
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pill,
+  Plus,
   Quote,
   RefreshCw,
   Search,
+  Settings as SettingsIcon,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
@@ -30,7 +40,16 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type CSSProperties,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
@@ -43,8 +62,13 @@ import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } fro
 import {
   appBackdrop,
   answerSurface,
+  chatActionRow,
+  chatAnswerText,
+  chatMicroAction,
   clinicalDivider,
+  clinicalNotesRow,
   cn,
+  evidenceRow,
   evidenceSurface,
   EmptyState,
   fieldControlPlain,
@@ -54,7 +78,6 @@ import {
   iconTilePremium,
   fieldLabel,
   metadataPill,
-  panel,
   panelSubtle,
   primaryControl,
   proseMeasure,
@@ -62,7 +85,16 @@ import {
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
+  sourceCapsule,
+  sidebarItem,
+  sidebarToolTile,
+  statusDotMuted,
+  statusDotReady,
+  statusDotReview,
   subtleStatusPill,
+  tableCard,
+  tableCardHeader,
+  tableMicroActionRow,
   textMuted,
   toneDanger,
   toneInfo,
@@ -75,7 +107,12 @@ import { SafeBoldText } from "@/components/SafeBoldText";
 import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
-import { GuideDialog, GuideTrigger, SectionHeading, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import {
+  GuideDialog,
+  GuideTrigger,
+  SectionHeading,
+  UtilityDrawer,
+} from "@/components/clinical-dashboard/dashboard-shell";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import {
   DocumentSearchResultsPanel,
@@ -155,8 +192,6 @@ import {
   buildAnswerEvidenceMap,
   buildClinicalOutputSections,
   buildHighYieldClinicalOutputSections,
-  createQuoteFollowUp,
-  formatQuotesForClipboard,
   shouldPollForUpdates,
 } from "@/lib/ward-output";
 
@@ -633,28 +668,132 @@ function primaryAnswerDisplayText(value: string) {
     .replace(/[;,:-]\s*$/, "")}...`;
 }
 
-function NaturalLanguageAnswer({ text }: { text: string }) {
+function sourceCapsuleText({
+  sourceCount,
+  weakEvidence,
+  grounded,
+}: {
+  sourceCount: number;
+  weakEvidence: boolean;
+  grounded: boolean;
+}) {
+  if (sourceCount <= 0 || !grounded) return "No direct source";
+  if (weakEvidence) return "Check sources";
+  return `Source-backed · ${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
+}
+
+function NaturalLanguageAnswer({
+  text,
+  sourceCount,
+  weakEvidence,
+  grounded,
+  bestSource,
+  copied,
+  onCopy,
+}: {
+  text: string;
+  sourceCount: number;
+  weakEvidence: boolean;
+  grounded: boolean;
+  bestSource: BestSourceRecommendation | null;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
+  const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
+  const sourceMetadata = normalizeSourceMetadata(bestSource?.source_metadata);
+  const sourceStatusDot =
+    !bestSource || !grounded
+      ? statusDotMuted
+      : sourceMetadata.document_status === "current"
+        ? statusDotReady
+        : sourceMetadata.document_status === "review_due" || sourceMetadata.document_status === "outdated"
+          ? statusDotReview
+          : statusDotMuted;
 
   return (
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative overflow-hidden rounded-lg border border-[color:var(--primary)]/25 bg-[linear-gradient(180deg,var(--surface-highlight),transparent_72%),var(--surface-raised)] px-3 py-3 text-base leading-[1.7] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] ring-1 ring-[color:var(--primary)]/10 sm:px-4 sm:py-4"
+      className="relative space-y-2 rounded-lg border border-transparent bg-transparent px-1 py-1 text-[color:var(--text-heading)]"
     >
-      <div className="mb-2 min-w-0">
-        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Bottom line</h3>
-        <p className={cn("hidden text-xs leading-5 sm:block", textMuted)}>
-          High-yield clinical response with supporting evidence below.
-        </p>
-      </div>
-      <p
-        data-testid="plain-answer-prose"
-        className="max-w-[68ch] text-base font-medium leading-[1.7] text-[color:var(--text-heading)]"
-      >
-        <SafeBoldText text={cleaned} />
+      <p className={chatAnswerText}>
+        <span data-testid="plain-answer-prose">
+          <SafeBoldText text={cleaned} />
+        </span>
+        <button
+          type="button"
+          className={cn(sourceCapsule, "ml-2 align-baseline")}
+          aria-label="Open answer sources"
+          aria-expanded={sourcePreviewOpen}
+          onClick={() => {
+            if (bestSource && sourceCount > 0 && grounded) setSourcePreviewOpen((current) => !current);
+          }}
+        >
+          {sourceCount > 0 && grounded ? (
+            <>
+              <span className="sm:hidden">
+                {sourceCount} source{sourceCount === 1 ? "" : "s"}
+              </span>
+              <span className="hidden sm:inline">{capsuleText}</span>
+            </>
+          ) : (
+            capsuleText
+          )}
+          {sourceCount > 0 && grounded ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+        </button>
       </p>
+      {sourcePreviewOpen && bestSource ? (
+        <div
+          data-testid="source-capsule-preview"
+          className="max-w-xl rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                Source behind this answer
+              </p>
+              <p className="mt-1 line-clamp-1 text-sm font-semibold text-[color:var(--text-heading)]">
+                {bestSource.title}
+              </p>
+              <p className={cn("mt-1 flex flex-wrap items-center gap-1.5 text-xs", textMuted)}>
+                <span className={sourceStatusDot} aria-hidden="true" />
+                page {bestSource.page_number ?? "n/a"} · {sourceStatusLabel(sourceMetadata)}
+              </p>
+            </div>
+            <span className={cn(metadataPill, "nums shrink-0")}>
+              {Math.round(Math.max(0, Math.min(1, bestSource.score)) * 100)}% match
+            </span>
+          </div>
+          <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+            &ldquo;{bestSource.snippet}&rdquo;
+          </blockquote>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={bestSource.viewer_href} className={chatMicroAction}>
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open PDF drawer
+            </Link>
+            <button type="button" className={chatMicroAction}>
+              <Copy className="h-3.5 w-3.5" />
+              Copy quote
+            </button>
+            <Link href={bestSource.viewer_href} className={chatMicroAction}>
+              View section
+            </Link>
+          </div>
+        </div>
+      ) : null}
+      <div className={chatActionRow} aria-label="Answer actions">
+        <button type="button" onClick={onCopy} className={chatMicroAction}>
+          <Copy className="h-3.5 w-3.5" />
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button type="button" className={chatMicroAction} aria-label="More answer actions">
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
     </section>
   );
 }
@@ -1214,30 +1353,62 @@ function EvidenceSummaryCard({
   );
 }
 
-function evidenceDrawerSummary({
-  answer,
-  bestSource,
-  sourceSummary,
-  gaps,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  sourceSummary?: EvidenceSummary;
-  gaps: ConflictOrGap[];
-}) {
-  const topSource = bestSource ? "1 top source" : "No top source";
-  const status = bestSource
-    ? sourceStatusLabel(normalizeSourceMetadata(bestSource.source_metadata)).toLowerCase()
-    : (sourceSummary?.source_strength ?? "unknown").toLowerCase();
-  const citationCount = answer.citations.length;
-  const gapCount = gaps.length;
+function compactEvidenceSummary(answer: RagAnswer, sources: SearchResult[], sourceSummary?: EvidenceSummary) {
+  const sourceCount =
+    sourceSummary?.total_sources ?? sources.length ?? answer.sources?.length ?? answer.citations.length;
+  const quoteCount = answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0;
+  const parts = [
+    `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
+    `${quoteCount} quote${quoteCount === 1 ? "" : "s"}`,
+    "More",
+  ];
+  return parts.join(" · ");
+}
 
-  return [
-    topSource,
-    status,
-    `${citationCount} citation${citationCount === 1 ? "" : "s"}`,
-    gapCount ? `${gapCount} gap${gapCount === 1 ? "" : "s"}` : "no gaps",
-  ].join(" · ");
+function evidenceTabOrder(answer: RagAnswer) {
+  const tableFirst = answer.queryClass === "table_threshold" || answer.responseMode === "threshold_table";
+  return tableFirst
+    ? ["Tables", "Sources", "Images", "Quotes", "PDFs", "Map"]
+    : ["Sources", "Quotes", "Tables", "Images", "PDFs", "Map"];
+}
+
+function clinicalNotesCount(answer: RagAnswer) {
+  return buildHighYieldClinicalOutputSections(answer).filter((section) =>
+    ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
+  ).length;
+}
+
+function answerHasCentralTable(answer: RagAnswer) {
+  return (
+    answer.queryClass === "table_threshold" ||
+    answer.responseMode === "threshold_table" ||
+    Boolean(answer.visualEvidence?.some((item) => item.accessibleTableMarkdown || item.tableRows?.length))
+  );
+}
+
+function primaryVisualTable(answer: RagAnswer) {
+  return answer.visualEvidence?.find((item) => item.accessibleTableMarkdown || item.tableRows?.length) ?? null;
+}
+
+function uniquePdfSources(answer: RagAnswer) {
+  const seen = new Set<string>();
+  const candidates = [
+    ...(answer.sources ?? []),
+    ...(answer.citations ?? []).map((citation) => ({
+      document_id: citation.document_id,
+      title: citation.title,
+      file_name: citation.file_name,
+      page_number: citation.page_number,
+      chunk_id: citation.chunk_id,
+    })),
+  ];
+
+  return candidates.filter((source) => {
+    const key = source.document_id || source.file_name || source.title;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function queryModeLabel(mode: ClinicalQueryMode) {
@@ -2148,6 +2319,205 @@ function VisualEvidenceStrip({
   );
 }
 
+function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
+  const tableMarkdown = item.accessibleTableMarkdown?.trim() ? item.accessibleTableMarkdown : null;
+  const title = "Clozapine monitoring schedule";
+
+  return (
+    <section className={cn(tableCard, "max-w-2xl")} aria-label="Inline table preview">
+      <div className={tableCardHeader}>{title}</div>
+      <div className="p-2.5">
+        <AccessibleTable
+          caption={title}
+          markdown={tableMarkdown}
+          rows={item.tableRows}
+          columns={item.tableColumns}
+          compact
+          expandOnMobile
+          clinicalOnly
+          dialogTitle={item.tableTitle || item.caption || title}
+        />
+      </div>
+      <div className={tableMicroActionRow}>
+        <Link href={item.viewer_href} className={chatMicroAction}>
+          Expand
+        </Link>
+        <Link href={item.viewer_href} className={chatMicroAction}>
+          Source
+        </Link>
+        <button type="button" className={chatMicroAction}>
+          Copy
+        </button>
+        <button type="button" className={chatMicroAction} aria-label="More table actions">
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function UnifiedEvidenceDrawerContent({
+  answer,
+  sources,
+  query,
+  visualEvidence,
+  answerEvidenceMapRows,
+  copiedQuotes,
+  onCopyQuotes,
+  onFollowUpQuote,
+  onScopeDocument,
+}: {
+  answer: RagAnswer;
+  sources: SearchResult[];
+  query: string;
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  copiedQuotes: boolean;
+  onCopyQuotes: () => void;
+  onFollowUpQuote: (quote: QuoteCard) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  const order = evidenceTabOrder(answer);
+  const pdfSources = uniquePdfSources(answer).slice(0, 6);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
+        {order.map((item) => (
+          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+            {item}
+          </span>
+        ))}
+      </div>
+
+      {order.map((section) => {
+        if (section === "Tables") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tables</p>
+              {visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length) ? (
+                <div className="grid gap-2">
+                  {visualEvidence
+                    .filter((item) => item.accessibleTableMarkdown || item.tableRows?.length)
+                    .slice(0, 3)
+                    .map((item) => (
+                      <div key={item.id} className={cn(tableCard, "p-3")}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+                            {compactClinicalTableCaption(item)}
+                          </p>
+                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
+                        </div>
+                        <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
+                          <Link href={item.viewer_href} className={chatMicroAction}>
+                            Expand
+                          </Link>
+                          <Link href={item.viewer_href} className={chatMicroAction}>
+                            Source
+                          </Link>
+                          <button type="button" className={chatMicroAction}>
+                            Copy table
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={ListChecks}
+                  title="No tables used"
+                  body="No table evidence was used for this answer."
+                />
+              )}
+            </section>
+          );
+        }
+
+        if (section === "Sources") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Sources</p>
+              <SourceList sources={sources.slice(0, 4)} query={query} onScopeDocument={onScopeDocument} />
+            </section>
+          );
+        }
+
+        if (section === "Images") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Images</p>
+              <UtilityDrawer
+                icon={FileImage}
+                title={`Images ${visualEvidence.length}`}
+                summary="Open to view table images, PDF page crops, and figures."
+                mobileSummary={`${visualEvidence.length} images`}
+              >
+                <VisualEvidenceStrip evidence={visualEvidence} embedded />
+              </UtilityDrawer>
+            </section>
+          );
+        }
+
+        if (section === "Quotes") {
+          return (
+            <section key={section} className="space-y-2">
+              <QuoteCards
+                quotes={answer.quoteCards ?? []}
+                copiedQuotes={copiedQuotes}
+                onCopyQuotes={onCopyQuotes}
+                onFollowUp={onFollowUpQuote}
+                onScopeDocument={onScopeDocument}
+              />
+            </section>
+          );
+        }
+
+        if (section === "PDFs") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">PDFs used</p>
+              {pdfSources.length ? (
+                <div className="grid gap-2">
+                  {pdfSources.map((source, index) => (
+                    <Link
+                      key={`${source.document_id}:${source.file_name}:${index}`}
+                      href={`/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${"id" in source ? source.id : (source.chunk_id ?? "")}`}
+                      className={cn(sourceCard, "flex min-h-[52px] items-center justify-between gap-3 p-3")}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
+                          {source.title}
+                        </span>
+                        <span className={cn("block truncate text-xs", textMuted)}>
+                          {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
+                        </span>
+                      </span>
+                      <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={FileText}
+                  title="No PDFs used"
+                  body="PDF source documents appear here when available."
+                />
+              )}
+            </section>
+          );
+        }
+
+        return (
+          <section key={section} className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Evidence map</p>
+            <EvidenceMapTable rows={answerEvidenceMapRows} />
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function RelatedDocumentsPanel({
   documents,
   onScopeDocument,
@@ -2499,6 +2869,8 @@ function StagedAnswerResultSurface({
   canUsePrivateApis,
   onSaveAnswerEval,
   safetyFindings,
+  copiedAnswer,
+  onCopyAnswer,
 }: {
   answer: RagAnswer;
   query: string;
@@ -2529,19 +2901,62 @@ function StagedAnswerResultSurface({
   canUsePrivateApis: boolean;
   onSaveAnswerEval: (rating: "good" | "needs_fixing") => void;
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
+  copiedAnswer: boolean;
+  onCopyAnswer: () => void;
 }) {
+  const noteCount = clinicalNotesCount(answer);
+  const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0;
+  const sourceCount =
+    sourceSummary?.total_sources ?? sources.length ?? answer.sources?.length ?? answer.citations.length;
+  const centralTable = answerHasCentralTable(answer) ? primaryVisualTable(answer) : null;
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <NaturalLanguageAnswer text={safeAnswerText || answer.answer} />
-
-        <ClinicalOutputPanel
-          answer={answer}
-          showLead={false}
-          viewMode={answerViewMode}
-          onViewModeChange={onAnswerViewModeChange}
-          evidenceMapRows={answerEvidenceMapRows}
+        <NaturalLanguageAnswer
+          text={safeAnswerText || answer.answer}
+          sourceCount={sourceCount}
+          weakEvidence={weakEvidence}
+          grounded={answerGrounded}
+          bestSource={bestSource}
+          copied={copiedAnswer}
+          onCopy={onCopyAnswer}
         />
+
+        <UtilityDrawer
+          id="answer-more-detail-drawer"
+          icon={ListChecks}
+          title="More detail"
+          summary="Structured clinical detail, verification prompts, and source-backed sections."
+          mobileSummary="More detail"
+          mobileInline
+        >
+          <ClinicalOutputPanel
+            answer={answer}
+            showLead={false}
+            viewMode={answerViewMode}
+            onViewModeChange={onAnswerViewModeChange}
+            evidenceMapRows={answerEvidenceMapRows}
+          />
+        </UtilityDrawer>
+
+        {showClinicalNotes ? (
+          <UtilityDrawer
+            icon={ClipboardCheck}
+            title={`Clinical notes ${Math.max(1, noteCount || safetyFindings.length)}`}
+            summary="Monitoring, safety, escalation, or caution details when clinically useful."
+            mobileSummary={`Clinical notes ${Math.max(1, noteCount || safetyFindings.length)}`}
+            className={clinicalNotesRow}
+            mobileInline
+          >
+            <ClinicalOutputPanel
+              answer={answer}
+              showLead={false}
+              viewMode={answerViewMode}
+              onViewModeChange={undefined}
+              evidenceMapRows={answerEvidenceMapRows}
+            />
+          </UtilityDrawer>
+        ) : null}
         <SmartFollowUpChips
           answer={answer}
           bestSource={bestSource}
@@ -2554,11 +2969,15 @@ function StagedAnswerResultSurface({
           onTryBroaderSearch={onTryBroaderSearch}
         />
 
+        {centralTable ? <InlineTableCard item={centralTable} /> : null}
+
         <UtilityDrawer
-          icon={Target}
-          title="Evidence & sources"
-          summary={evidenceDrawerSummary({ answer, bestSource, sourceSummary, gaps })}
-          mobileSummary="Evidence"
+          id="answer-evidence-drawer"
+          icon={Layers}
+          title="Evidence"
+          summary={compactEvidenceSummary(answer, sources, sourceSummary)}
+          mobileSummary={compactEvidenceSummary(answer, sources, sourceSummary)}
+          className={evidenceRow}
           mobileInline
         >
           <div className="space-y-3">
@@ -2596,6 +3015,17 @@ function StagedAnswerResultSurface({
             />
             <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
             <WhyThisMatchedPanel sources={sources} />
+            <UnifiedEvidenceDrawerContent
+              answer={answer}
+              sources={sources}
+              query={query}
+              visualEvidence={answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []}
+              answerEvidenceMapRows={answerEvidenceMapRows}
+              copiedQuotes={false}
+              onCopyQuotes={() => undefined}
+              onFollowUpQuote={() => undefined}
+              onScopeDocument={onScopeDocument}
+            />
           </div>
         </UtilityDrawer>
 
@@ -3750,6 +4180,201 @@ function DrawerGroupLabel({ title }: { title: string }) {
   );
 }
 
+const sidebarToolItems = [
+  { label: "Formulation", icon: Brain },
+  { label: "DSM-5", icon: BookOpen },
+  { label: "Meds", icon: Pill },
+  { label: "Diffs", icon: Search },
+] as const;
+
+function ClinicalDesktopSidebar({
+  collapsed,
+  recentQueries,
+  onCollapsedChange,
+  onNewChat,
+  onPickRecent,
+  onOpenGuide,
+}: {
+  collapsed: boolean;
+  recentQueries: string[];
+  onCollapsedChange: (collapsed: boolean) => void;
+  onNewChat: () => void;
+  onPickRecent: (query: string) => void;
+  onOpenGuide: () => void;
+}) {
+  if (collapsed) {
+    return (
+      <aside
+        aria-label="Clinical Guide collapsed sidebar"
+        className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col lg:items-center lg:gap-3"
+      >
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(false)}
+          className="grid h-11 w-11 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+        >
+          <PanelLeftOpen className="h-4.5 w-4.5" />
+        </button>
+        <button type="button" onClick={onNewChat} className={sidebarItem} aria-label="New chat" title="New chat">
+          <Plus className="h-4 w-4" />
+        </button>
+        <button type="button" className={sidebarItem} aria-label="Search chats" title="Search chats">
+          <Search className="h-4 w-4" />
+        </button>
+        <Link href="/tools" className={sidebarItem} aria-label="Clinical tools" title="Clinical tools">
+          <ListChecks className="h-4 w-4" />
+        </Link>
+        <button type="button" onClick={onOpenGuide} className={sidebarItem} aria-label="Guide and help" title="Guide">
+          <BookOpen className="h-4 w-4" />
+        </button>
+        <button type="button" className={sidebarItem} aria-label="Settings" title="Settings">
+          <SettingsIcon className="h-4 w-4" />
+        </button>
+        <div className="mt-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+          AK
+        </div>
+      </aside>
+    );
+  }
+
+  const visibleRecentQueries = recentQueries.slice(0, 5);
+
+  return (
+    <aside
+      id="clinical-tools-sidebar"
+      aria-label="Clinical Guide sidebar"
+      className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+              <ShieldAlert className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-[color:var(--text-heading)]">Clinical Guide</p>
+              <p className={cn("truncate text-xs", textMuted)}>Source-backed workspace</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onCollapsedChange(true)}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)]"
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onNewChat}
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+        >
+          <Plus className="h-4 w-4" />
+          New chat
+        </button>
+
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          <input
+            type="search"
+            placeholder="Search chats"
+            className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+          />
+        </label>
+
+        <section className="min-w-0">
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Recent chats
+            </p>
+          </div>
+          <div className="grid gap-1">
+            {visibleRecentQueries.length ? (
+              visibleRecentQueries.map((recent, index) => (
+                <button
+                  key={`${recent}:${index}`}
+                  type="button"
+                  onClick={() => onPickRecent(recent)}
+                  title={recent}
+                  className={cn(
+                    sidebarItem,
+                    index === 0 &&
+                      "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
+                  )}
+                >
+                  <MessageSquare className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
+                </button>
+              ))
+            ) : (
+              <p
+                className={cn(
+                  "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
+                  textMuted,
+                )}
+              >
+                Recent chats will appear here.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Top tools</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {sidebarToolItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.label} href="/tools" className={sidebarToolTile}>
+                  <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+          <Link
+            href="/tools"
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+          >
+            View all tools
+            <ChevronDown className="-rotate-90 h-4 w-4" />
+          </Link>
+        </section>
+
+        <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
+          <button type="button" onClick={onOpenGuide} className={sidebarItem}>
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span>Guide & help</span>
+          </button>
+          <button type="button" className={sidebarItem}>
+            <SettingsIcon className="h-4 w-4 shrink-0" />
+            <span>Settings</span>
+          </button>
+          <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+              AK
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
+              <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
+                <span className={statusDotReady} aria-hidden="true" />
+                Ready
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 type MobileSectionFabItem = {
   label: string;
   description: string;
@@ -4221,12 +4846,12 @@ export function ClinicalDashboard() {
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
-  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
@@ -5115,10 +5740,47 @@ export function ClinicalDashboard() {
     }
   }
 
-  function followUpFromQuote(quote: QuoteCard) {
-    setQuery(createQuoteFollowUp(quote));
-    setSelectedDocumentIds([quote.document_id]);
+  function startNewChat() {
+    setQuery("");
+    setAnswer(null);
+    setSources([]);
+    setDocumentMatches([]);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setError(null);
+    setEvalStatus(null);
+    setAnswerProgress(null);
+    setAnswerViewMode("high_yield");
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+  }
+
+  function openUploadDrawer() {
+    setSearchMode("documents");
+    setUploadDrawerOpen(true);
+    window.requestAnimationFrame(() => {
+      const drawer = document.getElementById("dashboard-upload-drawer") as HTMLDetailsElement | null;
+      drawer?.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (drawer && !drawer.open) {
+        drawer.querySelector<HTMLElement>("summary")?.click();
+      }
+    });
+  }
+
+  function openEvidenceDrawer() {
+    const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
+    if (!drawer) {
+      setActionNotice({
+        tone: "warning",
+        message: "Evidence appears after a source-backed answer is generated.",
+      });
+      return;
+    }
+    drawer.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (!drawer.open) {
+      drawer.querySelector<HTMLElement>("summary")?.click();
+    }
   }
 
   function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
@@ -5423,87 +6085,99 @@ export function ClinicalDashboard() {
     <div
       className={cn(
         appBackdrop,
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:block lg:h-auto lg:min-h-screen lg:overflow-x-clip lg:overflow-y-visible",
+        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:h-screen lg:min-h-screen lg:overflow-hidden",
+        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
+      style={
+        {
+          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+        } as CSSProperties
+      }
     >
-      <MasterSearchHeader
-        documents={documents}
-        query={query}
-        searchMode={searchMode}
-        loading={loading}
-        selectedDocumentIds={selectedDocumentIds}
-        queryMode={queryMode}
-        scopeFilters={scopeFilters}
-        hasAnswer={Boolean(answer)}
-        demoMode={demoMode}
-        realDataReady={canRunSearch}
-        theme={theme}
-        onQueryChange={setQuery}
-        onSearchModeChange={setSearchMode}
-        onAsk={ask}
-        onClearQuery={() => setQuery("")}
-        onClearScope={() => setSelectedDocumentIds([])}
-        onQueryModeChange={setQueryMode}
-        onScopeFiltersChange={setScopeFilters}
-        onToggleScope={toggleDocumentScope}
-        onScopeOpenChange={setScopeMenuOpen}
+      <ClinicalDesktopSidebar
+        collapsed={sidebarCollapsed}
+        recentQueries={recentQueries}
+        onCollapsedChange={setSidebarCollapsed}
+        onNewChat={startNewChat}
+        onPickRecent={setQuery}
         onOpenGuide={openGuide}
-        onToggleTheme={toggleTheme}
-        queryModeOptions={clinicalQueryModeOptions}
       />
 
-      <main
-        id="main-content"
-        ref={mainRef}
-        tabIndex={-1}
-        onScroll={scheduleActiveSectionSync}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none"
-      >
-        <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-6 max-[768px]:!pb-28 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-8 lg:px-8">
-          {actionNotice && (
-            <div
-              role="status"
+      <div className="min-h-0 min-w-0 flex-1 lg:flex lg:h-screen lg:flex-col">
+        <MasterSearchHeader
+          documents={documents}
+          query={query}
+          searchMode={searchMode}
+          loading={loading}
+          selectedDocumentIds={selectedDocumentIds}
+          queryMode={queryMode}
+          scopeFilters={scopeFilters}
+          demoMode={demoMode}
+          realDataReady={canRunSearch}
+          theme={theme}
+          onQueryChange={setQuery}
+          onSearchModeChange={setSearchMode}
+          onAsk={ask}
+          onClearQuery={() => setQuery("")}
+          onClearScope={() => setSelectedDocumentIds([])}
+          onQueryModeChange={setQueryMode}
+          onScopeFiltersChange={setScopeFilters}
+          onToggleScope={toggleDocumentScope}
+          onOpenUpload={openUploadDrawer}
+          onOpenEvidence={openEvidenceDrawer}
+          onNewChat={startNewChat}
+          onOpenGuide={openGuide}
+          onToggleTheme={toggleTheme}
+          queryModeOptions={clinicalQueryModeOptions}
+        />
+
+        <main
+          id="main-content"
+          ref={mainRef}
+          tabIndex={-1}
+          onScroll={scheduleActiveSectionSync}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none"
+        >
+          <h1 className="sr-only">Clinical Guide</h1>
+          <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-32 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-36 lg:px-8 lg:pb-40">
+            {actionNotice && (
+              <div
+                role="status"
+                className={cn(
+                  "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
+                  actionNotice.tone === "success" ? toneSuccess : toneWarning,
+                )}
+              >
+                <span className="min-w-0">{actionNotice.message}</span>
+                <button
+                  type="button"
+                  onClick={() => setActionNotice(null)}
+                  aria-label="Dismiss notification"
+                  className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {showDegradedNotice && renderDegradedNotice()}
+            {showAuthPanel && <AuthPanel />}
+            {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
+
+            <section
               className={cn(
-                "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                actionNotice.tone === "success" ? toneSuccess : toneWarning,
+                "min-h-[calc(100dvh-11rem)]",
+                searchMode === "answer" && !answer && !loading
+                  ? "grid place-items-center"
+                  : "mx-auto w-full max-w-4xl space-y-4",
               )}
             >
-              <span className="min-w-0">{actionNotice.message}</span>
-              <button
-                type="button"
-                onClick={() => setActionNotice(null)}
-                aria-label="Dismiss notification"
-                className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-          {showDegradedNotice && renderDegradedNotice()}
-          {showAuthPanel && <AuthPanel />}
-          {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
-
-          <section className={cn(panel, "overflow-hidden")}>
-            <div className="border-b border-[color:var(--border)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_75%),var(--surface-raised)] p-3 sm:p-5">
-              <SectionHeading
-                icon={searchMode === "answer" ? Search : FileText}
-                title={searchMode === "answer" ? "Answer" : "Document matches"}
-                description={
-                  searchMode === "answer"
-                    ? "Sourced synthesis with quotes, PDFs, and diagrams."
-                    : "Natural-language document search across indexed guideline titles, labels, summaries, and passages."
-                }
-                testId="answer-section-heading"
-                hideDescriptionOnMobile
-                compactMobile
-              />
-            </div>
-
-            <div className="p-3 sm:p-5">
+              <h2 data-testid="answer-section-heading" className="sr-only">
+                {searchMode === "answer" ? "Answer" : "Document matches"}
+              </h2>
               {error && (
                 <div
                   role="alert"
-                  className="mb-4 rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                  className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
                 >
                   <AlertCircle className="mr-2 inline h-4 w-4" />
                   {error}
@@ -5513,7 +6187,7 @@ export function ClinicalDashboard() {
               {loading && answerProgress && (
                 <div
                   role="status"
-                  className="mb-4 flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                 >
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
                   <span className="min-w-0 truncate">{answerProgress}</span>
@@ -5521,7 +6195,7 @@ export function ClinicalDashboard() {
               )}
 
               {searchMode === "documents" ? (
-                <div className="space-y-3">
+                <>
                   <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
                   <DocumentSearchResultsPanel
                     matches={documentMatches}
@@ -5538,7 +6212,7 @@ export function ClinicalDashboard() {
                     onAnswerFromDocument={answerFromDocument}
                     onTagSearch={handleTagSearch}
                   />
-                </div>
+                </>
               ) : loading && !answer ? (
                 <AnswerSkeleton />
               ) : answer ? (
@@ -5573,220 +6247,204 @@ export function ClinicalDashboard() {
                     canUsePrivateApis={canUsePrivateApis}
                     onSaveAnswerEval={saveAnswerEval}
                     safetyFindings={safetyFindings}
+                    copiedAnswer={copiedAction === "answer"}
+                    onCopyAnswer={() => copyText("answer", safeAnswerText || answer.answer)}
                   />
                 ) : null
               ) : (
                 <AnswerEmptyState
                   onPickSample={setQuery}
-                  recentQueries={recentQueries}
-                  documentsLoading={dashboardDataLoading}
+                  onSearchDocuments={() => setSearchMode("documents")}
+                  onUploadDocument={openUploadDrawer}
                 />
               )}
-            </div>
-          </section>
+            </section>
 
-          {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+            {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
-          {searchMode === "answer" && answer && (
-            <QuoteCards
-              quotes={answer.quoteCards ?? []}
-              copiedQuotes={copiedAction === "quotes"}
-              onCopyQuotes={() => copyText("quotes", formatQuotesForClipboard(answer.quoteCards ?? []))}
-              onFollowUp={followUpFromQuote}
-              onScopeDocument={scopeOnlyDocument}
-            />
-          )}
-          {searchMode === "answer" && answer && (
-            <VisualEvidenceStrip evidence={visualEvidence} collapsed={weakEvidence} />
-          )}
-          {searchMode === "answer" && answer && (
-            <RelatedDocumentsPanel
-              documents={relatedDocuments}
-              onScopeDocument={scopeOnlyDocument}
-              onTagSearch={handleTagSearch}
-            />
-          )}
-          <section id="sources" className="grid gap-3 scroll-mt-4 sm:scroll-mt-6">
-            <DrawerGroupLabel title="Clinical evidence" />
-            <UtilityDrawer
-              icon={FileText}
-              title="Source passages"
-              summary={
-                sources.length ? `${sources.length} retrieved passages` : "Retrieved passages appear after a question."
-              }
-              mobileSummary={sources.length ? `${sources.length} passages` : "No passages yet"}
-            >
-              <SourceList sources={sources} query={query} onScopeDocument={scopeOnlyDocument} />
-            </UtilityDrawer>
-
-            <DrawerGroupLabel title="Library and admin" />
-            <UtilityDrawer
-              id="dashboard-documents-drawer"
-              icon={BookOpen}
-              title="Documents"
-              summary={
-                dashboardDataLoading
-                  ? "Loading indexed document status."
-                  : documents.length
-                    ? `${documents.length} indexed documents available`
-                    : "No indexed documents yet."
-              }
-              mobileSummary={
-                dashboardDataLoading
-                  ? "Loading library"
-                  : documents.length
-                    ? `${documents.length} documents`
-                    : "No documents"
-              }
-              open={documentsDrawerOpen}
-              onOpenChange={setDocumentsDrawerOpen}
-            >
-              <LibraryHealthStrip
-                documents={documents}
-                jobs={jobs}
-                batches={batches}
-                checks={setupChecks}
-                loading={dashboardDataLoading}
-                onSelectTarget={openLibraryHealthTarget}
-              />
-              <DocumentDrawer
-                documents={documents}
-                pagination={documentsPagination}
-                loadingMoreDocuments={loadingMoreDocuments}
-                selectedDocumentIds={selectedDocumentIds}
-                statusFilter={documentDrawerStatusFilter}
-                onToggleScope={toggleDocumentScope}
-                onLoadMoreDocuments={loadMoreDocuments}
-                onDocumentRenamed={handleDocumentRenamed}
-                onDocumentDeleted={handleDocumentDeleted}
-                onBulkReindex={bulkReindexSelected}
-                onBulkAssignCollection={bulkAssignCollection}
-                onBulkMetadataUpdate={bulkUpdateMetadata}
-                bulkActionStatus={bulkActionStatus}
-                bulkActionBusy={bulkActionBusy}
-                canManageDocuments={canUsePrivateApis}
+            {searchMode === "answer" && answer && (
+              <RelatedDocumentsPanel
+                documents={relatedDocuments}
+                onScopeDocument={scopeOnlyDocument}
                 onTagSearch={handleTagSearch}
               />
-            </UtilityDrawer>
-
-            <UtilityDrawer
-              id="dashboard-upload-drawer"
-              icon={UploadCloud}
-              title="Upload and indexing"
-              summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-              mobileSummary="Setup & uploads"
-              open={uploadDrawerOpen}
-              onOpenChange={setUploadDrawerOpen}
-            >
-              <LibraryHealthStrip
-                documents={documents}
-                jobs={jobs}
-                batches={batches}
-                checks={setupChecks}
-                loading={dashboardDataLoading}
-                onSelectTarget={openLibraryHealthTarget}
-              />
-              <div
-                role="tablist"
-                aria-label="Upload and indexing sections"
-                className="grid grid-cols-3 gap-2 lg:hidden"
-              >
-                {uploadTabs.map((tab) => {
-                  const active = uploadMobileTab === tab.id;
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      aria-controls={tab.panelId}
-                      onClick={() => setUploadMobileTab(tab.id)}
-                      className={cn(
-                        "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
-                        active
-                          ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                      )}
-                    >
-                      <span className="flex items-center gap-1.5 text-xs font-bold">
-                        <Icon className="h-3.5 w-3.5" />
-                        {tab.label}
-                      </span>
-                      <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">{tab.summary}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div
-                  id="dashboard-setup-section"
-                  role="tabpanel"
-                  aria-label="Setup"
-                  className={cn(
-                    "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                    uploadMobileTab !== "setup" && "hidden lg:block",
-                  )}
+            )}
+            {(documentsDrawerOpen || uploadDrawerOpen) && (
+              <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
+                <DrawerGroupLabel title="Library and admin" />
+                <UtilityDrawer
+                  id="dashboard-documents-drawer"
+                  icon={BookOpen}
+                  title="Documents"
+                  summary={
+                    dashboardDataLoading
+                      ? "Loading indexed document status."
+                      : documents.length
+                        ? `${documents.length} indexed documents available`
+                        : "No indexed documents yet."
+                  }
+                  mobileSummary={
+                    dashboardDataLoading
+                      ? "Loading library"
+                      : documents.length
+                        ? `${documents.length} documents`
+                        : "No documents"
+                  }
+                  open={documentsDrawerOpen}
+                  onOpenChange={setDocumentsDrawerOpen}
                 >
-                  <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                    Developer setup status
-                  </p>
-                  <SetupChecklist checks={setupChecks} />
-                  {showAuthPanel && <AuthPanel />}
-                </div>
-                <div
-                  id="dashboard-upload-section"
-                  role="tabpanel"
-                  aria-label="Upload"
-                  className={cn(
-                    "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                    uploadMobileTab !== "upload" && "hidden lg:block",
-                  )}
-                >
-                  <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical upload</p>
-                  <UploadPanel
-                    onUploaded={handleUploadQueued}
-                    demoMode={uploadReadOnlyMode}
-                    canUpload={canUsePrivateApis}
-                    authorizationHeader={authorizationHeader}
-                  />
-                </div>
-                <div
-                  id="dashboard-indexing-section"
-                  role="tabpanel"
-                  aria-label="Jobs"
-                  className={cn(
-                    "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                    uploadMobileTab !== "jobs" && "hidden lg:block",
-                  )}
-                >
-                  <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Indexing progress</p>
-                  <IndexingMonitor
+                  <LibraryHealthStrip
+                    documents={documents}
                     jobs={jobs}
                     batches={batches}
-                    filter={indexingMonitorFilter}
-                    actionId={indexingActionId}
-                    onRetry={retryJob}
-                    onReindex={reindexDocument}
-                    onEnrich={enrichDocument}
+                    checks={setupChecks}
+                    loading={dashboardDataLoading}
+                    onSelectTarget={openLibraryHealthTarget}
                   />
-                </div>
-              </div>
-            </UtilityDrawer>
-          </section>
+                  <DocumentDrawer
+                    documents={documents}
+                    pagination={documentsPagination}
+                    loadingMoreDocuments={loadingMoreDocuments}
+                    selectedDocumentIds={selectedDocumentIds}
+                    statusFilter={documentDrawerStatusFilter}
+                    onToggleScope={toggleDocumentScope}
+                    onLoadMoreDocuments={loadMoreDocuments}
+                    onDocumentRenamed={handleDocumentRenamed}
+                    onDocumentDeleted={handleDocumentDeleted}
+                    onBulkReindex={bulkReindexSelected}
+                    onBulkAssignCollection={bulkAssignCollection}
+                    onBulkMetadataUpdate={bulkUpdateMetadata}
+                    bulkActionStatus={bulkActionStatus}
+                    bulkActionBusy={bulkActionBusy}
+                    canManageDocuments={canUsePrivateApis}
+                    onTagSearch={handleTagSearch}
+                  />
+                </UtilityDrawer>
 
-          <GuideTrigger onOpen={openGuide} />
-        </div>
-      </main>
+                <UtilityDrawer
+                  id="dashboard-upload-drawer"
+                  icon={UploadCloud}
+                  title="Upload and indexing"
+                  summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
+                  mobileSummary="Setup & uploads"
+                  open={uploadDrawerOpen}
+                  onOpenChange={setUploadDrawerOpen}
+                >
+                  <LibraryHealthStrip
+                    documents={documents}
+                    jobs={jobs}
+                    batches={batches}
+                    checks={setupChecks}
+                    loading={dashboardDataLoading}
+                    onSelectTarget={openLibraryHealthTarget}
+                  />
+                  <div
+                    role="tablist"
+                    aria-label="Upload and indexing sections"
+                    className="grid grid-cols-3 gap-2 lg:hidden"
+                  >
+                    {uploadTabs.map((tab) => {
+                      const active = uploadMobileTab === tab.id;
+                      const Icon = tab.icon;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          aria-controls={tab.panelId}
+                          onClick={() => setUploadMobileTab(tab.id)}
+                          className={cn(
+                            "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                            active
+                              ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
+                              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5 text-xs font-bold">
+                            <Icon className="h-3.5 w-3.5" />
+                            {tab.label}
+                          </span>
+                          <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                            {tab.summary}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div
+                      id="dashboard-setup-section"
+                      role="tabpanel"
+                      aria-label="Setup"
+                      className={cn(
+                        "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                        uploadMobileTab !== "setup" && "hidden lg:block",
+                      )}
+                    >
+                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                        Developer setup status
+                      </p>
+                      <SetupChecklist checks={setupChecks} />
+                      {showAuthPanel && <AuthPanel />}
+                    </div>
+                    <div
+                      id="dashboard-upload-section"
+                      role="tabpanel"
+                      aria-label="Upload"
+                      className={cn(
+                        "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                        uploadMobileTab !== "upload" && "hidden lg:block",
+                      )}
+                    >
+                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical upload</p>
+                      <UploadPanel
+                        onUploaded={handleUploadQueued}
+                        demoMode={uploadReadOnlyMode}
+                        canUpload={canUsePrivateApis}
+                        authorizationHeader={authorizationHeader}
+                      />
+                    </div>
+                    <div
+                      id="dashboard-indexing-section"
+                      role="tabpanel"
+                      aria-label="Jobs"
+                      className={cn(
+                        "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                        uploadMobileTab !== "jobs" && "hidden lg:block",
+                      )}
+                    >
+                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                        Indexing progress
+                      </p>
+                      <IndexingMonitor
+                        jobs={jobs}
+                        batches={batches}
+                        filter={indexingMonitorFilter}
+                        actionId={indexingActionId}
+                        onRetry={retryJob}
+                        onReindex={reindexDocument}
+                        onEnrich={enrichDocument}
+                      />
+                    </div>
+                  </div>
+                </UtilityDrawer>
+              </section>
+            )}
 
-      <MobileSectionFab
-        items={bottomNavItems}
-        activeHash={activeHash}
-        state={mobileFabState}
-        hidden={guideOpen || scopeMenuOpen || !answer}
-        onNavigate={navigateMobileSection}
-      />
-      <GuideDialog open={guideOpen} onClose={closeGuide} />
+            {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
+          </div>
+        </main>
+
+        <MobileSectionFab
+          items={bottomNavItems}
+          activeHash={activeHash}
+          state={mobileFabState}
+          hidden
+          onNavigate={navigateMobileSection}
+        />
+        <GuideDialog open={guideOpen} onClose={closeGuide} />
+      </div>
     </div>
   );
 }

@@ -48,5 +48,50 @@
     "expectedContentTerms": ["admission", "discharge"],
     "topK": 12,
     "expectTableEvidence": false
+  },
+  {
+    "id": "show-source-table-image",
+    "query": "Show the source table image for clozapine ANC monitoring",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedContentTerms": ["clozapine", "anc", "monitoring"],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "flowchart-next-step",
+    "query": "In the clinical flowchart, what is the next step after red-zone risk?",
+    "expectedQueryClass": "document_lookup",
+    "expectedDocumentSubstrings": ["risk", "flow"],
+    "expectedContentTerms": ["risk", "red", ["escalate", "urgent", "review"]],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "risk-matrix-red-zone-action",
+    "query": "What action is shown for the risk matrix red zone?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["risk"],
+    "expectedContentTerms": ["risk", "red", ["action", "escalate", "review"]],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "medication-chart-dose-route",
+    "query": "What dose and route are shown in the agitation medication chart?",
+    "expectedQueryClass": "medication_dose_risk",
+    "expectedDocumentSubstrings": ["AgitationArousalPharmaMgt"],
+    "expectedContentTerms": ["dose", "route", ["im", "po"], ["mg", "microgram"]],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "monitoring-threshold-from-chart",
+    "query": "What monitoring threshold is shown in the source chart?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedContentTerms": ["monitoring", "threshold", ["anc", "fbc", "wbc"]],
+    "topK": 12,
+    "expectTableEvidence": true
   }
 ]

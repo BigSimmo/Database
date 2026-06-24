@@ -512,6 +512,14 @@ create index if not exists document_images_searchable_idx
 create index if not exists document_images_hash_idx
   on public.document_images(document_id, image_hash)
   where image_hash is not null;
+create index if not exists document_images_visual_intelligence_version_idx
+  on public.document_images ((metadata->>'visual_intelligence_version'))
+  where metadata ? 'visual_intelligence_version';
+create index if not exists document_images_visual_family_idx
+  on public.document_images ((metadata->>'visual_family_id'))
+  where metadata ? 'visual_family_id';
+create index if not exists document_images_structured_profile_gin_idx
+  on public.document_images using gin ((metadata->'structured_visual_profile'));
 create index if not exists image_caption_cache_owner_hash_idx
   on public.image_caption_cache(owner_id, image_hash, model);
 create index if not exists document_labels_owner_label_idx
@@ -2261,7 +2269,7 @@ create table if not exists public.document_index_units (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
   document_id uuid not null references public.documents(id) on delete cascade,
-  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'vocabulary_term')),
+  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'vocabulary_term', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold')),
   source_chunk_id uuid references public.document_chunks(id) on delete cascade,
   source_image_id uuid references public.document_images(id) on delete set null,
   page_start integer,
@@ -2336,7 +2344,7 @@ as $$
       (1 - (u.embedding <=> query_embedding))::double precision as similarity,
       (ts_rank_cd(u.search_tsv, query.tsq)
         + case when u.normalized_terms && query.terms then 0.25 else 0 end
-        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias') then 0.06
+        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold') then 0.06
                when u.unit_type = 'section_summary' then 0.03
                else 0 end
       )::double precision as text_rank,
@@ -2359,8 +2367,8 @@ as $$
       + (least(text_rank, 1) * 0.28)
       + (quality_score * 0.12)
       + (case when extraction_mode in ('model_heavy', 'hybrid') then 0.04 else 0 end)
-      + (case when unit_type in ('askable_question', 'threshold', 'table_fact') then 0.04
-              when unit_type in ('workflow_step', 'medication_monitoring') then 0.03
+      + (case when unit_type in ('askable_question', 'threshold', 'table_fact', 'table_threshold', 'visual_askable_question') then 0.04
+              when unit_type in ('workflow_step', 'medication_monitoring', 'flowchart_step', 'diagram_decision', 'medication_chart_row', 'risk_matrix_cell') then 0.03
               else 0 end)
     )::double precision as hybrid_score,
     metadata

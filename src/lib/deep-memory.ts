@@ -665,6 +665,35 @@ export async function upsertDocumentDeepMemory(args: {
     sections,
     modelProfile,
     summary: args.summary ?? null,
+    images: (args.images ?? []).map((image) => {
+      const metadata = image.metadata ?? {};
+      return {
+        id: image.id,
+        caption: image.caption,
+        pageNumber: image.page_number,
+        imageType: image.image_type,
+        sourceKind: image.source_kind,
+        labels: image.labels,
+        tableLabel: typeof metadata.table_label === "string" ? metadata.table_label : null,
+        tableTitle: typeof metadata.table_title === "string" ? metadata.table_title : null,
+        tableTextSnippet:
+          typeof metadata.table_text_snippet === "string"
+            ? metadata.table_text_snippet
+            : typeof metadata.table_text === "string"
+              ? metadata.table_text
+              : null,
+        tableRole: typeof metadata.table_role === "string" ? metadata.table_role : null,
+        accessibleTableMarkdown:
+          typeof metadata.accessible_table_markdown === "string" ? metadata.accessible_table_markdown : null,
+        tableRows: Array.isArray(metadata.table_rows) ? (metadata.table_rows as string[][]) : null,
+        tableColumns: Array.isArray(metadata.table_columns) ? (metadata.table_columns as string[]) : null,
+        structuredVisualProfile:
+          typeof metadata.structured_visual_profile === "object" && metadata.structured_visual_profile !== null
+            ? (metadata.structured_visual_profile as never)
+            : null,
+        metadata,
+      };
+    }),
   });
   if (indexUnits.length > 0) {
     const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));

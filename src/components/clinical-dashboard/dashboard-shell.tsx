@@ -140,6 +140,7 @@ export function UtilityDrawer({
         id={id}
         open={open && (!usesSheet || mobileInline)}
         onToggle={(event) => {
+          if (usesSheet && !mobileInline) return;
           const nextOpen = event.currentTarget.open;
           if (nextOpen !== open) setOpen(nextOpen);
         }}
