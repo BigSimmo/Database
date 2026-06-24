@@ -85,7 +85,7 @@ export function MasterSearchHeader({
   onOpenUpload,
   onOpenEvidence,
   onNewChat,
-  onOpenGuide,
+  onOpenMobileSidebar,
   onToggleTheme,
   queryModeOptions,
 }: {
@@ -111,7 +111,7 @@ export function MasterSearchHeader({
   onOpenUpload?: () => void;
   onOpenEvidence?: () => void;
   onNewChat?: () => void;
-  onOpenGuide?: () => void;
+  onOpenMobileSidebar?: () => void;
   onToggleTheme: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
 }) {
@@ -475,9 +475,9 @@ export function MasterSearchHeader({
         <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
           <button
             type="button"
-            onClick={onOpenGuide}
+            onClick={onOpenMobileSidebar}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:hidden"
-            aria-label="Open guide and navigation menu"
+            aria-label="Open Clinical Guide menu"
           >
             <Menu className="h-5 w-5" />
           </button>

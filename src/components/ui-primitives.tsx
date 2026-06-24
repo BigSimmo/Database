@@ -14,15 +14,14 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 export const textMuted = "text-[color:var(--text-muted)]";
 export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
 export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
-export const appBackdrop =
-  "bg-[radial-gradient(circle_at_50%_-12%,color-mix(in_srgb,var(--primary)_5%,transparent),transparent_28rem),linear-gradient(180deg,var(--background),color-mix(in_srgb,var(--background)_90%,var(--surface-inset)))]";
+export const appBackdrop = "bg-[color:var(--background)]";
 export const glassPanel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] dark:border-white/10";
 export const quietPanel =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const sourceCard = `${quietPanel} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface =
-  "rounded-lg border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
+  "rounded-lg bg-transparent";
 export const evidenceSurface =
   "rounded-lg border border-[color:var(--primary)]/20 border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]";
 export const panel =
@@ -69,7 +68,7 @@ export const commandInput =
   "min-h-[48px] w-full rounded-[var(--radius-lg)] border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[0_10px_22px_rgb(0_0_0_/_10%),inset_0_1px_0_rgb(255_255_255_/_82%)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25 motion-safe:transition sm:text-base";
 
 export const chatAnswerText =
-  "max-w-[68ch] text-[15px] font-medium leading-[1.7] text-[color:var(--text-heading)] sm:text-base";
+  "max-w-[68ch] text-[15px] font-normal leading-[1.65] text-[color:var(--text-heading)] sm:text-base";
 export const chatActionRow = "flex min-h-8 flex-wrap items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]";
 export const chatMicroAction =
   "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";

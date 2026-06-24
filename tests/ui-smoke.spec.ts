@@ -375,6 +375,25 @@ function scopeTrigger(page: Page) {
   return page.locator('[data-testid="scope-trigger"]:visible');
 }
 
+async function openMobileClinicalGuideMenu(page: Page) {
+  const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+
+  const menu = page.getByRole("dialog", { name: "Clinical Guide" });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
+  await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
+  await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Top tools", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Guide & help" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Settings" })).toBeVisible();
+  await expect(menu.getByText("Dr A. Khan")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+  await expectNoPageHorizontalOverflow(page);
+  return menu;
+}
+
 async function waitForDemoDashboardReady(page: Page) {
   await expect(visibleQuestionInput(page)).toBeEnabled();
   await expect(scopeTrigger(page)).toBeVisible({ timeout: 30000 });
@@ -385,9 +404,14 @@ async function openGuide(page: Page) {
   const trigger =
     viewport && viewport.width >= 1024
       ? page.getByRole("button", { name: "Guide & help" }).first()
-      : page.getByRole("button", { name: "Open guide and navigation menu" });
-  await expect(trigger).toBeVisible();
-  await trigger.click();
+      : null;
+  if (trigger) {
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+  } else {
+    const menu = await openMobileClinicalGuideMenu(page);
+    await menu.getByRole("button", { name: "Guide & help" }).click();
+  }
 
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   await expect(dialog).toBeVisible();
@@ -669,12 +693,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
     await expect(page.getByRole("main").getByText("Search documents")).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(page.getByLabel("Search your clinical documents")).toBeVisible();
+    await expect(page.getByRole("button", { name: /All sources/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Document type/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Date \/ status/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Sort: Relevance/ })).toBeVisible();
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await questionInput.fill("lithium monitoring");
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
     await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
+    await expect(page.getByText(/results? for "lithium monitoring"/i)).toBeVisible();
     await expect(page.getByText("1 tables")).toBeVisible();
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
     await page

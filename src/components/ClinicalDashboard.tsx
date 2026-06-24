@@ -104,6 +104,7 @@ import {
 } from "@/components/ui-primitives";
 import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import { Sheet } from "@/components/ui/sheet";
 import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
@@ -177,6 +178,7 @@ import type {
   QuoteCard,
   RagAnswer,
   AnswerSection,
+  AnswerSectionKind,
   ConflictOrGap,
   RelatedDocument,
   EvidenceSummary,
@@ -794,6 +796,46 @@ function NaturalLanguageAnswer({
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
+    </section>
+  );
+}
+
+function keyClinicalItemsFromSections(sections: Array<AnswerSection & { citationSources: SearchResult[] }>) {
+  const usefulKinds = new Set<AnswerSectionKind | undefined>([
+    "required_actions",
+    "monitoring_timing",
+    "medication_dose",
+    "thresholds",
+    "escalation_risk",
+    "contraindications_cautions",
+    "comparison",
+  ]);
+  return sections
+    .filter((section) => usefulKinds.has(section.kind))
+    .flatMap((section) =>
+      section.body
+        .split(/\n+|(?<=\.)\s+(?=(?:Monitor|Check|Use|Avoid|Escalate|Withhold|Review|Document|Repeat|Consider)\b)/)
+        .map((item) => item.replace(/^[-*•]\s*/, "").trim())
+        .filter((item) => item.length >= 24),
+    )
+    .filter((item, index, items) => items.findIndex((candidate) => comparableAnswerText(candidate) === comparableAnswerText(item)) === index)
+    .slice(0, 5);
+}
+
+function KeyClinicalItems({ sections }: { sections: Array<AnswerSection & { citationSources: SearchResult[] }> }) {
+  const items = keyClinicalItemsFromSections(sections);
+  if (items.length < 2) return null;
+
+  return (
+    <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
+      <h3 className="text-[15px] font-semibold text-[color:var(--text-heading)]">Key monitoring items</h3>
+      <ul className="space-y-1.5 pl-4 text-[15px] leading-[1.6] text-[color:var(--text-heading)]">
+        {items.map((item) => (
+          <li key={item} className="pl-1">
+            <SafeBoldText text={item} />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -2922,22 +2964,21 @@ function StagedAnswerResultSurface({
           onCopy={onCopyAnswer}
         />
 
-        <UtilityDrawer
-          id="answer-more-detail-drawer"
-          icon={ListChecks}
-          title="More detail"
-          summary="Structured clinical detail, verification prompts, and source-backed sections."
-          mobileSummary="More detail"
-          mobileInline
-        >
-          <ClinicalOutputPanel
-            answer={answer}
-            showLead={false}
-            viewMode={answerViewMode}
-            onViewModeChange={onAnswerViewModeChange}
-            evidenceMapRows={answerEvidenceMapRows}
-          />
-        </UtilityDrawer>
+        <KeyClinicalItems sections={safeAnswerSections} />
+
+        <SmartFollowUpChips
+          answer={answer}
+          bestSource={bestSource}
+          weakEvidence={weakEvidence}
+          onViewModeChange={onAnswerViewModeChange}
+          onQueryModeChange={onQueryModeChange}
+          onLimitToLocalCurrent={onLimitToLocalCurrent}
+          onScopeDocument={onScopeDocument}
+          onShowQuotes={onShowQuotes}
+          onTryBroaderSearch={onTryBroaderSearch}
+        />
+
+        {centralTable ? <InlineTableCard item={centralTable} /> : null}
 
         {showClinicalNotes ? (
           <UtilityDrawer
@@ -2957,19 +2998,23 @@ function StagedAnswerResultSurface({
             />
           </UtilityDrawer>
         ) : null}
-        <SmartFollowUpChips
-          answer={answer}
-          bestSource={bestSource}
-          weakEvidence={weakEvidence}
-          onViewModeChange={onAnswerViewModeChange}
-          onQueryModeChange={onQueryModeChange}
-          onLimitToLocalCurrent={onLimitToLocalCurrent}
-          onScopeDocument={onScopeDocument}
-          onShowQuotes={onShowQuotes}
-          onTryBroaderSearch={onTryBroaderSearch}
-        />
 
-        {centralTable ? <InlineTableCard item={centralTable} /> : null}
+        <UtilityDrawer
+          id="answer-more-detail-drawer"
+          icon={ListChecks}
+          title="Read more"
+          summary="Structured clinical detail and verification prompts."
+          mobileSummary="Read more"
+          mobileInline
+        >
+          <ClinicalOutputPanel
+            answer={answer}
+            showLead={false}
+            viewMode={answerViewMode}
+            onViewModeChange={onAnswerViewModeChange}
+            evidenceMapRows={answerEvidenceMapRows}
+          />
+        </UtilityDrawer>
 
         <UtilityDrawer
           id="answer-evidence-drawer"
@@ -4187,6 +4232,169 @@ const sidebarToolItems = [
   { label: "Diffs", icon: Search },
 ] as const;
 
+function ClinicalSidebarContent({
+  recentQueries,
+  onNewChat,
+  onPickRecent,
+  onOpenGuide,
+  showHeader = true,
+  onCollapsedChange,
+  onNavigate,
+}: {
+  recentQueries: string[];
+  onNewChat: () => void;
+  onPickRecent: (query: string) => void;
+  onOpenGuide: () => void;
+  showHeader?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
+  onNavigate?: () => void;
+}) {
+  const visibleRecentQueries = recentQueries.slice(0, 5);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {showHeader ? (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+              <ShieldAlert className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-[color:var(--text-heading)]">Clinical Guide</p>
+              <p className={cn("truncate text-xs", textMuted)}>Source-backed workspace</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onCollapsedChange?.(true)}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)]"
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+        <button
+          type="button"
+          onClick={() => {
+            onNewChat();
+            onNavigate?.();
+          }}
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+        >
+          <Plus className="h-4 w-4" />
+          New chat
+        </button>
+
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          <input
+            type="search"
+            placeholder="Search chats"
+            className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+          />
+        </label>
+
+        <section className="min-w-0">
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Recent chats
+            </p>
+          </div>
+          <div className="grid gap-1">
+            {visibleRecentQueries.length ? (
+              visibleRecentQueries.map((recent, index) => (
+                  <button
+                    key={`${recent}:${index}`}
+                    type="button"
+                    onClick={() => {
+                      onPickRecent(recent);
+                      onNavigate?.();
+                    }}
+                    title={recent}
+                    className={cn(
+                    sidebarItem,
+                    index === 0 &&
+                      "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
+                  )}
+                >
+                  <MessageSquare className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
+                </button>
+              ))
+            ) : (
+              <p
+                className={cn(
+                  "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
+                  textMuted,
+                )}
+              >
+                Recent chats will appear here.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Top tools</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {sidebarToolItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.label} href="/tools" onClick={onNavigate} className={sidebarToolTile}>
+                  <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+          <Link
+            href="/tools"
+            onClick={onNavigate}
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+          >
+            View all tools
+            <ChevronDown className="-rotate-90 h-4 w-4" />
+          </Link>
+        </section>
+
+        <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate?.();
+              window.requestAnimationFrame(onOpenGuide);
+            }}
+            className={sidebarItem}
+          >
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span>Guide & help</span>
+          </button>
+          <button type="button" className={sidebarItem}>
+            <SettingsIcon className="h-4 w-4 shrink-0" />
+            <span>Settings</span>
+          </button>
+          <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+              AK
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
+              <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
+                <span className={statusDotReady} aria-hidden="true" />
+                Ready
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+  );
+}
+
 function ClinicalDesktopSidebar({
   collapsed,
   recentQueries,
@@ -4239,139 +4447,57 @@ function ClinicalDesktopSidebar({
     );
   }
 
-  const visibleRecentQueries = recentQueries.slice(0, 5);
-
   return (
     <aside
       id="clinical-tools-sidebar"
       aria-label="Clinical Guide sidebar"
-      className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
+      className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-              <ShieldAlert className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-[color:var(--text-heading)]">Clinical Guide</p>
-              <p className={cn("truncate text-xs", textMuted)}>Source-backed workspace</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onCollapsedChange(true)}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)]"
-            aria-label="Collapse sidebar"
-            title="Collapse sidebar"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={onNewChat}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
-        >
-          <Plus className="h-4 w-4" />
-          New chat
-        </button>
-
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-          <input
-            type="search"
-            placeholder="Search chats"
-            className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-          />
-        </label>
-
-        <section className="min-w-0">
-          <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-              Recent chats
-            </p>
-          </div>
-          <div className="grid gap-1">
-            {visibleRecentQueries.length ? (
-              visibleRecentQueries.map((recent, index) => (
-                <button
-                  key={`${recent}:${index}`}
-                  type="button"
-                  onClick={() => onPickRecent(recent)}
-                  title={recent}
-                  className={cn(
-                    sidebarItem,
-                    index === 0 &&
-                      "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
-                  )}
-                >
-                  <MessageSquare className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
-                </button>
-              ))
-            ) : (
-              <p
-                className={cn(
-                  "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
-                  textMuted,
-                )}
-              >
-                Recent chats will appear here.
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section>
-          <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Top tools</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {sidebarToolItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.label} href="/tools" className={sidebarToolTile}>
-                  <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-          <Link
-            href="/tools"
-            className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
-          >
-            View all tools
-            <ChevronDown className="-rotate-90 h-4 w-4" />
-          </Link>
-        </section>
-
-        <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
-          <button type="button" onClick={onOpenGuide} className={sidebarItem}>
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span>Guide & help</span>
-          </button>
-          <button type="button" className={sidebarItem}>
-            <SettingsIcon className="h-4 w-4 shrink-0" />
-            <span>Settings</span>
-          </button>
-          <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-              AK
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
-              <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
-                <span className={statusDotReady} aria-hidden="true" />
-                Ready
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
+      <ClinicalSidebarContent
+        recentQueries={recentQueries}
+        onCollapsedChange={onCollapsedChange}
+        onNewChat={onNewChat}
+        onPickRecent={onPickRecent}
+        onOpenGuide={onOpenGuide}
+      />
     </aside>
+  );
+}
+
+function ClinicalMobileSidebar({
+  open,
+  recentQueries,
+  onOpenChange,
+  onNewChat,
+  onPickRecent,
+  onOpenGuide,
+}: {
+  open: boolean;
+  recentQueries: string[];
+  onOpenChange: (open: boolean) => void;
+  onNewChat: () => void;
+  onPickRecent: (query: string) => void;
+  onOpenGuide: () => void;
+}) {
+  return (
+    <Sheet
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Clinical Guide"
+      description="Recent chats, daily tools, help, and settings."
+      closeLabel="Close Clinical Guide menu"
+      placement="left"
+      contentClassName="lg:hidden"
+    >
+      <ClinicalSidebarContent
+        showHeader={false}
+        recentQueries={recentQueries}
+        onNewChat={onNewChat}
+        onPickRecent={onPickRecent}
+        onOpenGuide={onOpenGuide}
+        onNavigate={() => onOpenChange(false)}
+      />
+    </Sheet>
   );
 }
 
@@ -4846,6 +4972,7 @@ export function ClinicalDashboard() {
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -6126,7 +6253,7 @@ export function ClinicalDashboard() {
           onOpenUpload={openUploadDrawer}
           onOpenEvidence={openEvidenceDrawer}
           onNewChat={startNewChat}
-          onOpenGuide={openGuide}
+          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
           onToggleTheme={toggleTheme}
           queryModeOptions={clinicalQueryModeOptions}
         />
@@ -6161,7 +6288,7 @@ export function ClinicalDashboard() {
             )}
             {showDegradedNotice && renderDegradedNotice()}
             {showAuthPanel && <AuthPanel />}
-            {showSystemNotice && (!answer ? renderSystemNotice() : renderSystemNotice("hidden sm:block"))}
+            {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
             <section
               className={cn(
@@ -6208,6 +6335,8 @@ export function ClinicalDashboard() {
                     setupWarning={setupWarning}
                     relevance={searchRelevance}
                     facets={searchFacets}
+                    onQueryChange={setQuery}
+                    onSearch={ask}
                     onScopeDocument={scopeOnlyDocument}
                     onAnswerFromDocument={answerFromDocument}
                     onTagSearch={handleTagSearch}
@@ -6444,6 +6573,14 @@ export function ClinicalDashboard() {
           onNavigate={navigateMobileSection}
         />
         <GuideDialog open={guideOpen} onClose={closeGuide} />
+        <ClinicalMobileSidebar
+          open={mobileSidebarOpen}
+          recentQueries={recentQueries}
+          onOpenChange={setMobileSidebarOpen}
+          onNewChat={startNewChat}
+          onPickRecent={setQuery}
+          onOpenGuide={openGuide}
+        />
       </div>
     </div>
   );

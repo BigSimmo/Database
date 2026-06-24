@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
+  ArrowUpDown,
   ChevronDown,
   ExternalLink,
   FileText,
   Filter,
   ListChecks,
+  Search,
   ShieldAlert,
   Sparkles,
   Tag,
@@ -22,7 +24,6 @@ import { SafeBoldText } from "@/components/SafeBoldText";
 import { QueryCoverageChips, RelevanceBadge } from "@/components/clinical-dashboard/relevance";
 import {
   cn,
-  EmptyState,
   floatingControl,
   LoadingPanel,
   metadataPill,
@@ -176,6 +177,21 @@ function DocumentTagFacetRail({
   );
 }
 
+function documentKindLabel(document: DocumentMatch) {
+  const fileName = document.file_name.toLowerCase();
+  if (document.imageCount > 0 && document.tableCount > 0) return "Guideline";
+  if (document.tableCount > 0) return "Table source";
+  if (fileName.endsWith(".pdf")) return "PDF";
+  return "Document";
+}
+
+function documentPageLabel(document: DocumentMatch) {
+  const pages = document.bestPages.filter((page) => Number.isFinite(page));
+  if (pages.length === 0) return "Page n/a";
+  if (pages.length === 1) return `p.${pages[0]}`;
+  return `p.${pages.slice(0, 2).join("-")}`;
+}
+
 export function MatchExplanationChips({ source }: { source: SearchResult }) {
   const explanation = source.match_explanation;
   const reasons = explanation?.reasons?.length
@@ -220,6 +236,8 @@ export function DocumentSearchResultsPanel({
   setupWarning,
   relevance,
   facets,
+  onQueryChange,
+  onSearch,
   onScopeDocument,
   onAnswerFromDocument,
   onTagSearch,
@@ -234,6 +252,8 @@ export function DocumentSearchResultsPanel({
   setupWarning: string | null;
   relevance?: EvidenceRelevance | null;
   facets?: SearchFacets | null;
+  onQueryChange: (query: string) => void;
+  onSearch: () => void;
   onScopeDocument: (documentId: string) => void;
   onAnswerFromDocument: (documentId: string) => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
@@ -260,144 +280,209 @@ export function DocumentSearchResultsPanel({
     });
   }
 
-  if (loading) return <LoadingPanel label="Finding matching documents" />;
-
-  if (apiUnavailable || !realDataReady || authUnavailable) {
-    return (
-      <EmptyState
-        icon={AlertCircle}
-        title="Document search unavailable"
-        body={
-          apiUnavailable
-            ? "The local API is unavailable. Check the app server before searching documents."
-            : authUnavailable
-              ? "Sign in or enable local no-auth mode before listing private indexed documents."
-              : setupWarning || "Complete the search setup before using Documents mode."
-        }
-      />
-    );
-  }
-
-  if (matches.length === 0) {
-    if (documentCount === 0) {
-      return (
-        <EmptyState
-          icon={FileText}
-          title="No indexed documents"
-          body="Upload and index source documents before using Documents mode."
-        />
-      );
-    }
-
-    if (!trimmedQuery) {
-      return (
-        <EmptyState
-          icon={FileText}
-          title="Search documents"
-          body="Enter a clinical topic, medication, workflow, or policy name to list matching source documents."
-        />
-      );
-    }
-
-    return (
-      <EmptyState
-        icon={FileText}
-        title="No matching documents"
-        body={`No indexed documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
-      />
-    );
-  }
+  const unavailableMessage = apiUnavailable
+    ? "The local API is unavailable. Check the app server before searching documents."
+    : authUnavailable
+      ? "Sign in or enable local no-auth mode before listing private indexed documents."
+      : !realDataReady
+        ? setupWarning || "Complete the search setup before using Documents mode."
+        : null;
+  const canSearch = trimmedQuery.length > 0 && !loading && !unavailableMessage;
+  const resultLabel = loading
+    ? "Finding matching documents"
+    : matches.length
+      ? `${visibleMatches.length} result${visibleMatches.length === 1 ? "" : "s"}`
+      : documentCount === 0
+        ? "No indexed documents"
+        : trimmedQuery
+          ? "No matching documents"
+          : `${documentCount} document${documentCount === 1 ? "" : "s"}`;
 
   return (
-    <div className="space-y-3">
+    <div data-testid="document-search-workspace" className="space-y-3">
+      <section className={cn(panelSubtle, "space-y-3 p-3 sm:p-4")}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSearch) onSearch();
+          }}
+          className="flex min-h-[48px] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)]"
+        >
+          <Search className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+          <input
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search your clinical documents..."
+            aria-label="Search your clinical documents"
+            className="min-h-[44px] min-w-0 flex-1 bg-transparent text-sm font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+          />
+          <button type="submit" disabled={!canSearch} className={cn(primaryControl, "min-h-9 px-3 text-xs")}>
+            Search
+          </button>
+        </form>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {["All sources", "Document type", "Date / status"].map((label) => (
+              <button
+                key={label}
+                type="button"
+                className={cn(
+                  floatingControl,
+                  "min-h-9 gap-1.5 rounded-lg px-2.5 text-[11px] text-[color:var(--text-muted)]",
+                )}
+              >
+                {label === "All sources" ? <Filter className="h-3.5 w-3.5" /> : null}
+                {label}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className={cn(floatingControl, "min-h-9 gap-1.5 rounded-lg px-2.5 text-[11px] text-[color:var(--text-muted)]")}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            Sort: Relevance
+          </button>
+        </div>
+      </section>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className={cn(metadataPill, "nums inline-flex min-h-8 w-fit max-w-full flex-wrap gap-x-1.5 leading-5")}>
-          {matches.length} document match{matches.length === 1 ? "" : "es"} for &quot;{query.trim()}&quot;
+          {resultLabel}
+          {trimmedQuery ? (
+            <>
+              {" "}
+              <span className="text-[color:var(--text-soft)]">for &quot;{trimmedQuery}&quot;</span>
+            </>
+          ) : null}
         </div>
         {relevance ? <RelevanceBadge relevance={relevance} /> : null}
       </div>
-      <SearchFacetDisclosure facets={facets} />
-      <DocumentTagFacetRail
-        groups={tagFacetGroups}
-        activeKeys={activeFacetKeys}
-        onToggle={toggleTagFacet}
-        onClear={() => setActiveFacetState({ query, keys: [] })}
-      />
-      {activeFacetKeys.length > 0 ? (
-        <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-[11px]")}>
-          {visibleMatches.length} result{visibleMatches.length === 1 ? "" : "s"} after tag filters
+
+      {unavailableMessage ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 p-4 text-sm font-semibold leading-6 text-[color:var(--warning)]"
+        >
+          <AlertCircle className="mr-2 inline h-4 w-4" />
+          {unavailableMessage}
         </div>
-      ) : null}
-      <div className="grid gap-3">
-        {visibleMatches.length === 0 ? (
-          <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
-            No document matches include all selected tag facets.
+      ) : loading ? (
+        <LoadingPanel label="Finding matching documents" />
+      ) : matches.length === 0 ? (
+        <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
+          <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+            <FileText className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
+              {documentCount === 0 ? "No indexed documents" : trimmedQuery ? "No matching documents" : "Search documents"}
+            </h3>
+            <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
+              {documentCount === 0
+                ? "Upload and index source documents before using Documents mode."
+                : trimmedQuery
+                  ? `No indexed documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`
+                  : "Enter a clinical topic, medication, workflow, or policy name to list matching source documents."}
+            </p>
           </div>
-        ) : null}
-        {visibleMatches.map((document) => (
-          <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-              <div className="min-w-0">
-                <Link
-                  href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-base font-semibold text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
-                >
-                  <span className="line-clamp-2">{document.title}</span>
-                </Link>
-                <p className={cn("text-xs leading-5", textMuted)}>
-                  {document.file_name} · pages {document.bestPages.join(", ") || "n/a"} · {document.tableCount} tables ·{" "}
-                  {document.imageCount} images
-                </p>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>{document.matchReason}</p>
-                <div className="mt-2">
-                  <QueryCoverageChips relevance={document.relevance} />
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <RelevanceBadge relevance={document.relevance} />
-                <Link
-                  href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
-                  className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                  aria-label={`Open ${document.title}`}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Open
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => onScopeDocument(document.document_id)}
-                  className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                  aria-label={`Scope search to ${document.title}`}
-                >
-                  <Filter className="h-4 w-4" />
-                  Scope
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onAnswerFromDocument(document.document_id)}
-                  className={cn(primaryControl, "min-h-[44px] rounded-lg px-3 text-xs")}
-                  aria-label={`Answer from ${document.title}`}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Answer
-                </button>
-              </div>
+        </div>
+      ) : (
+        <>
+          <SearchFacetDisclosure facets={facets} />
+          <DocumentTagFacetRail
+            groups={tagFacetGroups}
+            activeKeys={activeFacetKeys}
+            onToggle={toggleTagFacet}
+            onClear={() => setActiveFacetState({ query, keys: [] })}
+          />
+          {activeFacetKeys.length > 0 ? (
+            <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-[11px]")}>
+              {visibleMatches.length} result{visibleMatches.length === 1 ? "" : "s"} after tag filters
             </div>
-            {document.summarySnippet && (
-              <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6", textMuted)}>
-                <SafeBoldText text={document.summarySnippet} />
-              </p>
-            )}
-            <DocumentTagCloud
-              labels={document.labels}
-              query={query}
-              limit={4}
-              className="mt-3"
-              onTagClick={onTagSearch}
-            />
-          </article>
-        ))}
-      </div>
+          ) : null}
+          <div className="grid gap-3">
+            {visibleMatches.length === 0 ? (
+              <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
+                No document matches include all selected tag facets.
+              </div>
+            ) : null}
+            {visibleMatches.map((document) => (
+              <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
+                <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+                  <span className="hidden h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-document)] text-[color:var(--text-muted)] sm:grid">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
+                        {documentKindLabel(document)}
+                      </span>
+                      <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />
+                      <span className={cn("text-[11px] font-semibold", textMuted)}>{document.file_name}</span>
+                    </div>
+                    <Link
+                      href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
+                      className="mt-1 inline-flex min-h-[44px] items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
+                    >
+                      <span className="line-clamp-2">{document.title}</span>
+                    </Link>
+                    <p className={cn("text-xs leading-5", textMuted)}>
+                      {documentPageLabel(document)} · {document.tableCount} tables · {document.imageCount} images
+                    </p>
+                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>{document.matchReason}</p>
+                    {document.summarySnippet && (
+                      <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6", textMuted)}>
+                        <SafeBoldText text={document.summarySnippet} />
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <RelevanceBadge relevance={document.relevance} />
+                      <QueryCoverageChips relevance={document.relevance} />
+                    </div>
+                    <DocumentTagCloud
+                      labels={document.labels}
+                      query={query}
+                      limit={4}
+                      className="mt-3"
+                      onTagClick={onTagSearch}
+                    />
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[color:var(--border)] pt-3">
+                      <Link
+                        href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
+                        className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
+                        aria-label={`Open ${document.title}`}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => onScopeDocument(document.document_id)}
+                        className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
+                        aria-label={`Scope search to ${document.title}`}
+                      >
+                        <Filter className="h-4 w-4" />
+                        Scope
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onAnswerFromDocument(document.document_id)}
+                        className={cn(primaryControl, "min-h-9 rounded-lg px-2.5 text-xs")}
+                        aria-label={`Answer from ${document.title}`}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Answer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

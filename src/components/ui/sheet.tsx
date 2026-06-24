@@ -22,6 +22,7 @@ export function Sheet({
   labelledBy,
   initialFocusRef,
   contentClassName,
+  placement = "default",
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,6 +34,7 @@ export function Sheet({
   labelledBy?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
   contentClassName?: string;
+  placement?: "default" | "left";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -91,7 +93,12 @@ export function Sheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--surface-glass)] backdrop-blur-sm motion-safe:animate-overlay-in motion-reduce:animate-none motion-reduce:transition-none sm:items-center sm:p-6"
+      className={cn(
+        "fixed inset-0 z-50 flex bg-[color:var(--surface-glass)] backdrop-blur-sm motion-safe:animate-overlay-in motion-reduce:animate-none motion-reduce:transition-none",
+        placement === "left"
+          ? "items-stretch justify-start"
+          : "items-end justify-center sm:items-center sm:p-6",
+      )}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -104,10 +111,12 @@ export function Sheet({
         aria-describedby={description ? descId : undefined}
         onMouseDown={(event) => event.stopPropagation()}
         className={cn(
-          "flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe motion-safe:animate-sheet-up",
+          "flex w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
           "transition duration-200 motion-reduce:transition-none sm:duration-150",
-          "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
-          "sm:motion-reduce:animate-none",
+          placement === "left"
+            ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 motion-safe:animate-sheet-left sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0 sm:motion-safe:animate-sheet-left"
+            : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+          "motion-reduce:animate-none",
           contentClassName,
         )}
       >
