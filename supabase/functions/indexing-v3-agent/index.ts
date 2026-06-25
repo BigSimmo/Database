@@ -69,15 +69,36 @@ type SectionLabelSource = {
   heading_path: string[] | null
   summary: string
   tags: string[] | null
-  source_chunk_id: string
-  anchor_id: string
-  chunk_index: number
+  source_chunk_id: string | null
+  anchor_id: string | null
+  chunk_index: number | null
 }
 
 type MemoryCardLabelSource = {
   card_id: string
   card_type: string
   title: string
+  content: string
+}
+
+type MemoryCardSectionSource = {
+  section_id: string
+  heading: string
+  heading_path: string[] | null
+  page_start: number | null
+  page_end: number | null
+  chunk_ids: string[] | null
+  summary: string
+  tags: string[] | null
+  extraction_quality: string | null
+}
+
+type ChunkSectionSource = {
+  id: string
+  page_number: number | null
+  chunk_index: number
+  section_heading: string | null
+  section_path: string[] | null
   content: string
 }
 
@@ -117,6 +138,11 @@ const EMBEDDING_DIMENSIONS = Number(Deno.env.get('EMBEDDING_DIMENSIONS') ?? Stri
 if (EMBEDDING_DIMENSIONS !== EXPECTED_EMBED_DIM) {
   throw new Error(`EMBEDDING_DIMENSIONS must be ${EXPECTED_EMBED_DIM}`)
 }
+const OPENAI_REQUEST_TIMEOUT_MS = Math.max(5_000, Number(Deno.env.get('OPENAI_REQUEST_TIMEOUT_MS') ?? '45000'))
+const OPENAI_MAX_RETRIES = Math.max(0, Math.min(5, Number(Deno.env.get('OPENAI_MAX_RETRIES') ?? '2')))
+const OPENAI_EMBEDDING_BATCH_SIZE = Math.max(1, Math.min(64, Number(Deno.env.get('OPENAI_EMBEDDING_BATCH_SIZE') ?? '32')))
+const INDEXING_V3_MAX_DEFERRALS = Math.max(1, Number(Deno.env.get('INDEXING_V3_MAX_DEFERRALS') ?? '6'))
+const INDEXING_V3_RETRY_DELAY_MS = Math.max(30_000, Number(Deno.env.get('INDEXING_V3_RETRY_DELAY_MS') ?? '120000'))
 
 const VISUAL_FIELD_TYPES = [
   'image_caption',
@@ -185,34 +211,242 @@ function tokenize(v: string): string[] {
   return Array.from(new Set(normalizeText(v).toLowerCase().split(/[^a-z0-9]+/g).filter((x) => x.length > 2))).slice(0, 40)
 }
 
+function safeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function compactString(value: unknown, limit = 180): string {
+  const text = normalizeText(String(value ?? ''))
+  return text.length > limit ? text.slice(0, limit).trim() : text
+}
+
+function uniqueStrings(values: string[], limit = 20): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const normalized = normalizeText(value)
+    const key = normalized.toLowerCase()
+    if (!normalized || seen.has(key)) continue
+    seen.add(key)
+    out.push(normalized)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+function structuredProfileFromMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+  return safeRecord(metadata.structured_visual_profile ?? metadata.v3_structured_visual)
+}
+
+function stringArrayFrom(value: unknown, limit = 20): string[] {
+  if (!Array.isArray(value)) return []
+  return uniqueStrings(value.map((entry) => compactString(entry, 180)).filter(Boolean), limit)
+}
+
+function textItemsFrom(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry === 'string') return [entry]
+    const row = safeRecord(entry)
+    return [
+      row.label,
+      row.name,
+      row.parameter,
+      row.value,
+      row.threshold,
+      row.action,
+      row.management,
+      row.source_text,
+    ].map((part) => compactString(part, 180)).filter(Boolean)
+  })
+}
+
+function sourceRegionsFromMetadata(metadata: Record<string, unknown>): Array<Record<string, unknown>> {
+  const profile = structuredProfileFromMetadata(metadata)
+  const regions = Array.isArray(profile.source_regions) ? profile.source_regions.map(safeRecord) : []
+  const metadataRegions = Array.isArray(metadata.source_regions) ? metadata.source_regions.map(safeRecord) : []
+  const directRegion = safeRecord(metadata.source_region)
+  const bbox = Array.isArray(metadata.bbox) ? { bbox: metadata.bbox } : {}
+  return [
+    ...regions,
+    ...metadataRegions,
+    ...(Object.keys(directRegion).length ? [directRegion] : []),
+    ...(Object.keys(bbox).length ? [bbox] : []),
+  ].slice(0, 12)
+}
+
+const LABEL_STOPWORDS = new Set([
+  'about',
+  'above',
+  'after',
+  'again',
+  'against',
+  'also',
+  'and',
+  'are',
+  'because',
+  'been',
+  'before',
+  'being',
+  'between',
+  'both',
+  'can',
+  'for',
+  'from',
+  'has',
+  'have',
+  'how',
+  'into',
+  'not',
+  'off',
+  'onto',
+  'other',
+  'our',
+  'out',
+  'over',
+  'should',
+  'than',
+  'that',
+  'the',
+  'their',
+  'then',
+  'there',
+  'these',
+  'this',
+  'those',
+  'under',
+  'was',
+  'were',
+  'when',
+  'where',
+  'which',
+  'while',
+  'with',
+  'within',
+  'without',
+])
+
+const GENERIC_LABELS = new Set([
+  'document',
+  'documents',
+  'information',
+  'guidance',
+  'content',
+  'summary',
+  'section',
+  'sections',
+  'page',
+  'table',
+  'figure',
+  'clinical',
+  'patient',
+  'patients',
+  'management',
+  'treatment',
+])
+
+const CLINICAL_PHRASE_PATTERN =
+  /\b(?:clozapine|lithium|olanzapine|haloperidol|benzodiazepine|lorazepam|diazepam|antipsychotic|antidepressant|insulin|heparin|warfarin|digoxin|dose|route|threshold|monitoring|observation|escalation|self harm|suicide|violence|agitation|risk matrix|flowchart|care plan|discharge|admission|assessment|screening|contraindication|side effect|adverse effect|fbc|anc|wbc|mmol|mg)\b(?:[\s:/-]+[a-z0-9]{3,}){0,3}/gi
+
+function isLowQualityLabel(normalized: string): boolean {
+  const tokens = normalized.split(/\s+/).filter(Boolean)
+  if (tokens.length === 0 || tokens.length > 8) return true
+  if (!/[a-z]/.test(normalized)) return true
+  if (tokens.every((token) => LABEL_STOPWORDS.has(token))) return true
+  if (tokens.length === 1 && (LABEL_STOPWORDS.has(tokens[0]) || GENERIC_LABELS.has(tokens[0]))) return true
+  if (tokens.filter((token) => !LABEL_STOPWORDS.has(token)).length === 0) return true
+  return false
+}
+
+function phraseLabelCandidates(text: string, limit = 6): string[] {
+  const phrases = Array.from(text.matchAll(CLINICAL_PHRASE_PATTERN)).map((match) => match[0])
+  const tokens = normalizeText(text)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter((token) => token.length > 2 && !LABEL_STOPWORDS.has(token))
+
+  for (let index = 0; index < tokens.length && phrases.length < limit * 2; index += 1) {
+    const token = tokens[index]
+    if (GENERIC_LABELS.has(token) && !/(risk|dose|monitor|threshold|flowchart|clozapine|lithium|agitation)/.test(token)) continue
+    const next = tokens[index + 1]
+    const third = tokens[index + 2]
+    if (next) phrases.push([token, next, third].filter(Boolean).join(' '))
+  }
+
+  return uniqueStrings(phrases.map((phrase) => normalizeLabel(phrase)).filter((phrase) => !isLowQualityLabel(phrase)), limit)
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input)
   const digest = await crypto.subtle.digest('SHA-256', data)
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-async function embedding(text: string): Promise<number[]> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: OPENAI_EMBEDDING_MODEL,
-      input: text,
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
-  })
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
-  if (!response.ok) {
-    const body = await response.text()
-    throw new Error(`OpenAI embedding request failed (${response.status}): ${body.slice(0, 500)}`)
+async function fetchEmbeddingBatch(texts: string[]): Promise<number[][]> {
+  let lastError: unknown = null
+
+  for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt += 1) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), OPENAI_REQUEST_TIMEOUT_MS)
+    try {
+      const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENAI_EMBEDDING_MODEL,
+          input: texts,
+          dimensions: EMBEDDING_DIMENSIONS,
+        }),
+      })
+
+      if (!response.ok) {
+        const body = await response.text()
+        const error = new Error(`OpenAI embedding request failed (${response.status}): ${body.slice(0, 500)}`)
+        if (response.status !== 429 && response.status < 500) throw error
+        lastError = error
+      } else {
+        const payload = await response.json() as { data?: Array<{ embedding?: unknown; index?: number }> }
+        const rows = payload.data ?? []
+        if (rows.length !== texts.length) {
+          throw new Error(`OpenAI embedding response returned ${rows.length} rows for ${texts.length} inputs`)
+        }
+        return rows
+          .slice()
+          .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+          .map((row, index) => {
+            assertEmbeddingDim(row.embedding, `OpenAI response ${index}`)
+            return row.embedding
+          })
+      }
+    } catch (e) {
+      lastError = e
+      if (e instanceof Error && e.name !== 'AbortError' && attempt >= OPENAI_MAX_RETRIES) throw e
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (attempt < OPENAI_MAX_RETRIES) {
+      await sleep(Math.min(5_000, 350 * 2 ** attempt))
+    }
   }
 
-  const payload = await response.json() as { data?: Array<{ embedding?: unknown }> }
-  const out = payload.data?.[0]?.embedding
-  assertEmbeddingDim(out, 'OpenAI response')
+  throw lastError instanceof Error ? lastError : new Error('OpenAI embedding request failed')
+}
+
+async function embeddingBatch(texts: string[]): Promise<number[][]> {
+  const normalized = texts.map((text) => normalizeText(text).slice(0, 12_000) || ' ')
+  const out: number[][] = []
+  for (let start = 0; start < normalized.length; start += OPENAI_EMBEDDING_BATCH_SIZE) {
+    out.push(...await fetchEmbeddingBatch(normalized.slice(start, start + OPENAI_EMBEDDING_BATCH_SIZE)))
+  }
   return out
 }
 
@@ -232,6 +466,8 @@ function parseStructuredVisual(image: ImageRow): {
   source_regions: Array<Record<string, unknown>>
   confidence: number
 } {
+  const metadata = image.metadata ?? {}
+  const profile = structuredProfileFromMetadata(metadata)
   const caption = normalizeText(image.caption ?? '')
   const textBlob = normalizeText(`${caption} ${JSON.stringify(image.metadata ?? {})}`)
   const lower = textBlob.toLowerCase()
@@ -258,23 +494,44 @@ function parseStructuredVisual(image: ImageRow): {
     : []
 
   const columnRoles = Array.from(new Set(Array.from(textBlob.matchAll(/\b(parameter|threshold|action|dose|route|frequency|monitoring|risk|notes?)\b/gi)).map((m) => m[0].toLowerCase())))
+  const profileThresholds = textItemsFrom(profile.thresholds)
+  const profileRiskCells = textItemsFrom(profile.risk_matrix_cells)
+  const profileChartFindings = textItemsFrom(profile.chart_findings)
+  const profileNodes = Array.isArray(profile.flowchart_nodes)
+    ? profile.flowchart_nodes.map((node) => compactString(safeRecord(node).label ?? safeRecord(node).text ?? node, 140)).filter(Boolean)
+    : []
+  const profileEdges = Array.isArray(profile.flowchart_edges)
+    ? profile.flowchart_edges.map((edge) => {
+      if (typeof edge === 'string') return edge
+      const row = safeRecord(edge)
+      return [row.from, row.to].map((part) => compactString(part, 80)).filter(Boolean).join(' -> ')
+    }).filter(Boolean)
+    : []
+  const profileColumnRoles = Object.entries(safeRecord(profile.table_column_roles))
+    .flatMap(([column, role]) => [column, String(role)])
+    .map((part) => compactString(part, 80))
+    .filter(Boolean)
 
-  const confidence = Math.min(0.95, 0.45 + (caption.length > 50 ? 0.15 : 0) + (actions.length > 0 ? 0.1 : 0) + (thresholds.length > 0 ? 0.1 : 0) + (medications.length > 0 ? 0.1 : 0))
+  const structuredConfidence = Number(profile.confidence ?? metadata.structured_extraction_confidence)
+  const confidence = Number.isFinite(structuredConfidence)
+    ? Math.max(0.2, Math.min(0.98, structuredConfidence))
+    : Math.min(0.95, 0.45 + (caption.length > 50 ? 0.15 : 0) + (actions.length > 0 ? 0.1 : 0) + (thresholds.length > 0 ? 0.1 : 0) + (medications.length > 0 ? 0.1 : 0))
+  const purpose = compactString(profile.clinical_purpose ?? profile.purpose ?? caption, 220)
 
   return {
     visual_type: visualType,
-    clinical_purpose: caption.length > 0 ? caption.slice(0, 180) : 'Visual clinical evidence',
-    key_terms: tokenize(textBlob),
-    actions: Array.from(new Set(actions)).slice(0, 20),
-    thresholds: Array.from(new Set(thresholds)).slice(0, 20),
-    medications: Array.from(new Set(medications)).slice(0, 20),
-    monitoring_items: Array.from(new Set(Array.from(textBlob.matchAll(/\b(monitor|observation|vitals?|follow-up|repeat)\b/gi)).map((m) => m[0].toLowerCase()))).slice(0, 20),
-    flowchart_nodes: flowchartNodes.slice(0, 20),
-    flowchart_edges: flowchartNodes.length > 1 ? flowchartNodes.slice(1).map((n, i) => `${flowchartNodes[i]} -> ${n}`) : [],
-    risk_matrix_axes: riskAxes.slice(0, 10),
-    chart_axes: chartAxes.slice(0, 10),
-    table_column_roles: columnRoles.slice(0, 12),
-    source_regions: [],
+    clinical_purpose: purpose || 'Visual clinical evidence',
+    key_terms: uniqueStrings([...stringArrayFrom(profile.key_terms), ...tokenize(textBlob)], 24),
+    actions: uniqueStrings([...stringArrayFrom(profile.actions), ...actions, ...profileThresholds.filter((item) => /withhold|cease|stop|monitor|review|escalat|continue/i.test(item))], 20),
+    thresholds: uniqueStrings([...profileThresholds, ...thresholds], 20),
+    medications: uniqueStrings([...stringArrayFrom(profile.medications), ...medications], 20),
+    monitoring_items: uniqueStrings([...stringArrayFrom(profile.monitoring_items), ...Array.from(textBlob.matchAll(/\b(monitor|observation|vitals?|follow-up|repeat)\b/gi)).map((m) => m[0].toLowerCase())], 20),
+    flowchart_nodes: uniqueStrings([...profileNodes, ...flowchartNodes], 20),
+    flowchart_edges: uniqueStrings([...profileEdges, ...(flowchartNodes.length > 1 ? flowchartNodes.slice(1).map((n, i) => `${flowchartNodes[i]} -> ${n}`) : [])], 20),
+    risk_matrix_axes: uniqueStrings([...stringArrayFrom(profile.risk_matrix_axes), ...riskAxes, ...profileRiskCells], 12),
+    chart_axes: uniqueStrings([...stringArrayFrom(profile.chart_axes), ...chartAxes, ...profileChartFindings], 12),
+    table_column_roles: uniqueStrings([...profileColumnRoles, ...columnRoles], 16),
+    source_regions: sourceRegionsFromMetadata(metadata),
     confidence,
   }
 }
@@ -332,7 +589,7 @@ async function stageStart(job: ClaimedJob, stageName: string, metadata: Record<s
     ) values (
       ${job.id}::uuid,
       ${job.document_id}::uuid,
-      ${stageName},
+      ${stageName}::text,
       'started',
       ${JSON.stringify(metadata)}::jsonb
     )
@@ -345,12 +602,110 @@ async function stageFinish(stageId: string, ok: boolean, artifactCounts: Record<
   await sql`
     update public.ingestion_job_stages
     set
-      stage_status = ${ok ? 'completed' : 'failed'},
+      stage_status = ${ok ? 'completed' : 'failed'}::text,
       finished_at = now(),
       artifact_counts = ${JSON.stringify(artifactCounts)}::jsonb,
-      error_message = ${errorMessage ?? null}
+      error_message = ${errorMessage ?? null}::text
     where id = ${stageId}::uuid
   `
+}
+
+async function refreshImportBatches(batchIds: Array<string | null>): Promise<void> {
+  const uniqueBatchIds = Array.from(new Set(batchIds.filter((id): id is string => Boolean(id))))
+  for (const batchId of uniqueBatchIds) {
+    await sql`select public.refresh_import_batch_status(${batchId}::uuid)`
+  }
+}
+
+async function resolveOpenIngestionJob(job: ClaimedJob): Promise<ClaimedJob> {
+  const rows = await sql<Array<{ id: string; batch_id: string | null }>>`
+    select id, batch_id
+    from public.ingestion_jobs
+    where document_id = ${job.document_id}::uuid
+      and status in ('pending', 'processing', 'failed')
+    order by
+      case status
+        when 'processing' then 0
+        when 'pending' then 1
+        else 2
+      end,
+      created_at desc,
+      id asc
+    limit 1
+  `
+
+  if (rows.length === 0) return job
+  return {
+    ...job,
+    id: rows[0].id,
+    batch_id: rows[0].batch_id ?? job.batch_id,
+  }
+}
+
+async function markOpenIngestionJobsCompleted(job: ClaimedJob, stage: string): Promise<void> {
+  const rows = await sql<Array<{ batch_id: string | null }>>`
+    update public.ingestion_jobs
+    set
+      status = 'completed',
+      stage = ${stage}::text,
+      progress = 100,
+      error_message = null,
+      locked_at = null,
+      locked_by = null,
+      completed_at = now(),
+      updated_at = now()
+    where document_id = ${job.document_id}::uuid
+      and status in ('pending', 'processing', 'failed')
+    returning batch_id
+  `
+  await refreshImportBatches(rows.map((row) => row.batch_id))
+}
+
+async function markOpenIngestionJobsDeferred(job: ClaimedJob, gate: CompletionGate, terminal: boolean, nextRunAt: string | null): Promise<void> {
+  const details = JSON.stringify({
+    code: terminal ? 'needs_enrichment_artifacts' : 'completion_gate_deferred',
+    missing: gate.missing,
+    counts: gate.counts,
+    presence: gate.presence,
+  })
+
+  const rows = await sql<Array<{ batch_id: string | null }>>`
+    update public.ingestion_jobs
+    set
+      status = ${terminal ? 'failed' : 'pending'}::text,
+      stage = ${terminal ? 'indexed; enrichment needs artifacts' : 'indexed; enrichment deferred'}::text,
+      progress = 98,
+      error_message = ${details}::text,
+      locked_at = null,
+      locked_by = null,
+      next_run_at = coalesce(${nextRunAt}::timestamptz, next_run_at),
+      completed_at = case when ${terminal}::boolean then now() else null end,
+      updated_at = now()
+    where document_id = ${job.document_id}::uuid
+      and status in ('pending', 'processing')
+    returning batch_id
+  `
+  await refreshImportBatches(rows.map((row) => row.batch_id))
+}
+
+async function markOpenIngestionJobsFailed(job: ClaimedJob, shouldRetry: boolean, message: string, nextRunAt: string | null): Promise<void> {
+  const rows = await sql<Array<{ batch_id: string | null }>>`
+    update public.ingestion_jobs
+    set
+      status = ${shouldRetry ? 'pending' : 'failed'}::text,
+      stage = ${shouldRetry ? 'v3 enrichment retry pending' : 'v3 enrichment failed'}::text,
+      progress = case when ${shouldRetry}::boolean then 0 else 98 end,
+      error_message = ${message}::text,
+      locked_at = null,
+      locked_by = null,
+      next_run_at = coalesce(${nextRunAt}::timestamptz, next_run_at),
+      completed_at = case when ${shouldRetry}::boolean then null else now() end,
+      updated_at = now()
+    where document_id = ${job.document_id}::uuid
+      and status in ('pending', 'processing')
+    returning batch_id
+  `
+  await refreshImportBatches(rows.map((row) => row.batch_id))
 }
 
 async function ensureSummary(job: ClaimedJob): Promise<string> {
@@ -413,7 +768,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: structured.key_terms,
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -426,7 +781,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: tokenize(a),
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -439,7 +794,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: tokenize(t),
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -452,7 +807,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: tokenize(m),
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -465,7 +820,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: tokenize(n),
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -478,7 +833,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: tokenize(ax),
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -491,7 +846,7 @@ function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof pars
       normalizedTerms: structured.key_terms,
       page,
       sourceImageId: imageId,
-      metadata: { visual_type: structured.visual_type },
+      metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
     })
   }
 
@@ -555,6 +910,7 @@ function normalizeLabelCandidate(rawLabel: string): string | null {
   const normalized = normalizeLabel(rawLabel)
   if (!normalized || normalized.length < 3) return null
   if (['unknown', 'n/a', 'na', 'tbc', 'nil'].includes(normalized)) return null
+  if (isLowQualityLabel(normalized)) return null
   return normalized
 }
 
@@ -601,6 +957,20 @@ function candidateConfidence(base: number, source: string): number {
 }
 
 async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promise<number> {
+  const summaryRows = await sql<{ summary: string }[]>`
+    select summary
+    from public.document_summaries
+    where document_id = ${job.document_id}::uuid
+    limit 1
+  `
+  const chunksForLabels = await sql<{ content: string }[]>`
+    select content
+    from public.document_chunks
+    where document_id = ${job.document_id}::uuid
+    order by chunk_index asc
+    limit 8
+  `
+
   const sections = await sql<SectionLabelSource[]>`
     select
       s.id as section_id,
@@ -612,11 +982,10 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
       c.anchor_id,
       c.chunk_index
     from public.document_sections s
-    join lateral (
+    left join lateral (
       select id, anchor_id, chunk_index
       from public.document_chunks c
       where c.document_id = s.document_id
-        and c.anchor_id is not null
         and (
           c.id = any(s.chunk_ids)
           or c.section_heading = s.heading
@@ -627,7 +996,6 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
       limit 1
     ) c on true
     where s.document_id = ${job.document_id}::uuid
-    and btrim(coalesce(s.summary, '')) <> ''
     order by s.section_index asc
   `
 
@@ -652,24 +1020,49 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
       job.documents.title,
       inferLabelType(job.documents.title),
       candidateConfidence(0.68, 'document_title'),
-      { source: 'document_title', source_text: job.documents.title },
+        { source: 'document_title', source_text: job.documents.title },
     )
+  }
+  if (summaryRows.length > 0 && summaryRows[0].summary) {
+    for (const keyword of phraseLabelCandidates(summaryRows[0].summary, 4)) {
+      pushLabelCandidate(
+        candidates,
+        keyword,
+        inferLabelType(summaryRows[0].summary),
+        candidateConfidence(0.55, 'section_heading'),
+        { source: 'document_summary_token' },
+      )
+    }
+  }
+
+  for (const chunk of chunksForLabels) {
+    for (const keyword of phraseLabelCandidates(chunk.content, 3)) {
+      pushLabelCandidate(
+        candidates,
+        keyword,
+        inferLabelType(chunk.content),
+        candidateConfidence(0.52, 'section_heading'),
+        { source: 'document_chunk_token' },
+      )
+    }
   }
 
   for (const section of sections) {
-    pushLabelCandidate(
-      candidates,
-      section.heading,
-      inferLabelType(section.heading),
-      candidateConfidence(0.78, 'section_heading'),
-      {
-        source: 'document_section',
-        section_id: section.section_id,
-        source_chunk_id: section.source_chunk_id,
-        chunk_index: section.chunk_index,
-        anchor_id: section.anchor_id,
-      },
-    )
+    if (section.heading) {
+      pushLabelCandidate(
+        candidates,
+        section.heading,
+        inferLabelType(section.heading),
+        candidateConfidence(0.78, 'section_heading'),
+        {
+          source: 'document_section',
+          section_id: section.section_id,
+          source_chunk_id: section.source_chunk_id ?? null,
+          chunk_index: section.chunk_index ?? null,
+          anchor_id: section.anchor_id ?? null,
+        },
+      )
+    }
 
     if ((section.heading_path ?? []).length > 0) {
       const pathLabel = section.heading_path!.join(' > ')
@@ -682,9 +1075,27 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
           {
             source: 'document_section_path',
             section_id: section.section_id,
-            source_chunk_id: section.source_chunk_id,
-            chunk_index: section.chunk_index,
-            anchor_id: section.anchor_id,
+            source_chunk_id: section.source_chunk_id ?? null,
+            chunk_index: section.chunk_index ?? null,
+            anchor_id: section.anchor_id ?? null,
+          },
+        )
+      }
+    }
+
+    if (section.summary) {
+      for (const keyword of phraseLabelCandidates(section.summary, 4)) {
+        pushLabelCandidate(
+          candidates,
+          keyword,
+          inferLabelType(section.summary),
+          candidateConfidence(0.6, 'section_heading'),
+          {
+            source: 'document_section_summary_token',
+            section_id: section.section_id,
+            source_chunk_id: section.source_chunk_id ?? null,
+            chunk_index: section.chunk_index ?? null,
+            anchor_id: section.anchor_id ?? null,
           },
         )
       }
@@ -720,7 +1131,7 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
         card_type: card.card_type,
       },
     )
-    for (const term of tokenize(card.content).slice(0, 3)) {
+    for (const term of phraseLabelCandidates(card.content, 4)) {
       pushLabelCandidate(
         candidates,
         term,
@@ -769,13 +1180,190 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
         on conflict (document_id, label_type, label, source)
         do update set
           confidence = greatest(document_labels.confidence, excluded.confidence),
-          metadata = coalesce(document_labels.metadata, '{}'::jsonb) || excluded.metadata,
+          metadata = CASE
+            WHEN jsonb_typeof(document_labels.metadata) = 'object' THEN
+              coalesce(document_labels.metadata, '{}'::jsonb) || excluded.metadata
+            ELSE excluded.metadata
+          END,
           updated_at = now()
       `
       count += 1
     }
     return count
   })
+
+  return inserted
+}
+
+function memoryCardText(title: string, cardType: string, content: string, terms: string[]): string {
+  return `${title}\n${cardType}\n${content}\nTerms: ${terms.join(', ')}`
+}
+
+async function ensureSectionsFromChunks(job: ClaimedJob): Promise<number> {
+  const existing = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from public.document_sections
+    where document_id = ${job.document_id}::uuid
+  `
+  if ((existing[0]?.count ?? 0) > 0) return 0
+
+  const chunks = await sql<ChunkSectionSource[]>`
+    select id, page_number, chunk_index, section_heading, section_path, content
+    from public.document_chunks
+    where document_id = ${job.document_id}::uuid
+    order by chunk_index asc
+    limit 24
+  `
+  if (chunks.length === 0) return 0
+
+  let inserted = 0
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index]
+    const path = (chunk.section_path ?? []).filter(Boolean)
+    const heading = normalizeText(chunk.section_heading ?? path[path.length - 1] ?? job.documents.title ?? `Section ${index + 1}`).slice(0, 220) || `Section ${index + 1}`
+    const summary = normalizeText(chunk.content).slice(0, 1400) || heading
+    const tags = uniqueStrings(tokenize(`${heading} ${summary}`).slice(0, 8), 8)
+
+    const rows = await sql<{ id: string }[]>`
+      insert into public.document_sections (
+        document_id,
+        owner_id,
+        section_index,
+        heading,
+        heading_path,
+        page_start,
+        page_end,
+        chunk_ids,
+        summary,
+        tags,
+        extraction_quality,
+        metadata
+      ) values (
+        ${job.document_id}::uuid,
+        ${job.documents.owner_id}::uuid,
+        ${index}::integer,
+        ${heading}::text,
+        ${path.length > 0 ? path : [heading]}::text[],
+        ${chunk.page_number}::integer,
+        ${chunk.page_number}::integer,
+        ${[chunk.id]}::uuid[],
+        ${summary}::text,
+        ${tags}::text[],
+        'partial',
+        ${JSON.stringify({
+          generated_by: GENERATED_BY,
+          source: 'document_chunks',
+          source_chunk_id: chunk.id,
+          repaired_missing_sections: true,
+        })}::jsonb
+      )
+      on conflict (document_id, section_index) do nothing
+      returning id
+    `
+    inserted += rows.length
+  }
+
+  return inserted
+}
+
+async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
+  const sections = await sql<MemoryCardSectionSource[]>`
+    select
+      id as section_id,
+      heading,
+      heading_path,
+      page_start,
+      page_end,
+      chunk_ids,
+      summary,
+      tags,
+      extraction_quality
+    from public.document_sections
+    where document_id = ${job.document_id}::uuid
+      and btrim(coalesce(summary, '')) <> ''
+    order by section_index asc
+    limit 16
+  `
+
+  if (sections.length === 0) return 0
+
+  await sql`
+    delete from public.document_memory_cards
+    where document_id = ${job.document_id}::uuid
+      and metadata->>'generated_by' = ${GENERATED_BY}
+      and metadata->>'source' = 'document_sections'
+  `
+
+  const prepared = sections.map((section) => {
+    const heading = normalizeText(section.heading) || 'Document section'
+    const path = (section.heading_path ?? []).filter(Boolean).join(' > ')
+    const title = path ? `${path} > ${heading}` : heading
+    const summary = normalizeText(section.summary)
+    const content = `${heading}: ${summary}`
+    const terms = uniqueStrings([
+      ...tokenize(`${title} ${summary}`),
+      ...(section.tags ?? []).map((tag) => normalizeText(tag.toLowerCase())),
+    ], 24)
+    return {
+      section,
+      title: title.slice(0, 240),
+      content,
+      terms,
+      embeddingText: memoryCardText(title, 'section_summary', content, terms),
+    }
+  }).filter((card) => card.content.length >= 12)
+
+  if (prepared.length === 0) return 0
+
+  const embeddings = await embeddingBatch(prepared.map((card) => card.embeddingText))
+  let inserted = 0
+  for (let index = 0; index < prepared.length; index += 1) {
+    const card = prepared[index]
+    const section = card.section
+    const chunkIds = section.chunk_ids ?? []
+    const emb = embeddings[index]
+    assertEmbeddingDim(emb, `memory card ${section.section_id}`)
+
+    await sql`
+      insert into public.document_memory_cards (
+        document_id,
+        owner_id,
+        section_id,
+        card_type,
+        title,
+        content,
+        normalized_terms,
+        page_number,
+        source_chunk_ids,
+        source_image_ids,
+        confidence,
+        metadata,
+        embedding
+      ) values (
+        ${job.document_id}::uuid,
+        ${job.documents.owner_id}::uuid,
+        ${section.section_id}::uuid,
+        'section_summary',
+        ${card.title}::text,
+        ${card.content}::text,
+        ${card.terms}::text[],
+        ${section.page_start}::integer,
+        ${chunkIds}::uuid[],
+        '{}'::uuid[],
+        ${section.extraction_quality === 'good' ? 0.72 : section.extraction_quality === 'partial' ? 0.62 : 0.54},
+        ${JSON.stringify({
+          generated_by: GENERATED_BY,
+          source: 'document_sections',
+          section_id: section.section_id,
+          heading_path: section.heading_path ?? [],
+          page_start: section.page_start,
+          page_end: section.page_end,
+        })}::jsonb,
+        ${JSON.stringify(emb)}::vector
+      )
+    `
+    inserted += 1
+  }
 
   return inserted
 }
@@ -824,13 +1412,28 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
       and metadata->>'source' = 'document_sections'
   `
 
-  let inserted = 0
-  for (const section of sections) {
+  const preparedSections = sections.map((section) => {
     const content = normalizeText(section.summary)
     const title = normalizeText(section.heading)
-    if (!content || !title) continue
+    if (!content || !title) return null
+    return {
+      section,
+      title,
+      content,
+      embeddingText: `Type: section_summary\nTitle: ${title}\nPath: ${(section.heading_path ?? []).join(' > ')}\nContent: ${content}`,
+    }
+  }).filter((row): row is {
+    section: SectionIndexSource
+    title: string
+    content: string
+    embeddingText: string
+  } => Boolean(row))
 
-    const emb = await embedding(`Type: section_summary\nTitle: ${title}\nPath: ${(section.heading_path ?? []).join(' > ')}\nContent: ${content}`)
+  const embeddings = await embeddingBatch(preparedSections.map((section) => section.embeddingText))
+  let inserted = 0
+  for (let index = 0; index < preparedSections.length; index += 1) {
+    const { section, title, content } = preparedSections[index]
+    const emb = embeddings[index]
     assertEmbeddingDim(emb, `section index unit ${section.section_id}`)
 
     await sql`
@@ -918,6 +1521,13 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
 
   let createdUnits = 0
   let createdFields = 0
+  const preparedUnits: Array<{
+    unit: VisualUnit
+    content: string
+    unitType: string
+    fieldType: string
+    contentHash: string
+  }> = []
 
   for (const img of selected) {
     const structured = parseStructuredVisual(img)
@@ -941,52 +1551,58 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
       if (content.length < 4) continue
 
       const unitType = canonicalUnitType(unit.unitType)
-      const emb = await embedding(content)
-      assertEmbeddingDim(emb, `visual index unit ${unit.sourceImageId}`)
-
-      await sql`
-        insert into public.document_index_units (
-          owner_id,
-          document_id,
-          unit_type,
-          source_chunk_id,
-          source_image_id,
-          page_start,
-          page_end,
-          heading_path,
-          title,
-          content,
-          normalized_terms,
-          source_span,
-          quality_score,
-          extraction_mode,
-          embedding,
-          metadata
-        ) values (
-          ${job.documents.owner_id}::uuid,
-          ${job.document_id}::uuid,
-          ${unitType},
-          null,
-          ${unit.sourceImageId}::uuid,
-          ${unit.page},
-          ${unit.page},
-          '{}'::text[],
-          ${unit.title},
-          ${content},
-          ${unit.normalizedTerms}::text[],
-          null,
-          ${unit.qualityScore},
-          'hybrid',
-          ${JSON.stringify(emb)}::vector,
-          ${JSON.stringify({ ...unit.metadata, visual_unit_type: unit.unitType, generated_by: GENERATED_BY })}::jsonb
-        )
-      `
-      createdUnits += 1
-
       const fieldType = canonicalFieldType(unit.unitType)
       const contentHash = await sha256Hex(content)
-      assertEmbeddingDim(emb, `visual embedding field ${unit.sourceImageId}`)
+      preparedUnits.push({ unit, content, unitType, fieldType, contentHash })
+    }
+  }
 
+  const embeddings = await embeddingBatch(preparedUnits.map((prepared) => prepared.content))
+  for (let index = 0; index < preparedUnits.length; index += 1) {
+    const { unit, content, unitType, fieldType, contentHash } = preparedUnits[index]
+    const emb = embeddings[index]
+    assertEmbeddingDim(emb, `visual index unit ${unit.sourceImageId}`)
+
+    await sql`
+      insert into public.document_index_units (
+        owner_id,
+        document_id,
+        unit_type,
+        source_chunk_id,
+        source_image_id,
+        page_start,
+        page_end,
+        heading_path,
+        title,
+        content,
+        normalized_terms,
+        source_span,
+        quality_score,
+        extraction_mode,
+        embedding,
+        metadata
+      ) values (
+        ${job.documents.owner_id}::uuid,
+        ${job.document_id}::uuid,
+        ${unitType},
+        null,
+        ${unit.sourceImageId}::uuid,
+        ${unit.page},
+        ${unit.page},
+        '{}'::text[],
+        ${unit.title},
+        ${content},
+        ${unit.normalizedTerms}::text[],
+        ${JSON.stringify({ source_image_id: unit.sourceImageId, source_regions: unit.metadata.source_regions ?? [] })}::jsonb,
+        ${unit.qualityScore},
+        'hybrid',
+        ${JSON.stringify(emb)}::vector,
+        ${JSON.stringify({ ...unit.metadata, visual_unit_type: unit.unitType, generated_by: GENERATED_BY })}::jsonb
+      )
+    `
+    createdUnits += 1
+
+    assertEmbeddingDim(emb, `visual embedding field ${unit.sourceImageId}`)
       await sql`
         insert into public.document_embedding_fields (
           owner_id,
@@ -1008,8 +1624,7 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
           ${contentHash}
         )
       `
-      createdFields += 1
-    }
+    createdFields += 1
   }
 
   return { selected_images: selected.length, created_units: createdUnits, created_fields: createdFields }
@@ -1029,9 +1644,11 @@ async function upsertCoreEmbeddingFields(job: ClaimedJob, summary: string): Prom
       and metadata->>'generated_by' = ${GENERATED_BY}
   `
 
+  const embeddings = await embeddingBatch(base.map((row) => row.content))
   let inserted = 0
-  for (const row of base) {
-    const emb = await embedding(row.content)
+  for (let index = 0; index < base.length; index += 1) {
+    const row = base[index]
+    const emb = embeddings[index]
     const contentHash = await sha256Hex(row.content)
     assertEmbeddingDim(emb, `${row.field_type} embedding field`)
 
@@ -1085,10 +1702,11 @@ async function updateQuality(job: ClaimedJob): Promise<void> {
     from unit_counts u, image_counts i
   `
 
-  const c = counts[0]
+  const c = counts[0] ?? { visual_units: 0, anchors_with_image: 0, total_units: 0, visual_images: 0 }
   const typedCoverage = c.total_units > 0 ? c.visual_units / c.total_units : 0
   const anchorCoverage = c.total_units > 0 ? c.anchors_with_image / c.total_units : 0
   const retrievableVisualHit = c.visual_units > 0 && c.visual_images > 0
+  const issues = c.visual_images > 0 && !retrievableVisualHit ? ['no retrievable visual evidence'] : []
 
   await sql`
     insert into public.document_index_quality (
@@ -1117,7 +1735,7 @@ async function updateQuality(job: ClaimedJob): Promise<void> {
           noisy_unit_rate: Math.max(0, 1 - typedCoverage),
         },
       })}::jsonb,
-      ${retrievableVisualHit ? [] : ['no retrievable visual evidence']}::text[],
+      ${issues}::text[],
       now()
     )
     on conflict (document_id)
@@ -1154,8 +1772,8 @@ async function completionGate(job: ClaimedJob): Promise<CompletionGate> {
           and (
             lower(source) = 'generated'
             or metadata->>'source' = 'generated'
-            or metadata->>'generated_by' = 'local-worker'
             or metadata->>'generated_by' = ${GENERATED_BY}
+            or lower(metadata->>'generation_source') = 'indexing_v3_agent_parsed_artifacts'
           )
       ) as generated_labels,
       (select count(*)::int from public.document_index_units where document_id = ${job.document_id}::uuid) as index_units,
@@ -1211,73 +1829,105 @@ function logCompletionGate(job: ClaimedJob, gate: CompletionGate): void {
   }))
 }
 
+function metadataNumber(metadata: Record<string, unknown> | null | undefined, key: string, fallback = 0): number {
+  const value = Number(metadata?.[key])
+  return Number.isFinite(value) ? value : fallback
+}
+
 async function deferJob(job: ClaimedJob, gate: CompletionGate): Promise<void> {
+  const deferralCount = metadataNumber(job.documents.metadata, 'indexing_v3_agent_deferral_count') + 1
+  const terminal = deferralCount >= INDEXING_V3_MAX_DEFERRALS || gate.missing.includes('sections')
+  const status = terminal ? 'needs_enrichment_artifacts' : 'deferred'
+  const nextRunAt = terminal ? null : new Date(Date.now() + Math.min(24 * 60 * 60_000, 15 * 60_000 * deferralCount)).toISOString()
   const details = {
-    code: 'completion_gate_deferred',
+    code: terminal ? 'needs_enrichment_artifacts' : 'completion_gate_deferred',
     missing: gate.missing,
     counts: gate.counts,
     presence: gate.presence,
+    deferral_count: deferralCount,
+    max_deferrals: INDEXING_V3_MAX_DEFERRALS,
   }
 
-  await sql.begin(async (tx) => {
-    await tx`
-      update public.documents
-      set
-        metadata = coalesce(metadata, '{}'::jsonb)
-          || jsonb_build_object(
-            'indexing_v3_agent_status', 'deferred',
-            'indexing_v3_agent_version', 'visual-core-v3',
-            'indexing_v3_agent_updated_at', now(),
-            'completion_gate', ${JSON.stringify(details)}::jsonb,
-            'completion_gate_missing', ${JSON.stringify(gate.missing)}::jsonb,
-            'enrichment_status', 'pending'
-          ),
-        updated_at = now()
-      where id = ${job.document_id}::uuid
-    `
-
-    await tx`
-      update public.ingestion_jobs
-      set
-        status = 'pending',
-        stage = 'deferred: missing enrichment artifacts',
-        progress = greatest(progress, 95),
-        attempt_count = greatest(attempt_count - 1, 0),
-        error_message = ${JSON.stringify(details)},
-        locked_at = null,
-        locked_by = null,
-        next_run_at = now() + interval '15 minutes',
-        completed_at = null
-      where id = ${job.id}::uuid
-        and document_id = ${job.document_id}::uuid
-    `
-  })
+  await sql`
+    update public.documents
+    set
+      metadata = jsonb_strip_nulls(
+        (coalesce(metadata, '{}'::jsonb)
+          - 'indexing_v3_agent_locked_by'
+          - 'indexing_v3_agent_locked_at'
+          - 'indexing_v3_agent_last_error'
+          - 'indexing_v3_agent_next_run_at')
+        || jsonb_build_object(
+          'indexing_v3_agent_status', ${status}::text,
+          'indexing_v3_agent_version', 'visual-core-v3',
+          'indexing_v3_agent_updated_at', now(),
+          'indexing_v3_agent_deferral_count', ${deferralCount}::integer,
+          'indexing_v3_agent_next_run_at', ${nextRunAt}::timestamptz,
+          'completion_gate', ${JSON.stringify(details)}::jsonb,
+          'completion_gate_missing', ${JSON.stringify(gate.missing)}::jsonb,
+          'enrichment_status', ${terminal ? 'needs_enrichment_artifacts' : 'pending'}::text
+        )
+      ),
+      updated_at = now()
+    where id = ${job.document_id}::uuid
+  `
+  await markOpenIngestionJobsDeferred(job, gate, terminal, nextRunAt)
 }
 
 async function completeJob(job: ClaimedJob): Promise<void> {
   await sql`
     update public.documents
     set
-      metadata = coalesce(metadata, '{}'::jsonb)
+      metadata = jsonb_strip_nulls(
+        (coalesce(metadata, '{}'::jsonb)
+          - 'indexing_v3_agent_locked_by'
+          - 'indexing_v3_agent_locked_at'
+          - 'indexing_v3_agent_next_run_at'
+          - 'indexing_v3_agent_last_error'
+          - 'completion_gate_missing')
         || jsonb_build_object(
           'indexing_v3_agent_status', 'completed',
           'indexing_v3_agent_version', 'visual-core-v3',
           'indexing_v3_agent_updated_at', now(),
+          'indexing_v3_agent_deferral_count', 0,
           'visual_indexing_version', 'visual-v3',
           'enrichment_status', 'completed'
-        ),
+        )
+      ),
       updated_at = now()
     where id = ${job.document_id}::uuid
   `
+  await markOpenIngestionJobsCompleted(job, 'indexed; enrichment completed')
+}
 
+async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean> {
+  const shouldRetry = job.attempt_count < job.max_attempts
+  const nextRunAt = shouldRetry ? new Date(Date.now() + INDEXING_V3_RETRY_DELAY_MS).toISOString() : null
   await sql`
-    select public.complete_ingestion_job(
-      ${job.id}::uuid,
-      ${job.document_id}::uuid,
-      ${job.batch_id ?? null}::uuid,
-      'indexed + enrichment backfill v3'
-    )
+    update public.documents
+    set
+      metadata = jsonb_strip_nulls(
+        (coalesce(metadata, '{}'::jsonb)
+          - 'indexing_v3_agent_locked_by'
+          - 'indexing_v3_agent_locked_at'
+          - 'indexing_v3_agent_next_run_at')
+        || jsonb_build_object(
+          'indexing_v3_agent_status', ${shouldRetry ? 'retry_pending' : 'failed'}::text,
+          'indexing_v3_agent_version', 'visual-core-v3',
+          'indexing_v3_agent_updated_at', now(),
+          'indexing_v3_agent_attempt_count', ${job.attempt_count}::integer,
+          'indexing_v3_agent_max_attempts', ${job.max_attempts}::integer,
+          'indexing_v3_agent_next_run_at', ${nextRunAt}::timestamptz,
+          'indexing_v3_agent_last_error', ${message}::text,
+          'enrichment_status', ${shouldRetry ? 'pending' : 'failed'}::text,
+          'enrichment_error', ${message}::text
+        )
+      ),
+      updated_at = now()
+    where id = ${job.document_id}::uuid
   `
+  await markOpenIngestionJobsFailed(job, shouldRetry, message, nextRunAt)
+  return shouldRetry
 }
 
 async function processJob(job: ClaimedJob): Promise<{ status: 'completed' | 'deferred'; missing: string[] }> {
@@ -1304,9 +1954,10 @@ async function processJob(job: ClaimedJob): Promise<{ status: 'completed' | 'def
 
   const s3 = await stageStart(job, 'quality_refresh')
   try {
+    const repairedSections = await ensureSectionsFromChunks(job)
     const sectionUnits = await upsertSectionIndexUnits(job)
     await updateQuality(job)
-    await stageFinish(s3, true, { section_index_units: sectionUnits })
+    await stageFinish(s3, true, { repaired_sections: repairedSections, section_index_units: sectionUnits })
   } catch (e) {
     const msg = e instanceof Error ? e.message : JSON.stringify(e)
     await stageFinish(s3, false, {}, msg)
@@ -1314,6 +1965,18 @@ async function processJob(job: ClaimedJob): Promise<{ status: 'completed' | 'def
   }
 
   let gate = await completionGate(job)
+  if (gate.missing.includes('memory_cards')) {
+    const s4 = await stageStart(job, 'memory_cards_from_sections')
+    try {
+      const memoryCards = await upsertMemoryCardsFromSections(job)
+      await stageFinish(s4, true, { memory_cards: memoryCards })
+      gate = await completionGate(job)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e)
+      await stageFinish(s4, false, {}, msg)
+      throw e
+    }
+  }
   if (gate.missing.includes('generated_labels')) {
     await upsertGeneratedLabelsFromParsedArtifacts(job)
     gate = await completionGate(job)
@@ -1340,9 +2003,16 @@ Deno.serve(async (req: Request) => {
     const limit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit') ?? '8')))
     const workerId = `indexing-v3-agent-${crypto.randomUUID()}`
 
-    const claimed = await sql<ClaimedJob[]>`
-      select * from public.claim_ingestion_jobs(${workerId}, ${limit}, 45)
+    let claimSource = 'ingestion_jobs'
+    let claimed = await sql<ClaimedJob[]>`
+      select * from public.claim_ingestion_jobs(${workerId}::text, ${limit}::integer, 45::integer)
     `
+    if (claimed.length === 0) {
+      claimSource = 'documents'
+      claimed = await sql<ClaimedJob[]>`
+        select * from public.claim_indexing_v3_agent_jobs(${workerId}::text, ${limit}::integer, 45::integer)
+      `
+    }
 
     if (claimed.length === 0) {
       return Response.json({ ok: true, claimed: 0, processed: 0, failed: 0 })
@@ -1354,7 +2024,8 @@ Deno.serve(async (req: Request) => {
     const failures: Array<{ job_id: string; document_id: string; error: string }> = []
     const deferrals: Array<{ job_id: string; document_id: string; missing: string[] }> = []
 
-    for (const job of claimed) {
+    for (const claimedJob of claimed) {
+      const job = await resolveOpenIngestionJob(claimedJob)
       try {
         const result = await processJob(job)
         if (result.status === 'completed') {
@@ -1367,26 +2038,14 @@ Deno.serve(async (req: Request) => {
         failed += 1
         const msg = e instanceof Error ? e.message : JSON.stringify(e)
         failures.push({ job_id: job.id, document_id: job.document_id, error: msg })
-        const shouldRetry = job.attempt_count < job.max_attempts
-
-        await sql`
-          select public.fail_or_retry_ingestion_job(
-            ${job.id}::uuid,
-            ${job.document_id}::uuid,
-            ${job.batch_id ?? null}::uuid,
-            ${shouldRetry},
-            'indexed',
-            'v3 enrichment failed',
-            ${msg},
-            ${new Date(Date.now() + 120_000).toISOString()}::timestamptz
-          )
-        `
+        await markJobFailure(job, msg)
       }
     }
 
     return Response.json({
       ok: true,
       worker: workerId,
+      claim_source: claimSource,
       claimed: claimed.length,
       processed,
       deferred,

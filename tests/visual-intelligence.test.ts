@@ -59,6 +59,34 @@ describe("visual intelligence v1", () => {
     expect([...selected]).toEqual(expect.arrayContaining([0, 1, 2]));
   });
 
+  it("does not spend caption budget on duplicate visual families", () => {
+    const ranked = rankVisualCandidates([
+      {
+        pageNumber: 1,
+        sourceKind: "table_crop",
+        imageHash: "same-table",
+        metadata: { table_text: "ANC threshold withhold clozapine" },
+      },
+      {
+        pageNumber: 2,
+        sourceKind: "table_crop",
+        imageHash: "same-table",
+        metadata: { table_text: "ANC threshold withhold clozapine duplicate" },
+      },
+      {
+        pageNumber: 3,
+        sourceKind: "page_region",
+        metadata: { candidate_type: "flowchart" },
+        nearbyText: "Flowchart next step escalate red zone.",
+      },
+    ]);
+
+    const selected = selectCaptionCandidateIndexes(ranked, 3, 2);
+
+    const selectedGroups = [...selected].map((index) => ranked.find((candidate) => candidate.originalIndex === index)?.duplicateGroup);
+    expect(selectedGroups.filter((group) => group === "same-table")).toHaveLength(1);
+  });
+
   it("normalizes structured profile arrays, roles, duplicates, and confidence scores", () => {
     const profile = normalizeStructuredVisualProfile({
       clinical_purpose: "Dose threshold table",
@@ -74,7 +102,10 @@ describe("visual intelligence v1", () => {
       flowchart_edges: [{ from: "a", to: "b", label: "yes" }],
       risk_matrix_cells: [{ row: "High", column: "Severe", risk: "Red", action: "Escalate", confidence: -1 }],
       chart_findings: [{ label: "ANC falls", interpretation: "repeat FBC", confidence: 0.7 }],
-      table_column_roles: { Dose: "dose", "Bad role": "unsupported" },
+      table_column_roles: [
+        { column: "Dose", role: "dose" },
+        { column: "Bad role", role: "unsupported" },
+      ],
       confidence: 1.5,
     });
 
@@ -85,5 +116,29 @@ describe("visual intelligence v1", () => {
     expect(profile.risk_matrix_cells[0].confidence).toBe(0);
     expect(profile.table_column_roles).toEqual({ Dose: "dose" });
     expect(profile.confidence).toBe(1);
+  });
+
+  it("preserves visual fact source grounding while normalizing profiles", () => {
+    const profile = normalizeStructuredVisualProfile(
+      {
+        thresholds: [{ label: "ANC red", value: "< 1.0", action: "stop", source_text: "ANC < 1.0 stop" }],
+        flowchart_nodes: [{ id: "review", label: "Urgent review" }],
+        risk_matrix_cells: [{ row: "High", column: "Severe", risk: "Red", action: "Escalate" }],
+      },
+      {
+        sourceImageId: "image-123",
+        pageNumber: 7,
+        sourceRegion: { x: 10, y: 20, width: 300, height: 120 },
+      },
+    );
+
+    expect(profile.thresholds[0]).toMatchObject({
+      source_image_id: "image-123",
+      page_number: 7,
+      source_region: { x: 10, y: 20, width: 300, height: 120 },
+      visible_text: "ANC < 1.0 stop",
+    });
+    expect(profile.flowchart_nodes[0].source_image_id).toBe("image-123");
+    expect(profile.risk_matrix_cells[0].source_region).toMatchObject({ width: 300 });
   });
 });

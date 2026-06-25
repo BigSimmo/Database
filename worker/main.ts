@@ -393,6 +393,8 @@ const imageEvidenceCategories = new Set<ImageEvidenceCategory>([
   "logo_decorative",
   "unclear",
 ]);
+const imageCaptionCacheVersion = "clinical-image-caption-cache-v2";
+const visionClassificationPromptVersion = "clinical-image-classification-v1";
 
 function cachedImageMetadata(value: unknown) {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -440,6 +442,31 @@ function imageTableMetadata(image: ExtractedDocument["images"][number]) {
     tableRows: Array.isArray(metadata.table_rows) ? metadata.table_rows : null,
     tableColumns: Array.isArray(metadata.table_columns) ? metadata.table_columns : null,
   };
+}
+
+function captionContextHash(args: {
+  image: ExtractedDocument["images"][number];
+  tableMetadata: ReturnType<typeof imageTableMetadata>;
+  nearbyText?: string | null;
+}) {
+  const fingerprint = {
+    cacheVersion: imageCaptionCacheVersion,
+    promptVersion: visionClassificationPromptVersion,
+    policyVersion: clinicalImagePolicyVersion,
+    visualIntelligenceVersion,
+    visionModel: env.OPENAI_VISION_MODEL,
+    sourceKind: args.image.sourceKind ?? null,
+    width: args.image.width ?? null,
+    height: args.image.height ?? null,
+    bbox: args.image.bbox ?? null,
+    candidateType: args.tableMetadata.candidateType,
+    tableLabel: args.tableMetadata.tableLabel,
+    tableTitle: args.tableMetadata.tableTitle,
+    tableRole: args.tableMetadata.tableRole,
+    tableTextSnippet: compactMetadataText(args.tableMetadata.tableText, 900),
+    nearbyText: compactSearchText(args.nearbyText ?? "", 900),
+  };
+  return createHash("sha256").update(JSON.stringify(fingerprint)).digest("hex").slice(0, 32);
 }
 
 function nonClinicalTableClassification(args: {
@@ -491,7 +518,7 @@ function nonClinicalTableClassification(args: {
   } satisfies ImageClassification;
 }
 
-async function getCachedImageClassification(ownerId: string | null, imageHash: string) {
+async function getCachedImageClassification(ownerId: string | null, imageHash: string, contextHash: string) {
   if (!ownerId) return null;
 
   const { data, error } = await supabase
@@ -509,6 +536,15 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
   if (!data) return null;
 
   const metadata = cachedImageMetadata(data.metadata);
+  if (
+    metadata.image_caption_cache_version !== imageCaptionCacheVersion ||
+    metadata.image_policy_version !== clinicalImagePolicyVersion ||
+    metadata.visual_intelligence_version !== visualIntelligenceVersion ||
+    metadata.vision_classification_prompt_version !== visionClassificationPromptVersion ||
+    metadata.caption_context_hash !== contextHash
+  ) {
+    return null;
+  }
   const imageType = imageEvidenceCategories.has(metadata.image_type as ImageEvidenceCategory)
     ? (metadata.image_type as ImageEvidenceCategory)
     : "unclear";
@@ -548,6 +584,7 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
 async function setCachedImageClassification(args: {
   ownerId: string | null;
   imageHash: string;
+  contextHash: string;
   mimeType: string;
   classification: ImageClassification;
 }) {
@@ -577,6 +614,9 @@ async function setCachedImageClassification(args: {
           .structured_extraction_confidence,
         image_policy_version: clinicalImagePolicyVersion,
         visual_intelligence_version: visualIntelligenceVersion,
+        image_caption_cache_version: imageCaptionCacheVersion,
+        vision_classification_prompt_version: visionClassificationPromptVersion,
+        caption_context_hash: args.contextHash,
       },
       updated_at: new Date().toISOString(),
     },
@@ -613,13 +653,26 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
   const imageTypeCounts = new Map<string, number>();
+  const preparedImages = await Promise.all(
+    extracted.images.map(async (image) => {
+      const bytes = await readFile(image.path);
+      const imageHash = hashBytes(bytes);
+      return {
+        imageHash,
+        bytesLength: bytes.length,
+        perceptualHash: lightweightPerceptualHash(bytes, image.width, image.height),
+      };
+    }),
+  );
   const scoredCandidates = rankVisualCandidates(
-    extracted.images.map((image) => ({
+    extracted.images.map((image, index) => ({
       pageNumber: image.pageNumber,
       width: image.width ?? null,
       height: image.height ?? null,
       bbox: image.bbox ?? null,
       sourceKind: image.sourceKind ?? null,
+      imageHash: preparedImages[index]?.imageHash ?? null,
+      perceptualHash: preparedImages[index]?.perceptualHash ?? null,
       metadata: image.metadata ?? {},
       nearbyText: image.pageNumber ? pagesByNumber.get(image.pageNumber) : null,
     })),
@@ -638,11 +691,11 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       progress: Math.min(70, 35 + Math.round((index / Math.max(extracted.images.length, 1)) * 25)),
     });
 
-    const bytes = await readFile(image.path);
-    const imageHash = hashBytes(bytes);
-    const perceptualHash = lightweightPerceptualHash(imageHash, image.width, image.height);
+    const preparedImage = preparedImages[index];
+    const imageHash = preparedImage.imageHash;
+    const perceptualHash = preparedImage.perceptualHash;
     const skipReason = cheapImageSkipReason({
-      bytesLength: bytes.length,
+      bytesLength: preparedImage.bytesLength,
       imageHash,
       seenHashes,
       image,
@@ -656,6 +709,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
 
     const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
     const tableMetadata = imageTableMetadata(image);
+    const contextHash = captionContextHash({ image, tableMetadata, nearbyText });
     const lowSignalSkipReason = lowSignalImageTextSkipReason({
       sourceKind: image.sourceKind ?? null,
       tableRole: tableMetadata.tableRole,
@@ -682,7 +736,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       continue;
     }
     if (!classification) {
-      classification = await getCachedImageClassification(job.documents.owner_id, imageHash);
+      classification = await getCachedImageClassification(job.documents.owner_id, imageHash, contextHash);
       classificationCacheHit = Boolean(classification);
     }
     if (!classification) {
@@ -700,6 +754,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       await setCachedImageClassification({
         ownerId: job.documents.owner_id,
         imageHash,
+        contextHash,
         mimeType: image.mimeType,
         classification,
       });
@@ -764,6 +819,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     }
 
     const ext = path.extname(image.path) || ".png";
+    const bytes = await readFile(image.path);
     const imagePrefix = job.documents.owner_id
       ? `${job.documents.owner_id}/images/${job.document_id}`
       : `local/${job.document_id}`;
@@ -814,6 +870,9 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
           admin_signal_score: policyAssessment.admin_signal_score,
           image_policy_version: clinicalImagePolicyVersion,
           visual_intelligence_version: visualIntelligenceVersion,
+          image_caption_cache_version: imageCaptionCacheVersion,
+          vision_classification_prompt_version: visionClassificationPromptVersion,
+          caption_context_hash: contextHash,
           visual_family_id: image.metadata?.visual_family_id ?? perceptualHash,
           parent_visual_id: image.metadata?.parent_visual_id ?? null,
           candidate_priority_score: candidate.candidatePriorityScore,

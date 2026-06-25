@@ -360,6 +360,24 @@ create table if not exists public.ingestion_jobs (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.ingestion_job_stages (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null,
+  document_id uuid not null references public.documents(id) on delete cascade,
+  stage_name text not null,
+  stage_status text not null default 'started'
+    check (stage_status in ('started', 'completed', 'failed')),
+  metadata jsonb not null default '{}'::jsonb,
+  artifact_counts jsonb not null default '{}'::jsonb,
+  error_message text,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table if exists public.ingestion_job_stages
+  drop constraint if exists ingestion_job_stages_job_id_fkey;
+
 create table if not exists public.rag_queries (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -623,6 +641,14 @@ create index if not exists ingestion_jobs_status_next_run_idx
   where status in ('pending', 'processing', 'failed');
 create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
+drop index if exists public.ingestion_job_stages_doc_idx;
+create index if not exists ingestion_job_stages_document_started_idx
+  on public.ingestion_job_stages(document_id, started_at desc);
+create index if not exists ingestion_job_stages_job_stage_started_idx
+  on public.ingestion_job_stages(job_id, stage_name, started_at desc);
+create index if not exists documents_indexing_v3_agent_claim_idx
+  on public.documents(status, ((metadata->>'enrichment_status')), ((metadata->>'indexing_v3_agent_status')), updated_at)
+  where status = 'indexed';
 create index if not exists import_batches_status_created_idx
   on public.import_batches(status, created_at desc)
   where status in ('queued', 'processing');
@@ -899,6 +925,119 @@ begin
     to_jsonb(d.*) as documents
   from claimed c
   join public.documents d on d.id = c.document_id;
+end;
+$$;
+
+create or replace function public.claim_indexing_v3_agent_jobs(
+  p_worker_id text,
+  p_claim_limit integer default 1,
+  p_stale_after_minutes integer default 45
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  batch_id uuid,
+  status text,
+  stage text,
+  progress integer,
+  error_message text,
+  attempt_count integer,
+  max_attempts integer,
+  locked_at timestamptz,
+  locked_by text,
+  documents jsonb
+)
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  return query
+  with eligible as (
+    select
+      d.id,
+      d.import_batch_id,
+      state.attempt_count,
+      state.max_attempts
+    from public.documents d
+    cross join lateral (
+      select
+        coalesce(d.metadata->>'enrichment_status', 'pending') as enrichment_status,
+        coalesce(d.metadata->>'indexing_v3_agent_status', 'pending') as agent_status,
+        case
+          when coalesce(d.metadata->>'indexing_v3_agent_attempt_count', '') ~ '^[0-9]+$'
+            then (d.metadata->>'indexing_v3_agent_attempt_count')::integer
+          else 0
+        end as attempt_count,
+        greatest(
+          case
+            when coalesce(d.metadata->>'indexing_v3_agent_max_attempts', '') ~ '^[0-9]+$'
+              then (d.metadata->>'indexing_v3_agent_max_attempts')::integer
+            else 3
+          end,
+          1
+        ) as max_attempts,
+        case
+          when coalesce(d.metadata->>'indexing_v3_agent_locked_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+            then (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz
+          else null
+        end as locked_at,
+        case
+          when coalesce(d.metadata->>'indexing_v3_agent_next_run_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+            then (d.metadata->>'indexing_v3_agent_next_run_at')::timestamptz
+          else null
+        end as next_run_at
+    ) state
+    where d.status = 'indexed'
+      and state.enrichment_status in ('pending', 'failed', 'processing')
+      and state.agent_status not in ('completed', 'needs_enrichment_artifacts')
+      and state.attempt_count < state.max_attempts
+      and coalesce(state.next_run_at, now()) <= now()
+      and (
+        state.agent_status <> 'processing'
+        or state.locked_at is null
+        or state.locked_at < now() - make_interval(mins => p_stale_after_minutes)
+      )
+    order by coalesce(state.next_run_at, d.updated_at), d.id
+    limit greatest(p_claim_limit, 1)
+    for update of d skip locked
+  ),
+  claimed as (
+    update public.documents d
+    set
+      metadata = jsonb_strip_nulls(
+        (coalesce(d.metadata, '{}'::jsonb)
+          - 'indexing_v3_agent_next_run_at'
+          - 'indexing_v3_agent_last_error')
+        || jsonb_build_object(
+          'indexing_v3_agent_status', 'processing',
+          'indexing_v3_agent_version', 'visual-core-v3',
+          'indexing_v3_agent_locked_by', p_worker_id,
+          'indexing_v3_agent_locked_at', now(),
+          'indexing_v3_agent_attempt_count', e.attempt_count + 1,
+          'indexing_v3_agent_max_attempts', e.max_attempts,
+          'indexing_v3_agent_updated_at', now(),
+          'enrichment_status', 'processing'
+        )
+      ),
+      updated_at = now()
+    from eligible e
+    where d.id = e.id
+    returning d.*, e.attempt_count + 1 as claimed_attempt_count, e.max_attempts as claimed_max_attempts
+  )
+  select
+    c.id,
+    c.id as document_id,
+    c.import_batch_id as batch_id,
+    'processing'::text as status,
+    'v3 enrichment claimed'::text as stage,
+    95::integer as progress,
+    null::text as error_message,
+    c.claimed_attempt_count,
+    c.claimed_max_attempts,
+    (c.metadata->>'indexing_v3_agent_locked_at')::timestamptz as locked_at,
+    c.metadata->>'indexing_v3_agent_locked_by' as locked_by,
+    to_jsonb(c.*) - 'claimed_attempt_count' - 'claimed_max_attempts' as documents
+  from claimed c;
 end;
 $$;
 
@@ -2109,6 +2248,7 @@ grant select, insert, update, delete on table
   public.document_embedding_fields,
   public.document_index_quality,
   public.ingestion_jobs,
+  public.ingestion_job_stages,
   public.rag_queries,
   public.rag_query_misses,
   public.rag_aliases,
@@ -2120,6 +2260,8 @@ to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
+revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
 
 grant select on table
   public.import_batches,
@@ -2156,6 +2298,7 @@ alter table public.document_table_facts enable row level security;
 alter table public.document_embedding_fields enable row level security;
 alter table public.document_index_quality enable row level security;
 alter table public.ingestion_jobs enable row level security;
+alter table public.ingestion_job_stages enable row level security;
 alter table public.rag_queries enable row level security;
 alter table public.rag_query_misses enable row level security;
 alter table public.rag_aliases enable row level security;
@@ -2231,6 +2374,11 @@ create policy "jobs owner read" on public.ingestion_jobs
   for select to authenticated using (
     exists (select 1 from public.documents d where d.id = document_id and d.owner_id = (select auth.uid()))
   );
+
+create policy "ingestion job stages service role all" on public.ingestion_job_stages
+  for all to service_role
+  using (true)
+  with check (true);
 
 create policy "rag owner read" on public.rag_queries
   for select to authenticated using (owner_id = (select auth.uid()));

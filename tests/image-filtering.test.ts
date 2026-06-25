@@ -140,6 +140,14 @@ describe("smart image filtering", () => {
   });
 
   it("builds a stable lightweight perceptual hash key", () => {
-    expect(lightweightPerceptualHash("1234567890abcdef", 100, 200)).toBe("1234567890abcdef:100:200");
+    expect(lightweightPerceptualHash("1234567890abcdef", 100, 200)).toMatch(/^ph1:100x200:[0-9a-f]{4}$/);
+  });
+
+  it("groups identical sampled image bytes but separates different bytes", () => {
+    const bytes = new Uint8Array([1, 10, 20, 30, 40, 50, 60, 70, 80]);
+    expect(lightweightPerceptualHash(bytes, 100, 200)).toBe(lightweightPerceptualHash(bytes, 100, 200));
+    expect(lightweightPerceptualHash(bytes, 100, 200)).not.toBe(
+      lightweightPerceptualHash(new Uint8Array([80, 70, 60, 50, 40, 30, 20, 10, 1]), 100, 200),
+    );
   });
 });

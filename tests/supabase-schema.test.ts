@@ -82,6 +82,23 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("delete from public.document_sections where document_id = p_document_id;");
   });
 
+  it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
+    expect(schema).toContain("create table if not exists public.ingestion_job_stages");
+    expect(schema).toContain("drop constraint if exists ingestion_job_stages_job_id_fkey");
+    expect(schema).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
+    expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
+    expect(schema).toContain("create or replace function public.claim_indexing_v3_agent_jobs");
+    expect(schema).toContain("where d.status = 'indexed'");
+    expect(schema).toContain("state.enrichment_status in ('pending', 'failed', 'processing')");
+    expect(schema).toContain("'indexing_v3_agent_locked_by', p_worker_id");
+    expect(schema).toContain("'indexing_v3_agent_attempt_count', e.attempt_count + 1");
+    expect(schema).toContain("grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role");
+    expect(schema).toContain("alter table public.ingestion_job_stages enable row level security");
+    expect(schema).toContain('create policy "ingestion job stages service role all" on public.ingestion_job_stages');
+    const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
+    expect(authenticatedSelectGrant).not.toContain("public.ingestion_job_stages");
+  });
+
   it("supports service-role-only durable API rate limiting", () => {
     expect(schema).toContain("create table if not exists public.api_rate_limits");
     expect(schema).toContain("primary key (owner_id, bucket)");

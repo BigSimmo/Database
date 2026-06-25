@@ -3,7 +3,14 @@ import type { ImageEvidenceCategory } from "@/lib/types";
 
 export const visualIntelligenceVersion = "visual-intelligence-v1" as const;
 
-export type VisualTextItem = {
+export type VisualSourceProvenance = {
+  source_image_id?: string | null;
+  page_number?: number | null;
+  source_region?: Record<string, unknown> | null;
+  visible_text?: string | null;
+};
+
+export type VisualTextItem = VisualSourceProvenance & {
   label: string;
   value?: string | null;
   action?: string | null;
@@ -11,19 +18,19 @@ export type VisualTextItem = {
   source_text?: string | null;
 };
 
-export type VisualFlowchartNode = {
+export type VisualFlowchartNode = VisualSourceProvenance & {
   id: string;
   label: string;
   type?: string | null;
 };
 
-export type VisualFlowchartEdge = {
+export type VisualFlowchartEdge = VisualSourceProvenance & {
   from: string;
   to: string;
   label?: string | null;
 };
 
-export type VisualRiskMatrixCell = {
+export type VisualRiskMatrixCell = VisualSourceProvenance & {
   row: string;
   column: string;
   risk: string;
@@ -31,7 +38,7 @@ export type VisualRiskMatrixCell = {
   confidence: number;
 };
 
-export type VisualChartFinding = {
+export type VisualChartFinding = VisualSourceProvenance & {
   label: string;
   value?: string | null;
   interpretation?: string | null;
@@ -143,71 +150,132 @@ function safeRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function normalizeTextItem(value: unknown): VisualTextItem | null {
+function normalizeTableColumnRoles(value: unknown) {
+  const entries = Array.isArray(value)
+    ? value
+        .map((entry) => safeRecord(entry))
+        .map((entry) => [compact(entry.column ?? entry.name ?? entry.label, 80), compact(entry.role, 80).toLowerCase()])
+    : Object.entries(safeRecord(value)).map(([column, role]) => [compact(column, 80), compact(role, 80).toLowerCase()]);
+  return Object.fromEntries(entries.filter(([column, role]) => column && supportedColumnRoles.has(role)));
+}
+
+type VisualProfileNormalizeOptions = {
+  fallbackText?: string | null;
+  fallbackConfidence?: number;
+  sourceImageId?: string | null;
+  pageNumber?: number | null;
+  sourceRegion?: Record<string, unknown> | null;
+};
+
+function normalizedSourceRegion(row: Record<string, unknown>, fallback?: Record<string, unknown> | null) {
+  return Object.keys(safeRecord(row.source_region)).length
+    ? safeRecord(row.source_region)
+    : Object.keys(safeRecord(row.bbox)).length
+      ? safeRecord(row.bbox)
+      : fallback ?? null;
+}
+
+function withSourceProvenance<T extends Record<string, unknown>>(
+  value: T,
+  row: Record<string, unknown>,
+  options: VisualProfileNormalizeOptions,
+  visibleText?: string | null,
+): T & VisualSourceProvenance {
+  return {
+    ...value,
+    source_image_id: compact(row.source_image_id ?? options.sourceImageId, 120) || null,
+    page_number: Number.isFinite(Number(row.page_number ?? row.page ?? options.pageNumber))
+      ? Number(row.page_number ?? row.page ?? options.pageNumber)
+      : null,
+    source_region: normalizedSourceRegion(row, options.sourceRegion),
+    visible_text: compact(row.visible_text ?? row.source_text ?? row.text ?? visibleText, 320) || null,
+  };
+}
+
+function normalizeTextItem(value: unknown, options: VisualProfileNormalizeOptions): VisualTextItem | null {
   const row = safeRecord(value);
   const label = compact(row.label ?? row.name ?? row.parameter ?? row.title, 140);
   const valueText = compact(row.value ?? row.threshold ?? row.dose ?? row.range, 160);
   const action = compact(row.action ?? row.response ?? row.management, 220);
   if (!label && !valueText && !action) return null;
-  return {
-    label: label || valueText || action,
-    value: valueText || null,
-    action: action || null,
-    confidence: clamp01(row.confidence, 0.65),
-    source_text: compact(row.source_text ?? row.text, 260) || null,
-  };
+  const sourceText = compact(row.source_text ?? row.text, 260) || null;
+  return withSourceProvenance(
+    {
+      label: label || valueText || action,
+      value: valueText || null,
+      action: action || null,
+      confidence: clamp01(row.confidence, 0.65),
+      source_text: sourceText,
+    },
+    row,
+    options,
+    sourceText,
+  );
 }
 
-function normalizeNode(value: unknown): VisualFlowchartNode | null {
+function normalizeNode(value: unknown, options: VisualProfileNormalizeOptions): VisualFlowchartNode | null {
   const row = safeRecord(value);
   const label = compact(row.label ?? row.text ?? row.title, 180);
   if (!label) return null;
-  return {
-    id: compact(row.id ?? label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), 80),
+  return withSourceProvenance(
+    {
+      id: compact(row.id ?? label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), 80),
+      label,
+      type: compact(row.type, 80) || null,
+    },
+    row,
+    options,
     label,
-    type: compact(row.type, 80) || null,
-  };
+  );
 }
 
-function normalizeEdge(value: unknown): VisualFlowchartEdge | null {
+function normalizeEdge(value: unknown, options: VisualProfileNormalizeOptions): VisualFlowchartEdge | null {
   const row = safeRecord(value);
   const from = compact(row.from ?? row.source, 80);
   const to = compact(row.to ?? row.target, 80);
   if (!from || !to || from === to) return null;
-  return {
-    from,
-    to,
-    label: compact(row.label ?? row.condition, 140) || null,
-  };
+  const label = compact(row.label ?? row.condition, 140) || null;
+  return withSourceProvenance({ from, to, label }, row, options, [from, to, label].filter(Boolean).join(" -> "));
 }
 
-function normalizeRiskCell(value: unknown): VisualRiskMatrixCell | null {
+function normalizeRiskCell(value: unknown, options: VisualProfileNormalizeOptions): VisualRiskMatrixCell | null {
   const row = safeRecord(value);
   const risk = compact(row.risk ?? row.level ?? row.value, 120);
   const matrixRow = compact(row.row ?? row.likelihood ?? row.y, 120);
   const column = compact(row.column ?? row.consequence ?? row.x, 120);
   if (!risk || (!matrixRow && !column)) return null;
-  return {
-    row: matrixRow || "unspecified row",
-    column: column || "unspecified column",
-    risk,
-    action: compact(row.action ?? row.response, 220) || null,
-    confidence: clamp01(row.confidence, 0.65),
-  };
+  const action = compact(row.action ?? row.response, 220) || null;
+  return withSourceProvenance(
+    {
+      row: matrixRow || "unspecified row",
+      column: column || "unspecified column",
+      risk,
+      action,
+      confidence: clamp01(row.confidence, 0.65),
+    },
+    row,
+    options,
+    [matrixRow, column, risk, action].filter(Boolean).join(" | "),
+  );
 }
 
-function normalizeChartFinding(value: unknown): VisualChartFinding | null {
+function normalizeChartFinding(value: unknown, options: VisualProfileNormalizeOptions): VisualChartFinding | null {
   const row = safeRecord(value);
   const label = compact(row.label ?? row.finding ?? row.series, 160);
   const interpretation = compact(row.interpretation ?? row.meaning, 240);
   const valueText = compact(row.value ?? row.measure, 120);
   if (!label && !interpretation) return null;
-  return {
-    label: label || interpretation,
-    value: valueText || null,
-    interpretation: interpretation || null,
-    confidence: clamp01(row.confidence, 0.65),
-  };
+  return withSourceProvenance(
+    {
+      label: label || interpretation,
+      value: valueText || null,
+      interpretation: interpretation || null,
+      confidence: clamp01(row.confidence, 0.65),
+    },
+    row,
+    options,
+    [label, valueText, interpretation].filter(Boolean).join(" | "),
+  );
 }
 
 function uniqueBy<T>(values: T[], keyFor: (value: T) => string, limit = 20) {
@@ -225,19 +293,16 @@ function uniqueBy<T>(values: T[], keyFor: (value: T) => string, limit = 20) {
 
 export function normalizeStructuredVisualProfile(
   value: unknown,
-  options: { fallbackText?: string | null; fallbackConfidence?: number } = {},
+  options: VisualProfileNormalizeOptions = {},
 ): StructuredVisualProfile {
   const raw = safeRecord(value);
   const fallbackText = compact(options.fallbackText, 700);
   const derivedTerms = clinicalVocabularyTerms(fallbackText, 10);
-  const columnRolesRaw = safeRecord(raw.table_column_roles);
-  const table_column_roles = Object.fromEntries(
-    Object.entries(columnRolesRaw)
-      .map(([column, role]) => [compact(column, 80), compact(role, 80).toLowerCase()])
-      .filter(([column, role]) => column && supportedColumnRoles.has(role)),
-  );
+  const table_column_roles = normalizeTableColumnRoles(raw.table_column_roles);
   const thresholds = uniqueBy(
-    (Array.isArray(raw.thresholds) ? raw.thresholds : []).map(normalizeTextItem).filter(Boolean) as VisualTextItem[],
+    (Array.isArray(raw.thresholds) ? raw.thresholds : [])
+      .map((item) => normalizeTextItem(item, options))
+      .filter(Boolean) as VisualTextItem[],
     (item) => `${item.label}:${item.value ?? ""}:${item.action ?? ""}`,
     24,
   );
@@ -250,24 +315,32 @@ export function normalizeStructuredVisualProfile(
     actions: compactStringArray(raw.actions, 24),
     monitoring_items: compactStringArray(raw.monitoring_items, 20),
     flowchart_nodes: uniqueBy(
-      (Array.isArray(raw.flowchart_nodes) ? raw.flowchart_nodes : []).map(normalizeNode).filter(Boolean) as VisualFlowchartNode[],
+      (Array.isArray(raw.flowchart_nodes) ? raw.flowchart_nodes : [])
+        .map((node) => normalizeNode(node, options))
+        .filter(Boolean) as VisualFlowchartNode[],
       (node) => node.id || node.label,
       30,
     ),
     flowchart_edges: uniqueBy(
-      (Array.isArray(raw.flowchart_edges) ? raw.flowchart_edges : []).map(normalizeEdge).filter(Boolean) as VisualFlowchartEdge[],
+      (Array.isArray(raw.flowchart_edges) ? raw.flowchart_edges : [])
+        .map((edge) => normalizeEdge(edge, options))
+        .filter(Boolean) as VisualFlowchartEdge[],
       (edge) => `${edge.from}:${edge.to}:${edge.label ?? ""}`,
       40,
     ),
     risk_matrix_axes: compactStringArray(raw.risk_matrix_axes, 6),
     risk_matrix_cells: uniqueBy(
-      (Array.isArray(raw.risk_matrix_cells) ? raw.risk_matrix_cells : []).map(normalizeRiskCell).filter(Boolean) as VisualRiskMatrixCell[],
+      (Array.isArray(raw.risk_matrix_cells) ? raw.risk_matrix_cells : [])
+        .map((cell) => normalizeRiskCell(cell, options))
+        .filter(Boolean) as VisualRiskMatrixCell[],
       (cell) => `${cell.row}:${cell.column}:${cell.risk}:${cell.action ?? ""}`,
       24,
     ),
     chart_axes: compactStringArray(raw.chart_axes, 6),
     chart_findings: uniqueBy(
-      (Array.isArray(raw.chart_findings) ? raw.chart_findings : []).map(normalizeChartFinding).filter(Boolean) as VisualChartFinding[],
+      (Array.isArray(raw.chart_findings) ? raw.chart_findings : [])
+        .map((finding) => normalizeChartFinding(finding, options))
+        .filter(Boolean) as VisualChartFinding[],
       (finding) => `${finding.label}:${finding.value ?? ""}:${finding.interpretation ?? ""}`,
       18,
     ),
@@ -286,6 +359,9 @@ export function deterministicStructuredVisualProfile(args: {
   tableRows?: string[][] | null;
   tableColumns?: string[] | null;
   metadata?: Record<string, unknown> | null;
+  sourceImageId?: string | null;
+  pageNumber?: number | null;
+  sourceRegion?: Record<string, unknown> | null;
 }) {
   const text = compact(
     [args.tableTitle, args.tableLabel, args.caption, args.tableTextSnippet, args.tableRows?.flat().join(" ")]
@@ -330,7 +406,13 @@ export function deterministicStructuredVisualProfile(args: {
       table_column_roles: tableColumnRoles,
       confidence: thresholds.length || Object.keys(tableColumnRoles).length ? 0.72 : 0.52,
     },
-    { fallbackText: text, fallbackConfidence: 0.55 },
+    {
+      fallbackText: text,
+      fallbackConfidence: 0.55,
+      sourceImageId: args.sourceImageId,
+      pageNumber: args.pageNumber,
+      sourceRegion: args.sourceRegion,
+    },
   );
 }
 
@@ -420,6 +502,7 @@ export function selectCaptionCandidateIndexes(
 ) {
   const selected = new Set<number>();
   const selectedByPage = new Map<number | "unknown", number>();
+  const selectedDuplicateGroups = new Set<string>();
   const classOrder: RankedVisualCandidate["captionBudgetClass"][] = [
     "clinical_table",
     "flowchart",
@@ -432,10 +515,12 @@ export function selectCaptionCandidateIndexes(
   const addCandidate = (candidate: RankedVisualCandidate) => {
     if (selected.size >= maxClinicalCaptions) return;
     if (candidate.captionBudgetClass === "admin_reference" || candidate.captionBudgetClass === "low_signal") return;
+    if (candidate.duplicateGroup && selectedDuplicateGroups.has(candidate.duplicateGroup)) return;
     const pageKey = candidate.pageNumber ?? "unknown";
     const pageCount = selectedByPage.get(pageKey) ?? 0;
     if (pageCount >= maxPerPage) return;
     selected.add(candidate.originalIndex);
+    if (candidate.duplicateGroup) selectedDuplicateGroups.add(candidate.duplicateGroup);
     selectedByPage.set(pageKey, pageCount + 1);
   };
   for (const budgetClass of classOrder) {

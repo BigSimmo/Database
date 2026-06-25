@@ -187,7 +187,16 @@ function pageRange(chunks: IndexUnitChunk[]) {
 }
 
 function visualProfileForImage(image: IndexUnitVisualImage) {
-  if (image.structuredVisualProfile) return normalizeStructuredVisualProfile(image.structuredVisualProfile);
+  const sourceRegion =
+    image.metadata && typeof image.metadata.bbox === "object" && image.metadata.bbox !== null
+      ? (image.metadata.bbox as Record<string, unknown>)
+      : null;
+  if (image.structuredVisualProfile)
+    return normalizeStructuredVisualProfile(image.structuredVisualProfile, {
+      sourceImageId: image.id,
+      pageNumber: image.pageNumber,
+      sourceRegion,
+    });
   return deterministicStructuredVisualProfile({
     imageType: image.imageType,
     caption: image.caption,
@@ -197,7 +206,36 @@ function visualProfileForImage(image: IndexUnitVisualImage) {
     tableRows: image.tableRows,
     tableColumns: image.tableColumns,
     metadata: image.metadata,
+    sourceImageId: image.id,
+    pageNumber: image.pageNumber,
+    sourceRegion,
   });
+}
+
+function visualFamilyKey(image: IndexUnitVisualImage) {
+  const metadata = image.metadata ?? {};
+  const family = metadata.visual_family_id ?? metadata.visual_duplicate_group ?? metadata.perceptual_hash ?? metadata.image_hash;
+  return typeof family === "string" && family.trim() ? family.trim() : image.id;
+}
+
+function visualRepresentativeScore(image: IndexUnitVisualImage) {
+  const profileConfidence = Number(image.structuredVisualProfile?.confidence ?? image.metadata?.structured_extraction_confidence ?? 0.55);
+  const priority = Number(image.candidatePriorityScore ?? image.metadata?.candidate_priority_score ?? 0.55);
+  const quality = Number(image.imageQualityScore ?? image.metadata?.image_quality_score ?? 0.55);
+  const density = Number(image.ocrTextDensity ?? image.metadata?.ocr_text_density ?? 0);
+  return priority * 0.42 + quality * 0.28 + profileConfidence * 0.22 + density * 0.08;
+}
+
+function representativeVisualImages(images: IndexUnitVisualImage[]) {
+  const bestByFamily = new Map<string, IndexUnitVisualImage>();
+  for (const image of images) {
+    const familyKey = visualFamilyKey(image);
+    const existing = bestByFamily.get(familyKey);
+    if (!existing || visualRepresentativeScore(image) > visualRepresentativeScore(existing)) {
+      bestByFamily.set(familyKey, image);
+    }
+  }
+  return [...bestByFamily.values()].sort((left, right) => visualRepresentativeScore(right) - visualRepresentativeScore(left));
 }
 
 function sourceChunkForImage(image: IndexUnitVisualImage, chunks: IndexUnitChunk[]) {
@@ -230,6 +268,11 @@ function visualUnit(args: {
   quality_score?: number;
 }) {
   const sourceChunk = sourceChunkForImage(args.image, args.chunks);
+  const metadata = args.image.metadata ?? {};
+  const sourceRegion =
+    metadata.bbox && typeof metadata.bbox === "object" && !Array.isArray(metadata.bbox)
+      ? (metadata.bbox as Record<string, unknown>)
+      : null;
   return buildUnit({
     document: args.document,
     unit_type: args.unit_type,
@@ -248,6 +291,11 @@ function visualUnit(args: {
       source_kind: args.image.sourceKind ?? null,
       table_title: args.image.tableTitle ?? null,
       table_label: args.image.tableLabel ?? null,
+      source_image_id: args.image.id,
+      page_number: args.image.pageNumber,
+      source_region: sourceRegion,
+      visual_family_id: metadata.visual_family_id ?? visualFamilyKey(args.image),
+      visual_duplicate_group: metadata.visual_duplicate_group ?? metadata.perceptual_hash ?? metadata.image_hash ?? null,
       structured_extraction_confidence: args.profile.confidence,
       image_quality_score: args.image.imageQualityScore ?? args.image.metadata?.image_quality_score ?? null,
       candidate_priority_score: args.image.candidatePriorityScore ?? args.image.metadata?.candidate_priority_score ?? null,
@@ -272,7 +320,7 @@ export function buildVisualDocumentIndexUnitInputs(args: {
     factsByImage.set(fact.source_image_id, [...(factsByImage.get(fact.source_image_id) ?? []), fact]);
   }
 
-  for (const image of args.images) {
+  for (const image of representativeVisualImages(args.images)) {
     const profile = visualProfileForImage(image);
     const title = visualTitle(image);
     const summaryContent = [

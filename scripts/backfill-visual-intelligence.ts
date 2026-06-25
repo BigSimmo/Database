@@ -1,5 +1,4 @@
-import { embedTexts } from "@/lib/openai";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { loadEnvConfig } from "@next/env";
 import {
   buildVisualDocumentIndexUnitInputs,
   embeddingTextForDocumentIndexUnit,
@@ -12,7 +11,18 @@ import {
   type StructuredVisualProfile,
 } from "@/lib/visual-intelligence";
 
-const supabase = createAdminClient();
+loadEnvConfig(process.cwd());
+
+type AdminClient = ReturnType<(typeof import("@/lib/supabase/admin"))["createAdminClient"]>;
+
+let supabase: AdminClient;
+let embedTexts: (texts: string[]) => Promise<number[][]>;
+
+async function initDependencies() {
+  const [openaiModule, supabaseModule] = await Promise.all([import("@/lib/openai"), import("@/lib/supabase/admin")]);
+  embedTexts = openaiModule.embedTexts;
+  supabase = supabaseModule.createAdminClient();
+}
 
 type BackfillImageRow = {
   id: string;
@@ -44,6 +54,7 @@ function numberArg(name: string, fallback: number) {
 
 const limit = numberArg("--limit", 10);
 const dryRun = process.argv.includes("--dry-run");
+const reportOnly = dryRun || process.argv.includes("--report");
 
 function metadataText(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
@@ -77,6 +88,12 @@ function imageToVisualInput(image: BackfillImageRow): IndexUnitVisualImage {
       tableRows: metadataRows(metadata, "table_rows"),
       tableColumns: metadataStringArray(metadata, "table_columns"),
       metadata,
+      sourceImageId: image.id,
+      pageNumber: image.page_number,
+      sourceRegion:
+        metadata.bbox && typeof metadata.bbox === "object" && !Array.isArray(metadata.bbox)
+          ? (metadata.bbox as Record<string, unknown>)
+          : null,
     });
 
   return {
@@ -120,6 +137,78 @@ async function loadCandidateImages() {
   return (data ?? []) as BackfillImageRow[];
 }
 
+function statusForImage(image: BackfillImageRow) {
+  const metadata = image.metadata ?? {};
+  const status = metadata.visual_backfill_status;
+  if (typeof status === "string" && status.trim()) return status;
+  return metadata.visual_intelligence_version === visualIntelligenceVersion ? "completed" : "pending";
+}
+
+function unitCounts(units: Array<{ unit_type: string }>) {
+  return units.reduce<Record<string, number>>((counts, unit) => {
+    counts[unit.unit_type] = (counts[unit.unit_type] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+async function printCoverageReport(images: BackfillImageRow[]) {
+  const documentIds = Array.from(new Set(images.map((image) => image.document_id)));
+  const { data: visualUnits, error } = documentIds.length
+    ? await supabase
+        .from("document_index_units")
+        .select("document_id,unit_type,source_image_id")
+        .in("document_id", documentIds)
+        .in("unit_type", [
+          "visual_summary",
+          "flowchart_step",
+          "diagram_decision",
+          "risk_matrix_cell",
+          "medication_chart_row",
+          "chart_finding",
+          "visual_askable_question",
+          "table_threshold",
+        ])
+    : { data: [], error: null };
+  if (error) throw new Error(error.message);
+
+  const rows = documentIds.map((documentId) => {
+    const documentImages = images.filter((image) => image.document_id === documentId);
+    const units = (visualUnits ?? []).filter((unit) => unit.document_id === documentId);
+    return {
+      document_id: documentId,
+      searchable_images: documentImages.length,
+      image_statuses: documentImages.reduce<Record<string, number>>((counts, image) => {
+        const status = statusForImage(image);
+        counts[status] = (counts[status] ?? 0) + 1;
+        return counts;
+      }, {}),
+      visual_units: units.length,
+      visual_unit_types: unitCounts(units),
+      images_with_retrievable_units: new Set(units.map((unit) => unit.source_image_id).filter(Boolean)).size,
+      missing_retrievable_image_units: Math.max(
+        0,
+        documentImages.filter((image) => statusForImage(image) === "completed").length -
+          new Set(units.map((unit) => unit.source_image_id).filter(Boolean)).size,
+      ),
+    };
+  });
+
+  console.log(
+    JSON.stringify(
+      {
+        mode: reportOnly ? "report" : "backfill",
+        visual_intelligence_version: visualIntelligenceVersion,
+        candidate_image_limit: limit,
+        candidate_images: images.length,
+        candidate_documents: documentIds.length,
+        documents: rows,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 async function loadDocument(documentId: string) {
   const { data, error } = await supabase
     .from("documents")
@@ -151,12 +240,19 @@ async function backfillDocument(documentId: string, images: BackfillImageRow[]) 
   const chunks = await loadChunks(documentId);
   const visualImages = images.map(imageToVisualInput);
   const units = buildVisualDocumentIndexUnitInputs({ document, chunks, images: visualImages });
+  const counts = unitCounts(units);
   console.log(
-    `${dryRun ? "[dry-run] " : ""}${document.file_name}: ${images.length} image(s), ${units.length} visual unit(s)`,
+    `${dryRun ? "[dry-run] " : ""}${document.file_name}: ${images.length} image(s), ${units.length} visual unit(s) ${JSON.stringify(counts)}`,
   );
   if (dryRun) return;
 
   const imageIds = images.map((image) => image.id);
+  for (const image of images) {
+    await markImage(image, {
+      visual_backfill_status: "processing",
+      visual_backfill_started_at: new Date().toISOString(),
+    });
+  }
   await supabase
     .from("document_index_units")
     .delete()
@@ -198,10 +294,19 @@ async function backfillDocument(documentId: string, images: BackfillImageRow[]) 
 }
 
 async function main() {
+  await initDependencies();
   const images = await loadCandidateImages();
   if (images.length === 0) {
     console.log("No visual intelligence backfill candidates found.");
     return;
+  }
+  if (reportOnly) {
+    await printCoverageReport(images);
+    if (dryRun) {
+      // Continue into dry-run unit generation so phase-1 reports include expected artifact counts.
+    } else {
+      return;
+    }
   }
   const imagesByDocument = new Map<string, BackfillImageRow[]>();
   for (const image of images) {

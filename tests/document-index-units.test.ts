@@ -140,5 +140,57 @@ describe("document index units", () => {
     expect(units.find((unit) => unit.unit_type === "risk_matrix_cell")?.metadata.visual_intelligence_version).toBe(
       "visual-intelligence-v1",
     );
+    expect(units.find((unit) => unit.unit_type === "risk_matrix_cell")?.metadata).toMatchObject({
+      source_image_id: "image-1",
+      page_number: 5,
+    });
+  });
+
+  it("indexes only the best representative for duplicate visual families", () => {
+    const units = buildDocumentIndexUnitInputs({
+      document,
+      chunks: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          page_number: 2,
+          chunk_index: 0,
+          section_heading: "Table",
+          section_path: ["Table"],
+          content: "The page contains duplicated table crops.",
+          metadata: {},
+        },
+      ],
+      images: [
+        {
+          id: "image-low",
+          pageNumber: 2,
+          sourceKind: "table_crop",
+          tableTitle: "ANC table duplicate",
+          tableRows: [["ANC", "< 1.0", "Stop"]],
+          tableColumns: ["Parameter", "Threshold", "Action"],
+          candidatePriorityScore: 0.55,
+          imageQualityScore: 0.5,
+          metadata: { visual_family_id: "family-anc", visual_duplicate_group: "dup-anc" },
+        },
+        {
+          id: "image-best",
+          pageNumber: 2,
+          sourceKind: "table_crop",
+          tableTitle: "ANC table",
+          tableRows: [["ANC", "< 1.0", "Stop"]],
+          tableColumns: ["Parameter", "Threshold", "Action"],
+          candidatePriorityScore: 0.92,
+          imageQualityScore: 0.9,
+          metadata: { visual_family_id: "family-anc", visual_duplicate_group: "dup-anc" },
+        },
+      ],
+    });
+
+    const visualUnits = units.filter((unit) => unit.metadata.source === "visual_intelligence");
+
+    expect(visualUnits.length).toBeGreaterThan(0);
+    expect(visualUnits.every((unit) => unit.source_image_id === "image-best")).toBe(true);
+    expect(visualUnits.every((unit) => unit.metadata.visual_family_id === "family-anc")).toBe(true);
   });
 });
