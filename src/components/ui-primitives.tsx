@@ -71,7 +71,7 @@ export const chatAnswerText =
 export const chatActionRow =
   "flex min-h-11 flex-wrap items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-8";
 export const chatMicroAction =
-  "inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-8";
+  "inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-chat-teal-soft)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-8";
 export const sourceCapsule =
   "inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/32 hover:bg-[color:var(--clinical-chat-teal-soft)]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-8";
 export const evidenceRow =
@@ -87,7 +87,7 @@ export const chatComposerIconButton =
 export const chatSendButton =
   "grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[inset_0_1px_0_rgb(255_255_255_/_18%),var(--shadow-tight)] transition hover:bg-[color:var(--primary-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
 export const tableCard =
-  "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]";
+  "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_8px_22px_rgb(15_27_45_/_5%)]";
 export const tableCardHeader =
   "border-b border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-heading)]";
 export const tableMicroActionRow =

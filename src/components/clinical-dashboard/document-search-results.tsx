@@ -304,7 +304,7 @@ export function DocumentSearchResultsPanel({
 
   return (
     <div data-testid="document-search-workspace" className="space-y-3">
-      <section className={cn(panelSubtle, "space-y-3 p-3 sm:p-4")}>
+      <section className={cn(panelSubtle, "space-y-3 p-3 shadow-[0_8px_22px_rgb(15_27_45_/_5%)] sm:p-4")}>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -323,9 +323,13 @@ export function DocumentSearchResultsPanel({
           <button
             type="submit"
             disabled={!canSearch}
+            aria-label="Search documents"
             className={cn(primaryControl, "min-h-11 px-3 text-xs sm:min-h-9")}
           >
-            Search
+            <span className="sm:hidden">
+              <Search className="h-4 w-4" />
+            </span>
+            <span className="hidden sm:inline">Search</span>
           </button>
         </form>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -429,7 +433,10 @@ export function DocumentSearchResultsPanel({
               const relevance = document.relevance;
               const showSupportChips = Boolean(relevance && relevance.verdict !== "none");
               return (
-                <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
+                <article
+                  key={document.document_id}
+                  className={cn(sourceCard, "p-3 shadow-[0_8px_22px_rgb(15_27_45_/_5%)] sm:p-4")}
+                >
                   <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
                     <span className="hidden h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-document)] text-[color:var(--text-muted)] sm:grid">
                       <FileText className="h-4 w-4" />
@@ -457,12 +464,12 @@ export function DocumentSearchResultsPanel({
                           <SafeBoldText text={document.summarySnippet} />
                         </p>
                       )}
-                    {relevance && showSupportChips ? (
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <RelevanceBadge relevance={relevance} />
-                        <QueryCoverageChips relevance={relevance} />
-                      </div>
-                    ) : null}
+                      {relevance && showSupportChips ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <RelevanceBadge relevance={relevance} />
+                          <QueryCoverageChips relevance={relevance} />
+                        </div>
+                      ) : null}
                       <DocumentTagCloud
                         labels={document.labels}
                         query={query}

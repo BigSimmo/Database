@@ -699,7 +699,7 @@ function NaturalLanguageAnswer({
     >
       <span
         data-testid="answer-clinical-icon"
-        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+        className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-8 sm:w-8"
         aria-hidden="true"
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
@@ -812,7 +812,7 @@ function UserQuestionBubble({ query }: { query: string }) {
     <section className="flex justify-end px-1" aria-label="User question">
       <div
         data-testid="user-question-bubble"
-        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-teal-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)]"
+        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-teal-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
       >
         <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
         <p className={cn("nums mt-0.5 text-[11px] leading-4", textMuted)}>9:14 AM</p>
@@ -896,8 +896,8 @@ function KeyClinicalItems({
 
   return (
     <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
-      <h3 className="text-[15px] font-semibold text-[color:var(--text-heading)]">Key monitoring items</h3>
-      <ul className="list-disc space-y-1 pl-5 text-[15px] leading-[1.5] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)]">
+      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-[15px]">Key monitoring items</h3>
+      <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-[15px]">
         {items.map((item) => (
           <li key={item.id} className="pl-0.5">
             {item.label ? (
@@ -2269,8 +2269,10 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
   const title = "Clozapine monitoring schedule";
 
   return (
-    <section className={cn(tableCard, "max-w-2xl")} aria-label="Inline table preview">
-      <div className={cn(tableCardHeader, "flex min-h-11 items-center justify-between gap-2")}>
+    <section className={cn(tableCard, "max-w-xl")} aria-label="Inline table preview">
+      <div
+        className={cn(tableCardHeader, "flex min-h-11 items-center justify-between gap-2 bg-[color:var(--surface)]")}
+      >
         <span className="hidden min-w-0 truncate sm:inline">{title}</span>
         <span className="min-w-0 truncate sm:hidden">Clozapine schedule</span>
         <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
@@ -2297,7 +2299,7 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
           </button>
         </div>
       </div>
-      <div className="p-2.5">
+      <div className="p-2 sm:p-2.5">
         <AccessibleTable
           caption={title}
           markdown={tableMarkdown}
@@ -6242,7 +6244,7 @@ export function ClinicalDashboard() {
     <div
       className={cn(
         appBackdrop,
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:h-screen lg:min-h-screen lg:overflow-hidden",
+        "mobile-app-shell flex flex-col overflow-hidden bg-[color:var(--surface)] text-[color:var(--text)] lg:grid lg:h-screen lg:min-h-screen lg:overflow-hidden",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
@@ -6324,7 +6326,7 @@ export function ClinicalDashboard() {
                 "min-h-[calc(100dvh-11rem)]",
                 searchMode === "answer" && !answer && !loading
                   ? "grid place-items-center"
-                  : "mx-auto w-full max-w-4xl space-y-4",
+                  : "mx-auto w-full max-w-3xl space-y-4",
               )}
             >
               <h2 data-testid="answer-section-heading" className="sr-only">

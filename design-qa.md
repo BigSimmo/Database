@@ -3,19 +3,20 @@
 - Evidence/source behaviour target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-7728dc87-8e3a-459a-97de-5ae9d103d5c7.png`
 - Navigation/documents/daily tools target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-9a48092e-9b52-44b1-ad68-7123224c4eed.png`
 - Mobile responsive target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-5e4ffba7-1089-472b-a294-9f383fe7ca36.png`
-- Phase scope: Phase 6 hardening after Phase 5 visual parity. Fix remaining shell, sheet, composer, evidence, document-card, and mobile target issues found in the screen-through.
+- Phase scope: Phase 7 visual parity polish after Phase 6 hardening. Keep behavior stable while tightening canvas color, answer density, table width, document-search controls, and low-elevation surfaces against the supplied mockups.
 
 **Implementation Evidence**
-- Mobile empty screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-empty.png`
-- Mobile menu screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-menu-open.png`
-- Mobile daily actions screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-daily-actions.png`
-- Mobile answer screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-answer-default.png`
-- Mobile documents screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-documents.png`
-- Desktop answer screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\desktop-answer-default.png`
+- Mobile empty screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-7\mobile-empty.png`
+- Mobile menu screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-7\mobile-menu-open.png`
+- Mobile daily actions screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-7\mobile-daily-actions.png`
+- Mobile answer screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-7\mobile-answer-default.png`
+- Mobile documents screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-7\mobile-documents.png`
+- Desktop answer screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-7\desktop-answer-default.png`
 - Viewports: mobile 390x820, desktop 1280x900, light theme, controlled demo fixtures.
 
 **Findings**
-- No P0/P1/P2 findings remain for Phase 6.
+- No P0/P1 findings remain for Phase 7.
+- Remaining visual parity gap is P2 polish only: the rendered answer state is still a little lower-contrast and more spacious than the mockup, but the shell, mode behavior, evidence layout, documents mode, and mobile menu interactions match the planned structure.
 - Mobile hamburger now opens an opaque left-side Clinical Guide sheet without clipped or half-animated capture states.
 - Mobile `+` now opens a real Daily actions bottom sheet with focus trapping, Escape close, and visible 44px+ action tiles.
 - The fixed composer no longer covers answer action rows, source-preview actions, document-card actions, or evidence controls in the checked states.
@@ -23,7 +24,15 @@
 - Mobile evidence tabs now keep stable mounted tab panels for valid `aria-controls` references, and tab controls meet the 44px mobile target.
 - Documents mode is cleaner: default result cards no longer show the diagnostic tag facet rail or "No direct support" chips unless useful support metadata is present.
 
-**Patches Made In Phase 6**
+**Patches Made In Phase 7**
+- Shifted the main Clinical Guide shell back to a white clinical canvas instead of the heavier blue-grey page tint.
+- Narrowed the answer content column on active chat states to better match the mockup reading width.
+- Slightly tightened mobile key-monitoring typography and list line-height while preserving 44px interactive controls.
+- Reduced inline table preview width and elevation so it reads as supporting evidence rather than the dominant card.
+- Lightened document-search panel/card shadows and made the mobile document-search submit control icon-only to reduce button heaviness.
+- Kept source capsule, clinical notes, evidence rows, mobile sidebar, daily actions, and documents mode behavior unchanged.
+
+**Patches Retained From Phase 6**
 - Removed left-sheet translation/fade issues from the shared `Sheet` placement and hid the bottom-sheet handle for left navigation sheets.
 - Moved mobile Daily actions out of the fixed composer form so it gets a proper viewport stacking context.
 - Upgraded shared answer/source/table action primitives to 44px touch targets on mobile while keeping compact desktop sizing.
@@ -37,9 +46,8 @@
 **Verification**
 - `npm run ensure` confirmed the app at `http://localhost:4298`.
 - `npx playwright test tests/ui-smoke.spec.ts --project=chromium --grep "dashboard loads without page overflow at small-mobile|demo answer flow reaches|document search mode lists" --reporter=line` passed.
-- `npx playwright test tests/ui-stress.spec.ts --project=chromium --grep "many documents and citations do not overflow at mobile" --reporter=line` passed.
-- `npx playwright test tests/ui-stress.spec.ts --project=chromium --grep "many documents and citations do not overflow at desktop" --reporter=line` passed after restoring desktop Daily actions as normal buttons.
-- `npm run verify:cheap` passed: lint, typecheck, and 429 Vitest tests.
+- `npx playwright test tests/ui-stress.spec.ts --project=chromium --grep "many documents and citations do not overflow at mobile|many documents and citations do not overflow at desktop" --reporter=line` passed.
+- `npm run verify:cheap` passed: lint, typecheck, and 441 Vitest tests.
 - `npm run verify:ui` passed: 28 Chromium Playwright tests.
 
 **Follow-up Polish**
