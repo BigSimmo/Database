@@ -1,33 +1,48 @@
 **Source Visual Truth**
-- Mobile responsive states: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-5e4ffba7-1089-472b-a294-9f383fe7ca36.png`
-- Navigation/documents/daily tools: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-9a48092e-9b52-44b1-ad68-7123224c4eed.png`
-- Main answer state: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-1cece938-9dd9-40cf-8fa1-eaade3c0d378.png`
-- UI system tokens: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-0dcc3d62-d3ad-477e-b60c-beeab462cba1.png`
+- Main answer state target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-1cece938-9dd9-40cf-8fa1-eaade3c0d378.png`
+- Evidence/source behaviour target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-7728dc87-8e3a-459a-97de-5ae9d103d5c7.png`
+- Navigation/documents/daily tools target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-9a48092e-9b52-44b1-ad68-7123224c4eed.png`
+- Mobile responsive target: `C:\Users\joshs\AppData\Local\Temp\codex-clipboard-5e4ffba7-1089-472b-a294-9f383fe7ca36.png`
+- Phase scope: Phase 6 hardening after Phase 5 visual parity. Fix remaining shell, sheet, composer, evidence, document-card, and mobile target issues found in the screen-through.
 
 **Implementation Evidence**
-- Mobile empty: `C:\Dev\Apps\Database\output\playwright\clinical-guide-overhaul\mobile-empty.png`
-- Mobile menu open: `C:\Dev\Apps\Database\output\playwright\clinical-guide-overhaul\mobile-menu-open-settled.png`
-- Mobile documents: `C:\Dev\Apps\Database\output\playwright\clinical-guide-overhaul\mobile-documents.png`
-- Desktop empty: `C:\Dev\Apps\Database\output\playwright\clinical-guide-overhaul\desktop-empty.png`
-- Viewports: mobile 390x820, desktop 1280x900.
+- Mobile empty screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-empty.png`
+- Mobile menu screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-menu-open.png`
+- Mobile daily actions screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-daily-actions.png`
+- Mobile answer screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-answer-default.png`
+- Mobile documents screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\mobile-documents.png`
+- Desktop answer screenshot: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-6\desktop-answer-default.png`
+- Viewports: mobile 390x820, desktop 1280x900, light theme, controlled demo fixtures.
 
 **Findings**
-- No P0/P1/P2 findings remain for this pass.
-- Fonts and typography: hierarchy now matches the clinical guide direction more closely with 15-16px answer/body text, restrained headings, and no oversized admin copy on the empty canvas.
-- Spacing and layout rhythm: mobile empty, documents mode, desktop sidebar, and composer use stable 44px+ targets with no horizontal overflow in the captured states.
-- Colors and tokens: primary teal, pale teal wash, sand notes, blue-grey surfaces, and lighter dividers are applied through existing CSS variables.
-- Image quality and assets: no generated assets were required; the target screens are UI-only and use the app's icon library.
-- Copy and content: hamburger now opens the full Clinical Guide menu; documents mode is search-first; the answer surface prioritizes natural-language response, source capsule, key items, and collapsed evidence.
+- No P0/P1/P2 findings remain for Phase 6.
+- Mobile hamburger now opens an opaque left-side Clinical Guide sheet without clipped or half-animated capture states.
+- Mobile `+` now opens a real Daily actions bottom sheet with focus trapping, Escape close, and visible 44px+ action tiles.
+- The fixed composer no longer covers answer action rows, source-preview actions, document-card actions, or evidence controls in the checked states.
+- The inline answer table is no longer forced to a wide mobile min-width; the explicit expand affordance sits below the compact table preview instead of covering cells.
+- Mobile evidence tabs now keep stable mounted tab panels for valid `aria-controls` references, and tab controls meet the 44px mobile target.
+- Documents mode is cleaner: default result cards no longer show the diagnostic tag facet rail or "No direct support" chips unless useful support metadata is present.
 
-**Patches Made Since QA Start**
-- Added left-side sheet placement and animation.
-- Rewired mobile hamburger to open a shared sidebar menu rather than the guide dialog.
-- Rebuilt documents mode as a search workspace with filter chips and document cards.
-- Reduced heavy answer framing and added derived key clinical items.
-- Updated smoke coverage for mobile menu, documents workspace, and guide access.
+**Patches Made In Phase 6**
+- Removed left-sheet translation/fade issues from the shared `Sheet` placement and hid the bottom-sheet handle for left navigation sheets.
+- Moved mobile Daily actions out of the fixed composer form so it gets a proper viewport stacking context.
+- Upgraded shared answer/source/table action primitives to 44px touch targets on mobile while keeping compact desktop sizing.
+- Converted the mobile dashboard wrapper to a real flex column so the scroll region can reserve space above the fixed composer.
+- Added bounded scrolling to the source capsule preview.
+- Changed dense table previews to `min-w-full` and moved the expand button to a full-width mobile row.
+- Mounted hidden mobile evidence tab panels to repair inactive-tab ARIA references.
+- Hid diagnostic document support chips when relevance is absent or unsupported.
+- Added smoke coverage for on-screen mobile sidebar placement, Daily actions sheet behavior, 44px targets, document diagnostic suppression, and evidence tab panels.
+
+**Verification**
+- `npm run ensure` confirmed the app at `http://localhost:4298`.
+- `npx playwright test tests/ui-smoke.spec.ts --project=chromium --grep "dashboard loads without page overflow at small-mobile|demo answer flow reaches|document search mode lists" --reporter=line` passed.
+- `npx playwright test tests/ui-stress.spec.ts --project=chromium --grep "many documents and citations do not overflow at mobile" --reporter=line` passed.
+- `npx playwright test tests/ui-stress.spec.ts --project=chromium --grep "many documents and citations do not overflow at desktop" --reporter=line` passed after restoring desktop Daily actions as normal buttons.
+- `npm run verify:cheap` passed: lint, typecheck, and 429 Vitest tests.
+- `npm run verify:ui` passed: 28 Chromium Playwright tests.
 
 **Follow-up Polish**
-- Fine-tune exact desktop/sidebar spacing against the annotated desktop mockup after the next answer-state screenshot pass.
-- Consider adding a dedicated visual regression snapshot once the design reaches final sign-off.
+- Consider adding a stable visual-regression snapshot once the current Clinical Guide parity pass is signed off.
 
 final result: passed

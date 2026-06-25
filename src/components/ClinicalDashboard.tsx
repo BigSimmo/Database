@@ -32,6 +32,7 @@ import {
   Search,
   Settings as SettingsIcon,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Tag,
@@ -141,18 +142,7 @@ import {
   type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
-import {
-  logSourceOpen,
-  SourceActionRow,
-  SourcePassageLinks,
-  sourceResultHref,
-} from "@/components/clinical-dashboard/source-actions";
-import {
-  parseAnswerDisplayContent,
-  type AnswerDisplayLine,
-  type AnswerDisplayTone,
-  type ParsedAnswerDisplay,
-} from "@/lib/answer-formatting";
+import { logSourceOpen, SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,
@@ -572,64 +562,7 @@ function ScopeAndGovernanceNotice({
   );
 }
 
-const ragTextFallback = "No usable answer text.";
-const sectionTextFallback = "No usable section text.";
 const sourceExcerptFallback = "No excerpt available.";
-
-function SourceLinkedAnswer({
-  sections,
-  fallbackText,
-  responseMode,
-}: {
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  fallbackText: string;
-  responseMode?: RagAnswer["responseMode"];
-}) {
-  const demoNotice = fallbackText.match(/Synthetic demo only:.*$/i)?.[0] ?? null;
-
-  if (sections.length === 0) {
-    return (
-      <FormattedAnswerContent content={parseAnswerDisplayContent(fallbackText || ragTextFallback, responseMode)} />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {sections.map((section, index) => {
-        const sectionContent = sectionBodyContent(section.body, responseMode);
-        return (
-          <article
-            key={`${section.heading}:${section.citation_chunk_ids.join(",")}:${section.body.slice(0, 24)}`}
-            className={cn("space-y-2.5 border-b border-[color:var(--border)] pb-3 last:border-b-0 last:pb-0")}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span className={cn(metadataPill, "grid h-7 w-7 place-items-center px-0 text-[11px] font-bold")}>
-                  {index + 1}
-                </span>
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{section.heading}</h3>
-                  <p className={cn("text-xs leading-5", textMuted)}>
-                    {section.citationSources.length} source passage
-                    {section.citationSources.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-              </div>
-              <SourcePassageLinks heading={section.heading} sources={section.citationSources} compact />
-            </div>
-
-            <FormattedAnswerContent content={sectionContent} />
-          </article>
-        );
-      })}
-      {demoNotice ? (
-        <p className={cn("border-t border-[color:var(--border)] pt-3 text-[15px] font-medium leading-6", textMuted)}>
-          {demoNotice}
-        </p>
-      ) : null}
-    </div>
-  );
-}
 
 function plainAnswerText(value: string) {
   const useful = clinicalProseUsefulness(value);
@@ -684,12 +617,61 @@ function sourceCapsuleText({
   return `Source-backed · ${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
 }
 
+function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
+  if (!metadata) return statusDotMuted;
+  if (metadata.document_status === "current") return statusDotReady;
+  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return statusDotReview;
+  return statusDotMuted;
+}
+
+type CapsulePreviewSource = {
+  id: string;
+  title: string;
+  pageNumber: number | null;
+  metadata: ReturnType<typeof normalizeSourceMetadata>;
+  score: number;
+};
+
+function capsulePreviewSources(bestSource: BestSourceRecommendation | null, sources: SearchResult[]) {
+  const rows: CapsulePreviewSource[] = [];
+  const seen = new Set<string>();
+  const pushRow = (row: CapsulePreviewSource) => {
+    const key = `${row.id}:${row.title}:${row.pageNumber ?? "n/a"}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(row);
+  };
+
+  if (bestSource) {
+    pushRow({
+      id: bestSource.chunk_id,
+      title: bestSource.title || bestSource.file_name || "Source",
+      pageNumber: bestSource.page_number,
+      metadata: normalizeSourceMetadata(bestSource.source_metadata),
+      score: bestSource.score,
+    });
+  }
+
+  sources.slice(0, 5).forEach((source) => {
+    pushRow({
+      id: source.id,
+      title: source.title || source.file_name || "Source",
+      pageNumber: source.page_number,
+      metadata: normalizeSourceMetadata(source.source_metadata),
+      score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
+    });
+  });
+
+  return rows.slice(0, 3);
+}
+
 function NaturalLanguageAnswer({
   text,
   sourceCount,
   weakEvidence,
   grounded,
   bestSource,
+  sources,
   copied,
   onCopy,
 }: {
@@ -698,6 +680,7 @@ function NaturalLanguageAnswer({
   weakEvidence: boolean;
   grounded: boolean;
   bestSource: BestSourceRecommendation | null;
+  sources: SearchResult[];
   copied: boolean;
   onCopy: () => void;
 }) {
@@ -705,102 +688,159 @@ function NaturalLanguageAnswer({
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
   const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
-  const sourceMetadata = normalizeSourceMetadata(bestSource?.source_metadata);
-  const sourceStatusDot =
-    !bestSource || !grounded
-      ? statusDotMuted
-      : sourceMetadata.document_status === "current"
-        ? statusDotReady
-        : sourceMetadata.document_status === "review_due" || sourceMetadata.document_status === "outdated"
-          ? statusDotReview
-          : statusDotMuted;
+  const previewSources = capsulePreviewSources(bestSource, sources);
+  const quoteText = bestSource?.quote || bestSource?.snippet;
 
   return (
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative space-y-2 rounded-lg border border-transparent bg-transparent px-1 py-1 text-[color:var(--text-heading)]"
+      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 rounded-lg border border-transparent bg-transparent px-1 py-1 text-[color:var(--text-heading)]"
     >
-      <p className={chatAnswerText}>
-        <span data-testid="plain-answer-prose">
-          <SafeBoldText text={cleaned} />
-        </span>
-        <button
-          type="button"
-          className={cn(sourceCapsule, "ml-2 align-baseline")}
-          aria-label="Open answer sources"
-          aria-expanded={sourcePreviewOpen}
-          onClick={() => {
-            if (bestSource && sourceCount > 0 && grounded) setSourcePreviewOpen((current) => !current);
-          }}
-        >
-          {sourceCount > 0 && grounded ? (
-            <>
-              <span className="sm:hidden">
-                {sourceCount} source{sourceCount === 1 ? "" : "s"}
-              </span>
-              <span className="hidden sm:inline">{capsuleText}</span>
-            </>
-          ) : (
-            capsuleText
-          )}
-          {sourceCount > 0 && grounded ? <ChevronDown className="h-3.5 w-3.5" /> : null}
-        </button>
-      </p>
-      {sourcePreviewOpen && bestSource ? (
-        <div
-          data-testid="source-capsule-preview"
-          className="max-w-xl rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                Source behind this answer
-              </p>
-              <p className="mt-1 line-clamp-1 text-sm font-semibold text-[color:var(--text-heading)]">
-                {bestSource.title}
-              </p>
-              <p className={cn("mt-1 flex flex-wrap items-center gap-1.5 text-xs", textMuted)}>
-                <span className={sourceStatusDot} aria-hidden="true" />
-                page {bestSource.page_number ?? "n/a"} · {sourceStatusLabel(sourceMetadata)}
-              </p>
+      <span
+        data-testid="answer-clinical-icon"
+        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+        aria-hidden="true"
+      >
+        <ShieldCheck className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0 space-y-2">
+        <p className={chatAnswerText}>
+          <span data-testid="plain-answer-prose">
+            <SafeBoldText text={cleaned} />
+          </span>
+          <button
+            type="button"
+            className={cn(sourceCapsule, "ml-2 align-baseline")}
+            aria-label="Open answer sources"
+            aria-expanded={sourcePreviewOpen}
+            onClick={() => {
+              if (bestSource && sourceCount > 0 && grounded) setSourcePreviewOpen((current) => !current);
+            }}
+          >
+            {sourceCount > 0 && grounded ? (
+              <>
+                <span className="sm:hidden">
+                  {sourceCount} source{sourceCount === 1 ? "" : "s"}
+                </span>
+                <span className="hidden sm:inline">{capsuleText}</span>
+              </>
+            ) : (
+              capsuleText
+            )}
+            {sourceCount > 0 && grounded ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+          </button>
+        </p>
+        {sourcePreviewOpen && bestSource ? (
+          <div
+            data-testid="source-capsule-preview"
+            className="max-h-[22rem] max-w-sm overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in sm:max-h-none sm:max-w-xl sm:overflow-visible"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Sources behind this answer
+                </p>
+                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                  Preview first, then open the source document when needed.
+                </p>
+              </div>
+              <span className={cn(metadataPill, "nums shrink-0")}>{previewSources.length} sources</span>
             </div>
-            <span className={cn(metadataPill, "nums shrink-0")}>
-              {Math.round(Math.max(0, Math.min(1, bestSource.score)) * 100)}% match
-            </span>
+            <div className="mt-3 grid gap-1.5" role="list" aria-label="Sources behind this answer">
+              {previewSources.map((source, index) => (
+                <div
+                  key={`${source.id}:${index}`}
+                  data-testid="source-capsule-preview-row"
+                  className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
+                  role="listitem"
+                >
+                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                      {source.title}
+                    </span>
+                    <span className={cn("block truncate text-xs", textMuted)}>
+                      p.{source.pageNumber ?? "n/a"} · {sourceStatusLabel(source.metadata)}
+                    </span>
+                  </span>
+                  <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
+                    {Math.round(Math.max(0, Math.min(1, source.score)) * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+            {quoteText ? (
+              <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+                &ldquo;{quoteText}&rdquo;
+              </blockquote>
+            ) : null}
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Link href={bestSource.viewer_href} className={chatMicroAction}>
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open PDF drawer
+              </Link>
+              <button type="button" className={chatMicroAction}>
+                <Copy className="h-3.5 w-3.5" />
+                Copy quote
+              </button>
+              <Link href={bestSource.viewer_href} className={cn(chatMicroAction, "col-span-2 sm:col-span-1")}>
+                View section
+              </Link>
+            </div>
           </div>
-          <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
-            &ldquo;{bestSource.snippet}&rdquo;
-          </blockquote>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={bestSource.viewer_href} className={chatMicroAction}>
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open PDF drawer
-            </Link>
-            <button type="button" className={chatMicroAction}>
-              <Copy className="h-3.5 w-3.5" />
-              Copy quote
-            </button>
-            <Link href={bestSource.viewer_href} className={chatMicroAction}>
-              View section
-            </Link>
-          </div>
+        ) : null}
+        <div className={chatActionRow} aria-label="Answer actions">
+          <button type="button" onClick={onCopy} className={chatMicroAction}>
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? "Copied" : "Copy"}
+          </button>
+          <button type="button" className={chatMicroAction} aria-label="More answer actions">
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
         </div>
-      ) : null}
-      <div className={chatActionRow} aria-label="Answer actions">
-        <button type="button" onClick={onCopy} className={chatMicroAction}>
-          <Copy className="h-3.5 w-3.5" />
-          {copied ? "Copied" : "Copy"}
-        </button>
-        <button type="button" className={chatMicroAction} aria-label="More answer actions">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
       </div>
     </section>
   );
 }
 
-function keyClinicalItemsFromSections(sections: Array<AnswerSection & { citationSources: SearchResult[] }>) {
+function UserQuestionBubble({ query }: { query: string }) {
+  const cleaned = query.trim();
+  if (!cleaned) return null;
+
+  return (
+    <section className="flex justify-end px-1" aria-label="User question">
+      <div
+        data-testid="user-question-bubble"
+        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-teal-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)]"
+      >
+        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
+        <p className={cn("nums mt-0.5 text-[11px] leading-4", textMuted)}>9:14 AM</p>
+      </div>
+    </section>
+  );
+}
+
+type KeyClinicalItem = {
+  id: string;
+  label?: string;
+  detail: string;
+};
+
+function keyClinicalItemFromText(item: string): KeyClinicalItem | null {
+  const cleaned = item.replace(/^[-*•]\s*/, "").trim();
+  if (cleaned.length < 24) return null;
+  const [labelCandidate, ...detailParts] = cleaned.split(/\s+(?:—|-)\s+/);
+  const label = labelCandidate?.trim();
+  const detail = detailParts.join(" — ").trim();
+  const id = comparableAnswerText(cleaned);
+  if (label && detail && label.length <= 64) return { id, label, detail };
+  return { id, detail: cleaned };
+}
+
+function keyClinicalItemsFromSections(
+  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+): KeyClinicalItem[] {
   const usefulKinds = new Set<AnswerSectionKind | undefined>([
     "required_actions",
     "monitoring_timing",
@@ -815,24 +855,60 @@ function keyClinicalItemsFromSections(sections: Array<AnswerSection & { citation
     .flatMap((section) =>
       section.body
         .split(/\n+|(?<=\.)\s+(?=(?:Monitor|Check|Use|Avoid|Escalate|Withhold|Review|Document|Repeat|Consider)\b)/)
-        .map((item) => item.replace(/^[-*•]\s*/, "").trim())
-        .filter((item) => item.length >= 24),
+        .map((item) => keyClinicalItemFromText(item))
+        .filter((item): item is KeyClinicalItem => Boolean(item)),
     )
-    .filter((item, index, items) => items.findIndex((candidate) => comparableAnswerText(candidate) === comparableAnswerText(item)) === index)
+    .filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index)
     .slice(0, 5);
 }
 
-function KeyClinicalItems({ sections }: { sections: Array<AnswerSection & { citationSources: SearchResult[] }> }) {
-  const items = keyClinicalItemsFromSections(sections);
+function keyClinicalItemsFromTable(item: VisualEvidenceCard | null): KeyClinicalItem[] {
+  const rows = item?.tableRows?.filter((row) => row.some((cell) => cell.trim())) ?? [];
+  if (rows.length < 2) return [];
+
+  return rows
+    .slice(0, 3)
+    .map((row): KeyClinicalItem | null => {
+      const [domain, baseline] = row.map((cell) => cell.trim()).filter(Boolean);
+      if (!domain || !baseline) return null;
+      const detail = baseline;
+      return {
+        id: comparableAnswerText([domain, detail].join(" ")),
+        label: domain,
+        detail,
+      };
+    })
+    .filter((value): value is KeyClinicalItem => value !== null)
+    .slice(0, 5);
+}
+
+function KeyClinicalItems({
+  sections,
+  table,
+}: {
+  sections: Array<AnswerSection & { citationSources: SearchResult[] }>;
+  table: VisualEvidenceCard | null;
+}) {
+  const sectionItems = keyClinicalItemsFromSections(sections);
+  const tableItems = keyClinicalItemsFromTable(table);
+  const items = sectionItems.length >= 2 ? sectionItems : tableItems;
   if (items.length < 2) return null;
 
   return (
     <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
       <h3 className="text-[15px] font-semibold text-[color:var(--text-heading)]">Key monitoring items</h3>
-      <ul className="space-y-1.5 pl-4 text-[15px] leading-[1.6] text-[color:var(--text-heading)]">
+      <ul className="list-disc space-y-1 pl-5 text-[15px] leading-[1.5] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)]">
         {items.map((item) => (
-          <li key={item} className="pl-1">
-            <SafeBoldText text={item} />
+          <li key={item.id} className="pl-0.5">
+            {item.label ? (
+              <>
+                <span className="font-semibold">{item.label}</span>
+                <span className={textMuted}> — </span>
+                <SafeBoldText text={item.detail} />
+              </>
+            ) : (
+              <SafeBoldText text={item.detail} />
+            )}
           </li>
         ))}
       </ul>
@@ -962,96 +1038,6 @@ function clinicalDetailSummaryItems(sections: ClinicalDetailSection[]) {
     { label: "Evidence", value: countById(["support-map", "comparison"]) },
   ];
   return items.filter((item) => item.value > 0);
-}
-
-function answerToneClasses(tone: AnswerDisplayTone) {
-  if (tone === "risk" || tone === "gap") return toneDanger;
-  if (tone === "monitoring" || tone === "medication") return toneWarning;
-  if (tone === "action" || tone === "direct") return toneSuccess;
-  if (tone === "comparison" || tone === "source") return toneInfo;
-  return toneNeutral;
-}
-
-function AnswerSymbolTile({ line }: { line: AnswerDisplayLine }) {
-  return (
-    <span
-      className={cn(
-        "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-[11px] font-black leading-none shadow-[var(--shadow-inset)]",
-        answerToneClasses(line.presentation.tone),
-      )}
-      aria-hidden="true"
-    >
-      {line.presentation.symbol}
-    </span>
-  );
-}
-
-function AnswerLineLabel({ line }: { line: AnswerDisplayLine }) {
-  const label = line.displayLabel;
-  if (!label) return null;
-  return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[11px] font-bold uppercase tracking-[0.04em]",
-        answerToneClasses(line.presentation.tone),
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function FormattedAnswerContent({ content }: { content: ParsedAnswerDisplay }) {
-  if (content.type === "paragraph") {
-    const line = content.lines[0];
-    return (
-      <div
-        className={cn(
-          "grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-[15px] leading-7 shadow-[var(--shadow-inset)]",
-          line ? answerToneClasses(line.presentation.tone) : toneNeutral,
-        )}
-      >
-        {line ? <AnswerSymbolTile line={line} /> : null}
-        <div className="min-w-0 space-y-1 font-medium text-[color:var(--text-heading)]">
-          {line ? <AnswerLineLabel line={line} /> : null}
-          <p className="min-w-0 break-words [overflow-wrap:anywhere]">
-            <SafeBoldText text={line?.text ?? ragTextFallback} />
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const listClasses =
-    content.mode === "clinical_pathway" || content.mode === "evidence_gap" || content.mode === "document_lookup"
-      ? "space-y-2.5"
-      : content.mode === "comparison" || content.mode === "comparison_matrix"
-        ? "grid gap-2.5 md:grid-cols-2"
-        : content.mode === "threshold_table"
-          ? "grid gap-2.5 md:grid-cols-2"
-          : "space-y-2.5";
-
-  return (
-    <ul className={listClasses}>
-      {content.lines.map((line) => (
-        <li
-          key={line.id}
-          className={cn(
-            "grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border p-3 text-[15px] leading-7 shadow-[var(--shadow-inset)]",
-            answerToneClasses(line.presentation.tone),
-          )}
-        >
-          <AnswerSymbolTile line={line} />
-          <span className="min-w-0 space-y-1 font-medium text-[color:var(--text)]">
-            <AnswerLineLabel line={line} />
-            <span className="block min-w-0 break-words [overflow-wrap:anywhere]">
-              <SafeBoldText text={line.text} />
-            </span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extractSafetyFindings> }) {
@@ -1407,11 +1393,45 @@ function compactEvidenceSummary(answer: RagAnswer, sources: SearchResult[], sour
   return parts.join(" · ");
 }
 
-function evidenceTabOrder(answer: RagAnswer) {
-  const tableFirst = answer.queryClass === "table_threshold" || answer.responseMode === "threshold_table";
+type EvidenceTabName = "Tables" | "Sources" | "Images" | "Quotes" | "PDFs" | "Map";
+
+function evidenceTabOrder(answer: RagAnswer): EvidenceTabName[] {
+  const tableFirst =
+    answer.queryClass === "table_threshold" ||
+    answer.responseMode === "threshold_table" ||
+    Boolean(
+      (answer.visualEvidence ?? answer.smartPanel?.visualEvidence)?.some(
+        (item) => item.accessibleTableMarkdown || item.tableRows?.length,
+      ),
+    );
   return tableFirst
     ? ["Tables", "Sources", "Images", "Quotes", "PDFs", "Map"]
     : ["Sources", "Quotes", "Tables", "Images", "PDFs", "Map"];
+}
+
+function evidenceTabCount({
+  tab,
+  answer,
+  sources,
+  visualEvidence,
+  answerEvidenceMapRows,
+  pdfSources,
+}: {
+  tab: EvidenceTabName;
+  answer: RagAnswer;
+  sources: SearchResult[];
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  pdfSources: ReturnType<typeof uniquePdfSources>;
+}) {
+  if (tab === "Tables") {
+    return visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
+  }
+  if (tab === "Sources") return sources.length || answer.citations.length;
+  if (tab === "Images") return visualEvidence.length;
+  if (tab === "Quotes") return answer.quoteCards?.length ?? 0;
+  if (tab === "PDFs") return pdfSources.length;
+  return answerEvidenceMapRows.length;
 }
 
 function clinicalNotesCount(answer: RagAnswer) {
@@ -2029,123 +2049,6 @@ function ClinicalOutputPanel({
   return content;
 }
 
-function SmartFollowUpChips({
-  answer,
-  bestSource,
-  weakEvidence,
-  onViewModeChange,
-  onQueryModeChange,
-  onLimitToLocalCurrent,
-  onScopeDocument,
-  onShowQuotes,
-  onTryBroaderSearch,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  weakEvidence: boolean;
-  onViewModeChange: (mode: AnswerViewMode) => void;
-  onQueryModeChange: (mode: ClinicalQueryMode) => void;
-  onLimitToLocalCurrent: () => void;
-  onScopeDocument: (documentId: string) => void;
-  onShowQuotes: () => void;
-  onTryBroaderSearch: () => void;
-}) {
-  const hasThresholdEvidence =
-    answer.responseMode === "threshold_table" ||
-    answer.queryClass === "table_threshold" ||
-    answer.queryClass === "medication_dose_risk";
-  const hasComparisonEvidence =
-    answer.responseMode === "comparison_matrix" ||
-    answer.queryClass === "comparison" ||
-    (answer.documentBreakdown?.length ?? 0) >= 2 ||
-    (answer.sources?.length ?? 0) >= 2;
-  const chips: Array<{
-    label: string;
-    shortLabel: string;
-    icon: typeof Search;
-    onClick: () => void;
-    hidden?: boolean;
-  }> = [
-    {
-      label: "Show thresholds only",
-      shortLabel: "Thresholds",
-      icon: Target,
-      hidden: !hasThresholdEvidence,
-      onClick: () => {
-        onQueryModeChange("dose_threshold_lookup");
-        onViewModeChange("high_yield");
-      },
-    },
-    {
-      label: "Compare sources",
-      shortLabel: "Compare",
-      icon: BookOpen,
-      hidden: !hasComparisonEvidence,
-      onClick: () => {
-        onQueryModeChange("compare_guidance");
-        onViewModeChange("evidence_map");
-      },
-    },
-    {
-      label: "Limit to local/current sources",
-      shortLabel: "Local/current",
-      icon: Filter,
-      onClick: onLimitToLocalCurrent,
-    },
-    {
-      label: "Search this document only",
-      shortLabel: "This doc",
-      icon: FileText,
-      hidden: !bestSource,
-      onClick: () => {
-        if (bestSource) onScopeDocument(bestSource.document_id);
-      },
-    },
-    {
-      label: "Show exact quotes",
-      shortLabel: "Quotes",
-      icon: Quote,
-      hidden: !answer.quoteCards?.length,
-      onClick: onShowQuotes,
-    },
-    {
-      label: "Try broader search",
-      shortLabel: "Broader",
-      icon: SlidersHorizontal,
-      hidden: !weakEvidence,
-      onClick: onTryBroaderSearch,
-    },
-  ];
-  const visibleChips = chips.filter((chip) => !chip.hidden);
-  if (visibleChips.length === 0) return null;
-
-  return (
-    <div
-      data-testid="smart-follow-up-chips"
-      className="flex flex-wrap gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
-      aria-label="Smart follow-up refinements"
-    >
-      {visibleChips.map((chip) => {
-        const Icon = chip.icon;
-        return (
-          <button
-            key={chip.label}
-            type="button"
-            onClick={chip.onClick}
-            aria-label={chip.label}
-            title={chip.label}
-            className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            <span className="sm:hidden">{chip.shortLabel}</span>
-            <span className="hidden sm:inline">{chip.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
   const visibleSources = sources.slice(0, 3);
   if (visibleSources.length === 0) return null;
@@ -2367,7 +2270,33 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
 
   return (
     <section className={cn(tableCard, "max-w-2xl")} aria-label="Inline table preview">
-      <div className={tableCardHeader}>{title}</div>
+      <div className={cn(tableCardHeader, "flex min-h-11 items-center justify-between gap-2")}>
+        <span className="hidden min-w-0 truncate sm:inline">{title}</span>
+        <span className="min-w-0 truncate sm:hidden">Clozapine schedule</span>
+        <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
+          <Link
+            href={item.viewer_href}
+            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
+            aria-label="Open table source"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+          <button
+            type="button"
+            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
+            aria-label="Copy table preview"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
+            aria-label="More table actions"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
       <div className="p-2.5">
         <AccessibleTable
           caption={title}
@@ -2376,11 +2305,15 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
           columns={item.tableColumns}
           compact
           expandOnMobile
+          previewRows={3}
+          hidePreviewCaption
+          hidePreviewRowCount
+          densePreview
           clinicalOnly
           dialogTitle={item.tableTitle || item.caption || title}
         />
       </div>
-      <div className={tableMicroActionRow}>
+      <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
         <Link href={item.viewer_href} className={chatMicroAction}>
           Expand
         </Link>
@@ -2396,6 +2329,266 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
       </div>
     </section>
   );
+}
+
+const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
+  Tables: ListChecks,
+  Sources: Layers,
+  Images: FileImage,
+  Quotes: Quote,
+  PDFs: FileText,
+  Map: BookOpen,
+};
+
+function MobileEvidenceSheetContent({
+  answer,
+  sources,
+  query,
+  visualEvidence,
+  answerEvidenceMapRows,
+  copiedQuotes,
+  onCopyQuotes,
+  onFollowUpQuote,
+  onScopeDocument,
+}: {
+  answer: RagAnswer;
+  sources: SearchResult[];
+  query: string;
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  copiedQuotes: boolean;
+  onCopyQuotes: () => void;
+  onFollowUpQuote: (quote: QuoteCard) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  const order = evidenceTabOrder(answer);
+  const pdfSources = uniquePdfSources(answer).slice(0, 6);
+  const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(null);
+  const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
+  const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
+
+  return (
+    <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
+      <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
+        <div
+          data-testid="mobile-evidence-tabs"
+          role="tablist"
+          aria-label="Evidence sections"
+          className="flex min-w-max gap-1 px-1"
+        >
+          {order.map((tab) => {
+            const selected = tab === activeTab;
+            const Icon = evidenceTabIconMap[tab];
+            const count = evidenceTabCount({ tab, answer, sources, visualEvidence, answerEvidenceMapRows, pdfSources });
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={panelIdFor(tab)}
+                id={`mobile-evidence-tab-${tab.toLowerCase()}`}
+                data-testid={`mobile-evidence-tab-${tab.toLowerCase()}`}
+                onClick={() => setSelectedTab(tab)}
+                className={cn(
+                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition sm:min-h-10",
+                  selected
+                    ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {tab}
+                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="min-h-[220px]">
+        {order.map((tab) => {
+          const selected = tab === activeTab;
+          return (
+            <div
+              key={tab}
+              id={panelIdFor(tab)}
+              role="tabpanel"
+              aria-labelledby={`mobile-evidence-tab-${tab.toLowerCase()}`}
+              data-testid={`mobile-evidence-panel-${tab.toLowerCase()}`}
+              hidden={!selected}
+              className="min-h-[220px]"
+            >
+              {selected ? (
+                <MobileEvidenceTabPanel
+                  tab={tab}
+                  answer={answer}
+                  sources={sources}
+                  query={query}
+                  visualEvidence={visualEvidence}
+                  answerEvidenceMapRows={answerEvidenceMapRows}
+                  pdfSources={pdfSources}
+                  copiedQuotes={copiedQuotes}
+                  onCopyQuotes={onCopyQuotes}
+                  onFollowUpQuote={onFollowUpQuote}
+                  onScopeDocument={onScopeDocument}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MobileEvidenceTabPanel({
+  tab,
+  answer,
+  sources,
+  query,
+  visualEvidence,
+  answerEvidenceMapRows,
+  pdfSources,
+  copiedQuotes,
+  onCopyQuotes,
+  onFollowUpQuote,
+  onScopeDocument,
+}: {
+  tab: EvidenceTabName;
+  answer: RagAnswer;
+  sources: SearchResult[];
+  query: string;
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  pdfSources: ReturnType<typeof uniquePdfSources>;
+  copiedQuotes: boolean;
+  onCopyQuotes: () => void;
+  onFollowUpQuote: (quote: QuoteCard) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  if (tab === "Tables") {
+    const tableEvidence = visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length);
+    return tableEvidence.length ? (
+      <div className="grid gap-2">
+        {tableEvidence.slice(0, 4).map((item, index) => (
+          <article key={item.id} className={cn(sourceCard, "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 p-3")}>
+            <span className={iconTilePremium}>
+              <ListChecks className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
+                {compactClinicalTableCaption(item)}
+              </p>
+              <p className={cn("mt-1 text-xs", textMuted)}>
+                Table {index + 1} · p.{item.page_number ?? "n/a"}
+              </p>
+            </div>
+            <Link href={item.viewer_href} className={chatMicroAction} aria-label={`Open table source ${index + 1}`}>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <EmptyState icon={ListChecks} title="No tables used" body="No table evidence was used for this answer." />
+    );
+  }
+
+  if (tab === "Sources") {
+    return sources.length ? (
+      <div className="grid gap-2">
+        {sources.slice(0, 4).map((source, index) => {
+          const metadata = normalizeSourceMetadata(source.source_metadata);
+          const snippet = sourceTextForCompactDisplay(source.content);
+          return (
+            <article key={source.id} className={cn(sourceCard, "p-3")}>
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
+                <span className={sourceStatusDotClass(metadata)} aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">{source.title}</p>
+                  <p className={cn("mt-1 text-xs", textMuted)}>
+                    p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)}
+                  </p>
+                </div>
+                <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
+                  {Math.round(Math.max(0, Math.min(1, source.hybrid_score ?? source.similarity ?? 0)) * 100)}%
+                </span>
+              </div>
+              {snippet ? <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>{snippet}</p> : null}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  href={sourceResultHref(source)}
+                  onClick={() => logSourceOpen(query, source)}
+                  className={chatMicroAction}
+                  aria-label={`Open source ${index + 1}`}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open
+                </Link>
+                <button type="button" onClick={() => onScopeDocument(source.document_id)} className={chatMicroAction}>
+                  <Filter className="h-3.5 w-3.5" />
+                  Scope
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    ) : (
+      <EmptyState icon={Layers} title="No sources used" body="No source passages were attached to this answer." />
+    );
+  }
+
+  if (tab === "Images") {
+    return visualEvidence.length ? (
+      <VisualEvidenceStrip evidence={visualEvidence} embedded />
+    ) : (
+      <EmptyState
+        icon={FileImage}
+        title="No images used"
+        body="Image and table evidence appears here when available."
+      />
+    );
+  }
+
+  if (tab === "Quotes") {
+    return (
+      <QuoteCards
+        quotes={answer.quoteCards ?? []}
+        copiedQuotes={copiedQuotes}
+        onCopyQuotes={onCopyQuotes}
+        onFollowUp={onFollowUpQuote}
+        onScopeDocument={onScopeDocument}
+      />
+    );
+  }
+
+  if (tab === "PDFs") {
+    return pdfSources.length ? (
+      <div className="grid gap-2">
+        {pdfSources.map((source, index) => (
+          <Link
+            key={`${source.document_id}:${source.file_name}:${index}`}
+            href={`/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${"id" in source ? source.id : (source.chunk_id ?? "")}`}
+            className={cn(sourceCard, "flex min-h-[52px] items-center justify-between gap-3 p-3")}
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{source.title}</span>
+              <span className={cn("block truncate text-xs", textMuted)}>
+                {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
+              </span>
+            </span>
+            <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+          </Link>
+        ))}
+      </div>
+    ) : (
+      <EmptyState icon={FileText} title="No PDFs used" body="PDF source documents appear here when available." />
+    );
+  }
+
+  return <EvidenceMapTable rows={answerEvidenceMapRows} />;
 }
 
 function UnifiedEvidenceDrawerContent({
@@ -2736,17 +2929,6 @@ function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOp
   return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
 }
 
-function sectionBodyContent(body: string, responseMode?: RagAnswer["responseMode"]) {
-  const normalized = sanitizeAnswerDisplayText(body, { minLength: 8, minTokens: 2 });
-  if (!normalized) {
-    return {
-      ...parseAnswerDisplayContent(sectionTextFallback, responseMode),
-      safe: false,
-    };
-  }
-  return { ...parseAnswerDisplayContent(normalized, responseMode), safe: true };
-}
-
 function sourceDisplayTitle(source: SearchResult) {
   return source.title
     .replace(/^Synthetic /, "")
@@ -2893,23 +3075,14 @@ function StagedAnswerResultSurface({
   weakEvidence,
   groupedGovernanceWarningCount,
   answerViewMode,
-  onAnswerViewModeChange,
-  onQueryModeChange,
   answerEvidenceMapRows,
-  onLimitToLocalCurrent,
   onScopeDocument,
-  onShowQuotes,
-  onTryBroaderSearch,
   answerGrounded,
   sources,
   gaps,
   searchScope,
   demoMode,
   safeAnswerSections,
-  evalAction,
-  evalStatus,
-  canUsePrivateApis,
-  onSaveAnswerEval,
   safetyFindings,
   copiedAnswer,
   onCopyAnswer,
@@ -2925,23 +3098,14 @@ function StagedAnswerResultSurface({
   weakEvidence: boolean;
   groupedGovernanceWarningCount: number;
   answerViewMode: AnswerViewMode;
-  onAnswerViewModeChange: (mode: AnswerViewMode) => void;
-  onQueryModeChange: (mode: ClinicalQueryMode) => void;
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  onLimitToLocalCurrent: () => void;
   onScopeDocument: (documentId: string) => void;
-  onShowQuotes: () => void;
-  onTryBroaderSearch: () => void;
   answerGrounded: boolean;
   sources: SearchResult[];
   gaps: ConflictOrGap[];
   searchScope: SearchScopeSummary | null;
   demoMode: boolean;
   safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  evalAction: "good" | "needs_fixing" | null;
-  evalStatus: string | null;
-  canUsePrivateApis: boolean;
-  onSaveAnswerEval: (rating: "good" | "needs_fixing") => void;
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
   copiedAnswer: boolean;
   onCopyAnswer: () => void;
@@ -2954,29 +3118,20 @@ function StagedAnswerResultSurface({
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
+        <UserQuestionBubble query={query} />
+
         <NaturalLanguageAnswer
           text={safeAnswerText || answer.answer}
           sourceCount={sourceCount}
           weakEvidence={weakEvidence}
           grounded={answerGrounded}
           bestSource={bestSource}
+          sources={sources}
           copied={copiedAnswer}
           onCopy={onCopyAnswer}
         />
 
-        <KeyClinicalItems sections={safeAnswerSections} />
-
-        <SmartFollowUpChips
-          answer={answer}
-          bestSource={bestSource}
-          weakEvidence={weakEvidence}
-          onViewModeChange={onAnswerViewModeChange}
-          onQueryModeChange={onQueryModeChange}
-          onLimitToLocalCurrent={onLimitToLocalCurrent}
-          onScopeDocument={onScopeDocument}
-          onShowQuotes={onShowQuotes}
-          onTryBroaderSearch={onTryBroaderSearch}
-        />
+        <KeyClinicalItems sections={safeAnswerSections} table={centralTable} />
 
         {centralTable ? <InlineTableCard item={centralTable} /> : null}
 
@@ -3000,32 +3155,27 @@ function StagedAnswerResultSurface({
         ) : null}
 
         <UtilityDrawer
-          id="answer-more-detail-drawer"
-          icon={ListChecks}
-          title="Read more"
-          summary="Structured clinical detail and verification prompts."
-          mobileSummary="Read more"
-          mobileInline
-        >
-          <ClinicalOutputPanel
-            answer={answer}
-            showLead={false}
-            viewMode={answerViewMode}
-            onViewModeChange={onAnswerViewModeChange}
-            evidenceMapRows={answerEvidenceMapRows}
-          />
-        </UtilityDrawer>
-
-        <UtilityDrawer
           id="answer-evidence-drawer"
           icon={Layers}
           title="Evidence"
           summary={compactEvidenceSummary(answer, sources, sourceSummary)}
           mobileSummary={compactEvidenceSummary(answer, sources, sourceSummary)}
           className={evidenceRow}
-          mobileInline
         >
-          <div className="space-y-3">
+          <div className="sm:hidden">
+            <MobileEvidenceSheetContent
+              answer={answer}
+              sources={sources}
+              query={query}
+              visualEvidence={answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []}
+              answerEvidenceMapRows={answerEvidenceMapRows}
+              copiedQuotes={false}
+              onCopyQuotes={() => undefined}
+              onFollowUpQuote={() => undefined}
+              onScopeDocument={onScopeDocument}
+            />
+          </div>
+          <div className="hidden space-y-3 sm:block">
             <AnswerInsightBar
               answer={answer}
               bestSource={bestSource}
@@ -3073,72 +3223,6 @@ function StagedAnswerResultSurface({
             />
           </div>
         </UtilityDrawer>
-
-        <UtilityDrawer
-          icon={CheckCircle2}
-          title="Quality feedback"
-          summary="Save this answer as an eval case for later regression testing."
-          mobileSummary="Eval case"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className={cn("text-sm leading-6", textMuted)}>Record this answer for future regression checks.</span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!canUsePrivateApis || Boolean(evalAction)}
-                onClick={() => onSaveAnswerEval("good")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                {evalAction === "good" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Good eval
-              </button>
-              <button
-                type="button"
-                disabled={!canUsePrivateApis || Boolean(evalAction)}
-                onClick={() => onSaveAnswerEval("needs_fixing")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                {evalAction === "needs_fixing" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <AlertCircle className="h-4 w-4" />
-                )}
-                Needs fixing
-              </button>
-            </div>
-            {evalStatus ? (
-              <p className="basis-full text-xs font-semibold text-[color:var(--text-muted)]">{evalStatus}</p>
-            ) : null}
-          </div>
-        </UtilityDrawer>
-
-        <details data-testid="raw-answer-narrative" className={cn("group", panelSubtle)}>
-          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-2">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className={cn(iconTilePremium, "h-8 w-8")}>
-                <FileText className="h-4 w-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text)]">Source narrative</span>
-                <span className={cn("block truncate text-xs", textMuted)}>
-                  Secondary source-linked answer text and section citations
-                </span>
-              </span>
-            </span>
-            <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-          </summary>
-          <div className="border-t border-[color:var(--border)] p-3 sm:p-4">
-            <SourceLinkedAnswer
-              sections={safeAnswerSections}
-              fallbackText={safeAnswerText}
-              responseMode={answer.responseMode}
-            />
-          </div>
-        </details>
       </div>
 
       <SafetyFindingsPanel findings={safetyFindings} />
@@ -4252,7 +4336,7 @@ function ClinicalSidebarContent({
   const visibleRecentQueries = recentQueries.slice(0, 5);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
       {showHeader ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -4276,122 +4360,122 @@ function ClinicalSidebarContent({
         </div>
       ) : null}
 
+      <button
+        type="button"
+        onClick={() => {
+          onNewChat();
+          onNavigate?.();
+        }}
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+      >
+        <Plus className="h-4 w-4" />
+        New chat
+      </button>
+
+      <label className="relative block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+        <input
+          type="search"
+          placeholder="Search chats"
+          className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+        />
+      </label>
+
+      <section className="min-w-0">
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            Recent chats
+          </p>
+        </div>
+        <div className="grid gap-1">
+          {visibleRecentQueries.length ? (
+            visibleRecentQueries.map((recent, index) => (
+              <button
+                key={`${recent}:${index}`}
+                type="button"
+                onClick={() => {
+                  onPickRecent(recent);
+                  onNavigate?.();
+                }}
+                title={recent}
+                className={cn(
+                  sidebarItem,
+                  index === 0 &&
+                    "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
+                )}
+              >
+                <MessageSquare className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
+              </button>
+            ))
+          ) : (
+            <p
+              className={cn(
+                "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
+                textMuted,
+              )}
+            >
+              Recent chats will appear here.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Top tools</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {sidebarToolItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.label} href="/tools" onClick={onNavigate} className={sidebarToolTile}>
+                <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <Link
+          href="/tools"
+          onClick={onNavigate}
+          className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+        >
+          View all tools
+          <ChevronDown className="-rotate-90 h-4 w-4" />
+        </Link>
+      </section>
+
+      <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
         <button
           type="button"
           onClick={() => {
-            onNewChat();
             onNavigate?.();
+            window.requestAnimationFrame(onOpenGuide);
           }}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+          className={sidebarItem}
         >
-          <Plus className="h-4 w-4" />
-          New chat
+          <BookOpen className="h-4 w-4 shrink-0" />
+          <span>Guide & help</span>
         </button>
-
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-          <input
-            type="search"
-            placeholder="Search chats"
-            className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-          />
-        </label>
-
-        <section className="min-w-0">
-          <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-              Recent chats
-            </p>
-          </div>
-          <div className="grid gap-1">
-            {visibleRecentQueries.length ? (
-              visibleRecentQueries.map((recent, index) => (
-                  <button
-                    key={`${recent}:${index}`}
-                    type="button"
-                    onClick={() => {
-                      onPickRecent(recent);
-                      onNavigate?.();
-                    }}
-                    title={recent}
-                    className={cn(
-                    sidebarItem,
-                    index === 0 &&
-                      "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
-                  )}
-                >
-                  <MessageSquare className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
-                </button>
-              ))
-            ) : (
-              <p
-                className={cn(
-                  "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
-                  textMuted,
-                )}
-              >
-                Recent chats will appear here.
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section>
-          <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Top tools</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {sidebarToolItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.label} href="/tools" onClick={onNavigate} className={sidebarToolTile}>
-                  <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-          <Link
-            href="/tools"
-            onClick={onNavigate}
-            className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
-          >
-            View all tools
-            <ChevronDown className="-rotate-90 h-4 w-4" />
-          </Link>
-        </section>
-
-        <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
-          <button
-            type="button"
-            onClick={() => {
-              onNavigate?.();
-              window.requestAnimationFrame(onOpenGuide);
-            }}
-            className={sidebarItem}
-          >
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span>Guide & help</span>
-          </button>
-          <button type="button" className={sidebarItem}>
-            <SettingsIcon className="h-4 w-4 shrink-0" />
-            <span>Settings</span>
-          </button>
-          <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-              AK
+        <button type="button" className={sidebarItem}>
+          <SettingsIcon className="h-4 w-4 shrink-0" />
+          <span>Settings</span>
+        </button>
+        <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+            AK
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
+            <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
+              <span className={statusDotReady} aria-hidden="true" />
+              Ready
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
-              <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
-                <span className={statusDotReady} aria-hidden="true" />
-                Ready
-              </span>
-            </span>
-          </div>
+          </span>
         </div>
       </div>
+    </div>
   );
 }
 
@@ -4451,7 +4535,7 @@ function ClinicalDesktopSidebar({
     <aside
       id="clinical-tools-sidebar"
       aria-label="Clinical Guide sidebar"
-      className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
+      className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
     >
       <ClinicalSidebarContent
         recentQueries={recentQueries}
@@ -4954,8 +5038,6 @@ export function ClinicalDashboard() {
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
   const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
-  const [evalStatus, setEvalStatus] = useState<string | null>(null);
-  const [evalAction, setEvalAction] = useState<"good" | "needs_fixing" | null>(null);
   const [bulkActionStatus, setBulkActionStatus] = useState<string | null>(null);
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -5636,7 +5718,6 @@ export function ClinicalDashboard() {
 
     setLoading(true);
     setError(null);
-    setEvalStatus(null);
     setSearchRelevance(null);
     setSearchFacets(null);
     setSearchScope(null);
@@ -5766,44 +5847,6 @@ export function ClinicalDashboard() {
     void runDocumentSearchShortcut(searchText, nextFilters);
   }
 
-  async function saveAnswerEval(rating: "good" | "needs_fixing") {
-    if (!answer || !query.trim()) return;
-    setEvalAction(rating);
-    setEvalStatus(null);
-    try {
-      const response = await fetch("/api/eval-cases", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientDemoMode ? {} : authorizationHeader),
-        },
-        body: JSON.stringify({
-          query,
-          rating,
-          answer: answer.answer,
-          queryMode,
-          queryClass: answer.queryClass,
-          filters: compactScopeFilters(scopeFilters),
-          sourceChunkIds: answer.sources?.map((source) => source.id).filter(Boolean) ?? [],
-          citedChunkIds: answer.citations?.map((citation) => citation.chunk_id).filter(Boolean) ?? [],
-          sourceFiles: answer.sources?.map((source) => source.file_name).filter(Boolean) ?? [],
-        }),
-      });
-      if (response.status === 401) {
-        markSessionExpired();
-        setEvalStatus("Sign in before saving eval cases.");
-        return;
-      }
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Eval capture failed.");
-      setEvalStatus(rating === "good" ? "Saved as a good eval case." : "Saved as needs fixing.");
-    } catch (error) {
-      setEvalStatus(error instanceof Error ? error.message : "Eval capture failed.");
-    } finally {
-      setEvalAction(null);
-    }
-  }
-
   async function bulkReindexSelected(mode: "enrichment" | "full" | "retry_failed") {
     if (!selectedDocumentIds.length) return;
     setBulkActionBusy(true);
@@ -5877,7 +5920,6 @@ export function ClinicalDashboard() {
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
     setError(null);
-    setEvalStatus(null);
     setAnswerProgress(null);
     setAnswerViewMode("high_yield");
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
@@ -6050,19 +6092,7 @@ export function ClinicalDashboard() {
   }, [answer?.answerSections, sourceLookup]);
   const answerEvidenceMapRows = useMemo(() => buildAnswerEvidenceMap(answer), [answer]);
 
-  function limitToLocalCurrentSources() {
-    setScopeFilters((current) => ({ ...current, locality: "local", sourceStatuses: ["current"] }));
-    setAnswerViewMode("evidence_map");
-  }
-
-  function tryBroaderAnswerSearch() {
-    setQueryMode("auto");
-    setScopeFilters({});
-    setSelectedDocumentIds([]);
-    setAnswerViewMode("high_yield");
-  }
-
-  const showSystemNotice = demoMode || setupWarning;
+  const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
     () => groupSourceGovernanceWarnings(sourceGovernanceWarnings).reduce((total, warning) => total + warning.count, 0),
     [sourceGovernanceWarnings],
@@ -6230,7 +6260,7 @@ export function ClinicalDashboard() {
         onOpenGuide={openGuide}
       />
 
-      <div className="min-h-0 min-w-0 flex-1 lg:flex lg:h-screen lg:flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:h-screen">
         <MasterSearchHeader
           documents={documents}
           query={query}
@@ -6239,7 +6269,6 @@ export function ClinicalDashboard() {
           selectedDocumentIds={selectedDocumentIds}
           queryMode={queryMode}
           scopeFilters={scopeFilters}
-          demoMode={demoMode}
           realDataReady={canRunSearch}
           theme={theme}
           onQueryChange={setQuery}
@@ -6263,7 +6292,7 @@ export function ClinicalDashboard() {
           ref={mainRef}
           tabIndex={-1}
           onScroll={scheduleActiveSectionSync}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none"
+          className="mb-[calc(5.25rem+env(safe-area-inset-bottom))] min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none sm:mb-24"
         >
           <h1 className="sr-only">Clinical Guide</h1>
           <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-32 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-36 lg:px-8 lg:pb-40">
@@ -6358,23 +6387,14 @@ export function ClinicalDashboard() {
                     weakEvidence={weakEvidence}
                     groupedGovernanceWarningCount={groupedGovernanceWarningCount}
                     answerViewMode={answerViewMode}
-                    onAnswerViewModeChange={setAnswerViewMode}
-                    onQueryModeChange={setQueryMode}
                     answerEvidenceMapRows={answerEvidenceMapRows}
-                    onLimitToLocalCurrent={limitToLocalCurrentSources}
                     onScopeDocument={scopeOnlyDocument}
-                    onShowQuotes={() => navigateMobileSection("#quotes")}
-                    onTryBroaderSearch={tryBroaderAnswerSearch}
                     answerGrounded={answerGrounded}
                     sources={sources}
                     gaps={gaps}
                     searchScope={searchScope}
                     demoMode={demoMode}
                     safeAnswerSections={safeAnswerSections}
-                    evalAction={evalAction}
-                    evalStatus={evalStatus}
-                    canUsePrivateApis={canUsePrivateApis}
-                    onSaveAnswerEval={saveAnswerEval}
                     safetyFindings={safetyFindings}
                     copiedAnswer={copiedAction === "answer"}
                     onCopyAnswer={() => copyText("answer", safeAnswerText || answer.answer)}

@@ -70,7 +70,6 @@ export function MasterSearchHeader({
   selectedDocumentIds,
   queryMode,
   scopeFilters,
-  demoMode,
   realDataReady,
   theme,
   onQueryChange,
@@ -96,7 +95,6 @@ export function MasterSearchHeader({
   selectedDocumentIds: string[];
   queryMode: ClinicalQueryMode;
   scopeFilters: SearchScopeFilters;
-  demoMode: boolean;
   realDataReady: boolean;
   theme: ResolvedTheme;
   onQueryChange: (query: string) => void;
@@ -122,6 +120,8 @@ export function MasterSearchHeader({
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [dailyActionsOpen, setDailyActionsOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
+  const dailyActionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const firstDailyActionRef = useRef<HTMLButtonElement | null>(null);
   const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const scopeSummaryRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -515,11 +515,6 @@ export function MasterSearchHeader({
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {demoMode ? (
-              <span className="hidden rounded-full border border-[color:var(--clinical-chat-amber)]/25 bg-[color:var(--warning-soft)]/50 px-2 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--warning)] sm:inline-flex">
-                Demo
-              </span>
-            ) : null}
             {usesScopeSheet ? (
               <button
                 type="button"
@@ -621,6 +616,7 @@ export function MasterSearchHeader({
         <div className="relative shrink-0">
           <button
             type="button"
+            ref={dailyActionButtonRef}
             className={chatComposerIconButton}
             aria-label="Open daily actions"
             aria-controls={dailyActionsOpen ? "daily-actions-sheet" : undefined}
@@ -630,9 +626,10 @@ export function MasterSearchHeader({
           >
             <Plus className="h-5 w-5" />
           </button>
-          {dailyActionsOpen ? (
+          {dailyActionsOpen && !usesScopeSheet ? (
             <div
               id="daily-actions-sheet"
+              aria-label="Daily actions"
               className="fixed inset-x-3 bottom-20 z-50 max-h-[52vh] overflow-y-auto rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-elevated)] sm:absolute sm:inset-x-auto sm:bottom-[calc(100%+0.75rem)] sm:left-0 sm:max-h-none sm:w-64 sm:rounded-2xl"
             >
               <div
@@ -728,6 +725,40 @@ export function MasterSearchHeader({
           </div>
         </Sheet>
       </form>
+      <Sheet
+        open={usesScopeSheet && dailyActionsOpen}
+        onClose={() => setDailyActionsOpen(false)}
+        title="Daily actions"
+        description="Search, add, scope, evidence, or tools."
+        closeLabel="Close daily actions"
+        initialFocusRef={firstDailyActionRef}
+        contentClassName="sm:max-w-sm"
+      >
+        <div id="daily-actions-sheet" data-testid="daily-actions-sheet" className="grid grid-cols-2 gap-2">
+          {dailyActions.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                ref={index === 0 ? firstDailyActionRef : undefined}
+                onClick={() => {
+                  setDailyActionsOpen(false);
+                  runDailyAction(item.label);
+                }}
+                className={cn(
+                  "grid min-h-[72px] place-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-3 text-center text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]",
+                  "hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  index === dailyActions.length - 1 && "col-span-2",
+                )}
+              >
+                <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-chat-teal)]" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
     </>
   );
 }

@@ -71,7 +71,7 @@ function SearchFacetDisclosure({ facets }: { facets?: SearchFacets | null }) {
         aria-expanded={expanded}
         className={cn(
           metadataPill,
-          "min-h-8 cursor-pointer list-none gap-1.5 px-2.5 text-[11px] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+          "min-h-11 cursor-pointer list-none gap-1.5 px-2.5 text-[11px] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-8",
         )}
       >
         <Filter className="h-3.5 w-3.5" />
@@ -126,7 +126,11 @@ function DocumentTagFacetRail({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
-          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}>
+          <button
+            type="button"
+            onClick={onClear}
+            className={cn(floatingControl, "min-h-11 px-2 text-[11px] sm:min-h-8")}
+          >
             <X className="h-3.5 w-3.5" />
             Clear
           </button>
@@ -316,7 +320,11 @@ export function DocumentSearchResultsPanel({
             aria-label="Search your clinical documents"
             className="min-h-[44px] min-w-0 flex-1 bg-transparent text-sm font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
           />
-          <button type="submit" disabled={!canSearch} className={cn(primaryControl, "min-h-9 px-3 text-xs")}>
+          <button
+            type="submit"
+            disabled={!canSearch}
+            className={cn(primaryControl, "min-h-11 px-3 text-xs sm:min-h-9")}
+          >
             Search
           </button>
         </form>
@@ -328,7 +336,7 @@ export function DocumentSearchResultsPanel({
                 type="button"
                 className={cn(
                   floatingControl,
-                  "min-h-9 gap-1.5 rounded-lg px-2.5 text-[11px] text-[color:var(--text-muted)]",
+                  "min-h-11 gap-1.5 rounded-lg px-2.5 text-[11px] text-[color:var(--text-muted)] sm:min-h-9",
                 )}
               >
                 {label === "All sources" ? <Filter className="h-3.5 w-3.5" /> : null}
@@ -339,7 +347,10 @@ export function DocumentSearchResultsPanel({
           </div>
           <button
             type="button"
-            className={cn(floatingControl, "min-h-9 gap-1.5 rounded-lg px-2.5 text-[11px] text-[color:var(--text-muted)]")}
+            className={cn(
+              floatingControl,
+              "min-h-11 gap-1.5 rounded-lg px-2.5 text-[11px] text-[color:var(--text-muted)] sm:min-h-9",
+            )}
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
             Sort: Relevance
@@ -377,7 +388,11 @@ export function DocumentSearchResultsPanel({
           </span>
           <div>
             <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
-              {documentCount === 0 ? "No indexed documents" : trimmedQuery ? "No matching documents" : "Search documents"}
+              {documentCount === 0
+                ? "No indexed documents"
+                : trimmedQuery
+                  ? "No matching documents"
+                  : "Search documents"}
             </h3>
             <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
               {documentCount === 0
@@ -391,12 +406,14 @@ export function DocumentSearchResultsPanel({
       ) : (
         <>
           <SearchFacetDisclosure facets={facets} />
-          <DocumentTagFacetRail
-            groups={tagFacetGroups}
-            activeKeys={activeFacetKeys}
-            onToggle={toggleTagFacet}
-            onClear={() => setActiveFacetState({ query, keys: [] })}
-          />
+          {activeFacetKeys.length > 0 ? (
+            <DocumentTagFacetRail
+              groups={tagFacetGroups}
+              activeKeys={activeFacetKeys}
+              onToggle={toggleTagFacet}
+              onClear={() => setActiveFacetState({ query, keys: [] })}
+            />
+          ) : null}
           {activeFacetKeys.length > 0 ? (
             <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-[11px]")}>
               {visibleMatches.length} result{visibleMatches.length === 1 ? "" : "s"} after tag filters
@@ -408,78 +425,84 @@ export function DocumentSearchResultsPanel({
                 No document matches include all selected tag facets.
               </div>
             ) : null}
-            {visibleMatches.map((document) => (
-              <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
-                <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
-                  <span className="hidden h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-document)] text-[color:var(--text-muted)] sm:grid">
-                    <FileText className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
-                        {documentKindLabel(document)}
-                      </span>
-                      <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />
-                      <span className={cn("text-[11px] font-semibold", textMuted)}>{document.file_name}</span>
-                    </div>
-                    <Link
-                      href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
-                      className="mt-1 inline-flex min-h-[44px] items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
-                    >
-                      <span className="line-clamp-2">{document.title}</span>
-                    </Link>
-                    <p className={cn("text-xs leading-5", textMuted)}>
-                      {documentPageLabel(document)} · {document.tableCount} tables · {document.imageCount} images
-                    </p>
-                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>{document.matchReason}</p>
-                    {document.summarySnippet && (
-                      <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6", textMuted)}>
-                        <SafeBoldText text={document.summarySnippet} />
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <RelevanceBadge relevance={document.relevance} />
-                      <QueryCoverageChips relevance={document.relevance} />
-                    </div>
-                    <DocumentTagCloud
-                      labels={document.labels}
-                      query={query}
-                      limit={4}
-                      className="mt-3"
-                      onTagClick={onTagSearch}
-                    />
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[color:var(--border)] pt-3">
+            {visibleMatches.map((document) => {
+              const relevance = document.relevance;
+              const showSupportChips = Boolean(relevance && relevance.verdict !== "none");
+              return (
+                <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
+                  <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+                    <span className="hidden h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-document)] text-[color:var(--text-muted)] sm:grid">
+                      <FileText className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
+                          {documentKindLabel(document)}
+                        </span>
+                        <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />
+                        <span className={cn("text-[11px] font-semibold", textMuted)}>{document.file_name}</span>
+                      </div>
                       <Link
                         href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
-                        className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
-                        aria-label={`Open ${document.title}`}
+                        className="mt-1 inline-flex min-h-[44px] items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
                       >
-                        <ExternalLink className="h-4 w-4" />
-                        Open
+                        <span className="line-clamp-2">{document.title}</span>
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => onScopeDocument(document.document_id)}
-                        className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}
-                        aria-label={`Scope search to ${document.title}`}
-                      >
-                        <Filter className="h-4 w-4" />
-                        Scope
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onAnswerFromDocument(document.document_id)}
-                        className={cn(primaryControl, "min-h-9 rounded-lg px-2.5 text-xs")}
-                        aria-label={`Answer from ${document.title}`}
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Answer
-                      </button>
+                      <p className={cn("text-xs leading-5", textMuted)}>
+                        {documentPageLabel(document)} · {document.tableCount} tables · {document.imageCount} images
+                      </p>
+                      <p className={cn("mt-1 text-xs leading-5", textMuted)}>{document.matchReason}</p>
+                      {document.summarySnippet && (
+                        <p className={cn("mt-2 line-clamp-3 text-[15px] leading-6", textMuted)}>
+                          <SafeBoldText text={document.summarySnippet} />
+                        </p>
+                      )}
+                    {relevance && showSupportChips ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <RelevanceBadge relevance={relevance} />
+                        <QueryCoverageChips relevance={relevance} />
+                      </div>
+                    ) : null}
+                      <DocumentTagCloud
+                        labels={document.labels}
+                        query={query}
+                        limit={4}
+                        className="mt-3"
+                        onTagClick={onTagSearch}
+                      />
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[color:var(--border)] pt-3">
+                        <Link
+                          href={`/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${document.bestChunkIds[0] ?? ""}`}
+                          className={cn(floatingControl, "min-h-11 px-2.5 text-xs sm:min-h-9")}
+                          aria-label={`Open ${document.title}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Open
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => onScopeDocument(document.document_id)}
+                          className={cn(floatingControl, "min-h-11 px-2.5 text-xs sm:min-h-9")}
+                          aria-label={`Scope search to ${document.title}`}
+                        >
+                          <Filter className="h-4 w-4" />
+                          Scope
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onAnswerFromDocument(document.document_id)}
+                          className={cn(primaryControl, "min-h-11 rounded-lg px-2.5 text-xs sm:min-h-9")}
+                          aria-label={`Answer from ${document.title}`}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Answer
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </>
       )}
