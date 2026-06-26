@@ -580,7 +580,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
     await expect(sourcePreview.getByRole("link", { name: /Open PDF drawer/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:4298" });
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: new URL(page.url()).origin,
+    });
     await sourcePreview.getByRole("button", { name: "Copy quote" }).click();
     await expect(sourcePreview.getByRole("button", { name: "Copied quote" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
