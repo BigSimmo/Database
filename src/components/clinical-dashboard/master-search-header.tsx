@@ -630,12 +630,8 @@ export function MasterSearchHeader({
             <div
               id="daily-actions-sheet"
               aria-label="Daily actions"
-              className="fixed inset-x-3 bottom-20 z-50 max-h-[52vh] overflow-y-auto rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-elevated)] sm:absolute sm:inset-x-auto sm:bottom-[calc(100%+0.75rem)] sm:left-0 sm:max-h-none sm:w-64 sm:rounded-2xl"
+              className="absolute bottom-[calc(100%+0.75rem)] left-0 z-50 hidden max-h-none w-64 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-elevated)] sm:block"
             >
-              <div
-                className="mx-auto mb-2 h-1 w-10 rounded-full bg-[color:var(--border-strong)] sm:hidden"
-                aria-hidden="true"
-              />
               {dailyActions.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -725,15 +721,16 @@ export function MasterSearchHeader({
           </div>
         </Sheet>
       </form>
-      <Sheet
-        open={usesScopeSheet && dailyActionsOpen}
-        onClose={() => setDailyActionsOpen(false)}
-        title="Daily actions"
-        description="Search, add, scope, evidence, or tools."
-        closeLabel="Close daily actions"
-        initialFocusRef={firstDailyActionRef}
-        contentClassName="sm:max-w-sm"
-      >
+        <Sheet
+          open={usesScopeSheet && dailyActionsOpen}
+          onClose={() => setDailyActionsOpen(false)}
+          title="Daily actions"
+          description="Search, add, scope, evidence, or tools."
+          closeLabel="Close daily actions"
+          initialFocusRef={firstDailyActionRef}
+          returnFocusRef={dailyActionButtonRef}
+          contentClassName="sm:max-w-sm"
+        >
         <div id="daily-actions-sheet" data-testid="daily-actions-sheet" className="grid grid-cols-2 gap-2">
           {dailyActions.map((item, index) => {
             const Icon = item.icon;

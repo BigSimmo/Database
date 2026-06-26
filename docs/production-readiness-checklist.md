@@ -19,6 +19,9 @@ This is the runbook to make the app publishable in one focused pass.
 - [x] Added CI-safe production preflight:
   - `npm run check:production-readiness:ci`
   - used in CI and non-blocking on local-only secret absence.
+- [x] Added strict runtime release gate:
+  - `npm run check:runtime`
+  - enforces Node 22.x before `npm run verify:release`.
 
 ## Remaining high-priority publish items (same day)
 
@@ -32,25 +35,27 @@ This is the runbook to make the app publishable in one focused pass.
 ## Execution flow for a publish candidate
 
 1. `npm run ensure` (capture the published local URL if browser checks are needed).
-2. `npm run check:production-readiness`.
-3. `npm run check:supabase-project`.
-4. `npm run lint`.
-5. `npm run typecheck`.
-6. `npm run test`.
-7. `npm run build`.
-8. `npm run check:production-readiness:ci` (CI context only).
-9. Frontend browser smoke:
+2. `npm run check:runtime`.
+3. `npm run check:production-readiness`.
+4. `npm run check:supabase-project`.
+5. `npm run lint`.
+6. `npm run typecheck`.
+7. `npm run test`.
+8. `npm run build`.
+9. `npm run check:production-readiness:ci` (CI context only).
+10. Frontend browser smoke:
 
 - auth flow
 - protected endpoint behavior
 - search + answer render path
 - mobile viewport
 
-9. Staging deployment smoke + rollback rehearsal.
+11. Staging deployment smoke + rollback rehearsal.
 
 ## Command outputs to record
 
 - `scripts/production-readiness.ts` result: PASS / WARN / FAIL.
+- `scripts/check-runtime.ts` result: PASS / FAIL.
 - `npm run lint` output.
 - `npm run typecheck` output.
 - `npm run test` output.

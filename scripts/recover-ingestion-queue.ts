@@ -63,7 +63,7 @@ async function main() {
   const { data, error } = await supabase
     .from("ingestion_jobs")
     .select("id,document_id,status,locked_at,documents(status,page_count,chunk_count)")
-    .in("status", ["processing", "failed"])
+    .in("status", ["pending", "processing", "failed"])
     .order("created_at", { ascending: true });
 
   if (error) throw supabaseStageError("load open ingestion jobs", error);

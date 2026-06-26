@@ -1,3 +1,5 @@
+drop function if exists public.match_document_table_facts_text(text, integer, uuid[], uuid);
+
 create or replace function public.match_document_table_facts_text(
   query_text text,
   match_count integer default 16,

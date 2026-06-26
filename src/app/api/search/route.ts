@@ -297,6 +297,12 @@ function buildSearchFacets(results: SearchResult[]) {
     extractionQuality: facetCounts(results.map((result) => result.source_metadata?.extraction_quality)),
     sections: facetCounts(results.map((result) => result.section_heading)),
     labels: facetCounts(results.flatMap((result) => result.document_labels?.map((label) => label.label) ?? [])),
+    sites: facetCounts(
+      results.flatMap(
+        (result) =>
+          result.document_labels?.filter((label) => label.label_type === "site").map((label) => label.label) ?? [],
+      ),
+    ),
     documentTypes: facetCounts(
       results.flatMap(
         (result) =>
@@ -402,6 +408,51 @@ function latencyBucket(ms: number) {
   return "gte_5000ms";
 }
 
+function telemetryNumber(telemetry: Record<string, unknown>, key: string) {
+  const value = telemetry[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function telemetryBoolean(telemetry: Record<string, unknown>, key: string) {
+  const value = telemetry[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function telemetryString(telemetry: Record<string, unknown>, key: string) {
+  const value = telemetry[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function telemetryRecord(telemetry: Record<string, unknown>, key: string) {
+  const value = telemetry[key];
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function retrievalDecisionTelemetry(telemetry: Record<string, unknown>) {
+  return {
+    retrieval_plan: telemetryString(telemetry, "retrieval_plan"),
+    retrieval_query_variant_count: telemetryNumber(telemetry, "retrieval_query_variant_count"),
+    text_candidate_budget: telemetryNumber(telemetry, "text_candidate_budget"),
+    text_candidate_count: telemetryNumber(telemetry, "text_candidate_count"),
+    text_fast_path_reason: telemetryString(telemetry, "text_fast_path_reason"),
+    embedding_skip_reason: telemetryString(telemetry, "embedding_skip_reason"),
+    vector_candidate_count: telemetryNumber(telemetry, "vector_candidate_count"),
+    embedding_field_count: telemetryNumber(telemetry, "embedding_field_count"),
+    retrieval_layer_counts: telemetryRecord(telemetry, "retrieval_layer_counts"),
+    retrieval_layer_top_scores: telemetryRecord(telemetry, "retrieval_layer_top_scores"),
+    retrieval_layer_latencies_ms: telemetryRecord(telemetry, "retrieval_layer_latencies_ms"),
+    retrieval_provenance_counts: telemetryRecord(telemetry, "retrieval_provenance_counts"),
+    coverage_gate_decision: telemetryString(telemetry, "coverage_gate_decision"),
+    coverage_gate_reason: telemetryString(telemetry, "coverage_gate_reason"),
+    vector_skipped_reason: telemetryString(telemetry, "vector_skipped_reason"),
+    source_image_required: telemetryBoolean(telemetry, "source_image_required"),
+    source_image_satisfied: telemetryBoolean(telemetry, "source_image_satisfied"),
+    second_stage_rerank_used: telemetryBoolean(telemetry, "second_stage_rerank_used"),
+    second_stage_rerank_latency_ms: telemetryNumber(telemetry, "second_stage_rerank_latency_ms"),
+    visual_direct_image_count: telemetryNumber(telemetry, "visual_direct_image_count"),
+  };
+}
+
 function logRetrievalDiagnostics(args: {
   supabase: ReturnType<typeof createAdminClient>;
   ownerId: string;
@@ -467,6 +518,7 @@ function logRetrievalDiagnostics(args: {
         metadata: {
           relevance_score: args.relevance.score,
           latency_bucket: latencyBucket(latencyMs),
+          ...retrievalDecisionTelemetry(args.telemetry),
         },
       });
     } catch (error) {
@@ -526,6 +578,7 @@ function logSearchObservation(args: {
           latency_bucket: latencyBucket(latencyMs),
           search_cache_hit: telemetry.search_cache_hit ?? null,
           embedding_skipped: telemetry.embedding_skipped ?? null,
+          ...retrievalDecisionTelemetry(telemetry),
         },
       });
     } catch {
@@ -654,21 +707,41 @@ async function buildScopedSearchPayload(
       direct_source_count: relevance.directSourceCount,
       weak_source_count: relevance.weakSourceCount,
       retrieval_strategy: search.telemetry.retrieval_strategy,
+      retrieval_plan: search.telemetry.retrieval_plan,
       smart_api_intent: smartApiPlan.intent,
       smart_api_response_mode: smartApiPlan.responseMode,
       smart_api_display_mode: smartApiPlan.displayMode,
       smart_api_source_link_count: smartApiPlan.sourceLinkCount,
       search_cache_hit: search.telemetry.search_cache_hit,
       embedding_skipped: search.telemetry.embedding_skipped,
+      embedding_skip_reason: search.telemetry.embedding_skip_reason,
       embedding_cache_hit: search.telemetry.embedding_cache_hit,
       text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
+      text_candidate_budget: search.telemetry.text_candidate_budget,
+      text_candidate_count: search.telemetry.text_candidate_count,
+      text_fast_path_reason: search.telemetry.text_fast_path_reason,
       embedding_latency_ms: search.telemetry.embedding_latency_ms,
+      vector_candidate_count: search.telemetry.vector_candidate_count,
+      embedding_field_count: search.telemetry.embedding_field_count,
+      retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
       supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
       rerank_latency_ms: search.telemetry.rerank_latency_ms,
+      second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
+      second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
       memory_card_count: search.telemetry.memory_card_count,
       memory_top_score: search.telemetry.memory_top_score,
       index_unit_count: search.telemetry.index_unit_count,
       index_unit_top_score: search.telemetry.index_unit_top_score,
+      retrieval_layer_counts: search.telemetry.retrieval_layer_counts,
+      retrieval_layer_top_scores: search.telemetry.retrieval_layer_top_scores,
+      retrieval_layer_latencies_ms: search.telemetry.retrieval_layer_latencies_ms,
+      retrieval_provenance_counts: search.telemetry.retrieval_provenance_counts,
+      coverage_gate_decision: search.telemetry.coverage_gate_decision,
+      coverage_gate_reason: search.telemetry.coverage_gate_reason,
+      vector_skipped_reason: search.telemetry.vector_skipped_reason,
+      source_image_required: search.telemetry.source_image_required,
+      source_image_satisfied: search.telemetry.source_image_satisfied,
+      visual_direct_image_count: search.telemetry.visual_direct_image_count,
       weighted_top_score: search.telemetry.weighted_top_score,
       rrf_top_score: search.telemetry.rrf_top_score,
     },

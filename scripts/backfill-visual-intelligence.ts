@@ -192,6 +192,13 @@ async function printCoverageReport(images: BackfillImageRow[]) {
       ),
     };
   });
+  const globalVisualUnitTypes = rows.reduce<Record<string, number>>((counts, row) => {
+    for (const [unitType, count] of Object.entries(row.visual_unit_types)) {
+      counts[unitType] = (counts[unitType] ?? 0) + count;
+    }
+    return counts;
+  }, {});
+  const missingRetrievableImageUnits = rows.reduce((sum, row) => sum + row.missing_retrievable_image_units, 0);
 
   console.log(
     JSON.stringify(
@@ -201,6 +208,9 @@ async function printCoverageReport(images: BackfillImageRow[]) {
         candidate_image_limit: limit,
         candidate_images: images.length,
         candidate_documents: documentIds.length,
+        visual_unit_types: globalVisualUnitTypes,
+        missing_retrievable_image_units: missingRetrievableImageUnits,
+        documents_missing_retrievable_image_units: rows.filter((row) => row.missing_retrievable_image_units > 0).length,
         documents: rows,
       },
       null,

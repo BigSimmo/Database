@@ -52,6 +52,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
+import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
@@ -115,6 +116,14 @@ import {
   SectionHeading,
   UtilityDrawer,
 } from "@/components/clinical-dashboard/dashboard-shell";
+import {
+  compactSourceSnippet,
+  compactTableFact,
+  sanitizeAnswerDisplayText,
+  sanitizeDisplayText,
+  sourceDisplayMeta,
+  sourceDisplayTitle,
+} from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import {
   DocumentSearchResultsPanel,
@@ -143,12 +152,7 @@ import {
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
 import { logSourceOpen, SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
-import {
-  clinicalProseUsefulness,
-  sourceTextForCompactDisplay,
-  sourceTextForClinicalProse,
-  sourceTextForClinicalProsePreservingBreaks,
-} from "@/lib/source-text-sanitizer";
+import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
@@ -189,6 +193,23 @@ import {
 
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
+
+function subscribeToMobilePreviewMedia(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia(mobileSectionFabMediaQuery);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function getMobilePreviewSnapshot() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(mobileSectionFabMediaQuery).matches;
+}
+
+function useMobilePreviewSheet() {
+  return useSyncExternalStore(subscribeToMobilePreviewMedia, getMobilePreviewSnapshot, () => false);
+}
+
 const authEmailChangeEvent = "clinical-kb-auth-email-change";
 const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
@@ -250,6 +271,42 @@ type BatchesPayload = {
   demoMode?: boolean;
   hasActiveBatches?: boolean;
   pollAfterMs?: number | null;
+};
+type AnswerFeedbackType =
+  | "verified"
+  | "needs_correction"
+  | "source_insufficient"
+  | "wrong_source"
+  | "missing_source"
+  | "unsupported_answer"
+  | "numeric_error"
+  | "outdated_guidance";
+type IngestionQualityReviewType =
+  | "failed_ocr"
+  | "low_extraction_confidence"
+  | "missing_tables"
+  | "image_only_pages"
+  | "failed_job"
+  | "manual_review";
+type IngestionQualityReviewItem = {
+  id: string;
+  type: IngestionQualityReviewType;
+  severity: "danger" | "warning" | "info";
+  title: string;
+  detail: string;
+  documentId: string;
+  documentTitle: string;
+  fileName: string;
+  jobId: string | null;
+  qualityScore: number | null;
+  extractionQuality: string | null;
+  reasons: string[];
+  metrics: Record<string, unknown>;
+  updatedAt: string | null;
+};
+type IngestionQualityPayload = {
+  items?: IngestionQualityReviewItem[];
+  demoMode?: boolean;
 };
 
 const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
@@ -575,10 +632,10 @@ function primaryAnswerDisplayText(value: string) {
   const cleaned = plainAnswerText(value);
   const fragments = cleaned
     .split(/\r?\n+/)
-    .flatMap((line) =>
+    .flatMap((line: string) =>
       line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
     )
-    .map((fragment) =>
+    .map((fragment: string) =>
       fragment
         .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
         .replace(
@@ -587,8 +644,8 @@ function primaryAnswerDisplayText(value: string) {
         )
         .trim(),
     )
-    .map((fragment) => clinicalProseUsefulness(fragment).text || fragment)
-    .filter((fragment) => {
+    .map((fragment: string) => clinicalProseUsefulness(fragment).text || fragment)
+    .filter((fragment: string) => {
       if (!fragment) return false;
       const useful = clinicalProseUsefulness(fragment);
       return useful.useful || fragment.split(/\s+/).length >= 8;
@@ -665,6 +722,73 @@ function capsulePreviewSources(bestSource: BestSourceRecommendation | null, sour
   return rows.slice(0, 3);
 }
 
+function SourcePreviewContent({
+  bestSource,
+  previewSources,
+  quoteText,
+}: {
+  bestSource: BestSourceRecommendation;
+  previewSources: CapsulePreviewSource[];
+  quoteText?: string | null;
+}) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            Sources behind this answer
+          </p>
+          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+            Preview first, then open the source document when needed.
+          </p>
+        </div>
+        <span className={cn(metadataPill, "nums shrink-0")}>{previewSources.length} sources</span>
+      </div>
+      <div className="mt-3 grid gap-1.5" role="list" aria-label="Sources behind this answer">
+        {previewSources.map((source, index) => (
+          <div
+            key={`${source.id}:${index}`}
+            data-testid="source-capsule-preview-row"
+            className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
+            role="listitem"
+          >
+            <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                {source.title}
+              </span>
+              <span className={cn("block truncate text-xs", textMuted)}>
+                p.{source.pageNumber ?? "n/a"} · {sourceStatusLabel(source.metadata)}
+              </span>
+            </span>
+            <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
+              {Math.round(Math.max(0, Math.min(1, source.score)) * 100)}%
+            </span>
+          </div>
+        ))}
+      </div>
+      {quoteText ? (
+        <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+          &ldquo;{quoteText}&rdquo;
+        </blockquote>
+      ) : null}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <Link href={bestSource.viewer_href} className={chatMicroAction}>
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open PDF drawer
+        </Link>
+        <button type="button" className={chatMicroAction}>
+          <Copy className="h-3.5 w-3.5" />
+          Copy quote
+        </button>
+        <Link href={bestSource.viewer_href} className={cn(chatMicroAction, "col-span-2 sm:col-span-1")}>
+          View section
+        </Link>
+      </div>
+    </>
+  );
+}
+
 function NaturalLanguageAnswer({
   text,
   sourceCount,
@@ -685,111 +809,81 @@ function NaturalLanguageAnswer({
   onCopy: () => void;
 }) {
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
+  const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
+  const usePreviewSheet = useMobilePreviewSheet();
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
   const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
   const previewSources = capsulePreviewSources(bestSource, sources);
   const quoteText = bestSource?.quote || bestSource?.snippet;
+  const sourceCapsuleButton = (
+    <button
+      type="button"
+      ref={sourceCapsuleRef}
+      className={cn(sourceCapsule, "w-fit")}
+      aria-label="Open answer sources"
+      aria-expanded={sourcePreviewOpen}
+      onClick={() => {
+        if (bestSource && sourceCount > 0 && grounded) setSourcePreviewOpen((current) => !current);
+      }}
+    >
+      {sourceCount > 0 && grounded ? (
+        <>
+          <span className="sm:hidden">
+            {sourceCount} source{sourceCount === 1 ? "" : "s"}
+          </span>
+          <span className="hidden sm:inline">{capsuleText}</span>
+        </>
+      ) : (
+        capsuleText
+      )}
+      {sourceCount > 0 && grounded ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+    </button>
+  );
 
   return (
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 rounded-lg border border-transparent bg-transparent px-1 py-1 text-[color:var(--text-heading)]"
+      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[color:var(--text-heading)]"
     >
       <span
         data-testid="answer-clinical-icon"
-        className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-8 sm:w-8"
+        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
         aria-hidden="true"
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
       </span>
-      <div className="min-w-0 space-y-2">
+      <div className="min-w-0 space-y-1.5">
         <p className={chatAnswerText}>
           <span data-testid="plain-answer-prose">
             <SafeBoldText text={cleaned} />
           </span>
-          <button
-            type="button"
-            className={cn(sourceCapsule, "ml-2 align-baseline")}
-            aria-label="Open answer sources"
-            aria-expanded={sourcePreviewOpen}
-            onClick={() => {
-              if (bestSource && sourceCount > 0 && grounded) setSourcePreviewOpen((current) => !current);
-            }}
-          >
-            {sourceCount > 0 && grounded ? (
-              <>
-                <span className="sm:hidden">
-                  {sourceCount} source{sourceCount === 1 ? "" : "s"}
-                </span>
-                <span className="hidden sm:inline">{capsuleText}</span>
-              </>
-            ) : (
-              capsuleText
-            )}
-            {sourceCount > 0 && grounded ? <ChevronDown className="h-3.5 w-3.5" /> : null}
-          </button>
         </p>
-        {sourcePreviewOpen && bestSource ? (
+        {sourceCapsuleButton}
+        {sourcePreviewOpen && bestSource && !usePreviewSheet ? (
           <div
             data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-sm overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in sm:max-h-none sm:max-w-xl sm:overflow-visible"
+            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                  Sources behind this answer
-                </p>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                  Preview first, then open the source document when needed.
-                </p>
-              </div>
-              <span className={cn(metadataPill, "nums shrink-0")}>{previewSources.length} sources</span>
-            </div>
-            <div className="mt-3 grid gap-1.5" role="list" aria-label="Sources behind this answer">
-              {previewSources.map((source, index) => (
-                <div
-                  key={`${source.id}:${index}`}
-                  data-testid="source-capsule-preview-row"
-                  className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
-                  role="listitem"
-                >
-                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                      {source.title}
-                    </span>
-                    <span className={cn("block truncate text-xs", textMuted)}>
-                      p.{source.pageNumber ?? "n/a"} · {sourceStatusLabel(source.metadata)}
-                    </span>
-                  </span>
-                  <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
-                    {Math.round(Math.max(0, Math.min(1, source.score)) * 100)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-            {quoteText ? (
-              <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
-                &ldquo;{quoteText}&rdquo;
-              </blockquote>
-            ) : null}
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <Link href={bestSource.viewer_href} className={chatMicroAction}>
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open PDF drawer
-              </Link>
-              <button type="button" className={chatMicroAction}>
-                <Copy className="h-3.5 w-3.5" />
-                Copy quote
-              </button>
-              <Link href={bestSource.viewer_href} className={cn(chatMicroAction, "col-span-2 sm:col-span-1")}>
-                View section
-              </Link>
-            </div>
+            <SourcePreviewContent bestSource={bestSource} previewSources={previewSources} quoteText={quoteText} />
           </div>
         ) : null}
+        <Sheet
+          open={sourcePreviewOpen && Boolean(bestSource) && usePreviewSheet}
+          onClose={() => setSourcePreviewOpen(false)}
+          title="Sources behind this answer"
+          description="Preview sources first, then open the source document when needed."
+          closeLabel="Close answer sources"
+          contentClassName="sm:max-w-xl"
+          returnFocusRef={sourceCapsuleRef}
+        >
+          {bestSource ? (
+            <div data-testid="source-capsule-preview">
+              <SourcePreviewContent bestSource={bestSource} previewSources={previewSources} quoteText={quoteText} />
+            </div>
+          ) : null}
+        </Sheet>
         <div className={chatActionRow} aria-label="Answer actions">
           <button type="button" onClick={onCopy} className={chatMicroAction}>
             <Copy className="h-3.5 w-3.5" />
@@ -1640,6 +1734,142 @@ function EvidenceVerificationStrip({
   );
 }
 
+const answerFeedbackOptions: Array<{
+  type: AnswerFeedbackType;
+  label: string;
+  icon: typeof CheckCircle2;
+  tone: "success" | "warning" | "danger" | "neutral";
+}> = [
+  { type: "verified", label: "Verified", icon: CheckCircle2, tone: "success" },
+  { type: "needs_correction", label: "Needs correction", icon: AlertCircle, tone: "warning" },
+  { type: "source_insufficient", label: "Source insufficient", icon: ShieldAlert, tone: "warning" },
+  { type: "wrong_source", label: "Wrong source", icon: FileText, tone: "danger" },
+  { type: "missing_source", label: "Missing source", icon: Search, tone: "warning" },
+  { type: "unsupported_answer", label: "Unsupported answer", icon: ShieldAlert, tone: "danger" },
+  { type: "numeric_error", label: "Numeric error", icon: Target, tone: "danger" },
+  { type: "outdated_guidance", label: "Outdated guidance", icon: RefreshCw, tone: "warning" },
+];
+
+function feedbackToneClass(tone: "success" | "warning" | "danger" | "neutral") {
+  if (tone === "success") return toneSuccess;
+  if (tone === "warning") return toneWarning;
+  if (tone === "danger") return toneDanger;
+  return toneNeutral;
+}
+
+function AnswerFeedbackPanel({
+  pending,
+  onSubmit,
+}: {
+  pending: AnswerFeedbackType | null;
+  onSubmit: (feedbackType: AnswerFeedbackType) => void;
+}) {
+  return (
+    <section
+      data-testid="answer-review-panel"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+      aria-label="Answer review"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-[color:var(--text)]">Answer review</p>
+          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+            Capture misses for retrieval and RAG evals without changing the answer.
+          </p>
+        </div>
+        {pending ? (
+          <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Saving
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {answerFeedbackOptions.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.type}
+              type="button"
+              disabled={Boolean(pending)}
+              onClick={() => onSubmit(item.type)}
+              className={cn(
+                "inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                feedbackToneClass(item.tone),
+              )}
+            >
+              {pending === item.type ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function sourceVerificationRows(sources: SearchResult[], answer: RagAnswer) {
+  const citationIds = new Set(answer.citations.map((citation) => citation.chunk_id));
+  const rows = sources.filter((source) => citationIds.size === 0 || citationIds.has(source.id)).slice(0, 6);
+  return rows.length ? rows : sources.slice(0, 6);
+}
+
+function VerificationWorkspace({
+  answer,
+  sources,
+  query,
+  answerEvidenceMapRows,
+  pendingFeedback,
+  onSubmitFeedback,
+  onScopeDocument,
+}: {
+  answer: RagAnswer;
+  sources: SearchResult[];
+  query: string;
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  pendingFeedback: AnswerFeedbackType | null;
+  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  const verificationSources = sourceVerificationRows(sources, answer);
+  return (
+    <section
+      data-testid="answer-verification-workspace"
+      className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]"
+    >
+      <div className="space-y-3">
+        <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+        <div className={cn(panelSubtle, "p-3")}>
+          <p className="text-sm font-semibold text-[color:var(--text)]">Section support map</p>
+          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+            Each answer section should resolve back to a linked cited passage before clinical use.
+          </p>
+          <div className="mt-3">
+            <EvidenceMapTable rows={answerEvidenceMapRows} />
+          </div>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className={cn(panelSubtle, "p-3")}>
+          <p className="text-sm font-semibold text-[color:var(--text)]">Cited source excerpts</p>
+          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+            Open the document to inspect the PDF page and highlighted indexed passage.
+          </p>
+        </div>
+        {verificationSources.length ? (
+          <SourceList sources={verificationSources} query={query} onScopeDocument={onScopeDocument} />
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title="No cited passages"
+            body="Source excerpts appear after a grounded answer."
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
 function AnswerViewModeControl({
   value,
   onChange,
@@ -2269,9 +2499,12 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
   const title = "Clozapine monitoring schedule";
 
   return (
-    <section className={cn(tableCard, "max-w-xl")} aria-label="Inline table preview">
+    <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
       <div
-        className={cn(tableCardHeader, "flex min-h-11 items-center justify-between gap-2 bg-[color:var(--surface)]")}
+        className={cn(
+          tableCardHeader,
+          "flex min-h-10 items-center justify-between gap-2 bg-[color:var(--surface)] py-2",
+        )}
       >
         <span className="hidden min-w-0 truncate sm:inline">{title}</span>
         <span className="min-w-0 truncate sm:hidden">Clozapine schedule</span>
@@ -2299,7 +2532,7 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
           </button>
         </div>
       </div>
-      <div className="p-2 sm:p-2.5">
+      <div className="p-1.5 sm:p-2">
         <AccessibleTable
           caption={title}
           markdown={tableMarkdown}
@@ -2348,8 +2581,10 @@ function MobileEvidenceSheetContent({
   query,
   visualEvidence,
   answerEvidenceMapRows,
+  pendingFeedback,
   copiedQuotes,
   onCopyQuotes,
+  onSubmitFeedback,
   onFollowUpQuote,
   onScopeDocument,
 }: {
@@ -2358,8 +2593,10 @@ function MobileEvidenceSheetContent({
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  pendingFeedback: AnswerFeedbackType | null;
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
+  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
   onFollowUpQuote: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
@@ -2371,6 +2608,7 @@ function MobileEvidenceSheetContent({
 
   return (
     <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
+      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
       <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
         <div
           data-testid="mobile-evidence-tabs"
@@ -2599,8 +2837,10 @@ function UnifiedEvidenceDrawerContent({
   query,
   visualEvidence,
   answerEvidenceMapRows,
+  pendingFeedback,
   copiedQuotes,
   onCopyQuotes,
+  onSubmitFeedback,
   onFollowUpQuote,
   onScopeDocument,
 }: {
@@ -2609,8 +2849,10 @@ function UnifiedEvidenceDrawerContent({
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  pendingFeedback: AnswerFeedbackType | null;
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
+  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
   onFollowUpQuote: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
@@ -2619,6 +2861,16 @@ function UnifiedEvidenceDrawerContent({
 
   return (
     <div className="space-y-4">
+      <VerificationWorkspace
+        answer={answer}
+        sources={sources}
+        query={query}
+        answerEvidenceMapRows={answerEvidenceMapRows}
+        pendingFeedback={pendingFeedback}
+        onSubmitFeedback={onSubmitFeedback}
+        onScopeDocument={onScopeDocument}
+      />
+
       <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
         {order.map((item) => (
           <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
@@ -2782,8 +3034,9 @@ function RelatedDocumentsPanel({
                   href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
                   className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                 >
-                  <span className="line-clamp-2">{document.title}</span>
+                  <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                 </Link>
+                <DocumentOrganizationBadges document={document} compact className="mt-1" />
                 <p className={cn("mt-1 text-xs leading-5", textMuted)}>
                   {document.match_reason} · pages {document.best_pages.join(", ") || "n/a"} · {document.image_count}{" "}
                   images{document.table_count ? ` · ${document.table_count} tables` : ""}
@@ -2808,143 +3061,6 @@ function RelatedDocumentsPanel({
       </div>
     </UtilityDrawer>
   );
-}
-
-const displayJsonArtifactPattern =
-  /"?(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"?\s*:\s*/i;
-
-function normalizeDisplayText(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-type DisplayTextSanitizeOptions = {
-  minLength?: number;
-  minTokens?: number;
-  compactSource?: boolean;
-};
-
-function looksLikeDisplayArtifact(value: string) {
-  const normalized = normalizeDisplayText(value);
-  if (!normalized) return true;
-  const quoteCount = (normalized.match(/"/g) ?? []).length;
-  const colonCount = (normalized.match(/:/g) ?? []).length;
-  if (normalized.startsWith("{") && normalized.endsWith("}") && displayJsonArtifactPattern.test(normalized))
-    return true;
-  if (/[{}\[\]]/.test(normalized) && quoteCount >= 4 && colonCount >= 2 && displayJsonArtifactPattern.test(normalized))
-    return true;
-  return false;
-}
-
-function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = normalizeDisplayText(
-    options.compactSource ? sourceTextForCompactDisplay(value) : sourceTextForClinicalProse(value),
-  );
-  if (!normalized) return "";
-  const artifactStart = normalized.search(
-    /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,
-  );
-  const trimmed =
-    artifactStart === -1 ? normalized : artifactStart === 0 ? "" : normalized.slice(0, artifactStart).trim();
-  if (!trimmed) return "";
-  const { minLength = 2, minTokens = 1 } = options;
-  if (trimmed.length < minLength) return "";
-  const tokenCount = trimmed.split(/\s+/).filter(Boolean).length;
-  if (tokenCount < minTokens) return "";
-  if (!/[A-Za-z]{2,}/.test(trimmed)) return "";
-  return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
-}
-
-function truncateWords(value: string, maxWords: number) {
-  const words = value.split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords) return value;
-  return `${words.slice(0, maxWords).join(" ")}...`;
-}
-
-function sourceSnippetKey(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\b(?:page|chunk|source|citation|document|file)\b\s*[:#=-]?\s*[\w.-]+/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .slice(0, 160);
-}
-
-function compactSourceSnippet(value: string) {
-  const normalized = sanitizeDisplayText(value, { minLength: 10, minTokens: 2, compactSource: true });
-  if (!normalized) return "";
-  const fragments = normalized
-    .replace(
-      /\b(?:source excerpt|relevant excerpt|source text|table text|clinical table|image caption|caption)\s*[:=-]\s*/gi,
-      " ",
-    )
-    .match(/[^.!?]+[.!?]?/g) ?? [normalized];
-  const seen = new Set<string>();
-  const selected: string[] = [];
-
-  for (const fragment of fragments) {
-    const cleaned = fragment.replace(/\s+/g, " ").trim();
-    if (!cleaned || cleaned.length < 10) continue;
-    if (/^(?:source|citation|document|file|filename|chunk|page|image|provenance)\b/i.test(cleaned)) continue;
-    const key = sourceSnippetKey(cleaned);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    selected.push(cleaned);
-    if (selected.length >= 4) break;
-  }
-
-  return truncateWords((selected.length ? selected : [normalized]).join(" "), 90);
-}
-
-function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[number]) {
-  const fields = [
-    { label: "Table", value: fact.table_title },
-    { label: "Row", value: fact.row_label },
-    { label: "Threshold", value: fact.threshold_value },
-    { label: "Action", value: fact.action },
-  ];
-  const seen = new Set<string>();
-  const cleanedFields = fields.flatMap((field) => {
-    const value = sanitizeDisplayText(String(field.value ?? ""), { minLength: 2, minTokens: 1, compactSource: true });
-    const key = sourceSnippetKey(value);
-    if (!value || !key || seen.has(key)) return [];
-    seen.add(key);
-    return [{ ...field, value: truncateWords(value, 28) }];
-  });
-
-  return cleanedFields.length ? { id: fact.id, fields: cleanedFields } : null;
-}
-
-function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = sourceTextForClinicalProsePreservingBreaks(value).trim();
-  if (!normalized) return "";
-  const artifactStart = normalizeDisplayText(normalized).search(
-    /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,
-  );
-  const trimmed =
-    artifactStart === -1 ? normalized : artifactStart === 0 ? "" : normalized.slice(0, artifactStart).trim();
-  if (!trimmed) return "";
-  const { minLength = 2, minTokens = 1 } = options;
-  if (trimmed.length < minLength) return "";
-  const tokenCount = normalizeDisplayText(trimmed).split(/\s+/).filter(Boolean).length;
-  if (tokenCount < minTokens) return "";
-  if (!/[A-Za-z]{2,}/.test(trimmed)) return "";
-  return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
-}
-
-function sourceDisplayTitle(source: SearchResult) {
-  return source.title
-    .replace(/^Synthetic /, "")
-    .replace(/\.pdf$/i, "")
-    .trim();
-}
-
-function sourceDisplayMeta(source: SearchResult, title: string) {
-  const fileBase = source.file_name?.replace(/\.pdf$/i, "").trim();
-  const titleBase = title.toLowerCase();
-  const fileBaseNormalized = (fileBase ?? "").toLowerCase();
-  const includeFile =
-    Boolean(fileBase) && fileBaseNormalized !== titleBase && !fileBaseNormalized.startsWith(titleBase);
-  return [includeFile ? source.file_name : null, `page ${source.page_number ?? "n/a"}`].filter(Boolean).join(" · ");
 }
 
 function SourceList({
@@ -3087,7 +3203,9 @@ function StagedAnswerResultSurface({
   safeAnswerSections,
   safetyFindings,
   copiedAnswer,
+  pendingFeedback,
   onCopyAnswer,
+  onSubmitFeedback,
 }: {
   answer: RagAnswer;
   query: string;
@@ -3110,7 +3228,9 @@ function StagedAnswerResultSurface({
   safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
   copiedAnswer: boolean;
+  pendingFeedback: AnswerFeedbackType | null;
   onCopyAnswer: () => void;
+  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0;
@@ -3122,27 +3242,45 @@ function StagedAnswerResultSurface({
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
         <UserQuestionBubble query={query} />
 
-        <NaturalLanguageAnswer
-          text={safeAnswerText || answer.answer}
-          sourceCount={sourceCount}
-          weakEvidence={weakEvidence}
-          grounded={answerGrounded}
-          bestSource={bestSource}
-          sources={sources}
-          copied={copiedAnswer}
-          onCopy={onCopyAnswer}
-        />
+        <div
+          data-testid="table-specific-answer-layout"
+          data-desktop-table-aside={centralTable ? "true" : "false"}
+          className={cn(
+            "space-y-3",
+            centralTable &&
+              "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.78fr)] lg:items-start lg:gap-4 lg:space-y-0",
+          )}
+        >
+          <div className="min-w-0 space-y-3">
+            <NaturalLanguageAnswer
+              text={safeAnswerText || answer.answer}
+              sourceCount={sourceCount}
+              weakEvidence={weakEvidence}
+              grounded={answerGrounded}
+              bestSource={bestSource}
+              sources={sources}
+              copied={copiedAnswer}
+              onCopy={onCopyAnswer}
+            />
 
-        <KeyClinicalItems sections={safeAnswerSections} table={centralTable} />
+            <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
 
-        {centralTable ? <InlineTableCard item={centralTable} /> : null}
+            <KeyClinicalItems sections={safeAnswerSections} table={centralTable} />
+          </div>
+
+          {centralTable ? (
+            <div className="min-w-0 lg:sticky lg:top-24">
+              <InlineTableCard item={centralTable} />
+            </div>
+          ) : null}
+        </div>
 
         {showClinicalNotes ? (
           <UtilityDrawer
             icon={ClipboardCheck}
             title={`Clinical notes ${Math.max(1, noteCount || safetyFindings.length)}`}
             summary="Monitoring, safety, escalation, or caution details when clinically useful."
-            mobileSummary={`Clinical notes ${Math.max(1, noteCount || safetyFindings.length)}`}
+            mobileSummary="Safety notes"
             className={clinicalNotesRow}
             mobileInline
           >
@@ -3171,8 +3309,10 @@ function StagedAnswerResultSurface({
               query={query}
               visualEvidence={answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []}
               answerEvidenceMapRows={answerEvidenceMapRows}
+              pendingFeedback={pendingFeedback}
               copiedQuotes={false}
               onCopyQuotes={() => undefined}
+              onSubmitFeedback={onSubmitFeedback}
               onFollowUpQuote={() => undefined}
               onScopeDocument={onScopeDocument}
             />
@@ -3218,8 +3358,10 @@ function StagedAnswerResultSurface({
               query={query}
               visualEvidence={answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []}
               answerEvidenceMapRows={answerEvidenceMapRows}
+              pendingFeedback={pendingFeedback}
               copiedQuotes={false}
               onCopyQuotes={() => undefined}
+              onSubmitFeedback={onSubmitFeedback}
               onFollowUpQuote={() => undefined}
               onScopeDocument={onScopeDocument}
             />
@@ -3733,9 +3875,10 @@ function DocumentDrawer({
                     href={`/documents/${document.id}`}
                     className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
-                    <span className="truncate">{document.title}</span>
+                    <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
                   </Link>
+                  <DocumentOrganizationBadges document={document} compact className="mt-1" />
                   <p className={cn("mt-1 truncate text-xs", textMuted)}>
                     {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
                   </p>
@@ -3969,6 +4112,152 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const qualityReviewLabels: Record<IngestionQualityReviewType, string> = {
+  failed_ocr: "OCR",
+  low_extraction_confidence: "Extraction",
+  missing_tables: "Tables",
+  image_only_pages: "Image-only",
+  failed_job: "Failed job",
+  manual_review: "Manual review",
+};
+
+function qualityReviewTone(severity: IngestionQualityReviewItem["severity"]) {
+  if (severity === "danger") return toneDanger;
+  if (severity === "warning") return toneWarning;
+  return toneInfo;
+}
+
+function IngestionQualityConsole({
+  items,
+  actionId,
+  onRetry,
+  onReindex,
+  onEnrich,
+}: {
+  items: IngestionQualityReviewItem[];
+  actionId: string | null;
+  onRetry: (jobId: string) => void;
+  onReindex: (documentId: string) => void;
+  onEnrich: (documentId: string) => void;
+}) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={ShieldCheck}
+        title="No ingestion quality issues"
+        body="Loaded documents have no current OCR, table, extraction, or failed-job review items."
+      />
+    );
+  }
+
+  const counts = items.reduce<Record<IngestionQualityReviewType, number>>(
+    (current, item) => ({ ...current, [item.type]: current[item.type] + 1 }),
+    {
+      failed_ocr: 0,
+      low_extraction_confidence: 0,
+      missing_tables: 0,
+      image_only_pages: 0,
+      failed_job: 0,
+      manual_review: 0,
+    },
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className={cn(panelSubtle, "p-3")}>
+        <p className="text-sm font-semibold text-[color:var(--text)]">Ingestion quality review</p>
+        <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+          {items.length} item{items.length === 1 ? "" : "s"} need manual review across the loaded library.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {(Object.keys(counts) as IngestionQualityReviewType[]).map((type) => (
+            <span key={type} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+              {qualityReviewLabels[type]}: {counts[type]}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        {items.slice(0, 12).map((item) => {
+          const busy = actionId === item.jobId || actionId === item.documentId;
+          return (
+            <article key={item.id} className={cn(sourceCard, "p-3")}>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", qualityReviewTone(item.severity))}>
+                      {qualityReviewLabels[item.type]}
+                    </span>
+                    {item.qualityScore !== null ? (
+                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-[10px]")}>
+                        index {item.qualityScore.toFixed(2)}
+                      </span>
+                    ) : null}
+                    {item.extractionQuality ? (
+                      <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
+                        extraction:{item.extractionQuality}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">{item.documentTitle}</p>
+                  <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                    {item.title}: {item.detail}
+                  </p>
+                  {item.reasons.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {item.reasons.slice(0, 4).map((reason) => (
+                        <span key={reason} className={cn(metadataPill, "text-[11px]")}>
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={`/documents/${item.documentId}`} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
+                    <ExternalLink className="h-4 w-4" />
+                    Open
+                  </Link>
+                  {item.jobId ? (
+                    <button
+                      type="button"
+                      onClick={() => item.jobId && onRetry(item.jobId)}
+                      disabled={busy}
+                      className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                    >
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      Retry
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onReindex(item.documentId)}
+                    disabled={busy}
+                    className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Reindex
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEnrich(item.documentId)}
+                    disabled={busy}
+                    className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Enrich
+                  </button>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function IndexingMonitor({
   jobs,
   batches,
@@ -4200,7 +4489,7 @@ function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
 type IndexingMonitorFilter = "all" | "active" | "failed";
-type UploadIndexingTab = "setup" | "upload" | "jobs";
+type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
 
 function documentStatusMatchesFilter(document: ClinicalDocument, filter: DocumentDrawerStatusFilter) {
   if (filter === "all") return true;
@@ -5026,6 +5315,7 @@ export function ClinicalDashboard() {
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const [qualityItems, setQualityItems] = useState<IngestionQualityReviewItem[]>([]);
   const jobsRef = useRef(jobs);
   const batchesRef = useRef(batches);
   const [query, setQuery] = useState("");
@@ -5053,6 +5343,7 @@ export function ClinicalDashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
@@ -5185,6 +5476,7 @@ export function ClinicalDashboard() {
           setDocumentsPagination(null);
           setJobs([]);
           setBatches([]);
+          setQualityItems([]);
           setIndexingActive(false);
           setNextRefreshDelayMs(null);
           return;
@@ -5217,6 +5509,7 @@ export function ClinicalDashboard() {
           setDocumentsPagination(null);
           setJobs([]);
           setBatches([]);
+          setQualityItems([]);
           setIndexingActive(routeIndexingActive);
           setNextRefreshDelayMs(routePollDelayMs);
           return;
@@ -5238,7 +5531,7 @@ export function ClinicalDashboard() {
         const shouldRefreshWorkState = now >= nextWorkStatePollRef.current;
         if (shouldRefreshWorkState) nextWorkStatePollRef.current = now + indexingWorkDetailsPollMs;
 
-        const [documentsResponse, jobsResponse, batchesResponse] = await Promise.all([
+        const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([
           fetch(`/api/documents?${documentParams.toString()}`, { headers: protectedHeaders }),
           shouldRefreshWorkState
             ? fetch("/api/ingestion/jobs", { headers: protectedHeaders })
@@ -5246,18 +5539,23 @@ export function ClinicalDashboard() {
           shouldRefreshWorkState
             ? fetch("/api/ingestion/batches", { headers: protectedHeaders })
             : Promise.resolve(null as Response | null),
+          shouldRefreshWorkState
+            ? fetch("/api/ingestion/quality", { headers: protectedHeaders })
+            : Promise.resolve(null as Response | null),
         ]);
 
         if (
           documentsResponse.status === 401 ||
           (jobsResponse !== null && jobsResponse.status === 401) ||
-          (batchesResponse !== null && batchesResponse.status === 401)
+          (batchesResponse !== null && batchesResponse.status === 401) ||
+          (qualityResponse !== null && qualityResponse.status === 401)
         ) {
           markSessionExpired();
           setDocuments([]);
           setDocumentsPagination(null);
           setJobs([]);
           setBatches([]);
+          setQualityItems([]);
           setIndexingActive(false);
           setNextRefreshDelayMs(null);
           return;
@@ -5300,6 +5598,14 @@ export function ClinicalDashboard() {
           setBatches(nextBatches);
           routeIndexingActive ||= Boolean(payload.hasActiveBatches);
           routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
+          if (payload.demoMode) setDemoMode(true);
+        } else if (shouldRefreshWorkState) {
+          setApiUnavailable(true);
+        }
+
+        if (shouldRefreshWorkState && qualityResponse && qualityResponse.ok) {
+          const payload = (await qualityResponse.json()) as IngestionQualityPayload;
+          setQualityItems(payload.items ?? []);
           if (payload.demoMode) setDemoMode(true);
         } else if (shouldRefreshWorkState) {
           setApiUnavailable(true);
@@ -5374,7 +5680,20 @@ export function ClinicalDashboard() {
           markSessionExpired();
           return;
         }
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof payload.error === "string" ? payload.error : "Job retry could not be started.");
+        }
+        setActionNotice({
+          tone: "success",
+          message: "Ingestion job retry queued.",
+        });
         await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
+      } catch (error) {
+        setActionNotice({
+          tone: "warning",
+          message: error instanceof Error ? error.message : "Job retry could not be started.",
+        });
       } finally {
         setIndexingActionId(null);
       }
@@ -5398,7 +5717,26 @@ export function ClinicalDashboard() {
           markSessionExpired();
           return;
         }
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            typeof payload.error === "string"
+              ? payload.error
+              : mode === "enrichment"
+                ? "Document enrichment could not be started."
+                : "Document reindex could not be started.",
+          );
+        }
+        setActionNotice({
+          tone: "success",
+          message: mode === "enrichment" ? "Document enrichment refreshed." : "Document reindex queued.",
+        });
         await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
+      } catch (error) {
+        setActionNotice({
+          tone: "warning",
+          message: error instanceof Error ? error.message : "Document reindex could not be started.",
+        });
       } finally {
         setIndexingActionId(null);
       }
@@ -5524,9 +5862,11 @@ export function ClinicalDashboard() {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
     const searchText = params.get("q")?.trim();
-    if (mode !== "documents" || !searchText) return;
+    if (mode !== "documents") return;
     urlSearchBootstrappedRef.current = true;
-    void runDocumentSearchShortcut(searchText, scopeFilters, false);
+    const frame = window.requestAnimationFrame(() => setSearchMode("documents"));
+    if (searchText) void runDocumentSearchShortcut(searchText, scopeFilters, false);
+    return () => window.cancelAnimationFrame(frame);
     // URL bootstrap intentionally runs once when search setup becomes available.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canRunSearch]);
@@ -5783,6 +6123,71 @@ export function ClinicalDashboard() {
     }
   }
 
+  async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
+    if (!answer || pendingFeedback) return;
+    if (clientDemoMode) {
+      setActionNotice({ tone: "warning", message: "Answer review is available after signing in to a real library." });
+      return;
+    }
+
+    setPendingFeedback(feedbackType);
+    try {
+      const sourceChunkIds = Array.from(new Set(sources.map((source) => source.id).filter(Boolean)));
+      const citedChunkIds = Array.from(new Set(answer.citations.map((citation) => citation.chunk_id).filter(Boolean)));
+      const sourceFiles = Array.from(
+        new Set([
+          ...sources.map((source) => source.file_name).filter(Boolean),
+          ...answer.citations.map((citation) => citation.file_name).filter(Boolean),
+        ]),
+      );
+      const response = await fetch("/api/eval-cases", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authorizationHeader,
+        },
+        body: JSON.stringify({
+          query,
+          feedbackType,
+          rating: feedbackType === "verified" ? "good" : "needs_fixing",
+          answer: answer.answer,
+          queryMode,
+          queryClass: answer.queryClass,
+          filters: compactScopeFilters(scopeFilters),
+          sourceChunkIds,
+          citedChunkIds,
+          sourceFiles,
+          sourceGovernanceWarnings: sourceGovernanceWarnings.map((warning) => warning.message),
+          unverifiedNumericTokens: answer.unverifiedNumericTokens ?? [],
+        }),
+      });
+
+      if (response.status === 401) {
+        markSessionExpired();
+        setActionNotice({ tone: "warning", message: "Sign in again before saving answer review." });
+        return;
+      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(typeof payload.error === "string" ? payload.error : "Answer review could not be saved.");
+      }
+      setActionNotice({
+        tone: "success",
+        message:
+          feedbackType === "verified"
+            ? "Verified answer saved for eval coverage."
+            : "Answer issue saved for eval coverage.",
+      });
+    } catch (feedbackError) {
+      setActionNotice({
+        tone: "warning",
+        message: feedbackError instanceof Error ? feedbackError.message : "Answer review could not be saved.",
+      });
+    } finally {
+      setPendingFeedback(null);
+    }
+  }
+
   function toggleDocumentScope(documentId: string) {
     setSelectedDocumentIds((current) =>
       current.includes(documentId) ? current.filter((id) => id !== documentId) : [...current, documentId],
@@ -5991,6 +6396,7 @@ export function ClinicalDashboard() {
   function syncActiveSectionFromScroll() {
     const main = mainRef.current;
     if (!main) return;
+    if (main.scrollLeft !== 0) main.scrollLeft = 0;
     if (navSyncLockRef.current !== null) return;
 
     if (main.scrollTop < 120) {
@@ -6234,6 +6640,13 @@ export function ClinicalDashboard() {
       panelId: "dashboard-indexing-section",
       icon: RefreshCw,
     },
+    {
+      id: "quality",
+      label: "Quality",
+      summary: qualityItems.length ? `${qualityItems.length} review` : "Clear",
+      panelId: "dashboard-quality-section",
+      icon: ShieldAlert,
+    },
   ];
   const handleUploadQueued = () => {
     setUploadMobileTab("jobs");
@@ -6294,10 +6707,10 @@ export function ClinicalDashboard() {
           ref={mainRef}
           tabIndex={-1}
           onScroll={scheduleActiveSectionSync}
-          className="mb-[calc(5.25rem+env(safe-area-inset-bottom))] min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none sm:mb-24"
+          className="mb-[calc(5.25rem+env(safe-area-inset-bottom))] min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none sm:mb-24"
         >
           <h1 className="sr-only">Clinical Guide</h1>
-          <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-32 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-36 lg:px-8 lg:pb-40">
+          <div className="mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 pb-32 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-36 lg:px-8 lg:pb-40">
             {actionNotice && (
               <div
                 role="status"
@@ -6326,7 +6739,9 @@ export function ClinicalDashboard() {
                 "min-h-[calc(100dvh-11rem)]",
                 searchMode === "answer" && !answer && !loading
                   ? "grid place-items-center"
-                  : "mx-auto w-full max-w-3xl space-y-4",
+                  : searchMode === "documents"
+                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                    : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
               )}
             >
               <h2 data-testid="answer-section-heading" className="sr-only">
@@ -6364,7 +6779,6 @@ export function ClinicalDashboard() {
                     authUnavailable={!clientDemoMode && !canUsePrivateApis}
                     apiUnavailable={apiUnavailable}
                     setupWarning={setupWarning}
-                    relevance={searchRelevance}
                     facets={searchFacets}
                     onQueryChange={setQuery}
                     onSearch={ask}
@@ -6399,7 +6813,9 @@ export function ClinicalDashboard() {
                     safeAnswerSections={safeAnswerSections}
                     safetyFindings={safetyFindings}
                     copiedAnswer={copiedAction === "answer"}
+                    pendingFeedback={pendingFeedback}
                     onCopyAnswer={() => copyText("answer", safeAnswerText || answer.answer)}
+                    onSubmitFeedback={submitAnswerFeedback}
                   />
                 ) : null
               ) : (
@@ -6492,7 +6908,7 @@ export function ClinicalDashboard() {
                   <div
                     role="tablist"
                     aria-label="Upload and indexing sections"
-                    className="grid grid-cols-3 gap-2 lg:hidden"
+                    className="grid grid-cols-4 gap-2 lg:hidden"
                   >
                     {uploadTabs.map((tab) => {
                       const active = uploadMobileTab === tab.id;
@@ -6572,6 +6988,26 @@ export function ClinicalDashboard() {
                         jobs={jobs}
                         batches={batches}
                         filter={indexingMonitorFilter}
+                        actionId={indexingActionId}
+                        onRetry={retryJob}
+                        onReindex={reindexDocument}
+                        onEnrich={enrichDocument}
+                      />
+                    </div>
+                    <div
+                      id="dashboard-quality-section"
+                      role="tabpanel"
+                      aria-label="Quality"
+                      className={cn(
+                        "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
+                        uploadMobileTab !== "quality" && "hidden lg:block",
+                      )}
+                    >
+                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                        Ingestion quality console
+                      </p>
+                      <IngestionQualityConsole
+                        items={qualityItems}
                         actionId={indexingActionId}
                         onRetry={retryJob}
                         onReindex={reindexDocument}

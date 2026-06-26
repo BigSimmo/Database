@@ -193,4 +193,45 @@ describe("document index units", () => {
     expect(visualUnits.every((unit) => unit.source_image_id === "image-best")).toBe(true);
     expect(visualUnits.every((unit) => unit.metadata.visual_family_id === "family-anc")).toBe(true);
   });
+
+  it("creates typed visual fallback units for sparse table images", () => {
+    const units = buildDocumentIndexUnitInputs({
+      document,
+      chunks: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          page_number: 3,
+          chunk_index: 0,
+          section_heading: "Medication chart",
+          section_path: ["Medication chart"],
+          content: "The page includes a medication chart image.",
+          metadata: {},
+        },
+      ],
+      images: [
+        {
+          id: "image-sparse-med",
+          pageNumber: 3,
+          imageType: "medication_chart",
+          sourceKind: "table_crop",
+          caption: "Agitation medication dose and route chart.",
+          tableTitle: "Agitation medication chart",
+          tableRows: [["Lorazepam", "1 mg", "IM or PO"]],
+          tableColumns: ["Medication", "Dose", "Route"],
+          candidatePriorityScore: 0.7,
+          imageQualityScore: 0.7,
+          metadata: {},
+        },
+      ],
+    });
+
+    expect(units.map((unit) => unit.unit_type)).toEqual(
+      expect.arrayContaining(["visual_summary", "visual_askable_question", "medication_chart_row"]),
+    );
+    expect(units.find((unit) => unit.unit_type === "medication_chart_row")).toMatchObject({
+      source_image_id: "image-sparse-med",
+      metadata: expect.objectContaining({ visual_item_type: "sparse_visual_fallback" }),
+    });
+  });
 });

@@ -14,6 +14,7 @@ import {
   type ModelIndexProfile,
   type ModelIndexProfileItem,
 } from "@/lib/model-index-extraction";
+import { assertEmbeddingDim } from "@/lib/embedding-dimensions";
 import { embedTexts } from "@/lib/openai";
 import { sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
@@ -652,7 +653,7 @@ export async function upsertDocumentDeepMemory(args: {
       return {
         ...row,
         section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
-        embedding: embeddings[start + index],
+        embedding: assertEmbeddingDim(embeddings[start + index], `document_memory_cards.${start + index}`),
       };
     });
     const { error } = await args.supabase.from("document_memory_cards").insert(batch);
@@ -700,7 +701,7 @@ export async function upsertDocumentDeepMemory(args: {
     for (let start = 0; start < indexUnits.length; start += 50) {
       const batch = indexUnits.slice(start, start + 50).map((unit, index) => ({
         ...unit,
-        embedding: indexUnitEmbeddings[start + index],
+        embedding: assertEmbeddingDim(indexUnitEmbeddings[start + index], `document_index_units.${start + index}`),
       }));
       const { error } = await args.supabase.from("document_index_units").insert(batch);
       if (error) throw new Error(error.message);

@@ -3,10 +3,10 @@ import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
+import { checkIngestionMutationSafety, ingestionMutationSafetyPayload } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
@@ -86,8 +86,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
-    const health = await probeSupabaseHealth(supabase);
-    if (!health.ok) return NextResponse.json({ error: `Reindex is paused. ${health.message}` }, { status: 503 });
+    const safety = await checkIngestionMutationSafety({
+      supabase,
+      documentIds: [id],
+      action: "Reindex",
+      checkActiveJobs: mode !== "enrichment",
+      staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+    });
+    if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
     if (mode === "enrichment") {
       const [chunks, images] = await Promise.all([
@@ -135,16 +141,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           indexUnitCount: deepMemory.indexUnits.length,
         },
       });
-    }
-
-    const { count: activeJobCount, error: activeJobError } = await supabase
-      .from("ingestion_jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("document_id", id)
-      .in("status", ["pending", "processing"]);
-    if (activeJobError) throw new Error(activeJobError.message);
-    if ((activeJobCount ?? 0) > 0) {
-      return NextResponse.json({ error: "Document already has pending or processing indexing work." }, { status: 409 });
     }
 
     const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: id });

@@ -5,6 +5,30 @@ const workerSource = readFileSync(new URL("../worker/main.ts", import.meta.url),
 const extractorSource = readFileSync(new URL("../worker/python/extract_pdf_assets.py", import.meta.url), "utf8");
 
 describe("worker visual capture hardening", () => {
+  it("guards every local worker vector write before Supabase inserts", () => {
+    expect(workerSource).toContain('import { assertEmbeddingDim } from "../src/lib/embedding-dimensions"');
+    expect(workerSource).toContain('embedding: assertEmbeddingDim(embeddings[index], `document_chunks.${chunk.chunk_index}`)');
+    expect(workerSource).toContain(
+      'embedding: assertEmbeddingDim(embeddings[index], `document_embedding_fields.${field.field_type}`)',
+    );
+    expect(workerSource).toContain(
+      'embedding: assertEmbeddingDim(fieldEmbeddings[index], `document_embedding_fields.section_context.${index}`)',
+    );
+    expect(workerSource).toContain(
+      'embedding: assertEmbeddingDim(unitEmbeddings[start + index], `document_index_units.visual.${start + index}`)',
+    );
+    expect(workerSource).toContain(
+      'embedding: assertEmbeddingDim(additionalEmbeddings[index], `document_embedding_fields.${field.field_type}`)',
+    );
+  });
+
+  it("leaves optional artifact write failures claimable by the Supabase v3 repair agent", () => {
+    expect(workerSource).toContain('const optionalRepairRequired = optionalIndexWriteIssues.length > 0');
+    expect(workerSource).toContain('enrichmentStatus = "pending"');
+    expect(workerSource).toContain('indexing_v3_agent_status: "pending"');
+    expect(workerSource).toContain('indexing_v3_agent_repair_reason: "optional_index_write_issues"');
+  });
+
   it("invalidates stale image caption cache entries by policy, prompt, and context versions", () => {
     expect(workerSource).toContain('const imageCaptionCacheVersion = "clinical-image-caption-cache-v2"');
     expect(workerSource).toContain('const visionClassificationPromptVersion = "clinical-image-classification-v1"');

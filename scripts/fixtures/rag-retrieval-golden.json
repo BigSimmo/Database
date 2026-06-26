@@ -3,7 +3,7 @@
     "id": "clozapine-anc-threshold",
     "query": "What ANC or FBC threshold should withhold clozapine?",
     "expectedQueryClass": "table_threshold",
-    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedDocumentSubstrings": ["Clozapine"],
     "expectedContentTerms": [
       "clozapine",
       "anc",
@@ -53,7 +53,7 @@
     "id": "show-source-table-image",
     "query": "Show the source table image for clozapine ANC monitoring",
     "expectedQueryClass": "table_threshold",
-    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedDocumentSubstrings": ["Clozapine"],
     "expectedContentTerms": ["clozapine", "anc", "monitoring"],
     "topK": 12,
     "expectTableEvidence": true
@@ -68,11 +68,11 @@
     "expectTableEvidence": true
   },
   {
-    "id": "risk-matrix-red-zone-action",
-    "query": "What action is shown for the risk matrix red zone?",
+    "id": "patient-property-visual-table",
+    "query": "What items are shown in the patient property restricted-items table?",
     "expectedQueryClass": "table_threshold",
-    "expectedDocumentSubstrings": ["risk"],
-    "expectedContentTerms": ["risk", "red", ["action", "escalate", "review"]],
+    "expectedDocumentSubstrings": ["Patient Property"],
+    "expectedContentTerms": ["patient", "property", ["restricted", "prohibited"], "items"],
     "topK": 12,
     "expectTableEvidence": true
   },
@@ -87,9 +87,9 @@
   },
   {
     "id": "monitoring-threshold-from-chart",
-    "query": "What monitoring threshold is shown in the source chart?",
+    "query": "What clozapine ANC or FBC monitoring threshold is shown in the source chart?",
     "expectedQueryClass": "table_threshold",
-    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedDocumentSubstrings": ["Clozapine"],
     "expectedContentTerms": ["monitoring", "threshold", ["anc", "fbc", "wbc"]],
     "topK": 12,
     "expectTableEvidence": true

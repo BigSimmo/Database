@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { classifyDocumentOrganization } from "@/lib/document-organization";
 import { env } from "@/lib/env";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import {
@@ -130,6 +131,7 @@ const summarySchema = {
             type: "string",
             enum: [
               "topic",
+              "site",
               "document_type",
               "medication",
               "risk",
@@ -446,7 +448,7 @@ Return strict JSON.
 - Use "source_quality_notes" only for extraction/OCR/coverage caveats visible from the provided evidence.
 - Keep legacy clinical_specifics arrays populated from the same high-yield facts for backwards-compatible search.
 - Labels should be clean source-supported search tags: short keywords, usually 1-4 words.
-- Prefer clinical topics, medications, risks, workflows, populations, settings, services, and document types.
+- Prefer clinical topics, hospital/service sites, medications, risks, workflows, populations, settings, services, and document types.
 - Do not include filenames, page numbers, document-control text, copyright/version phrases, broad words like "guideline", "policy", "procedure", "document", or full sentences.
 - Avoid duplicates and near-duplicates.
 
@@ -541,9 +543,14 @@ export async function generateDocumentEnrichment(args: {
   );
   const parsed = parseGeneratedSummary(raw, args.document, args.chunks, args.images ?? []);
   const inferred = inferLabels(args.document);
+  const organization = classifyDocumentOrganization({
+    ...args.document,
+    contentText: args.chunks.map((chunk) => chunk.content).join("\n\n"),
+    summaryText: parsed.summary,
+  });
   return {
     ...parsed,
-    labels: normalizeGeneratedLabels([...parsed.labels, ...inferred]),
+    labels: normalizeGeneratedLabels([...parsed.labels, ...inferred, ...organization.labels]),
   };
 }
 
@@ -568,6 +575,18 @@ export async function upsertDocumentEnrichment(args: {
 
   const selectedPromptChunks = selectCoverageAwarePromptChunks(args.chunks);
   const coverageProfile = buildIndexingCoverageProfile({ chunks: args.chunks, images: args.images ?? [] });
+  const organization = classifyDocumentOrganization({
+    title: args.document.title,
+    file_name: args.document.file_name,
+    source_path: args.document.source_path,
+    metadata: args.document.metadata,
+    contentText: args.chunks.map((chunk) => chunk.content).join("\n\n"),
+    summaryText: enrichment.summary,
+  });
+  enrichment = {
+    ...enrichment,
+    labels: normalizeGeneratedLabels([...enrichment.labels, ...organization.labels]),
+  };
   const sourceChunkIds = args.chunks.map((chunk) => chunk.id);
   const sourceImageIds = (args.images ?? []).map((image) => image.id);
   const enrichedAt = new Date().toISOString();
@@ -631,6 +650,7 @@ export async function upsertDocumentEnrichment(args: {
         rag_memory_version: ragEnrichmentVersion,
         rag_enrichment_updated_at: enrichedAt,
         generated_label_count: enrichment.labels.length,
+        ...organization.metadata,
         ...coverageMetadata,
       },
     })

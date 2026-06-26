@@ -23,6 +23,7 @@ export type ClinicalImageUseClass =
   | "ambiguous";
 
 export type DocumentLabelType =
+  | "site"
   | "topic"
   | "document_type"
   | "medication"
@@ -32,6 +33,51 @@ export type DocumentLabelType =
   | "population"
   | "service"
   | "custom";
+
+export type DocumentOrganizationSiteKind = "hospital" | "health_service" | "program" | "unit" | "unknown";
+export type DocumentOrganizationReviewStatus = "confident" | "needs_review" | "manual_override";
+export type DocumentOrganizationType =
+  | "policy"
+  | "procedure"
+  | "guideline"
+  | "protocol"
+  | "form"
+  | "checklist"
+  | "pathway"
+  | "reference"
+  | "unknown";
+
+export type DocumentOrganizationProfile = {
+  canonical_display_title: string;
+  raw_bracket_tags: string[];
+  site: {
+    label: string | null;
+    raw_tag: string | null;
+    kind: DocumentOrganizationSiteKind;
+    confidence: number;
+    evidence_sources: string[];
+    candidates: Array<{
+      label: string;
+      raw_tag: string;
+      kind: DocumentOrganizationSiteKind;
+      confidence: number;
+      evidence_sources: string[];
+    }>;
+  };
+  document_type: {
+    label: DocumentOrganizationType;
+    confidence: number;
+    evidence_sources: string[];
+  };
+  secondary_facets: {
+    population: string[];
+    setting: string[];
+    service: string[];
+    topic: string[];
+    workflow: string[];
+  };
+  review_status: DocumentOrganizationReviewStatus;
+};
 
 export type ClinicalSourceMetadata = {
   source_title: string | null;
@@ -741,11 +787,20 @@ export type RagAnswer = {
   latencyTimings?: {
     search_cache_hit?: boolean;
     text_fast_path_latency_ms?: number;
+    text_candidate_budget?: number;
+    text_candidate_count?: number;
+    text_fast_path_reason?: string | null;
     embedding_skipped?: boolean;
+    embedding_skip_reason?: string | null;
     embedding_latency_ms?: number;
     embedding_cache_hit?: boolean;
+    vector_candidate_count?: number;
+    embedding_field_count?: number;
+    retrieval_query_variant_count?: number;
     supabase_rpc_latency_ms?: number;
     rerank_latency_ms?: number;
+    second_stage_rerank_used?: boolean;
+    second_stage_rerank_latency_ms?: number;
     context_pack_latency_ms?: number;
     search_latency_ms?: number;
     generation_latency_ms?: number;

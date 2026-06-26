@@ -4,11 +4,11 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { checkIngestionMutationSafety, ingestionMutationSafetyPayload } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 export const runtime = "nodejs";
 
@@ -82,8 +82,14 @@ export async function POST(request: Request) {
     if (documentError) throw new Error(documentError.message);
     if (!documents?.length) return NextResponse.json({ error: "No selected documents were found." }, { status: 404 });
 
-    const health = await probeSupabaseHealth(supabase);
-    if (!health.ok) return NextResponse.json({ error: `Bulk reindex is paused. ${health.message}` }, { status: 503 });
+    const safety = await checkIngestionMutationSafety({
+      supabase,
+      documentIds: documents.map((document) => document.id),
+      action: "Bulk reindex",
+      checkActiveJobs: parsed.data.mode !== "enrichment",
+      staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+    });
+    if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
     const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
 
@@ -131,22 +137,6 @@ export async function POST(request: Request) {
             mode: parsed.data.mode,
             ok: true,
             jobId: `${enrichment.labels.length}:${memory.memoryCards.length}:${memory.indexUnits.length}`,
-          });
-          continue;
-        }
-
-        const { count: activeJobCount, error: activeJobError } = await supabase
-          .from("ingestion_jobs")
-          .select("id", { count: "exact", head: true })
-          .eq("document_id", document.id)
-          .in("status", ["pending", "processing"]);
-        if (activeJobError) throw new Error(activeJobError.message);
-        if ((activeJobCount ?? 0) > 0) {
-          results.push({
-            documentId: document.id,
-            mode: parsed.data.mode,
-            ok: false,
-            error: "Document already has pending or processing indexing work.",
           });
           continue;
         }

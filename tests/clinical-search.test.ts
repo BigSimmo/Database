@@ -6,6 +6,7 @@ import {
   clinicalRankExplanation,
   expandClinicalQuery,
   hasDoseEvidenceSupport,
+  hasNumericOrTableEvidence,
   hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
@@ -44,6 +45,13 @@ describe("clinical search query normalization", () => {
     );
     expect(classifyRagQuery("How are long acting injectables managed?").queryClass).toBe("medication_dose_risk");
     expect(classifyRagQuery("agitation and arousal dosing in psychiatric patients").queryClass).toBe(
+      "medication_dose_risk",
+    );
+    expect(classifyRagQuery("How are active community patients in ED managed?").queryClass).toBe("document_lookup");
+    expect(classifyRagQuery("In the clinical flowchart, what is the next step after red-zone risk?").queryClass).toBe(
+      "document_lookup",
+    );
+    expect(classifyRagQuery("What dose and route are shown in the agitation medication chart?").queryClass).toBe(
       "medication_dose_risk",
     );
     expect(classifyRagQuery("Compare admission and discharge requirements").queryClass).toBe("comparison");
@@ -115,9 +123,27 @@ describe("clinical search query normalization", () => {
     );
   });
 
+  it("expands admission and discharge comparisons toward local community patient titles", () => {
+    expect(buildClinicalTextSearchQuery("Compare admission and discharge requirements")).toBe(
+      "admission discharge community pts",
+    );
+  });
+
+  it("expands risk matrix red-zone wording toward local visual-alert terms", () => {
+    expect(buildClinicalTextSearchQuery("What action is shown for the risk matrix red zone?")).toBe(
+      "action shown risk matrix red zone high visual alert",
+    );
+  });
+
   it("expands active community patients in ED to the local Pt ED title terms", () => {
     expect(buildClinicalTextSearchQuery("How are active community patients in ED managed?")).toBe(
       "active community pt ed",
+    );
+  });
+
+  it("keeps patient property as a document title phrase", () => {
+    expect(buildClinicalTextSearchQuery("What items are shown in the patient property restricted-items table?")).toBe(
+      "patient property item shown restricted table",
     );
   });
 
@@ -539,6 +565,28 @@ describe("clinical search query normalization", () => {
         }),
       ),
     ).toBe(true);
+
+    const visualUnitResult = result({
+      content: "General clinical note.",
+      index_unit: {
+        id: "unit-visual",
+        unit_type: "table_threshold",
+        title: "Visual ANC threshold",
+        content: "ANC < 1.0 | Stop clozapine",
+        source_chunk_id: "chunk-1",
+        source_image_id: "image-1",
+        page_start: 2,
+        page_end: 2,
+        heading_path: ["Monitoring"],
+        normalized_terms: ["anc", "threshold", "clozapine"],
+        quality_score: 0.9,
+        extraction_mode: "hybrid",
+        metadata: { source: "visual_intelligence" },
+      },
+    });
+
+    expect(hasStructuredThresholdEvidence(visualUnitResult)).toBe(true);
+    expect(hasNumericOrTableEvidence(visualUnitResult)).toBe(true);
   });
 
   it("boosts query-class matching embedding fields for threshold evidence", () => {

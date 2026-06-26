@@ -21,6 +21,7 @@ export function Sheet({
   closeLabel = "Close",
   labelledBy,
   initialFocusRef,
+  returnFocusRef,
   contentClassName,
   placement = "default",
 }: {
@@ -33,6 +34,7 @@ export function Sheet({
   closeLabel?: string;
   labelledBy?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   contentClassName?: string;
   placement?: "default" | "left";
 }) {
@@ -44,6 +46,7 @@ export function Sheet({
   useEffect(() => {
     if (!open) return;
 
+    const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -83,9 +86,12 @@ export function Sheet({
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      previousActiveElement?.focus();
+      const restoreTarget = explicitReturnElement ?? previousActiveElement;
+      window.requestAnimationFrame(() => {
+        if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
+      });
     };
-  }, [open, onClose, initialFocusRef]);
+  }, [open, onClose, initialFocusRef, returnFocusRef]);
 
   if (!open) return null;
 

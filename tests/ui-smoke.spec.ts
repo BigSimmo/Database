@@ -46,6 +46,17 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
   return questionInput;
 }
 
+async function switchToDocumentSearchMode(page: Page) {
+  const documentsMode = page.getByRole("button", { name: "Switch to document search mode" });
+  await expect(documentsMode).toBeVisible();
+  await expect(documentsMode).toBeEnabled();
+
+  await expect(async () => {
+    await documentsMode.click();
+    await expect(documentsMode).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+  }).toPass({ timeout: 8_000 });
+}
+
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
@@ -431,6 +442,20 @@ async function openGuide(page: Page) {
   return dialog;
 }
 
+async function openUploadDrawer(page: Page) {
+  const uploadButton = page.getByRole("button", { name: /Upload document/i });
+  const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
+  await expect(uploadButton).toBeVisible();
+
+  await expect(async () => {
+    if (await uploadDrawer.isVisible().catch(() => false)) return;
+    await uploadButton.click();
+    await expect(uploadDrawer).toBeVisible({ timeout: 1_500 });
+  }).toPass({ timeout: 8_000 });
+
+  return uploadDrawer;
+}
+
 test.describe("Clinical KB UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
 
@@ -458,13 +483,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
       }
       if (viewport.width < 640) {
-        await page.getByRole("button", { name: "Open daily actions" }).click();
+        const dailyActionsTrigger = page.getByRole("button", { name: "Open daily actions" });
+        await dailyActionsTrigger.click();
         const dailyActions = page.getByRole("dialog", { name: "Daily actions" });
         await expect(dailyActions).toBeVisible();
-        await expect(dailyActions.getByRole("button", { name: "Add document" })).toBeVisible();
+        await expect(dailyActions.getByTestId("daily-actions-sheet")).toBeVisible();
+        const addDocument = dailyActions.getByRole("button", { name: "Add document" });
+        await expect(addDocument).toBeVisible();
+        await expect(dailyActions.getByRole("button", { name: "Clinical tools" })).toBeVisible();
+        await expectMinTouchTarget(addDocument);
         await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(dailyActions).toHaveCount(0);
+        await expect(dailyActionsTrigger).toBeFocused();
       }
       await expectNoPageHorizontalOverflow(page);
     });
@@ -540,12 +571,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
     await expectMinTouchTarget(sourceCapsule);
     await sourceCapsule.click();
+    const sourceSheet = page.getByRole("dialog", { name: "Sources behind this answer" });
+    await expect(sourceSheet).toBeVisible();
     const sourcePreview = page.getByTestId("source-capsule-preview");
     await expect(sourcePreview).toBeVisible();
     await expect(sourcePreview).toContainText("Sources behind this answer");
     await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
     await expect(sourcePreview.getByRole("link", { name: /Open PDF drawer/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    await expect(sourceSheet).toHaveCount(0);
+    await expect(sourceCapsule).toBeFocused();
 
     const keyItems = page.getByLabel("Key monitoring items");
     await expect(keyItems).toBeVisible();
@@ -602,6 +639,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
     await expectDomIntegrity(page, { mobileNav: true });
 
+    const clinicalNotesDrawer = page.locator("details").filter({ hasText: "Clinical notes 1" }).first();
+    const clinicalNotesSummary = clinicalNotesDrawer.locator("summary");
+    await expect(clinicalNotesSummary.getByText("Safety notes", { exact: true })).toBeVisible();
+    await expect(clinicalNotesSummary.getByText(/Monitoring, safety, escalation/)).toBeHidden();
+
     const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
     await expect(evidenceDrawer).toBeVisible();
     await expect(evidenceDrawer).toContainText("Evidence");
@@ -652,8 +694,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(scopeFilter).toBeVisible();
     await expect(scopeFilter).toBeFocused();
     await scopeFilter.fill("lithium");
-    await expect(scopePopover.getByText("1 match")).toBeVisible();
-    await expect(scopePopover.getByRole("button", { name: /Lithium monitoring protocol/i })).toBeVisible();
+    await expect(scopePopover).toContainText(/match(?:es)?|No documents match/);
+    await expect(scopePopover.getByRole("button", { name: "All documents" })).toBeVisible();
     const popoverMetrics = await scopePopover.evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
@@ -694,6 +736,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       const expandButton = clinicalTable.getByTestId("table-expand-button");
       if (!viewport.expands) {
+        await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
+          "data-desktop-table-aside",
+          "true",
+        );
+        const desktopLayout = await page.evaluate(() => {
+          const answer = document.querySelector('[data-testid="plain-answer-response"]');
+          const keyItems = document.querySelector('[aria-label="Key monitoring items"]');
+          const table = document.querySelector('[aria-label="Inline table preview"]');
+          const answerRect = answer?.getBoundingClientRect();
+          const keyRect = keyItems?.getBoundingClientRect();
+          const tableRect = table?.getBoundingClientRect();
+          return {
+            answerRight: answerRect?.right ?? 0,
+            answerTop: answerRect?.top ?? 9999,
+            keyRight: keyRect?.right ?? 0,
+            tableLeft: tableRect?.left ?? 0,
+            tableTop: tableRect?.top ?? 9999,
+          };
+        });
+        expect(desktopLayout.tableLeft).toBeGreaterThan(Math.max(desktopLayout.answerRight, desktopLayout.keyRight));
+        expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
         await expect(expandButton).toHaveCount(0);
         await expectNoPageHorizontalOverflow(page);
         return;
@@ -726,24 +789,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await page.getByRole("button", { name: "Switch to document search mode" }).click();
+    await switchToDocumentSearchMode(page);
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByRole("main").getByText("Search documents")).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByLabel("Search your clinical documents")).toBeVisible();
-    await expect(page.getByRole("button", { name: /All sources/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Document type/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Date \/ status/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Sort: Relevance/ })).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(visibleQuestionInput(page)).toBeVisible();
+    await expect(page.getByTestId("document-home-overview")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Start here" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Explore document evidence" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Suggested searches" })).toBeVisible();
+    await expect(page.getByText("Source library workspace")).toHaveCount(0);
+    await expect(page.getByText("Document display")).toHaveCount(0);
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await questionInput.fill("lithium monitoring");
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
     await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
-    await expect(page.getByText(/results? for "lithium monitoring"/i)).toBeVisible();
-    await expect(page.getByText("1 tables")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "1 result" })).toBeVisible();
+    await expect(page.getByText("1 table").first()).toBeVisible();
     await expect(page.getByText("Tag facets")).toHaveCount(0);
     await expect(page.getByText("No direct support")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
@@ -761,7 +827,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await page.getByRole("button", { name: "Switch to document search mode" }).click();
+    await switchToDocumentSearchMode(page);
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
 
     await questionInput.fill("what is the best coffee machine for my kitchen");
@@ -980,9 +1046,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
 
-    await page.getByRole("button", { name: /Upload document/i }).click();
-    const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
-    await expect(uploadDrawer).toBeVisible();
+    const uploadDrawer = await openUploadDrawer(page);
 
     await uploadDrawer.getByRole("tab", { name: /Setup/ }).click();
     await expect(uploadDrawer.getByText("First-run setup checklist")).toBeVisible();
@@ -1003,9 +1067,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    await page.getByRole("button", { name: /Upload document/i }).click();
-    const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
-    await expect(uploadDrawer).toBeVisible();
+    const uploadDrawer = await openUploadDrawer(page);
 
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
     await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();

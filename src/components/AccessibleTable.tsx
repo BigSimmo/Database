@@ -142,7 +142,9 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
-                    "whitespace-normal break-words [overflow-wrap:anywhere]",
+                    renderDensePreview
+                      ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                      : "whitespace-normal break-words [overflow-wrap:anywhere]",
                     index > 0 && "border-l border-[color:var(--border)]/70",
                     renderDensePreview
                       ? "px-2 py-1.5 text-[10px] uppercase tracking-[0.06em]"
@@ -197,7 +199,9 @@ function AccessibleTableMarkup({
                         className={cn(
                           "nums align-top text-[color:var(--text)]",
                           renderDensePreview ? "table-cell" : "block md:table-cell",
-                          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                          renderDensePreview
+                            ? "overflow-hidden whitespace-nowrap"
+                            : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
                           renderDensePreview
                             ? "border-t border-[color:var(--border)]/70 px-2 py-1.5 leading-4"
                             : "border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 md:border-b-0 md:border-t md:border-[color:var(--border)]/70 md:last:border-b-0",
@@ -224,7 +228,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             "block min-w-0",
                             renderDensePreview
-                              ? "line-clamp-1 text-[11px] leading-4"
+                              ? "truncate text-[11px] leading-4"
                               : "text-sm leading-6 md:text-inherit md:leading-inherit",
                           )}
                         >

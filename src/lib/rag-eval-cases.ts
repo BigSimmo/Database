@@ -63,6 +63,16 @@ function capturedCaseRating(row: CapturedEvalCaseRow) {
   return row.miss_reason === "answer_good_eval" ? "good" : "needs_fixing";
 }
 
+function capturedFeedbackType(row: CapturedEvalCaseRow) {
+  if (typeof row.metadata === "object" && row.metadata !== null && "feedback_type" in row.metadata) {
+    const feedbackType = (row.metadata as { feedback_type?: unknown }).feedback_type;
+    return typeof feedbackType === "string" && feedbackType.trim() ? feedbackType.trim() : null;
+  }
+  return row.miss_reason && row.miss_reason !== "answer_good_eval" && row.miss_reason !== "answer_needs_fixing"
+    ? row.miss_reason
+    : null;
+}
+
 function uniqueNonEmpty(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 }
@@ -76,23 +86,25 @@ function expectedFilesForCapturedCase(row: CapturedEvalCaseRow, rating: "good" |
 
 export function mapCapturedEvalCase(row: CapturedEvalCaseRow): RagEvalCase {
   const rating = capturedCaseRating(row);
+  const feedbackType = capturedFeedbackType(row);
   const expectedFiles = expectedFilesForCapturedCase(row, rating);
   const expectedQueryClass = knownQueryClasses.has(row.query_class as RagQueryClass)
     ? (row.query_class as RagQueryClass)
     : undefined;
+  const unsupportedFeedback = feedbackType === "unsupported_answer" || feedbackType === "source_insufficient";
 
   return {
     id: `captured-${row.id}`,
     question: row.query,
-    category: rating === "needs_fixing" ? "complex" : "routine",
+    category: unsupportedFeedback ? "unsupported" : rating === "needs_fixing" ? "complex" : "routine",
     suite: "core",
-    relevanceGrade: expectedFiles.length > 0 ? "direct" : "partial",
+    relevanceGrade: unsupportedFeedback ? "unsupported" : expectedFiles.length > 0 ? "direct" : "partial",
     expectedQueryClass,
-    supported: true,
-    expectedFiles,
-    allowedRoutes: ["extractive", "fast", "strong"],
-    minCitations: rating === "good" ? 1 : 0,
-    latencyTargetMs: rating === "good" ? 5000 : 20000,
+    supported: !unsupportedFeedback,
+    expectedFiles: unsupportedFeedback ? [] : expectedFiles,
+    allowedRoutes: unsupportedFeedback ? ["unsupported"] : ["extractive", "fast", "strong"],
+    minCitations: rating === "good" || (feedbackType && !unsupportedFeedback) ? 1 : 0,
+    latencyTargetMs: unsupportedFeedback ? 2000 : rating === "good" ? 5000 : 20000,
   };
 }
 

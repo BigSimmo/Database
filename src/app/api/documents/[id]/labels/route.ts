@@ -11,6 +11,7 @@ import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
 export const runtime = "nodejs";
 
 const labelTypeSchema = z.enum([
+  "site",
   "topic",
   "document_type",
   "medication",

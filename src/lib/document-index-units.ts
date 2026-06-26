@@ -248,6 +248,40 @@ function visualTitle(image: IndexUnitVisualImage) {
   return image.tableTitle || image.tableLabel || image.caption || `Visual evidence page ${image.pageNumber ?? "unknown"}`;
 }
 
+function visualSearchableText(image: IndexUnitVisualImage, profile: StructuredVisualProfile, title: string) {
+  return [
+    title,
+    image.imageType,
+    image.sourceKind,
+    image.caption,
+    image.tableTitle,
+    image.tableLabel,
+    image.tableTextSnippet,
+    profile.clinical_purpose,
+    profile.key_terms.join(" "),
+    (image.tableRows ?? []).map((row) => row.join(" | ")).join(" "),
+    (image.tableColumns ?? []).join(" "),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function fallbackVisualUnitType(image: IndexUnitVisualImage, profile: StructuredVisualProfile, text: string): DocumentIndexUnitType {
+  if (/\b(?:flow\s*chart|flowchart|algorithm|decision|yes|no|next step|pathway)\b/i.test(text)) return "flowchart_step";
+  if (/\b(?:risk matrix|red zone|likelihood|consequence|high risk|visual alert)\b/i.test(text)) return "risk_matrix_cell";
+  if (
+    /\b(?:medication|medicine|dose|dosage|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|frequency)\b/i.test(
+      text,
+    ) ||
+    image.imageType === "medication_chart"
+  )
+    return "medication_chart_row";
+  if (thresholdPattern.test(text) || image.sourceKind === "table_crop" || (image.tableRows?.length ?? 0) > 0)
+    return "table_threshold";
+  if (profile.actions.length || profile.monitoring_items.length) return "flowchart_step";
+  return "visual_summary";
+}
+
 function visualQuality(image: IndexUnitVisualImage, profile: StructuredVisualProfile) {
   const imageQuality = Number(image.imageQualityScore ?? image.metadata?.image_quality_score ?? 0.62);
   const extraction = Number(image.metadata?.structured_extraction_confidence ?? profile.confidence);
@@ -354,6 +388,43 @@ export function buildVisualDocumentIndexUnitInputs(args: {
         quality_score: Math.max(0.58, visualQuality(image, profile) - 0.04),
       }),
     );
+
+    const hasTypedProfileEvidence =
+      profile.thresholds.length +
+        profile.flowchart_nodes.length +
+        profile.flowchart_edges.length +
+        profile.risk_matrix_cells.length +
+        profile.chart_findings.length >
+      0;
+    const hasLinkedTableFacts = (factsByImage.get(image.id) ?? []).length > 0;
+    const shouldCreateSparseVisualFallback =
+      !hasLinkedTableFacts && (!hasTypedProfileEvidence || image.imageType === "medication_chart");
+    if (shouldCreateSparseVisualFallback) {
+      const fallbackText = visualSearchableText(image, profile, title);
+      const fallbackType = fallbackVisualUnitType(image, profile, fallbackText);
+      if (fallbackType !== "visual_summary" && fallbackText.trim()) {
+        add(
+          visualUnit({
+            document: args.document,
+            image,
+            chunks: args.chunks,
+            unit_type: fallbackType,
+            title:
+              fallbackType === "medication_chart_row"
+                ? `Medication chart evidence: ${title}`
+                : fallbackType === "risk_matrix_cell"
+                  ? `Risk matrix evidence: ${title}`
+                  : fallbackType === "flowchart_step"
+                    ? `Flowchart evidence: ${title}`
+                    : `Table threshold evidence: ${title}`,
+            content: compact(fallbackText, 900),
+            profile,
+            quality_score: Math.max(0.56, visualQuality(image, profile) - 0.06),
+            metadata: { visual_item_type: "sparse_visual_fallback" },
+          }),
+        );
+      }
+    }
 
     for (const threshold of profile.thresholds) {
       add(

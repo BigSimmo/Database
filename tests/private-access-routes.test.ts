@@ -963,6 +963,102 @@ describe("private document API access", () => {
     );
   });
 
+  it("blocks full reindex when the selected document already has active indexing work", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Active Protocol",
+      file_name: "active.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok([
+          {
+            id: "active-job-1",
+            document_id: documentId,
+            status: "processing",
+            stage: "chunking",
+            locked_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            error_message: null,
+            attempt_count: 1,
+            max_attempts: 3,
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      error: "Document already has pending or processing indexing work.",
+      safety: {
+        safeToRun: false,
+        reason: "active_jobs",
+        activeJobCount: 1,
+        staleProcessingJobCount: 0,
+      },
+    });
+    expect(client.rpc).not.toHaveBeenCalledWith("reset_document_index", expect.anything());
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+  });
+
+  it("pauses full reindex when Supabase health is unavailable before queue mutation", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Unavailable Protocol",
+      file_name: "unavailable.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return fail("<!doctype html><title>522 Connection timed out</title>");
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      safety: {
+        safeToRun: false,
+        reason: "supabase_unavailable",
+        activeJobCount: 0,
+      },
+    });
+    expect(String(body.error)).toContain("Reindex is paused.");
+    expect(client.rpc).not.toHaveBeenCalledWith("reset_document_index", expect.anything());
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+  });
+
   it("cleans up uploaded storage when document insert fails", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "documents" && call.operation === "insert" ? fail("document insert failed") : ok([]),
@@ -1155,6 +1251,46 @@ describe("private document API access", () => {
       owner_id: userId,
       label: "clozapine monitoring",
       label_type: "medication",
+      source: "manual",
+      confidence: 1,
+    });
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+  });
+
+  it("creates manual site labels for owned documents", async () => {
+    const manualLabelId = "55555555-5555-4555-8555-555555555556";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "document_labels" && call.operation === "insert") {
+        return ok({ id: manualLabelId, ...(call.insertPayload as Record<string, unknown>) });
+      }
+      if (call.table === "document_labels" && call.operation === "select") {
+        return ok([{ id: manualLabelId, document_id: documentId, label: "fiona stanley hospital" }]);
+      }
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { POST } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ label: "FSH", label_type: "site" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const insert = client.calls.find((call) => call.table === "document_labels" && call.operation === "insert");
+
+    expect(response.status).toBe(201);
+    expect(body.label).toMatchObject({ label: "fiona stanley hospital", label_type: "site", source: "manual" });
+    expect(insert?.insertPayload).toMatchObject({
+      document_id: documentId,
+      owner_id: userId,
+      label: "fiona stanley hospital",
+      label_type: "site",
       source: "manual",
       confidence: 1,
     });
@@ -1667,7 +1803,11 @@ describe("private document API access", () => {
     client.rpc.mockImplementation(async (name: string) =>
       name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
     );
-    mockRuntime(client, { searchChunksWithTelemetry }, { localNoAuth: true, localOwnerEmail: "clinician@example.test" });
+    mockRuntime(
+      client,
+      { searchChunksWithTelemetry },
+      { localNoAuth: true, localOwnerEmail: "clinician@example.test" },
+    );
     const { POST } = await import("../src/app/api/search/route");
 
     const response = await POST(

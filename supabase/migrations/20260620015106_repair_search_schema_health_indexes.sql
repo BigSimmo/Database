@@ -1,0 +1,2 @@
+-- Remote history placeholder.
+-- The equivalent schema changes are tracked locally in 20260620000000_retrieval_accuracy_speed.sql.

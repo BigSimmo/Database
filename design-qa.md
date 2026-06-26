@@ -54,3 +54,43 @@
 - Consider adding a stable visual-regression snapshot once the current Clinical Guide parity pass is signed off.
 
 final result: passed
+
+---
+
+**Phase 8 Visual QA Polish**
+
+**Scope**
+- Compared the live Clinical Guide states against the supplied mockups for mobile empty, mobile answer, mobile documents, and desktop answer.
+- Focused this pass on density, answer contrast, table preview dominance, document-search parity, and regression checks for sidebar/daily-actions/source/evidence behavior.
+
+**Current Screenshots**
+- Mobile empty: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-8\mobile-empty-current.png`
+- Mobile answer: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-8\mobile-answer-current.png`
+- Mobile documents home: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-8\mobile-documents-home-current.png`
+- Mobile documents results: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-8\mobile-documents-results-current.png`
+- Desktop answer: `C:\Dev\Apps\Database\output\playwright\clinical-guide-phase-8\desktop-answer-current.png`
+
+**Changes Made**
+- Tightened natural answer spacing, answer icon size, source capsule placement, and mobile source preview positioning.
+- Increased answer body and action-row contrast to primary heading ink.
+- Reduced table preview width, elevation, header height, and inner padding so it reads as supporting evidence.
+- Prevented mobile horizontal drift from source previews and dense table cells.
+- Restored the documents-mode top search input and filter row inside the document workspace.
+- Removed live "Mockup" labels from document mode and kept the surface product-facing.
+- Added an explicit `turbopack.root` in `next.config.ts` after local Next docs review to stabilize `npm run ensure` under this workspace layout.
+
+**Regression Coverage**
+- Mobile hamburger opens the full Clinical Guide side menu through existing smoke coverage.
+- Mobile `+` opens the Daily actions sheet, not guide/help.
+- Documents mode shows search input, filters, sort, result count, and result cards.
+- Source capsule preview, clinical notes, evidence rows, table expansion, and no-overflow paths are covered by focused smoke/stress checks and the full Chromium UI gate.
+
+**Verification**
+- `npm run ensure` confirmed the app at `http://localhost:4298`.
+- `npx playwright test tests/ui-smoke.spec.ts --project=chromium --grep "document search mode lists matching documents and scope actions" --reporter=line` passed.
+- `npx playwright test tests/ui-smoke.spec.ts --project=chromium --grep "dashboard loads without page overflow at small-mobile|demo answer flow reaches|document search mode lists|clinical table mobile expansion" --reporter=line` passed: 6 tests.
+- `npx playwright test tests/ui-stress.spec.ts --project=chromium --grep "many documents and citations do not overflow at mobile|many documents and citations do not overflow at desktop" --reporter=line` passed: 2 tests.
+- `npm run verify:cheap` passed: lint, typecheck, and 444 Vitest tests.
+- `npm run verify:ui` passed: 28 Chromium Playwright tests.
+
+final result: passed

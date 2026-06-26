@@ -7,6 +7,7 @@ import { buildChunks } from "../src/lib/chunking";
 import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/document-enrichment";
 import { ragDeepMemoryVersion, upsertDocumentDeepMemory } from "../src/lib/deep-memory";
 import { extractDocument, fileToBase64 } from "../src/lib/extractors/document";
+import { assertEmbeddingDim } from "../src/lib/embedding-dimensions";
 import {
   buildVisualDocumentIndexUnitInputs,
   embeddingTextForDocumentIndexUnit,
@@ -1051,7 +1052,7 @@ async function insertDocumentLevelEmbeddingFields(args: {
     field_type: field.field_type,
     content: field.content,
     content_hash: hashEmbeddingFieldContent(field.content),
-    embedding: embeddings[index],
+    embedding: assertEmbeddingDim(embeddings[index], `document_embedding_fields.${field.field_type}`),
     metadata: {
       source: "document_level",
     },
@@ -1116,7 +1117,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       image_ids: chunk.image_ids,
       content_hash: hashText(`${chunk.section_heading ?? ""}\n${chunk.content}`),
       index_generation_id: indexGenerationId,
-      embedding: embeddings[index],
+      embedding: assertEmbeddingDim(embeddings[index], `document_chunks.${chunk.chunk_index}`),
       metadata: sanitizeJsonbRecord(chunk.metadata),
     })) satisfies IndexedChunkRow[];
     indexedChunkRows.push(...rows);
@@ -1132,7 +1133,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           ...field,
           content: cleanString(field.content),
           content_hash: hashEmbeddingFieldContent(cleanString(field.content)),
-          embedding: fieldEmbeddings[index],
+          embedding: assertEmbeddingDim(fieldEmbeddings[index], `document_embedding_fields.section_context.${index}`),
           metadata: sanitizeJsonbRecord(field.metadata),
         }));
         for (let start = 0; start < fieldRows.length; start += 50) {
@@ -1180,7 +1181,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       for (let start = 0; start < visualIndexUnits.length; start += 50) {
         const batch = visualIndexUnits.slice(start, start + 50).map((unit, index) => ({
           ...unit,
-          embedding: unitEmbeddings[start + index],
+          embedding: assertEmbeddingDim(unitEmbeddings[start + index], `document_index_units.visual.${start + index}`),
           metadata: sanitizeJsonbRecord(unit.metadata),
         }));
         const { error: visualUnitError } = await supabase.from("document_index_units").insert(batch);
@@ -1207,7 +1208,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           ...field,
           content,
           content_hash: hashEmbeddingFieldContent(content),
-          embedding: additionalEmbeddings[index],
+          embedding: assertEmbeddingDim(additionalEmbeddings[index], `document_embedding_fields.${field.field_type}`),
           metadata: sanitizeJsonbRecord(field.metadata),
         };
       });
@@ -1431,6 +1432,13 @@ async function processJob(job: JobRow) {
       await updateJob(job.id, { stage: "core index complete; enrichment deferred", progress: 98 });
     }
 
+    const optionalRepairRequired = optionalIndexWriteIssues.length > 0;
+    const optionalRepairMessage = "Optional index artifact writes failed; queued for indexing-v3-agent repair.";
+    if (optionalRepairRequired && enrichmentStatus === "completed") {
+      enrichmentStatus = "pending";
+      enrichmentErrorMessage = optionalRepairMessage;
+    }
+
     await updateDocument(job.document_id, {
       metadata: {
         ...(job.documents.metadata ?? {}),
@@ -1450,6 +1458,14 @@ async function processJob(job: JobRow) {
         index_quality_issues: finalQuality.issues,
         index_quality_metrics: finalQuality.metrics,
         optional_index_write_issues: optionalIndexWriteIssues,
+        ...(optionalRepairRequired
+          ? {
+              indexing_v3_agent_status: "pending",
+              indexing_v3_agent_last_error: enrichmentErrorMessage ?? optionalRepairMessage,
+              indexing_v3_agent_repair_reason: "optional_index_write_issues",
+              indexing_v3_agent_updated_at: new Date().toISOString(),
+            }
+          : {}),
         embedding_model: env.OPENAI_EMBEDDING_MODEL,
         ...metrics,
       },

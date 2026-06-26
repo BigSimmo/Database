@@ -1,162 +1,163 @@
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
-import postgres from 'npm:postgres@3.4.7'
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import postgres from "npm:postgres@3.4.7";
+import {
+  completionGateFromRow,
+  deferralDecision,
+  missingArtifactPlan,
+  shouldRunVisualArtifacts,
+  type CompletionGate,
+  type CompletionGateRow,
+  type MissingArtifactPlan,
+} from "./behavior.ts";
 
 type ClaimedJob = {
-  id: string
-  document_id: string
-  batch_id: string | null
-  attempt_count: number
-  max_attempts: number
+  id: string;
+  document_id: string;
+  batch_id: string | null;
+  attempt_count: number;
+  max_attempts: number;
   documents: {
-    id: string
-    owner_id: string | null
-    title: string | null
-    metadata: Record<string, unknown> | null
-  }
-}
+    id: string;
+    owner_id: string | null;
+    title: string | null;
+    metadata: Record<string, unknown> | null;
+  };
+};
 
 type ImageRow = {
-  id: string
-  page_number: number | null
-  image_type: string | null
-  searchable: boolean | null
-  caption: string | null
-  metadata: Record<string, unknown> | null
-  width: number | null
-  height: number | null
-  source_kind: string | null
-  clinical_relevance_score: number | null
-  skip_reason: string | null
-}
+  id: string;
+  page_number: number | null;
+  image_type: string | null;
+  searchable: boolean | null;
+  caption: string | null;
+  metadata: Record<string, unknown> | null;
+  width: number | null;
+  height: number | null;
+  source_kind: string | null;
+  clinical_relevance_score: number | null;
+  skip_reason: string | null;
+};
 
 type VisualUnit = {
-  unitType: string
-  title: string
-  content: string
-  qualityScore: number
-  normalizedTerms: string[]
-  page: number | null
-  sourceImageId: string
-  metadata: Record<string, unknown>
-}
+  unitType: string;
+  title: string;
+  content: string;
+  qualityScore: number;
+  normalizedTerms: string[];
+  page: number | null;
+  sourceImageId: string;
+  metadata: Record<string, unknown>;
+};
 
 type SectionIndexSource = {
-  section_id: string
-  heading: string
-  heading_path: string[] | null
-  page_start: number | null
-  page_end: number | null
-  chunk_ids: string[] | null
-  summary: string
-  tags: string[] | null
-  extraction_quality: string | null
-  source_chunk_id: string
-  anchor_id: string
-  chunk_index: number
-  chunk_metadata: Record<string, unknown> | null
-}
+  section_id: string;
+  heading: string;
+  heading_path: string[] | null;
+  page_start: number | null;
+  page_end: number | null;
+  chunk_ids: string[] | null;
+  summary: string;
+  tags: string[] | null;
+  extraction_quality: string | null;
+  source_chunk_id: string;
+  anchor_id: string;
+  chunk_index: number;
+  chunk_metadata: Record<string, unknown> | null;
+};
 
 type GeneratedLabelCandidate = {
-  label: string
-  label_type: 'topic' | 'document_type' | 'medication' | 'risk' | 'setting' | 'workflow' | 'population' | 'service' | 'custom'
-  confidence: number
-  metadata: Record<string, unknown>
-}
+  label: string;
+  label_type:
+    | "site"
+    | "topic"
+    | "document_type"
+    | "medication"
+    | "risk"
+    | "setting"
+    | "workflow"
+    | "population"
+    | "service"
+    | "custom";
+  confidence: number;
+  metadata: Record<string, unknown>;
+};
 
 type SectionLabelSource = {
-  section_id: string
-  heading: string
-  heading_path: string[] | null
-  summary: string
-  tags: string[] | null
-  source_chunk_id: string | null
-  anchor_id: string | null
-  chunk_index: number | null
-}
+  section_id: string;
+  heading: string;
+  heading_path: string[] | null;
+  summary: string;
+  tags: string[] | null;
+  source_chunk_id: string | null;
+  anchor_id: string | null;
+  chunk_index: number | null;
+};
 
 type MemoryCardLabelSource = {
-  card_id: string
-  card_type: string
-  title: string
-  content: string
-}
+  card_id: string;
+  card_type: string;
+  title: string;
+  content: string;
+};
 
 type MemoryCardSectionSource = {
-  section_id: string
-  heading: string
-  heading_path: string[] | null
-  page_start: number | null
-  page_end: number | null
-  chunk_ids: string[] | null
-  summary: string
-  tags: string[] | null
-  extraction_quality: string | null
-}
+  section_id: string;
+  heading: string;
+  heading_path: string[] | null;
+  page_start: number | null;
+  page_end: number | null;
+  chunk_ids: string[] | null;
+  summary: string;
+  tags: string[] | null;
+  extraction_quality: string | null;
+};
 
 type ChunkSectionSource = {
-  id: string
-  page_number: number | null
-  chunk_index: number
-  section_heading: string | null
-  section_path: string[] | null
-  content: string
-}
+  id: string;
+  page_number: number | null;
+  chunk_index: number;
+  section_heading: string | null;
+  section_path: string[] | null;
+  content: string;
+};
 
-type CompletionGate = {
-  counts: {
-    sections: number
-    memory_cards: number
-    generated_labels: number
-    index_units: number
-  }
-  presence: {
-    title_embedding: boolean
-    summary_embedding: boolean
-  }
-  missing: string[]
-  result: 'complete' | 'deferred'
-}
+const GENERATED_BY = "indexing-v3-agent";
+const AGENT_SECRET = Deno.env.get("INDEXING_V3_AGENT_SECRET") ?? Deno.env.get("CRON_SECRET") ?? "";
+const EXPECTED_EMBED_DIM = 1536;
 
-const GENERATED_BY = 'indexing-v3-agent'
-const AGENT_SECRET = Deno.env.get('INDEXING_V3_AGENT_SECRET') ?? Deno.env.get('CRON_SECRET') ?? ''
-const EXPECTED_EMBED_DIM = 1536
-
-const SUPABASE_DB_URL = Deno.env.get('SUPABASE_DB_URL')
-if (!SUPABASE_DB_URL) throw new Error('SUPABASE_DB_URL is required')
+const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL");
+if (!SUPABASE_DB_URL) throw new Error("SUPABASE_DB_URL is required");
 
 const sql = postgres(SUPABASE_DB_URL, {
   max: 4,
   idle_timeout: 20,
   connect_timeout: 10,
-})
-
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
-if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is required')
-
-const OPENAI_EMBEDDING_MODEL = Deno.env.get('OPENAI_EMBEDDING_MODEL') ?? 'text-embedding-3-small'
-const EMBEDDING_DIMENSIONS = Number(Deno.env.get('EMBEDDING_DIMENSIONS') ?? String(EXPECTED_EMBED_DIM))
-if (EMBEDDING_DIMENSIONS !== EXPECTED_EMBED_DIM) {
-  throw new Error(`EMBEDDING_DIMENSIONS must be ${EXPECTED_EMBED_DIM}`)
+});
+type SqlJsonValue = Parameters<typeof sql.json>[0];
+function jsonb(value: unknown) {
+  return sql.json(value as SqlJsonValue);
 }
-const OPENAI_REQUEST_TIMEOUT_MS = Math.max(5_000, Number(Deno.env.get('OPENAI_REQUEST_TIMEOUT_MS') ?? '45000'))
-const OPENAI_MAX_RETRIES = Math.max(0, Math.min(5, Number(Deno.env.get('OPENAI_MAX_RETRIES') ?? '2')))
-const OPENAI_EMBEDDING_BATCH_SIZE = Math.max(1, Math.min(64, Number(Deno.env.get('OPENAI_EMBEDDING_BATCH_SIZE') ?? '32')))
-const INDEXING_V3_MAX_DEFERRALS = Math.max(1, Number(Deno.env.get('INDEXING_V3_MAX_DEFERRALS') ?? '6'))
-const INDEXING_V3_RETRY_DELAY_MS = Math.max(30_000, Number(Deno.env.get('INDEXING_V3_RETRY_DELAY_MS') ?? '120000'))
 
-const VISUAL_FIELD_TYPES = [
-  'image_caption',
-  'clinical_action',
-  'threshold_fact',
-]
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required");
 
-const VISUAL_UNIT_TYPES = [
-  'clinical_fact',
-  'workflow_step',
-  'threshold',
-  'medication_monitoring',
-  'askable_question',
-]
+const OPENAI_EMBEDDING_MODEL = Deno.env.get("OPENAI_EMBEDDING_MODEL") ?? "text-embedding-3-small";
+const EMBEDDING_DIMENSIONS = Number(Deno.env.get("EMBEDDING_DIMENSIONS") ?? String(EXPECTED_EMBED_DIM));
+if (EMBEDDING_DIMENSIONS !== EXPECTED_EMBED_DIM) {
+  throw new Error(`EMBEDDING_DIMENSIONS must be ${EXPECTED_EMBED_DIM}`);
+}
+const OPENAI_REQUEST_TIMEOUT_MS = Math.max(5_000, Number(Deno.env.get("OPENAI_REQUEST_TIMEOUT_MS") ?? "45000"));
+const OPENAI_MAX_RETRIES = Math.max(0, Math.min(5, Number(Deno.env.get("OPENAI_MAX_RETRIES") ?? "2")));
+const OPENAI_EMBEDDING_BATCH_SIZE = Math.max(
+  1,
+  Math.min(64, Number(Deno.env.get("OPENAI_EMBEDDING_BATCH_SIZE") ?? "32")),
+);
+const INDEXING_V3_MAX_DEFERRALS = Math.max(1, Number(Deno.env.get("INDEXING_V3_MAX_DEFERRALS") ?? "6"));
+const INDEXING_V3_RETRY_DELAY_MS = Math.max(30_000, Number(Deno.env.get("INDEXING_V3_RETRY_DELAY_MS") ?? "120000"));
+
+const VISUAL_FIELD_TYPES = ["image_caption", "clinical_action", "threshold_fact"];
+
+const VISUAL_UNIT_TYPES = ["clinical_fact", "workflow_step", "threshold", "medication_monitoring", "askable_question"];
 
 const TYPE_BUDGET: Record<string, number> = {
   clinical_table: 10,
@@ -168,418 +169,502 @@ const TYPE_BUDGET: Record<string, number> = {
   screenshot_ui: 3,
   photo: 2,
   unclear: 4,
-}
+};
 
 function authorizeRequest(req: Request): Response | null {
   if (!AGENT_SECRET) {
-    return Response.json({ ok: false, error: 'INDEXING_V3_AGENT_SECRET is required when JWT verification is disabled' }, { status: 500 })
+    return Response.json(
+      { ok: false, error: "INDEXING_V3_AGENT_SECRET is required when JWT verification is disabled" },
+      { status: 500 },
+    );
   }
 
-  const authorization = req.headers.get('authorization') ?? ''
-  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
-  const headerSecret =
-    req.headers.get('x-indexing-agent-secret') ??
-    req.headers.get('x-cron-secret') ??
-    bearer ??
-    ''
+  const authorization = req.headers.get("authorization") ?? "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  const headerSecret = req.headers.get("x-indexing-agent-secret") ?? req.headers.get("x-cron-secret") ?? bearer ?? "";
 
   if (headerSecret !== AGENT_SECRET) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  return null
+  return null;
 }
 
 function normalizeText(v: string): string {
-  return v.replace(/\s+/g, ' ').trim()
+  return v.replace(/\s+/g, " ").trim();
 }
 
 function assertEmbeddingDim(vec: unknown, context: string): asserts vec is number[] {
   if (!Array.isArray(vec)) {
-    throw new Error(`${context} embedding must be an array`)
+    throw new Error(`${context} embedding must be an array`);
   }
   if (vec.length !== EXPECTED_EMBED_DIM) {
-    throw new Error(`${context} embedding has ${vec.length} dimensions; expected ${EXPECTED_EMBED_DIM}`)
+    throw new Error(`${context} embedding has ${vec.length} dimensions; expected ${EXPECTED_EMBED_DIM}`);
   }
-  const badIndex = vec.findIndex((value) => typeof value !== 'number' || !Number.isFinite(value))
+  const badIndex = vec.findIndex((value) => typeof value !== "number" || !Number.isFinite(value));
   if (badIndex >= 0) {
-    throw new Error(`${context} embedding has a non-finite number at index ${badIndex}`)
+    throw new Error(`${context} embedding has a non-finite number at index ${badIndex}`);
   }
 }
 
 function tokenize(v: string): string[] {
-  return Array.from(new Set(normalizeText(v).toLowerCase().split(/[^a-z0-9]+/g).filter((x) => x.length > 2))).slice(0, 40)
+  return Array.from(
+    new Set(
+      normalizeText(v)
+        .toLowerCase()
+        .split(/[^a-z0-9]+/g)
+        .filter((x) => x.length > 2),
+    ),
+  ).slice(0, 40);
 }
 
 function safeRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function compactString(value: unknown, limit = 180): string {
-  const text = normalizeText(String(value ?? ''))
-  return text.length > limit ? text.slice(0, limit).trim() : text
+  const text = normalizeText(String(value ?? ""));
+  return text.length > limit ? text.slice(0, limit).trim() : text;
 }
 
 function uniqueStrings(values: string[], limit = 20): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
+  const seen = new Set<string>();
+  const out: string[] = [];
   for (const value of values) {
-    const normalized = normalizeText(value)
-    const key = normalized.toLowerCase()
-    if (!normalized || seen.has(key)) continue
-    seen.add(key)
-    out.push(normalized)
-    if (out.length >= limit) break
+    const normalized = normalizeText(value);
+    const key = normalized.toLowerCase();
+    if (!normalized || seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+    if (out.length >= limit) break;
   }
-  return out
+  return out;
 }
 
 function structuredProfileFromMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
-  return safeRecord(metadata.structured_visual_profile ?? metadata.v3_structured_visual)
+  return safeRecord(metadata.structured_visual_profile ?? metadata.v3_structured_visual);
 }
 
 function stringArrayFrom(value: unknown, limit = 20): string[] {
-  if (!Array.isArray(value)) return []
-  return uniqueStrings(value.map((entry) => compactString(entry, 180)).filter(Boolean), limit)
+  if (!Array.isArray(value)) return [];
+  return uniqueStrings(value.map((entry) => compactString(entry, 180)).filter(Boolean), limit);
 }
 
 function textItemsFrom(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
+  if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
-    if (typeof entry === 'string') return [entry]
-    const row = safeRecord(entry)
-    return [
-      row.label,
-      row.name,
-      row.parameter,
-      row.value,
-      row.threshold,
-      row.action,
-      row.management,
-      row.source_text,
-    ].map((part) => compactString(part, 180)).filter(Boolean)
-  })
+    if (typeof entry === "string") return [entry];
+    const row = safeRecord(entry);
+    return [row.label, row.name, row.parameter, row.value, row.threshold, row.action, row.management, row.source_text]
+      .map((part) => compactString(part, 180))
+      .filter(Boolean);
+  });
 }
 
 function sourceRegionsFromMetadata(metadata: Record<string, unknown>): Array<Record<string, unknown>> {
-  const profile = structuredProfileFromMetadata(metadata)
-  const regions = Array.isArray(profile.source_regions) ? profile.source_regions.map(safeRecord) : []
-  const metadataRegions = Array.isArray(metadata.source_regions) ? metadata.source_regions.map(safeRecord) : []
-  const directRegion = safeRecord(metadata.source_region)
-  const bbox = Array.isArray(metadata.bbox) ? { bbox: metadata.bbox } : {}
+  const profile = structuredProfileFromMetadata(metadata);
+  const regions = Array.isArray(profile.source_regions) ? profile.source_regions.map(safeRecord) : [];
+  const metadataRegions = Array.isArray(metadata.source_regions) ? metadata.source_regions.map(safeRecord) : [];
+  const directRegion = safeRecord(metadata.source_region);
+  const bbox = Array.isArray(metadata.bbox) ? { bbox: metadata.bbox } : {};
   return [
     ...regions,
     ...metadataRegions,
     ...(Object.keys(directRegion).length ? [directRegion] : []),
     ...(Object.keys(bbox).length ? [bbox] : []),
-  ].slice(0, 12)
+  ].slice(0, 12);
 }
 
 const LABEL_STOPWORDS = new Set([
-  'about',
-  'above',
-  'after',
-  'again',
-  'against',
-  'also',
-  'and',
-  'are',
-  'because',
-  'been',
-  'before',
-  'being',
-  'between',
-  'both',
-  'can',
-  'for',
-  'from',
-  'has',
-  'have',
-  'how',
-  'into',
-  'not',
-  'off',
-  'onto',
-  'other',
-  'our',
-  'out',
-  'over',
-  'should',
-  'than',
-  'that',
-  'the',
-  'their',
-  'then',
-  'there',
-  'these',
-  'this',
-  'those',
-  'under',
-  'was',
-  'were',
-  'when',
-  'where',
-  'which',
-  'while',
-  'with',
-  'within',
-  'without',
-])
+  "about",
+  "above",
+  "after",
+  "again",
+  "against",
+  "also",
+  "and",
+  "are",
+  "because",
+  "been",
+  "before",
+  "being",
+  "between",
+  "both",
+  "can",
+  "for",
+  "from",
+  "has",
+  "have",
+  "how",
+  "into",
+  "not",
+  "off",
+  "onto",
+  "other",
+  "our",
+  "out",
+  "over",
+  "should",
+  "than",
+  "that",
+  "the",
+  "their",
+  "then",
+  "there",
+  "these",
+  "this",
+  "those",
+  "under",
+  "was",
+  "were",
+  "when",
+  "where",
+  "which",
+  "while",
+  "with",
+  "within",
+  "without",
+]);
 
 const GENERIC_LABELS = new Set([
-  'document',
-  'documents',
-  'information',
-  'guidance',
-  'content',
-  'summary',
-  'section',
-  'sections',
-  'page',
-  'table',
-  'figure',
-  'clinical',
-  'patient',
-  'patients',
-  'management',
-  'treatment',
-])
+  "document",
+  "documents",
+  "information",
+  "guidance",
+  "content",
+  "summary",
+  "section",
+  "sections",
+  "page",
+  "table",
+  "figure",
+  "clinical",
+  "patient",
+  "patients",
+  "management",
+  "treatment",
+]);
 
 const CLINICAL_PHRASE_PATTERN =
-  /\b(?:clozapine|lithium|olanzapine|haloperidol|benzodiazepine|lorazepam|diazepam|antipsychotic|antidepressant|insulin|heparin|warfarin|digoxin|dose|route|threshold|monitoring|observation|escalation|self harm|suicide|violence|agitation|risk matrix|flowchart|care plan|discharge|admission|assessment|screening|contraindication|side effect|adverse effect|fbc|anc|wbc|mmol|mg)\b(?:[\s:/-]+[a-z0-9]{3,}){0,3}/gi
+  /\b(?:clozapine|lithium|olanzapine|haloperidol|benzodiazepine|lorazepam|diazepam|antipsychotic|antidepressant|insulin|heparin|warfarin|digoxin|dose|route|threshold|monitoring|observation|escalation|self harm|suicide|violence|agitation|risk matrix|flowchart|care plan|discharge|admission|assessment|screening|contraindication|side effect|adverse effect|fbc|anc|wbc|mmol|mg)\b(?:[\s:/-]+[a-z0-9]{3,}){0,3}/gi;
 
 function isLowQualityLabel(normalized: string): boolean {
-  const tokens = normalized.split(/\s+/).filter(Boolean)
-  if (tokens.length === 0 || tokens.length > 8) return true
-  if (!/[a-z]/.test(normalized)) return true
-  if (tokens.every((token) => LABEL_STOPWORDS.has(token))) return true
-  if (tokens.length === 1 && (LABEL_STOPWORDS.has(tokens[0]) || GENERIC_LABELS.has(tokens[0]))) return true
-  if (tokens.filter((token) => !LABEL_STOPWORDS.has(token)).length === 0) return true
-  return false
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 8) return true;
+  if (!/[a-z]/.test(normalized)) return true;
+  if (tokens.every((token) => LABEL_STOPWORDS.has(token))) return true;
+  if (tokens.length === 1 && (LABEL_STOPWORDS.has(tokens[0]) || GENERIC_LABELS.has(tokens[0]))) return true;
+  if (tokens.filter((token) => !LABEL_STOPWORDS.has(token)).length === 0) return true;
+  return false;
 }
 
 function phraseLabelCandidates(text: string, limit = 6): string[] {
-  const phrases = Array.from(text.matchAll(CLINICAL_PHRASE_PATTERN)).map((match) => match[0])
+  const phrases = Array.from(text.matchAll(CLINICAL_PHRASE_PATTERN)).map((match) => match[0]);
   const tokens = normalizeText(text)
     .toLowerCase()
     .split(/[^a-z0-9]+/g)
-    .filter((token) => token.length > 2 && !LABEL_STOPWORDS.has(token))
+    .filter((token) => token.length > 2 && !LABEL_STOPWORDS.has(token));
 
   for (let index = 0; index < tokens.length && phrases.length < limit * 2; index += 1) {
-    const token = tokens[index]
-    if (GENERIC_LABELS.has(token) && !/(risk|dose|monitor|threshold|flowchart|clozapine|lithium|agitation)/.test(token)) continue
-    const next = tokens[index + 1]
-    const third = tokens[index + 2]
-    if (next) phrases.push([token, next, third].filter(Boolean).join(' '))
+    const token = tokens[index];
+    if (GENERIC_LABELS.has(token) && !/(risk|dose|monitor|threshold|flowchart|clozapine|lithium|agitation)/.test(token))
+      continue;
+    const next = tokens[index + 1];
+    const third = tokens[index + 2];
+    if (next) phrases.push([token, next, third].filter(Boolean).join(" "));
   }
 
-  return uniqueStrings(phrases.map((phrase) => normalizeLabel(phrase)).filter((phrase) => !isLowQualityLabel(phrase)), limit)
+  return uniqueStrings(
+    phrases.map((phrase) => normalizeLabel(phrase)).filter((phrase) => !isLowQualityLabel(phrase)),
+    limit,
+  );
 }
 
 async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function fetchEmbeddingBatch(texts: string[]): Promise<number[][]> {
-  let lastError: unknown = null
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt += 1) {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), OPENAI_REQUEST_TIMEOUT_MS)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OPENAI_REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
+      const response = await fetch("https://api.openai.com/v1/embeddings", {
+        method: "POST",
         signal: controller.signal,
         headers: {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           model: OPENAI_EMBEDDING_MODEL,
           input: texts,
           dimensions: EMBEDDING_DIMENSIONS,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const body = await response.text()
-        const error = new Error(`OpenAI embedding request failed (${response.status}): ${body.slice(0, 500)}`)
-        if (response.status !== 429 && response.status < 500) throw error
-        lastError = error
+        const body = await response.text();
+        const error = new Error(`OpenAI embedding request failed (${response.status}): ${body.slice(0, 500)}`);
+        if (response.status !== 429 && response.status < 500) throw error;
+        lastError = error;
       } else {
-        const payload = await response.json() as { data?: Array<{ embedding?: unknown; index?: number }> }
-        const rows = payload.data ?? []
+        const payload = (await response.json()) as { data?: Array<{ embedding?: unknown; index?: number }> };
+        const rows = payload.data ?? [];
         if (rows.length !== texts.length) {
-          throw new Error(`OpenAI embedding response returned ${rows.length} rows for ${texts.length} inputs`)
+          throw new Error(`OpenAI embedding response returned ${rows.length} rows for ${texts.length} inputs`);
         }
         return rows
           .slice()
           .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
           .map((row, index) => {
-            assertEmbeddingDim(row.embedding, `OpenAI response ${index}`)
-            return row.embedding
-          })
+            assertEmbeddingDim(row.embedding, `OpenAI response ${index}`);
+            return row.embedding;
+          });
       }
     } catch (e) {
-      lastError = e
-      if (e instanceof Error && e.name !== 'AbortError' && attempt >= OPENAI_MAX_RETRIES) throw e
+      lastError = e;
+      if (e instanceof Error && e.name !== "AbortError" && attempt >= OPENAI_MAX_RETRIES) throw e;
     } finally {
-      clearTimeout(timeout)
+      clearTimeout(timeout);
     }
 
     if (attempt < OPENAI_MAX_RETRIES) {
-      await sleep(Math.min(5_000, 350 * 2 ** attempt))
+      await sleep(Math.min(5_000, 350 * 2 ** attempt));
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('OpenAI embedding request failed')
+  throw lastError instanceof Error ? lastError : new Error("OpenAI embedding request failed");
 }
 
 async function embeddingBatch(texts: string[]): Promise<number[][]> {
-  const normalized = texts.map((text) => normalizeText(text).slice(0, 12_000) || ' ')
-  const out: number[][] = []
+  const normalized = texts.map((text) => normalizeText(text).slice(0, 12_000) || " ");
+  const out: number[][] = [];
   for (let start = 0; start < normalized.length; start += OPENAI_EMBEDDING_BATCH_SIZE) {
-    out.push(...await fetchEmbeddingBatch(normalized.slice(start, start + OPENAI_EMBEDDING_BATCH_SIZE)))
+    out.push(...(await fetchEmbeddingBatch(normalized.slice(start, start + OPENAI_EMBEDDING_BATCH_SIZE))));
   }
-  return out
+  return out;
 }
 
 function parseStructuredVisual(image: ImageRow): {
-  visual_type: string
-  clinical_purpose: string
-  key_terms: string[]
-  actions: string[]
-  thresholds: string[]
-  medications: string[]
-  monitoring_items: string[]
-  flowchart_nodes: string[]
-  flowchart_edges: string[]
-  risk_matrix_axes: string[]
-  chart_axes: string[]
-  table_column_roles: string[]
-  source_regions: Array<Record<string, unknown>>
-  confidence: number
+  visual_type: string;
+  clinical_purpose: string;
+  key_terms: string[];
+  actions: string[];
+  thresholds: string[];
+  medications: string[];
+  monitoring_items: string[];
+  flowchart_nodes: string[];
+  flowchart_edges: string[];
+  risk_matrix_axes: string[];
+  chart_axes: string[];
+  table_column_roles: string[];
+  source_regions: Array<Record<string, unknown>>;
+  confidence: number;
 } {
-  const metadata = image.metadata ?? {}
-  const profile = structuredProfileFromMetadata(metadata)
-  const caption = normalizeText(image.caption ?? '')
-  const textBlob = normalizeText(`${caption} ${JSON.stringify(image.metadata ?? {})}`)
-  const lower = textBlob.toLowerCase()
+  const metadata = image.metadata ?? {};
+  const profile = structuredProfileFromMetadata(metadata);
+  const caption = normalizeText(image.caption ?? "");
+  const textBlob = normalizeText(`${caption} ${JSON.stringify(image.metadata ?? {})}`);
+  const lower = textBlob.toLowerCase();
 
-  const actions = Array.from(lower.matchAll(/\b(start|stop|escalat[e]?|administer|monitor|review|refer|cease|repeat)\b/g)).map((m) => m[1])
-  const thresholds = Array.from(lower.matchAll(/\b(\d+(?:\.\d+)?\s?(?:mg|mmol|ml|%|bpm|mmhg|days?|hours?))\b/g)).map((m) => m[1])
-  const medications = Array.from(lower.matchAll(/\b(olanzapine|clozapine|haloperidol|diazepam|lithium|insulin|heparin|warfarin|digoxin)\b/g)).map((m) => m[1])
+  const actions = Array.from(
+    lower.matchAll(/\b(start|stop|escalat[e]?|administer|monitor|review|refer|cease|repeat)\b/g),
+  ).map((m) => m[1]);
+  const thresholds = Array.from(lower.matchAll(/\b(\d+(?:\.\d+)?\s?(?:mg|mmol|ml|%|bpm|mmhg|days?|hours?))\b/g)).map(
+    (m) => m[1],
+  );
+  const medications = Array.from(
+    lower.matchAll(/\b(olanzapine|clozapine|haloperidol|diazepam|lithium|insulin|heparin|warfarin|digoxin)\b/g),
+  ).map((m) => m[1]);
 
-  let visualType = image.image_type ?? 'unclear'
-  if (lower.includes('flowchart') || lower.includes('decision')) visualType = 'flowchart_algorithm'
-  if (lower.includes('risk matrix') || lower.includes('likelihood') || lower.includes('consequence')) visualType = 'risk_matrix'
-  if (lower.includes('dose') || lower.includes('route') || lower.includes('frequency')) visualType = 'medication_chart'
+  let visualType = image.image_type ?? "unclear";
+  if (lower.includes("flowchart") || lower.includes("decision")) visualType = "flowchart_algorithm";
+  if (lower.includes("risk matrix") || lower.includes("likelihood") || lower.includes("consequence"))
+    visualType = "risk_matrix";
+  if (lower.includes("dose") || lower.includes("route") || lower.includes("frequency")) visualType = "medication_chart";
 
-  const flowchartNodes = visualType === 'flowchart_algorithm'
-    ? Array.from(new Set(Array.from(textBlob.matchAll(/\b(if|then|else|review|escalate|observe|admit|discharge)\b/gi)).map((m) => m[0].toLowerCase())))
-    : []
+  const flowchartNodes =
+    visualType === "flowchart_algorithm"
+      ? Array.from(
+          new Set(
+            Array.from(textBlob.matchAll(/\b(if|then|else|review|escalate|observe|admit|discharge)\b/gi)).map((m) =>
+              m[0].toLowerCase(),
+            ),
+          ),
+        )
+      : [];
 
-  const riskAxes = visualType === 'risk_matrix'
-    ? Array.from(new Set(Array.from(textBlob.matchAll(/\b(likelihood|consequence|severity|impact|probability)\b/gi)).map((m) => m[0].toLowerCase())))
-    : []
+  const riskAxes =
+    visualType === "risk_matrix"
+      ? Array.from(
+          new Set(
+            Array.from(textBlob.matchAll(/\b(likelihood|consequence|severity|impact|probability)\b/gi)).map((m) =>
+              m[0].toLowerCase(),
+            ),
+          ),
+        )
+      : [];
 
-  const chartAxes = visualType === 'graph'
-    ? Array.from(new Set(Array.from(textBlob.matchAll(/\b(x-axis|y-axis|time|rate|dose|response)\b/gi)).map((m) => m[0].toLowerCase())))
-    : []
+  const chartAxes =
+    visualType === "graph"
+      ? Array.from(
+          new Set(
+            Array.from(textBlob.matchAll(/\b(x-axis|y-axis|time|rate|dose|response)\b/gi)).map((m) =>
+              m[0].toLowerCase(),
+            ),
+          ),
+        )
+      : [];
 
-  const columnRoles = Array.from(new Set(Array.from(textBlob.matchAll(/\b(parameter|threshold|action|dose|route|frequency|monitoring|risk|notes?)\b/gi)).map((m) => m[0].toLowerCase())))
-  const profileThresholds = textItemsFrom(profile.thresholds)
-  const profileRiskCells = textItemsFrom(profile.risk_matrix_cells)
-  const profileChartFindings = textItemsFrom(profile.chart_findings)
+  const columnRoles = Array.from(
+    new Set(
+      Array.from(
+        textBlob.matchAll(/\b(parameter|threshold|action|dose|route|frequency|monitoring|risk|notes?)\b/gi),
+      ).map((m) => m[0].toLowerCase()),
+    ),
+  );
+  const profileThresholds = textItemsFrom(profile.thresholds);
+  const profileRiskCells = textItemsFrom(profile.risk_matrix_cells);
+  const profileChartFindings = textItemsFrom(profile.chart_findings);
   const profileNodes = Array.isArray(profile.flowchart_nodes)
-    ? profile.flowchart_nodes.map((node) => compactString(safeRecord(node).label ?? safeRecord(node).text ?? node, 140)).filter(Boolean)
-    : []
+    ? profile.flowchart_nodes
+        .map((node) => compactString(safeRecord(node).label ?? safeRecord(node).text ?? node, 140))
+        .filter(Boolean)
+    : [];
   const profileEdges = Array.isArray(profile.flowchart_edges)
-    ? profile.flowchart_edges.map((edge) => {
-      if (typeof edge === 'string') return edge
-      const row = safeRecord(edge)
-      return [row.from, row.to].map((part) => compactString(part, 80)).filter(Boolean).join(' -> ')
-    }).filter(Boolean)
-    : []
+    ? profile.flowchart_edges
+        .map((edge) => {
+          if (typeof edge === "string") return edge;
+          const row = safeRecord(edge);
+          return [row.from, row.to]
+            .map((part) => compactString(part, 80))
+            .filter(Boolean)
+            .join(" -> ");
+        })
+        .filter(Boolean)
+    : [];
   const profileColumnRoles = Object.entries(safeRecord(profile.table_column_roles))
     .flatMap(([column, role]) => [column, String(role)])
     .map((part) => compactString(part, 80))
-    .filter(Boolean)
+    .filter(Boolean);
 
-  const structuredConfidence = Number(profile.confidence ?? metadata.structured_extraction_confidence)
+  const structuredConfidence = Number(profile.confidence ?? metadata.structured_extraction_confidence);
   const confidence = Number.isFinite(structuredConfidence)
     ? Math.max(0.2, Math.min(0.98, structuredConfidence))
-    : Math.min(0.95, 0.45 + (caption.length > 50 ? 0.15 : 0) + (actions.length > 0 ? 0.1 : 0) + (thresholds.length > 0 ? 0.1 : 0) + (medications.length > 0 ? 0.1 : 0))
-  const purpose = compactString(profile.clinical_purpose ?? profile.purpose ?? caption, 220)
+    : Math.min(
+        0.95,
+        0.45 +
+          (caption.length > 50 ? 0.15 : 0) +
+          (actions.length > 0 ? 0.1 : 0) +
+          (thresholds.length > 0 ? 0.1 : 0) +
+          (medications.length > 0 ? 0.1 : 0),
+      );
+  const purpose = compactString(profile.clinical_purpose ?? profile.purpose ?? caption, 220);
 
   return {
     visual_type: visualType,
-    clinical_purpose: purpose || 'Visual clinical evidence',
+    clinical_purpose: purpose || "Visual clinical evidence",
     key_terms: uniqueStrings([...stringArrayFrom(profile.key_terms), ...tokenize(textBlob)], 24),
-    actions: uniqueStrings([...stringArrayFrom(profile.actions), ...actions, ...profileThresholds.filter((item) => /withhold|cease|stop|monitor|review|escalat|continue/i.test(item))], 20),
+    actions: uniqueStrings(
+      [
+        ...stringArrayFrom(profile.actions),
+        ...actions,
+        ...profileThresholds.filter((item) => /withhold|cease|stop|monitor|review|escalat|continue/i.test(item)),
+      ],
+      20,
+    ),
     thresholds: uniqueStrings([...profileThresholds, ...thresholds], 20),
     medications: uniqueStrings([...stringArrayFrom(profile.medications), ...medications], 20),
-    monitoring_items: uniqueStrings([...stringArrayFrom(profile.monitoring_items), ...Array.from(textBlob.matchAll(/\b(monitor|observation|vitals?|follow-up|repeat)\b/gi)).map((m) => m[0].toLowerCase())], 20),
+    monitoring_items: uniqueStrings(
+      [
+        ...stringArrayFrom(profile.monitoring_items),
+        ...Array.from(textBlob.matchAll(/\b(monitor|observation|vitals?|follow-up|repeat)\b/gi)).map((m) =>
+          m[0].toLowerCase(),
+        ),
+      ],
+      20,
+    ),
     flowchart_nodes: uniqueStrings([...profileNodes, ...flowchartNodes], 20),
-    flowchart_edges: uniqueStrings([...profileEdges, ...(flowchartNodes.length > 1 ? flowchartNodes.slice(1).map((n, i) => `${flowchartNodes[i]} -> ${n}`) : [])], 20),
-    risk_matrix_axes: uniqueStrings([...stringArrayFrom(profile.risk_matrix_axes), ...riskAxes, ...profileRiskCells], 12),
+    flowchart_edges: uniqueStrings(
+      [
+        ...profileEdges,
+        ...(flowchartNodes.length > 1 ? flowchartNodes.slice(1).map((n, i) => `${flowchartNodes[i]} -> ${n}`) : []),
+      ],
+      20,
+    ),
+    risk_matrix_axes: uniqueStrings(
+      [...stringArrayFrom(profile.risk_matrix_axes), ...riskAxes, ...profileRiskCells],
+      12,
+    ),
     chart_axes: uniqueStrings([...stringArrayFrom(profile.chart_axes), ...chartAxes, ...profileChartFindings], 12),
     table_column_roles: uniqueStrings([...profileColumnRoles, ...columnRoles], 16),
     source_regions: sourceRegionsFromMetadata(metadata),
     confidence,
-  }
+  };
 }
 
 function scoreImage(image: ImageRow): number {
-  const width = image.width ?? 0
-  const height = image.height ?? 0
-  const areaScore = Math.min(1, (width * height) / 1_000_000)
-  const searchableScore = image.searchable ? 0.2 : -0.4
-  const baseClinical = image.clinical_relevance_score ?? 0
-  const typeBoost = ({
-    clinical_table: 0.35,
-    flowchart_algorithm: 0.4,
-    risk_matrix: 0.35,
-    medication_chart: 0.4,
-    form_checklist: 0.25,
-    graph: 0.25,
-    screenshot_ui: 0.05,
-    photo: 0.02,
-    logo_decorative: -0.8,
-    unclear: 0.0,
-  } as Record<string, number>)[image.image_type ?? 'unclear'] ?? 0
+  const width = image.width ?? 0;
+  const height = image.height ?? 0;
+  const areaScore = Math.min(1, (width * height) / 1_000_000);
+  const searchableScore = image.searchable ? 0.2 : -0.4;
+  const baseClinical = image.clinical_relevance_score ?? 0;
+  const typeBoost =
+    (
+      {
+        clinical_table: 0.35,
+        flowchart_algorithm: 0.4,
+        risk_matrix: 0.35,
+        medication_chart: 0.4,
+        form_checklist: 0.25,
+        graph: 0.25,
+        screenshot_ui: 0.05,
+        photo: 0.02,
+        logo_decorative: -0.8,
+        unclear: 0.0,
+      } as Record<string, number>
+    )[image.image_type ?? "unclear"] ?? 0;
 
-  const caption = normalizeText(image.caption ?? '')
-  const termBoost = /dose|route|threshold|algorithm|flowchart|risk|monitor|escalat|red zone|action/i.test(caption) ? 0.2 : 0
+  const caption = normalizeText(image.caption ?? "");
+  const termBoost = /dose|route|threshold|algorithm|flowchart|risk|monitor|escalat|red zone|action/i.test(caption)
+    ? 0.2
+    : 0;
 
-  return baseClinical + typeBoost + areaScore * 0.15 + searchableScore + termBoost
+  return baseClinical + typeBoost + areaScore * 0.15 + searchableScore + termBoost;
 }
 
 function chooseByBudget(images: Array<ImageRow & { priority: number }>): Array<ImageRow & { priority: number }> {
-  const byType = new Map<string, Array<ImageRow & { priority: number }>>()
+  const byType = new Map<string, Array<ImageRow & { priority: number }>>();
   for (const i of images) {
-    const t = i.image_type ?? 'unclear'
-    if (!byType.has(t)) byType.set(t, [])
-    byType.get(t)!.push(i)
+    const t = i.image_type ?? "unclear";
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t)!.push(i);
   }
-  for (const arr of byType.values()) arr.sort((a, b) => b.priority - a.priority)
+  for (const arr of byType.values()) arr.sort((a, b) => b.priority - a.priority);
 
-  const picked: Array<ImageRow & { priority: number }> = []
+  const picked: Array<ImageRow & { priority: number }> = [];
   for (const [t, arr] of byType.entries()) {
-    const budget = TYPE_BUDGET[t] ?? 3
-    picked.push(...arr.slice(0, budget))
+    const budget = TYPE_BUDGET[t] ?? 3;
+    picked.push(...arr.slice(0, budget));
   }
 
-  const unique = new Map<string, ImageRow & { priority: number }>()
-  for (const p of picked) unique.set(p.id, p)
+  const unique = new Map<string, ImageRow & { priority: number }>();
+  for (const p of picked) unique.set(p.id, p);
 
-  return Array.from(unique.values()).sort((a, b) => b.priority - a.priority).slice(0, 40)
+  return Array.from(unique.values())
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 40);
 }
 
 async function stageStart(job: ClaimedJob, stageName: string, metadata: Record<string, unknown> = {}): Promise<string> {
@@ -591,121 +676,28 @@ async function stageStart(job: ClaimedJob, stageName: string, metadata: Record<s
       ${job.document_id}::uuid,
       ${stageName}::text,
       'started',
-      ${JSON.stringify(metadata)}::jsonb
+      ${jsonb(metadata)}
     )
     returning id
-  `
-  return row[0].id
+  `;
+  return row[0].id;
 }
 
-async function stageFinish(stageId: string, ok: boolean, artifactCounts: Record<string, unknown> = {}, errorMessage?: string): Promise<void> {
+async function stageFinish(
+  stageId: string,
+  ok: boolean,
+  artifactCounts: Record<string, unknown> = {},
+  errorMessage?: string,
+): Promise<void> {
   await sql`
     update public.ingestion_job_stages
     set
-      stage_status = ${ok ? 'completed' : 'failed'}::text,
+      stage_status = ${ok ? "completed" : "failed"}::text,
       finished_at = now(),
-      artifact_counts = ${JSON.stringify(artifactCounts)}::jsonb,
+      artifact_counts = ${jsonb(artifactCounts)},
       error_message = ${errorMessage ?? null}::text
     where id = ${stageId}::uuid
-  `
-}
-
-async function refreshImportBatches(batchIds: Array<string | null>): Promise<void> {
-  const uniqueBatchIds = Array.from(new Set(batchIds.filter((id): id is string => Boolean(id))))
-  for (const batchId of uniqueBatchIds) {
-    await sql`select public.refresh_import_batch_status(${batchId}::uuid)`
-  }
-}
-
-async function resolveOpenIngestionJob(job: ClaimedJob): Promise<ClaimedJob> {
-  const rows = await sql<Array<{ id: string; batch_id: string | null }>>`
-    select id, batch_id
-    from public.ingestion_jobs
-    where document_id = ${job.document_id}::uuid
-      and status in ('pending', 'processing', 'failed')
-    order by
-      case status
-        when 'processing' then 0
-        when 'pending' then 1
-        else 2
-      end,
-      created_at desc,
-      id asc
-    limit 1
-  `
-
-  if (rows.length === 0) return job
-  return {
-    ...job,
-    id: rows[0].id,
-    batch_id: rows[0].batch_id ?? job.batch_id,
-  }
-}
-
-async function markOpenIngestionJobsCompleted(job: ClaimedJob, stage: string): Promise<void> {
-  const rows = await sql<Array<{ batch_id: string | null }>>`
-    update public.ingestion_jobs
-    set
-      status = 'completed',
-      stage = ${stage}::text,
-      progress = 100,
-      error_message = null,
-      locked_at = null,
-      locked_by = null,
-      completed_at = now(),
-      updated_at = now()
-    where document_id = ${job.document_id}::uuid
-      and status in ('pending', 'processing', 'failed')
-    returning batch_id
-  `
-  await refreshImportBatches(rows.map((row) => row.batch_id))
-}
-
-async function markOpenIngestionJobsDeferred(job: ClaimedJob, gate: CompletionGate, terminal: boolean, nextRunAt: string | null): Promise<void> {
-  const details = JSON.stringify({
-    code: terminal ? 'needs_enrichment_artifacts' : 'completion_gate_deferred',
-    missing: gate.missing,
-    counts: gate.counts,
-    presence: gate.presence,
-  })
-
-  const rows = await sql<Array<{ batch_id: string | null }>>`
-    update public.ingestion_jobs
-    set
-      status = ${terminal ? 'failed' : 'pending'}::text,
-      stage = ${terminal ? 'indexed; enrichment needs artifacts' : 'indexed; enrichment deferred'}::text,
-      progress = 98,
-      error_message = ${details}::text,
-      locked_at = null,
-      locked_by = null,
-      next_run_at = coalesce(${nextRunAt}::timestamptz, next_run_at),
-      completed_at = case when ${terminal}::boolean then now() else null end,
-      updated_at = now()
-    where document_id = ${job.document_id}::uuid
-      and status in ('pending', 'processing')
-    returning batch_id
-  `
-  await refreshImportBatches(rows.map((row) => row.batch_id))
-}
-
-async function markOpenIngestionJobsFailed(job: ClaimedJob, shouldRetry: boolean, message: string, nextRunAt: string | null): Promise<void> {
-  const rows = await sql<Array<{ batch_id: string | null }>>`
-    update public.ingestion_jobs
-    set
-      status = ${shouldRetry ? 'pending' : 'failed'}::text,
-      stage = ${shouldRetry ? 'v3 enrichment retry pending' : 'v3 enrichment failed'}::text,
-      progress = case when ${shouldRetry}::boolean then 0 else 98 end,
-      error_message = ${message}::text,
-      locked_at = null,
-      locked_by = null,
-      next_run_at = coalesce(${nextRunAt}::timestamptz, next_run_at),
-      completed_at = case when ${shouldRetry}::boolean then null else now() end,
-      updated_at = now()
-    where document_id = ${job.document_id}::uuid
-      and status in ('pending', 'processing')
-    returning batch_id
-  `
-  await refreshImportBatches(rows.map((row) => row.batch_id))
+  `;
 }
 
 async function ensureSummary(job: ClaimedJob): Promise<string> {
@@ -714,8 +706,8 @@ async function ensureSummary(job: ClaimedJob): Promise<string> {
     from public.document_summaries
     where document_id = ${job.document_id}::uuid
     limit 1
-  `
-  if (existing.length > 0) return normalizeText(existing[0].summary)
+  `;
+  if (existing.length > 0) return normalizeText(existing[0].summary);
 
   const chunks = await sql<{ id: string; content: string; chunk_index: number }[]>`
     select id, content, chunk_index
@@ -723,10 +715,10 @@ async function ensureSummary(job: ClaimedJob): Promise<string> {
     where document_id = ${job.document_id}::uuid
     order by chunk_index asc
     limit 24
-  `
+  `;
 
-  const merged = normalizeText(chunks.map((c) => c.content ?? '').join(' '))
-  const summary = merged.length > 1800 ? `${merged.slice(0, 1800)}...` : merged
+  const merged = normalizeText(chunks.map((c) => c.content ?? "").join(" "));
+  const summary = merged.length > 1800 ? `${merged.slice(0, 1800)}...` : merged;
 
   await sql`
     insert into public.document_summaries (
@@ -734,10 +726,10 @@ async function ensureSummary(job: ClaimedJob): Promise<string> {
     ) values (
       ${job.document_id}::uuid,
       ${job.documents.owner_id}::uuid,
-      ${summary.length > 0 ? summary : 'Summary unavailable'}::text,
+      ${summary.length > 0 ? summary : "Summary unavailable"}::text,
       ${chunks.map((c) => c.id)}::uuid[],
       'v3-summary-heuristic',
-      ${JSON.stringify({ generated_by: GENERATED_BY })}::jsonb,
+      ${jsonb({ generated_by: GENERATED_BY })},
       now()
     )
     on conflict (document_id)
@@ -748,187 +740,207 @@ async function ensureSummary(job: ClaimedJob): Promise<string> {
       metadata = excluded.metadata,
       generated_at = now(),
       updated_at = now()
-  `
+  `;
 
-  return summary.length > 0 ? summary : 'Summary unavailable'
+  return summary.length > 0 ? summary : "Summary unavailable";
 }
 
 function unitsFromStructured(image: ImageRow, structured: ReturnType<typeof parseStructuredVisual>): VisualUnit[] {
-  const units: VisualUnit[] = []
-  const page = image.page_number ?? null
-  const imageId = image.id
+  const units: VisualUnit[] = [];
+  const page = image.page_number ?? null;
+  const imageId = image.id;
 
-  const summaryText = normalizeText(`${structured.clinical_purpose}. Key terms: ${structured.key_terms.slice(0, 12).join(', ')}`)
+  const summaryText = normalizeText(
+    `${structured.clinical_purpose}. Key terms: ${structured.key_terms.slice(0, 12).join(", ")}`,
+  );
   if (summaryText.length > 12) {
     units.push({
-      unitType: 'visual_summary',
-      title: `Visual summary p${page ?? '?'} (${structured.visual_type})`,
+      unitType: "visual_summary",
+      title: `Visual summary p${page ?? "?"} (${structured.visual_type})`,
       content: summaryText,
       qualityScore: structured.confidence,
       normalizedTerms: structured.key_terms,
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
   for (const a of structured.actions.slice(0, 8)) {
     units.push({
-      unitType: structured.visual_type === 'flowchart_algorithm' ? 'flowchart_step' : 'chart_finding',
-      title: `Action from visual p${page ?? '?'}`,
+      unitType: structured.visual_type === "flowchart_algorithm" ? "flowchart_step" : "chart_finding",
+      title: `Action from visual p${page ?? "?"}`,
       content: `Action: ${a}`,
       qualityScore: Math.max(0.5, structured.confidence - 0.05),
       normalizedTerms: tokenize(a),
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
   for (const t of structured.thresholds.slice(0, 8)) {
     units.push({
-      unitType: 'table_threshold',
-      title: `Threshold from visual p${page ?? '?'}`,
+      unitType: "table_threshold",
+      title: `Threshold from visual p${page ?? "?"}`,
       content: `Threshold: ${t}`,
       qualityScore: Math.max(0.5, structured.confidence - 0.05),
       normalizedTerms: tokenize(t),
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
   for (const m of structured.medications.slice(0, 8)) {
     units.push({
-      unitType: 'medication_chart_row',
-      title: `Medication from visual p${page ?? '?'}`,
+      unitType: "medication_chart_row",
+      title: `Medication from visual p${page ?? "?"}`,
       content: `Medication reference: ${m}`,
       qualityScore: Math.max(0.5, structured.confidence - 0.03),
       normalizedTerms: tokenize(m),
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
   for (const n of structured.flowchart_nodes.slice(0, 8)) {
     units.push({
-      unitType: 'diagram_decision',
-      title: `Flowchart node p${page ?? '?'}`,
+      unitType: "diagram_decision",
+      title: `Flowchart node p${page ?? "?"}`,
       content: `Node: ${n}`,
       qualityScore: Math.max(0.5, structured.confidence - 0.06),
       normalizedTerms: tokenize(n),
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
   for (const ax of structured.risk_matrix_axes.slice(0, 8)) {
     units.push({
-      unitType: 'risk_matrix_cell',
-      title: `Risk matrix axis p${page ?? '?'}`,
+      unitType: "risk_matrix_cell",
+      title: `Risk matrix axis p${page ?? "?"}`,
       content: `Risk axis dimension: ${ax}`,
       qualityScore: Math.max(0.5, structured.confidence - 0.08),
       normalizedTerms: tokenize(ax),
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
   if (structured.key_terms.length > 0) {
     units.push({
-      unitType: 'visual_askable_question',
-      title: `Askable visual question p${page ?? '?'}`,
+      unitType: "visual_askable_question",
+      title: `Askable visual question p${page ?? "?"}`,
       content: `What actions, thresholds, or medication details are shown in this ${structured.visual_type} visual?`,
       qualityScore: Math.max(0.45, structured.confidence - 0.1),
       normalizedTerms: structured.key_terms,
       page,
       sourceImageId: imageId,
       metadata: { visual_type: structured.visual_type, source_regions: structured.source_regions },
-    })
+    });
   }
 
-  return units
+  return units;
 }
 
 function canonicalUnitType(unitType: string): string {
   switch (unitType) {
-    case 'flowchart_step':
-    case 'diagram_decision':
-      return 'workflow_step'
-    case 'table_threshold':
-    case 'risk_matrix_cell':
-      return 'threshold'
-    case 'medication_chart_row':
-      return 'medication_monitoring'
-    case 'visual_askable_question':
-      return 'askable_question'
-    case 'visual_summary':
-    case 'chart_finding':
+    case "flowchart_step":
+    case "diagram_decision":
+      return "workflow_step";
+    case "table_threshold":
+    case "risk_matrix_cell":
+      return "threshold";
+    case "medication_chart_row":
+      return "medication_monitoring";
+    case "visual_askable_question":
+      return "askable_question";
+    case "visual_summary":
+    case "chart_finding":
     default:
-      return 'clinical_fact'
+      return "clinical_fact";
   }
 }
 
 function canonicalFieldType(unitType: string): string {
   switch (unitType) {
-    case 'flowchart_step':
-    case 'diagram_decision':
-    case 'medication_chart_row':
-      return 'clinical_action'
-    case 'table_threshold':
-    case 'risk_matrix_cell':
-      return 'threshold_fact'
-    case 'visual_summary':
-    case 'chart_finding':
-    case 'visual_askable_question':
+    case "flowchart_step":
+    case "diagram_decision":
+    case "medication_chart_row":
+      return "clinical_action";
+    case "table_threshold":
+    case "risk_matrix_cell":
+      return "threshold_fact";
+    case "visual_summary":
+    case "chart_finding":
+    case "visual_askable_question":
     default:
-      return 'image_caption'
+      return "image_caption";
   }
 }
 
 function normalizeLabel(value: string): string {
-  const cleaned = normalizeText(value.toLowerCase().replace(/["'`]|[().,:;!?[\]{}]/g, ' ').replace(/\s+/g, ' '))
-  return cleaned.slice(0, 72).trim()
+  const cleaned = normalizeText(
+    value
+      .toLowerCase()
+      .replace(/["'`]|[().,:;!?[\]{}]/g, " ")
+      .replace(/\s+/g, " "),
+  );
+  return cleaned.slice(0, 72).trim();
 }
 
-function inferLabelType(text: string): GeneratedLabelCandidate['label_type'] {
-  const hay = normalizeText(text).toLowerCase()
-  if (/(clozapine|lithium|antipsychotic|antidepressant|insulin|antibiotic|opioid|benzodiazepine|medicat|doses?|tablet|drug|prescription)/.test(hay)) return 'medication'
-  if (/(risk|safety|seclusion|restraint|suicide|self.?harm|violence|agitation|escalat)/.test(hay)) return 'risk'
-  if (/(home|community|inpatient|outpatient|ward|clinic|hospital|emergency|ambulance|unit|setting)/.test(hay)) return 'setting'
-  if (/(workflow|pathway|process|algorithm|protocol|care.?plan|admission|discharge|handoff)/.test(hay)) return 'workflow'
-  if (/(document|guideline|policy|manual|procedure|form|checklist|assessment|screening|brief)/.test(hay)) return 'document_type'
-  if (/(child|children|adult|adolescent|elderly|geriatric|neonat|pediatric|prenatal|pregnant|population|service user)/.test(hay)) return 'population'
-  if (/(service|team|multidisciplinary|support)/.test(hay)) return 'service'
-  return 'topic'
+function inferLabelType(text: string): GeneratedLabelCandidate["label_type"] {
+  const hay = normalizeText(text).toLowerCase();
+  if (
+    /(clozapine|lithium|antipsychotic|antidepressant|insulin|antibiotic|opioid|benzodiazepine|medicat|doses?|tablet|drug|prescription)/.test(
+      hay,
+    )
+  )
+    return "medication";
+  if (/(risk|safety|seclusion|restraint|suicide|self.?harm|violence|agitation|escalat)/.test(hay)) return "risk";
+  if (/(home|community|inpatient|outpatient|ward|clinic|hospital|emergency|ambulance|unit|setting)/.test(hay))
+    return "setting";
+  if (/(workflow|pathway|process|algorithm|protocol|care.?plan|admission|discharge|handoff)/.test(hay))
+    return "workflow";
+  if (/(document|guideline|policy|manual|procedure|form|checklist|assessment|screening|brief)/.test(hay))
+    return "document_type";
+  if (
+    /(child|children|adult|adolescent|elderly|geriatric|neonat|pediatric|prenatal|pregnant|population|service user)/.test(
+      hay,
+    )
+  )
+    return "population";
+  if (/(service|team|multidisciplinary|support)/.test(hay)) return "service";
+  return "topic";
 }
 
 function normalizeLabelCandidate(rawLabel: string): string | null {
-  const normalized = normalizeLabel(rawLabel)
-  if (!normalized || normalized.length < 3) return null
-  if (['unknown', 'n/a', 'na', 'tbc', 'nil'].includes(normalized)) return null
-  if (isLowQualityLabel(normalized)) return null
-  return normalized
+  const normalized = normalizeLabel(rawLabel);
+  if (!normalized || normalized.length < 3) return null;
+  if (["unknown", "n/a", "na", "tbc", "nil"].includes(normalized)) return null;
+  if (isLowQualityLabel(normalized)) return null;
+  return normalized;
 }
 
 function pushLabelCandidate(
   candidates: Map<string, GeneratedLabelCandidate>,
   rawLabel: string,
-  labelType: GeneratedLabelCandidate['label_type'],
+  labelType: GeneratedLabelCandidate["label_type"],
   confidence: number,
   metadata: Record<string, unknown>,
 ) {
-  const label = normalizeLabelCandidate(rawLabel)
-  if (!label) return
-  const key = `${labelType}::${label}`
-  const existing = candidates.get(key)
+  const label = normalizeLabelCandidate(rawLabel);
+  if (!label) return;
+  const key = `${labelType}::${label}`;
+  const existing = candidates.get(key);
   if (existing) {
-    existing.confidence = Math.max(existing.confidence, confidence)
-    existing.metadata = { ...existing.metadata, ...metadata }
-    return
+    existing.confidence = Math.max(existing.confidence, confidence);
+    existing.metadata = { ...existing.metadata, ...metadata };
+    return;
   }
 
   candidates.set(key, {
@@ -936,24 +948,31 @@ function pushLabelCandidate(
     label_type: labelType,
     confidence,
     metadata,
-  })
+  });
 }
 
-function mapMemoryCardTypeToLabelType(cardType: string): GeneratedLabelCandidate['label_type'] {
-  if (cardType === 'medication') return 'medication'
-  if (cardType === 'risk') return 'risk'
-  if (cardType === 'workflow') return 'workflow'
-  if (cardType === 'table_row' || cardType === 'askable_question' || cardType === 'section_summary' || cardType === 'definition' || cardType === 'citation_anchor') return 'topic'
-  return 'custom'
+function mapMemoryCardTypeToLabelType(cardType: string): GeneratedLabelCandidate["label_type"] {
+  if (cardType === "medication") return "medication";
+  if (cardType === "risk") return "risk";
+  if (cardType === "workflow") return "workflow";
+  if (
+    cardType === "table_row" ||
+    cardType === "askable_question" ||
+    cardType === "section_summary" ||
+    cardType === "definition" ||
+    cardType === "citation_anchor"
+  )
+    return "topic";
+  return "custom";
 }
 
 function candidateConfidence(base: number, source: string): number {
-  if (source === 'document_title') return Math.min(0.82, base + 0.08)
-  if (source === 'section_heading') return Math.min(0.9, base + 0.12)
-  if (source === 'memory_card_title') return Math.min(0.86, base + 0.1)
-  if (source === 'section_tag') return Math.min(0.74, base + 0.08)
-  if (source === 'memory_card_content') return Math.min(0.76, base + 0.06)
-  return base
+  if (source === "document_title") return Math.min(0.82, base + 0.08);
+  if (source === "section_heading") return Math.min(0.9, base + 0.12);
+  if (source === "memory_card_title") return Math.min(0.86, base + 0.1);
+  if (source === "section_tag") return Math.min(0.74, base + 0.08);
+  if (source === "memory_card_content") return Math.min(0.76, base + 0.06);
+  return base;
 }
 
 async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promise<number> {
@@ -962,14 +981,14 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
     from public.document_summaries
     where document_id = ${job.document_id}::uuid
     limit 1
-  `
+  `;
   const chunksForLabels = await sql<{ content: string }[]>`
     select content
     from public.document_chunks
     where document_id = ${job.document_id}::uuid
     order by chunk_index asc
     limit 8
-  `
+  `;
 
   const sections = await sql<SectionLabelSource[]>`
     select
@@ -997,7 +1016,7 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
     ) c on true
     where s.document_id = ${job.document_id}::uuid
     order by s.section_index asc
-  `
+  `;
 
   const cards = await sql<MemoryCardLabelSource[]>`
     select
@@ -1008,20 +1027,20 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
     from public.document_memory_cards
     where document_id = ${job.document_id}::uuid
     order by created_at desc
-  `
+  `;
 
-  const candidates = new Map<string, GeneratedLabelCandidate>()
-  const sectionCount = sections.length
-  const cardCount = cards.length
+  const candidates = new Map<string, GeneratedLabelCandidate>();
+  const sectionCount = sections.length;
+  const cardCount = cards.length;
 
   if (job.documents.title) {
     pushLabelCandidate(
       candidates,
       job.documents.title,
       inferLabelType(job.documents.title),
-      candidateConfidence(0.68, 'document_title'),
-        { source: 'document_title', source_text: job.documents.title },
-    )
+      candidateConfidence(0.68, "document_title"),
+      { source: "document_title", source_text: job.documents.title },
+    );
   }
   if (summaryRows.length > 0 && summaryRows[0].summary) {
     for (const keyword of phraseLabelCandidates(summaryRows[0].summary, 4)) {
@@ -1029,9 +1048,9 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
         candidates,
         keyword,
         inferLabelType(summaryRows[0].summary),
-        candidateConfidence(0.55, 'section_heading'),
-        { source: 'document_summary_token' },
-      )
+        candidateConfidence(0.55, "section_heading"),
+        { source: "document_summary_token" },
+      );
     }
   }
 
@@ -1041,9 +1060,9 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
         candidates,
         keyword,
         inferLabelType(chunk.content),
-        candidateConfidence(0.52, 'section_heading'),
-        { source: 'document_chunk_token' },
-      )
+        candidateConfidence(0.52, "section_heading"),
+        { source: "document_chunk_token" },
+      );
     }
   }
 
@@ -1053,33 +1072,33 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
         candidates,
         section.heading,
         inferLabelType(section.heading),
-        candidateConfidence(0.78, 'section_heading'),
+        candidateConfidence(0.78, "section_heading"),
         {
-          source: 'document_section',
+          source: "document_section",
           section_id: section.section_id,
           source_chunk_id: section.source_chunk_id ?? null,
           chunk_index: section.chunk_index ?? null,
           anchor_id: section.anchor_id ?? null,
         },
-      )
+      );
     }
 
     if ((section.heading_path ?? []).length > 0) {
-      const pathLabel = section.heading_path!.join(' > ')
+      const pathLabel = section.heading_path!.join(" > ");
       if (pathLabel.length > 4) {
         pushLabelCandidate(
           candidates,
           pathLabel,
           inferLabelType(section.heading),
-          candidateConfidence(0.56, 'section_tag'),
+          candidateConfidence(0.56, "section_tag"),
           {
-            source: 'document_section_path',
+            source: "document_section_path",
             section_id: section.section_id,
             source_chunk_id: section.source_chunk_id ?? null,
             chunk_index: section.chunk_index ?? null,
             anchor_id: section.anchor_id ?? null,
           },
-        )
+        );
       }
     }
 
@@ -1089,68 +1108,50 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
           candidates,
           keyword,
           inferLabelType(section.summary),
-          candidateConfidence(0.6, 'section_heading'),
+          candidateConfidence(0.6, "section_heading"),
           {
-            source: 'document_section_summary_token',
+            source: "document_section_summary_token",
             section_id: section.section_id,
             source_chunk_id: section.source_chunk_id ?? null,
             chunk_index: section.chunk_index ?? null,
             anchor_id: section.anchor_id ?? null,
           },
-        )
+        );
       }
     }
 
     for (const tag of section.tags ?? []) {
-      pushLabelCandidate(
-        candidates,
-        tag,
-        inferLabelType(tag),
-        candidateConfidence(0.62, 'section_tag'),
-        {
-          source: 'document_section_tag',
-          section_id: section.section_id,
-          source_chunk_id: section.source_chunk_id,
-          chunk_index: section.chunk_index,
-          anchor_id: section.anchor_id,
-        },
-      )
+      pushLabelCandidate(candidates, tag, inferLabelType(tag), candidateConfidence(0.62, "section_tag"), {
+        source: "document_section_tag",
+        section_id: section.section_id,
+        source_chunk_id: section.source_chunk_id,
+        chunk_index: section.chunk_index,
+        anchor_id: section.anchor_id,
+      });
     }
   }
 
   for (const card of cards) {
-    const labelType = mapMemoryCardTypeToLabelType(card.card_type)
-    pushLabelCandidate(
-      candidates,
-      card.title,
-      labelType,
-      candidateConfidence(0.72, 'memory_card_title'),
-      {
-        source: 'document_memory_card',
+    const labelType = mapMemoryCardTypeToLabelType(card.card_type);
+    pushLabelCandidate(candidates, card.title, labelType, candidateConfidence(0.72, "memory_card_title"), {
+      source: "document_memory_card",
+      card_id: card.card_id,
+      card_type: card.card_type,
+    });
+    for (const term of phraseLabelCandidates(card.content, 4)) {
+      pushLabelCandidate(candidates, term, labelType, candidateConfidence(0.55, "memory_card_content"), {
+        source: "document_memory_card_content",
         card_id: card.card_id,
         card_type: card.card_type,
-      },
-    )
-    for (const term of phraseLabelCandidates(card.content, 4)) {
-      pushLabelCandidate(
-        candidates,
-        term,
-        labelType,
-        candidateConfidence(0.55, 'memory_card_content'),
-        {
-          source: 'document_memory_card_content',
-          card_id: card.card_id,
-          card_type: card.card_type,
-        },
-      )
+      });
     }
   }
 
-  const prepared = Array.from(candidates.values()).slice(0, 80)
-  if (prepared.length === 0) return 0
+  const prepared = Array.from(candidates.values()).slice(0, 80);
+  if (prepared.length === 0) return 0;
 
   const inserted = await sql.begin(async (tx) => {
-    let count = 0
+    let count = 0;
     for (const candidate of prepared) {
       await tx`
         insert into public.document_labels (
@@ -1168,14 +1169,14 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
           ${candidate.label_type},
           'generated',
           ${Math.min(0.98, Math.max(0.2, candidate.confidence))},
-          ${JSON.stringify({
+          ${jsonb({
             ...candidate.metadata,
             generated_by: GENERATED_BY,
-            generation_source: 'indexing_v3_agent_parsed_artifacts',
+            generation_source: "indexing_v3_agent_parsed_artifacts",
             section_candidates: sectionCount,
             memory_card_candidates: cardCount,
             fallback_generated_count: prepared.length,
-          })}::jsonb
+          })}
         )
         on conflict (document_id, label_type, label, source)
         do update set
@@ -1186,17 +1187,17 @@ async function upsertGeneratedLabelsFromParsedArtifacts(job: ClaimedJob): Promis
             ELSE excluded.metadata
           END,
           updated_at = now()
-      `
-      count += 1
+      `;
+      count += 1;
     }
-    return count
-  })
+    return count;
+  });
 
-  return inserted
+  return inserted;
 }
 
 function memoryCardText(title: string, cardType: string, content: string, terms: string[]): string {
-  return `${title}\n${cardType}\n${content}\nTerms: ${terms.join(', ')}`
+  return `${title}\n${cardType}\n${content}\nTerms: ${terms.join(", ")}`;
 }
 
 async function ensureSectionsFromChunks(job: ClaimedJob): Promise<number> {
@@ -1204,8 +1205,8 @@ async function ensureSectionsFromChunks(job: ClaimedJob): Promise<number> {
     select count(*)::int as count
     from public.document_sections
     where document_id = ${job.document_id}::uuid
-  `
-  if ((existing[0]?.count ?? 0) > 0) return 0
+  `;
+  if ((existing[0]?.count ?? 0) > 0) return 0;
 
   const chunks = await sql<ChunkSectionSource[]>`
     select id, page_number, chunk_index, section_heading, section_path, content
@@ -1213,16 +1214,19 @@ async function ensureSectionsFromChunks(job: ClaimedJob): Promise<number> {
     where document_id = ${job.document_id}::uuid
     order by chunk_index asc
     limit 24
-  `
-  if (chunks.length === 0) return 0
+  `;
+  if (chunks.length === 0) return 0;
 
-  let inserted = 0
+  let inserted = 0;
   for (let index = 0; index < chunks.length; index += 1) {
-    const chunk = chunks[index]
-    const path = (chunk.section_path ?? []).filter(Boolean)
-    const heading = normalizeText(chunk.section_heading ?? path[path.length - 1] ?? job.documents.title ?? `Section ${index + 1}`).slice(0, 220) || `Section ${index + 1}`
-    const summary = normalizeText(chunk.content).slice(0, 1400) || heading
-    const tags = uniqueStrings(tokenize(`${heading} ${summary}`).slice(0, 8), 8)
+    const chunk = chunks[index];
+    const path = (chunk.section_path ?? []).filter(Boolean);
+    const heading =
+      normalizeText(
+        chunk.section_heading ?? path[path.length - 1] ?? job.documents.title ?? `Section ${index + 1}`,
+      ).slice(0, 220) || `Section ${index + 1}`;
+    const summary = normalizeText(chunk.content).slice(0, 1400) || heading;
+    const tags = uniqueStrings(tokenize(`${heading} ${summary}`).slice(0, 8), 8);
 
     const rows = await sql<{ id: string }[]>`
       insert into public.document_sections (
@@ -1250,20 +1254,20 @@ async function ensureSectionsFromChunks(job: ClaimedJob): Promise<number> {
         ${summary}::text,
         ${tags}::text[],
         'partial',
-        ${JSON.stringify({
+        ${jsonb({
           generated_by: GENERATED_BY,
-          source: 'document_chunks',
+          source: "document_chunks",
           source_chunk_id: chunk.id,
           repaired_missing_sections: true,
-        })}::jsonb
+        })}
       )
       on conflict (document_id, section_index) do nothing
       returning id
-    `
-    inserted += rows.length
+    `;
+    inserted += rows.length;
   }
 
-  return inserted
+  return inserted;
 }
 
 async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
@@ -1283,46 +1287,48 @@ async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
       and btrim(coalesce(summary, '')) <> ''
     order by section_index asc
     limit 16
-  `
+  `;
 
-  if (sections.length === 0) return 0
+  if (sections.length === 0) return 0;
 
   await sql`
     delete from public.document_memory_cards
     where document_id = ${job.document_id}::uuid
       and metadata->>'generated_by' = ${GENERATED_BY}
       and metadata->>'source' = 'document_sections'
-  `
+  `;
 
-  const prepared = sections.map((section) => {
-    const heading = normalizeText(section.heading) || 'Document section'
-    const path = (section.heading_path ?? []).filter(Boolean).join(' > ')
-    const title = path ? `${path} > ${heading}` : heading
-    const summary = normalizeText(section.summary)
-    const content = `${heading}: ${summary}`
-    const terms = uniqueStrings([
-      ...tokenize(`${title} ${summary}`),
-      ...(section.tags ?? []).map((tag) => normalizeText(tag.toLowerCase())),
-    ], 24)
-    return {
-      section,
-      title: title.slice(0, 240),
-      content,
-      terms,
-      embeddingText: memoryCardText(title, 'section_summary', content, terms),
-    }
-  }).filter((card) => card.content.length >= 12)
+  const prepared = sections
+    .map((section) => {
+      const heading = normalizeText(section.heading) || "Document section";
+      const path = (section.heading_path ?? []).filter(Boolean).join(" > ");
+      const title = path ? `${path} > ${heading}` : heading;
+      const summary = normalizeText(section.summary);
+      const content = `${heading}: ${summary}`;
+      const terms = uniqueStrings(
+        [...tokenize(`${title} ${summary}`), ...(section.tags ?? []).map((tag) => normalizeText(tag.toLowerCase()))],
+        24,
+      );
+      return {
+        section,
+        title: title.slice(0, 240),
+        content,
+        terms,
+        embeddingText: memoryCardText(title, "section_summary", content, terms),
+      };
+    })
+    .filter((card) => card.content.length >= 12);
 
-  if (prepared.length === 0) return 0
+  if (prepared.length === 0) return 0;
 
-  const embeddings = await embeddingBatch(prepared.map((card) => card.embeddingText))
-  let inserted = 0
+  const embeddings = await embeddingBatch(prepared.map((card) => card.embeddingText));
+  let inserted = 0;
   for (let index = 0; index < prepared.length; index += 1) {
-    const card = prepared[index]
-    const section = card.section
-    const chunkIds = section.chunk_ids ?? []
-    const emb = embeddings[index]
-    assertEmbeddingDim(emb, `memory card ${section.section_id}`)
+    const card = prepared[index];
+    const section = card.section;
+    const chunkIds = section.chunk_ids ?? [];
+    const emb = embeddings[index];
+    assertEmbeddingDim(emb, `memory card ${section.section_id}`);
 
     await sql`
       insert into public.document_memory_cards (
@@ -1350,22 +1356,22 @@ async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
         ${section.page_start}::integer,
         ${chunkIds}::uuid[],
         '{}'::uuid[],
-        ${section.extraction_quality === 'good' ? 0.72 : section.extraction_quality === 'partial' ? 0.62 : 0.54},
-        ${JSON.stringify({
+        ${section.extraction_quality === "good" ? 0.72 : section.extraction_quality === "partial" ? 0.62 : 0.54},
+        ${jsonb({
           generated_by: GENERATED_BY,
-          source: 'document_sections',
+          source: "document_sections",
           section_id: section.section_id,
           heading_path: section.heading_path ?? [],
           page_start: section.page_start,
           page_end: section.page_end,
-        })}::jsonb,
+        })},
         ${JSON.stringify(emb)}::vector
       )
-    `
-    inserted += 1
+    `;
+    inserted += 1;
   }
 
-  return inserted
+  return inserted;
 }
 
 async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
@@ -1402,7 +1408,7 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
     where s.document_id = ${job.document_id}::uuid
       and btrim(coalesce(s.summary, '')) <> ''
     order by s.section_index asc
-  `
+  `;
 
   await sql`
     delete from public.document_index_units
@@ -1410,31 +1416,37 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
       and unit_type = 'section_summary'
       and metadata->>'generated_by' = ${GENERATED_BY}
       and metadata->>'source' = 'document_sections'
-  `
+  `;
 
-  const preparedSections = sections.map((section) => {
-    const content = normalizeText(section.summary)
-    const title = normalizeText(section.heading)
-    if (!content || !title) return null
-    return {
-      section,
-      title,
-      content,
-      embeddingText: `Type: section_summary\nTitle: ${title}\nPath: ${(section.heading_path ?? []).join(' > ')}\nContent: ${content}`,
-    }
-  }).filter((row): row is {
-    section: SectionIndexSource
-    title: string
-    content: string
-    embeddingText: string
-  } => Boolean(row))
+  const preparedSections = sections
+    .map((section) => {
+      const content = normalizeText(section.summary);
+      const title = normalizeText(section.heading);
+      if (!content || !title) return null;
+      return {
+        section,
+        title,
+        content,
+        embeddingText: `Type: section_summary\nTitle: ${title}\nPath: ${(section.heading_path ?? []).join(" > ")}\nContent: ${content}`,
+      };
+    })
+    .filter(
+      (
+        row,
+      ): row is {
+        section: SectionIndexSource;
+        title: string;
+        content: string;
+        embeddingText: string;
+      } => Boolean(row),
+    );
 
-  const embeddings = await embeddingBatch(preparedSections.map((section) => section.embeddingText))
-  let inserted = 0
+  const embeddings = await embeddingBatch(preparedSections.map((section) => section.embeddingText));
+  let inserted = 0;
   for (let index = 0; index < preparedSections.length; index += 1) {
-    const { section, title, content } = preparedSections[index]
-    const emb = embeddings[index]
-    assertEmbeddingDim(emb, `section index unit ${section.section_id}`)
+    const { section, title, content } = preparedSections[index];
+    const emb = embeddings[index];
+    assertEmbeddingDim(emb, `section index unit ${section.section_id}`);
 
     await sql`
       insert into public.document_index_units (
@@ -1465,27 +1477,29 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
         ${section.heading_path ?? []}::text[],
         ${title},
         ${content},
-        ${tokenize(`${title} ${content} ${(section.tags ?? []).join(' ')}`)}::text[],
-        ${JSON.stringify({ anchor_id: section.anchor_id, chunk_index: section.chunk_index })}::jsonb,
-        ${section.extraction_quality === 'good' ? 0.78 : section.extraction_quality === 'partial' ? 0.58 : 0.42},
+        ${tokenize(`${title} ${content} ${(section.tags ?? []).join(" ")}`)}::text[],
+        ${jsonb({ anchor_id: section.anchor_id, chunk_index: section.chunk_index })},
+        ${section.extraction_quality === "good" ? 0.78 : section.extraction_quality === "partial" ? 0.58 : 0.42},
         'hybrid',
         ${JSON.stringify(emb)}::vector,
-        ${JSON.stringify({
+        ${jsonb({
           generated_by: GENERATED_BY,
-          source: 'document_sections',
+          source: "document_sections",
           section_id: section.section_id,
           chunk_ids: section.chunk_ids ?? [],
           anchor_id: section.anchor_id,
-        })}::jsonb
+        })}
       )
-    `
-    inserted += 1
+    `;
+    inserted += 1;
   }
 
-  return inserted
+  return inserted;
 }
 
-async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images: number; created_units: number; created_fields: number }> {
+async function upsertVisualArtifacts(
+  job: ClaimedJob,
+): Promise<{ selected_images: number; created_units: number; created_fields: number }> {
   const images = await sql<ImageRow[]>`
     select
       id, page_number, image_type, searchable, caption, metadata,
@@ -1495,13 +1509,11 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
       and coalesce(searchable, false) = true
       and coalesce(image_type, 'unclear') <> 'logo_decorative'
     order by page_number asc nulls last, created_at asc
-  `
+  `;
 
-  const scored = images
-    .map((img) => ({ ...img, priority: scoreImage(img) }))
-    .filter((img) => img.priority > -0.2)
+  const scored = images.map((img) => ({ ...img, priority: scoreImage(img) })).filter((img) => img.priority > -0.2);
 
-  const selected = chooseByBudget(scored)
+  const selected = chooseByBudget(scored);
 
   await sql.begin(async (tx) => {
     await tx`
@@ -1509,59 +1521,72 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
       where document_id = ${job.document_id}::uuid
         and field_type = any(${VISUAL_FIELD_TYPES}::text[])
         and metadata->>'generated_by' = ${GENERATED_BY}
-    `
+    `;
 
     await tx`
       delete from public.document_index_units
       where document_id = ${job.document_id}::uuid
         and unit_type = any(${VISUAL_UNIT_TYPES}::text[])
         and metadata->>'generated_by' = ${GENERATED_BY}
-    `
-  })
+    `;
+  });
 
-  let createdUnits = 0
-  let createdFields = 0
+  let createdUnits = 0;
+  let createdFields = 0;
   const preparedUnits: Array<{
-    unit: VisualUnit
-    content: string
-    unitType: string
-    fieldType: string
-    contentHash: string
-  }> = []
+    unit: VisualUnit;
+    content: string;
+    unitType: string;
+    fieldType: string;
+    contentHash: string;
+  }> = [];
 
   for (const img of selected) {
-    const structured = parseStructuredVisual(img)
-    const units = unitsFromStructured(img, structured)
+    const structured = parseStructuredVisual(img);
+    const units = unitsFromStructured(img, structured);
 
     await sql`
       update public.document_images
       set
-        clinical_priority_score = ${img.priority},
-        caption_confidence = ${Math.max(0.35, Math.min(0.98, structured.confidence - 0.05))},
-        structured_extraction_confidence = ${structured.confidence},
-        ocr_text_density = ${Math.max(0, Math.min(1, (structured.key_terms.length / 40)))},
-        image_quality_score = ${Math.max(0, Math.min(1, 0.35 + img.priority * 0.3))},
-        crop_completeness = ${Math.max(0.3, Math.min(1, (img.width && img.height && img.width * img.height > 150000) ? 0.9 : 0.55))},
-        metadata = coalesce(metadata, '{}'::jsonb) || ${JSON.stringify({ v3_structured_visual: structured })}::jsonb
+        metadata = (
+          case
+            when jsonb_typeof(coalesce(metadata, '{}'::jsonb)) = 'object'
+              then coalesce(metadata, '{}'::jsonb)
+            else jsonb_build_object('legacy_metadata', metadata)
+          end
+        ) || ${jsonb({
+          v3_structured_visual: structured,
+          v3_visual_metrics: {
+            clinical_priority_score: img.priority,
+            caption_confidence: Math.max(0.35, Math.min(0.98, structured.confidence - 0.05)),
+            structured_extraction_confidence: structured.confidence,
+            ocr_text_density: Math.max(0, Math.min(1, structured.key_terms.length / 40)),
+            image_quality_score: Math.max(0, Math.min(1, 0.35 + img.priority * 0.3)),
+            crop_completeness: Math.max(
+              0.3,
+              Math.min(1, img.width && img.height && img.width * img.height > 150000 ? 0.9 : 0.55),
+            ),
+          },
+        })}
       where id = ${img.id}::uuid
-    `
+    `;
 
     for (const unit of units) {
-      const content = normalizeText(unit.content)
-      if (content.length < 4) continue
+      const content = normalizeText(unit.content);
+      if (content.length < 4) continue;
 
-      const unitType = canonicalUnitType(unit.unitType)
-      const fieldType = canonicalFieldType(unit.unitType)
-      const contentHash = await sha256Hex(content)
-      preparedUnits.push({ unit, content, unitType, fieldType, contentHash })
+      const unitType = canonicalUnitType(unit.unitType);
+      const fieldType = canonicalFieldType(unit.unitType);
+      const contentHash = await sha256Hex(content);
+      preparedUnits.push({ unit, content, unitType, fieldType, contentHash });
     }
   }
 
-  const embeddings = await embeddingBatch(preparedUnits.map((prepared) => prepared.content))
+  const embeddings = await embeddingBatch(preparedUnits.map((prepared) => prepared.content));
   for (let index = 0; index < preparedUnits.length; index += 1) {
-    const { unit, content, unitType, fieldType, contentHash } = preparedUnits[index]
-    const emb = embeddings[index]
-    assertEmbeddingDim(emb, `visual index unit ${unit.sourceImageId}`)
+    const { unit, content, unitType, fieldType, contentHash } = preparedUnits[index];
+    const emb = embeddings[index];
+    assertEmbeddingDim(emb, `visual index unit ${unit.sourceImageId}`);
 
     await sql`
       insert into public.document_index_units (
@@ -1593,17 +1618,17 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
         ${unit.title},
         ${content},
         ${unit.normalizedTerms}::text[],
-        ${JSON.stringify({ source_image_id: unit.sourceImageId, source_regions: unit.metadata.source_regions ?? [] })}::jsonb,
+        ${jsonb({ source_image_id: unit.sourceImageId, source_regions: unit.metadata.source_regions ?? [] })},
         ${unit.qualityScore},
         'hybrid',
         ${JSON.stringify(emb)}::vector,
-        ${JSON.stringify({ ...unit.metadata, visual_unit_type: unit.unitType, generated_by: GENERATED_BY })}::jsonb
+        ${jsonb({ ...unit.metadata, visual_unit_type: unit.unitType, generated_by: GENERATED_BY })}
       )
-    `
-    createdUnits += 1
+    `;
+    createdUnits += 1;
 
-    assertEmbeddingDim(emb, `visual embedding field ${unit.sourceImageId}`)
-      await sql`
+    assertEmbeddingDim(emb, `visual embedding field ${unit.sourceImageId}`);
+    await sql`
         insert into public.document_embedding_fields (
           owner_id,
           document_id,
@@ -1620,37 +1645,37 @@ async function upsertVisualArtifacts(job: ClaimedJob): Promise<{ selected_images
           ${fieldType},
           ${content},
           ${JSON.stringify(emb)}::vector,
-          ${JSON.stringify({ source_image_id: unit.sourceImageId, visual_field_type: unit.unitType, generated_by: GENERATED_BY })}::jsonb,
+          ${jsonb({ source_image_id: unit.sourceImageId, visual_field_type: unit.unitType, generated_by: GENERATED_BY })},
           ${contentHash}
         )
-      `
-    createdFields += 1
+      `;
+    createdFields += 1;
   }
 
-  return { selected_images: selected.length, created_units: createdUnits, created_fields: createdFields }
+  return { selected_images: selected.length, created_units: createdUnits, created_fields: createdFields };
 }
 
 async function upsertCoreEmbeddingFields(job: ClaimedJob, summary: string): Promise<number> {
-  const title = normalizeText(job.documents.title ?? '') || 'Untitled document'
+  const title = normalizeText(job.documents.title ?? "") || "Untitled document";
   const base = [
-    { field_type: 'document_title', content: title },
-    { field_type: 'document_summary', content: normalizeText(summary) || 'Summary unavailable' },
-  ]
+    { field_type: "document_title", content: title },
+    { field_type: "document_summary", content: normalizeText(summary) || "Summary unavailable" },
+  ];
 
   await sql`
     delete from public.document_embedding_fields
     where document_id = ${job.document_id}::uuid
       and field_type = any(${base.map((b) => b.field_type)}::text[])
       and metadata->>'generated_by' = ${GENERATED_BY}
-  `
+  `;
 
-  const embeddings = await embeddingBatch(base.map((row) => row.content))
-  let inserted = 0
+  const embeddings = await embeddingBatch(base.map((row) => row.content));
+  let inserted = 0;
   for (let index = 0; index < base.length; index += 1) {
-    const row = base[index]
-    const emb = embeddings[index]
-    const contentHash = await sha256Hex(row.content)
-    assertEmbeddingDim(emb, `${row.field_type} embedding field`)
+    const row = base[index];
+    const emb = embeddings[index];
+    const contentHash = await sha256Hex(row.content);
+    assertEmbeddingDim(emb, `${row.field_type} embedding field`);
 
     await sql`
       insert into public.document_embedding_fields (
@@ -1662,23 +1687,25 @@ async function upsertCoreEmbeddingFields(job: ClaimedJob, summary: string): Prom
         ${row.field_type},
         ${row.content},
         ${JSON.stringify(emb)}::vector,
-        ${JSON.stringify({ generated_by: GENERATED_BY })}::jsonb,
+        ${jsonb({ generated_by: GENERATED_BY })},
         ${contentHash}
       )
-    `
-    inserted += 1
+    `;
+    inserted += 1;
   }
 
-  return inserted
+  return inserted;
 }
 
 async function updateQuality(job: ClaimedJob): Promise<void> {
-  const counts = await sql<{
-    visual_units: number
-    anchors_with_image: number
-    total_units: number
-    visual_images: number
-  }[]>`
+  const counts = await sql<
+    {
+      visual_units: number;
+      anchors_with_image: number;
+      total_units: number;
+      visual_images: number;
+    }[]
+  >`
     with unit_counts as (
       select
         count(*) filter (where metadata->>'generated_by' = ${GENERATED_BY})::int as visual_units,
@@ -1700,13 +1727,13 @@ async function updateQuality(job: ClaimedJob): Promise<void> {
       u.total_units,
       i.visual_images
     from unit_counts u, image_counts i
-  `
+  `;
 
-  const c = counts[0] ?? { visual_units: 0, anchors_with_image: 0, total_units: 0, visual_images: 0 }
-  const typedCoverage = c.total_units > 0 ? c.visual_units / c.total_units : 0
-  const anchorCoverage = c.total_units > 0 ? c.anchors_with_image / c.total_units : 0
-  const retrievableVisualHit = c.visual_units > 0 && c.visual_images > 0
-  const issues = c.visual_images > 0 && !retrievableVisualHit ? ['no retrievable visual evidence'] : []
+  const c = counts[0] ?? { visual_units: 0, anchors_with_image: 0, total_units: 0, visual_images: 0 };
+  const typedCoverage = c.total_units > 0 ? c.visual_units / c.total_units : 0;
+  const anchorCoverage = c.total_units > 0 ? c.anchors_with_image / c.total_units : 0;
+  const retrievableVisualHit = c.visual_units > 0 && c.visual_images > 0;
+  const issues = c.visual_images > 0 && !retrievableVisualHit ? ["no retrievable visual evidence"] : [];
 
   await sql`
     insert into public.document_index_quality (
@@ -1722,7 +1749,7 @@ async function updateQuality(job: ClaimedJob): Promise<void> {
       ${job.documents.owner_id}::uuid,
       ${Math.max(0, Math.min(1, 0.55 + typedCoverage * 0.25 + anchorCoverage * 0.2))},
       'partial',
-      ${JSON.stringify({
+      ${jsonb({
         indexing_v3_agent: {
           visual_units: c.visual_units,
           total_units: c.total_units,
@@ -1734,7 +1761,7 @@ async function updateQuality(job: ClaimedJob): Promise<void> {
           model_fallback_rate: 0,
           noisy_unit_rate: Math.max(0, 1 - typedCoverage),
         },
-      })}::jsonb,
+      })},
       ${issues}::text[],
       now()
     )
@@ -1751,102 +1778,92 @@ async function updateQuality(job: ClaimedJob): Promise<void> {
         from unnest(coalesce(public.document_index_quality.issues, '{}'::text[]) || excluded.issues) as issue
       ), '{}'::text[]),
       updated_at = now()
-  `
+  `;
 }
 
 async function completionGate(job: ClaimedJob): Promise<CompletionGate> {
-  const rows = await sql<Array<{
-    sections: number
-    memory_cards: number
-    generated_labels: number
-    index_units: number
-    title_embedding: boolean
-    summary_embedding: boolean
-  }>>`
+  const rows = await sql<CompletionGateRow[]>`
     select
-      (select count(*)::int from public.document_sections where document_id = ${job.document_id}::uuid) as sections,
-      (select count(*)::int from public.document_memory_cards where document_id = ${job.document_id}::uuid) as memory_cards,
-      (
-        select count(*)::int from public.document_labels
-        where document_id = ${job.document_id}::uuid
-          and (
-            lower(source) = 'generated'
-            or metadata->>'source' = 'generated'
-            or metadata->>'generated_by' = ${GENERATED_BY}
-            or lower(metadata->>'generation_source') = 'indexing_v3_agent_parsed_artifacts'
-          )
-      ) as generated_labels,
-      (select count(*)::int from public.document_index_units where document_id = ${job.document_id}::uuid) as index_units,
-      exists (
-        select 1 from public.document_embedding_fields
-        where document_id = ${job.document_id}::uuid
-          and field_type = 'document_title'
-        limit 1
-      ) as title_embedding,
-      exists (
-        select 1 from public.document_embedding_fields
-        where document_id = ${job.document_id}::uuid
-          and field_type = 'document_summary'
-        limit 1
-      ) as summary_embedding
-  `
-  const row = rows[0]
-  const missing = [
-    row.sections > 0 ? null : 'sections',
-    row.memory_cards > 0 ? null : 'memory_cards',
-    row.generated_labels > 0 ? null : 'generated_labels',
-    row.index_units > 0 ? null : 'index_units',
-    row.title_embedding ? null : 'title_embedding',
-    row.summary_embedding ? null : 'summary_embedding',
-  ].filter((value): value is string => Boolean(value))
+      sections,
+      memory_cards,
+      generated_labels,
+      index_units,
+      title_embedding,
+      summary_embedding,
+      quality_extraction_quality,
+      quality_score,
+      missing,
+      gate_passed
+    from public.document_strict_gate_status
+    where document_id = ${job.document_id}::uuid
+  `;
+  const row = rows[0];
+  if (!row) throw new Error(`Strict gate status not found for document ${job.document_id}`);
 
-  return {
-    counts: {
-      sections: row.sections,
-      memory_cards: row.memory_cards,
-      generated_labels: row.generated_labels,
-      index_units: row.index_units,
-    },
-    presence: {
-      title_embedding: row.title_embedding,
-      summary_embedding: row.summary_embedding,
-    },
-    missing,
-    result: missing.length === 0 ? 'complete' : 'deferred',
-  }
+  return completionGateFromRow(row);
+}
+
+function logArtifactPlan(job: ClaimedJob, gate: CompletionGate, plan: MissingArtifactPlan): void {
+  console.log(
+    JSON.stringify({
+      event: "artifact_plan",
+      worker: GENERATED_BY,
+      job_id: job.id,
+      document_id: job.document_id,
+      missing: gate.missing,
+      counts: gate.counts,
+      presence: gate.presence,
+      quality: gate.quality,
+      plan,
+    }),
+  );
+}
+
+async function needsVisualArtifacts(job: ClaimedJob): Promise<boolean> {
+  const rows = await sql<Array<{ eligible_images: number; generated_visual_units: number }>>`
+    select
+      (
+        select count(*)::int
+        from public.document_images
+        where document_id = ${job.document_id}::uuid
+          and coalesce(searchable, false) = true
+          and coalesce(image_type, 'unclear') <> 'logo_decorative'
+      ) as eligible_images,
+      (
+        select count(*)::int
+        from public.document_index_units
+        where document_id = ${job.document_id}::uuid
+          and source_image_id is not null
+          and metadata->>'generated_by' = ${GENERATED_BY}
+      ) as generated_visual_units
+  `;
+  const row = rows[0] ?? { eligible_images: 0, generated_visual_units: 0 };
+  return shouldRunVisualArtifacts(row);
 }
 
 function logCompletionGate(job: ClaimedJob, gate: CompletionGate): void {
-  console.log(JSON.stringify({
-    event: 'completion_gate',
-    worker: GENERATED_BY,
-    job_id: job.id,
-    document_id: job.document_id,
-    counts: gate.counts,
-    presence: gate.presence,
-    result: gate.result,
-    missing: gate.missing,
-  }))
-}
-
-function metadataNumber(metadata: Record<string, unknown> | null | undefined, key: string, fallback = 0): number {
-  const value = Number(metadata?.[key])
-  return Number.isFinite(value) ? value : fallback
+  console.log(
+    JSON.stringify({
+      event: "completion_gate",
+      worker: GENERATED_BY,
+      job_id: job.id,
+      document_id: job.document_id,
+      counts: gate.counts,
+      presence: gate.presence,
+      quality: gate.quality,
+      result: gate.result,
+      missing: gate.missing,
+    }),
+  );
 }
 
 async function deferJob(job: ClaimedJob, gate: CompletionGate): Promise<void> {
-  const deferralCount = metadataNumber(job.documents.metadata, 'indexing_v3_agent_deferral_count') + 1
-  const terminal = deferralCount >= INDEXING_V3_MAX_DEFERRALS || gate.missing.includes('sections')
-  const status = terminal ? 'needs_enrichment_artifacts' : 'deferred'
-  const nextRunAt = terminal ? null : new Date(Date.now() + Math.min(24 * 60 * 60_000, 15 * 60_000 * deferralCount)).toISOString()
-  const details = {
-    code: terminal ? 'needs_enrichment_artifacts' : 'completion_gate_deferred',
-    missing: gate.missing,
-    counts: gate.counts,
-    presence: gate.presence,
-    deferral_count: deferralCount,
-    max_deferrals: INDEXING_V3_MAX_DEFERRALS,
-  }
+  const decision = deferralDecision({
+    metadata: job.documents.metadata,
+    gate,
+    maxDeferrals: INDEXING_V3_MAX_DEFERRALS,
+    nowMs: Date.now(),
+  });
 
   await sql`
     update public.documents
@@ -1858,51 +1875,53 @@ async function deferJob(job: ClaimedJob, gate: CompletionGate): Promise<void> {
           - 'indexing_v3_agent_last_error'
           - 'indexing_v3_agent_next_run_at')
         || jsonb_build_object(
-          'indexing_v3_agent_status', ${status}::text,
+          'indexing_v3_agent_status', ${decision.status}::text,
           'indexing_v3_agent_version', 'visual-core-v3',
           'indexing_v3_agent_updated_at', now(),
-          'indexing_v3_agent_deferral_count', ${deferralCount}::integer,
-          'indexing_v3_agent_next_run_at', ${nextRunAt}::timestamptz,
-          'completion_gate', ${JSON.stringify(details)}::jsonb,
-          'completion_gate_missing', ${JSON.stringify(gate.missing)}::jsonb,
-          'enrichment_status', ${terminal ? 'needs_enrichment_artifacts' : 'pending'}::text
+          'indexing_v3_agent_deferral_count', ${decision.deferral_count}::integer,
+          'indexing_v3_agent_next_run_at', ${decision.next_run_at}::timestamptz,
+          'completion_gate', ${jsonb(decision.details)},
+          'completion_gate_missing', ${jsonb(gate.missing)},
+          'enrichment_status', ${decision.enrichment_status}::text
         )
       ),
       updated_at = now()
     where id = ${job.document_id}::uuid
-  `
-  await markOpenIngestionJobsDeferred(job, gate, terminal, nextRunAt)
+  `;
 }
 
 async function completeJob(job: ClaimedJob): Promise<void> {
-  await sql`
-    update public.documents
-    set
-      metadata = jsonb_strip_nulls(
-        (coalesce(metadata, '{}'::jsonb)
-          - 'indexing_v3_agent_locked_by'
-          - 'indexing_v3_agent_locked_at'
-          - 'indexing_v3_agent_next_run_at'
-          - 'indexing_v3_agent_last_error'
-          - 'completion_gate_missing')
-        || jsonb_build_object(
-          'indexing_v3_agent_status', 'completed',
-          'indexing_v3_agent_version', 'visual-core-v3',
-          'indexing_v3_agent_updated_at', now(),
-          'indexing_v3_agent_deferral_count', 0,
-          'visual_indexing_version', 'visual-v3',
-          'enrichment_status', 'completed'
-        )
-      ),
-      updated_at = now()
-    where id = ${job.document_id}::uuid
-  `
-  await markOpenIngestionJobsCompleted(job, 'indexed; enrichment completed')
+  const rows = await sql<
+    Array<{
+      ok: boolean;
+      gate_passed: boolean;
+      missing: string[] | null;
+      status: string;
+    }>
+  >`
+    select *
+    from public.complete_strict_enrichment_job(
+      ${job.document_id}::uuid,
+      ${job.id}::uuid,
+      'indexed; enrichment completed',
+      'visual-core-v3',
+      'visual-v3'
+    )
+  `;
+  const result = rows[0];
+  if (!result?.ok || !result.gate_passed) {
+    throw new Error(
+      `Strict enrichment completion blocked: ${JSON.stringify({
+        status: result?.status ?? "missing_result",
+        missing: result?.missing ?? ["completion_rpc_failed"],
+      })}`,
+    );
+  }
 }
 
 async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean> {
-  const shouldRetry = job.attempt_count < job.max_attempts
-  const nextRunAt = shouldRetry ? new Date(Date.now() + INDEXING_V3_RETRY_DELAY_MS).toISOString() : null
+  const shouldRetry = job.attempt_count < job.max_attempts;
+  const nextRunAt = shouldRetry ? new Date(Date.now() + INDEXING_V3_RETRY_DELAY_MS).toISOString() : null;
   await sql`
     update public.documents
     set
@@ -1912,133 +1931,183 @@ async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean
           - 'indexing_v3_agent_locked_at'
           - 'indexing_v3_agent_next_run_at')
         || jsonb_build_object(
-          'indexing_v3_agent_status', ${shouldRetry ? 'retry_pending' : 'failed'}::text,
+          'indexing_v3_agent_status', ${shouldRetry ? "retry_pending" : "failed"}::text,
           'indexing_v3_agent_version', 'visual-core-v3',
           'indexing_v3_agent_updated_at', now(),
           'indexing_v3_agent_attempt_count', ${job.attempt_count}::integer,
           'indexing_v3_agent_max_attempts', ${job.max_attempts}::integer,
           'indexing_v3_agent_next_run_at', ${nextRunAt}::timestamptz,
           'indexing_v3_agent_last_error', ${message}::text,
-          'enrichment_status', ${shouldRetry ? 'pending' : 'failed'}::text,
+          'enrichment_status', ${shouldRetry ? "pending" : "failed"}::text,
           'enrichment_error', ${message}::text
         )
       ),
       updated_at = now()
     where id = ${job.document_id}::uuid
-  `
-  await markOpenIngestionJobsFailed(job, shouldRetry, message, nextRunAt)
-  return shouldRetry
+  `;
+  return shouldRetry;
 }
 
-async function processJob(job: ClaimedJob): Promise<{ status: 'completed' | 'deferred'; missing: string[] }> {
-  const s1 = await stageStart(job, 'summary_and_core_embeddings')
-  try {
-    const summary = await ensureSummary(job)
-    const coreFields = await upsertCoreEmbeddingFields(job, summary)
-    await stageFinish(s1, true, { core_embedding_fields: coreFields })
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : JSON.stringify(e)
-    await stageFinish(s1, false, {}, msg)
-    throw e
+async function processJob(job: ClaimedJob): Promise<{ status: "completed" | "deferred"; missing: string[] }> {
+  let gate = await completionGate(job);
+  let plan = missingArtifactPlan(gate);
+  logArtifactPlan(job, gate, plan);
+
+  if (gate.result === "complete") {
+    logCompletionGate(job, gate);
+    await completeJob(job);
+    return { status: "completed", missing: [] };
   }
 
-  const s2 = await stageStart(job, 'visual_priority_and_structured_extraction')
-  try {
-    const out = await upsertVisualArtifacts(job)
-    await stageFinish(s2, true, out)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : JSON.stringify(e)
-    await stageFinish(s2, false, {}, msg)
-    throw e
-  }
+  let touchedQualityInputs = false;
 
-  const s3 = await stageStart(job, 'quality_refresh')
-  try {
-    const repairedSections = await ensureSectionsFromChunks(job)
-    const sectionUnits = await upsertSectionIndexUnits(job)
-    await updateQuality(job)
-    await stageFinish(s3, true, { repaired_sections: repairedSections, section_index_units: sectionUnits })
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : JSON.stringify(e)
-    await stageFinish(s3, false, {}, msg)
-    throw e
-  }
-
-  let gate = await completionGate(job)
-  if (gate.missing.includes('memory_cards')) {
-    const s4 = await stageStart(job, 'memory_cards_from_sections')
+  if (plan.needs_core_embeddings) {
+    const s1 = await stageStart(job, "summary_and_core_embeddings");
     try {
-      const memoryCards = await upsertMemoryCardsFromSections(job)
-      await stageFinish(s4, true, { memory_cards: memoryCards })
-      gate = await completionGate(job)
+      const summary = await ensureSummary(job);
+      const coreFields = await upsertCoreEmbeddingFields(job, summary);
+      await stageFinish(s1, true, { core_embedding_fields: coreFields });
+      gate = await completionGate(job);
+      plan = missingArtifactPlan(gate);
+      logArtifactPlan(job, gate, plan);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : JSON.stringify(e)
-      await stageFinish(s4, false, {}, msg)
-      throw e
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      await stageFinish(s1, false, {}, msg);
+      throw e;
     }
   }
-  if (gate.missing.includes('generated_labels')) {
-    await upsertGeneratedLabelsFromParsedArtifacts(job)
-    gate = await completionGate(job)
-  }
-  logCompletionGate(job, gate)
-  if (gate.result === 'deferred') {
-    await deferJob(job, gate)
-    return { status: 'deferred', missing: gate.missing }
+
+  if (plan.needs_sections || plan.needs_index_units) {
+    const s2 = await stageStart(job, "sections_and_index_units");
+    try {
+      const repairedSections = plan.needs_sections ? await ensureSectionsFromChunks(job) : 0;
+      if (repairedSections > 0) {
+        gate = await completionGate(job);
+        plan = missingArtifactPlan(gate);
+      }
+      const sectionUnits = plan.needs_index_units || repairedSections > 0 ? await upsertSectionIndexUnits(job) : 0;
+      touchedQualityInputs = touchedQualityInputs || repairedSections > 0 || sectionUnits > 0;
+      await stageFinish(s2, true, { repaired_sections: repairedSections, section_index_units: sectionUnits });
+      gate = await completionGate(job);
+      plan = missingArtifactPlan(gate);
+      logArtifactPlan(job, gate, plan);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      await stageFinish(s2, false, {}, msg);
+      throw e;
+    }
   }
 
-  await completeJob(job)
-  return { status: 'completed', missing: [] }
+  if (await needsVisualArtifacts(job)) {
+    const s3 = await stageStart(job, "visual_priority_and_structured_extraction");
+    try {
+      const out = await upsertVisualArtifacts(job);
+      touchedQualityInputs = touchedQualityInputs || out.created_units > 0 || out.created_fields > 0;
+      await stageFinish(s3, true, out);
+      gate = await completionGate(job);
+      plan = missingArtifactPlan(gate);
+      logArtifactPlan(job, gate, plan);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      await stageFinish(s3, false, {}, msg);
+      throw e;
+    }
+  }
+
+  if (touchedQualityInputs) {
+    const s4 = await stageStart(job, "quality_refresh");
+    try {
+      await updateQuality(job);
+      await stageFinish(s4, true, { refreshed: true });
+      gate = await completionGate(job);
+      plan = missingArtifactPlan(gate);
+      logArtifactPlan(job, gate, plan);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      await stageFinish(s4, false, {}, msg);
+      throw e;
+    }
+  }
+
+  if (plan.needs_memory) {
+    const s4 = await stageStart(job, "memory_cards_from_sections");
+    try {
+      const memoryCards = await upsertMemoryCardsFromSections(job);
+      await stageFinish(s4, true, { memory_cards: memoryCards });
+      gate = await completionGate(job);
+      plan = missingArtifactPlan(gate);
+      logArtifactPlan(job, gate, plan);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      await stageFinish(s4, false, {}, msg);
+      throw e;
+    }
+  }
+  if (plan.needs_labels) {
+    const s5 = await stageStart(job, "generated_labels_from_parsed_artifacts");
+    try {
+      const labels = await upsertGeneratedLabelsFromParsedArtifacts(job);
+      await stageFinish(s5, true, { generated_labels: labels });
+      gate = await completionGate(job);
+      plan = missingArtifactPlan(gate);
+      logArtifactPlan(job, gate, plan);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      await stageFinish(s5, false, {}, msg);
+      throw e;
+    }
+  }
+  logCompletionGate(job, gate);
+  if (gate.result === "deferred") {
+    await deferJob(job, gate);
+    return { status: "deferred", missing: gate.missing };
+  }
+
+  await completeJob(job);
+  return { status: "completed", missing: [] };
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve({ port: Number(Deno.env.get("PORT") ?? "8000") }, async (req: Request) => {
   try {
-    if (req.method !== 'POST' && req.method !== 'GET') {
-      return new Response('Method not allowed', { status: 405 })
+    if (req.method !== "POST" && req.method !== "GET") {
+      return new Response("Method not allowed", { status: 405 });
     }
-    const unauthorized = authorizeRequest(req)
-    if (unauthorized) return unauthorized
+    const unauthorized = authorizeRequest(req);
+    if (unauthorized) return unauthorized;
 
-    const url = new URL(req.url)
-    const limit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit') ?? '8')))
-    const workerId = `indexing-v3-agent-${crypto.randomUUID()}`
+    const url = new URL(req.url);
+    const limit = Math.max(1, Math.min(50, Number(url.searchParams.get("limit") ?? "8")));
+    const workerId = `indexing-v3-agent-${crypto.randomUUID()}`;
 
-    let claimSource = 'ingestion_jobs'
-    let claimed = await sql<ClaimedJob[]>`
-      select * from public.claim_ingestion_jobs(${workerId}::text, ${limit}::integer, 45::integer)
-    `
-    if (claimed.length === 0) {
-      claimSource = 'documents'
-      claimed = await sql<ClaimedJob[]>`
-        select * from public.claim_indexing_v3_agent_jobs(${workerId}::text, ${limit}::integer, 45::integer)
-      `
-    }
+    const claimSource = "documents";
+    const claimed = await sql<ClaimedJob[]>`
+      select * from public.claim_indexing_v3_agent_jobs(${workerId}::text, ${limit}::integer, 45::integer)
+    `;
 
     if (claimed.length === 0) {
-      return Response.json({ ok: true, claimed: 0, processed: 0, failed: 0 })
+      return Response.json({ ok: true, claimed: 0, processed: 0, failed: 0 });
     }
 
-    let processed = 0
-    let deferred = 0
-    let failed = 0
-    const failures: Array<{ job_id: string; document_id: string; error: string }> = []
-    const deferrals: Array<{ job_id: string; document_id: string; missing: string[] }> = []
+    let processed = 0;
+    let deferred = 0;
+    let failed = 0;
+    const failures: Array<{ job_id: string; document_id: string; error: string }> = [];
+    const deferrals: Array<{ job_id: string; document_id: string; missing: string[] }> = [];
 
-    for (const claimedJob of claimed) {
-      const job = await resolveOpenIngestionJob(claimedJob)
+    for (const job of claimed) {
       try {
-        const result = await processJob(job)
-        if (result.status === 'completed') {
-          processed += 1
+        const result = await processJob(job);
+        if (result.status === "completed") {
+          processed += 1;
         } else {
-          deferred += 1
-          deferrals.push({ job_id: job.id, document_id: job.document_id, missing: result.missing })
+          deferred += 1;
+          deferrals.push({ job_id: job.id, document_id: job.document_id, missing: result.missing });
         }
       } catch (e) {
-        failed += 1
-        const msg = e instanceof Error ? e.message : JSON.stringify(e)
-        failures.push({ job_id: job.id, document_id: job.document_id, error: msg })
-        await markJobFailure(job, msg)
+        failed += 1;
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        failures.push({ job_id: job.id, document_id: job.document_id, error: msg });
+        await markJobFailure(job, msg);
       }
     }
 
@@ -2052,9 +2121,9 @@ Deno.serve(async (req: Request) => {
       failed,
       deferrals,
       failures,
-    })
+    });
   } catch (e) {
-    const message = e instanceof Error ? e.message : JSON.stringify(e)
-    return Response.json({ ok: false, error: message }, { status: 500 })
+    const message = e instanceof Error ? e.message : JSON.stringify(e);
+    return Response.json({ ok: false, error: message }, { status: 500 });
   }
-})
+});
