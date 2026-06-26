@@ -73,12 +73,14 @@ async function safeCount(label: string, countPromise: PromiseLike<CountResult>) 
 async function main() {
   const [
     { env, requireServerEnv },
-    { buildIngestionRecoveryPlan },
+    { buildIngestionRecoveryPlan, isFreshProcessingJob },
+    { hasIncompleteDocumentsWithoutOpenJobs, isReindexQueueClear },
     { createAdminClient },
     { assertSupabaseHealthy, probeSupabaseHealth },
   ] = await Promise.all([
     import("@/lib/env"),
     import("@/lib/ingestion-recovery"),
+    import("@/lib/reindex-pipeline"),
     import("@/lib/supabase/admin"),
     import("@/lib/supabase/health"),
   ]);
@@ -116,8 +118,18 @@ async function main() {
   for (let round = 1; round <= args.maxRounds; round++) {
     console.log(`\n[Step 2] Reindex health snapshot (round ${round}/${args.maxRounds})...`);
 
-    const staleCutoff = new Date(Date.now() - staleAfterMinutes * 60_000).toISOString();
-    const [pendingJobs, processingJobs, failedJobs, staleJobs, queuedDocuments, failedDocuments, indexedDocuments] =
+    const snapshotNow = new Date();
+    const staleCutoff = new Date(snapshotNow.getTime() - staleAfterMinutes * 60_000).toISOString();
+    const [
+      pendingJobs,
+      processingJobs,
+      failedJobs,
+      staleJobs,
+      queuedDocuments,
+      processingDocuments,
+      failedDocuments,
+      indexedDocuments,
+    ] =
       await Promise.all([
         safeCount(
           "jobs_pending",
@@ -144,6 +156,10 @@ async function main() {
           supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued"),
         ),
         safeCount(
+          "documents_processing",
+          supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "processing"),
+        ),
+        safeCount(
           "documents_failed",
           supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed"),
         ),
@@ -159,6 +175,7 @@ async function main() {
       failedJobs,
       staleJobs,
       queuedDocuments,
+      processingDocuments,
       failedDocuments,
       indexedDocuments,
     ];
@@ -166,6 +183,7 @@ async function main() {
 
     console.log(`  Documents indexed   : ${indexedDocuments.count ?? "-"}`);
     console.log(`  Documents queued    : ${queuedDocuments.count ?? "-"}`);
+    console.log(`  Documents processing: ${processingDocuments.count ?? "-"}`);
     console.log(`  Documents failed    : ${failedDocuments.count ?? "-"}`);
     console.log(`  Jobs pending        : ${pendingJobs.count ?? "-"}`);
     console.log(`  Jobs processing     : ${processingJobs.count ?? "-"}`);
@@ -183,12 +201,26 @@ async function main() {
     }
 
     const openJobs = (pendingJobs.count ?? 0) + (processingJobs.count ?? 0) + (failedJobs.count ?? 0);
-    const hasFailedDocuments = (failedDocuments.count ?? 0) > 0;
     const needsRecovery = (staleJobs.count ?? 0) > 0 || (failedJobs.count ?? 0) > 0;
     let skipWorkerRun = false;
+    let hasActiveProcessingJobs = !needsRecovery && (processingJobs.count ?? 0) > 0;
+    const queueSnapshot = {
+      openJobs,
+      queuedDocuments: queuedDocuments.count ?? 0,
+      processingDocuments: processingDocuments.count ?? 0,
+      failedDocuments: failedDocuments.count ?? 0,
+    };
 
-    if (openJobs === 0 && (queuedDocuments.count ?? 0) === 0 && !hasFailedDocuments) {
+    if (isReindexQueueClear(queueSnapshot)) {
       console.log("\nQueue is clear. Reindex pipeline complete.");
+      return;
+    }
+
+    if (hasIncompleteDocumentsWithoutOpenJobs(queueSnapshot)) {
+      console.error(
+        "\nNo open ingestion jobs remain, but some documents are still processing or failed. Run targeted recovery or manual inspection before declaring the corpus reindexed.",
+      );
+      process.exitCode = 1;
       return;
     }
 
@@ -219,10 +251,10 @@ async function main() {
       const staleAfterCutoff = new Date(staleCutoff);
       const jobs = (data ?? [])
         .map((job: RawJobRow) => ({
-        ...job,
-        documents: Array.isArray(job.documents)
-          ? (job.documents[0] as RecoveryDocument | undefined)
-          : (job.documents as RecoveryDocument | undefined),
+          ...job,
+          documents: Array.isArray(job.documents)
+            ? (job.documents[0] as RecoveryDocument | undefined)
+            : (job.documents as RecoveryDocument | undefined),
         }))
         .filter((job) => {
           if (job.status === "failed") {
@@ -236,6 +268,14 @@ async function main() {
           }
           return new Date(job.locked_at) <= staleAfterCutoff;
         });
+      hasActiveProcessingJobs = (data ?? [])
+        .map((job: RawJobRow) => ({
+          ...job,
+          documents: Array.isArray(job.documents)
+            ? (job.documents[0] as RecoveryDocument | undefined)
+            : (job.documents as RecoveryDocument | undefined),
+        }))
+        .some((job) => isFreshProcessingJob(job, snapshotNow, staleAfterMinutes));
       const plan = buildIngestionRecoveryPlan({ jobs, staleAfterMinutes });
       const actions = plan.actions.slice(0, limit);
       const resetDocumentIds = Array.from(
@@ -335,7 +375,7 @@ async function main() {
       continue;
     }
 
-    if ((processingJobs.count ?? 0) > 0) {
+    if (hasActiveProcessingJobs) {
       console.log(
         "\n  Active processing jobs detected; skipping worker run to avoid concurrency spikes.",
       );
