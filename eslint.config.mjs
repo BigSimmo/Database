@@ -18,6 +18,10 @@ const eslintConfig = defineConfig([
     ".tmp-visual/**",
     "sample-documents/**",
     "scratch/**",
+    ".claude/**",
+    "**/.claude/**",
+    ".tmp-visual/**",
+    "**/.tmp-visual/**",
     "next-env.d.ts",
   ]),
 ]);

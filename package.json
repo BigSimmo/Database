@@ -43,6 +43,7 @@
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
+    "reindex": "tsx scripts/reindex.ts",
     "reindex:health": "tsx scripts/reindex-health.ts",
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
