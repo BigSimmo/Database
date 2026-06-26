@@ -137,7 +137,7 @@ async function main() {
             .from("ingestion_jobs")
             .select("id", { count: "exact", head: true })
             .eq("status", "processing")
-            .lt("locked_at", staleCutoff),
+            .or(`locked_at.is.null,locked_at.lt.${staleCutoff}`),
         ),
         safeCount(
           "documents_queued",
@@ -184,6 +184,7 @@ async function main() {
 
     const openJobs = (pendingJobs.count ?? 0) + (processingJobs.count ?? 0) + (failedJobs.count ?? 0);
     const needsRecovery = (staleJobs.count ?? 0) > 0 || (failedJobs.count ?? 0) > 0;
+    let skipWorkerRun = false;
 
     if (openJobs === 0 && (queuedDocuments.count ?? 0) === 0) {
       console.log("\nQueue is clear. Reindex pipeline complete.");
@@ -242,7 +243,8 @@ async function main() {
         }
 
         if (!shouldApply) {
-          console.log("  Recovery skipped. Continuing to worker run.");
+          console.log("  Recovery skipped. Re-checking queue before worker run.");
+          skipWorkerRun = true;
         } else {
           for (const documentId of resetDocumentIds) {
             const { error: resetError } = await supabase.rpc("reset_document_index", {
@@ -313,6 +315,17 @@ async function main() {
     }
 
     // Step 4 – Worker run
+    if (skipWorkerRun) {
+      continue;
+    }
+
+    if ((processingJobs.count ?? 0) > 0 && !needsRecovery) {
+      console.log(
+        "\n  Active processing jobs detected with no recovery candidates; skipping worker run to avoid concurrency spikes.",
+      );
+      continue;
+    }
+
     console.log("\n[Step 4] Running worker:once...");
     try {
       await runWorkerOnce();

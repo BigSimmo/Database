@@ -5,6 +5,10 @@ import { createInterface } from "node:readline";
  * Returns `false` if stdin is not a TTY (e.g. when piped).
  */
 export function confirm(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) {
+    return Promise.resolve(false);
+  }
+
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     rl.question(`${question} (y/N) `, (answer: string) => {
