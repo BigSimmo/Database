@@ -1,0 +1,2 @@
+-- Remote history placeholder.
+-- The equivalent schema changes are tracked locally in 20260616001000_ingestion_job_state_rpcs.sql.

@@ -3,13 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalSourceMetadata, DocumentLabelType } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
-const labelTypes = ["medication", "topic", "document_type"] as const satisfies readonly DocumentLabelType[];
+const labelTypes = ["site", "medication", "topic", "document_type"] as const satisfies readonly DocumentLabelType[];
 
 export const searchScopeFiltersSchema = z
   .object({
     medications: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     topics: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     documentTypes: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    sites: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
     sourceStatuses: z
       .array(z.enum(["current", "review_due", "outdated", "unknown"]))
       .max(4)
@@ -68,6 +69,7 @@ export function activeScopeFilterCount(filters: SearchScopeFilters) {
     filters.medications,
     filters.topics,
     filters.documentTypes,
+    filters.sites,
     filters.sourceStatuses,
     filters.validationStatuses,
     filters.extractionQualities,
@@ -171,7 +173,11 @@ export async function resolveSearchScope(args: {
     };
   }
 
-  const needsLabels = hasValues(filters.medications) || hasValues(filters.topics) || hasValues(filters.documentTypes);
+  const needsLabels =
+    hasValues(filters.medications) ||
+    hasValues(filters.topics) ||
+    hasValues(filters.documentTypes) ||
+    hasValues(filters.sites);
   let labelsByDocument = new Map<string, ScopeLabelRow[]>();
   if (needsLabels) {
     const { data: labelRows, error: labelError } = await args.supabase
@@ -191,7 +197,8 @@ export async function resolveSearchScope(args: {
     return (
       labelMatches(labels, "medication", filters.medications) &&
       labelMatches(labels, "topic", filters.topics) &&
-      labelMatches(labels, "document_type", filters.documentTypes)
+      labelMatches(labels, "document_type", filters.documentTypes) &&
+      labelMatches(labels, "site", filters.sites)
     );
   });
 

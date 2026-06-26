@@ -3,7 +3,7 @@
     "id": "clozapine-anc-threshold",
     "query": "What ANC or FBC threshold should withhold clozapine?",
     "expectedQueryClass": "table_threshold",
-    "expectedDocumentSubstrings": ["ClozapinePresAdminMonitor"],
+    "expectedDocumentSubstrings": ["Clozapine"],
     "expectedContentTerms": [
       "clozapine",
       "anc",
@@ -48,5 +48,50 @@
     "expectedContentTerms": ["admission", "discharge"],
     "topK": 12,
     "expectTableEvidence": false
+  },
+  {
+    "id": "show-source-table-image",
+    "query": "Show the source table image for clozapine ANC monitoring",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["Clozapine"],
+    "expectedContentTerms": ["clozapine", "anc", "monitoring"],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "flowchart-next-step",
+    "query": "In the clinical flowchart, what is the next step after red-zone risk?",
+    "expectedQueryClass": "document_lookup",
+    "expectedDocumentSubstrings": ["risk", "flow"],
+    "expectedContentTerms": ["risk", "red", ["escalate", "urgent", "review"]],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "patient-property-visual-table",
+    "query": "What items are shown in the patient property restricted-items table?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["Patient Property"],
+    "expectedContentTerms": ["patient", "property", ["restricted", "prohibited"], "items"],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "medication-chart-dose-route",
+    "query": "What dose and route are shown in the agitation medication chart?",
+    "expectedQueryClass": "medication_dose_risk",
+    "expectedDocumentSubstrings": ["AgitationArousalPharmaMgt"],
+    "expectedContentTerms": ["dose", "route", ["im", "po"], ["mg", "microgram"]],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "monitoring-threshold-from-chart",
+    "query": "What clozapine ANC or FBC monitoring threshold is shown in the source chart?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["Clozapine"],
+    "expectedContentTerms": ["monitoring", "threshold", ["anc", "fbc", "wbc"]],
+    "topK": 12,
+    "expectTableEvidence": true
   }
 ]

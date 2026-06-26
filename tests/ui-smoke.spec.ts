@@ -1,5 +1,5 @@
 import type { Route } from "playwright-core";
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 
 const dashboardViewports = [
@@ -23,6 +23,38 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+}
+
+function visibleQuestionInput(page: Page) {
+  return page.locator('[aria-label="Search indexed guidelines by question or keyword"]:visible').first();
+}
+
+async function fillVisibleQuestionInput(page: Page, value: string) {
+  const questionInput = visibleQuestionInput(page);
+  const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+
+  await expect(async () => {
+    await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
+      timeout: 1_000,
+    });
+    await expect(questionInput).toBeEditable({ timeout: 1_000 });
+    await questionInput.fill(value);
+    await expect(questionInput).toHaveValue(value, { timeout: 1_000 });
+    await expect(submitAnswer).toBeEnabled({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+
+  return questionInput;
+}
+
+async function switchToDocumentSearchMode(page: Page) {
+  const documentsMode = page.getByRole("button", { name: "Switch to document search mode" });
+  await expect(documentsMode).toBeVisible();
+  await expect(documentsMode).toBeEnabled();
+
+  await expect(async () => {
+    await documentsMode.click();
+    await expect(documentsMode).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+  }).toPass({ timeout: 8_000 });
 }
 
 const readySetupChecks = [
@@ -354,44 +386,51 @@ function scopeTrigger(page: Page) {
   return page.locator('[data-testid="scope-trigger"]:visible');
 }
 
+async function expectMinTouchTarget(locator: Locator, minSize = 44) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.height).toBeGreaterThanOrEqual(minSize);
+  expect(box!.width).toBeGreaterThanOrEqual(minSize);
+}
+
+async function openMobileClinicalGuideMenu(page: Page) {
+  const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+
+  const menu = page.getByRole("dialog", { name: "Clinical Guide" });
+  await expect(menu).toBeVisible();
+  const menuBox = await menu.boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+  await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
+  await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
+  await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Top tools", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Guide & help" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Settings" })).toBeVisible();
+  await expect(menu.getByText("Dr A. Khan")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+  await expectNoPageHorizontalOverflow(page);
+  return menu;
+}
+
 async function waitForDemoDashboardReady(page: Page) {
-  await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeEnabled();
+  await expect(visibleQuestionInput(page)).toBeEnabled();
   await expect(scopeTrigger(page)).toBeVisible({ timeout: 30000 });
 }
 
-async function scrollDashboardToBottom(page: Page) {
-  await page
-    .locator("main")
-    .first()
-    .evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-    });
-}
-
-async function expectMobileNavTarget(page: Page, label: string, hash: string, sectionText: string) {
-  const fabButton = page.getByTestId("mobile-section-fab-button");
-  const fabMenu = page.getByTestId("mobile-section-fab-menu");
-  await fabButton.click();
-  await expect(fabMenu).toBeVisible();
-  await fabMenu.getByRole("link", { name: new RegExp(`^${label}`) }).click();
-  await expect(fabMenu).toBeHidden();
-  await expect(fabButton).toBeFocused();
-  await fabButton.click();
-  await expect(fabMenu.locator(`a[href="${hash}"]`)).toHaveAttribute("aria-current", "page");
-  await page.keyboard.press("Escape");
-  await expect(fabMenu).toBeHidden();
-  await expect(fabButton).toBeFocused();
-  await expect(page.locator(hash)).toBeVisible();
-  await expect(page.locator(hash)).toContainText(sectionText);
-  await expectNoPageHorizontalOverflow(page);
-}
-
 async function openGuide(page: Page) {
-  await scrollDashboardToBottom(page);
-  const trigger = page.getByTestId("dashboard-guide-trigger");
-  await trigger.scrollIntoViewIfNeeded();
-  await expect(trigger).toBeVisible();
-  await trigger.click();
+  const viewport = page.viewportSize();
+  const trigger =
+    viewport && viewport.width >= 1024 ? page.getByRole("button", { name: "Guide & help" }).first() : null;
+  if (trigger) {
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+  } else {
+    const menu = await openMobileClinicalGuideMenu(page);
+    await menu.getByRole("button", { name: "Guide & help" }).click();
+  }
 
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   await expect(dialog).toBeVisible();
@@ -403,6 +442,20 @@ async function openGuide(page: Page) {
   return dialog;
 }
 
+async function openUploadDrawer(page: Page) {
+  const uploadButton = page.getByRole("button", { name: /Upload document/i });
+  const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
+  await expect(uploadButton).toBeVisible();
+
+  await expect(async () => {
+    if (await uploadDrawer.isVisible().catch(() => false)) return;
+    await uploadButton.click();
+    await expect(uploadDrawer).toBeVisible({ timeout: 1_500 });
+  }).toPass({ timeout: 8_000 });
+
+  return uploadDrawer;
+}
+
 test.describe("Clinical KB UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
 
@@ -412,7 +465,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mockPrivateUnauthenticatedApi(page);
       await gotoApp(page, "/");
 
-      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
       await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
@@ -422,10 +475,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: /Use sample question/i }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Ask a question" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
       if (viewport.width <= 768) {
         await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
+      }
+      if (viewport.width < 640) {
+        const dailyActionsTrigger = page.getByRole("button", { name: "Open daily actions" });
+        await dailyActionsTrigger.click();
+        const dailyActions = page.getByRole("dialog", { name: "Daily actions" });
+        await expect(dailyActions).toBeVisible();
+        await expect(dailyActions.getByTestId("daily-actions-sheet")).toBeVisible();
+        const addDocument = dailyActions.getByRole("button", { name: "Add document" });
+        await expect(addDocument).toBeVisible();
+        await expect(dailyActions.getByRole("button", { name: "Clinical tools" })).toBeVisible();
+        await expectMinTouchTarget(addDocument);
+        await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+        await page.keyboard.press("Escape");
+        await expect(dailyActions).toHaveCount(0);
+        await expect(dailyActionsTrigger).toBeFocused();
       }
       await expectNoPageHorizontalOverflow(page);
     });
@@ -486,30 +556,54 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    await expect(page.getByRole("button", { name: /Use sample question/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
+    const questionBubble = page.getByTestId("user-question-bubble");
+    await expect(questionBubble).toBeVisible();
+    await expect(questionBubble).toContainText(question);
+
     const plainAnswer = page.getByTestId("plain-answer-response");
     await expect(plainAnswer).toBeVisible();
     await expect(plainAnswer).toContainText("synthetic clozapine table image highlights");
     await expect(plainAnswer.getByTestId("plain-answer-prose")).toBeVisible();
+    await expect(page.getByText("Demo", { exact: true })).toHaveCount(0);
     await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
-    await expect(plainAnswer.locator("svg")).toHaveCount(0);
-    await expect(page.getByTestId("clinical-action-view")).toBeVisible();
-    await expect(
-      page
-        .getByTestId("clinical-action-view")
-        .getByRole("heading", { name: "High-yield clinical details", exact: true }),
-    ).toBeVisible();
-    const clinicalDetails = page.getByTestId("clinical-action-view");
-    await expect(clinicalDetails.getByTestId("clinical-detail-summary")).toBeVisible();
-    await expect(clinicalDetails.getByTestId("clinical-detail-card").first()).toBeVisible();
-    const clinicalTable = clinicalDetails.getByTestId("clinical-detail-table").first();
+    await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
+    const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
+    await expectMinTouchTarget(sourceCapsule);
+    await sourceCapsule.click();
+    const sourceSheet = page.getByRole("dialog", { name: "Sources behind this answer" });
+    await expect(sourceSheet).toBeVisible();
+    const sourcePreview = page.getByTestId("source-capsule-preview");
+    await expect(sourcePreview).toBeVisible();
+    await expect(sourcePreview).toContainText("Sources behind this answer");
+    await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
+    await expect(sourcePreview.getByRole("link", { name: /Open PDF drawer/i })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    await expect(sourceSheet).toHaveCount(0);
+    await expect(sourceCapsule).toBeFocused();
+
+    const keyItems = page.getByLabel("Key monitoring items");
+    await expect(keyItems).toBeVisible();
+    await expect(keyItems).toContainText("FBC/ANC");
+    await expect(keyItems).toContainText("Myocarditis");
+    await expect(keyItems).toContainText("Metabolic");
+
+    const clinicalTable = page.getByLabel("Inline table preview").first();
     await expect(clinicalTable).toBeVisible();
-    await expect(clinicalDetails.getByRole("table").first()).toBeVisible();
-    await expect(clinicalDetails.getByRole("heading", { name: "Thresholds" })).toBeVisible();
-    await expect(clinicalDetails).toContainText("FBC/ANC");
+    await expect(clinicalTable.getByRole("table")).toBeVisible();
+    await expect(clinicalTable).toContainText("FBC/ANC");
     await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+    const openTableSource = clinicalTable.getByRole("link", { name: "Open table source" });
+    const copyTablePreview = clinicalTable.getByRole("button", { name: "Copy table preview" });
+    await expect(openTableSource).toBeVisible();
+    await expect(copyTablePreview).toBeVisible();
+    await expectMinTouchTarget(openTableSource);
+    await expectMinTouchTarget(copyTablePreview);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(tableExpandButton).toBeVisible();
+    await expectMinTouchTarget(tableExpandButton);
     await tableExpandButton.click();
     const tableDialog = page.getByTestId("table-fullscreen-dialog");
     await expect(tableDialog).toBeVisible();
@@ -525,94 +619,71 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
     await expect(tableDialog).toBeHidden();
     await expect(tableExpandButton).toBeFocused();
-    const rawNarrative = page.getByTestId("raw-answer-narrative");
-    await expect(rawNarrative).toBeVisible();
-    expect(await rawNarrative.evaluate((element) => element.hasAttribute("open"))).toBe(false);
+    await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
+    await expect(page.getByTestId("raw-answer-narrative")).toHaveCount(0);
+    await expect(page.getByText("Source narrative")).toHaveCount(0);
+    await expect(page.getByText("Quality feedback")).toHaveCount(0);
+    await expect(page.getByTestId("smart-follow-up-chips")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Compare sources" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Limit to local/current sources" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Search this document only" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Show exact quotes" })).toHaveCount(0);
     await expect(page.getByTestId("answer-top-source-chip")).toHaveCount(0);
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
     await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Copy clinical draft" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
-    await expect(page.getByTestId("clinical-action-view").getByText(/Synthetic demo only/i)).toHaveCount(0);
-    await expect(
-      page
-        .getByTestId("clinical-action-view")
-        .getByText("Draft only; verify source first before pasting into the medical record."),
-    ).toHaveCount(0);
     await expect(page.getByTestId("answer-safety-notice")).toHaveCount(0);
-    const fabButton = page.getByTestId("mobile-section-fab-button");
-    const fabMenu = page.getByTestId("mobile-section-fab-menu");
-    await expect(fabButton).toBeVisible();
-    await fabButton.click();
-    await expect(fabMenu).toContainText("Answer navigator");
-    await expect(page.getByTestId("mobile-section-fab-status")).toHaveText("Ready to verify");
-    await expect(page.getByTestId("mobile-section-fab-next-step")).toHaveText("Next: review exact quotes");
-    await expect(fabMenu.getByRole("link", { name: /Quotes, \d+ items?/ })).toBeVisible();
-    await expect(fabMenu.getByRole("link", { name: /Images, \d+ items?/ })).toBeVisible();
-    await expect(fabMenu.getByRole("link", { name: /Sources, \d+ items?/ })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(fabMenu).toBeHidden();
-    await expect(fabButton).toBeFocused();
-    await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: true });
+    await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
+    await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
+    await expectDomIntegrity(page, { mobileNav: true });
 
-    const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
+    const clinicalNotesDrawer = page.locator("details").filter({ hasText: "Clinical notes 1" }).first();
+    const clinicalNotesSummary = clinicalNotesDrawer.locator("summary");
+    await expect(clinicalNotesSummary.getByText("Safety notes", { exact: true })).toBeVisible();
+    await expect(clinicalNotesSummary.getByText(/Monitoring, safety, escalation/)).toBeHidden();
+
+    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
     await expect(evidenceDrawer).toBeVisible();
-    await expect(evidenceDrawer).toContainText(/top source/i);
-    await expect(evidenceDrawer).toContainText(/citations?/i);
-    await expect(page.getByText("Clinical evidence")).toBeVisible();
-    await expect(page.getByText("Library and admin")).toBeVisible();
-    expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
+    await expect(evidenceDrawer).toContainText("Evidence");
+    await expect(evidenceDrawer).toContainText(/sources?/i);
+    await expect(evidenceDrawer).toContainText(/quotes?/i);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     const hierarchy = await page.evaluate(() => {
+      const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
-      const structured = document.querySelector('[data-testid="clinical-action-view"]');
-      const evidence = Array.from(document.querySelectorAll("details")).find((element) =>
-        element.textContent?.includes("Evidence & sources"),
-      );
+      const keyItems = document.querySelector('[aria-label="Key monitoring items"]');
+      const table = document.querySelector('[aria-label="Inline table preview"]');
+      const evidence = document.querySelector("#answer-evidence-drawer-mobile-trigger");
       return {
+        questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
-        structuredTop: structured?.getBoundingClientRect().top ?? 9999,
+        keyItemsTop: keyItems?.getBoundingClientRect().top ?? 9999,
+        tableTop: table?.getBoundingClientRect().top ?? 9999,
         evidenceTop: evidence?.getBoundingClientRect().top ?? 9999,
       };
     });
-    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.structuredTop);
-    expect(hierarchy.structuredTop).toBeLessThan(hierarchy.evidenceTop);
+    expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
+    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.keyItemsTop);
+    expect(hierarchy.keyItemsTop).toBeLessThan(hierarchy.tableTop);
+    expect(hierarchy.tableTop).toBeLessThan(hierarchy.evidenceTop);
 
-    await evidenceDrawer.locator("summary").click();
-    const evidenceSupport = page.getByTestId("evidence-support-panel");
-    await expect(evidenceSupport).toBeVisible();
-    await expect(evidenceSupport.getByText("Evidence review")).toBeVisible();
-    await expect(evidenceSupport.getByText("Source status", { exact: true })).toBeVisible();
-    await expect(evidenceSupport.getByTestId("evidence-counts")).toBeVisible();
-    await expect(evidenceSupport.getByRole("link", { name: /Open top source/i })).toBeVisible();
-    const safetyNotice = page.getByTestId("answer-safety-notice");
-    await expect(safetyNotice).toBeVisible();
-    await expect(safetyNotice).toContainText("Draft only; verify source first before pasting into the medical record.");
-    await expect(safetyNotice).toContainText("Synthetic demo only: this is not clinical guidance.");
+    await evidenceDrawer.click();
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-tables")).toHaveAttribute("aria-selected", "true");
+    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
+    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
+    await evidenceSheet.getByTestId("mobile-evidence-tab-sources").click();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-sources")).toBeVisible();
+    await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
 
-    const headingMetrics = await page.getByTestId("answer-section-heading").evaluate((element) => {
-      const icon = element.querySelector("[data-section-heading-icon]");
-      const title = element.querySelector("h2");
-      const actions = element.querySelector('[data-testid="answer-header-actions"]');
-      const iconRect = icon?.getBoundingClientRect();
-      const titleRect = title?.getBoundingClientRect();
-      const actionsRect = actions?.getBoundingClientRect();
-      return {
-        iconTitleCenterDelta:
-          iconRect && titleRect
-            ? Math.abs(iconRect.top + iconRect.height / 2 - (titleRect.top + titleRect.height / 2))
-            : 999,
-        hasActions: Boolean(actionsRect),
-      };
-    });
-    expect(headingMetrics.iconTitleCenterDelta).toBeLessThanOrEqual(3);
-    expect(headingMetrics.hasActions).toBe(false);
+    await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
+    await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
 
-    await expectMobileNavTarget(page, "Quotes", "#quotes", "Source quotes");
-    await expectMobileNavTarget(page, "Images", "#images", "Tables and diagrams");
-    await expectMobileNavTarget(page, "Sources", "#sources", "Source passages");
     await expect(page.getByText("Top source detail")).toHaveCount(0);
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
 
@@ -623,8 +694,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(scopeFilter).toBeVisible();
     await expect(scopeFilter).toBeFocused();
     await scopeFilter.fill("lithium");
-    await expect(scopePopover.getByText("1 match")).toBeVisible();
-    await expect(scopePopover.getByRole("button", { name: /Lithium monitoring protocol/i })).toBeVisible();
+    await expect(scopePopover).toContainText(/match(?:es)?|No documents match/);
+    await expect(scopePopover.getByRole("button", { name: "All documents" })).toBeVisible();
     const popoverMetrics = await scopePopover.evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
@@ -654,20 +725,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
 
-      await page
-        .getByLabel("Search indexed guidelines by question or keyword")
-        .fill("What clozapine monitoring items are shown in the table image?");
+      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
       const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
-      await expect(submitAnswer).toBeEnabled();
       await submitAnswer.click();
 
-      const clinicalTable = page.getByTestId("clinical-action-view").getByTestId("clinical-detail-table").first();
+      const clinicalTable = page.getByLabel("Inline table preview").first();
       await expect(clinicalTable).toBeVisible();
       await expect(clinicalTable).toContainText("FBC/ANC");
       await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
 
       const expandButton = clinicalTable.getByTestId("table-expand-button");
       if (!viewport.expands) {
+        await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
+          "data-desktop-table-aside",
+          "true",
+        );
+        const desktopLayout = await page.evaluate(() => {
+          const answer = document.querySelector('[data-testid="plain-answer-response"]');
+          const keyItems = document.querySelector('[aria-label="Key monitoring items"]');
+          const table = document.querySelector('[aria-label="Inline table preview"]');
+          const answerRect = answer?.getBoundingClientRect();
+          const keyRect = keyItems?.getBoundingClientRect();
+          const tableRect = table?.getBoundingClientRect();
+          return {
+            answerRight: answerRect?.right ?? 0,
+            answerTop: answerRect?.top ?? 9999,
+            keyRight: keyRect?.right ?? 0,
+            tableLeft: tableRect?.left ?? 0,
+            tableTop: tableRect?.top ?? 9999,
+          };
+        });
+        expect(desktopLayout.tableLeft).toBeGreaterThan(Math.max(desktopLayout.answerRight, desktopLayout.keyRight));
+        expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
         await expect(expandButton).toHaveCount(0);
         await expectNoPageHorizontalOverflow(page);
         return;
@@ -700,17 +789,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await page.getByRole("button", { name: "Switch to document search mode" }).click();
-    await expect(page.getByRole("heading", { name: "Document matches" })).toBeVisible();
+    await switchToDocumentSearchMode(page);
+    await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByRole("main").getByText("Search documents")).toBeVisible();
+    await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
+    await expect(page.getByLabel("Search your clinical documents")).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(visibleQuestionInput(page)).toBeVisible();
+    await expect(page.getByTestId("document-home-overview")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Start here" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Explore document evidence" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Suggested searches" })).toBeVisible();
+    await expect(page.getByText("Source library workspace")).toHaveCount(0);
+    await expect(page.getByText("Document display")).toHaveCount(0);
 
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
     await questionInput.fill("lithium monitoring");
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
     await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
-    await expect(page.getByText("1 tables")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "1 result" })).toBeVisible();
+    await expect(page.getByText("1 table").first()).toBeVisible();
+    await expect(page.getByText("Tag facets")).toHaveCount(0);
+    await expect(page.getByText("No direct support")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
     await page
       .getByRole("button", { name: /Answer from/i })
@@ -726,7 +827,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await page.getByRole("button", { name: "Switch to document search mode" }).click();
+    await switchToDocumentSearchMode(page);
     const questionInput = page.getByLabel("Search indexed guidelines by question or keyword");
 
     await questionInput.fill("what is the best coffee machine for my kitchen");
@@ -945,12 +1046,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
 
-    await scrollDashboardToBottom(page);
-    const uploadTrigger = page.locator("#dashboard-upload-drawer-mobile-trigger");
-    await uploadTrigger.scrollIntoViewIfNeeded();
-    await uploadTrigger.click();
-    const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
-    await expect(uploadDrawer).toBeVisible();
+    const uploadDrawer = await openUploadDrawer(page);
 
     await uploadDrawer.getByRole("tab", { name: /Setup/ }).click();
     await expect(uploadDrawer.getByText("First-run setup checklist")).toBeVisible();
@@ -971,12 +1067,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    await scrollDashboardToBottom(page);
-    const uploadTrigger = page.locator("#dashboard-upload-drawer-mobile-trigger");
-    await uploadTrigger.scrollIntoViewIfNeeded();
-    await uploadTrigger.click();
-    const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
-    await expect(uploadDrawer).toBeVisible();
+    const uploadDrawer = await openUploadDrawer(page);
 
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
     await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();

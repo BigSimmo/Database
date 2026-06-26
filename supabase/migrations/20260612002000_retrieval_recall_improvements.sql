@@ -17,6 +17,8 @@ alter table public.document_embedding_fields
     )
   );
 
+drop function if exists public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid);
+
 create or replace function public.match_document_chunks_hybrid(
   query_embedding extensions.vector(1536),
   query_text text,

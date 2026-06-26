@@ -6,12 +6,32 @@ const documentIndexUnitsMigration = readFileSync(
   new URL("../supabase/migrations/20260612006000_document_index_units.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const bulkIngestionMigration = readFileSync(
+  new URL("../supabase/migrations/20260527000000_bulk_ingestion.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const lexicalScoreMigration = readFileSync(
   new URL("../supabase/migrations/20260617000000_text_search_lexical_score.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const perDocTokenSearchMigration = readFileSync(
   new URL("../supabase/migrations/20260617001000_per_document_token_search.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const strictGateRepairMigration = readFileSync(
+  new URL("../supabase/migrations/20260625033425_strict_enrichment_gate_repair.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const atomicStrictCompletionMigration = readFileSync(
+  new URL("../supabase/migrations/20260625033944_atomic_strict_enrichment_completion.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const dropDuplicateStageIndexMigration = readFileSync(
+  new URL("../supabase/migrations/20260626000000_drop_duplicate_ingestion_job_stage_index.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const phase7RetrievalPerformanceMigration = readFileSync(
+  new URL("../supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -59,6 +79,21 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).not.toMatch(/grant [^;]* on table [^;]* to anon;/);
   });
 
+  it("enables RLS where baseline owner policies are created", () => {
+    for (const tableName of [
+      "import_batches",
+      "documents",
+      "document_pages",
+      "document_images",
+      "document_chunks",
+      "ingestion_jobs",
+      "rag_queries",
+    ]) {
+      expect(bulkIngestionMigration).toContain(`alter table public.${tableName} enable row level security`);
+      expect(schema).toContain(`alter table public.${tableName} enable row level security`);
+    }
+  });
+
   it("supports bulk import queue claiming and reindex resets", () => {
     expect(schema).toContain("create table if not exists public.import_batches");
     expect(schema).toContain("content_hash text");
@@ -80,6 +115,77 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("perform public.refresh_import_batch_status(p_batch_id);");
     expect(schema).toContain("delete from public.document_memory_cards where document_id = p_document_id;");
     expect(schema).toContain("delete from public.document_sections where document_id = p_document_id;");
+  });
+
+  it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
+    expect(schema).toContain("create table if not exists public.ingestion_job_stages");
+    expect(schema).toContain("drop constraint if exists ingestion_job_stages_job_id_fkey");
+    expect(schema).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
+    expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
+    expect(schema).toContain("create or replace function public.claim_indexing_v3_agent_jobs");
+    expect(schema).toContain("where d.status = 'indexed'");
+    expect(schema).toContain("state.enrichment_status in ('pending', 'failed', 'processing')");
+    expect(schema).toContain("'indexing_v3_agent_locked_by', p_worker_id");
+    expect(schema).toContain("'indexing_v3_agent_attempt_count', e.attempt_count + 1");
+    expect(schema).toContain("grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role");
+    expect(schema).toContain("alter table public.ingestion_job_stages enable row level security");
+    expect(schema).toContain('create policy "ingestion job stages service role all" on public.ingestion_job_stages');
+    const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
+    expect(authenticatedSelectGrant).not.toContain("public.ingestion_job_stages");
+  });
+
+  it("drops the stale duplicate ingestion_job_stages document index", () => {
+    for (const sql of [schema, dropDuplicateStageIndexMigration]) {
+      expect(sql).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
+    }
+    expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
+    expect(schema).not.toContain("create index if not exists ingestion_job_stages_doc_idx");
+  });
+
+  it("centralizes the indexing-v3 strict completion gate and repair RPC", () => {
+    for (const sql of [schema, strictGateRepairMigration]) {
+      expect(sql).toContain("create or replace view public.document_strict_gate_status");
+      expect(sql).toContain("with (security_invoker = true)");
+      expect(sql).toContain("create or replace function public.repair_strict_enrichment_gate_batch");
+      expect(sql).toContain("security invoker");
+      expect(sql).toContain("case when sections > 0 then null else 'sections' end");
+      expect(sql).toContain("case when memory_cards > 0 then null else 'memory_cards' end");
+      expect(sql).toContain("case when generated_labels > 0 then null else 'generated_labels' end");
+      expect(sql).toContain("case when index_units > 0 then null else 'index_units' end");
+      expect(sql).toContain("case when title_embedding then null else 'title_embedding' end");
+      expect(sql).toContain("case when summary_embedding then null else 'summary_embedding' end");
+      expect(sql).toContain("or l.metadata->>'generated_by' = 'indexing-v3-agent'");
+      expect(sql).toContain("lower(coalesce(l.metadata->>'generation_source', '')) = 'indexing_v3_agent_parsed_artifacts'");
+      expect(sql).toContain("'indexing_v3_agent_status', 'completed'");
+      expect(sql).toContain("'indexing_v3_agent_status', 'deferred'");
+      expect(sql).toContain("stage = 'strict_gate_deferred'");
+      expect(sql).toContain("'strict_gate_repair'");
+      expect(sql).toContain("extraction_quality = 'good'");
+      expect(sql).toContain("revoke all on table public.document_strict_gate_status from public, anon, authenticated");
+      expect(sql).toContain("grant select on table public.document_strict_gate_status to service_role");
+      expect(sql).toContain("revoke execute on function public.repair_strict_enrichment_gate_batch(integer) from public, anon, authenticated");
+      expect(sql).toContain("grant execute on function public.repair_strict_enrichment_gate_batch(integer) to service_role");
+    }
+  });
+
+  it("atomically completes strict enrichment only after the canonical gate passes", () => {
+    for (const sql of [schema, atomicStrictCompletionMigration]) {
+      expect(sql).toContain("create or replace function public.complete_strict_enrichment_job");
+      expect(sql).toContain("security invoker");
+      expect(sql).toContain("from public.document_strict_gate_status g");
+      expect(sql).toContain("if not found then");
+      expect(sql).toContain("if not gate_row.gate_passed then");
+      expect(sql).toContain("'blocked_missing_artifacts'");
+      expect(sql).toContain("'indexing_v3_agent_status', 'completed'");
+      expect(sql).toContain("'enrichment_status', 'completed'");
+      expect(sql).toContain("'source', 'complete_strict_enrichment_job'");
+      expect(sql).toContain("extraction_quality = 'good'");
+      expect(sql).toContain("on conflict on constraint document_index_quality_pkey");
+      expect(sql).toContain("'{}'::uuid[]");
+      expect(sql).not.toContain("perform public.refresh_import_batch_status(batch_ref)");
+      expect(sql).toContain("revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated");
+      expect(sql).toContain("grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role");
+    }
   });
 
   it("supports service-role-only durable API rate limiting", () => {
@@ -202,6 +308,30 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain(
       "create index if not exists document_table_facts_source_image_idx on public.document_table_facts(source_image_id) where source_image_id is not null",
     );
+    expect(schema).toContain("create index if not exists documents_indexed_owner_title_idx");
+    expect(schema).toContain("create index if not exists document_table_facts_owner_document_page_idx");
+    expect(schema).toContain("create index if not exists document_embedding_fields_owner_chunk_idx");
+    expect(schema).toContain("create index if not exists document_index_units_owner_chunk_type_idx");
+  });
+
+  it("keeps phase 7 retrieval RPCs bounded, profileable, and service-role scoped", () => {
+    for (const sql of [schema, phase7RetrievalPerformanceMigration]) {
+      expect(sql).toContain("create or replace function public.match_document_lookup_chunks_text");
+      expect(sql).toContain("c.document_id = any(document_filters)");
+      expect(sql).toContain("c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq");
+      expect(sql).toContain("limit least(greatest(match_count, 1), 80)");
+      expect(sql).toContain("limit least(greatest(match_count * 2, 24), 96)");
+      expect(sql).toContain("limit least(greatest(match_count * 2, 48), 128)");
+      expect(sql).toContain("limit least(greatest(match_count * 2, 32), 96)");
+      expect(sql).toContain("and (owner_filter is null or f.owner_id = owner_filter)");
+      expect(sql).toContain("and (owner_filter is null or u.owner_id = owner_filter)");
+      expect(sql).toContain("create or replace function public.explain_retrieval_rpc");
+      expect(sql).toContain("explain (%s) select * from public.match_document_chunks_text($1, $2, $3, $4)");
+      expect(sql).toContain("revoke execute on function public.explain_retrieval_rpc");
+      expect(sql).toContain("grant execute on function public.explain_retrieval_rpc");
+    }
+    expect(schema).toContain("match_document_lookup_chunks_text.signature");
+    expect(schema).toContain("explain_retrieval_rpc.signature");
   });
 
   it("allows richer clinical embedding field types", () => {

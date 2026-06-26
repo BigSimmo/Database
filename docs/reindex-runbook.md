@@ -13,6 +13,17 @@ Use this sequence when applying RAG indexing changes to the live `Clinical KB Da
 7. Repeat `npm run reindex:health` and `npm run worker:once` until the queue is clear.
 8. Run indexing and RAG evals only after documents have adaptive chunks and retrieval synopses.
 
+## In-app mutation safety
+
+Document and bulk full reindex requests run a server-side safety preflight before resetting indexes or queueing jobs.
+If the response includes `safety.safeToRun: false`, do not retry repeatedly. Use `safety.reason`:
+
+- `supabase_unavailable`: pause reindexing and rerun `npm run supabase:recovery-status`.
+- `active_jobs`: wait for pending or processing jobs to finish before retrying.
+- `stale_processing_jobs`: run `npm run recover:ingestion -- --apply --limit 20`, then rerun `npm run reindex:health`.
+
+The preflight response also includes active job counts and job metadata for operator review.
+
 ## Do not do this
 
 - Do not run workers while Supabase SQL probes are timing out.

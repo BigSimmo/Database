@@ -110,6 +110,13 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
     expect(Number(tableCrop?.metadata?.table_confidence)).toBeGreaterThan(0.5);
     expect(tableCrop?.metadata?.accessible_table_markdown).toContain("Score");
     expect(tableCrop?.metadata?.table_columns).toEqual(["Score", "Patient's state", "Management"]);
+    expect(tableCrop?.metadata?.clip_bbox).toEqual(expect.any(Array));
+    expect(tableCrop?.metadata?.render_dpi).toEqual(expect.any(Number));
+    expect(tableCrop?.metadata?.page_width).toEqual(expect.any(Number));
+    expect(tableCrop?.metadata?.page_rotation).toEqual(expect.any(Number));
+    expect(tableCrop?.metadata?.source_regions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ source_kind: "table_crop", page_number: 1 })]),
+    );
     expect(tableCrop?.metadata?.table_rows).toEqual(
       expect.arrayContaining([expect.arrayContaining(["5", "Highly aroused and violent"])]),
     );

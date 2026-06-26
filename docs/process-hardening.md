@@ -33,6 +33,8 @@ This document turns the current process review into phased, durable repo practic
 
 ## Phase 4 - Release maturity
 
+- `npm run check:runtime` is the strict release runtime gate and is now part of `npm run verify:release`; it fails outside Node 22.x.
+- CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift to Node 24+.
 - Decide whether CI should run all Playwright browser projects on protected branches, release branches, or a scheduled workflow instead of every push.
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.

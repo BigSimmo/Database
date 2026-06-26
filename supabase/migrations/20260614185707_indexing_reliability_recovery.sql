@@ -1,0 +1,2 @@
+-- Remote history placeholder.
+-- The equivalent schema changes are tracked locally in 20260615001000_indexing_reliability_recovery.sql.

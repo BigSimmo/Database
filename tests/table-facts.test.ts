@@ -67,4 +67,38 @@ describe("table fact generation", () => {
 
     expect(facts).toHaveLength(1);
   });
+
+  it("uses structured visual column roles before regex column names", () => {
+    const facts = buildTableFactRows({
+      job: {
+        document_id: "doc-1",
+        documents: { owner_id: null },
+      },
+      chunkRows: [{ id: "chunk-1", page_number: 1, image_ids: [], content: "Ambiguous medication chart" }],
+      insertedImages: [
+        {
+          id: "image-1",
+          pageNumber: 1,
+          tableTitle: "Agitation medication chart",
+          tableRows: [["Lorazepam", "1 mg", "IM", "review observations"]],
+          tableColumns: ["A", "B", "C", "D"],
+          structuredVisualProfile: {
+            table_column_roles: {
+              A: "medication",
+              B: "dose",
+              C: "route",
+              D: "action",
+            },
+          },
+        },
+      ],
+    });
+
+    expect(facts[0]).toMatchObject({
+      row_label: "Lorazepam",
+      threshold_value: "1 mg",
+      action: "review observations",
+    });
+    expect(facts[0].metadata.table_column_roles).toMatchObject({ B: "dose", D: "action" });
+  });
 });

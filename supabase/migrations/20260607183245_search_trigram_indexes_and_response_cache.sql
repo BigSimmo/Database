@@ -1,0 +1,2 @@
+-- Remote history placeholder.
+-- The equivalent schema changes are tracked locally in later consolidated migrations.

@@ -10,6 +10,17 @@ export type IndexQualityChunk = {
 export type IndexQualityImage = {
   sourceKind?: string | null;
   tableRows?: unknown[] | null;
+  imageQualityScore?: number | null;
+  cropCompleteness?: number | null;
+  ocrTextDensity?: number | null;
+  structuredVisualProfile?: {
+    confidence?: number | null;
+    thresholds?: unknown[] | null;
+    flowchart_nodes?: unknown[] | null;
+    risk_matrix_cells?: unknown[] | null;
+    chart_findings?: unknown[] | null;
+  } | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type IndexQualityMetrics = {
@@ -22,6 +33,10 @@ export type IndexQualityMetrics = {
 
 export function hashIndexQualityText(text: string) {
   return createHash("sha256").update(text.replace(/\s+/g, " ").trim()).digest("hex");
+}
+
+function average(values: number[]) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
 export function assessDocumentIndexQuality(args: {
@@ -37,6 +52,36 @@ export function assessDocumentIndexQuality(args: {
   const sectionPathCount = args.chunks.filter((chunk) => chunk.section_path?.length).length;
   const tableImages = args.insertedImages.filter((image) => image.sourceKind === "table_crop");
   const tableImagesWithRows = tableImages.filter((image) => image.tableRows?.length);
+  const searchableVisuals = args.insertedImages.length;
+  const visualQualityScores = args.insertedImages
+    .map((image) => Number(image.imageQualityScore ?? image.metadata?.image_quality_score))
+    .filter((score) => Number.isFinite(score));
+  const cropCompletenessScores = args.insertedImages
+    .map((image) => Number(image.cropCompleteness ?? image.metadata?.crop_completeness))
+    .filter((score) => Number.isFinite(score));
+  const structuredConfidenceScores = args.insertedImages
+    .map((image) =>
+      Number(
+        image.structuredVisualProfile?.confidence ??
+          image.metadata?.structured_extraction_confidence ??
+          (image.metadata?.structured_visual_profile as { confidence?: unknown } | undefined)?.confidence,
+      ),
+    )
+    .filter((score) => Number.isFinite(score));
+  const visualUnitCoverage = searchableVisuals
+    ? args.insertedImages.filter((image) => {
+        const profile = image.structuredVisualProfile ?? (image.metadata?.structured_visual_profile as typeof image.structuredVisualProfile);
+        return Boolean(
+          profile &&
+            ((profile.thresholds?.length ?? 0) +
+              (profile.flowchart_nodes?.length ?? 0) +
+              (profile.risk_matrix_cells?.length ?? 0) +
+              (profile.chart_findings?.length ?? 0) >
+              0 ||
+              image.tableRows?.length),
+        );
+      }).length / searchableVisuals
+    : null;
   const fingerprints = args.chunks.map((chunk) => hashIndexQualityText(chunk.content));
   const duplicateChunkRatio = chunkCount ? 1 - new Set(fingerprints).size / Math.max(fingerprints.length, 1) : 0;
   const avgChunkLength = chunkCount
@@ -68,6 +113,12 @@ export function assessDocumentIndexQuality(args: {
   if (args.metrics.extracted_image_count >= 3 && searchableImageCoverage !== null && searchableImageCoverage < 0.5) {
     issues.push("low searchable image coverage");
   }
+  if (searchableVisuals >= 2 && visualUnitCoverage !== null && visualUnitCoverage < 0.45) {
+    issues.push("low visual unit coverage");
+  }
+  if (structuredConfidenceScores.length >= 2 && average(structuredConfidenceScores) < 0.5) {
+    issues.push("low structured visual extraction confidence");
+  }
   if (args.metrics.text_character_count < 80) issues.push("low extracted text volume");
   if (args.sectionCount === 0) issues.push("no structured sections");
   if (args.memoryCardCount === 0) issues.push("no memory cards");
@@ -82,6 +133,12 @@ export function assessDocumentIndexQuality(args: {
   if (args.metrics.page_count >= 2) qualityScore -= (Math.max(0, 220 - averagePageTextChars) / 220) * 0.1;
   if (tableExtractionCoverage !== null) qualityScore -= Math.max(0, 0.75 - tableExtractionCoverage) * 0.14;
   if (searchableImageCoverage !== null) qualityScore -= Math.max(0, 0.65 - searchableImageCoverage) * 0.06;
+  if (visualUnitCoverage !== null) qualityScore -= Math.max(0, 0.62 - visualUnitCoverage) * 0.08;
+  if (visualQualityScores.length) qualityScore -= Math.max(0, 0.55 - average(visualQualityScores)) * 0.06;
+  if (cropCompletenessScores.length) qualityScore -= Math.max(0, 0.55 - average(cropCompletenessScores)) * 0.05;
+  if (structuredConfidenceScores.length) {
+    qualityScore -= Math.max(0, 0.58 - average(structuredConfidenceScores)) * 0.08;
+  }
   if (chunkCount > 0 && args.metrics.page_count > 0) {
     const chunkPageCoverage = Math.min(1, chunkCount / Math.max(args.metrics.page_count * 0.75, 1));
     qualityScore -= Math.max(0, 0.82 - chunkPageCoverage) * 0.08;
@@ -100,6 +157,12 @@ export function assessDocumentIndexQuality(args: {
       section_path_coverage: Number(sectionPathCoverage.toFixed(3)),
       table_extraction_coverage: tableExtractionCoverage === null ? null : Number(tableExtractionCoverage.toFixed(3)),
       searchable_image_coverage: searchableImageCoverage === null ? null : Number(searchableImageCoverage.toFixed(3)),
+      visual_unit_coverage: visualUnitCoverage === null ? null : Number(visualUnitCoverage.toFixed(3)),
+      average_image_quality_score: visualQualityScores.length ? Number(average(visualQualityScores).toFixed(3)) : null,
+      average_crop_completeness: cropCompletenessScores.length ? Number(average(cropCompletenessScores).toFixed(3)) : null,
+      average_structured_visual_confidence: structuredConfidenceScores.length
+        ? Number(average(structuredConfidenceScores).toFixed(3))
+        : null,
       ocr_coverage: Number(ocrCoverage.toFixed(3)),
       average_page_text_chars: Number(averagePageTextChars.toFixed(1)),
       section_count: args.sectionCount,

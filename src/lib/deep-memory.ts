@@ -14,6 +14,7 @@ import {
   type ModelIndexProfile,
   type ModelIndexProfileItem,
 } from "@/lib/model-index-extraction";
+import { assertEmbeddingDim } from "@/lib/embedding-dimensions";
 import { embedTexts } from "@/lib/openai";
 import { sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
@@ -652,7 +653,7 @@ export async function upsertDocumentDeepMemory(args: {
       return {
         ...row,
         section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
-        embedding: embeddings[start + index],
+        embedding: assertEmbeddingDim(embeddings[start + index], `document_memory_cards.${start + index}`),
       };
     });
     const { error } = await args.supabase.from("document_memory_cards").insert(batch);
@@ -665,13 +666,42 @@ export async function upsertDocumentDeepMemory(args: {
     sections,
     modelProfile,
     summary: args.summary ?? null,
+    images: (args.images ?? []).map((image) => {
+      const metadata = image.metadata ?? {};
+      return {
+        id: image.id,
+        caption: image.caption,
+        pageNumber: image.page_number,
+        imageType: image.image_type,
+        sourceKind: image.source_kind,
+        labels: image.labels,
+        tableLabel: typeof metadata.table_label === "string" ? metadata.table_label : null,
+        tableTitle: typeof metadata.table_title === "string" ? metadata.table_title : null,
+        tableTextSnippet:
+          typeof metadata.table_text_snippet === "string"
+            ? metadata.table_text_snippet
+            : typeof metadata.table_text === "string"
+              ? metadata.table_text
+              : null,
+        tableRole: typeof metadata.table_role === "string" ? metadata.table_role : null,
+        accessibleTableMarkdown:
+          typeof metadata.accessible_table_markdown === "string" ? metadata.accessible_table_markdown : null,
+        tableRows: Array.isArray(metadata.table_rows) ? (metadata.table_rows as string[][]) : null,
+        tableColumns: Array.isArray(metadata.table_columns) ? (metadata.table_columns as string[]) : null,
+        structuredVisualProfile:
+          typeof metadata.structured_visual_profile === "object" && metadata.structured_visual_profile !== null
+            ? (metadata.structured_visual_profile as never)
+            : null,
+        metadata,
+      };
+    }),
   });
   if (indexUnits.length > 0) {
     const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));
     for (let start = 0; start < indexUnits.length; start += 50) {
       const batch = indexUnits.slice(start, start + 50).map((unit, index) => ({
         ...unit,
-        embedding: indexUnitEmbeddings[start + index],
+        embedding: assertEmbeddingDim(indexUnitEmbeddings[start + index], `document_index_units.${start + index}`),
       }));
       const { error } = await args.supabase.from("document_index_units").insert(batch);
       if (error) throw new Error(error.message);

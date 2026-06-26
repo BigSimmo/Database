@@ -2,6 +2,11 @@ import OpenAI from "openai";
 import { env, requireOpenAIEnv } from "@/lib/env";
 import { assessClinicalImageUse } from "@/lib/image-filtering";
 import { PublicApiError } from "@/lib/http";
+import {
+  deterministicStructuredVisualProfile,
+  normalizeStructuredVisualProfile,
+  type StructuredVisualProfile,
+} from "@/lib/visual-intelligence";
 import type { ImageEvidenceCategory, OpenAITokenUsage } from "@/lib/types";
 
 type OpenAIOperation =
@@ -607,6 +612,154 @@ const imageClassificationSchema = {
       description:
         "Count-like score from 0 to 10 for authorisation, version, amendment, site/applicability, reference, or document-control signals.",
     },
+    structured_visual_profile: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        clinical_purpose: { type: ["string", "null"] },
+        key_terms: { type: "array", items: { type: "string" } },
+        medications: { type: "array", items: { type: "string" } },
+        thresholds: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              label: { type: "string" },
+              value: { type: ["string", "null"] },
+              action: { type: ["string", "null"] },
+              confidence: { type: "number" },
+              source_text: { type: ["string", "null"] },
+            },
+            required: ["label", "value", "action", "confidence", "source_text"],
+          },
+        },
+        actions: { type: "array", items: { type: "string" } },
+        monitoring_items: { type: "array", items: { type: "string" } },
+        flowchart_nodes: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              id: { type: "string" },
+              label: { type: "string" },
+              type: { type: ["string", "null"] },
+            },
+            required: ["id", "label", "type"],
+          },
+        },
+        flowchart_edges: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              from: { type: "string" },
+              to: { type: "string" },
+              label: { type: ["string", "null"] },
+            },
+            required: ["from", "to", "label"],
+          },
+        },
+        risk_matrix_axes: { type: "array", items: { type: "string" } },
+        risk_matrix_cells: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              row: { type: "string" },
+              column: { type: "string" },
+              risk: { type: "string" },
+              action: { type: ["string", "null"] },
+              confidence: { type: "number" },
+            },
+            required: ["row", "column", "risk", "action", "confidence"],
+          },
+        },
+        chart_axes: { type: "array", items: { type: "string" } },
+        chart_findings: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              label: { type: "string" },
+              value: { type: ["string", "null"] },
+              interpretation: { type: ["string", "null"] },
+              confidence: { type: "number" },
+            },
+            required: ["label", "value", "interpretation", "confidence"],
+          },
+        },
+        table_column_roles: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              column: { type: "string" },
+              role: {
+                type: "string",
+                enum: [
+                  "parameter",
+                  "threshold",
+                  "action",
+                  "dose",
+                  "route",
+                  "frequency",
+                  "monitoring",
+                  "risk",
+                  "medication",
+                  "score",
+                  "state",
+                  "notes",
+                ],
+              },
+            },
+            required: ["column", "role"],
+          },
+        },
+        source_regions: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              label: { type: ["string", "null"] },
+              kind: { type: ["string", "null"] },
+              page: { type: ["number", "null"] },
+              x: { type: ["number", "null"] },
+              y: { type: ["number", "null"] },
+              width: { type: ["number", "null"] },
+              height: { type: ["number", "null"] },
+              source_text: { type: ["string", "null"] },
+              confidence: { type: ["number", "null"] },
+            },
+            required: ["label", "kind", "page", "x", "y", "width", "height", "source_text", "confidence"],
+          },
+        },
+        confidence: { type: "number" },
+      },
+      required: [
+        "clinical_purpose",
+        "key_terms",
+        "medications",
+        "thresholds",
+        "actions",
+        "monitoring_items",
+        "flowchart_nodes",
+        "flowchart_edges",
+        "risk_matrix_axes",
+        "risk_matrix_cells",
+        "chart_axes",
+        "chart_findings",
+        "table_column_roles",
+        "source_regions",
+        "confidence",
+      ],
+    },
   },
   required: [
     "image_type",
@@ -619,6 +772,7 @@ const imageClassificationSchema = {
     "clinical_use_reason",
     "clinical_signal_score",
     "admin_signal_score",
+    "structured_visual_profile",
   ],
 };
 
@@ -711,6 +865,19 @@ export async function classifyAndCaptionImageFromBase64(args: {
       skipReason: typeof parsed.skip_reason === "string" ? parsed.skip_reason : null,
     });
 
+    const profile: StructuredVisualProfile = normalizeStructuredVisualProfile(parsed.structured_visual_profile, {
+      fallbackText: [
+        args.tableTitle,
+        args.tableLabel,
+        typeof parsed.caption === "string" ? parsed.caption : "",
+        args.tableText,
+        args.nearbyText,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      fallbackConfidence: clinicalScore,
+    });
+
     return {
       image_type: imageType,
       searchable: assessment.searchable && imageType !== "logo_decorative",
@@ -726,6 +893,8 @@ export async function classifyAndCaptionImageFromBase64(args: {
       clinical_use_reason: assessment.clinical_use_reason,
       clinical_signal_score: assessment.clinical_signal_score,
       admin_signal_score: assessment.admin_signal_score,
+      structured_visual_profile: profile,
+      structured_extraction_confidence: profile.confidence,
     };
   } catch {
     const assessment = assessClinicalImageUse({
@@ -739,6 +908,14 @@ export async function classifyAndCaptionImageFromBase64(args: {
       tableLabel: args.tableLabel,
       caption: response.text,
     });
+    const profile = deterministicStructuredVisualProfile({
+      imageType: "unclear",
+      caption: response.text,
+      tableTitle: args.tableTitle,
+      tableLabel: args.tableLabel,
+      tableTextSnippet: args.tableText,
+      metadata: {},
+    });
     return {
       image_type: "unclear" as const,
       searchable: assessment.searchable,
@@ -750,6 +927,8 @@ export async function classifyAndCaptionImageFromBase64(args: {
       clinical_use_reason: assessment.clinical_use_reason,
       clinical_signal_score: assessment.clinical_signal_score,
       admin_signal_score: assessment.admin_signal_score,
+      structured_visual_profile: profile,
+      structured_extraction_confidence: profile.confidence,
     };
   }
 }

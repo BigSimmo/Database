@@ -154,7 +154,7 @@ describe("RAG structured-output fallback", () => {
     }));
 
     vi.doMock("@/lib/openai", () => ({
-      embedTextWithTelemetry: vi.fn(),
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
       generateStructuredTextResult,
     }));
 
@@ -167,12 +167,12 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).toHaveBeenCalled();
-    expect(answer.routingMode).toBe("fast");
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingMode).toBe("extractive");
     expect(answer.answer.replace(/\*\*/g, "")).toContain("Clozapine Monitoring Form");
     expect(answer.answer).not.toContain("- Medication point");
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
-    expect(answer.answerSections?.[0]?.heading).toBe("Monitoring documents");
+    expect(answer.answerSections?.[0]?.heading).toBe("Direct source-backed answer");
     expect(answer.answerSections?.[0]?.body).not.toContain("- Medication point");
   });
 
@@ -284,10 +284,10 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
-    expect(answer.routingMode).toBe("strong");
-    expect(answer.routingReason).toContain("fast_template_retry_strong");
-    expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_natural"]);
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
+    expect(answer.openAIRequestIds ?? []).toEqual([]);
     expect(answer.answer.replace(/\*\*/g, "")).toContain("Clozapine Monitoring Form");
     expect(answer.answer).not.toMatch(/retrieved source|source-backed|based on the provided excerpts/i);
     expect(answer.answerSections?.[0]?.body).not.toMatch(/retrieved source|source-backed/i);
@@ -414,12 +414,12 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
-    expect(answer.routingMode).toBe("strong");
-    expect(answer.routingReason).toContain("fast_overexpanded_simple_retry_strong");
-    expect(answer.openAIRequestIds).toEqual(["req_fast_overexpanded", "req_strong_concise"]);
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
+    expect(answer.openAIRequestIds ?? []).toEqual([]);
     expect(answer.answer.replace(/\*\*/g, "")).toContain("Bulimia nervosa is an eating disorder");
-    expect(answer.answerSections ?? []).toHaveLength(0);
+    expect(answer.answerSections?.[0]?.heading).toBe("Direct source-backed answer");
   });
 
   it("filters table-caption metadata from extractive answer points", async () => {
@@ -516,8 +516,8 @@ describe("RAG structured-output fallback", () => {
     });
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
-    expect(generateStructuredTextResult).toHaveBeenCalled();
-    expect(answer.routingMode).not.toBe("extractive");
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingMode).toBe("extractive");
     expect(plainAnswer).toContain("must be discontinued immediately");
     expect(plainAnswer).not.toContain("Table detailing roles and responsibilities");
     expect(plainAnswer).not.toContain("clinical_table");
@@ -552,7 +552,7 @@ describe("RAG structured-output fallback", () => {
       }),
     }));
     vi.doMock("@/lib/openai", () => ({
-      embedTextWithTelemetry: vi.fn(),
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
       generateStructuredTextResult,
     }));
 
@@ -624,7 +624,7 @@ describe("RAG structured-output fallback", () => {
       }),
     }));
     vi.doMock("@/lib/openai", () => ({
-      embedTextWithTelemetry: vi.fn(),
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
       generateStructuredTextResult,
     }));
 
@@ -677,6 +677,7 @@ describe("RAG structured-output fallback", () => {
       return { data: [], error: null };
     });
     const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
 
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({
@@ -685,7 +686,7 @@ describe("RAG structured-output fallback", () => {
       }),
     }));
     vi.doMock("@/lib/openai", () => ({
-      embedTextWithTelemetry: vi.fn(),
+      embedTextWithTelemetry,
       generateStructuredTextResult,
     }));
 

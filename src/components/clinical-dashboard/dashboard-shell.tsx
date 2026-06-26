@@ -140,6 +140,7 @@ export function UtilityDrawer({
         id={id}
         open={open && (!usesSheet || mobileInline)}
         onToggle={(event) => {
+          if (usesSheet && !mobileInline) return;
           const nextOpen = event.currentTarget.open;
           if (nextOpen !== open) setOpen(nextOpen);
         }}
@@ -152,7 +153,22 @@ export function UtilityDrawer({
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[color:var(--text)]">{title}</span>
-              {summary && <span className={cn("mt-0.5 block truncate text-xs", textMuted)}>{summary}</span>}
+              {summary ? (
+                <>
+                  {mobileInline && mobileSummary ? (
+                    <span className={cn("mt-0.5 block text-xs leading-4 sm:hidden", textMuted)}>{mobileSummary}</span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "mt-0.5 block truncate text-xs",
+                      textMuted,
+                      mobileInline && mobileSummary && "hidden sm:block",
+                    )}
+                  >
+                    {summary}
+                  </span>
+                </>
+              ) : null}
             </span>
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180" />
