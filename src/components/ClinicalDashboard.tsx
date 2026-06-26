@@ -726,10 +726,14 @@ function SourcePreviewContent({
   bestSource,
   previewSources,
   quoteText,
+  copiedQuote,
+  onCopyQuote,
 }: {
   bestSource: BestSourceRecommendation;
   previewSources: CapsulePreviewSource[];
   quoteText?: string | null;
+  copiedQuote: boolean;
+  onCopyQuote: () => void;
 }) {
   return (
     <>
@@ -777,10 +781,12 @@ function SourcePreviewContent({
           <ExternalLink className="h-3.5 w-3.5" />
           Open PDF drawer
         </Link>
-        <button type="button" className={chatMicroAction}>
-          <Copy className="h-3.5 w-3.5" />
-          Copy quote
-        </button>
+        {quoteText ? (
+          <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
+            <Copy className="h-3.5 w-3.5" />
+            {copiedQuote ? "Copied quote" : "Copy quote"}
+          </button>
+        ) : null}
         <Link href={bestSource.viewer_href} className={cn(chatMicroAction, "col-span-2 sm:col-span-1")}>
           View section
         </Link>
@@ -809,6 +815,7 @@ function NaturalLanguageAnswer({
   onCopy: () => void;
 }) {
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
+  const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
   const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
   const usePreviewSheet = useMobilePreviewSheet();
   const cleaned = primaryAnswerDisplayText(text);
@@ -816,6 +823,16 @@ function NaturalLanguageAnswer({
   const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
   const previewSources = capsulePreviewSources(bestSource, sources);
   const quoteText = bestSource?.quote || bestSource?.snippet;
+  async function copySourceQuote() {
+    if (!quoteText) return;
+    try {
+      await navigator.clipboard.writeText(quoteText);
+      setCopiedSourceQuote(true);
+      window.setTimeout(() => setCopiedSourceQuote(false), 1600);
+    } catch {
+      setCopiedSourceQuote(false);
+    }
+  }
   const sourceCapsuleButton = (
     <button
       type="button"
@@ -866,7 +883,13 @@ function NaturalLanguageAnswer({
             data-testid="source-capsule-preview"
             className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
           >
-            <SourcePreviewContent bestSource={bestSource} previewSources={previewSources} quoteText={quoteText} />
+            <SourcePreviewContent
+              bestSource={bestSource}
+              previewSources={previewSources}
+              quoteText={quoteText}
+              copiedQuote={copiedSourceQuote}
+              onCopyQuote={copySourceQuote}
+            />
           </div>
         ) : null}
         <Sheet
@@ -880,7 +903,13 @@ function NaturalLanguageAnswer({
         >
           {bestSource ? (
             <div data-testid="source-capsule-preview">
-              <SourcePreviewContent bestSource={bestSource} previewSources={previewSources} quoteText={quoteText} />
+              <SourcePreviewContent
+                bestSource={bestSource}
+                previewSources={previewSources}
+                quoteText={quoteText}
+                copiedQuote={copiedSourceQuote}
+                onCopyQuote={copySourceQuote}
+              />
             </div>
           ) : null}
         </Sheet>
@@ -2608,7 +2637,6 @@ function MobileEvidenceSheetContent({
 
   return (
     <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
-      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
       <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
         <div
           data-testid="mobile-evidence-tabs"
@@ -2678,6 +2706,7 @@ function MobileEvidenceSheetContent({
           );
         })}
       </div>
+      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
     </div>
   );
 }

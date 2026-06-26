@@ -580,6 +580,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
     await expect(sourcePreview.getByRole("link", { name: /Open PDF drawer/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:4298" });
+    await sourcePreview.getByRole("button", { name: "Copy quote" }).click();
+    await expect(sourcePreview.getByRole("button", { name: "Copied quote" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(sourceSheet).toHaveCount(0);
@@ -679,6 +682,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
     await expect(evidenceSheet).toBeVisible();
     await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+    const evidenceSheetOrder = await evidenceSheet.evaluate((element) => {
+      const tabs = element.querySelector('[data-testid="mobile-evidence-tabs"]');
+      const review = element.querySelector('[data-testid="answer-review-panel"]');
+      return {
+        tabsTop: tabs?.getBoundingClientRect().top ?? 9999,
+        reviewTop: review?.getBoundingClientRect().top ?? 9999,
+      };
+    });
+    expect(evidenceSheetOrder.tabsTop).toBeLessThan(evidenceSheetOrder.reviewTop);
     await expect(evidenceSheet.getByTestId("mobile-evidence-tab-tables")).toHaveAttribute("aria-selected", "true");
     await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
     await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
