@@ -98,7 +98,7 @@ export function SourcePassageLinks({
           href={sourceResultHref(source)}
           className={cn(
             compact ? metadataPill : floatingControl,
-            "min-h-8 gap-1.5 px-2.5 text-[11px] sm:min-h-9 sm:px-3",
+            "min-h-11 gap-1.5 px-2.5 text-[11px] sm:min-h-9 sm:px-3",
           )}
           title={`${source.title} · page ${source.page_number ?? "n/a"} · chunk ${source.chunk_index}`}
           aria-label={`Open source passage #${index + 1}`}

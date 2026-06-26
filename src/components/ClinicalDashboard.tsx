@@ -3263,8 +3263,6 @@ function StagedAnswerResultSurface({
               onCopy={onCopyAnswer}
             />
 
-            <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-
             <KeyClinicalItems sections={safeAnswerSections} table={centralTable} />
           </div>
 
@@ -6468,7 +6466,9 @@ export function ClinicalDashboard() {
     [answer],
   );
   const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
-  const weakEvidence = isWeakRelevance(currentRelevance) || answer?.retrievalDiagnostics?.gateStatus === "blocked";
+  const weakEvidence =
+    (currentRelevance ? isWeakRelevance(currentRelevance) : answer?.grounded !== true) ||
+    answer?.retrievalDiagnostics?.gateStatus === "blocked";
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answer?.bestSource ?? answer?.smartPanel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;

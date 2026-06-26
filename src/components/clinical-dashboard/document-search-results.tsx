@@ -200,11 +200,11 @@ function compactEvidenceBadges(document: DocumentMatch) {
 function compactMatchReason(document: DocumentMatch) {
   const relevance = document.relevance;
   if (relevance?.verdict === "direct") {
-    if (document.tableCount > 0) return `Direct table match - ${documentPageLabel(document)}`;
-    if (document.imageCount > 0) return `Direct image match - ${documentPageLabel(document)}`;
-    return `Direct source match - ${documentPageLabel(document)}`;
+    if (document.tableCount > 0) return `Table match - ${documentPageLabel(document)}`;
+    if (document.imageCount > 0) return `Image match - ${documentPageLabel(document)}`;
+    return `Source match - ${documentPageLabel(document)}`;
   }
-  if (relevance?.verdict === "partial") return `Partial source support - ${documentPageLabel(document)}`;
+  if (relevance?.verdict === "partial") return `Related source - ${documentPageLabel(document)}`;
   if (document.matchReason) return document.matchReason;
   return `${documentKindLabel(document)} - ${documentPageLabel(document)}`;
 }
@@ -226,9 +226,9 @@ function relevancePercent(document: DocumentMatch) {
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = relevancePercent(document);
-  if (verdict === "direct" || percent >= 90) return { label: "High relevance", short: `${percent}% high` };
-  if (verdict === "partial" || percent >= 75) return { label: "Relevant", short: `${percent}% relevant` };
-  return { label: "Nearby match", short: `${percent}% nearby` };
+  if (verdict === "direct" || percent >= 90) return { label: "Strong match", short: `${percent}% match` };
+  if (verdict === "partial" || percent >= 75) return { label: "Related source", short: `${percent}% related` };
+  return { label: "Nearby source", short: `${percent}% nearby` };
 }
 
 function FileTypeTile({ document }: { document: DocumentMatch }) {
@@ -694,7 +694,7 @@ export function DocumentSearchResultsPanel({
                         </span>
                         <button
                           type="button"
-                          className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                          className="absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:right-2 sm:top-2 sm:h-9 sm:w-9"
                           aria-label={`More actions for ${document.title}`}
                         >
                           <MoreVertical className="h-4 w-4" />

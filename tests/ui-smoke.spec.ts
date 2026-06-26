@@ -569,6 +569,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
     await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
     const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
+    await expect(sourceCapsule).not.toContainText("Check sources");
     await expectMinTouchTarget(sourceCapsule);
     await sourceCapsule.click();
     const sourceSheet = page.getByRole("dialog", { name: "Sources behind this answer" });
@@ -583,6 +584,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(sourceSheet).toHaveCount(0);
     await expect(sourceCapsule).toBeFocused();
+    await expectMinTouchTarget(plainAnswer.getByRole("button", { name: "More answer actions" }));
 
     const keyItems = page.getByLabel("Key monitoring items");
     await expect(keyItems).toBeVisible();
@@ -597,10 +599,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     const openTableSource = clinicalTable.getByRole("link", { name: "Open table source" });
     const copyTablePreview = clinicalTable.getByRole("button", { name: "Copy table preview" });
+    const moreTableActions = clinicalTable.getByRole("button", { name: "More table actions" });
     await expect(openTableSource).toBeVisible();
     await expect(copyTablePreview).toBeVisible();
+    await expect(moreTableActions).toBeVisible();
     await expectMinTouchTarget(openTableSource);
     await expectMinTouchTarget(copyTablePreview);
+    await expectMinTouchTarget(moreTableActions);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(tableExpandButton).toBeVisible();
     await expectMinTouchTarget(tableExpandButton);
@@ -736,6 +741,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       const expandButton = clinicalTable.getByTestId("table-expand-button");
       if (!viewport.expands) {
+        await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText("Source-backed");
         await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
           "data-desktop-table-aside",
           "true",
@@ -810,8 +816,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "1 result" })).toBeVisible();
     await expect(page.getByText("1 table").first()).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toContainText("% match");
+    await expect(page.getByTestId("document-search-workspace")).toContainText("Strong match");
     await expect(page.getByText("Tag facets")).toHaveCount(0);
-    await expect(page.getByText("No direct support")).toHaveCount(0);
+    await expect(page.getByTestId("document-search-workspace")).not.toContainText(
+      /No direct support|Partial support|source support|direct support/i,
+    );
+    await expectMinTouchTarget(page.getByRole("button", { name: /More actions for Synthetic lithium/i }).first());
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
     await page
       .getByRole("button", { name: /Answer from/i })
