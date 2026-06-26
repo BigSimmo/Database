@@ -16,6 +16,10 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "sample-documents/**",
     "scratch/**",
+    ".claude/**",
+    "**/.claude/**",
+    ".tmp-visual/**",
+    "**/.tmp-visual/**",
     "next-env.d.ts",
   ]),
 ]);
