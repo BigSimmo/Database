@@ -10,15 +10,15 @@
 ## Dependency verification note
 
 - `npm ci` and `npm audit --json` are the release gates for dependency install and security status.
-- On Windows with npm 10, `npm ls --depth=0` can report bundled optional wasm/native packages as extraneous immediately after `npm ci`: `@emnapi/core`, `@emnapi/runtime`, `@emnapi/wasi-threads`, `@napi-rs/wasm-runtime`, and `@tybys/wasm-util`.
+- On Windows with npm 11, `npm ls --depth=0` can report bundled optional wasm/native packages as extraneous immediately after `npm ci`: `@emnapi/core`, `@emnapi/runtime`, `@emnapi/wasi-threads`, `@napi-rs/wasm-runtime`, and `@tybys/wasm-util`.
 - `npm explain` traces these packages to optional wasm/native dependency paths from `@tailwindcss/oxide-wasm32-wasi`, `@rolldown/binding-wasm32-wasi`, and `@unrs/resolver-binding-wasm32-wasi`; the lockfile contains those paths and `npm audit --json` reports zero vulnerabilities.
 - Do not treat this specific `npm ls --depth=0` extraneous output as a hard release blocker unless audit fails, install fails, package versions drift from `package-lock.json`, or a future npm/package update stops reproducing the optional-dependency reporting issue.
 
 ## Runtime policy
 
-- CI verifies the project on Node.js 22, so local development should also use Node.js 22.x.
-- `.nvmrc`, `.node-version`, and `package.json` `engines` all declare the Node 22 runtime expectation.
-- New cleanup or dependency work should be verified on Node 22 before release, even when local shells happen to use newer Node versions.
+- CI verifies the project on Node.js 24, so local development should also use Node.js 24.x.
+- `.nvmrc`, `.node-version`, and `package.json` `engines` all declare the Node 24 runtime expectation.
+- New cleanup or dependency work should be verified on Node 24 before release, even when local shells happen to use newer Node versions.
 
 ## Stale branch audit
 
