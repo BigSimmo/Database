@@ -3,7 +3,7 @@
 This is the runbook to make the app publishable in one focused pass.
 
 - Branch: `codex/premium-redesign` (do not touch `.env` / secrets directly).
-- Runtime target: Next.js 16.2.7, Node 22.x, npm >= 10.
+- Runtime target: Next.js 16.2.7, Node 24.x, npm >= 11.
 - Supabase target: `sjrfecxgysukkwxsowpy` (`Clinical KB Database`).
 
 ## Immediate completion targets
@@ -21,7 +21,7 @@ This is the runbook to make the app publishable in one focused pass.
   - used in CI and non-blocking on local-only secret absence.
 - [x] Added strict runtime release gate:
   - `npm run check:runtime`
-  - enforces Node 22.x before `npm run verify:release`.
+  - enforces Node 24.x before `npm run verify:release`.
 
 ## Remaining high-priority publish items (same day)
 
