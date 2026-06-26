@@ -183,10 +183,11 @@ async function main() {
     }
 
     const openJobs = (pendingJobs.count ?? 0) + (processingJobs.count ?? 0) + (failedJobs.count ?? 0);
+    const hasFailedDocuments = (failedDocuments.count ?? 0) > 0;
     const needsRecovery = (staleJobs.count ?? 0) > 0 || (failedJobs.count ?? 0) > 0;
     let skipWorkerRun = false;
 
-    if (openJobs === 0 && (queuedDocuments.count ?? 0) === 0) {
+    if (openJobs === 0 && (queuedDocuments.count ?? 0) === 0 && !hasFailedDocuments) {
       console.log("\nQueue is clear. Reindex pipeline complete.");
       return;
     }
@@ -215,12 +216,26 @@ async function main() {
         locked_at: string | null;
         documents: RecoveryDocument | RecoveryDocument[] | null;
       };
-      const jobs = (data ?? []).map((job: RawJobRow) => ({
+      const staleAfterCutoff = new Date(staleCutoff);
+      const jobs = (data ?? [])
+        .map((job: RawJobRow) => ({
         ...job,
         documents: Array.isArray(job.documents)
           ? (job.documents[0] as RecoveryDocument | undefined)
           : (job.documents as RecoveryDocument | undefined),
-      }));
+        }))
+        .filter((job) => {
+          if (job.status === "failed") {
+            return true;
+          }
+          if (job.status !== "processing") {
+            return false;
+          }
+          if (job.locked_at === null) {
+            return true;
+          }
+          return new Date(job.locked_at) <= staleAfterCutoff;
+        });
       const plan = buildIngestionRecoveryPlan({ jobs, staleAfterMinutes });
       const actions = plan.actions.slice(0, limit);
       const resetDocumentIds = Array.from(
@@ -235,6 +250,7 @@ async function main() {
 
       if (actions.length === 0) {
         console.log("  Nothing to recover in this round.");
+        skipWorkerRun = true;
       } else {
         let shouldApply = args.yes;
         if (!shouldApply) {
@@ -319,9 +335,9 @@ async function main() {
       continue;
     }
 
-    if ((processingJobs.count ?? 0) > 0 && !needsRecovery) {
+    if ((processingJobs.count ?? 0) > 0) {
       console.log(
-        "\n  Active processing jobs detected with no recovery candidates; skipping worker run to avoid concurrency spikes.",
+        "\n  Active processing jobs detected; skipping worker run to avoid concurrency spikes.",
       );
       continue;
     }
@@ -337,7 +353,8 @@ async function main() {
     }
   }
 
-  console.log(`\nReached maximum rounds (${args.maxRounds}). Re-run to continue processing.`);
+  console.log(`\nReached maximum rounds (${args.maxRounds}). Queue did not clear; re-run with a higher --max-rounds or inspect stale jobs first.`);
+  process.exitCode = 1;
 }
 
 main().catch((error) => {

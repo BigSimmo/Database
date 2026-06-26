@@ -6,6 +6,7 @@ import { createInterface } from "node:readline";
  */
 export function confirm(question: string): Promise<boolean> {
   if (!process.stdin.isTTY) {
+    console.log("  Non-interactive input detected; defaulting to No.");
     return Promise.resolve(false);
   }
 
