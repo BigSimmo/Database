@@ -23,12 +23,19 @@ import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEviden
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
 import {
   cleanClinicalSummaryText,
-  clinicalProseUsefulness,
   isLowYieldClinicalText,
   sourceTextForClinicalProse,
   sourceTextForDisplay,
   sourceTextForModel,
 } from "@/lib/source-text-sanitizer";
+import {
+  isUsableAnswerSectionText,
+  looksLikeJsonArtifact,
+  normalizeSectionText,
+  sanitizeAnswerText,
+  sanitizeStructuredText,
+  splitBalancedWords,
+} from "@/lib/rag-answer-text";
 import {
   buildCrossDocumentFusionBrief,
   buildCrossDocumentSourceGuide,
@@ -38,6 +45,7 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import {
   buildDocumentBreakdown,
   buildEvidenceSummary,
@@ -209,6 +217,8 @@ const answerJsonOutputSchema = {
   required: ["answer", "grounded", "confidence", "answerSections", "citations", "quoteCards", "conflictsOrGaps"],
 };
 
+const fastRoutineModelContextLimit = 4;
+
 const confidenceOrder = {
   unsupported: 0,
   low: 1,
@@ -226,117 +236,6 @@ function safeRecord(value: unknown) {
 function metadataText(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-const likelyFragmentPhrases =
-  /\b(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)\b/i;
-const answerSectionArtifactPattern =
-  /"?(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"?\s*:\s*/i;
-
-function normalizeSectionText(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-function splitBalancedWords(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function looksLikeJsonArtifact(value: string) {
-  const normalized = normalizeSectionText(value);
-  if (!normalized) return true;
-  const tokenCount = normalized.split(/\s+/).filter(Boolean).length;
-  const hasJsonStructure = /[{}\[\]]/.test(normalized);
-  const quoteCount = (normalized.match(/"/g) ?? []).length;
-  const colonCount = (normalized.match(/:/g) ?? []).length;
-  const keyValuePairs = (normalized.match(/"[^"]+"\s*:\s*/g) ?? []).length;
-  const keyPairDensity = tokenCount > 0 ? keyValuePairs / tokenCount : 0;
-  const hasKnownKeys = likelyFragmentPhrases.test(normalized);
-  const hasBalancedBraces = (normalized.match(/[{}\[\]]/g) ?? []).length >= 2;
-  const hasBalancedBrackets = (normalized.match(/[\[\]]/g) ?? []).length >= 2;
-  const tokenDensity = splitBalancedWords(normalized);
-  const isMostlyPunctuationNoise = tokenDensity.length >= 6 && tokenDensity.every((word) => word.length <= 2);
-  const hasBracketKeyPairs =
-    /"\s*(?:answer|heading|body|grounded|confidence|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)\s*"/i.test(
-      normalized,
-    );
-
-  if (normalized.startsWith("{") && normalized.endsWith("}") && (hasKnownKeys || quoteCount >= 4)) {
-    return true;
-  }
-
-  if (
-    hasJsonStructure &&
-    hasBalancedBraces &&
-    keyValuePairs >= 2 &&
-    quoteCount >= 4 &&
-    colonCount >= 2 &&
-    hasKnownKeys &&
-    (tokenCount <= 70 || keyPairDensity > 0.2)
-  ) {
-    return true;
-  }
-
-  if (
-    normalized.includes("}") &&
-    normalized.includes("{") &&
-    hasKnownKeys &&
-    /"[^"]+":\s*"/.test(normalized) &&
-    tokenCount <= 40
-  ) {
-    return true;
-  }
-
-  if (isMostlyPunctuationNoise) return true;
-  if (
-    hasBracketKeyPairs &&
-    hasJsonStructure &&
-    (quoteCount >= 2 || colonCount >= 2 || hasBalancedBrackets) &&
-    tokenCount <= 70
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function sanitizeStructuredText(
-  value: string,
-  options: { minLength?: number; minTokens?: number; keepLeading?: boolean } = {},
-) {
-  const { minLength = 2, minTokens = 1, keepLeading = false } = options;
-  const normalized = normalizeSectionText(sourceTextForClinicalProse(value));
-  if (!normalized) return "";
-
-  const trimmed =
-    normalized.search(answerSectionArtifactPattern) === 0
-      ? normalized.replace(answerSectionArtifactPattern, "").trim()
-      : normalized.search(answerSectionArtifactPattern) > 0
-        ? normalized.slice(0, normalized.search(answerSectionArtifactPattern)).trim()
-        : normalized;
-
-  const finalText = keepLeading ? trimmed : trimmed.trim();
-  if (!finalText) return "";
-  if (finalText.length < minLength) return "";
-  if (looksLikeJsonArtifact(finalText)) return "";
-  const tokenCount = finalText.split(/\s+/).filter(Boolean).length;
-  if (tokenCount < minTokens) return "";
-  if (!/[A-Za-z]{2,}/.test(finalText)) return "";
-  const usefulness = clinicalProseUsefulness(finalText);
-  if (!usefulness.useful && isLowYieldClinicalText(finalText)) return "";
-  return usefulness.text || finalText;
-}
-
-function sanitizeAnswerText(value: string) {
-  return sanitizeStructuredText(value, { minLength: 8, minTokens: 2, keepLeading: true });
-}
-
-function isUsableAnswerSectionText(value: string, options: { minTokens?: number; minLength?: number } = {}) {
-  return Boolean(sanitizeStructuredText(value, options));
 }
 
 export type SearchChunksArgs = {
@@ -377,7 +276,10 @@ export type SearchTelemetry = {
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
   text_fast_path_latency_ms: number;
+  text_candidate_budget?: number;
+  text_fast_path_reason?: string | null;
   embedding_skipped: boolean;
+  embedding_skip_reason?: string | null;
   embedding_latency_ms: number;
   embedding_cache_hit: boolean;
   supabase_rpc_latency_ms: number;
@@ -386,6 +288,19 @@ export type SearchTelemetry = {
   memory_top_score?: number;
   index_unit_count?: number;
   index_unit_top_score?: number;
+  retrieval_layer_counts?: Record<string, number>;
+  retrieval_layer_top_scores?: Record<string, number>;
+  retrieval_layer_latencies_ms?: Record<string, number>;
+  retrieval_provenance_counts?: Record<string, number>;
+  retrieval_plan?: string;
+  coverage_gate_decision?: "accepted" | "rejected" | "not_applicable";
+  coverage_gate_reason?: string | null;
+  vector_skipped_reason?: string | null;
+  source_image_required?: boolean;
+  source_image_satisfied?: boolean;
+  second_stage_rerank_used?: boolean;
+  second_stage_rerank_latency_ms?: number;
+  visual_direct_image_count?: number;
   weighted_top_score?: number;
   rrf_top_score?: number;
   top_score?: number;
@@ -402,6 +317,84 @@ export type SearchTelemetry = {
     | "unsupported_short_circuit";
 };
 
+function retrievalPlanForQueryClass(queryClass?: RagQueryClass) {
+  switch (queryClass) {
+    case "document_lookup":
+      return "document_lookup:title_label_section_then_chunks";
+    case "table_threshold":
+      return "table_threshold:table_facts_visual_units_then_chunks";
+    case "medication_dose_risk":
+      return "medication_dose_risk:medication_rows_thresholds_monitoring_then_chunks";
+    case "comparison":
+      return "comparison:diverse_documents_sections_memory_then_chunks";
+    case "broad_summary":
+      return "broad_summary:document_summaries_sections_memory_then_chunks";
+    default:
+      return "balanced_hybrid:chunks_fields_units_memory";
+  }
+}
+
+const visualEvidenceUnitTypes = new Set([
+  "visual_summary",
+  "visual_askable_question",
+  "table_threshold",
+  "medication_chart_row",
+  "flowchart_step",
+  "diagram_decision",
+  "risk_matrix_cell",
+  "chart_finding",
+]);
+
+const tableVisualEvidenceUnitTypes = new Set([
+  "table_fact",
+  "table_threshold",
+  "medication_chart_row",
+  "risk_matrix_cell",
+]);
+
+function provenanceLayerKeys(result: SearchResult) {
+  const layers = new Set<string>(["chunk"]);
+  if (result.memory_cards?.length) layers.add("memory_card");
+  if (result.index_unit?.unit_type) layers.add(`index_unit:${result.index_unit.unit_type}`);
+  if (result.match_explanation?.tableHit || result.index_unit?.unit_type === "table_fact" || result.table_facts?.length)
+    layers.add("table_fact");
+  if (result.match_explanation?.fieldType) layers.add(`field:${result.match_explanation.fieldType}`);
+  if (result.match_explanation?.titleHit) layers.add("title");
+  if (result.match_explanation?.labelHit) layers.add("label");
+  if (result.match_explanation?.sectionHit) layers.add("section");
+  if (result.match_explanation?.matchedAliases?.length) layers.add("alias");
+  if (result.index_unit?.source_image_id) layers.add("source_image");
+  return layers;
+}
+
+function layerTopScore(results: SearchResult[]) {
+  return Number(Math.max(0, ...results.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4));
+}
+
+function recordRetrievalLayer(
+  telemetry: SearchTelemetry,
+  layer: string,
+  count: number,
+  options: { latencyMs?: number; topScore?: number } = {},
+) {
+  telemetry.retrieval_layer_counts = {
+    ...(telemetry.retrieval_layer_counts ?? {}),
+    [layer]: count,
+  };
+  if (typeof options.latencyMs === "number") {
+    telemetry.retrieval_layer_latencies_ms = {
+      ...(telemetry.retrieval_layer_latencies_ms ?? {}),
+      [layer]: Math.max(0, Math.round(options.latencyMs)),
+    };
+  }
+  if (typeof options.topScore === "number") {
+    telemetry.retrieval_layer_top_scores = {
+      ...(telemetry.retrieval_layer_top_scores ?? {}),
+      [layer]: Number(Math.max(0, options.topScore).toFixed(4)),
+    };
+  }
+}
+
 function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
     telemetry.top_score = 0;
@@ -411,6 +404,9 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     telemetry.rrf_top_score = 0;
     telemetry.score_distinct_documents = 0;
     telemetry.retrieval_candidate_count = results.length;
+    telemetry.retrieval_layer_counts = telemetry.retrieval_layer_counts ?? {};
+    telemetry.retrieval_provenance_counts = {};
+    telemetry.visual_direct_image_count = 0;
     return;
   }
 
@@ -448,6 +444,99 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  telemetry.retrieval_provenance_counts = results.reduce<Record<string, number>>((counts, result) => {
+    for (const layer of provenanceLayerKeys(result)) counts[layer] = (counts[layer] ?? 0) + 1;
+    return counts;
+  }, {});
+  telemetry.retrieval_layer_counts = telemetry.retrieval_layer_counts ?? { ...telemetry.retrieval_provenance_counts };
+  telemetry.visual_direct_image_count = results.reduce((count, result) => {
+    const sourceImageIds = new Set(
+      [result.index_unit?.source_image_id, ...(result.table_facts ?? []).map((fact) => fact.source_image_id)].filter(
+        Boolean,
+      ) as string[],
+    );
+    if (!sourceImageIds.size) return count;
+    return count + (result.images ?? []).filter((image) => sourceImageIds.has(image.id)).length;
+  }, 0);
+}
+
+function shouldUseSecondStageRerank(queryClass: RagQueryClass | undefined, results: SearchResult[], topK: number) {
+  if (results.length <= 1) return false;
+  const topScore = Math.max(0, results[0]?.hybrid_score ?? results[0]?.similarity ?? 0);
+  const secondScore = Math.max(0, results[1]?.hybrid_score ?? results[1]?.similarity ?? 0);
+  const topScoresClose = Math.abs(topScore - secondScore) <= 0.04;
+  const hasVisualEvidence = results.some((result) => visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? ""));
+  const hasTableVisualEvidence = results.some((result) =>
+    tableVisualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? ""),
+  );
+  if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") {
+    return hasVisualEvidence || hasTableVisualEvidence || topScoresClose;
+  }
+  if (queryClass === "comparison") return results.length > topK || topScoresClose;
+  return topScoresClose && hasVisualEvidence;
+}
+
+function secondStageScore(result: SearchResult, queryClass: RagQueryClass | undefined, index: number) {
+  let score = result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0;
+  const unitType = result.index_unit?.unit_type ?? "";
+  const source = result.index_unit?.metadata?.source;
+  const sourceQuality = Number(result.index_unit?.quality_score ?? 0.65);
+  const doseAmountText = `${result.section_heading ?? ""} ${result.content} ${(result.images ?? [])
+    .map((image) => `${image.caption ?? ""} ${image.tableTextSnippet ?? ""} ${image.tableTitle ?? ""}`)
+    .join(" ")} ${(result.table_facts ?? [])
+    .map((fact) => `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`)
+    .join(" ")}`;
+  const hasDoseAmount = /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(doseAmountText);
+  score += Math.max(0, 0.09 - index * 0.004);
+  if (result.memory_cards?.length && (queryClass === "broad_summary" || queryClass === "comparison")) score += 0.035;
+  if (queryClass === "document_lookup" && (result.match_explanation?.titleHit || result.match_explanation?.labelHit))
+    score += 0.045;
+  if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && result.table_facts?.length)
+    score += 0.065;
+  if (queryClass === "medication_dose_risk" && hasDoseAmount) score += 0.18;
+  if (tableVisualEvidenceUnitTypes.has(unitType)) score += 0.08;
+  else if (visualEvidenceUnitTypes.has(unitType)) score += 0.04;
+  if (source === "visual_intelligence") score += Math.min(0.035, Math.max(0, sourceQuality - 0.55) * 0.08);
+  if (result.source_metadata?.document_status === "outdated") score -= 0.05;
+  if (result.source_metadata?.extraction_quality === "poor") score -= 0.05;
+  if (result.indexing_quality?.quality_score !== undefined && result.indexing_quality.quality_score < 0.55)
+    score -= 0.035;
+  return score;
+}
+
+function applySecondStageRerankIfNeeded(args: {
+  queryClass?: RagQueryClass;
+  results: SearchResult[];
+  telemetry: SearchTelemetry;
+  topK: number;
+}) {
+  if (!shouldUseSecondStageRerank(args.queryClass, args.results, args.topK)) return args.results;
+  const startedAt = Date.now();
+  const reranked = args.results
+    .map((result, index) => {
+      const score = secondStageScore(result, args.queryClass, index);
+      return {
+        ...result,
+        hybrid_score: Number(Math.max(result.hybrid_score ?? 0, score).toFixed(4)),
+        match_explanation: {
+          ...result.match_explanation,
+          reasons: Array.from(new Set([...(result.match_explanation?.reasons ?? []), "second_stage_rerank"])),
+        },
+      };
+    })
+    .sort(
+      (left, right) =>
+        (right.hybrid_score ?? right.similarity ?? 0) - (left.hybrid_score ?? left.similarity ?? 0) ||
+        left.id.localeCompare(right.id),
+    );
+  args.telemetry.second_stage_rerank_used = true;
+  args.telemetry.second_stage_rerank_latency_ms =
+    (args.telemetry.second_stage_rerank_latency_ms ?? 0) + Date.now() - startedAt;
+  recordRetrievalLayer(args.telemetry, "second_stage_rerank", reranked.length, {
+    latencyMs: Date.now() - startedAt,
+    topScore: layerTopScore(reranked),
+  });
+  return reranked;
 }
 
 const citationSchema = z.object({
@@ -797,7 +886,7 @@ function fallbackReasonFromRouting(reason?: string | null) {
 
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer }>();
 const searchCache = new Map<string, { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry }>();
-const ragCacheDependencyVersion = "rag-cache-v8";
+const ragCacheDependencyVersion = "rag-cache-v9";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 
@@ -1090,14 +1179,35 @@ function setCachedAnswer(
   setSharedCachedAnswer(args, answer);
 }
 
-function scopedSearchCacheKey(args: SearchChunksArgs) {
+function stableHash(value: string) {
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+export function retrievalPlanCacheQuery(
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity">,
+  queryClass?: RagQueryClass,
+  queryVariants: string[] = [],
+) {
+  const normalizedQuery = normalizedCacheQuery(args.query);
+  const variantHash = stableHash(queryVariants.join("\n"));
   return [
+    `plan:${retrievalPlanForQueryClass(queryClass)}`,
+    `class:${queryClass ?? "unknown"}`,
+    `query:${normalizedQuery}`,
+    `variants:${variantHash}`,
+    `mode:${modeKey(args)}`,
+    `topK:${args.topK ?? 8}`,
+    `min:${args.minSimilarity ?? 0.15}`,
+    `rag:${ragDeepMemoryVersion}`,
+  ].join("|");
+}
+
+function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
+  return [
+    ragCacheDependencyVersion,
     args.ownerId ?? "anonymous",
     scopeKey(args),
-    modeKey(args),
-    normalizedCacheQuery(args.query),
-    args.topK ?? 8,
-    args.minSimilarity ?? 0.15,
+    retrievalPlanCacheQuery(args, queryClass, queryVariants),
   ].join("|");
 }
 
@@ -1105,10 +1215,10 @@ function cloneSearchResults(results: SearchResult[]) {
   return JSON.parse(JSON.stringify(results)) as SearchResult[];
 }
 
-function getCachedSearch(args: SearchChunksArgs) {
+function getCachedSearch(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
 
-  const key = scopedSearchCacheKey(args);
+  const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
   if (!cached) return null;
   if (cached.expiresAt <= Date.now()) {
@@ -1130,10 +1240,15 @@ function getCachedSearch(args: SearchChunksArgs) {
   };
 }
 
-function setCachedSearch(args: SearchChunksArgs, results: SearchResult[], telemetry: SearchTelemetry) {
+function setCachedSearch(
+  args: SearchChunksArgs,
+  results: SearchResult[],
+  telemetry: SearchTelemetry,
+  queryVariants: string[] = [],
+) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
 
-  const key = scopedSearchCacheKey(args);
+  const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: cloneSearchResults(results),
@@ -1145,7 +1260,7 @@ function setCachedSearch(args: SearchChunksArgs, results: SearchResult[], teleme
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, telemetry);
+  setSharedCachedSearch(args, results, telemetry, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
@@ -1155,13 +1270,14 @@ function sharedCacheSelector(
   kind: SharedCacheKind,
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
   indexingVersion: string,
+  normalizedQuery: string = normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
 ) {
   let query = supabase
     .from("rag_response_cache")
     .select("payload")
     .eq("cache_kind", kind)
     .eq("scope_key", scopeKey(args))
-    .eq("normalized_query", normalizedCacheQuery(`${modeKey(args)} ${args.query}`))
+    .eq("normalized_query", normalizedQuery)
     .eq("indexing_version", indexingVersion)
     .eq("dependency_version", ragCacheDependencyVersion)
     .gt("expires_at", new Date().toISOString())
@@ -1208,7 +1324,7 @@ async function cacheIndexingVersion(args: Pick<SearchChunksArgs, "documentId" | 
   return value;
 }
 
-async function getSharedCachedSearch(args: SearchChunksArgs) {
+async function getSharedCachedSearch(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   try {
     const indexingVersion = await cacheIndexingVersion(args);
@@ -1217,6 +1333,7 @@ async function getSharedCachedSearch(args: SearchChunksArgs) {
       "search",
       args,
       indexingVersion,
+      retrievalPlanCacheQuery(args, queryClass, queryVariants),
     ).maybeSingle();
     if (error || !data?.payload) return null;
     const payload = data.payload as { results?: SearchResult[]; telemetry?: Partial<SearchTelemetry> };
@@ -1232,7 +1349,10 @@ async function getSharedCachedSearch(args: SearchChunksArgs) {
         embedding_field_count: payload.telemetry?.embedding_field_count,
         retrieval_query_variant_count: payload.telemetry?.retrieval_query_variant_count ?? 0,
         text_fast_path_latency_ms: 0,
+        text_candidate_budget: payload.telemetry?.text_candidate_budget,
+        text_fast_path_reason: payload.telemetry?.text_fast_path_reason ?? null,
         embedding_skipped: true,
+        embedding_skip_reason: payload.telemetry?.embedding_skip_reason ?? "search_cache",
         embedding_latency_ms: 0,
         embedding_cache_hit: false,
         supabase_rpc_latency_ms: 0,
@@ -1241,6 +1361,19 @@ async function getSharedCachedSearch(args: SearchChunksArgs) {
         memory_top_score: payload.telemetry?.memory_top_score ?? 0,
         index_unit_count: payload.telemetry?.index_unit_count ?? 0,
         index_unit_top_score: payload.telemetry?.index_unit_top_score ?? 0,
+        retrieval_plan: payload.telemetry?.retrieval_plan ?? retrievalPlanForQueryClass(payload.telemetry?.query_class),
+        retrieval_layer_counts: payload.telemetry?.retrieval_layer_counts ?? {},
+        retrieval_layer_top_scores: payload.telemetry?.retrieval_layer_top_scores ?? {},
+        retrieval_layer_latencies_ms: payload.telemetry?.retrieval_layer_latencies_ms ?? {},
+        retrieval_provenance_counts: payload.telemetry?.retrieval_provenance_counts ?? {},
+        coverage_gate_decision: payload.telemetry?.coverage_gate_decision,
+        coverage_gate_reason: payload.telemetry?.coverage_gate_reason ?? null,
+        vector_skipped_reason: payload.telemetry?.vector_skipped_reason ?? null,
+        source_image_required: payload.telemetry?.source_image_required ?? false,
+        source_image_satisfied: payload.telemetry?.source_image_satisfied ?? false,
+        second_stage_rerank_used: payload.telemetry?.second_stage_rerank_used ?? false,
+        second_stage_rerank_latency_ms: 0,
+        visual_direct_image_count: payload.telemetry?.visual_direct_image_count ?? 0,
         weighted_top_score: payload.telemetry?.weighted_top_score ?? 0,
         rrf_top_score: payload.telemetry?.rrf_top_score ?? 0,
         retrieval_strategy: "search_cache" as const,
@@ -1285,6 +1418,7 @@ async function replaceSharedCacheRow(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
   payload: unknown,
   ttlMs: number,
+  normalizedQuery: string = normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
 ) {
   if (ttlMs <= 0) return;
   try {
@@ -1295,7 +1429,7 @@ async function replaceSharedCacheRow(
       .delete()
       .eq("cache_kind", kind)
       .eq("scope_key", scopeKey(args))
-      .eq("normalized_query", normalizedCacheQuery(`${modeKey(args)} ${args.query}`))
+      .eq("normalized_query", normalizedQuery)
       .eq("indexing_version", indexingVersion)
       .eq("dependency_version", ragCacheDependencyVersion);
     deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
@@ -1304,7 +1438,7 @@ async function replaceSharedCacheRow(
       owner_id: args.ownerId ?? null,
       cache_kind: kind,
       scope_key: scopeKey(args),
-      normalized_query: normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
+      normalized_query: normalizedQuery,
       indexing_version: indexingVersion,
       dependency_version: ragCacheDependencyVersion,
       payload,
@@ -1315,13 +1449,19 @@ async function replaceSharedCacheRow(
   }
 }
 
-function setSharedCachedSearch(args: SearchChunksArgs, results: SearchResult[], telemetry: SearchTelemetry) {
+function setSharedCachedSearch(
+  args: SearchChunksArgs,
+  results: SearchResult[],
+  telemetry: SearchTelemetry,
+  queryVariants: string[] = [],
+) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return;
   void replaceSharedCacheRow(
     "search",
     args,
     { results: cloneSearchResults(results), telemetry },
     env.RAG_SEARCH_CACHE_TTL_MS,
+    retrievalPlanCacheQuery(args, telemetry.query_class, queryVariants),
   );
 }
 
@@ -1438,6 +1578,14 @@ const maxTextRpcQueryVariants = 3;
 const ragAliasCacheTtlMs = 60_000;
 const maxRagAliasesPerScope = 200;
 const maxRagAliasExpansions = 12;
+
+export function textCandidateBudgetForQueryClass(queryClass: RagQueryClass | undefined, topK: number) {
+  if (queryClass === "comparison") return Math.max(topK * 7, 72);
+  if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") return Math.max(topK * 4, 40);
+  if (queryClass === "document_lookup") return Math.max(topK * 3, 24);
+  if (queryClass === "unsupported_or_general") return Math.max(topK * 2, 16);
+  return Math.max(topK * 4, 32);
+}
 
 export type RagAliasInput = {
   alias: string;
@@ -1582,6 +1730,18 @@ export function buildRetrievalQueryVariants(
 
   addVariant(buildClinicalTextSearchQuery(query));
   aliasExpansions.slice(0, 2).forEach(addVariant);
+  if (/\bpatient property\b/i.test(query)) {
+    addVariant("patient property");
+  }
+  if (/\bclozapine\b/i.test(query) && /\b(?:anc|fbc|wbc|neutrophil|white cell)\b/i.test(query)) {
+    addVariant("clozapine anc fbc");
+    addVariant("clozapine monitoring");
+  }
+  if (analysis.queryClass === "comparison" && /\badmission\b/i.test(query) && /\bdischarge\b/i.test(query)) {
+    addVariant("admission community patients");
+    addVariant("discharge community patients");
+    addVariant("admission discharge");
+  }
   addVariant(analysis.queryRewrite.searchQuery);
 
   addVariant(
@@ -1684,6 +1844,7 @@ type DocumentLookupChunkRow = {
   content: string;
   retrieval_synopsis?: string | null;
   image_ids: string[] | null;
+  text_rank?: number | null;
 };
 
 type ChunkSignalMatch = {
@@ -1756,8 +1917,27 @@ async function fetchBestDocumentLookupChunks(args: {
   documentIds: string[];
   query: string;
   limit: number;
+  ownerId?: string;
 }) {
   const terms = documentLookupChunkTerms(args.query);
+  const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
+    query_text: args.query,
+    document_filters: args.documentIds,
+    match_count: Math.max(args.limit * 3, 24),
+    owner_filter: args.ownerId ?? null,
+  });
+  if (!rpcError && rpcChunks?.length) {
+    const ranked = (rpcChunks as DocumentLookupChunkRow[])
+      .map((chunk) => ({
+        chunk,
+        score: Math.max(Number(chunk.text_rank ?? 0), documentLookupChunkScore(chunk, terms)),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score || a.chunk.chunk_index - b.chunk.chunk_index)
+      .map((item) => item.chunk);
+    if (ranked.length) return { chunks: ranked.slice(0, args.limit), terms };
+  }
+
   const safeFilters = terms
     .map((term) => term.replace(/[%_,]/g, " ").trim())
     .filter(Boolean)
@@ -1853,6 +2033,7 @@ async function searchDocumentLookupFastPath(args: {
     documentIds: rankedDocuments.map((item) => item.document.id),
     query: args.query,
     limit: Math.max(args.matchCount, rankedDocuments.length * 4),
+    ownerId: args.ownerId,
   });
 
   if (!chunks.length) return [];
@@ -2458,24 +2639,50 @@ async function attachPageVisualEvidence(
   const pageNumbers = Array.from(
     new Set(results.map((result) => result.page_number).filter((page): page is number => Boolean(page))),
   );
-  if (documentIds.length === 0 || pageNumbers.length === 0) return results;
+  const sourceImageIds = Array.from(
+    new Set(
+      results.flatMap((result) => [
+        result.index_unit?.source_image_id ?? null,
+        ...(result.table_facts ?? []).map((fact) => fact.source_image_id),
+      ]),
+    ),
+  )
+    .filter((id): id is string => Boolean(id))
+    .slice(0, 80);
+  if (documentIds.length === 0 || (pageNumbers.length === 0 && sourceImageIds.length === 0)) return results;
 
-  const { data, error } = await supabase
-    .from("document_images")
-    .select(
-      "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata",
-    )
-    .in("document_id", documentIds)
-    .in("page_number", pageNumbers)
-    .eq("searchable", true)
-    .neq("image_type", "logo_decorative")
-    .order("clinical_relevance_score", { ascending: false })
-    .limit(80);
+  const selectColumns =
+    "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
+  const pageData =
+    pageNumbers.length > 0
+      ? await supabase
+          .from("document_images")
+          .select(selectColumns)
+          .in("document_id", documentIds)
+          .in("page_number", pageNumbers)
+          .eq("searchable", true)
+          .neq("image_type", "logo_decorative")
+          .order("clinical_relevance_score", { ascending: false })
+          .limit(80)
+      : { data: [], error: null };
+  const directData =
+    sourceImageIds.length > 0
+      ? await supabase
+          .from("document_images")
+          .select(selectColumns)
+          .in("id", sourceImageIds)
+          .eq("searchable", true)
+          .neq("image_type", "logo_decorative")
+          .limit(sourceImageIds.length)
+      : { data: [], error: null };
 
-  if (error || !data?.length) return results;
+  const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
+  if ((pageData.error && directData.error) || data.length === 0) return results;
 
   const imagesByPage = new Map<string, ChunkImage[]>();
+  const imagesById = new Map<string, ChunkImage>();
   for (const image of data) {
+    if (imagesById.has(image.id)) continue;
     const metadata = safeRecord(image.metadata);
     const rawTableText = metadataText(metadata, "table_text");
     const tableText = metadataText(metadata, "table_text_snippet") ?? rawTableText;
@@ -2504,46 +2711,396 @@ async function attachPageVisualEvidence(
       labels: Array.isArray(image.labels) ? image.labels : [],
       metadata,
     };
+    imagesById.set(image.id, publicImage);
     const key = `${image.document_id}:${image.page_number}`;
     imagesByPage.set(key, [...(imagesByPage.get(key) ?? []), publicImage]);
   }
 
   return results.map((result) => {
     const pageImages = imagesByPage.get(`${result.document_id}:${result.page_number}`) ?? [];
-    if (pageImages.length === 0) return result;
+    const directImages = [
+      result.index_unit?.source_image_id ? imagesById.get(result.index_unit.source_image_id) : null,
+      ...(result.table_facts ?? []).map((fact) => (fact.source_image_id ? imagesById.get(fact.source_image_id) : null)),
+    ].filter((image): image is ChunkImage => Boolean(image));
+    if (pageImages.length === 0 && directImages.length === 0) return result;
     const seen = new Set((result.images ?? []).map((image) => image.id));
-    const mergedImages = [...(result.images ?? []), ...pageImages.filter((image) => !seen.has(image.id))].slice(0, 4);
+    const mergedImages = [
+      ...(result.images ?? []),
+      ...directImages.filter((image) => {
+        if (seen.has(image.id)) return false;
+        seen.add(image.id);
+        return true;
+      }),
+      ...pageImages.filter((image) => {
+        if (seen.has(image.id)) return false;
+        seen.add(image.id);
+        return true;
+      }),
+    ].slice(0, 4);
     return { ...result, images: mergedImages };
   });
 }
 
-function shouldReturnTextFastPath(query: string, results: SearchResult[]) {
-  if (results.length === 0) return false;
+export function decideTextFastPath(
+  query: string,
+  results: SearchResult[],
+  queryClass: RagQueryClass = classifyRagQuery(query).queryClass,
+): { returnFastPath: boolean; reason: string | null } {
+  if (results.length === 0) return { returnFastPath: false, reason: "no_text_candidates" };
 
-  const queryClass = classifyRagQuery(query).queryClass;
-  if (queryClass === "comparison") return false;
+  const strongestScore = results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
+  const topTextRank = Math.max(...results.map((result) => result.text_rank ?? 0));
+  const directTitleSupport = hasDirectTitleSupport(query, results);
+  if (queryClass === "comparison") {
+    const distinctDocuments = new Set(results.slice(0, 8).map((result) => result.document_id)).size;
+    if (distinctDocuments >= 2 && (strongestScore >= 0.68 || topTextRank >= 0.08)) {
+      return { returnFastPath: true, reason: "comparison_text_match" };
+    }
+    return { returnFastPath: false, reason: "comparison_requires_synthesis" };
+  }
   if (
     queryClass === "table_threshold" &&
     !results.slice(0, 5).some((result) => hasStructuredThresholdEvidence(result))
   ) {
-    return false;
+    return { returnFastPath: false, reason: "missing_structured_threshold_evidence" };
+  }
+  if (
+    queryClass === "table_threshold" &&
+    /\b(?:withhold|withheld|withholding|cease|stop|stopped)\b/i.test(query)
+  ) {
+    return { returnFastPath: false, reason: "threshold_action_requires_structured_retrieval" };
   }
   if (queryClass === "medication_dose_risk" && !results.slice(0, 5).some((result) => hasDoseEvidenceSupport(result))) {
-    return false;
+    return { returnFastPath: false, reason: "missing_dose_evidence" };
   }
 
-  const strongestScore = results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
-  const topTextRank = Math.max(...results.map((result) => result.text_rank ?? 0));
+  if (queryClass === "table_threshold") {
+    if (strongestScore >= 0.62 || topTextRank >= 0.045) {
+      return { returnFastPath: true, reason: "structured_threshold_text_match" };
+    }
+    return { returnFastPath: false, reason: "weak_structured_threshold_text_match" };
+  }
+
+  if (queryClass === "medication_dose_risk") {
+    if (strongestScore >= 0.66 || topTextRank >= 0.055) {
+      return { returnFastPath: true, reason: "dose_evidence_text_match" };
+    }
+    return { returnFastPath: false, reason: "weak_dose_text_match" };
+  }
+
+  if (queryClass === "document_lookup") {
+    if (directTitleSupport && strongestScore >= 0.32) {
+      return { returnFastPath: true, reason: "direct_title_text_match" };
+    }
+    if (strongestScore >= 0.7) return { returnFastPath: true, reason: "strong_document_text_score" };
+    if (topTextRank >= 0.08) return { returnFastPath: true, reason: "strong_document_text_rank" };
+    return { returnFastPath: false, reason: "weak_document_text_match" };
+  }
+
+  if (directTitleSupport && strongestScore >= 0.4) return { returnFastPath: true, reason: "direct_title_text_match" };
+  if (strongestScore >= 0.64) return { returnFastPath: true, reason: "strong_text_score" };
+  if (topTextRank >= 0.08) return { returnFastPath: true, reason: "strong_text_rank" };
+  return { returnFastPath: false, reason: "weak_text_match" };
+}
+
+function shouldReturnBeforeMemory(
+  queryClass: RagQueryClass,
+  decision: { returnFastPath: boolean; reason: string | null },
+) {
+  if (!decision.returnFastPath) return false;
+  if (queryClass === "comparison") return decision.reason === "comparison_text_match";
+  if (queryClass === "table_threshold") return decision.reason === "structured_threshold_text_match";
+  if (queryClass === "medication_dose_risk") return decision.reason === "dose_evidence_text_match";
+  return !shouldUseMemoryBeforeFastPath(queryClass);
+}
+
+function evidenceTextForGate(result: SearchResult) {
+  const tableText = (result.table_facts ?? [])
+    .map((fact) =>
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "),
+    )
+    .join(" ");
+  const imageText = (result.images ?? [])
+    .map((image) =>
+      [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet, image.clinicalUseReason]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(" ");
+  const unitText = result.index_unit
+    ? [result.index_unit.unit_type, result.index_unit.title, result.index_unit.content].join(" ")
+    : "";
+  return normalizeSectionText(
+    [
+      result.title,
+      result.file_name,
+      result.section_heading,
+      result.section_path?.join(" "),
+      result.retrieval_synopsis,
+      result.content,
+      tableText,
+      imageText,
+      unitText,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  ).toLowerCase();
+}
+
+function topEvidenceText(results: SearchResult[], limit = 5) {
+  return results.slice(0, limit).map(evidenceTextForGate).join(" ");
+}
+
+function hasAnyTerm(text: string, pattern: RegExp) {
+  return pattern.test(text);
+}
+
+function hasDoseAmountEvidenceForGate(result: SearchResult) {
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(evidenceTextForGate(result));
+}
+
+function hasRouteEvidenceForGate(result: SearchResult) {
+  return /\b(?:oral|orally|intramuscular|intramuscularly|\bim\b|\bpo\b)\b/i.test(evidenceTextForGate(result));
+}
+
+function hasDirectSourceImageEvidence(result: SearchResult) {
+  const sourceImageIds = new Set(
+    [result.index_unit?.source_image_id, ...(result.table_facts ?? []).map((fact) => fact.source_image_id)].filter(
+      Boolean,
+    ) as string[],
+  );
   return (
-    strongestScore >= 0.56 ||
-    topTextRank >= 0.05 ||
-    (hasDirectTitleSupport(query, results) && strongestScore >= 0.4) ||
-    (queryClass === "document_lookup" && hasDirectTitleSupport(query, results) && strongestScore >= 0.35)
+    sourceImageIds.size > 0 ||
+    (result.images ?? []).some(
+      (image) => sourceImageIds.has(image.id) || isClinicalImageEvidence(image) || image.source_kind === "table_crop",
+    )
   );
 }
 
+function sourceImageRequiredForQuery(query: string) {
+  return /\b(?:show|display|attach|open|view|source|original)\b/i.test(query) && /\b(?:image|table|chart|figure|crop|visual)\b/i.test(query);
+}
+
+function directTitleOrAliasSupport(query: string, results: SearchResult[]) {
+  return (
+    hasDirectTitleSupport(query, results) ||
+    results.slice(0, 5).some((result) => result.match_explanation?.titleHit || result.match_explanation?.labelHit)
+  );
+}
+
+export function evaluateEvidenceCoverageGate(
+  query: string,
+  results: SearchResult[],
+  queryClass: RagQueryClass = classifyRagQuery(query).queryClass,
+): {
+  accepted: boolean;
+  reason: string;
+  strategy: "text_fast_path" | "document_lookup_fast_path";
+  sourceImageRequired: boolean;
+  sourceImageSatisfied: boolean;
+} {
+  if (!results.length) {
+    return {
+      accepted: false,
+      reason: "no_candidates",
+      strategy: "text_fast_path",
+      sourceImageRequired: false,
+      sourceImageSatisfied: false,
+    };
+  }
+
+  const top = results.slice(0, 5);
+  const evidenceText = topEvidenceText(results);
+  const strongestScore = Math.max(0, ...top.map((result) => result.hybrid_score ?? result.similarity ?? 0));
+  const sourceImageRequired = sourceImageRequiredForQuery(query);
+  const sourceImageSatisfied = top.some(hasDirectSourceImageEvidence);
+  if (sourceImageRequired && !sourceImageSatisfied) {
+    return {
+      accepted: false,
+      reason: "source_image_required_missing",
+      strategy: "text_fast_path",
+      sourceImageRequired,
+      sourceImageSatisfied,
+    };
+  }
+
+  const hasStructuredThreshold = top.some(hasStructuredThresholdEvidence);
+  const hasDoseEvidence = top.some(hasDoseEvidenceSupport);
+  const hasDoseAmount = top.some(hasDoseAmountEvidenceForGate);
+  const hasRoute = top.some(hasRouteEvidenceForGate);
+  const hasVisualUnit = top.some((result) => visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? ""));
+  const hasDirectTitle = directTitleOrAliasSupport(query, top);
+
+  if (queryClass === "table_threshold") {
+    if (
+      /\bclozapine\b/i.test(query) &&
+      /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i.test(query) &&
+      /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i.test(query)
+    ) {
+      const hasBlood = hasAnyTerm(evidenceText, /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i);
+      const hasAction = hasAnyTerm(evidenceText, /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i);
+      return {
+        accepted: hasStructuredThreshold && hasBlood && hasAction,
+        reason:
+          hasStructuredThreshold && hasBlood && hasAction
+            ? "clozapine_blood_action_structured_threshold"
+            : "missing_clozapine_blood_action_structured_threshold",
+        strategy: "text_fast_path",
+        sourceImageRequired,
+        sourceImageSatisfied,
+      };
+    }
+    if (/\bpatient property\b/i.test(query)) {
+      const hasPropertyTerms =
+        hasAnyTerm(evidenceText, /\bpatient\b/i) &&
+        hasAnyTerm(evidenceText, /\bproperty\b/i) &&
+        hasAnyTerm(evidenceText, /\b(?:restricted|prohibited|contraband|items?)\b/i);
+      return {
+        accepted: hasPropertyTerms && (hasStructuredThreshold || sourceImageSatisfied || hasVisualUnit || strongestScore >= 0.62),
+        reason: hasPropertyTerms ? "patient_property_restricted_items_gate" : "missing_patient_property_terms",
+        strategy: "text_fast_path",
+        sourceImageRequired,
+        sourceImageSatisfied,
+      };
+    }
+    return {
+      accepted: hasStructuredThreshold && strongestScore >= 0.58,
+      reason: hasStructuredThreshold ? "structured_threshold_evidence_gate" : "missing_structured_threshold_evidence",
+      strategy: "text_fast_path",
+      sourceImageRequired,
+      sourceImageSatisfied,
+    };
+  }
+
+  if (queryClass === "medication_dose_risk") {
+    const asksDoseRoute = /\b(?:dose|dosage|dosing|route|oral|intramuscular|\bim\b|\bpo\b)\b/i.test(query);
+    const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
+    const accepted = hasDoseEvidence && hasDoseAmount && (!asksDoseRoute || hasRoute) && agitationOk;
+    return {
+      accepted,
+      reason: accepted
+        ? "dose_route_amount_evidence_gate"
+        : !hasDoseAmount
+          ? "missing_dose_amount_evidence"
+          : !hasRoute && asksDoseRoute
+            ? "missing_route_evidence"
+            : !agitationOk
+              ? "missing_agitation_context"
+              : "missing_dose_evidence",
+      strategy: "text_fast_path",
+      sourceImageRequired,
+      sourceImageSatisfied,
+    };
+  }
+
+  if (queryClass === "document_lookup") {
+    if (/\bactive community patients?\b/i.test(query) && /\bed\b/i.test(query)) {
+      const accepted =
+        hasDirectTitle &&
+        hasAnyTerm(evidenceText, /\bactive\b/i) &&
+        hasAnyTerm(evidenceText, /\bcommunity\b/i) &&
+        hasAnyTerm(evidenceText, /\b(?:ed|emergency department)\b/i);
+      return {
+        accepted,
+        reason: accepted ? "active_community_ed_title_gate" : "missing_active_community_ed_title_support",
+        strategy: "document_lookup_fast_path",
+        sourceImageRequired,
+        sourceImageSatisfied,
+      };
+    }
+    if (/\b(?:flow\s*chart|flowchart|red\s*zone|risk matrix)\b/i.test(query)) {
+      const accepted =
+        hasVisualUnit ||
+        (hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|risk|red|zone|matrix)\b/i) &&
+          hasAnyTerm(evidenceText, /\b(?:escalat|urgent|review|action|next step|senior)\b/i));
+      return {
+        accepted,
+        reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",
+        strategy: "document_lookup_fast_path",
+        sourceImageRequired,
+        sourceImageSatisfied,
+      };
+    }
+    return {
+      accepted: hasDirectTitle && strongestScore >= 0.48,
+      reason: hasDirectTitle ? "document_title_evidence_gate" : "missing_document_title_support",
+      strategy: "document_lookup_fast_path",
+      sourceImageRequired,
+      sourceImageSatisfied,
+    };
+  }
+
+  if (queryClass === "comparison") {
+    const distinctDocuments = new Set(top.map((result) => result.document_id)).size;
+    return {
+      accepted: distinctDocuments >= 2 && strongestScore >= 0.6,
+      reason: distinctDocuments >= 2 ? "comparison_multi_document_gate" : "missing_comparison_document_diversity",
+      strategy: "text_fast_path",
+      sourceImageRequired,
+      sourceImageSatisfied,
+    };
+  }
+
+  return {
+    accepted: false,
+    reason: "coverage_gate_not_applicable",
+    strategy: "text_fast_path",
+    sourceImageRequired,
+    sourceImageSatisfied,
+  };
+}
+
+async function prepareCoverageGateResults(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  candidates: SearchResult[];
+  ownerId?: string;
+  topK: number;
+  maxResultsPerDocument: number;
+  queryClass: RagQueryClass;
+  telemetry: SearchTelemetry;
+}) {
+  const startedAt = Date.now();
+  const candidates = await attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId);
+  let results = await attachPageVisualEvidence(
+    args.supabase,
+    diversifySearchResults(rankClinicalResults(args.query, candidates), args.topK, args.maxResultsPerDocument, true),
+  );
+  results = applySecondStageRerankIfNeeded({
+    queryClass: args.queryClass,
+    results,
+    telemetry: args.telemetry,
+    topK: args.topK,
+  });
+  args.telemetry.rerank_latency_ms += Date.now() - startedAt;
+  return results;
+}
+
+function applyCoverageGateTelemetry(
+  telemetry: SearchTelemetry,
+  gate: ReturnType<typeof evaluateEvidenceCoverageGate>,
+  accepted: boolean,
+) {
+  telemetry.coverage_gate_decision = accepted ? "accepted" : "rejected";
+  telemetry.coverage_gate_reason = gate.reason;
+  telemetry.source_image_required = gate.sourceImageRequired;
+  telemetry.source_image_satisfied = gate.sourceImageSatisfied;
+  if (accepted) {
+    telemetry.vector_skipped_reason = `evidence_coverage_gate:${gate.reason}`;
+    telemetry.embedding_skipped = true;
+    telemetry.embedding_skip_reason = `evidence_coverage_gate:${gate.reason}`;
+  }
+}
+
+function markEmbeddingSkippedByTextFastPath(telemetry: SearchTelemetry, reason: string | null) {
+  telemetry.embedding_skipped = true;
+  telemetry.embedding_skip_reason = reason ?? "text_fast_path";
+  telemetry.text_fast_path_reason = reason ?? "text_fast_path";
+  telemetry.vector_skipped_reason = reason ?? "text_fast_path";
+}
+
 function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
-  return queryClass === "document_lookup" || queryClass === "table_threshold";
+  return queryClass === "document_lookup" || queryClass === "table_threshold" || queryClass === "comparison";
 }
 
 function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
@@ -3053,26 +3610,8 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
   );
 }
 
-function simplifySimpleGeneratedAnswer(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
-  if (!isSimpleDirectQuestion(query, queryClass)) return answer;
-  const sections = answer.answerSections ?? [];
-  if (sections.length === 0) return answer;
-
-  const essentialSection = sections.find((section) => isEssentialSimpleQuestionSection(section));
-  answer.answerSections = essentialSection ? [essentialSection] : [];
-  return answer;
-}
-
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
-  const cached = getCachedSearch(args);
-  if (cached) return cached;
-  const sharedCached = await getSharedCachedSearch(args);
-  if (sharedCached) {
-    setCachedSearch(args, sharedCached.results, sharedCached.telemetry);
-    return sharedCached;
-  }
-
   const supabase = createAdminClient();
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
@@ -3098,7 +3637,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     rag_alias_count: 0,
     rag_alias_expansion_count: 0,
     text_fast_path_latency_ms: 0,
+    text_candidate_budget: 0,
+    text_fast_path_reason: null,
     embedding_skipped: false,
+    embedding_skip_reason: null,
     embedding_latency_ms: 0,
     embedding_cache_hit: false,
     supabase_rpc_latency_ms: 0,
@@ -3107,6 +3649,19 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     memory_top_score: 0,
     index_unit_count: 0,
     index_unit_top_score: 0,
+    retrieval_plan: retrievalPlanForQueryClass(queryClassification.queryClass),
+    retrieval_layer_counts: {},
+    retrieval_layer_top_scores: {},
+    retrieval_layer_latencies_ms: {},
+    retrieval_provenance_counts: {},
+    coverage_gate_decision: "not_applicable",
+    coverage_gate_reason: null,
+    vector_skipped_reason: null,
+    source_image_required: false,
+    source_image_satisfied: false,
+    second_stage_rerank_used: false,
+    second_stage_rerank_latency_ms: 0,
+    visual_direct_image_count: 0,
     weighted_top_score: 0,
     rrf_top_score: 0,
   };
@@ -3116,21 +3671,32 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   telemetry.rag_alias_count = ragAliases.length;
   telemetry.rag_alias_expansion_count = ragAliasExpansions.length;
 
+  const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
+  telemetry.retrieval_query_variant_count = queryVariants.length;
+  const cached = getCachedSearch(args, queryClassification.queryClass, queryVariants);
+  if (cached) return cached;
+  const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
+  if (sharedCached) {
+    setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
+    return sharedCached;
+  }
+
   if (shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
     telemetry.embedding_skipped = true;
+    telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    setCachedSearch(args, [], telemetry);
+    setCachedSearch(args, [], telemetry, queryVariants);
     return { results: [] as SearchResult[], telemetry };
   }
 
   let expandedQuery = normalizeRetrievalVariant([expandClinicalQuery(retrievalQuery), ...ragAliasExpansions].join(" "));
-  const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
-  telemetry.retrieval_query_variant_count = queryVariants.length;
   const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(retrievalQuery);
   const candidateMultiplier = queryClassification.queryClass === "comparison" ? 7 : 5;
   const candidateFloor = queryClassification.queryClass === "comparison" ? 72 : 48;
   const candidateCount = Math.max((args.topK ?? 8) * candidateMultiplier, candidateFloor);
+  const textCandidateCount = textCandidateBudgetForQueryClass(queryClassification.queryClass, args.topK ?? 8);
+  telemetry.text_candidate_budget = textCandidateCount;
   const maxResultsPerDocument = queryClassification.queryClass === "comparison" ? 2 : 4;
   const minSimilarity = args.minSimilarity ?? 0.15;
   let embeddingStartedAt = 0;
@@ -3148,11 +3714,15 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     queryVariants,
     ownerId: args.ownerId,
     documentIds: documentFilterList,
-    matchCount: candidateCount,
+    matchCount: textCandidateCount,
   });
   telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;
   telemetry.supabase_rpc_latency_ms += telemetry.text_fast_path_latency_ms;
+  recordRetrievalLayer(telemetry, "text_candidates", textData.length, {
+    latencyMs: telemetry.text_fast_path_latency_ms,
+    topScore: layerTopScore(textData as SearchResult[]),
+  });
 
   if (textData.length) {
     const rerankStartedAt = Date.now();
@@ -3167,16 +3737,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       true,
     );
 
-    if (
-      shouldReturnTextFastPath(args.query, baseTextResults) &&
-      !shouldUseMemoryBeforeFastPath(queryClassification.queryClass)
-    ) {
+    const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
+    if (shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
       textFastResults = await attachPageVisualEvidence(supabase, baseTextResults);
+      textFastResults = applySecondStageRerankIfNeeded({
+        queryClass: queryClassification.queryClass,
+        results: textFastResults,
+        telemetry,
+        topK: args.topK ?? 8,
+      });
       telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
-      telemetry.embedding_skipped = true;
+      markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      setCachedSearch(args, textFastResults, telemetry);
+      setCachedSearch(args, textFastResults, telemetry, queryVariants);
       return { results: textFastResults, telemetry };
     }
 
@@ -3193,6 +3767,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       telemetry.memory_top_score ?? 0,
       ...memoryBoost.cards.map(memoryCardChunkScore),
     );
+    recordRetrievalLayer(telemetry, "memory_cards", memoryBoost.cards.length, {
+      topScore: Math.max(0, ...memoryBoost.cards.map(memoryCardChunkScore)),
+    });
     textFastResults = diversifySearchResults(
       rankClinicalResults(retrievalQuery, memoryBoost.results),
       args.topK ?? 8,
@@ -3200,13 +3777,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       true,
     );
     textFastResults = await attachPageVisualEvidence(supabase, textFastResults);
+    textFastResults = applySecondStageRerankIfNeeded({
+      queryClass: queryClassification.queryClass,
+      results: textFastResults,
+      telemetry,
+      topK: args.topK ?? 8,
+    });
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
 
-    if (shouldReturnTextFastPath(args.query, textFastResults)) {
-      telemetry.embedding_skipped = true;
+    const boostedTextFastPath = decideTextFastPath(args.query, textFastResults, queryClassification.queryClass);
+    if (boostedTextFastPath.returnFastPath) {
+      markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      setCachedSearch(args, textFastResults, telemetry);
+      setCachedSearch(args, textFastResults, telemetry, queryVariants);
       return { results: textFastResults, telemetry };
     }
   }
@@ -3224,7 +3808,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       matchCount: Math.min(candidateCount, 48),
     });
-    telemetry.supabase_rpc_latency_ms += Date.now() - tableFactStartedAt;
+    const tableFactLatencyMs = Date.now() - tableFactStartedAt;
+    telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
+    recordRetrievalLayer(telemetry, "table_facts", tableFactCandidates.length, {
+      latencyMs: tableFactLatencyMs,
+      topScore: layerTopScore(tableFactCandidates),
+    });
     if (tableFactCandidates.length > 0) {
       textFastResults = mergeSearchResults(tableFactCandidates, textFastResults);
     }
@@ -3240,7 +3829,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       matchCount: candidateCount,
     });
-    telemetry.supabase_rpc_latency_ms += Date.now() - documentLookupStartedAt;
+    const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
+    telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
+    recordRetrievalLayer(telemetry, "document_lookup", documentLookupData.length, {
+      latencyMs: documentLookupLatencyMs,
+      topScore: layerTopScore(documentLookupData as SearchResult[]),
+    });
 
     if (documentLookupData.length > 0) {
       const rerankStartedAt = Date.now();
@@ -3265,7 +3859,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         telemetry.memory_top_score ?? 0,
         ...memoryBoost.cards.map(memoryCardChunkScore),
       );
-      const documentLookupResults = await attachPageVisualEvidence(
+      recordRetrievalLayer(telemetry, "memory_cards", Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length), {
+        topScore: Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore)),
+      });
+      let documentLookupResults = await attachPageVisualEvidence(
         supabase,
         diversifySearchResults(
           rankClinicalResults(retrievalQuery, memoryBoost.results),
@@ -3274,17 +3871,53 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           true,
         ),
       );
+      documentLookupResults = applySecondStageRerankIfNeeded({
+        queryClass: queryClassification.queryClass,
+        results: documentLookupResults,
+        telemetry,
+        topK: args.topK ?? 8,
+      });
       telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
 
-      if (shouldReturnTextFastPath(args.query, documentLookupResults)) {
-        telemetry.embedding_skipped = true;
+      const documentLookupFastPath = decideTextFastPath(
+        args.query,
+        documentLookupResults,
+        queryClassification.queryClass,
+      );
+      if (documentLookupFastPath.returnFastPath) {
+        markEmbeddingSkippedByTextFastPath(
+          telemetry,
+          documentLookupFastPath.reason ? `document_lookup_fast_path:${documentLookupFastPath.reason}` : null,
+        );
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        setCachedSearch(args, documentLookupResults, telemetry);
+        setCachedSearch(args, documentLookupResults, telemetry, queryVariants);
         return { results: documentLookupResults, telemetry };
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
     }
+  }
+
+  if (textFastResults.length > 0) {
+    const coverageGateResults = await prepareCoverageGateResults({
+      supabase,
+      query: retrievalQuery,
+      candidates: textFastResults,
+      ownerId: args.ownerId,
+      topK: args.topK ?? 8,
+      maxResultsPerDocument,
+      queryClass: queryClassification.queryClass,
+      telemetry,
+    });
+    const coverageGate = evaluateEvidenceCoverageGate(args.query, coverageGateResults, queryClassification.queryClass);
+    applyCoverageGateTelemetry(telemetry, coverageGate, coverageGate.accepted);
+    if (coverageGate.accepted) {
+      telemetry.retrieval_strategy = coverageGate.strategy;
+      recordSearchScoreTelemetry(telemetry, coverageGateResults);
+      setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
+      return { results: coverageGateResults, telemetry };
+    }
+    textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
   }
 
   if (!embeddingStartedAt) embeddingStartedAt = Date.now();
@@ -3296,6 +3929,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const { embedding, cacheHit } = embeddingResult;
   telemetry.embedding_latency_ms = Date.now() - embeddingStartedAt;
   telemetry.embedding_cache_hit = cacheHit;
+  recordRetrievalLayer(telemetry, "embedding", 1, {
+    latencyMs: telemetry.embedding_latency_ms,
+  });
 
   const embeddingFieldStartedAt = Date.now();
   const embeddingFieldCandidates = await searchEmbeddingFieldCandidates({
@@ -3307,7 +3943,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     matchCount: Math.min(candidateCount, 48),
   });
   telemetry.embedding_field_count = embeddingFieldCandidates.length;
-  telemetry.supabase_rpc_latency_ms += Date.now() - embeddingFieldStartedAt;
+  const embeddingFieldLatencyMs = Date.now() - embeddingFieldStartedAt;
+  telemetry.supabase_rpc_latency_ms += embeddingFieldLatencyMs;
+  recordRetrievalLayer(telemetry, "embedding_fields", embeddingFieldCandidates.length, {
+    latencyMs: embeddingFieldLatencyMs,
+    topScore: layerTopScore(embeddingFieldCandidates),
+  });
   if (embeddingFieldCandidates.length > 0) {
     textFastResults = mergeSearchResults(embeddingFieldCandidates, textFastResults);
   }
@@ -3321,7 +3962,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     documentIds: documentFilterList,
     matchCount: Math.min(candidateCount, 64),
   });
-  telemetry.supabase_rpc_latency_ms += Date.now() - indexUnitStartedAt;
+  const indexUnitLatencyMs = Date.now() - indexUnitStartedAt;
+  telemetry.supabase_rpc_latency_ms += indexUnitLatencyMs;
   telemetry.index_unit_count = indexUnitCandidates.length;
   telemetry.index_unit_top_score = Number(
     Math.max(0, ...indexUnitCandidates.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4),
@@ -3329,6 +3971,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   if (indexUnitCandidates.length > 0) {
     textFastResults = mergeSearchResults(indexUnitCandidates, textFastResults);
   }
+  recordRetrievalLayer(telemetry, "index_units", indexUnitCandidates.length, {
+    latencyMs: indexUnitLatencyMs,
+    topScore: telemetry.index_unit_top_score,
+  });
 
   const hybridRpcStartedAt = Date.now();
   const { data: hybridData, error: hybridError } = await supabase.rpc("match_document_chunks_hybrid", {
@@ -3339,8 +3985,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     document_filters: documentFilterList ?? null,
     owner_filter: args.ownerId ?? null,
   });
-  telemetry.supabase_rpc_latency_ms += Date.now() - hybridRpcStartedAt;
+  const hybridLatencyMs = Date.now() - hybridRpcStartedAt;
+  telemetry.supabase_rpc_latency_ms += hybridLatencyMs;
   telemetry.vector_candidate_count = hybridData?.length ?? 0;
+  recordRetrievalLayer(telemetry, "hybrid_vector", hybridData?.length ?? 0, {
+    latencyMs: hybridLatencyMs,
+    topScore: layerTopScore((hybridData ?? []) as SearchResult[]),
+  });
 
   if (!hybridError) {
     const rerankStartedAt = Date.now();
@@ -3360,7 +4011,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       telemetry.memory_top_score ?? 0,
       ...memoryBoost.cards.map(memoryCardChunkScore),
     );
-    const results = await attachPageVisualEvidence(
+    let results = await attachPageVisualEvidence(
       supabase,
       diversifySearchResults(
         rankClinicalResults(retrievalQuery, memoryBoost.results),
@@ -3369,10 +4020,16 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         true,
       ),
     );
+    results = applySecondStageRerankIfNeeded({
+      queryClass: queryClassification.queryClass,
+      results,
+      telemetry,
+      topK: args.topK ?? 8,
+    });
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
     recordSearchScoreTelemetry(telemetry, results);
-    setCachedSearch(args, results, telemetry);
+    setCachedSearch(args, results, telemetry, queryVariants);
     return { results, telemetry };
   }
 
@@ -3396,8 +4053,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (textFastResults.length > 0) return [] as SearchResult[][];
     throw error;
   });
-  telemetry.supabase_rpc_latency_ms += Date.now() - fallbackRpcStartedAt;
+  const fallbackLatencyMs = Date.now() - fallbackRpcStartedAt;
+  telemetry.supabase_rpc_latency_ms += fallbackLatencyMs;
   telemetry.vector_candidate_count = resultSets.reduce((count, resultSet) => count + resultSet.length, 0);
+  recordRetrievalLayer(telemetry, "vector_fallback", telemetry.vector_candidate_count, {
+    latencyMs: fallbackLatencyMs,
+    topScore: layerTopScore(resultSets.flat()),
+  });
 
   const rerankStartedAt = Date.now();
   const mergedWithMetadata = await attachDocumentRankingMetadata(
@@ -3419,7 +4081,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.memory_top_score ?? 0,
     ...memoryBoost.cards.map(memoryCardChunkScore),
   );
-  const results = await attachPageVisualEvidence(
+  let results = await attachPageVisualEvidence(
     supabase,
     diversifySearchResults(
       rankClinicalResults(retrievalQuery, memoryBoost.results),
@@ -3428,10 +4090,16 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       true,
     ),
   );
+  results = applySecondStageRerankIfNeeded({
+    queryClass: queryClassification.queryClass,
+    results,
+    telemetry,
+    topK: args.topK ?? 8,
+  });
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
   recordSearchScoreTelemetry(telemetry, results);
-  setCachedSearch(args, results, telemetry);
+  setCachedSearch(args, results, telemetry, queryVariants);
   return { results, telemetry };
 }
 
@@ -3691,6 +4359,25 @@ function applyNumericVerification(answer: RagAnswer): RagAnswer {
   return answer;
 }
 
+export function selectModelContextResults(args: {
+  routeMode: RagAnswer["routingMode"];
+  queryClass: RagQueryClass;
+  crossDocument: boolean;
+  results: SearchResult[];
+}) {
+  if (args.routeMode !== "fast") return args.results;
+  if (
+    args.crossDocument ||
+    args.queryClass === "comparison" ||
+    args.queryClass === "broad_summary" ||
+    args.queryClass === "medication_dose_risk" ||
+    args.queryClass === "table_threshold"
+  ) {
+    return args.results;
+  }
+  return args.results.slice(0, fastRoutineModelContextLimit);
+}
+
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
@@ -3854,15 +4541,7 @@ export async function answerQuestionWithScope(args: {
     answerMode: routeFromRouting.mode,
   });
   const gatedRoute = applyConfidenceGate(routeFromRouting, queryClass, initialRetrievalDiagnostics);
-  const route =
-    gatedRoute.route.mode === "extractive"
-      ? {
-          ...gatedRoute.route,
-          mode: "fast" as const,
-          model: env.OPENAI_FAST_ANSWER_MODEL,
-          reason: `${gatedRoute.route.reason}; upgraded_to_model_synthesis`,
-        }
-      : gatedRoute.route;
+  const route = gatedRoute.route;
   const retrievalDiagnostics: RetrievalDiagnostics = {
     ...initialRetrievalDiagnostics,
     routeMode: route.mode,
@@ -3882,6 +4561,20 @@ export async function answerQuestionWithScope(args: {
     retrieval_reason: diagnostics.retrievalReason,
     retrieval_query_class: diagnostics.queryClass,
     retrieval_route_mode: diagnostics.routeMode,
+  });
+  const searchTelemetryDecisionMetadata = () => ({
+    retrieval_plan: search.telemetry.retrieval_plan ?? null,
+    retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count ?? null,
+    text_candidate_budget: search.telemetry.text_candidate_budget ?? null,
+    text_candidate_count: search.telemetry.text_candidate_count ?? null,
+    text_fast_path_reason: search.telemetry.text_fast_path_reason ?? null,
+    embedding_skip_reason: search.telemetry.embedding_skip_reason ?? null,
+    vector_candidate_count: search.telemetry.vector_candidate_count ?? null,
+    embedding_field_count: search.telemetry.embedding_field_count ?? null,
+    retrieval_provenance_counts: search.telemetry.retrieval_provenance_counts ?? null,
+    second_stage_rerank_used: search.telemetry.second_stage_rerank_used ?? null,
+    second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms ?? null,
+    visual_direct_image_count: search.telemetry.visual_direct_image_count ?? null,
   });
   const buildCurrentSmartApiPlan = (
     mode: RagAnswer["routingMode"] = route.mode,
@@ -3948,10 +4641,19 @@ export async function answerQuestionWithScope(args: {
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
+          embedding_skip_reason: search.telemetry.embedding_skip_reason,
+          text_candidate_budget: search.telemetry.text_candidate_budget,
+          text_candidate_count: search.telemetry.text_candidate_count,
+          text_fast_path_reason: search.telemetry.text_fast_path_reason,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          vector_candidate_count: search.telemetry.vector_candidate_count,
+          embedding_field_count: search.telemetry.embedding_field_count,
+          retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
+          second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
           context_pack_latency_ms: 0,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
@@ -4001,6 +4703,7 @@ export async function answerQuestionWithScope(args: {
           ...answerRankMetadata,
           ...memoryLogMetadata,
           ...scoreLogMetadata,
+          ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: 0,
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
@@ -4049,10 +4752,19 @@ export async function answerQuestionWithScope(args: {
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
+          embedding_skip_reason: search.telemetry.embedding_skip_reason,
+          text_candidate_budget: search.telemetry.text_candidate_budget,
+          text_candidate_count: search.telemetry.text_candidate_count,
+          text_fast_path_reason: search.telemetry.text_fast_path_reason,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          vector_candidate_count: search.telemetry.vector_candidate_count,
+          embedding_field_count: search.telemetry.embedding_field_count,
+          retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
+          second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
           context_pack_latency_ms: 0,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
@@ -4090,6 +4802,7 @@ export async function answerQuestionWithScope(args: {
           ...answerRankMetadata,
           ...memoryLogMetadata,
           ...scoreLogMetadata,
+          ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: answer.citations.length,
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
@@ -4278,10 +4991,19 @@ ${qualityRetryInstruction}`
         search_cache_hit: search.telemetry.search_cache_hit,
         text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
         embedding_skipped: search.telemetry.embedding_skipped,
+        embedding_skip_reason: search.telemetry.embedding_skip_reason,
+        text_candidate_budget: search.telemetry.text_candidate_budget,
+        text_candidate_count: search.telemetry.text_candidate_count,
+        text_fast_path_reason: search.telemetry.text_fast_path_reason,
         embedding_latency_ms: search.telemetry.embedding_latency_ms,
         embedding_cache_hit: search.telemetry.embedding_cache_hit,
+        vector_candidate_count: search.telemetry.vector_candidate_count,
+        embedding_field_count: search.telemetry.embedding_field_count,
+        retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
         supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
         rerank_latency_ms: search.telemetry.rerank_latency_ms,
+        second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
+        second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
         context_pack_latency_ms: contextPackLatencyMs,
         search_latency_ms: searchLatencyMs,
         generation_latency_ms: generationLatencyMs,
@@ -4306,8 +5028,12 @@ ${qualityRetryInstruction}`
     } satisfies RagAnswer;
   }
 
-  const fastContextResults =
-    route.mode === "fast" && !crossDocumentPlan.enabled ? answerInputResults.slice(0, 4) : answerInputResults;
+  const modelContextResults = selectModelContextResults({
+    routeMode: route.mode,
+    queryClass,
+    crossDocument: crossDocumentPlan.enabled,
+    results: answerInputResults,
+  });
   try {
     await args.onProgress?.({
       stage: "generating",
@@ -4317,7 +5043,7 @@ ${qualityRetryInstruction}`
       reason: route.reason,
     });
     const contextPackStartedAt = Date.now();
-    let packedContextResults = await packAdjacentSourceContext(createAdminClient(), fastContextResults, queryClass, {
+    let packedContextResults = await packAdjacentSourceContext(createAdminClient(), modelContextResults, queryClass, {
       crossDocument: crossDocumentPlan.enabled,
     });
     contextPackLatencyMs += Date.now() - contextPackStartedAt;
@@ -4400,10 +5126,19 @@ ${qualityRetryInstruction}`
       search_cache_hit: search.telemetry.search_cache_hit,
       text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
       embedding_skipped: search.telemetry.embedding_skipped,
+      embedding_skip_reason: search.telemetry.embedding_skip_reason,
+      text_candidate_budget: search.telemetry.text_candidate_budget,
+      text_candidate_count: search.telemetry.text_candidate_count,
+      text_fast_path_reason: search.telemetry.text_fast_path_reason,
       embedding_latency_ms: search.telemetry.embedding_latency_ms,
       embedding_cache_hit: search.telemetry.embedding_cache_hit,
+      vector_candidate_count: search.telemetry.vector_candidate_count,
+      embedding_field_count: search.telemetry.embedding_field_count,
+      retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
       supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
       rerank_latency_ms: search.telemetry.rerank_latency_ms,
+      second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
+      second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
       context_pack_latency_ms: contextPackLatencyMs,
       search_latency_ms: searchLatencyMs,
       generation_latency_ms: generationLatencyMs,
@@ -4493,6 +5228,7 @@ ${qualityRetryInstruction}`
           ...answerRankMetadata,
           ...memoryLogMetadata,
           ...scoreLogMetadata,
+          ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: answer.citations.length,
           quote_count: answer.quoteCards?.length ?? 0,
           visual_evidence_count: answer.visualEvidence?.length ?? 0,
@@ -4557,6 +5293,7 @@ ${qualityRetryInstruction}`
           ...answerRankMetadata,
           ...memoryLogMetadata,
           ...scoreLogMetadata,
+          ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,

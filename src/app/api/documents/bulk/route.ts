@@ -43,6 +43,7 @@ const bulkMetadataSchema = z.object({
           z.object({
             label: z.string().trim().min(1).max(80),
             label_type: z.enum([
+              "site",
               "topic",
               "document_type",
               "medication",
@@ -64,6 +65,7 @@ const bulkMetadataSchema = z.object({
           z.object({
             label: z.string().trim().min(1).max(80),
             label_type: z.enum([
+              "site",
               "topic",
               "document_type",
               "medication",

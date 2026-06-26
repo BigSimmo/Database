@@ -1,15 +1,19 @@
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
-import { isDemoMode } from "@/lib/env";
+import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
-import { consumePublicAnswerRateLimit, type PublicRateLimitResult } from "@/lib/public-rate-limit";
+import { consumeApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
-import { sourceGovernanceWarnings } from "@/lib/source-governance";
+import {
+  hasDangerSourceGovernanceWarning,
+  sourceGovernanceRefusalAnswer,
+  sourceGovernanceWarnings,
+} from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthenticatedUser } from "@/lib/supabase/auth";
 
@@ -30,10 +34,10 @@ function encodeSse(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-function rateLimitStream(rateLimit: PublicRateLimitResult) {
+function rateLimitStream(rateLimit: ApiRateLimitResult) {
   return new Response(
     encodeSse("error", {
-      error: "Too many public answer requests. Retry shortly.",
+      error: "Too many answer requests. Retry shortly.",
       status: 429,
       details: { retryAfterSeconds: rateLimit.retryAfterSeconds, resetAt: rateLimit.resetAt },
     }),
@@ -50,7 +54,11 @@ function rateLimitStream(rateLimit: PublicRateLimitResult) {
 
 function streamErrorPayload(error: unknown) {
   if (error instanceof PublicApiError) {
-    return { message: error.message, status: error.status, details: error.details };
+    return {
+      message: error.message,
+      status: error.status,
+      details: error.details?.code ? { code: error.details.code } : undefined,
+    };
   }
 
   if (error instanceof Error) {
@@ -146,13 +154,27 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
                 skipCache: body.skipCache,
                 onProgress,
               });
+          const warnings = sourceGovernanceWarnings({
+            results: answer.sources ?? [],
+            relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
+          });
+          if (hasDangerSourceGovernanceWarning(warnings)) {
+            send("final", {
+              ...answer,
+              answer: sourceGovernanceRefusalAnswer,
+              grounded: false,
+              confidence: "unsupported",
+              citations: [],
+              scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
+              sourceGovernanceWarnings: warnings,
+            });
+            return;
+          }
+
           send("final", {
             ...answer,
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
-            sourceGovernanceWarnings: sourceGovernanceWarnings({
-              results: answer.sources ?? [],
-              relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
-            }),
+            sourceGovernanceWarnings: warnings,
           });
         } catch (error) {
           logStreamError(error);
@@ -181,7 +203,12 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
 
-    const rateLimit = consumePublicAnswerRateLimit(request.headers);
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "answer",
+      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+    });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
     return streamAnswer(body, user.id);

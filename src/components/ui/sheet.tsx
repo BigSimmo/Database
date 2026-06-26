@@ -21,7 +21,9 @@ export function Sheet({
   closeLabel = "Close",
   labelledBy,
   initialFocusRef,
+  returnFocusRef,
   contentClassName,
+  placement = "default",
 }: {
   open: boolean;
   onClose: () => void;
@@ -32,7 +34,9 @@ export function Sheet({
   closeLabel?: string;
   labelledBy?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   contentClassName?: string;
+  placement?: "default" | "left";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -42,6 +46,7 @@ export function Sheet({
   useEffect(() => {
     if (!open) return;
 
+    const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -64,7 +69,10 @@ export function Sheet({
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -78,9 +86,12 @@ export function Sheet({
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      previousActiveElement?.focus();
+      const restoreTarget = explicitReturnElement ?? previousActiveElement;
+      window.requestAnimationFrame(() => {
+        if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
+      });
     };
-  }, [open, onClose, initialFocusRef]);
+  }, [open, onClose, initialFocusRef, returnFocusRef]);
 
   if (!open) return null;
 
@@ -88,7 +99,11 @@ export function Sheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--surface-glass)] backdrop-blur-sm motion-safe:animate-overlay-in motion-reduce:animate-none motion-reduce:transition-none sm:items-center sm:p-6"
+      className={cn(
+        "fixed inset-0 z-50 flex bg-[color:var(--surface-glass)] backdrop-blur-sm motion-reduce:animate-none motion-reduce:transition-none",
+        placement !== "left" && "motion-safe:animate-overlay-in",
+        placement === "left" ? "items-stretch justify-start" : "items-end justify-center sm:items-center sm:p-6",
+      )}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -101,15 +116,20 @@ export function Sheet({
         aria-describedby={description ? descId : undefined}
         onMouseDown={(event) => event.stopPropagation()}
         className={cn(
-          "flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe motion-safe:animate-sheet-up",
+          "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
           "transition duration-200 motion-reduce:transition-none sm:duration-150",
-          "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
-          "sm:motion-reduce:animate-none",
+          placement === "left"
+            ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
+            : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+          "motion-reduce:animate-none",
           contentClassName,
         )}
       >
         <div
-          className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden"
+          className={cn(
+            "mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden",
+            placement === "left" && "hidden",
+          )}
           aria-hidden
         />
         {title ? (
@@ -129,7 +149,7 @@ export function Sheet({
             </button>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5">{children}</div>
         {footer ? <div className="shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4">{footer}</div> : null}
       </div>
     </div>

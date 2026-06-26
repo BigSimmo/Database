@@ -161,6 +161,7 @@ create table if not exists public.document_labels (
   label text not null,
   label_type text not null
     check (label_type in (
+      'site',
       'topic',
       'document_type',
       'medication',
@@ -360,6 +361,24 @@ create table if not exists public.ingestion_jobs (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.ingestion_job_stages (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null,
+  document_id uuid not null references public.documents(id) on delete cascade,
+  stage_name text not null,
+  stage_status text not null default 'started'
+    check (stage_status in ('started', 'completed', 'failed')),
+  metadata jsonb not null default '{}'::jsonb,
+  artifact_counts jsonb not null default '{}'::jsonb,
+  error_message text,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table if exists public.ingestion_job_stages
+  drop constraint if exists ingestion_job_stages_job_id_fkey;
+
 create table if not exists public.rag_queries (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -463,6 +482,16 @@ create table if not exists public.rag_retrieval_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.api_rate_limits (
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  bucket text not null,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 0 check (request_count >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (owner_id, bucket),
+  constraint api_rate_limits_bucket_nonempty check (btrim(bucket) <> '')
+);
+
 create table if not exists public.storage_cleanup_jobs (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -493,6 +522,9 @@ create index if not exists documents_import_batch_idx on public.documents(import
 create index if not exists documents_owner_hash_idx on public.documents(owner_id, content_hash);
 create index if not exists documents_search_idx on public.documents using gin(search_tsv);
 create index if not exists documents_title_search_idx on public.documents using gin(title_search_tsv);
+create index if not exists documents_indexed_owner_title_idx
+  on public.documents(owner_id, title, file_name)
+  where status = 'indexed';
 create index if not exists documents_title_trgm_idx
   on public.documents using gin (lower(coalesce(title, '') || ' ' || coalesce(file_name, '')) gin_trgm_ops);
 create index if not exists document_pages_document_idx on public.document_pages(document_id, page_number);
@@ -502,6 +534,14 @@ create index if not exists document_images_searchable_idx
 create index if not exists document_images_hash_idx
   on public.document_images(document_id, image_hash)
   where image_hash is not null;
+create index if not exists document_images_visual_intelligence_version_idx
+  on public.document_images ((metadata->>'visual_intelligence_version'))
+  where metadata ? 'visual_intelligence_version';
+create index if not exists document_images_visual_family_idx
+  on public.document_images ((metadata->>'visual_family_id'))
+  where metadata ? 'visual_family_id';
+create index if not exists document_images_structured_profile_gin_idx
+  on public.document_images using gin ((metadata->'structured_visual_profile'));
 create index if not exists image_caption_cache_owner_hash_idx
   on public.image_caption_cache(owner_id, image_hash, model);
 create index if not exists document_labels_owner_label_idx
@@ -551,6 +591,8 @@ create index if not exists document_table_facts_terms_idx
   on public.document_table_facts using gin(normalized_terms);
 create index if not exists document_table_facts_owner_idx
   on public.document_table_facts(owner_id);
+create index if not exists document_table_facts_owner_document_page_idx
+  on public.document_table_facts(owner_id, document_id, page_number);
 create index if not exists document_table_facts_source_image_idx
   on public.document_table_facts(source_image_id)
   where source_image_id is not null;
@@ -558,6 +600,9 @@ create index if not exists document_embedding_fields_document_idx
   on public.document_embedding_fields(document_id, field_type);
 create index if not exists document_embedding_fields_owner_idx
   on public.document_embedding_fields(owner_id);
+create index if not exists document_embedding_fields_owner_chunk_idx
+  on public.document_embedding_fields(owner_id, source_chunk_id)
+  where source_chunk_id is not null;
 create index if not exists document_embedding_fields_chunk_idx
   on public.document_embedding_fields(source_chunk_id)
   where source_chunk_id is not null;
@@ -605,6 +650,14 @@ create index if not exists ingestion_jobs_status_next_run_idx
   where status in ('pending', 'processing', 'failed');
 create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
+drop index if exists public.ingestion_job_stages_doc_idx;
+create index if not exists ingestion_job_stages_document_started_idx
+  on public.ingestion_job_stages(document_id, started_at desc);
+create index if not exists ingestion_job_stages_job_stage_started_idx
+  on public.ingestion_job_stages(job_id, stage_name, started_at desc);
+create index if not exists documents_indexing_v3_agent_claim_idx
+  on public.documents(status, ((metadata->>'enrichment_status')), ((metadata->>'indexing_v3_agent_status')), updated_at)
+  where status = 'indexed';
 create index if not exists import_batches_status_created_idx
   on public.import_batches(status, created_at desc)
   where status in ('queued', 'processing');
@@ -653,6 +706,8 @@ create index if not exists rag_retrieval_logs_miss_idx
   where is_miss = true;
 create index if not exists rag_retrieval_logs_strategy_idx
   on public.rag_retrieval_logs(retrieval_strategy, created_at desc);
+create index if not exists api_rate_limits_bucket_updated_idx
+  on public.api_rate_limits(bucket, updated_at desc);
 
 -- Redundant single-column FK indexes removed (covered by composite indexes
 -- with the same leading column, e.g. document_chunks_document_idx).
@@ -665,6 +720,81 @@ as $$
 begin
   new.updated_at = now();
   return new;
+end;
+$$;
+
+create or replace function public.consume_api_rate_limit(
+  p_owner_id uuid,
+  p_bucket text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns table (
+  limited boolean,
+  limit_value integer,
+  remaining integer,
+  retry_after_seconds integer,
+  reset_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_now timestamptz := now();
+  v_window_start timestamptz := v_now;
+  v_count integer;
+  v_reset_at timestamptz;
+begin
+  if p_owner_id is null then
+    raise exception 'owner_id is required';
+  end if;
+  if p_bucket is null or btrim(p_bucket) = '' then
+    raise exception 'bucket is required';
+  end if;
+  if p_limit < 1 then
+    raise exception 'limit must be positive';
+  end if;
+  if p_window_seconds < 1 then
+    raise exception 'window must be positive';
+  end if;
+
+  loop
+    update public.api_rate_limits
+    set
+      window_start = case
+        when window_start + make_interval(secs => p_window_seconds) <= v_now then v_window_start
+        else window_start
+      end,
+      request_count = case
+        when window_start + make_interval(secs => p_window_seconds) <= v_now then 1
+        else request_count + 1
+      end,
+      updated_at = v_now
+    where owner_id = p_owner_id
+      and bucket = p_bucket
+    returning request_count, window_start + make_interval(secs => p_window_seconds)
+      into v_count, v_reset_at;
+
+    exit when found;
+
+    begin
+      insert into public.api_rate_limits(owner_id, bucket, window_start, request_count, updated_at)
+      values (p_owner_id, p_bucket, v_window_start, 1, v_now)
+      returning request_count, window_start + make_interval(secs => p_window_seconds)
+        into v_count, v_reset_at;
+      exit;
+    exception when unique_violation then
+    end;
+  end loop;
+
+  return query
+  select
+    v_count > p_limit as limited,
+    p_limit as limit_value,
+    greatest(p_limit - v_count, 0) as remaining,
+    greatest(1, ceiling(extract(epoch from (v_reset_at - v_now)))::integer) as retry_after_seconds,
+    v_reset_at as reset_at;
 end;
 $$;
 
@@ -804,6 +934,119 @@ begin
     to_jsonb(d.*) as documents
   from claimed c
   join public.documents d on d.id = c.document_id;
+end;
+$$;
+
+create or replace function public.claim_indexing_v3_agent_jobs(
+  p_worker_id text,
+  p_claim_limit integer default 1,
+  p_stale_after_minutes integer default 45
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  batch_id uuid,
+  status text,
+  stage text,
+  progress integer,
+  error_message text,
+  attempt_count integer,
+  max_attempts integer,
+  locked_at timestamptz,
+  locked_by text,
+  documents jsonb
+)
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  return query
+  with eligible as (
+    select
+      d.id,
+      d.import_batch_id,
+      state.attempt_count,
+      state.max_attempts
+    from public.documents d
+    cross join lateral (
+      select
+        coalesce(d.metadata->>'enrichment_status', 'pending') as enrichment_status,
+        coalesce(d.metadata->>'indexing_v3_agent_status', 'pending') as agent_status,
+        case
+          when coalesce(d.metadata->>'indexing_v3_agent_attempt_count', '') ~ '^[0-9]+$'
+            then (d.metadata->>'indexing_v3_agent_attempt_count')::integer
+          else 0
+        end as attempt_count,
+        greatest(
+          case
+            when coalesce(d.metadata->>'indexing_v3_agent_max_attempts', '') ~ '^[0-9]+$'
+              then (d.metadata->>'indexing_v3_agent_max_attempts')::integer
+            else 3
+          end,
+          1
+        ) as max_attempts,
+        case
+          when coalesce(d.metadata->>'indexing_v3_agent_locked_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+            then (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz
+          else null
+        end as locked_at,
+        case
+          when coalesce(d.metadata->>'indexing_v3_agent_next_run_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+            then (d.metadata->>'indexing_v3_agent_next_run_at')::timestamptz
+          else null
+        end as next_run_at
+    ) state
+    where d.status = 'indexed'
+      and state.enrichment_status in ('pending', 'failed', 'processing')
+      and state.agent_status not in ('completed', 'needs_enrichment_artifacts')
+      and state.attempt_count < state.max_attempts
+      and coalesce(state.next_run_at, now()) <= now()
+      and (
+        state.agent_status <> 'processing'
+        or state.locked_at is null
+        or state.locked_at < now() - make_interval(mins => p_stale_after_minutes)
+      )
+    order by coalesce(state.next_run_at, d.updated_at), d.id
+    limit greatest(p_claim_limit, 1)
+    for update of d skip locked
+  ),
+  claimed as (
+    update public.documents d
+    set
+      metadata = jsonb_strip_nulls(
+        (coalesce(d.metadata, '{}'::jsonb)
+          - 'indexing_v3_agent_next_run_at'
+          - 'indexing_v3_agent_last_error')
+        || jsonb_build_object(
+          'indexing_v3_agent_status', 'processing',
+          'indexing_v3_agent_version', 'visual-core-v3',
+          'indexing_v3_agent_locked_by', p_worker_id,
+          'indexing_v3_agent_locked_at', now(),
+          'indexing_v3_agent_attempt_count', e.attempt_count + 1,
+          'indexing_v3_agent_max_attempts', e.max_attempts,
+          'indexing_v3_agent_updated_at', now(),
+          'enrichment_status', 'processing'
+        )
+      ),
+      updated_at = now()
+    from eligible e
+    where d.id = e.id
+    returning d.*, e.attempt_count + 1 as claimed_attempt_count, e.max_attempts as claimed_max_attempts
+  )
+  select
+    c.id,
+    c.id as document_id,
+    c.import_batch_id as batch_id,
+    'processing'::text as status,
+    'v3 enrichment claimed'::text as stage,
+    95::integer as progress,
+    null::text as error_message,
+    c.claimed_attempt_count,
+    c.claimed_max_attempts,
+    (c.metadata->>'indexing_v3_agent_locked_at')::timestamptz as locked_at,
+    c.metadata->>'indexing_v3_agent_locked_by' as locked_by,
+    to_jsonb(c.*) - 'claimed_attempt_count' - 'claimed_max_attempts' as documents
+  from claimed c;
 end;
 $$;
 
@@ -1182,7 +1425,7 @@ as $$
       and d.status = 'indexed'
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
     order by c.embedding <=> query_embedding
-    limit greatest(match_count * 6, 48)
+    limit least(greatest(match_count * 2, 48), 128)
   ),
   text_ranked as (
     select
@@ -1225,7 +1468,7 @@ as $$
       ts_rank_cd(c.search_tsv, query.tsq) +
       (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
     ) desc
-    limit greatest(match_count * 6, 48)
+    limit least(greatest(match_count * 2, 48), 128)
   ),
   combined as (
     select * from vector_ranked
@@ -1506,6 +1749,10 @@ declare
     'document_index_units_embedding_hnsw_idx',
     'document_chunks_embedding_hnsw_idx',
     'document_embedding_fields_embedding_hnsw_idx',
+    'documents_indexed_owner_title_idx',
+    'document_table_facts_owner_document_page_idx',
+    'document_embedding_fields_owner_chunk_idx',
+    'document_index_units_owner_chunk_type_idx',
     'document_table_facts_source_image_idx',
     'document_pages_document_idx',
     'document_sections_document_idx',
@@ -1540,6 +1787,9 @@ begin
   if to_regprocedure('public.match_document_chunks_text(text, integer, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_chunks_text.signature');
   end if;
+  if to_regprocedure('public.match_document_lookup_chunks_text(text, uuid[], integer, uuid)') is null then
+    missing := array_append(missing, 'match_document_lookup_chunks_text.signature');
+  end if;
   if to_regprocedure('public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_memory_cards_hybrid.extensions_vector_signature');
   end if;
@@ -1554,6 +1804,9 @@ begin
   end if;
   if to_regprocedure('public.match_document_table_facts_text(text, integer, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_table_facts_text.signature');
+  end if;
+  if to_regprocedure('public.explain_retrieval_rpc(text, text, integer, uuid, uuid[], boolean)') is null then
+    missing := array_append(missing, 'explain_retrieval_rpc.signature');
   end if;
   if to_regclass('public.rag_retrieval_logs') is null then
     missing := array_append(missing, 'rag_retrieval_logs.table');
@@ -1587,6 +1840,52 @@ $$;
 
 revoke execute on function public.search_schema_health() from public, anon, authenticated;
 grant execute on function public.search_schema_health() to service_role;
+
+create or replace function public.explain_retrieval_rpc(
+  p_rpc text,
+  p_query_text text,
+  p_match_count integer default 12,
+  p_owner_filter uuid default null,
+  p_document_filters uuid[] default null,
+  p_analyze boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  plan json;
+  options text;
+  sql text;
+begin
+  options := case
+    when p_analyze then 'analyze true, buffers true, format json'
+    else 'analyze false, format json'
+  end;
+
+  if p_rpc = 'match_documents_for_query' then
+    sql := format('explain (%s) select * from public.match_documents_for_query($1, $2, $3)', options);
+    execute sql into plan using p_query_text, p_match_count, p_owner_filter;
+  elsif p_rpc = 'match_document_chunks_text' then
+    sql := format('explain (%s) select * from public.match_document_chunks_text($1, $2, $3, $4)', options);
+    execute sql into plan using p_query_text, p_match_count, p_document_filters, p_owner_filter;
+  elsif p_rpc = 'match_document_lookup_chunks_text' then
+    sql := format('explain (%s) select * from public.match_document_lookup_chunks_text($1, $2, $3, $4)', options);
+    execute sql into plan using p_query_text, p_document_filters, p_match_count, p_owner_filter;
+  elsif p_rpc = 'match_document_table_facts_text' then
+    sql := format('explain (%s) select * from public.match_document_table_facts_text($1, $2, $3, $4)', options);
+    execute sql into plan using p_query_text, p_match_count, p_document_filters, p_owner_filter;
+  else
+    raise exception 'Unsupported retrieval RPC: %', p_rpc using errcode = '22023';
+  end if;
+
+  return coalesce(plan::jsonb, '[]'::jsonb);
+end;
+$$;
+
+revoke execute on function public.explain_retrieval_rpc(text, text, integer, uuid, uuid[], boolean) from public, anon, authenticated;
+grant execute on function public.explain_retrieval_rpc(text, text, integer, uuid, uuid[], boolean) to service_role;
 
 create or replace function public.match_documents_for_query(
   query_text text,
@@ -1730,7 +2029,7 @@ as $$
       ts_rank_cd(c.search_tsv, query.tsq) +
       (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
     ) desc
-    limit greatest(match_count * 5, 48)
+    limit least(greatest(match_count * 2, 24), 96)
   )
   select
     ranked.id,
@@ -1762,6 +2061,67 @@ as $$
   order by lexical_score desc, text_rank desc
   limit match_count;
 $$;
+
+create or replace function public.match_document_lookup_chunks_text(
+  query_text text,
+  document_filters uuid[],
+  match_count integer default 24,
+  owner_filter uuid default null
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  page_number integer,
+  chunk_index integer,
+  section_heading text,
+  section_path text[],
+  heading_level integer,
+  parent_heading text,
+  anchor_id text,
+  content text,
+  retrieval_synopsis text,
+  image_ids uuid[],
+  text_rank double precision
+)
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  with query as (
+    select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
+  )
+  select
+    c.id,
+    c.document_id,
+    c.page_number,
+    c.chunk_index,
+    c.section_heading,
+    c.section_path,
+    c.heading_level,
+    c.parent_heading,
+    c.anchor_id,
+    c.content,
+    c.retrieval_synopsis,
+    c.image_ids,
+    (
+      ts_rank_cd(c.search_tsv, query.tsq) +
+      (case when c.section_heading is not null then ts_rank_cd(to_tsvector('english', c.section_heading), query.tsq) * 0.35 else 0 end) +
+      (ts_rank_cd(d.title_search_tsv, query.tsq) * 0.25)
+    )::double precision as text_rank
+  from public.document_chunks c
+  join public.documents d on d.id = c.document_id
+  cross join query
+  where document_filters is not null
+    and c.document_id = any(document_filters)
+    and (owner_filter is null or d.owner_id = owner_filter)
+    and d.status = 'indexed'
+    and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
+  order by text_rank desc, c.chunk_index asc
+  limit least(greatest(match_count, 1), 80);
+$$;
+
+revoke execute on function public.match_document_lookup_chunks_text(text, uuid[], integer, uuid) from public, anon, authenticated;
+grant execute on function public.match_document_lookup_chunks_text(text, uuid[], integer, uuid) to service_role;
 
 create or replace function public.get_related_document_metadata(
   document_ids uuid[],
@@ -1892,7 +2252,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and (owner_filter is null or f.owner_id = owner_filter)
       and d.status = 'indexed'
       and (
         f.search_tsv @@ query.tsq
@@ -1954,7 +2314,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and (owner_filter is null or f.owner_id = owner_filter)
       and d.status = 'indexed'
       and f.source_chunk_id is not null
       and (
@@ -1963,7 +2323,7 @@ as $$
       )
     order by
       ((1 - (f.embedding <=> query_embedding)) * 0.7 + least(ts_rank_cd(f.search_tsv, query.tsq), 1) * 0.3) desc
-    limit greatest(match_count * 3, 32)
+    limit least(greatest(match_count * 2, 24), 96)
   )
   select
     id,
@@ -1978,6 +2338,465 @@ as $$
   order by hybrid_score desc, similarity desc, text_rank desc
   limit match_count;
 $$;
+
+create or replace view public.document_strict_gate_status
+with (security_invoker = true)
+as
+with artifact_counts as (
+  select
+    d.id as document_id,
+    d.owner_id,
+    d.status as document_status,
+    d.updated_at as document_updated_at,
+    coalesce(d.metadata->>'enrichment_status', 'pending') as enrichment_status,
+    coalesce(d.metadata->>'indexing_v3_agent_status', 'pending') as indexing_v3_agent_status,
+    coalesce(q.extraction_quality, 'unknown') as quality_extraction_quality,
+    coalesce(q.quality_score, 0)::real as quality_score,
+    (select count(*)::integer from public.document_sections s where s.document_id = d.id) as sections,
+    (select count(*)::integer from public.document_memory_cards m where m.document_id = d.id) as memory_cards,
+    (
+      select count(*)::integer
+      from public.document_labels l
+      where l.document_id = d.id
+        and (
+          lower(l.source) = 'generated'
+          or l.metadata->>'source' = 'generated'
+          or l.metadata->>'generated_by' = 'indexing-v3-agent'
+          or lower(coalesce(l.metadata->>'generation_source', '')) = 'indexing_v3_agent_parsed_artifacts'
+        )
+    ) as generated_labels,
+    (select count(*)::integer from public.document_index_units u where u.document_id = d.id) as index_units,
+    exists (
+      select 1
+      from public.document_embedding_fields f
+      where f.document_id = d.id
+        and f.field_type = 'document_title'
+      limit 1
+    ) as title_embedding,
+    exists (
+      select 1
+      from public.document_embedding_fields f
+      where f.document_id = d.id
+        and f.field_type = 'document_summary'
+      limit 1
+    ) as summary_embedding
+  from public.documents d
+  left join public.document_index_quality q on q.document_id = d.id
+),
+gate as (
+  select
+    artifact_counts.*,
+    array_remove(array[
+      case when sections > 0 then null else 'sections' end,
+      case when memory_cards > 0 then null else 'memory_cards' end,
+      case when generated_labels > 0 then null else 'generated_labels' end,
+      case when index_units > 0 then null else 'index_units' end,
+      case when title_embedding then null else 'title_embedding' end,
+      case when summary_embedding then null else 'summary_embedding' end
+    ], null)::text[] as missing
+  from artifact_counts
+)
+select
+  document_id,
+  owner_id,
+  document_status,
+  document_updated_at,
+  enrichment_status,
+  indexing_v3_agent_status,
+  quality_extraction_quality,
+  quality_score,
+  sections,
+  memory_cards,
+  generated_labels,
+  index_units,
+  title_embedding,
+  summary_embedding,
+  missing,
+  cardinality(missing) = 0 as gate_passed,
+  jsonb_build_object(
+    'sections', sections,
+    'memory_cards', memory_cards,
+    'generated_labels', generated_labels,
+    'index_units', index_units
+  ) as counts,
+  jsonb_build_object(
+    'title_embedding', title_embedding,
+    'summary_embedding', summary_embedding
+  ) as presence
+from gate;
+
+create or replace function public.repair_strict_enrichment_gate_batch(
+  p_limit integer default 50
+)
+returns table (
+  document_id uuid,
+  missing text[],
+  repaired text[],
+  status text,
+  counts jsonb,
+  presence jsonb
+)
+language plpgsql
+security invoker
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  return query
+  with candidates as (
+    select g.*
+    from public.document_strict_gate_status g
+    where g.document_status = 'indexed'
+      and (
+        (
+          g.gate_passed
+          and (
+            coalesce(g.enrichment_status, '') <> 'completed'
+            or coalesce(g.indexing_v3_agent_status, '') <> 'completed'
+            or coalesce(g.quality_extraction_quality, '') <> 'good'
+            or exists (
+              select 1
+              from public.ingestion_jobs j
+              where j.document_id = g.document_id
+                and j.status in ('pending', 'processing')
+            )
+          )
+        )
+        or (
+          not g.gate_passed
+          and (
+            coalesce(g.enrichment_status, '') = 'completed'
+            or coalesce(g.indexing_v3_agent_status, '') = 'completed'
+          )
+        )
+      )
+    order by g.document_updated_at asc nulls first, g.document_id
+    limit greatest(1, least(coalesce(p_limit, 50), 500))
+  ),
+  updated_documents as (
+    update public.documents d
+    set
+      metadata = case
+        when c.gate_passed then
+          jsonb_strip_nulls(
+            (coalesce(d.metadata, '{}'::jsonb)
+              - 'indexing_v3_agent_locked_by'
+              - 'indexing_v3_agent_locked_at'
+              - 'indexing_v3_agent_next_run_at'
+              - 'indexing_v3_agent_last_error'
+              - 'completion_gate_missing')
+            || jsonb_build_object(
+              'indexing_v3_agent_status', 'completed',
+              'indexing_v3_agent_updated_at', now(),
+              'indexing_v3_agent_deferral_count', 0,
+              'completion_gate', jsonb_build_object(
+                'result', 'complete',
+                'missing', to_jsonb(c.missing),
+                'counts', c.counts,
+                'presence', c.presence,
+                'source', 'repair_strict_enrichment_gate_batch'
+              ),
+              'enrichment_status', 'completed'
+            )
+          )
+        else
+          jsonb_strip_nulls(
+            (coalesce(d.metadata, '{}'::jsonb)
+              - 'indexing_v3_agent_locked_by'
+              - 'indexing_v3_agent_locked_at'
+              - 'indexing_v3_agent_next_run_at'
+              - 'indexing_v3_agent_last_error')
+            || jsonb_build_object(
+              'indexing_v3_agent_status', 'deferred',
+              'indexing_v3_agent_updated_at', now(),
+              'completion_gate_missing', to_jsonb(c.missing),
+              'completion_gate', jsonb_build_object(
+                'result', 'deferred',
+                'missing', to_jsonb(c.missing),
+                'counts', c.counts,
+                'presence', c.presence,
+                'source', 'repair_strict_enrichment_gate_batch'
+              ),
+              'enrichment_status', 'pending'
+            )
+          )
+      end,
+      updated_at = now()
+    from candidates c
+    where d.id = c.document_id
+    returning d.id
+  ),
+  quality_promotions as (
+    insert into public.document_index_quality (
+      document_id,
+      owner_id,
+      quality_score,
+      extraction_quality,
+      metrics,
+      issues,
+      updated_at
+    )
+    select
+      c.document_id,
+      c.owner_id,
+      greatest(c.quality_score, 1)::real,
+      'good',
+      jsonb_build_object(
+        'strict_enrichment_gate', jsonb_build_object(
+          'result', 'complete',
+          'counts', c.counts,
+          'presence', c.presence,
+          'source', 'repair_strict_enrichment_gate_batch'
+        )
+      ),
+      '{}'::text[],
+      now()
+    from candidates c
+    where c.gate_passed
+    on conflict (document_id)
+    do update set
+      quality_score = greatest(public.document_index_quality.quality_score, excluded.quality_score),
+      extraction_quality = 'good',
+      metrics = coalesce(public.document_index_quality.metrics, '{}'::jsonb) || excluded.metrics,
+      updated_at = now()
+    returning document_id
+  ),
+  completed_open_jobs as (
+    update public.ingestion_jobs j
+    set
+      status = 'completed',
+      stage = 'indexed',
+      progress = 100,
+      error_message = null,
+      locked_at = null,
+      locked_by = null,
+      completed_at = coalesce(j.completed_at, now()),
+      updated_at = now()
+    from candidates c
+    where c.gate_passed
+      and j.document_id = c.document_id
+      and j.status in ('pending', 'processing')
+    returning j.document_id
+  ),
+  deferred_open_jobs as (
+    update public.ingestion_jobs j
+    set
+      status = 'pending',
+      stage = 'strict_gate_deferred',
+      progress = least(j.progress, 95),
+      error_message = 'strict enrichment gate missing: ' || array_to_string(c.missing, ','),
+      locked_at = null,
+      locked_by = null,
+      next_run_at = now(),
+      completed_at = null,
+      updated_at = now()
+    from candidates c
+    where not c.gate_passed
+      and j.document_id = c.document_id
+      and j.status in ('pending', 'processing')
+    returning j.document_id
+  ),
+  queued_repair_jobs as (
+    insert into public.ingestion_jobs (
+      document_id,
+      status,
+      stage,
+      progress,
+      error_message,
+      next_run_at
+    )
+    select
+      c.document_id,
+      'pending',
+      'strict_gate_repair',
+      95,
+      'strict enrichment gate missing: ' || array_to_string(c.missing, ','),
+      now()
+    from candidates c
+    where not c.gate_passed
+      and not exists (
+        select 1
+        from public.ingestion_jobs j
+        where j.document_id = c.document_id
+          and j.status in ('pending', 'processing')
+      )
+    returning document_id
+  )
+  select
+    c.document_id,
+    c.missing,
+    array_remove(array[
+      case when c.gate_passed then 'metadata_completed' else 'metadata_deferred' end,
+      case when c.gate_passed then 'quality_good' else null end,
+      case when exists (select 1 from completed_open_jobs j where j.document_id = c.document_id) then 'open_jobs_completed' else null end,
+      case when exists (select 1 from deferred_open_jobs j where j.document_id = c.document_id) then 'open_jobs_deferred' else null end,
+      case when exists (select 1 from queued_repair_jobs j where j.document_id = c.document_id) then 'repair_job_queued' else null end
+    ], null)::text[] as repaired,
+    case when c.gate_passed then 'completed' else 'deferred' end as status,
+    c.counts,
+    c.presence
+  from candidates c
+  where exists (select 1 from updated_documents u where u.id = c.document_id)
+  order by c.document_updated_at asc nulls first, c.document_id;
+end;
+$$;
+
+revoke all on table public.document_strict_gate_status from public, anon, authenticated;
+grant select on table public.document_strict_gate_status to service_role;
+revoke execute on function public.repair_strict_enrichment_gate_batch(integer) from public, anon, authenticated;
+grant execute on function public.repair_strict_enrichment_gate_batch(integer) to service_role;
+
+create or replace function public.complete_strict_enrichment_job(
+  p_document_id uuid,
+  p_job_id uuid default null,
+  p_stage text default 'indexed; enrichment completed',
+  p_agent_version text default 'visual-core-v3',
+  p_visual_indexing_version text default 'visual-v3'
+)
+returns table (
+  ok boolean,
+  document_id uuid,
+  gate_passed boolean,
+  missing text[],
+  status text,
+  counts jsonb,
+  presence jsonb,
+  completed_job_ids uuid[]
+)
+language plpgsql
+security invoker
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  gate_row record;
+begin
+  perform 1
+  from public.documents d
+  where d.id = p_document_id
+  for update;
+
+  if not found then
+    return query
+    select
+      false,
+      p_document_id,
+      false,
+      array['document_not_found']::text[],
+      'missing_document',
+      '{}'::jsonb,
+      '{}'::jsonb,
+      '{}'::uuid[];
+    return;
+  end if;
+
+  select *
+  into gate_row
+  from public.document_strict_gate_status g
+  where g.document_id = p_document_id;
+
+  if not found then
+    return query
+    select
+      false,
+      p_document_id,
+      false,
+      array['strict_gate_status_missing']::text[],
+      'blocked_missing_artifacts',
+      '{}'::jsonb,
+      '{}'::jsonb,
+      '{}'::uuid[];
+    return;
+  end if;
+
+  if not gate_row.gate_passed then
+    return query
+    select
+      false,
+      p_document_id,
+      false,
+      gate_row.missing,
+      'blocked_missing_artifacts',
+      gate_row.counts,
+      gate_row.presence,
+      '{}'::uuid[];
+    return;
+  end if;
+
+  update public.documents d
+  set
+    metadata = jsonb_strip_nulls(
+      (coalesce(d.metadata, '{}'::jsonb)
+        - 'indexing_v3_agent_locked_by'
+        - 'indexing_v3_agent_locked_at'
+        - 'indexing_v3_agent_next_run_at'
+        - 'indexing_v3_agent_last_error'
+        - 'completion_gate_missing')
+      || jsonb_build_object(
+        'indexing_v3_agent_status', 'completed',
+        'indexing_v3_agent_version', p_agent_version,
+        'indexing_v3_agent_updated_at', now(),
+        'indexing_v3_agent_deferral_count', 0,
+        'visual_indexing_version', p_visual_indexing_version,
+        'completion_gate', jsonb_build_object(
+          'result', 'complete',
+          'missing', to_jsonb(gate_row.missing),
+          'counts', gate_row.counts,
+          'presence', gate_row.presence,
+          'source', 'complete_strict_enrichment_job'
+        ),
+        'enrichment_status', 'completed'
+      )
+    ),
+    updated_at = now()
+  where d.id = p_document_id;
+
+  insert into public.document_index_quality (
+    document_id,
+    owner_id,
+    quality_score,
+    extraction_quality,
+    metrics,
+    issues,
+    updated_at
+  )
+  values (
+    p_document_id,
+    gate_row.owner_id,
+    greatest(coalesce(gate_row.quality_score, 0), 1)::real,
+    'good',
+    jsonb_build_object(
+      'strict_enrichment_gate', jsonb_build_object(
+        'result', 'complete',
+        'counts', gate_row.counts,
+        'presence', gate_row.presence,
+        'source', 'complete_strict_enrichment_job'
+      )
+    ),
+    '{}'::text[],
+    now()
+  )
+  on conflict on constraint document_index_quality_pkey
+  do update set
+    quality_score = greatest(public.document_index_quality.quality_score, excluded.quality_score),
+    extraction_quality = 'good',
+    metrics = coalesce(public.document_index_quality.metrics, '{}'::jsonb) || excluded.metrics,
+    issues = '{}'::text[],
+    updated_at = now();
+
+  return query
+  select
+    true,
+    p_document_id,
+    true,
+    gate_row.missing,
+    'completed',
+    gate_row.counts,
+    gate_row.presence,
+    '{}'::uuid[];
+end;
+$$;
+
+revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role;
 
 alter default privileges for role postgres in schema public
   revoke all privileges on tables from anon, authenticated;
@@ -2014,16 +2833,20 @@ grant select, insert, update, delete on table
   public.document_embedding_fields,
   public.document_index_quality,
   public.ingestion_jobs,
+  public.ingestion_job_stages,
   public.rag_queries,
   public.rag_query_misses,
   public.rag_aliases,
   public.rag_response_cache,
+  public.api_rate_limits,
   public.storage_cleanup_jobs,
   public.rag_retrieval_logs
 to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
+revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
 
 grant select on table
   public.import_batches,
@@ -2060,10 +2883,12 @@ alter table public.document_table_facts enable row level security;
 alter table public.document_embedding_fields enable row level security;
 alter table public.document_index_quality enable row level security;
 alter table public.ingestion_jobs enable row level security;
+alter table public.ingestion_job_stages enable row level security;
 alter table public.rag_queries enable row level security;
 alter table public.rag_query_misses enable row level security;
 alter table public.rag_aliases enable row level security;
 alter table public.rag_response_cache enable row level security;
+alter table public.api_rate_limits enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
 alter table public.rag_retrieval_logs enable row level security;
 
@@ -2135,6 +2960,11 @@ create policy "jobs owner read" on public.ingestion_jobs
     exists (select 1 from public.documents d where d.id = document_id and d.owner_id = (select auth.uid()))
   );
 
+create policy "ingestion job stages service role all" on public.ingestion_job_stages
+  for all to service_role
+  using (true)
+  with check (true);
+
 create policy "rag owner read" on public.rag_queries
   for select to authenticated using (owner_id = (select auth.uid()));
 
@@ -2148,6 +2978,11 @@ create policy "rag aliases owner read" on public.rag_aliases
   for select to authenticated using (owner_id is null or owner_id = (select auth.uid()));
 
 create policy "rag response cache service role all" on public.rag_response_cache
+  for all to service_role
+  using (true)
+  with check (true);
+
+create policy "api rate limits service role all" on public.api_rate_limits
   for all to service_role
   using (true)
   with check (true);
@@ -2167,7 +3002,7 @@ create table if not exists public.document_index_units (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
   document_id uuid not null references public.documents(id) on delete cascade,
-  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'vocabulary_term')),
+  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'vocabulary_term', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold')),
   source_chunk_id uuid references public.document_chunks(id) on delete cascade,
   source_image_id uuid references public.document_images(id) on delete set null,
   page_start integer,
@@ -2188,6 +3023,9 @@ create table if not exists public.document_index_units (
 
 create index if not exists document_index_units_document_idx on public.document_index_units(document_id, unit_type, page_start);
 create index if not exists document_index_units_owner_type_idx on public.document_index_units(owner_id, unit_type, quality_score desc);
+create index if not exists document_index_units_owner_chunk_type_idx
+  on public.document_index_units(owner_id, source_chunk_id, unit_type)
+  where source_chunk_id is not null;
 create index if not exists document_index_units_chunk_idx on public.document_index_units(source_chunk_id) where source_chunk_id is not null;
 create index if not exists document_index_units_image_idx on public.document_index_units(source_image_id) where source_image_id is not null;
 create index if not exists document_index_units_terms_idx on public.document_index_units using gin(normalized_terms);
@@ -2242,7 +3080,7 @@ as $$
       (1 - (u.embedding <=> query_embedding))::double precision as similarity,
       (ts_rank_cd(u.search_tsv, query.tsq)
         + case when u.normalized_terms && query.terms then 0.25 else 0 end
-        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact') then 0.06
+        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold') then 0.06
                when u.unit_type = 'section_summary' then 0.03
                else 0 end
       )::double precision as text_rank,
@@ -2252,11 +3090,11 @@ as $$
     cross join query
     where d.status = 'indexed'
       and (document_filters is null or u.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and (owner_filter is null or u.owner_id = owner_filter)
       and u.source_chunk_id is not null
       and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)
     order by text_rank desc, similarity desc
-    limit greatest(match_count * 3, 48)
+    limit least(greatest(match_count * 2, 32), 96)
   )
   select id, document_id, source_chunk_id, source_image_id, unit_type, title, content, page_start, page_end, heading_path,
     normalized_terms, source_span, quality_score, extraction_mode, similarity, text_rank,
@@ -2265,7 +3103,9 @@ as $$
       + (least(text_rank, 1) * 0.28)
       + (quality_score * 0.12)
       + (case when extraction_mode in ('model_heavy', 'hybrid') then 0.04 else 0 end)
-      + (case when unit_type = 'askable_question' then 0.04 else 0 end)
+      + (case when unit_type in ('askable_question', 'threshold', 'table_fact', 'table_threshold', 'visual_askable_question') then 0.04
+              when unit_type in ('workflow_step', 'medication_monitoring', 'flowchart_step', 'diagram_decision', 'medication_chart_row', 'risk_matrix_cell') then 0.03
+              else 0 end)
     )::double precision as hybrid_score,
     metadata
   from ranked

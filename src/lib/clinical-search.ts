@@ -64,6 +64,9 @@ const textSearchStopWords = new Set([
   "can",
   "you",
   "me",
+  "compare",
+  "compared",
+  "comparison",
   "about",
   "find",
   "search",
@@ -210,6 +213,7 @@ const medicationAliasGroups = [
 const documentTitleAliasGroups = [
   ["nocc", "national outcomes and casemix collection"],
   ["patient safety plan", "safety plan", "pt safety plan"],
+  ["patient property", "restricted items", "patient belongings"],
   ["active community patient ed", "active community pt ed", "community patients in ed"],
   ["admission community pts", "community admission", "admission of community patients"],
   ["agitation arousal pharmacological management", "agitation and arousal", "agitation dosing"],
@@ -436,13 +440,27 @@ function queryClassFromSignals(args: {
     return "document_lookup";
   if (outsideCorpusMedicalPattern.test(args.normalizedQuery) && args.documentTitleTerms.length === 0)
     return "unsupported_or_general";
+  if (/\bflow\s*chart|flowchart\b/i.test(args.normalizedQuery) && /\b(?:next step|step after|after)\b/i.test(args.normalizedQuery))
+    return "document_lookup";
+  if (
+    /\b(?:dose|dosage|dosing|route|mg|mcg|microgram|\bim\b|\bpo\b|\bprn\b)\b/i.test(args.normalizedQuery) &&
+    (args.medications.length > 0 || medicationDoseRiskPattern.test(args.normalizedQuery))
+  ) {
+    return "medication_dose_risk";
+  }
   if (args.thresholdTerms.length > 0 || tableThresholdPattern.test(args.normalizedQuery)) return "table_threshold";
   if (args.medications.length > 0 || medicationDoseRiskPattern.test(args.normalizedQuery))
     return "medication_dose_risk";
+  if (
+    args.documentTitleTerms.length > 0 &&
+    (!broadSummaryPattern.test(args.normalizedQuery) ||
+      /\b(?:active community patients?|community patients in ed|patient safety plan|nocc)\b/i.test(args.normalizedQuery))
+  ) {
+    return "document_lookup";
+  }
   if (broadSummaryPattern.test(args.normalizedQuery) && !args.explicitDocumentLookupIntent) return "broad_summary";
   if (
     args.explicitDocumentLookupIntent ||
-    args.documentTitleTerms.length > 0 ||
     /\b(?:document title|document id|documentation|file|pdf|page|section|guideline|procedure|protocol|forms?)\b/i.test(
       args.normalizedQuery,
     ) ||
@@ -545,6 +563,13 @@ function indexQualityRankSignal(result: SearchResult) {
 function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass) {
   let score = 0;
   const metadata = result.source_metadata;
+  const unitType = result.index_unit?.unit_type ?? result.match_explanation?.indexUnitType ?? null;
+  const visualTableUnit =
+    unitType === "table_fact" ||
+    unitType === "table_threshold" ||
+    unitType === "medication_chart_row" ||
+    unitType === "risk_matrix_cell" ||
+    unitType === "chart_finding";
 
   if (result.relevance?.verdict === "direct") score += 0.09;
   if (result.relevance?.verdict === "partial") score += 0.045;
@@ -569,6 +594,7 @@ function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass
 
   const tableFocusedQuery = queryClass === "table_threshold" || queryClass === "medication_dose_risk";
   if (tableFocusedQuery && (result.table_facts?.length ?? 0) > 0) score += 0.055;
+  if (tableFocusedQuery && visualTableUnit) score += 0.065;
   if (
     tableFocusedQuery &&
     (result.images ?? []).some(
@@ -582,6 +608,13 @@ function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass
     )
   ) {
     score += 0.035;
+  }
+  if (
+    tableFocusedQuery &&
+    (result.index_unit?.metadata?.source === "visual_intelligence" ||
+      result.match_explanation?.reasons?.some((reason) => reason.startsWith("index_unit:visual")))
+  ) {
+    score += 0.025;
   }
 
   return score;
@@ -614,6 +647,18 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
   );
 }
 
+function hasMedicationDoseAmountEvidence(result: SearchResult) {
+  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
+    .map(
+      (fact) =>
+        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
+    )
+    .join(" ")} ${(result.images ?? [])
+    .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
+    .join(" ")}`.toLowerCase();
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(haystack);
+}
+
 // A passage carrying a real dose/threshold figure (a numeric table row, or a
 // number paired with a clinical unit) is the passage most likely to hold the
 // answer to a dose/threshold query — and the least likely to repeat the drug
@@ -621,7 +666,14 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
 // penalties so they are never demoted below boilerplate. See RET-H2.
 export function hasNumericOrTableEvidence(result: SearchResult) {
   if ((result.table_facts?.length ?? 0) > 0) return true;
-  if (result.index_unit?.unit_type === "table_fact") return true;
+  if (
+    result.index_unit?.unit_type === "table_fact" ||
+    result.index_unit?.unit_type === "table_threshold" ||
+    result.index_unit?.unit_type === "medication_chart_row" ||
+    result.index_unit?.unit_type === "risk_matrix_cell"
+  ) {
+    return true;
+  }
   const content = `${result.section_heading ?? ""} ${result.content}`;
   // number + clinical unit, or an explicit threshold/range token.
   return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(content)
@@ -651,6 +703,10 @@ export function hasStructuredThresholdEvidence(result: SearchResult) {
     fieldType === "threshold_fact" ||
     fieldType === "table_row" ||
     unitType === "table_fact" ||
+    unitType === "table_threshold" ||
+    unitType === "medication_chart_row" ||
+    unitType === "risk_matrix_cell" ||
+    unitType === "chart_finding" ||
     images.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop") ||
     /\b(?:threshold|cut[\s-]?off|withhold|cease|stop|maximum|minimum|range|criteria|anc|fbc|neutrophil|white cell|level)\b/i.test(
       haystack,
@@ -920,6 +976,12 @@ export function buildClinicalTextSearchQuery(query: string) {
       (token) => !["patient", "patients", "pt", "pts", "ed"].includes(token),
     );
     normalizedTokens.splice(0, normalizedTokens.length, ...expandedTokens, "pt", "ed");
+  } else if (/\bpatient property\b/i.test(query)) {
+    normalizedTokens.unshift("patient", "property");
+  } else if (/\b(?:risk matrix|red zone)\b/i.test(query)) {
+    normalizedTokens.push("high", "visual", "alert");
+  } else if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query)) {
+    normalizedTokens.push("community", "pts");
   } else if (/\bcommunity patients?\b/i.test(query) && normalizedTokens.includes("community")) {
     normalizedTokens.push("pts");
   }
@@ -1185,6 +1247,72 @@ export function clinicalRankScore(query: string, result: SearchResult) {
   return clinicalRankExplanation(query, result).finalScore;
 }
 
+function rankingTieBreakScore(query: string, result: SearchResult, explanation: SearchScoreExplanation) {
+  const analysis = analyzeClinicalQuery(query);
+  const queryClass = analysis.queryClass;
+  const queryTokens = normalizedClinicalSearchTokens(query);
+  const titleText = normalizeQueryTokenForLookups(`${result.title} ${result.file_name}`);
+  const sectionText = normalizeQueryTokenForLookups(`${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`);
+  const contentText = normalizeQueryTokenForLookups(result.content ?? "");
+  const tableText = normalizeQueryTokenForLookups(
+    (result.table_facts ?? [])
+      .map(
+        (fact) =>
+          `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
+      )
+      .join(" "),
+  );
+  const visualText = normalizeQueryTokenForLookups(
+    (result.images ?? [])
+      .map((image) => `${image.caption ?? ""} ${image.tableTitle ?? ""} ${image.tableTextSnippet ?? ""}`)
+      .join(" "),
+  );
+  const haystack = `${titleText} ${sectionText} ${contentText} ${tableText} ${visualText}`;
+  const titleHits = queryTokens.filter((token) => titleText.includes(token)).length;
+  const sectionHits = queryTokens.filter((token) => sectionText.includes(token)).length;
+  const contentHits = queryTokens.filter((token) => contentText.includes(token)).length;
+  const tableHits = queryTokens.filter((token) => tableText.includes(token) || visualText.includes(token)).length;
+  const hasStructuredTable = hasStructuredThresholdEvidence(result) || hasNumericOrTableEvidence(result);
+  const hasDoseEvidence = hasDoseEvidenceSupport(result);
+  const hasDoseAmountEvidence = hasMedicationDoseAmountEvidence(result);
+  const titleAliasHit = analysis.documentTitleTerms.some((term) => titleText.includes(normalizeQueryTokenForLookups(term)));
+
+  let score = 0;
+  score += explanation.titleBoost * 0.32;
+  score += explanation.clinicalSignalBoost * 0.18;
+  score += Math.max(0, explanation.metadataBoost) * 0.08;
+  score += Math.max(0, explanation.lexicalCoverageScore) * 0.04;
+  score += Math.min(0.12, titleHits * 0.035);
+  score += Math.min(0.08, sectionHits * 0.018);
+  score += Math.min(0.06, contentHits * 0.01);
+  score += Math.min(0.08, tableHits * 0.018);
+
+  if (queryClass === "document_lookup" && titleHits > 0) score += 0.09;
+  if (queryClass === "document_lookup" && titleAliasHit) score += 0.16;
+  if (queryClass === "comparison" && titleHits > 0) score += 0.06;
+  if (queryClass === "table_threshold" && hasStructuredTable) score += 0.09;
+  if (queryClass === "medication_dose_risk" && hasDoseEvidence) score += 0.08;
+  if (queryClass === "medication_dose_risk" && hasDoseAmountEvidence) score += 0.14;
+  if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && hasStructuredTable) score += 0.04;
+  if (hasImageEvidenceNeed(query) && (result.images ?? []).some((image) => isClinicalImageEvidence(image))) score += 0.05;
+  if (/\bflow\s*chart|flowchart|matrix|red\s*zone\b/i.test(query) && /\bflow\s*chart|flowchart|matrix|red\s*zone|risk\b/i.test(haystack))
+    score += 0.07;
+  if (/\bpatient safety plan\b/i.test(query) && /\bpatient safety plan\b/.test(titleText)) score += 0.18;
+  if (
+    /\bclozapine\b/i.test(query) &&
+    /\b(?:anc|fbc|withhold|cease|stop|threshold|monitoring?)\b/i.test(query) &&
+    /\bclozapine prescribing administration (?:and )?monitoring\b/.test(titleText)
+  ) {
+    score += 0.45;
+  }
+  if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query) && /\badmission\b/.test(titleText)) score += 0.08;
+  if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query) && /\badmission of community patient/.test(titleText))
+    score += 0.22;
+  if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query) && /\bdischarge\b/.test(titleText)) score += 0.04;
+
+  return roundScore(score);
+}
+
 export function rankClinicalResults(query: string, results: SearchResult[]) {
   const intent = classifyQueryIntent(query);
   const wantsImageEvidence = hasImageEvidenceNeed(query) || intent.imageEvidenceFocus;
@@ -1202,9 +1330,10 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
           finalScore: roundScore(score),
         },
         score,
+        tieBreakScore: rankingTieBreakScore(query, result, explanation),
       };
     })
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || b.tieBreakScore - a.tieBreakScore || b.result.similarity - a.result.similarity)
     .map((entry, index) => ({
       ...entry.result,
       score_explanation: {

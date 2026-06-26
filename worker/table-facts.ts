@@ -32,6 +32,9 @@ export type TableFactImageRow = {
   accessibleTableMarkdown?: string | null;
   tableRows?: string[][] | null;
   tableColumns?: string[] | null;
+  structuredVisualProfile?: {
+    table_column_roles?: Record<string, string>;
+  } | null;
 };
 
 export type TableFactInsert = {
@@ -72,6 +75,17 @@ function normalizedTerms(value: string, limit = 18) {
 
 function firstMatchingColumn(columns: string[], candidates: RegExp[]) {
   return columns.findIndex((column) => candidates.some((pattern) => pattern.test(column)));
+}
+
+function firstRoleColumn(columns: string[], roles: Record<string, string> | undefined, roleCandidates: string[]) {
+  if (!roles) return -1;
+  const normalizedCandidates = new Set(roleCandidates);
+  return columns.findIndex((column) => normalizedCandidates.has(String(roles[column] ?? "").toLowerCase()));
+}
+
+function firstColumnByRoleOrPattern(columns: string[], roles: Record<string, string> | undefined, roleCandidates: string[], patterns: RegExp[]) {
+  const roleIndex = firstRoleColumn(columns, roles, roleCandidates);
+  return roleIndex >= 0 ? roleIndex : firstMatchingColumn(columns, patterns);
 }
 
 function tableFactValue(cells: string[], index: number) {
@@ -138,22 +152,25 @@ export function buildTableFactRows(args: {
     if (!image.tableRows?.length) continue;
     const sourceChunk = selectTableSourceChunk(image, args.chunkRows);
     const columns = (image.tableColumns ?? []).map((column) => compactSearchText(column, 80));
-    const parameterIndex = firstMatchingColumn(columns, [/item/i, /parameter/i, /score/i, /state/i, /criterion/i]);
-    const thresholdIndex = firstMatchingColumn(columns, [
-      /threshold/i,
-      /value/i,
-      /range/i,
-      /level/i,
-      /count/i,
-      /dose/i,
-    ]);
-    const actionIndex = firstMatchingColumn(columns, [
-      /action/i,
-      /management/i,
-      /intervention/i,
-      /response/i,
-      /require/i,
-    ]);
+    const roles = image.structuredVisualProfile?.table_column_roles;
+    const parameterIndex = firstColumnByRoleOrPattern(
+      columns,
+      roles,
+      ["parameter", "state", "score", "risk", "medication"],
+      [/item/i, /parameter/i, /score/i, /state/i, /criterion/i],
+    );
+    const thresholdIndex = firstColumnByRoleOrPattern(
+      columns,
+      roles,
+      ["threshold", "dose", "route", "frequency", "monitoring"],
+      [/threshold/i, /value/i, /range/i, /level/i, /count/i, /dose/i],
+    );
+    const actionIndex = firstColumnByRoleOrPattern(
+      columns,
+      roles,
+      ["action", "monitoring"],
+      [/action/i, /management/i, /intervention/i, /response/i, /require/i],
+    );
 
     // IDX-H6: raised from 120 to 400 to match the Python extractor's MAX_TABLE_ROWS so tail
     // rows of long dose/threshold tables are not silently dropped from the facts layer.
@@ -190,6 +207,7 @@ export function buildTableFactRows(args: {
           columns,
           cells,
           table_role: image.tableRole,
+          table_column_roles: roles ?? null,
           accessible_table_markdown: image.accessibleTableMarkdown,
           source_selection: sourceChunk
             ? {

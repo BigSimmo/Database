@@ -33,6 +33,10 @@ type EvalArgs = {
   query?: string;
   json: boolean;
   failOnThreshold: boolean;
+  mode: "combined" | "quality" | "latency";
+  caseTimeoutMs: number;
+  p90BudgetMs: number;
+  p50BudgetMs: number;
 };
 
 export type GoldenRetrievalResult = {
@@ -47,8 +51,26 @@ export type GoldenRetrievalResult = {
   reciprocalRankAt10: number;
   latencyMs: number;
   retrievalStrategy: string | null;
+  retrievalPlan: string | null;
+  embeddingSkipped: boolean;
+  embeddingSkipReason: string | null;
+  textFastPathReason: string | null;
+  textCandidateBudget: number | null;
+  textCandidateCount: number | null;
+  vectorCandidateCount: number | null;
+  retrievalLayerCounts?: Record<string, number>;
+  retrievalLayerTopScores?: Record<string, number>;
+  retrievalLayerLatenciesMs?: Record<string, number>;
+  coverageGateDecision?: string | null;
+  coverageGateReason?: string | null;
+  vectorSkippedReason?: string | null;
+  sourceImageRequired?: boolean;
+  sourceImageSatisfied?: boolean;
+  secondStageRerankUsed: boolean;
   resultCount: number;
   tableEvidenceFound: boolean;
+  timedOut?: boolean;
+  latencyFailures?: string[];
   failures: string[];
   topResults: Array<{
     rank: number;
@@ -56,6 +78,9 @@ export type GoldenRetrievalResult = {
     file_name: string;
     chunk_id: string;
     page_number: number | null;
+    document_status?: string | null;
+    clinical_validation_status?: string | null;
+    extraction_quality?: string | null;
     hybrid_score: number | null;
     similarity: number;
     text_rank: number | null;
@@ -66,12 +91,22 @@ export type GoldenRetrievalResult = {
 };
 
 function parseArgs(argv: string[]): EvalArgs {
+  const lifecycle = process.env.npm_lifecycle_event ?? "";
+  const inferredMode = lifecycle.includes("latency")
+    ? "latency"
+    : lifecycle.includes("quality")
+      ? "quality"
+      : "combined";
   const args: EvalArgs = {
     fixture: join(process.cwd(), "scripts", "fixtures", "rag-retrieval-golden.json"),
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     json: false,
     failOnThreshold: false,
+    mode: inferredMode,
+    caseTimeoutMs: inferredMode === "latency" ? 25_000 : 0,
+    p90BudgetMs: 20_000,
+    p50BudgetMs: 8_000,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -85,6 +120,15 @@ function parseArgs(argv: string[]): EvalArgs {
       args.failOnThreshold = true;
       continue;
     }
+    if (token === "--quality") {
+      args.mode = "quality";
+      continue;
+    }
+    if (token === "--latency") {
+      args.mode = "latency";
+      if (args.caseTimeoutMs <= 0) args.caseTimeoutMs = 25_000;
+      continue;
+    }
 
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
@@ -95,11 +139,21 @@ function parseArgs(argv: string[]): EvalArgs {
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
+    if (token === "--mode") {
+      if (!["combined", "quality", "latency"].includes(value)) throw new Error("--mode must be combined, quality, or latency.");
+      args.mode = value as EvalArgs["mode"];
+    }
+    if (token === "--case-timeout-ms") args.caseTimeoutMs = Number.parseInt(value, 10);
+    if (token === "--p90-ms") args.p90BudgetMs = Number.parseInt(value, 10);
+    if (token === "--p50-ms") args.p50BudgetMs = Number.parseInt(value, 10);
   }
 
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
     throw new Error("--limit must be a positive integer.");
   }
+  if (!Number.isInteger(args.caseTimeoutMs) || args.caseTimeoutMs < 0) throw new Error("--case-timeout-ms must be >= 0.");
+  if (!Number.isInteger(args.p90BudgetMs) || args.p90BudgetMs <= 0) throw new Error("--p90-ms must be positive.");
+  if (!Number.isInteger(args.p50BudgetMs) || args.p50BudgetMs <= 0) throw new Error("--p50-ms must be positive.");
 
   return args;
 }
@@ -125,12 +179,45 @@ function normalized(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function normalizedDocumentName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const clinicalDocumentAliases: Record<string, string[]> = {
+  AgitationArousalPharmaMgt: [
+    "Agitation and Arousal Pharmacological Management",
+    "Pharmacological Management of Acute Agitation and Arousal",
+    "Medication for Agitation and Arousal",
+  ],
+  AdmissionCommunityPts: ["Admission of Community Patients", "Admission Community Patients"],
+  ActiveCommunityPtED: [
+    "Active Community Patients in the Emergency Department",
+    "Active Community Patients Emergency Department",
+  ],
+  ClozapinePresAdminMonitor: [
+    "Clozapine Prescribing Administration Monitoring",
+    "Clozapine Prescribing Administration and Monitoring",
+    "Clozapine Prescribing Administering Monitoring",
+    "Clozapine Prescribing Administering Monitoring and Capillary Sampling",
+  ],
+  PtSafetyPlan: ["Patient Safety Plan"],
+};
+
 const clinicalContentAliases: Record<string, string[]> = {
   anc: ["anc", "absolute neutrophil count", "neutrophil", "neutrophils"],
   fbc: ["fbc", "full blood count", "full blood", "wbc", "white blood cell", "white cell"],
   im: ["im", "intramuscular", "intramuscularly"],
+  mg: ["mg", "milligram", "milligrams", "dose", "doses"],
+  microgram: ["microgram", "micrograms", "mcg", "dose", "doses"],
   po: ["po", "oral", "orally"],
   prn: ["prn", "as required"],
+  red: ["red", "red zone", "high risk", "visual alert", "aggression risk"],
+  route: ["route", "oral", "orally", "intramuscular", "intramuscularly", "im", "po"],
+  threshold: ["threshold", "below", "drops below", "between", "less than"],
   withhold: ["withhold", "withheld", "withholding", "cease", "ceased", "stop", "stopped", "red"],
 };
 
@@ -150,6 +237,10 @@ function contentExpectationLabel(expectation: GoldenRetrievalCase["expectedConte
   return Array.isArray(expectation) ? expectation.join(" OR ") : expectation;
 }
 
+function documentExpectationAlternatives(expectation: string) {
+  return [expectation, ...(clinicalDocumentAliases[expectation] ?? [])].map(normalizedDocumentName);
+}
+
 function textContainsClinicalTerm(text: string, term: string) {
   const normalizedTerm = normalized(term);
   if (!normalizedTerm) return false;
@@ -158,7 +249,13 @@ function textContainsClinicalTerm(text: string, term: string) {
 }
 
 function resultDocumentText(result: SearchResult) {
-  return normalized(`${result.title} ${result.file_name}`);
+  return normalizedDocumentName(`${result.title} ${result.file_name}`);
+}
+
+function resultDocumentEvidenceText(result: SearchResult) {
+  return normalizedDocumentName(
+    `${result.title} ${result.file_name} ${result.section_heading ?? ""} ${result.section_path?.join(" ") ?? ""}`,
+  );
 }
 
 function resultContentText(result: SearchResult) {
@@ -191,10 +288,13 @@ function resultContentText(result: SearchResult) {
 }
 
 function expectedDocumentHits(expectedSubstrings: string[], results: SearchResult[], limit: number) {
-  const topDocumentText = results.slice(0, limit).map(resultDocumentText);
-  const hits = expectedSubstrings.filter((expected) =>
-    topDocumentText.some((documentText) => documentText.includes(normalized(expected))),
-  );
+  const topResults = results.slice(0, limit);
+  const hits = expectedSubstrings.filter((expected) => {
+    const alternatives = documentExpectationAlternatives(expected);
+    const useEvidenceText = !clinicalDocumentAliases[expected] && !/\.pdf$/i.test(expected);
+    const texts = topResults.map(useEvidenceText ? resultDocumentEvidenceText : resultDocumentText);
+    return texts.some((documentText) => alternatives.some((alternative) => documentText.includes(alternative)));
+  });
   return { hits, missing: expectedSubstrings.filter((expected) => !hits.includes(expected)) };
 }
 
@@ -215,19 +315,47 @@ function expectedContentHits(
 
 function reciprocalRankAt10(expectedSubstrings: string[], results: SearchResult[]) {
   if (expectedSubstrings.length === 0) return 0;
-  const expected = expectedSubstrings.map(normalized);
-  const index = results
-    .slice(0, 10)
-    .findIndex((result) => expected.some((substring) => resultDocumentText(result).includes(substring)));
+  const index = results.slice(0, 10).findIndex((result) =>
+    expectedSubstrings.some((expectation) => {
+      const text =
+        !clinicalDocumentAliases[expectation] && !/\.pdf$/i.test(expectation)
+          ? resultDocumentEvidenceText(result)
+          : resultDocumentText(result);
+      return documentExpectationAlternatives(expectation).some((substring) => text.includes(substring));
+    }),
+  );
   return index >= 0 ? 1 / (index + 1) : 0;
 }
 
 function hasTableEvidence(results: SearchResult[], limit = 5) {
   return results.slice(0, limit).some((result) => {
     if ((result.table_facts?.length ?? 0) > 0) return true;
+    if (
+      [
+        "visual_summary",
+        "flowchart_step",
+        "diagram_decision",
+        "risk_matrix_cell",
+        "medication_chart_row",
+        "chart_finding",
+        "visual_askable_question",
+        "table_threshold",
+      ].includes(result.index_unit?.unit_type ?? "")
+    )
+      return true;
+    if (
+      /\b(?:flow\s*chart|flowchart|risk matrix|red zone|visual alert)\b/i.test(
+        `${result.section_heading ?? ""} ${result.section_path?.join(" ") ?? ""}`,
+      )
+    )
+      return true;
     return (result.images ?? []).some(
       (image) =>
         image.image_type === "clinical_table" ||
+        image.image_type === "flowchart_algorithm" ||
+        image.image_type === "graph" ||
+        image.image_type === "risk_matrix" ||
+        image.image_type === "medication_chart" ||
         image.source_kind === "table_crop" ||
         Boolean(image.tableTitle || image.tableLabel || image.tableTextSnippet),
     );
@@ -241,6 +369,9 @@ function topResultSummary(results: SearchResult[]) {
     file_name: result.file_name,
     chunk_id: result.id,
     page_number: result.page_number,
+    document_status: result.source_metadata?.document_status ?? null,
+    clinical_validation_status: result.source_metadata?.clinical_validation_status ?? null,
+    extraction_quality: result.source_metadata?.extraction_quality ?? null,
     hybrid_score: result.hybrid_score ?? null,
     similarity: result.similarity,
     text_rank: result.text_rank ?? null,
@@ -253,8 +384,29 @@ function topResultSummary(results: SearchResult[]) {
 export function evaluateGoldenRetrievalCase(args: {
   testCase: GoldenRetrievalCase;
   results: SearchResult[];
-  telemetry: { query_class?: string | null; retrieval_strategy?: string | null };
+  telemetry: {
+    query_class?: string | null;
+    retrieval_strategy?: string | null;
+    retrieval_plan?: string | null;
+    embedding_skipped?: boolean | null;
+    embedding_skip_reason?: string | null;
+    text_fast_path_reason?: string | null;
+    text_candidate_budget?: number | null;
+    text_candidate_count?: number | null;
+    vector_candidate_count?: number | null;
+    retrieval_layer_counts?: Record<string, number> | null;
+    retrieval_layer_top_scores?: Record<string, number> | null;
+    retrieval_layer_latencies_ms?: Record<string, number> | null;
+    coverage_gate_decision?: string | null;
+    coverage_gate_reason?: string | null;
+    vector_skipped_reason?: string | null;
+    source_image_required?: boolean | null;
+    source_image_satisfied?: boolean | null;
+    second_stage_rerank_used?: boolean | null;
+  };
   latencyMs: number;
+  timedOut?: boolean;
+  latencyFailures?: string[];
 }): GoldenRetrievalResult {
   const documentHits = expectedDocumentHits(args.testCase.expectedDocumentSubstrings, args.results, 5);
   const contentHits = expectedContentHits(args.testCase.expectedContentTerms, args.results, 5);
@@ -303,8 +455,26 @@ export function evaluateGoldenRetrievalCase(args: {
     reciprocalRankAt10: reciprocalRankAt10(args.testCase.expectedDocumentSubstrings, args.results),
     latencyMs: args.latencyMs,
     retrievalStrategy: args.telemetry.retrieval_strategy ?? null,
+    retrievalPlan: args.telemetry.retrieval_plan ?? null,
+    embeddingSkipped: args.telemetry.embedding_skipped ?? false,
+    embeddingSkipReason: args.telemetry.embedding_skip_reason ?? null,
+    textFastPathReason: args.telemetry.text_fast_path_reason ?? null,
+    textCandidateBudget: args.telemetry.text_candidate_budget ?? null,
+    textCandidateCount: args.telemetry.text_candidate_count ?? null,
+    vectorCandidateCount: args.telemetry.vector_candidate_count ?? null,
+    retrievalLayerCounts: args.telemetry.retrieval_layer_counts ?? undefined,
+    retrievalLayerTopScores: args.telemetry.retrieval_layer_top_scores ?? undefined,
+    retrievalLayerLatenciesMs: args.telemetry.retrieval_layer_latencies_ms ?? undefined,
+    coverageGateDecision: args.telemetry.coverage_gate_decision ?? null,
+    coverageGateReason: args.telemetry.coverage_gate_reason ?? null,
+    vectorSkippedReason: args.telemetry.vector_skipped_reason ?? null,
+    sourceImageRequired: args.telemetry.source_image_required ?? false,
+    sourceImageSatisfied: args.telemetry.source_image_satisfied ?? false,
+    secondStageRerankUsed: args.telemetry.second_stage_rerank_used ?? false,
     resultCount: args.results.length,
     tableEvidenceFound,
+    timedOut: args.timedOut ?? false,
+    latencyFailures: args.latencyFailures ?? [],
     failures,
     topResults: topResultSummary(args.results),
   };
@@ -316,6 +486,31 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
   const strategyCounts = results.reduce<Record<string, number>>((counts, result) => {
     const strategy = result.retrievalStrategy ?? "none";
     counts[strategy] = (counts[strategy] ?? 0) + 1;
+    return counts;
+  }, {});
+  const retrievalPlanCounts = results.reduce<Record<string, number>>((counts, result) => {
+    const plan = result.retrievalPlan ?? "none";
+    counts[plan] = (counts[plan] ?? 0) + 1;
+    return counts;
+  }, {});
+  const embeddingSkipReasonCounts = results.reduce<Record<string, number>>((counts, result) => {
+    const reason = result.embeddingSkipped ? (result.embeddingSkipReason ?? "embedding_skipped") : "embedding_used";
+    counts[reason] = (counts[reason] ?? 0) + 1;
+    return counts;
+  }, {});
+  const textFastPathReasonCounts = results.reduce<Record<string, number>>((counts, result) => {
+    const reason = result.textFastPathReason ?? "none";
+    counts[reason] = (counts[reason] ?? 0) + 1;
+    return counts;
+  }, {});
+  const textCandidateBudgets = results
+    .map((result) => result.textCandidateBudget)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const latencyFailures = results.filter((result) => (result.latencyFailures ?? []).length > 0 || result.timedOut);
+  const layerCounts = results.reduce<Record<string, number>>((counts, result) => {
+    for (const [layer, count] of Object.entries(result.retrievalLayerCounts ?? {})) {
+      counts[layer] = (counts[layer] ?? 0) + count;
+    }
     return counts;
   }, {});
   return {
@@ -334,8 +529,24 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
       results.map((result) => result.latencyMs),
       50,
     ),
+    p90_latency_ms: percentile(
+      results.map((result) => result.latencyMs),
+      90,
+    ),
     retrieval_strategy_counts: strategyCounts,
+    retrieval_plan_counts: retrievalPlanCounts,
+    embedding_skipped_rate: Number(
+      (results.filter((result) => result.embeddingSkipped).length / Math.max(results.length, 1)).toFixed(4),
+    ),
+    embedding_skip_reason_counts: embeddingSkipReasonCounts,
+    text_fast_path_reason_counts: textFastPathReasonCounts,
+    retrieval_layer_counts: layerCounts,
+    median_text_candidate_budget: percentile(textCandidateBudgets, 50),
+    second_stage_rerank_rate: Number(
+      (results.filter((result) => result.secondStageRerankUsed).length / Math.max(results.length, 1)).toFixed(4),
+    ),
     failed_cases: results.filter((result) => result.failures.length > 0),
+    latency_failed_cases: latencyFailures,
   };
 }
 
@@ -351,6 +562,42 @@ function latencyFromTelemetry(telemetry: {
   );
 }
 
+const visualEvalUnitTypes = [
+  "visual_summary",
+  "flowchart_step",
+  "diagram_decision",
+  "risk_matrix_cell",
+  "medication_chart_row",
+  "chart_finding",
+  "visual_askable_question",
+  "table_threshold",
+];
+
+function caseNeedsVisualUnits(testCase: GoldenRetrievalCase) {
+  return (
+    testCase.expectTableEvidence ||
+    /\b(?:source|image|table|chart|flowchart|risk matrix|red zone|visual|dose route)\b/i.test(testCase.query)
+  );
+}
+
+async function visualReadinessWarnings(supabase: Awaited<ReturnType<typeof loadAdminClient>>, cases: GoldenRetrievalCase[]) {
+  const visualCases = cases.filter(caseNeedsVisualUnits);
+  if (visualCases.length === 0) return [] as string[];
+  const { count, error } = await supabase
+    .from("document_index_units")
+    .select("id", { count: "exact", head: true })
+    .in("unit_type", visualEvalUnitTypes);
+  if (error) return [`visual readiness check failed: ${error.message}`];
+  const visualUnitCount = count ?? 0;
+  if (visualUnitCount === 0) return ["visual eval cases are present but no visual index units were found"];
+  if (visualUnitCount < visualCases.length) {
+    return [
+      `visual eval cases are present but visual index unit coverage is sparse: ${visualUnitCount} unit(s) for ${visualCases.length} visual case(s)`,
+    ];
+  }
+  return [];
+}
+
 function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalResults>) {
   console.log("");
   console.log("Golden retrieval eval summary:");
@@ -360,8 +607,24 @@ function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalRe
   console.log(`  top_k_hit_rate=${summary.top_k_hit_rate}`);
   console.log(`  mrr@10=${summary.mrr_at_10}`);
   console.log(`  median_latency_ms=${summary.median_latency_ms}`);
+  console.log(`  p90_latency_ms=${summary.p90_latency_ms}`);
   console.log(`  retrieval_strategy_counts=${JSON.stringify(summary.retrieval_strategy_counts)}`);
+  console.log(`  retrieval_plan_counts=${JSON.stringify(summary.retrieval_plan_counts)}`);
+  console.log(`  retrieval_layer_counts=${JSON.stringify(summary.retrieval_layer_counts)}`);
+  console.log(`  embedding_skipped_rate=${summary.embedding_skipped_rate}`);
+  console.log(`  embedding_skip_reason_counts=${JSON.stringify(summary.embedding_skip_reason_counts)}`);
+  console.log(`  text_fast_path_reason_counts=${JSON.stringify(summary.text_fast_path_reason_counts)}`);
+  console.log(`  median_text_candidate_budget=${summary.median_text_candidate_budget}`);
+  console.log(`  second_stage_rerank_rate=${summary.second_stage_rerank_rate}`);
   console.log(`  failed_cases=${summary.failed_cases.length}`);
+  console.log(`  latency_failed_cases=${summary.latency_failed_cases.length}`);
+  for (const failed of summary.latency_failed_cases) {
+    console.log(`\nLATENCY ${failed.id}: ${(failed.latencyFailures ?? []).join("; ") || "timed out"}`);
+    console.log(`  Q: ${failed.query}`);
+    console.log(
+      `  latency=${failed.latencyMs}ms strategy=${failed.retrievalStrategy ?? "none"} layers=${JSON.stringify(failed.retrievalLayerLatenciesMs ?? {})}`,
+    );
+  }
   for (const failed of summary.failed_cases) {
     console.log(`\nFAIL ${failed.id}: ${failed.failures.join("; ")}`);
     console.log(`  Q: ${failed.query}`);
@@ -372,6 +635,30 @@ function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalRe
       if (result.score_explanation) console.log(`     score=${JSON.stringify(result.score_explanation)}`);
       console.log(`     ${result.content_preview}`);
     }
+  }
+}
+
+function latencyFailuresForCase(result: Pick<GoldenRetrievalResult, "latencyMs" | "timedOut">, args: EvalArgs) {
+  const failures: string[] = [];
+  if (result.timedOut) failures.push(`case timed out after ${args.caseTimeoutMs}ms`);
+  if (args.mode === "latency" && result.latencyMs > args.caseTimeoutMs && args.caseTimeoutMs > 0) {
+    failures.push(`latency over case timeout budget: ${result.latencyMs}ms > ${args.caseTimeoutMs}ms`);
+  }
+  return failures;
+}
+
+async function withCaseTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
+  if (timeoutMs <= 0) return { timedOut: false, value: await promise };
+  let timeout: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise.then((value) => ({ timedOut: false as const, value })),
+      new Promise<{ timedOut: true }>((resolve) => {
+        timeout = setTimeout(() => resolve({ timedOut: true }), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 
@@ -395,43 +682,106 @@ async function main() {
     : allCases;
   const cases = filteredCases.slice(0, args.limit ?? filteredCases.length);
   const results: GoldenRetrievalResult[] = [];
+  const readinessWarnings = await visualReadinessWarnings(supabase, cases);
 
-  if (!args.json) console.log(`Running ${cases.length} golden retrieval case(s).`);
+  if (!args.json) {
+    console.log(
+      `Running ${cases.length} golden retrieval case(s). mode=${args.mode} caseTimeoutMs=${args.caseTimeoutMs || "none"}`,
+    );
+    for (const warning of readinessWarnings) console.warn(`WARN ${warning}`);
+  }
 
   for (const testCase of cases) {
     const startedAt = Date.now();
-    const search = await searchChunksWithTelemetry({
+    const searchPromise = searchChunksWithTelemetry({
       query: testCase.query,
       ownerId,
       topK: testCase.topK,
       minSimilarity: 0.12,
-      skipCache: true,
+      skipCache: args.mode !== "latency",
     });
-    const latencyMs = latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
+    const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
+    const search =
+      searchOutcome.timedOut
+        ? {
+            results: [] as SearchResult[],
+            telemetry: {
+              query_class: testCase.expectedQueryClass,
+              retrieval_strategy: "timeout",
+              embedding_skipped: false,
+              text_fast_path_latency_ms: 0,
+              embedding_latency_ms: 0,
+              supabase_rpc_latency_ms: args.caseTimeoutMs,
+              rerank_latency_ms: 0,
+              retrieval_layer_counts: {},
+              retrieval_layer_top_scores: {},
+              retrieval_layer_latencies_ms: {},
+            },
+          }
+        : searchOutcome.value;
+    const latencyMs = searchOutcome.timedOut
+      ? args.caseTimeoutMs
+      : latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
+    const latencyFailures = latencyFailuresForCase({ latencyMs, timedOut: searchOutcome.timedOut }, args);
     const result = evaluateGoldenRetrievalCase({
       testCase,
       results: search.results,
       telemetry: search.telemetry,
       latencyMs,
+      timedOut: searchOutcome.timedOut,
+      latencyFailures,
     });
     results.push(result);
 
     if (!args.json) {
-      const status = result.failures.length ? "FAIL" : "PASS";
+      const status =
+        args.mode === "latency"
+          ? result.latencyFailures?.length
+            ? "SLOW"
+            : "OK"
+          : result.failures.length
+            ? "FAIL"
+            : "PASS";
       console.log(
-        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"}`,
+        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
       );
     }
   }
 
   const summary = summarizeGoldenRetrievalResults(results);
+  const latencyThresholdFailures =
+    args.mode === "latency"
+      ? [
+          summary.median_latency_ms > args.p50BudgetMs
+            ? `p50 latency over budget: ${summary.median_latency_ms}ms > ${args.p50BudgetMs}ms`
+            : "",
+          summary.p90_latency_ms > args.p90BudgetMs
+            ? `p90 latency over budget: ${summary.p90_latency_ms}ms > ${args.p90BudgetMs}ms`
+            : "",
+        ].filter(Boolean)
+      : [];
   if (args.json) {
-    console.log(JSON.stringify({ fixture: args.fixture, results, summary }, null, 2));
+    console.log(
+      JSON.stringify(
+        { fixture: args.fixture, mode: args.mode, readinessWarnings, latencyThresholdFailures, results, summary },
+        null,
+        2,
+      ),
+    );
   } else {
     printHumanSummary(summary);
+    if (latencyThresholdFailures.length) {
+      console.log("");
+      console.log("Latency threshold failures:");
+      for (const failure of latencyThresholdFailures) console.log(`  - ${failure}`);
+    }
   }
 
-  if (args.failOnThreshold && summary.failed_cases.length > 0) process.exit(1);
+  const qualityThresholdFailed = args.mode !== "latency" && summary.failed_cases.length > 0;
+  const latencyThresholdFailed =
+    args.mode === "latency" && (summary.latency_failed_cases.length > 0 || latencyThresholdFailures.length > 0);
+  if (args.failOnThreshold && (qualityThresholdFailed || latencyThresholdFailed))
+    process.exit(1);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -80,6 +80,14 @@ describe("smart document tags", () => {
   it("canonicalizes local clinical aliases and common misspellings", () => {
     expect(
       normalizeDocumentLabelForStorage({
+        label: "FSH",
+        label_type: "site",
+        confidence: 0.9,
+        source: "generated",
+      }),
+    ).toMatchObject({ label: "fiona stanley hospital", label_type: "site" });
+    expect(
+      normalizeDocumentLabelForStorage({
         label: "LAI",
         label_type: "medication",
         confidence: 0.9,
@@ -109,6 +117,7 @@ describe("smart document tags", () => {
       },
       {
         labels: [
+          label({ document_id: "doc-2", label: "Fiona Stanley Hospital", label_type: "site", confidence: 0.9 }),
           label({ document_id: "doc-2", label: "clozapine", label_type: "medication", confidence: 0.85 }),
           label({ document_id: "doc-2", label: "inpatient", label_type: "setting", confidence: 0.75 }),
         ],
@@ -120,6 +129,7 @@ describe("smart document tags", () => {
       count: 2,
     });
     expect(facets.map((group) => group.group)).toContain("Workflow");
+    expect(facets.map((group) => group.group)).toContain("Site");
     expect(facets.map((group) => group.group)).not.toContain("Topic");
   });
 

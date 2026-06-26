@@ -1,5 +1,10 @@
 import { env } from "@/lib/env";
 import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
+import {
+  buildCoveragePromptNote,
+  buildIndexingCoverageProfile,
+  selectCoverageAwarePromptChunks,
+} from "@/lib/indexing-coverage";
 import { generateStructuredTextResponse } from "@/lib/openai";
 import { cleanClinicalSummaryText, sourceTextForModel } from "@/lib/source-text-sanitizer";
 
@@ -279,9 +284,21 @@ function buildPrompt(args: {
   chunks: ModelIndexChunk[];
   images: ModelIndexImage[];
 }) {
-  const chunks = args.chunks.slice(0, 90);
+  const selectedChunks = selectCoverageAwarePromptChunks(args.chunks, 90);
+  const chunks = selectedChunks.chunks;
+  const coverage = buildIndexingCoverageProfile({ chunks: args.chunks, images: args.images });
   const imageBlock = args.images
-    .slice(0, 40)
+    .map((image) => ({
+      image,
+      score:
+        (image.source_kind === "table_crop" ? 4 : 0) +
+        (image.source_kind === "diagram_crop" ? 3 : 0) +
+        (image.caption ? 1 : 0) +
+        (image.labels?.length ? 1 : 0),
+    }))
+    .sort((a, b) => b.score - a.score || Number(a.image.page_number ?? 0) - Number(b.image.page_number ?? 0))
+    .slice(0, 60)
+    .map((item) => item.image)
     .map((image) => {
       const metadata = image.metadata ?? {};
       return [
@@ -332,6 +349,9 @@ Document: ${args.document.title}
 File: ${args.document.file_name}
 Source path: ${args.document.source_path ?? "unknown"}
 Vocabulary hints already known locally: ${vocabularyHints.join(", ") || "none"}
+Coverage strategy: ${selectedChunks.strategy}
+
+${buildCoveragePromptNote({ profile: coverage, selectedChunkIds: chunks.map((chunk) => chunk.id) })}
 
 Text chunks:
 ${sourceBlock || "No source text."}

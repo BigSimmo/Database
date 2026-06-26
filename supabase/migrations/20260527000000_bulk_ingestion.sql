@@ -1,3 +1,8 @@
+create schema if not exists extensions;
+create extension if not exists vector with schema extensions;
+create extension if not exists pg_trgm with schema extensions;
+create extension if not exists "uuid-ossp" with schema extensions;
+
 create table if not exists public.import_batches (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -15,6 +20,91 @@ create table if not exists public.import_batches (
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.documents (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  title text not null,
+  description text,
+  file_name text not null,
+  file_type text not null,
+  file_size bigint not null default 0,
+  storage_path text not null,
+  status text not null default 'queued'
+    check (status in ('queued', 'processing', 'indexed', 'failed')),
+  page_count integer not null default 0,
+  chunk_count integer not null default 0,
+  image_count integer not null default 0,
+  error_message text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.document_pages (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  page_number integer not null,
+  text text not null default '',
+  ocr_used boolean not null default false,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique (document_id, page_number)
+);
+
+create table if not exists public.document_images (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  page_number integer,
+  storage_path text not null,
+  mime_type text not null default 'image/png',
+  caption text not null default '',
+  bbox jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.document_chunks (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  page_number integer,
+  chunk_index integer not null,
+  section_heading text,
+  content text not null,
+  image_ids uuid[] not null default '{}',
+  metadata jsonb not null default '{}'::jsonb,
+  embedding extensions.vector(1536) not null,
+  search_tsv tsvector generated always as (
+    to_tsvector('english', coalesce(section_heading, '') || ' ' || content)
+  ) stored,
+  created_at timestamptz not null default now(),
+  unique (document_id, chunk_index)
+);
+
+create table if not exists public.ingestion_jobs (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'processing', 'completed', 'failed')),
+  stage text not null default 'queued',
+  progress integer not null default 0 check (progress between 0 and 100),
+  error_message text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.rag_queries (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  query text not null,
+  answer text,
+  source_chunk_ids uuid[] not null default '{}',
+  model text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
 );
 
 alter table public.documents add column if not exists content_hash text;
@@ -48,7 +138,7 @@ create index if not exists rag_queries_owner_idx on public.rag_queries(owner_id,
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
 begin
   new.updated_at = now();
@@ -81,7 +171,7 @@ returns table (
   documents jsonb
 )
 language plpgsql
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
 begin
   return query
@@ -137,7 +227,7 @@ $$;
 create or replace function public.reset_document_index(p_document_id uuid)
 returns void
 language plpgsql
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
 begin
   delete from public.document_chunks where document_id = p_document_id;
@@ -170,7 +260,7 @@ returns table (
 )
 language sql
 stable
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
   select
     c.id,
@@ -236,7 +326,7 @@ returns table (
 )
 language sql
 stable
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
@@ -328,6 +418,12 @@ grant execute on function public.claim_ingestion_jobs(text, integer, integer) to
 grant execute on function public.reset_document_index(uuid) to service_role;
 
 alter table public.import_batches enable row level security;
+alter table public.documents enable row level security;
+alter table public.document_pages enable row level security;
+alter table public.document_images enable row level security;
+alter table public.document_chunks enable row level security;
+alter table public.ingestion_jobs enable row level security;
+alter table public.rag_queries enable row level security;
 
 drop policy if exists "import batches owner read" on public.import_batches;
 create policy "import batches owner read" on public.import_batches

@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Runtime alignment
+        run: npm run check:runtime
+
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
 
