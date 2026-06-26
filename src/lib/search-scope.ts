@@ -4,6 +4,9 @@ import type { ClinicalSourceMetadata, DocumentLabelType } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
 const labelTypes = ["medication", "topic", "document_type"] as const satisfies readonly DocumentLabelType[];
+const sourceStatusValues = ["current", "review_due", "outdated", "unknown"] as const;
+const validationStatusValues = ["unverified", "locally_reviewed", "approved"] as const;
+const documentScopeQueryPageSize = 1000;
 
 export const searchScopeFiltersSchema = z
   .object({
@@ -61,6 +64,30 @@ function unique(values: string[]) {
 
 function hasValues(values?: string[]) {
   return Boolean(values?.length);
+}
+
+function escapePostgrestValue(value: string) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function buildStatusFallbackClauses(args: {
+  fieldName: string;
+  values?: string[];
+  fallbackValue: string;
+  knownValues: readonly string[];
+  orParts: string[];
+}) {
+  const normalizedValues = (args.values ?? []).map(normalizeFilterText);
+  for (const value of normalizedValues) {
+    args.orParts.push(`${args.fieldName}.eq.${value}`);
+  }
+
+  if (!normalizedValues.includes(args.fallbackValue)) {
+    return;
+  }
+
+  args.orParts.push(`${args.fieldName}.is.null`);
+  args.orParts.push(`${args.fieldName}.not.in.(${args.knownValues.join(",")})`);
 }
 
 export function activeScopeFilterCount(filters: SearchScopeFilters) {
@@ -125,49 +152,65 @@ export async function resolveSearchScope(args: {
 
   const maxResolvedDocuments = args.maxResolvedDocuments ?? 5000;
 
-  // Build a single SQL query with filters pushed down to avoid O(N) full scans.
-  let documentQuery = args.supabase
-    .from("documents")
-    .select("id,metadata,import_batch_id")
-    .eq("status", "indexed")
-    .limit(maxResolvedDocuments + 1); // fetch one extra to detect overflow
-  if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
-  if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);
+  const documentRows: ScopeDocumentRow[] = [];
+  for (let offset = 0; offset < maxResolvedDocuments; offset += documentScopeQueryPageSize) {
+    let documentQuery = args.supabase
+      .from("documents")
+      .select("id,metadata,import_batch_id")
+      .eq("status", "indexed")
+      .range(offset, Math.min(offset + documentScopeQueryPageSize - 1, maxResolvedDocuments - 1));
+    if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
+    if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);
 
-  // Push metadata enum filters into SQL using JSONB text extraction. For each
-  // filter that includes the fallback "unknown"/"unverified" value we also
-  // accept rows where the field is absent (NULL in JSON extraction).
-  if (filters.sourceStatuses?.length) {
-    const parts = filters.sourceStatuses.map((s) => `metadata->>document_status.eq.${s}`);
-    if (filters.sourceStatuses.includes("unknown")) parts.push("metadata->>document_status.is.null");
-    documentQuery = documentQuery.or(parts.join(","));
-  }
-  if (filters.validationStatuses?.length) {
-    const parts = filters.validationStatuses.map((s) => `metadata->>clinical_validation_status.eq.${s}`);
-    if (filters.validationStatuses.includes("unverified")) parts.push("metadata->>clinical_validation_status.is.null");
-    documentQuery = documentQuery.or(parts.join(","));
-  }
-  if (filters.extractionQualities?.length) {
-    const parts = filters.extractionQualities.map((q) => `metadata->>extraction_quality.eq.${q}`);
-    if (filters.extractionQualities.includes("unknown")) parts.push("metadata->>extraction_quality.is.null");
-    documentQuery = documentQuery.or(parts.join(","));
-  }
-  if (filters.importBatchIds?.length) {
-    documentQuery = documentQuery.in("import_batch_id", filters.importBatchIds);
-  }
-  if (filters.collections?.length) {
-    // Use ilike for case-insensitive collection matching (mirrors the in-memory
-    // toLowerCase comparison in the original metadataMatches helper).
-    const parts = filters.collections.map((c) => `metadata->>collection.ilike.${normalizeFilterText(c)}`);
-    documentQuery = documentQuery.or(parts.join(","));
+    // Push metadata enum filters into SQL using JSONB text extraction. Keep
+    // fallback semantics by matching nulls, fallback values, and malformed rows.
+    if (filters.sourceStatuses?.length) {
+      const orParts: string[] = [];
+      buildStatusFallbackClauses({
+        fieldName: "metadata->>document_status",
+        values: filters.sourceStatuses,
+        fallbackValue: "unknown",
+        knownValues: sourceStatusValues,
+        orParts,
+      });
+      documentQuery = documentQuery.or(orParts.join(","));
+    }
+    if (filters.validationStatuses?.length) {
+      const orParts: string[] = [];
+      buildStatusFallbackClauses({
+        fieldName: "metadata->>clinical_validation_status",
+        values: filters.validationStatuses,
+        fallbackValue: "unverified",
+        knownValues: validationStatusValues,
+        orParts,
+      });
+      documentQuery = documentQuery.or(orParts.join(","));
+    }
+    if (filters.extractionQualities?.length) {
+      const orParts = filters.extractionQualities.map((q) => `metadata->>extraction_quality.eq.${normalizeFilterText(q)}`);
+      if (filters.extractionQualities.includes("unknown")) orParts.push("metadata->>extraction_quality.is.null");
+      documentQuery = documentQuery.or(orParts.join(","));
+    }
+    if (filters.importBatchIds?.length) {
+      documentQuery = documentQuery.in("import_batch_id", filters.importBatchIds);
+    }
+    if (filters.collections?.length) {
+      const orParts = filters.collections.map((collection) =>
+        `metadata->>collection.ilike.${escapePostgrestValue(normalizeFilterText(collection))}`,
+      );
+      documentQuery = documentQuery.or(orParts.join(","));
+    }
+
+    const { data, error: documentError } = await documentQuery;
+    if (documentError) throw new Error(documentError.message);
+    documentRows.push(...((data ?? []) as ScopeDocumentRow[]));
+
+    if ((data ?? []).length < documentScopeQueryPageSize) {
+      break;
+    }
   }
 
-  const { data, error: documentError } = await documentQuery;
-  if (documentError) throw new Error(documentError.message);
-
-  let documentRows = (data ?? []) as ScopeDocumentRow[];
-  if (documentRows.length > maxResolvedDocuments) {
-    documentRows = documentRows.slice(0, maxResolvedDocuments);
+  if (documentRows.length >= maxResolvedDocuments) {
     warnings.push(
       `Scope resolution matched more than ${maxResolvedDocuments} indexed documents; narrow the filters if expected documents are missing.`,
     );
