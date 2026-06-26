@@ -14,11 +14,31 @@ export type IngestionRecoveryAction =
   | { action: "supersede"; jobId: string; documentId: string }
   | { action: "retry"; jobId: string; documentId: string; resetDocument: boolean };
 
+function parseLockedAt(value: string | null | undefined) {
+  if (!value) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : null;
+}
+
 export function isStaleProcessingJob(job: IngestionRecoveryJob, now: Date, staleAfterMinutes: number) {
   if (job.status !== "processing" || !job.locked_at) return false;
-  const lockedAt = new Date(job.locked_at);
-  if (Number.isNaN(lockedAt.getTime())) return false;
-  return lockedAt.getTime() < now.getTime() - staleAfterMinutes * 60_000;
+  const lockedAt = parseLockedAt(job.locked_at);
+  if (lockedAt === null) return false;
+  return lockedAt < now.getTime() - staleAfterMinutes * 60_000;
+}
+
+export function isRecoverableProcessingJob(job: IngestionRecoveryJob, now: Date, staleAfterMinutes: number) {
+  if (job.status !== "processing") return false;
+  const lockedAt = parseLockedAt(job.locked_at);
+  if (lockedAt === null) return true;
+  return lockedAt < now.getTime() - staleAfterMinutes * 60_000;
+}
+
+export function isFreshProcessingJob(job: IngestionRecoveryJob, now: Date, staleAfterMinutes: number) {
+  if (job.status !== "processing" || !job.locked_at) return false;
+  const lockedAt = parseLockedAt(job.locked_at);
+  if (lockedAt === null) return false;
+  return lockedAt >= now.getTime() - staleAfterMinutes * 60_000;
 }
 
 export function buildIngestionRecoveryPlan(args: {
@@ -35,7 +55,9 @@ export function buildIngestionRecoveryPlan(args: {
     const chunkCount = Number(job.documents?.chunk_count ?? 0);
     const isIndexedDocument = documentStatus === "indexed" && chunkCount > 0;
     const isRecoverableStatus =
-      job.status === "failed" || job.status === "pending" || isStaleProcessingJob(job, now, args.staleAfterMinutes);
+      job.status === "failed" ||
+      job.status === "pending" ||
+      isRecoverableProcessingJob(job, now, args.staleAfterMinutes);
 
     if (isIndexedDocument && job.status !== "completed") {
       actions.push({ action: "supersede", jobId: job.id, documentId: job.document_id });

@@ -76,6 +76,10 @@ function AccessibleTableMarkup({
   body,
   compact,
   expanded = false,
+  previewRows,
+  hidePreviewCaption = false,
+  hidePreviewRowCount = false,
+  densePreview = false,
   rowActions,
   actionsHeader = "Actions",
 }: {
@@ -84,14 +88,20 @@ function AccessibleTableMarkup({
   body: string[][];
   compact: boolean;
   expanded?: boolean;
+  previewRows?: number;
+  hidePreviewCaption?: boolean;
+  hidePreviewRowCount?: boolean;
+  densePreview?: boolean;
   rowActions?: Array<ReactNode | null>;
   actionsHeader?: string;
 }) {
-  const visibleBody = expanded ? body : body.slice(0, compact ? 6 : 20);
+  const defaultPreviewRows = compact ? 6 : 20;
+  const visibleBody = expanded ? body : body.slice(0, previewRows ?? defaultPreviewRows);
   const hasActions = Boolean(rowActions?.some(Boolean));
   const columnCount = Math.max(header.length + (hasActions ? 1 : 0), 1);
   const displayRows = visibleBody.map((row) => header.map((_, index) => row[index] ?? ""));
   const displayActions = visibleBody.map((_, index) => rowActions?.[index] ?? null);
+  const renderDensePreview = densePreview && !expanded;
 
   return (
     <div
@@ -100,7 +110,7 @@ function AccessibleTableMarkup({
         expanded && "max-h-[calc(100dvh-8.5rem)] rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
-      {caption ? (
+      {caption && !(hidePreviewCaption && !expanded) ? (
         <div
           className={cn(
             "border-b border-[color:var(--border)] px-3 py-2 text-left font-semibold",
@@ -115,7 +125,7 @@ function AccessibleTableMarkup({
           aria-label={caption ?? undefined}
           className={cn(
             "w-full border-separate border-spacing-0 text-left md:table-fixed",
-            expanded ? "text-[15px]" : "text-sm",
+            renderDensePreview ? "min-w-full table-fixed text-[11px]" : expanded ? "text-[15px]" : "text-sm",
           )}
         >
           <colgroup className="hidden md:table-column-group">
@@ -124,7 +134,7 @@ function AccessibleTableMarkup({
             ))}
             {hasActions ? <col style={{ width: `${100 / columnCount}%` }} /> : null}
           </colgroup>
-          <thead className="sr-only md:not-sr-only md:table-header-group">
+          <thead className={renderDensePreview ? "table-header-group" : "sr-only md:not-sr-only md:table-header-group"}>
             <tr className="bg-[color:var(--surface-subtle)]">
               {header.map((cell, index) => (
                 <th
@@ -132,9 +142,15 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
-                    "whitespace-normal break-words [overflow-wrap:anywhere]",
+                    renderDensePreview
+                      ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                      : "whitespace-normal break-words [overflow-wrap:anywhere]",
                     index > 0 && "border-l border-[color:var(--border)]/70",
-                    expanded ? "px-4 py-3 text-sm" : "px-3 py-2 text-xs",
+                    renderDensePreview
+                      ? "px-2 py-1.5 text-[10px] uppercase tracking-[0.06em]"
+                      : expanded
+                        ? "px-4 py-3 text-sm"
+                        : "px-3 py-2 text-xs",
                   )}
                 >
                   {cell}
@@ -146,7 +162,11 @@ function AccessibleTableMarkup({
                   className={cn(
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
                     "whitespace-normal break-words [overflow-wrap:anywhere]",
-                    expanded ? "px-4 py-3 text-sm" : "px-3 py-2 text-xs",
+                    renderDensePreview
+                      ? "px-2 py-1.5 text-[10px] uppercase tracking-[0.06em]"
+                      : expanded
+                        ? "px-4 py-3 text-sm"
+                        : "px-3 py-2 text-xs",
                   )}
                 >
                   {actionsHeader}
@@ -154,14 +174,21 @@ function AccessibleTableMarkup({
               ) : null}
             </tr>
           </thead>
-          <tbody className="block space-y-2 p-2 md:table-row-group md:space-y-0 md:p-0">
+          <tbody
+            className={
+              renderDensePreview ? "table-row-group" : "block space-y-2 p-2 md:table-row-group md:space-y-0 md:p-0"
+            }
+          >
             {displayRows.map((row, rowIndex) => {
               return (
                 <tr
                   key={`${rowIndex}:${row.join("|")}`}
                   className={cn(
-                    "block rounded-md border border-[color:var(--border)]/75 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]",
-                    "md:table-row md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none md:even:bg-[color:var(--surface-subtle)]/35",
+                    renderDensePreview
+                      ? "table-row even:bg-[color:var(--surface-subtle)]/35"
+                      : "block rounded-md border border-[color:var(--border)]/75 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]",
+                    !renderDensePreview &&
+                      "md:table-row md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none md:even:bg-[color:var(--surface-subtle)]/35",
                   )}
                 >
                   {header.map((_, cellIndex) => {
@@ -170,23 +197,41 @@ function AccessibleTableMarkup({
                       <td
                         key={`${rowIndex}:${cellIndex}`}
                         className={cn(
-                          "nums block align-top text-[color:var(--text)] md:table-cell",
-                          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-                          "border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 md:border-b-0 md:border-t md:border-[color:var(--border)]/70 md:last:border-b-0",
-                          cellIndex > 0 && "md:border-l md:border-[color:var(--border)]/60",
-                          expanded ? "md:px-4 md:py-3 md:leading-6" : "md:px-3 md:py-2 md:leading-5",
-                          cellIndex > 0 && "pt-2 md:pt-0",
+                          "nums align-top text-[color:var(--text)]",
+                          renderDensePreview ? "table-cell" : "block md:table-cell",
+                          renderDensePreview
+                            ? "overflow-hidden whitespace-nowrap"
+                            : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                          renderDensePreview
+                            ? "border-t border-[color:var(--border)]/70 px-2 py-1.5 leading-4"
+                            : "border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 md:border-b-0 md:border-t md:border-[color:var(--border)]/70 md:last:border-b-0",
+                          cellIndex > 0 &&
+                            (renderDensePreview
+                              ? "border-l border-[color:var(--border)]/60"
+                              : "md:border-l md:border-[color:var(--border)]/60"),
+                          !renderDensePreview &&
+                            (expanded ? "md:px-4 md:py-3 md:leading-6" : "md:px-3 md:py-2 md:leading-5"),
+                          !renderDensePreview && cellIndex > 0 && "pt-2 md:pt-0",
                         )}
                       >
                         <span
                           className={cn(
-                            "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
+                            renderDensePreview
+                              ? "sr-only"
+                              : "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
                             textMuted,
                           )}
                         >
                           {header[cellIndex] || `Column ${cellIndex + 1}`}
                         </span>
-                        <span className="block min-w-0 text-sm leading-6 md:text-inherit md:leading-inherit">
+                        <span
+                          className={cn(
+                            "block min-w-0",
+                            renderDensePreview
+                              ? "truncate text-[11px] leading-4"
+                              : "text-sm leading-6 md:text-inherit md:leading-inherit",
+                          )}
+                        >
                           {cell || <span className={textMuted}>-</span>}
                         </span>
                       </td>
@@ -195,14 +240,19 @@ function AccessibleTableMarkup({
                   {hasActions ? (
                     <td
                       className={cn(
-                        "block pt-2 align-top md:table-cell md:border-l md:border-t md:border-[color:var(--border)]/60",
-                        expanded ? "md:px-4 md:py-3" : "md:px-3 md:py-2",
+                        "align-top",
+                        renderDensePreview
+                          ? "table-cell border-l border-t border-[color:var(--border)]/60 px-2 py-1.5"
+                          : "block pt-2 md:table-cell md:border-l md:border-t md:border-[color:var(--border)]/60",
+                        !renderDensePreview && (expanded ? "md:px-4 md:py-3" : "md:px-3 md:py-2"),
                       )}
                       onClick={(event) => event.stopPropagation()}
                     >
                       <span
                         className={cn(
-                          "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
+                          renderDensePreview
+                            ? "sr-only"
+                            : "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
                           textMuted,
                         )}
                       >
@@ -217,7 +267,7 @@ function AccessibleTableMarkup({
           </tbody>
         </table>
       </div>
-      {body.length > visibleBody.length ? (
+      {body.length > visibleBody.length && !(hidePreviewRowCount && !expanded) ? (
         <p className={cn("nums border-t border-[color:var(--border)] px-3 py-2 text-xs", textMuted)}>
           Showing {visibleBody.length} of {body.length} rows.
         </p>
@@ -254,6 +304,10 @@ export function AccessibleTable({
   columns,
   compact = false,
   expandOnMobile = false,
+  previewRows,
+  hidePreviewCaption = false,
+  hidePreviewRowCount = false,
+  densePreview = false,
   dialogTitle,
   clinicalOnly = false,
   rowActions,
@@ -265,6 +319,10 @@ export function AccessibleTable({
   columns?: string[] | null;
   compact?: boolean;
   expandOnMobile?: boolean;
+  previewRows?: number;
+  hidePreviewCaption?: boolean;
+  hidePreviewRowCount?: boolean;
+  densePreview?: boolean;
   dialogTitle?: string | null;
   clinicalOnly?: boolean;
   rowActions?: Array<ReactNode | null>;
@@ -320,6 +378,10 @@ export function AccessibleTable({
         header={header}
         body={body}
         compact={compact}
+        previewRows={previewRows}
+        hidePreviewCaption={hidePreviewCaption}
+        hidePreviewRowCount={hidePreviewRowCount}
+        densePreview={densePreview}
         rowActions={rowActions}
         actionsHeader={actionsHeader}
       />
@@ -371,9 +433,9 @@ export function AccessibleTable({
               event.stopPropagation();
               openDialog(event.currentTarget);
             }}
-            className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
+            className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
-            <span className="sr-only">Open {title} full table</span>
+            <span>Expand table</span>
             <Maximize2 className="h-4 w-4" />
           </button>
         ) : null}

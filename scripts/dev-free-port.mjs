@@ -5,6 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { appName, stableProjectPort } from "./local-server-utils.mjs";
 
+if (Number(process.versions.node.split(".")[0]) !== 22) {
+  console.error(`Clinical KB local server requires Node 22.x. Current runtime: ${process.versions.node}.`);
+  process.exit(1);
+}
+
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const maxPort = 65535;
 

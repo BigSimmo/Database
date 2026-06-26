@@ -111,4 +111,44 @@ describe("/api/eval-cases", () => {
     });
     expect(payload.metadata).toMatchObject({ rating: "needs_fixing", source_chunk_ids_rejected: 1 });
   });
+
+  it("captures category-specific missed-answer feedback for eval promotion", async () => {
+    const { client, insert } = createInsertMock();
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const response = await POST(
+      request({
+        query: "What ANC threshold should withhold clozapine?",
+        feedbackType: "numeric_error",
+        answer: "Withhold below 15.",
+        queryMode: "dose_threshold_lookup",
+        queryClass: "table_threshold",
+        sourceChunkIds: [validChunkId],
+        citedChunkIds: [validChunkId],
+        sourceFiles: ["clozapine.pdf"],
+        sourceGovernanceWarnings: ["Source is review due."],
+        unverifiedNumericTokens: ["15"],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(payload).toMatchObject({
+      miss_reason: "numeric_error",
+      promoted_eval_case: true,
+    });
+    expect(payload.metadata).toMatchObject({
+      rating: "needs_fixing",
+      feedback_type: "numeric_error",
+      source_governance_warnings: ["Source is review due."],
+      unverified_numeric_tokens: ["15"],
+    });
+  });
 });

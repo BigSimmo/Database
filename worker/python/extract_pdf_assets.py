@@ -18,6 +18,10 @@ except Exception as exc:
 # observable in index_quality rather than dropping tail rows invisibly.
 MAX_TABLE_ROWS = 400
 MAX_TABLE_TEXT_CHARS = 24000
+TARGET_CROP_DPI = 220
+MIN_RENDER_SCALE = 2.0
+MAX_RENDER_SCALE = 4.0
+MAX_RENDER_PIXELS = 4_000_000
 
 
 def maybe_ocr_page(page):
@@ -39,9 +43,9 @@ def maybe_ocr_page(page):
 
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
         image = Image.open(io.BytesIO(pix.tobytes("png")))
-        return pytesseract.image_to_string(image)
-    except Exception:
-        return ""
+        return pytesseract.image_to_string(image), None
+    except Exception as exc:
+        return "", f"OCR failed on page {page.number + 1}: {type(exc).__name__}: {exc}"
 
 
 def page_image_coverage_ratio(page):
@@ -105,6 +109,14 @@ def write_pixmap(pix, path):
     return {"width": pix.width, "height": pix.height}
 
 
+def render_scale_for_rect(rect):
+    scale = TARGET_CROP_DPI / 72.0
+    pixel_area = max(1.0, rect.width * scale * rect.height * scale)
+    if pixel_area > MAX_RENDER_PIXELS:
+        scale *= (MAX_RENDER_PIXELS / pixel_area) ** 0.5
+    return max(MIN_RENDER_SCALE, min(MAX_RENDER_SCALE, scale))
+
+
 def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata):
     page_rect = page.rect
     clipped = rect & page_rect
@@ -114,12 +126,30 @@ def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata):
     if clipped.width < 80 or clipped.height < 60:
         return None
 
-    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clipped, alpha=False)
+    render_scale = render_scale_for_rect(clipped)
+    pix = page.get_pixmap(matrix=fitz.Matrix(render_scale, render_scale), clip=clipped, alpha=False)
     if pix.width < 180 or pix.height < 120:
         return None
 
     image_path = os.path.join(output_dir, file_name)
     dimensions = write_pixmap(pix, image_path)
+    crop_metadata = {
+        **metadata,
+        "bbox": rect_payload(rect),
+        "clip_bbox": rect_payload(clipped),
+        "page_width": round(float(page.rect.width), 2),
+        "page_height": round(float(page.rect.height), 2),
+        "page_rotation": int(page.rotation or 0),
+        "render_scale": round(render_scale, 3),
+        "render_dpi": round(render_scale * 72),
+        "source_regions": [
+            {
+                "source_kind": source_kind,
+                "bbox": rect_payload(clipped),
+                "page_number": metadata["pageNumber"],
+            }
+        ],
+    }
     return {
         "pageNumber": metadata["pageNumber"],
         "path": image_path,
@@ -128,7 +158,7 @@ def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata):
         "width": dimensions["width"],
         "height": dimensions["height"],
         "sourceKind": source_kind,
-        "metadata": metadata,
+        "metadata": crop_metadata,
     }
 
 
@@ -643,8 +673,8 @@ def page_visual_weight(page):
     return drawing_count + image_count * 4 + tall_blocks + (2 if median_block_height > 40 else 0)
 
 
-def fallback_visual_region(page):
-    if page_visual_weight(page) < 8:
+def fallback_visual_region(page, image_coverage=0.0, ocr_used=False):
+    if page_visual_weight(page) < 8 and image_coverage < 0.35 and not ocr_used:
         return None
 
     text = (page.get_text("text", sort=True) or "").lower()
@@ -691,18 +721,22 @@ def extract(pdf_path, output_dir):
     document = fitz.open(pdf_path)
     pages = []
     images = []
+    warnings = []
 
     for page_index, page in enumerate(document):
         page_number = page_index + 1
         text = page.get_text("text", sort=True) or ""
         ocr_used = False
+        image_coverage = page_image_coverage_ratio(page)
 
         # IDX-H4: trigger OCR by text-density relative to image coverage, not only a flat
         # 40-char floor. Image-dominant pages with low text density (e.g. a dose table
         # rendered as an image with a short caption) are OCR'd and merged with the existing
         # text layer so caption + table contents are both retained.
         if should_ocr_page(text, page):
-            ocr_text = maybe_ocr_page(page)
+            ocr_text, ocr_warning = maybe_ocr_page(page)
+            if ocr_warning:
+                warnings.append(ocr_warning)
             if ocr_text.strip():
                 text = merge_ocr_text(text, ocr_text)
                 ocr_used = True
@@ -712,6 +746,9 @@ def extract(pdf_path, output_dir):
                 "pageNumber": page_number,
                 "text": text,
                 "ocrUsed": ocr_used,
+                "metadata": {
+                    "image_coverage_ratio": round(image_coverage, 4),
+                },
             }
         )
 
@@ -745,6 +782,19 @@ def extract(pdf_path, output_dir):
                         "pageNumber": page_number,
                         "source_kind": "embedded",
                         "xref": xref,
+                        "bbox": bbox,
+                        "page_width": round(float(page.rect.width), 2),
+                        "page_height": round(float(page.rect.height), 2),
+                        "page_rotation": int(page.rotation or 0),
+                        "image_coverage_ratio": round(image_coverage, 4),
+                        "source_regions": [
+                            {
+                                "source_kind": "embedded",
+                                "bbox": bbox,
+                                "page_number": page_number,
+                                "xref": xref,
+                            }
+                        ],
                     },
                 }
             )
@@ -807,11 +857,21 @@ def extract(pdf_path, output_dir):
                 images.append(crop)
                 crop_index += 1
 
-        if page_image_count == 0 and crop_index == 1:
-            fallback_region = fallback_visual_region(page)
+        should_capture_fallback_region = crop_index == 1 and (
+            page_image_count == 0 or image_coverage >= 0.18 or ocr_used
+        )
+        if should_capture_fallback_region:
+            fallback_region = fallback_visual_region(page, image_coverage=image_coverage, ocr_used=ocr_used)
             if fallback_region and not any(
                 rect_intersection_ratio(fallback_region, table_rect) > 0.45 for table_rect in table_rects
             ):
+                candidate_type = (
+                    "ocr_page_region"
+                    if ocr_used
+                    else "image_dominant_page_region"
+                    if page_image_count > 0
+                    else "fallback_visual_region"
+                )
                 crop = save_page_crop(
                     page,
                     fallback_region,
@@ -821,13 +881,16 @@ def extract(pdf_path, output_dir):
                     {
                         "pageNumber": page_number,
                         "source_kind": "page_region",
-                        "candidate_type": "fallback_visual_region",
-                    },
+                        "candidate_type": candidate_type,
+                        "image_coverage_ratio": round(image_coverage, 4),
+                        "page_visual_weight": page_visual_weight(page),
+                        "ocr_used": ocr_used,
+                  },
                 )
                 if crop:
                     images.append(crop)
 
-    return {"pages": pages, "images": images, "warnings": []}
+    return {"pages": pages, "images": images, "warnings": warnings}
 
 
 if __name__ == "__main__":

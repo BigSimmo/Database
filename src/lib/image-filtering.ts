@@ -311,6 +311,37 @@ export function classifiedImageSkipReason(classification: ClassifiedImage) {
   return null;
 }
 
-export function lightweightPerceptualHash(imageHash: string, width?: number | null, height?: number | null) {
-  return [imageHash.slice(0, 24), width ?? "w", height ?? "h"].join(":");
+function bytesFromHashInput(input: string | Uint8Array | ArrayBuffer) {
+  if (typeof input === "string") return new TextEncoder().encode(input);
+  if (input instanceof ArrayBuffer) return new Uint8Array(input);
+  return input;
+}
+
+export function lightweightPerceptualHash(
+  imageContent: string | Uint8Array | ArrayBuffer,
+  width?: number | null,
+  height?: number | null,
+) {
+  const bytes = bytesFromHashInput(imageContent);
+  const sizeKey = `${width ?? "w"}x${height ?? "h"}`;
+  if (bytes.length === 0) return `ph1:${sizeKey}:empty`;
+
+  const bucketCount = 16;
+  const buckets = new Array<number>(bucketCount).fill(0);
+  const counts = new Array<number>(bucketCount).fill(0);
+  const step = Math.max(1, Math.floor(bytes.length / 4096));
+  let sampleIndex = 0;
+
+  for (let index = 0; index < bytes.length; index += step) {
+    const bucket = sampleIndex % bucketCount;
+    buckets[bucket] += bytes[index];
+    counts[bucket] += 1;
+    sampleIndex += 1;
+  }
+
+  const averages = buckets.map((sum, index) => sum / Math.max(counts[index], 1));
+  const mean = averages.reduce((sum, value) => sum + value, 0) / bucketCount;
+  const bitString = averages.map((value) => (value >= mean ? "1" : "0")).join("");
+  const hex = Number.parseInt(bitString, 2).toString(16).padStart(4, "0");
+  return `ph1:${sizeKey}:${hex}`;
 }

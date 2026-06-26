@@ -24,6 +24,7 @@ type DocumentTagCloudProps = {
 };
 
 const groupIcon: Record<SmartDocumentTagGroup, typeof Tag> = {
+  Site: FileText,
   Medication: Target,
   Risk: ShieldAlert,
   Workflow: ListChecks,
@@ -36,6 +37,7 @@ const groupIcon: Record<SmartDocumentTagGroup, typeof Tag> = {
 };
 
 const groupTone: Record<SmartDocumentTagGroup, string> = {
+  Site: "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   Medication: "border-[color:var(--primary)]/30 bg-[color:var(--primary-soft)]/45 text-[color:var(--primary)]",
   Risk: "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]",
   Workflow: "border-[color:var(--info)]/30 bg-[color:var(--info-soft)]/50 text-[color:var(--info)]",

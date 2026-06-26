@@ -59,6 +59,39 @@ describe("captured RAG eval cases", () => {
     expect(testCase.minCitations).toBe(0);
   });
 
+  it("maps unsupported-answer feedback to unsupported eval expectations", () => {
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-unsupported",
+      miss_reason: "unsupported_answer",
+      metadata: { rating: "needs_fixing", feedback_type: "unsupported_answer" },
+    });
+
+    expect(testCase).toMatchObject({
+      category: "unsupported",
+      relevanceGrade: "unsupported",
+      supported: false,
+      expectedFiles: [],
+      allowedRoutes: ["unsupported"],
+      minCitations: 0,
+    });
+  });
+
+  it("maps numeric-error feedback to a source-backed regression case", () => {
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-numeric",
+      miss_reason: "numeric_error",
+      metadata: { rating: "needs_fixing", feedback_type: "numeric_error" },
+    });
+
+    expect(testCase).toMatchObject({
+      category: "complex",
+      supported: true,
+      minCitations: 1,
+    });
+  });
+
   it("loads only promoted captures and scopes to the owner when provided", async () => {
     const client = clientWithRows([row]);
     const cases = await loadCapturedRagEvalCases({

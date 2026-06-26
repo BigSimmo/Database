@@ -73,7 +73,15 @@ describe("index quality scoring", () => {
         section_heading: `Section ${index}`,
         section_path: ["Guideline", `Section ${index}`],
       })),
-      insertedImages: [{ sourceKind: "table_crop", tableRows: [["ANC", "withhold"]] }],
+      insertedImages: [
+        {
+          sourceKind: "table_crop",
+          tableRows: [["ANC", "withhold"]],
+          imageQualityScore: 1,
+          cropCompleteness: 1,
+          structuredVisualProfile: { confidence: 1, thresholds: [{}] },
+        },
+      ],
       sectionCount: 3,
       memoryCardCount: 6,
       documentEmbeddingFieldTypes: ["document_title", "document_summary"],
@@ -82,5 +90,49 @@ describe("index quality scoring", () => {
     expect(quality.extractionQuality).toBe("good");
     expect(quality.qualityScore).toBe(1);
     expect(quality.issues).toEqual([]);
+  });
+
+  it("tracks structured visual extraction and visual unit coverage", () => {
+    const quality = assessDocumentIndexQuality({
+      metrics: {
+        page_count: 4,
+        text_character_count: 10_000,
+        extracted_image_count: 3,
+        searchable_image_count: 3,
+      },
+      chunks: Array.from({ length: 6 }, (_, index) => ({
+        content: `Distinct visual-heavy chunk ${index} with enough clinical text, action detail, and source context for indexing.`,
+        section_heading: `Section ${index}`,
+        section_path: ["Guideline", `Section ${index}`],
+      })),
+      insertedImages: [
+        {
+          sourceKind: "table_crop",
+          tableRows: [["ANC", "withhold"]],
+          imageQualityScore: 0.9,
+          cropCompleteness: 0.9,
+          structuredVisualProfile: { confidence: 0.84, thresholds: [{}] },
+        },
+        {
+          sourceKind: "page_region",
+          imageQualityScore: 0.82,
+          cropCompleteness: 0.72,
+          structuredVisualProfile: { confidence: 0.78, flowchart_nodes: [{}] },
+        },
+        {
+          sourceKind: "page_region",
+          imageQualityScore: 0.8,
+          cropCompleteness: 0.7,
+          structuredVisualProfile: { confidence: 0.74, risk_matrix_cells: [{}] },
+        },
+      ],
+      sectionCount: 2,
+      memoryCardCount: 4,
+      documentEmbeddingFieldTypes: ["document_title", "document_summary"],
+    });
+
+    expect(quality.metrics.visual_unit_coverage).toBe(1);
+    expect(quality.metrics.average_structured_visual_confidence).toBeGreaterThan(0.75);
+    expect(quality.issues).not.toContain("low visual unit coverage");
   });
 });

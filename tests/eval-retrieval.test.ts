@@ -58,6 +58,32 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.failures).toEqual([]);
   });
 
+  it("matches legacy compact expected document names to current corpus titles", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "case-1",
+        query: "What ANC threshold should withhold clozapine?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: ["ClozapinePresAdminMonitor"],
+        expectedContentTerms: ["anc", "withhold"],
+        topK: 8,
+        expectTableEvidence: false,
+      },
+      results: [
+        result({
+          title: "Clozapine Prescribing, Administration And Monitoring(AKG)",
+          file_name: "Clozapine Prescribing, Administration and Monitoring (AKG).pdf",
+        }),
+      ],
+      telemetry: { query_class: "table_threshold", retrieval_strategy: "hybrid" },
+      latencyMs: 123,
+    });
+
+    expect(evaluated.documentRecallAt5).toBe(1);
+    expect(evaluated.reciprocalRankAt10).toBe(1);
+    expect(evaluated.failures).toEqual([]);
+  });
+
   it("matches clinical aliases and explicit alternatives for content recall", () => {
     const evaluated = evaluateGoldenRetrievalCase({
       testCase: {
@@ -103,7 +129,7 @@ describe("golden retrieval eval helpers", () => {
         topK: 8,
         expectTableEvidence: true,
       },
-      results: [result({ file_name: "Other.pdf", content: "No matching content." })],
+      results: [result({ title: "Other Document", file_name: "Other.pdf", content: "No matching content." })],
       telemetry: { query_class: "document_lookup", retrieval_strategy: "text_fast_path" },
       latencyMs: 50,
     });

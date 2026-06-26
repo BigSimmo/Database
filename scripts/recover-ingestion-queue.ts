@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import type { IngestionRecoveryJob } from "@/lib/ingestion-recovery";
+import { confirm } from "./cli-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -7,6 +8,14 @@ type RecoveryDocument = {
   status?: string | null;
   page_count?: number | null;
   chunk_count?: number | null;
+};
+
+type RawJobRow = {
+  id: string;
+  document_id: string;
+  status: string | null;
+  locked_at: string | null;
+  documents: RecoveryDocument | RecoveryDocument[] | null;
 };
 
 function supabaseStageError(stage: string, error: unknown) {
@@ -35,6 +44,7 @@ function parseArgs(argv: string[]) {
   };
   return {
     apply: argv.includes("--apply"),
+    yes: argv.includes("--yes"),
     staleAfterMinutes: Number.parseInt(valueFor("stale-after-minutes") ?? "", 10),
     limit: Number.parseInt(valueFor("limit") ?? "", 10),
   };
@@ -59,16 +69,21 @@ async function main() {
     : env.WORKER_STALE_AFTER_MINUTES;
   const limit = Number.isFinite(args.limit) ? args.limit : 20;
   const supabase = createAdminClient();
+
+  console.log("=== Ingestion Queue Recovery ===");
+  console.log(`Checking Supabase health...`);
   assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Ingestion queue recovery");
+  console.log("  Supabase is healthy.\n");
+
   const { data, error } = await supabase
     .from("ingestion_jobs")
     .select("id,document_id,status,locked_at,documents(status,page_count,chunk_count)")
-    .in("status", ["processing", "failed"])
+    .in("status", ["pending", "processing", "failed"])
     .order("created_at", { ascending: true });
 
   if (error) throw supabaseStageError("load open ingestion jobs", error);
 
-  const jobs = (data ?? []).map((job) => ({
+  const jobs = (data ?? []).map((job: RawJobRow) => ({
     ...job,
     documents: Array.isArray(job.documents) ? (job.documents[0] as RecoveryDocument | undefined) : job.documents,
   })) as IngestionRecoveryJob[];
@@ -77,28 +92,42 @@ async function main() {
   const resetDocumentIds = Array.from(
     new Set(actions.filter((action) => action.action === "retry").map((action) => action.documentId)),
   );
+  const supersedeCount = actions.filter((action) => action.action === "supersede").length;
+  const retryCount = actions.filter((action) => action.action === "retry").length;
+  const remainingCount = Math.max(0, plan.actions.length - actions.length);
 
-  console.log(
-    JSON.stringify(
-      {
-        mode: args.apply ? "apply" : "dry-run",
-        staleAfterMinutes,
-        limit,
-        scannedJobs: jobs.length,
-        resetDocuments: resetDocumentIds.length,
-        supersedeJobs: actions.filter((action) => action.action === "supersede").length,
-        retryJobs: actions.filter((action) => action.action === "retry").length,
-        remainingActions: Math.max(0, plan.actions.length - actions.length),
-      },
-      null,
-      2,
-    ),
-  );
+  console.log(`Stale-after threshold : ${staleAfterMinutes} min`);
+  console.log(`Action limit          : ${limit}`);
+  console.log(`Scanned jobs          : ${jobs.length}`);
+  console.log(`Documents to reset    : ${resetDocumentIds.length}`);
+  console.log(`Jobs to supersede     : ${supersedeCount}`);
+  console.log(`Jobs to retry         : ${retryCount}`);
+  if (remainingCount > 0) {
+    console.log(`Remaining (over limit): ${remainingCount}`);
+  }
 
-  if (!args.apply) {
-    console.log("Dry run only. Re-run with --apply to mutate the ingestion queue.");
+  if (actions.length === 0) {
+    console.log("\nNothing to recover. Queue looks healthy.");
     return;
   }
+
+  let shouldApply = args.apply;
+
+  if (!shouldApply) {
+    if (args.yes) {
+      shouldApply = true;
+    } else {
+      console.log("");
+      shouldApply = await confirm("Apply these changes?");
+    }
+  }
+
+  if (!shouldApply) {
+    console.log("\nNo changes applied. Re-run with --apply or confirm interactively to mutate the ingestion queue.");
+    return;
+  }
+
+  console.log("\nApplying recovery...");
 
   for (const documentId of resetDocumentIds) {
     const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: documentId });
@@ -146,6 +175,9 @@ async function main() {
   }
 
   console.log("Ingestion queue recovery applied.");
+  if (remainingCount > 0) {
+    console.log(`\n${remainingCount} action(s) remain over the limit. Re-run to process the next batch.`);
+  }
 }
 
 main().catch((error) => {

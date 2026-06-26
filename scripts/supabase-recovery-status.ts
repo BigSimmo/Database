@@ -24,22 +24,17 @@ async function main() {
   ]);
   requireServerEnv();
   const supabase = createAdminClient();
+
+  console.log("=== Supabase Recovery Status ===");
   const health = await probeSupabaseHealth(supabase);
 
   if (!health.ok) {
+    console.log(`Status    : UNAVAILABLE`);
+    console.log(`Checked at: ${health.checkedAt}`);
+    console.log(`Error     : ${health.message}`);
     console.log(
-      JSON.stringify(
-        {
-          ok: false,
-          status: "supabase_unavailable",
-          checkedAt: health.checkedAt,
-          error: health.message,
-          recommendation:
-            "Do not run migrations, imports, workers, recovery mutations, or evals. Retry later or contact Supabase support if this persists for more than 30 minutes with local workers stopped.",
-        },
-        null,
-        2,
-      ),
+      "\nDo not run migrations, imports, workers, recovery mutations, or evals. " +
+        "Retry later or contact Supabase support if this persists for more than 30 minutes with local workers stopped.",
     );
     process.exitCode = 1;
     return;
@@ -85,23 +80,27 @@ async function main() {
     : openJobs === 0
       ? "Queue is clear. Run indexing checks or resume imports in small waves."
       : (staleJobs.count ?? 0) > 0 || (failedJobs.count ?? 0) > 0
-        ? "Run npm run recover:ingestion -- --apply --limit 20, then npm run worker:once."
+        ? "Run npm run recover:ingestion, then npm run worker:once."
         : "Run npm run worker:once with conservative defaults.";
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: errors.length === 0,
-        status: errors.length ? "read_errors" : "ready",
-        checkedAt: health.checkedAt,
-        counts: Object.fromEntries(counts.map((item) => [item.label, item.count])),
-        errors,
-        recommendation,
-      },
-      null,
-      2,
-    ),
-  );
+  const status = errors.length ? "READ ERRORS" : "READY";
+  console.log(`Status    : ${status}`);
+  console.log(`Checked at: ${health.checkedAt}`);
+  console.log("");
+  console.log("Queue counts:");
+  for (const item of counts) {
+    const value = item.error ? `ERROR: ${item.error}` : String(item.count ?? "-");
+    console.log(`  ${item.label.padEnd(24)}: ${value}`);
+  }
+
+  if (errors.length > 0) {
+    console.log("\nRead errors:");
+    for (const item of errors) {
+      console.log(`  ${item.label}: ${item.error}`);
+    }
+  }
+
+  console.log(`\nRecommendation: ${recommendation}`);
 
   if (errors.length) process.exitCode = 1;
 }

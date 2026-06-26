@@ -217,12 +217,18 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
+      await page.getByRole("button", { name: "Open daily actions" }).click();
+      await page.getByRole("button", { name: "Add document" }).click();
       await expect(
         page
           .locator("#sources")
           .getByText(viewport.name === "mobile" ? "24 documents" : "24 indexed documents available")
           .first(),
       ).toBeVisible();
+      const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
+      if (await closeUploadSheet.isVisible().catch(() => false)) {
+        await closeUploadSheet.click();
+      }
       await expectNoPageHorizontalOverflow(page);
 
       await page.getByLabel("Open document scope").click();
@@ -247,6 +253,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Open document scope")).toBeFocused();
       await expectNoPageHorizontalOverflow(page);
 
+      await page.getByRole("button", { name: "Switch to answer mode" }).click();
       await page
         .getByLabel("Search indexed guidelines by question or keyword")
         .fill("Show all stress citations and source cards");
@@ -254,19 +261,34 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
-      await expect(page.getByTestId("clinical-action-view")).toBeVisible();
+      await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
+      await expect(page.getByTestId("smart-follow-up-chips")).toHaveCount(0);
+      await expect(page.getByText("Quality feedback")).toHaveCount(0);
+      await expect(page.getByText("Source narrative")).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Copy clinical draft" })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
       await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
       await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
-      const evidenceDrawer = page.locator("details").filter({ hasText: "Evidence & sources" }).first();
-      await expect(evidenceDrawer).toBeVisible();
-      expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
-      await evidenceDrawer.locator("summary").click();
-      const evidenceReview = page.getByTestId("evidence-support-panel");
-      await expect(evidenceReview).toBeVisible();
-      await expect(evidenceReview.getByText("Evidence review")).toBeVisible();
-      await expect(evidenceReview.getByTestId("evidence-counts").getByText("Quotes")).toBeVisible();
+      if (viewport.name === "mobile") {
+        const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
+        await expect(evidenceDrawer).toBeVisible();
+        await evidenceDrawer.click();
+        const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+        await expect(evidenceSheet).toBeVisible();
+        await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+        await expect(evidenceSheet.getByTestId("mobile-evidence-tab-sources")).toHaveAttribute("aria-selected", "true");
+        await expect(evidenceSheet.getByTestId("mobile-evidence-panel-sources")).toBeVisible();
+        await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
+      } else {
+        const evidenceDrawer = page.locator("#answer-evidence-drawer");
+        await expect(evidenceDrawer).toBeVisible();
+        expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
+        await evidenceDrawer.locator("summary").click();
+        const evidenceReview = page.getByTestId("evidence-support-panel");
+        await expect(evidenceReview).toBeVisible();
+        await expect(evidenceReview.getByText("Evidence review")).toBeVisible();
+        await expect(evidenceReview.getByTestId("evidence-counts").getByText("Quotes")).toBeVisible();
+      }
       await expectNoPageHorizontalOverflow(page);
     });
   }

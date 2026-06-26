@@ -1,0 +1,2 @@
+-- Remote history placeholder.
+-- The equivalent schema changes are tracked locally in 20260623030000_api_rate_limits.sql.

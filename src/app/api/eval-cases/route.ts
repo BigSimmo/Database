@@ -12,7 +12,20 @@ export const runtime = "nodejs";
 
 const evalCaptureSchema = z.object({
   query: z.string().trim().min(1).max(2000),
-  rating: z.enum(["good", "needs_fixing"]),
+  rating: z.enum(["good", "needs_fixing"]).optional(),
+  feedbackType: z
+    .enum([
+      "verified",
+      "needs_correction",
+      "source_insufficient",
+      "wrong_source",
+      "missing_source",
+      "unsupported_answer",
+      "numeric_error",
+      "outdated_guidance",
+    ])
+    .optional(),
+  note: z.string().trim().max(1000).optional().default(""),
   answer: z.string().trim().max(12000).optional().default(""),
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
   queryClass: z
@@ -29,6 +42,8 @@ const evalCaptureSchema = z.object({
   sourceChunkIds: z.array(z.string().trim().min(1)).max(80).optional().default([]),
   citedChunkIds: z.array(z.string().trim().min(1)).max(80).optional().default([]),
   sourceFiles: z.array(z.string().trim().min(1).max(512)).max(20).optional().default([]),
+  sourceGovernanceWarnings: z.array(z.string().trim().min(1).max(300)).max(20).optional().default([]),
+  unverifiedNumericTokens: z.array(z.string().trim().min(1).max(80)).max(40).optional().default([]),
   expectedDocumentId: z.string().uuid().optional(),
   expectedChunkId: z.string().uuid().optional(),
 });
@@ -41,6 +56,17 @@ function uniqueValues(values: string[]) {
 
 function uniqueUuidValues(values: string[]) {
   return uniqueValues(values).filter((value) => uuidPattern.test(value));
+}
+
+function feedbackRating(data: z.infer<typeof evalCaptureSchema>) {
+  if (data.rating) return data.rating;
+  return data.feedbackType === "verified" ? "good" : "needs_fixing";
+}
+
+function missReasonFor(data: z.infer<typeof evalCaptureSchema>, rating: "good" | "needs_fixing") {
+  if (data.feedbackType === "verified" || rating === "good") return "answer_good_eval";
+  if (data.feedbackType) return data.feedbackType;
+  return "answer_needs_fixing";
 }
 
 export async function POST(request: Request) {
@@ -56,7 +82,8 @@ export async function POST(request: Request) {
     const sourceChunkIds = uniqueUuidValues(parsed.data.sourceChunkIds);
     const citedChunkIds = uniqueUuidValues(parsed.data.citedChunkIds);
     const sourceFiles = uniqueValues(parsed.data.sourceFiles);
-    const missReason = parsed.data.rating === "good" ? "answer_good_eval" : "answer_needs_fixing";
+    const rating = feedbackRating(parsed.data);
+    const missReason = missReasonFor(parsed.data, rating);
     const { data, error } = await supabase
       .from("rag_query_misses")
       .insert({
@@ -75,11 +102,15 @@ export async function POST(request: Request) {
         promoted_at: new Date().toISOString(),
         metadata: {
           interaction: "answer_eval_capture",
-          rating: parsed.data.rating,
+          rating,
+          feedback_type: parsed.data.feedbackType ?? null,
+          note: parsed.data.note,
           answer: parsed.data.answer,
           query_class: parsed.data.queryClass ?? null,
           query_mode: parsed.data.queryMode,
           filters: parsed.data.filters ?? {},
+          source_governance_warnings: parsed.data.sourceGovernanceWarnings,
+          unverified_numeric_tokens: parsed.data.unverifiedNumericTokens,
           source_chunk_ids_rejected: parsed.data.sourceChunkIds.length - sourceChunkIds.length,
           cited_chunk_ids_rejected: parsed.data.citedChunkIds.length - citedChunkIds.length,
           captured_at: new Date().toISOString(),

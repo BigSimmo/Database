@@ -11,17 +11,22 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Minimize2,
   ExternalLink,
   FileImage,
+  FileSpreadsheet,
   FileText,
+  ListChecks,
   Loader2,
   Maximize2,
+  Menu,
+  Minimize2,
+  Mic,
   Minus,
-  MoreHorizontal,
   Plus,
   Quote,
   RefreshCw,
+  Search,
+  Send,
   Sparkles,
   Tag,
   Target,
@@ -31,6 +36,11 @@ import {
 } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
+import {
+  DocumentOrganizationBadges,
+  documentDisplayTitle,
+  documentOrganizationProfile,
+} from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -45,7 +55,6 @@ import {
   LoadingPanel,
   panel,
   PanelHeading,
-  premiumHeaderSurface,
   primaryControl,
   proseMeasure,
   SourceProvenance,
@@ -221,6 +230,76 @@ function SourceMetadataSummary({ metadata }: { metadata?: unknown }) {
     <div className={cn(evidenceSurface, "mt-3 p-3")}>
       <SourceStatusBadge metadata={source} showTitle={false} />
       <SourceProvenance metadata={source} />
+    </div>
+  );
+}
+
+function DocumentOrganizationReviewPanel({ document }: { document: ClinicalDocument }) {
+  const profile = documentOrganizationProfile(document);
+  if (!profile) return null;
+
+  const candidates = profile.site?.candidates ?? [];
+  const siteEvidence = [
+    ...(profile.site?.evidence_sources ?? []),
+    ...candidates.flatMap((candidate) => candidate.evidence_sources),
+  ];
+  const evidence = Array.from(new Set([...siteEvidence, ...(profile.document_type?.evidence_sources ?? [])])).slice(
+    0,
+    6,
+  );
+  const reviewStatus = profile.review_status;
+  const showPanel = reviewStatus !== "confident" || candidates.length > 0 || evidence.length > 0;
+
+  if (!showPanel) return null;
+
+  return (
+    <div className={cn(sourceCard, "mt-4 p-3")}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <AlertCircle className="h-3.5 w-3.5 text-[color:var(--warning)]" />
+            Organisation review
+          </p>
+          <DocumentOrganizationBadges document={document} compact className="mt-2" />
+        </div>
+        <span className={cn("rounded-full px-2 py-1 text-[11px] font-bold", textMuted)}>
+          {reviewStatus === "manual_override"
+            ? "Manual override"
+            : reviewStatus === "needs_review"
+              ? "Needs review"
+              : "Evidence"}
+        </span>
+      </div>
+
+      {candidates.length ? (
+        <div className="mt-3 grid gap-2">
+          {candidates.slice(0, 3).map((candidate) => (
+            <div
+              key={`${candidate.raw_tag}:${candidate.label}`}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
+            >
+              <p className="text-sm font-semibold text-[color:var(--text)]">{candidate.label}</p>
+              <p className={cn("mt-0.5 text-[11px] font-semibold", textMuted)}>
+                {candidate.kind.replaceAll("_", " ")} from {candidate.raw_tag}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {evidence.length ? (
+        <ul className="mt-3 grid gap-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
+          {evidence.map((item) => (
+            <li key={item} className="break-words rounded-md bg-[color:var(--surface-subtle)] px-2 py-1">
+              {item.replaceAll(":", ": ")}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <p className={cn("mt-3 text-xs leading-5", textMuted)}>
+        Use a manual Site tag below when the generated site is ambiguous or should be overridden.
+      </p>
     </div>
   );
 }
@@ -1325,6 +1404,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
 }
 
 const manualLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }> = [
+  { value: "site", label: "Site" },
   { value: "topic", label: "Topic" },
   { value: "medication", label: "Medication" },
   { value: "risk", label: "Risk" },
@@ -1564,6 +1644,234 @@ function DocumentManualTagEditor({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function compactDocumentType(document: ClinicalDocument) {
+  const extension = document.file_name.split(".").pop()?.toUpperCase() || "PDF";
+  return extension === "PDF" ? "PDF" : extension;
+}
+
+function documentOverviewText(document: ClinicalDocument) {
+  const profile = document.summary?.clinical_specifics?.profile;
+  if (profile?.overview) return cleanClinicalSummaryText(profile.overview);
+  if (document.summary?.summary) return cleanClinicalSummaryText(document.summary.summary);
+  return "Practical guidance, extracted evidence, pages, tables, and source metadata for this document.";
+}
+
+function documentKeySections(document: ClinicalDocument) {
+  const labels = (document.labels ?? []).map((label) => label.label).filter(Boolean);
+  return Array.from(new Set(labels)).slice(0, 3);
+}
+
+function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
+  return (
+    <a
+      href={pageNumber ? `#pdf-preview-section` : "#pdf-preview-section"}
+      className="grid min-h-[112px] place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-center shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
+    >
+      <FileText className="h-8 w-8 text-[color:var(--clinical-chat-teal)]" />
+      <span className="nums mt-2 text-xs font-semibold text-[color:var(--text-muted)]">p.{pageNumber ?? "n/a"}</span>
+    </a>
+  );
+}
+
+function DocumentOverviewLanding({
+  document,
+  initialPage,
+  signedUrl,
+  pages,
+  chunks,
+  images,
+  tableFacts,
+  onAskFromDocument,
+  onAddToScope,
+  canSummarizeDocument,
+}: {
+  document: ClinicalDocument;
+  initialPage: number;
+  signedUrl: string | null;
+  pages: PageRow[];
+  chunks: ChunkRow[];
+  images: ImageRow[];
+  tableFacts: TableFactRow[];
+  onAskFromDocument: () => void;
+  onAddToScope: () => void;
+  canSummarizeDocument: boolean;
+}) {
+  const source = normalizeSourceMetadata(document.metadata);
+  const keySections = documentKeySections(document);
+  const usefulPages = Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
+    .filter((page) => Number.isFinite(page))
+    .slice(0, 3);
+  const documentType = compactDocumentType(document);
+
+  return (
+    <section className="grid gap-3">
+      <article className={cn(panel, "p-3 sm:p-4")}>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+          <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+            <span className="grid place-items-center text-[11px] font-bold">
+              <FileText className="h-7 w-7" />
+              {documentType}
+            </span>
+          </span>
+          <div className="min-w-0">
+            <h2 className="line-clamp-2 text-xl font-semibold leading-7 text-[color:var(--text-heading)]">
+              {documentDisplayTitle(document)}
+            </h2>
+            <p className={cn("mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs font-semibold", textMuted)}>
+              <span>{documentType}</span>
+              <span>{document.page_count ?? (pages.length || "?")} pages</span>
+              <span>Uploaded {formatClinicalDate(document.created_at)}</span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="inline-flex min-h-7 items-center gap-1 rounded-md bg-[color:var(--clinical-chat-teal)] px-2.5 text-[11px] font-bold text-white">
+                <Sparkles className="h-3.5 w-3.5" />
+                Best match
+              </span>
+              <SourceStatusBadge metadata={document.metadata} showTitle={false} />
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2">
+          {signedUrl ? (
+            <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(primaryButton, "w-full")}>
+              <ExternalLink className="h-4 w-4" />
+              Open original PDF
+            </a>
+          ) : (
+            <a href="#pdf-preview-section" className={cn(primaryButton, "w-full")}>
+              <ExternalLink className="h-4 w-4" />
+              Open original PDF
+            </a>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={onAddToScope} className={cn(secondaryButton, "min-h-11 text-xs")}>
+              <Target className="h-4 w-4" />
+              Scope
+            </button>
+            <button
+              type="button"
+              onClick={onAskFromDocument}
+              disabled={!canSummarizeDocument}
+              className={cn(secondaryButton, "min-h-11 text-xs")}
+            >
+              <Sparkles className="h-4 w-4" />
+              Summarise document
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <nav
+        aria-label="Document overview sections"
+        className="grid grid-cols-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+      >
+        {[
+          { label: "Overview", href: "#document-overview", icon: FileText },
+          { label: "Content", href: "#source-summary", icon: ListChecks },
+          { label: "Pages", href: "#pdf-preview-section", icon: FileText },
+        ].map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <a
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md text-xs font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                index === 0 && "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </a>
+          );
+        })}
+      </nav>
+
+      <section id="document-overview" className={cn(sourceCard, "scroll-mt-24 p-4")}>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+            <ListChecks className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">What this document covers</h3>
+            <p className={cn("mt-1 line-clamp-3 text-xs leading-5", textMuted)}>{documentOverviewText(document)}</p>
+          </div>
+          <ChevronDown className="-rotate-90 text-[color:var(--text-soft)]" />
+        </div>
+      </section>
+
+      <section className={cn(sourceCard, "p-4")}>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+            <Tag className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Key sections</h3>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(keySections.length ? keySections : ["Overview", "Pages", sourceStatusLabel(source)]).map((section) => (
+                <span
+                  key={section}
+                  className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--clinical-chat-teal-soft)] px-2 text-[11px] font-semibold text-[color:var(--clinical-chat-teal)]"
+                >
+                  {section}
+                </span>
+              ))}
+            </div>
+          </div>
+          <ChevronDown className="-rotate-90 text-[color:var(--text-soft)]" />
+        </div>
+      </section>
+
+      <section className={cn(sourceCard, "p-4")}>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Useful pages</h3>
+          <a href="#pdf-preview-section" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
+            View all pages
+          </a>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {(usefulPages.length ? usefulPages : [initialPage]).map((page) => (
+            <DocumentPagePreview key={page} pageNumber={page} />
+          ))}
+        </div>
+      </section>
+
+      <section className={cn(sourceCard, "p-4")}>
+        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Document parts</h3>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {[
+            { label: "Quotes", value: chunks.length, icon: Quote },
+            { label: "Tables", value: tableFacts.length, icon: FileSpreadsheet },
+            { label: "Images", value: images.length, icon: FileImage },
+            { label: "Pages", value: document.page_count ?? pages.length, icon: FileText },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <a
+                key={item.label}
+                href={
+                  item.label === "Pages"
+                    ? "#pdf-preview-section"
+                    : item.label === "Images"
+                      ? "#source-images"
+                      : "#source-summary"
+                }
+                className="grid min-h-[70px] place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-center shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
+              >
+                <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                <span className="nums text-base font-bold leading-none text-[color:var(--text-heading)]">
+                  {item.value ?? 0}
+                </span>
+                <span className="text-[11px] font-semibold text-[color:var(--text-muted)]">{item.label}</span>
+              </a>
+            );
+          })}
+        </div>
+      </section>
+    </section>
   );
 }
 
@@ -1865,7 +2173,7 @@ export function DocumentViewer({
         : "error";
   const readyDocument = viewerState === "ready" ? document : null;
   const headerTitle = readyDocument
-    ? readyDocument.title
+    ? documentDisplayTitle(readyDocument)
     : viewerState === "auth-required"
       ? "Sign in required"
       : viewerState === "loading"
@@ -1876,13 +2184,6 @@ export function DocumentViewer({
     : viewerState === "loading"
       ? `page ${initialPage} · loading source`
       : (effectiveViewerError ?? "Source unavailable");
-  const headerMetadata = readyDocument
-    ? sourceStatusLabel(normalizeSourceMetadata(readyDocument.metadata))
-    : viewerState === "loading"
-      ? "Loading source metadata"
-      : viewerState === "auth-required"
-        ? "Private source document"
-        : "Source unavailable";
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument
     ? "Generate a source-backed document summary"
@@ -1970,124 +2271,139 @@ export function DocumentViewer({
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
-      <header
-        className={cn(
-          "sticky top-0 z-20 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 sm:py-3 lg:px-8",
-          premiumHeaderSurface,
-        )}
-        style={{ backgroundColor: "var(--app-shell)" }}
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:gap-3">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4">
+        <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
+          <Link
+            href="/"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            aria-label="Back to documents"
+          >
+            <Menu className="h-5 w-5 sm:hidden" />
+            <ArrowLeft className="hidden h-5 w-5 sm:block" />
+          </Link>
+
+          <div
+            role="group"
+            aria-label="Search mode"
+            className="mx-auto grid w-[min(13.25rem,52vw)] grid-cols-2 gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)] sm:mx-0 sm:w-auto sm:min-w-[14rem]"
+          >
             <Link
               href="/"
-              className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-lg border border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/12"
-              aria-label="Back to search"
+              className="inline-flex min-h-9 items-center justify-center rounded-full px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:text-sm"
             >
-              <ArrowLeft className="h-4 w-4" />
+              Answer
             </Link>
-            <div className="min-w-0">
-              <h1 className="line-clamp-2 max-w-[min(58vw,24rem)] text-sm font-semibold leading-tight sm:max-w-none sm:truncate sm:text-base">
-                {headerTitle}
-              </h1>
-              <p className="hidden truncate text-xs font-medium text-slate-300 sm:block">{headerSubtitle}</p>
-              <div className="hidden items-center gap-2 sm:flex">
-                {readyDocument ? (
-                  <>
-                    <SourceStatusBadge metadata={readyDocument.metadata} showTitle={false} />
-                    <span className="truncate text-xs font-medium text-slate-300">
-                      Review {formatClinicalDate(normalizeSourceMetadata(readyDocument.metadata).review_date)}
-                    </span>
-                  </>
-                ) : viewerState === "loading" ? (
-                  <span className="truncate text-xs font-semibold text-slate-300">{headerMetadata}</span>
-                ) : (
-                  <span className="truncate text-xs font-semibold text-amber-100">{headerMetadata}</span>
-                )}
-                {!isOnline && <span className="text-xs font-semibold text-amber-100">Offline</span>}
-              </div>
-              <p className="mt-0.5 truncate text-[13px] font-semibold text-amber-100 sm:hidden">
-                p.{initialPage} · {headerMetadata}
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={summarize}
-              disabled={!canSummarizeDocument}
-              title={summarizeTitle}
-              className={cn(primaryButton, "w-[44px] px-0 shadow-[var(--glow-soft)] sm:w-auto sm:px-5")}
-              aria-label="Summarise document"
+            <Link
+              href="/?mode=documents"
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-chat-teal)] px-3 text-xs font-semibold text-white shadow-[var(--shadow-tight)] sm:text-sm"
             >
-              {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              <span className="hidden sm:inline">Summarise</span>
+              Documents
+            </Link>
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <Link
+              href="/"
+              className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              aria-label="Open document scope"
+              title={headerSubtitle}
+            >
+              <Target className="h-5 w-5" />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMobileActionsOpen(true)}
+              className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              aria-label="Open document actions"
+            >
+              <Plus className="h-5 w-5" />
             </button>
-            {readyDocument && (
-              <>
-                <div className="hidden items-center gap-1 rounded-lg border border-white/10 bg-white/6 p-1 shadow-[var(--shadow-tight)] sm:flex">
-                  <span className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-300">Admin</span>
-                  <DocumentManagementActions
-                    document={readyDocument}
-                    disabled={!canUsePrivateApis}
-                    className="gap-1"
-                    onRenamed={handleDocumentRenamed}
-                    onDeleted={handleDocumentDeleted}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMobileActionsOpen(true)}
-                  className={cn(
-                    iconButton,
-                    "border-white/15 bg-white/7 text-slate-100 shadow-[var(--shadow-tight)] hover:border-white/25 hover:bg-white/12 sm:hidden",
-                  )}
-                  aria-label="Open document actions"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </>
-            )}
           </div>
         </div>
+        <h1 className="sr-only">{headerTitle}</h1>
       </header>
 
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
           onClose={() => setMobileActionsOpen(false)}
-          title="Document actions"
-          description="Source-backed summary, provenance, and admin controls."
+          title="This document"
+          description="Search, ask, open, or manage this source."
           closeLabel="Close document actions"
         >
-          <div className="space-y-3">
+          <div className="space-y-3 pb-2">
             <section className={cn(sourceCard, "p-3")}>
-              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{readyDocument.title}</p>
+              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">
+                {documentDisplayTitle(readyDocument)}
+              </p>
               <p className={cn("mt-1 truncate text-xs", textMuted)}>{readyDocument.file_name}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <SourceStatusBadge metadata={readyDocument.metadata} showTitle={false} />
-                <span className={cn("text-xs font-semibold", textMuted)}>
-                  Review {formatClinicalDate(normalizeSourceMetadata(readyDocument.metadata).review_date)}
-                </span>
                 {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
               </div>
             </section>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileActionsOpen(false);
-                void summarize();
-              }}
-              disabled={!canSummarizeDocument}
-              title={summarizeTitle}
-              className={cn(primaryButton, "w-full justify-center")}
-            >
-              {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Summarise document
-            </button>
-            <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  setSourceSearch(documentDisplayTitle(readyDocument));
+                }}
+                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+              >
+                <Search className="h-4 w-4" />
+                Search this PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  void summarize();
+                }}
+                disabled={!canSummarizeDocument}
+                title={summarizeTitle}
+                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+              >
+                {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Ask from this document
+              </button>
+              {signedUrl ? (
+                <a
+                  href={signedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setMobileActionsOpen(false)}
+                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open original PDF
+                </a>
+              ) : (
+                <a
+                  href="#pdf-preview-section"
+                  onClick={() => setMobileActionsOpen(false)}
+                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open original PDF
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  router.push(`/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`);
+                }}
+                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+              >
+                <Target className="h-4 w-4" />
+                Add to scope
+              </button>
+            </div>
+            <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+              <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                 Admin controls
-              </p>
+              </summary>
               <DocumentManagementActions
                 document={readyDocument}
                 disabled={!canUsePrivateApis}
@@ -2095,11 +2411,7 @@ export function DocumentViewer({
                 onRenamed={handleDocumentRenamed}
                 onDeleted={handleDocumentDeleted}
               />
-              <p className={cn("mt-3 text-xs leading-5", textMuted)}>
-                Rename changes the display title only. Delete permanently removes this source and its extracted
-                evidence.
-              </p>
-            </section>
+            </details>
           </div>
         </Sheet>
       ) : null}
@@ -2131,6 +2443,36 @@ export function DocumentViewer({
             )}
           </div>
         )}
+
+        {readyDocument ? (
+          <div className="min-w-0 lg:col-span-2">
+            <DocumentOverviewLanding
+              document={readyDocument}
+              initialPage={initialPage}
+              signedUrl={signedUrl}
+              pages={pages}
+              chunks={chunks}
+              images={images}
+              tableFacts={tableFacts}
+              onAskFromDocument={() => void summarize()}
+              onAddToScope={() =>
+                router.push(`/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`)
+              }
+              canSummarizeDocument={canSummarizeDocument}
+            />
+          </div>
+        ) : null}
+
+        {!readyDocument && viewerState !== "loading" ? (
+          <div className="min-w-0 lg:col-span-2">
+            <section className={cn(panel, "p-4")}>
+              <button type="button" disabled className={cn(secondaryButton, "min-h-11 text-xs")}>
+                <Sparkles className="h-4 w-4" />
+                Summarise document
+              </button>
+            </section>
+          </div>
+        ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5">
           <div className="lg:hidden">
@@ -2219,7 +2561,7 @@ export function DocumentViewer({
                 <PdfCanvasViewer
                   key={`${signedUrl}:${initialPage}`}
                   url={signedUrl}
-                  title={document.title}
+                  title={documentDisplayTitle(document)}
                   initialPage={initialPage}
                 />
               ) : (
@@ -2341,6 +2683,7 @@ export function DocumentViewer({
                 </div>
               )}
               <DocumentTagCloud labels={document.labels} limit={18} className="mt-4" onTagClick={searchByTag} grouped />
+              <DocumentOrganizationReviewPanel document={document} />
               <DocumentManualTagEditor
                 document={document}
                 canManage={canUsePrivateApis}
@@ -2388,6 +2731,48 @@ export function DocumentViewer({
           </section>
         </aside>
       </section>
+      {readyDocument ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSummarizeDocument) void summarize();
+          }}
+          className="fixed inset-x-3 bottom-3 z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl sm:bottom-4"
+        >
+          <button
+            type="button"
+            onClick={() => setMobileActionsOpen(true)}
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            aria-label="Open document actions"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+            <span className="sr-only">Ask about this document</span>
+            <input
+              value={sourceSearch}
+              onChange={(event) => setSourceSearch(event.target.value)}
+              placeholder="Ask about this document..."
+              className="min-h-[44px] min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+            />
+          </label>
+          <button
+            type="button"
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            aria-label="Voice input"
+          >
+            <Mic className="h-4.5 w-4.5" />
+          </button>
+          <button
+            type="submit"
+            disabled={!canSummarizeDocument}
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[inset_0_1px_0_rgb(255_255_255_/_18%),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Ask about this document"
+          >
+            {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </button>
+        </form>
+      ) : null}
     </main>
   );
 }

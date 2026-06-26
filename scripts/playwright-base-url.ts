@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
-import { appName, localProjectId } from "./local-server-utils.mjs";
+import { appName, localProjectId, stableProjectPort } from "./local-server-utils.mjs";
 
 const projectRoot = path.resolve(__dirname, "..");
 const ensureScript = path.join(projectRoot, "scripts", "ensure-local-server.mjs");
@@ -42,14 +42,48 @@ function verifyLocalProjectIdentity(baseUrl: string) {
   }
 }
 
+function tryVerifiedLocalProjectUrl(baseUrl: string) {
+  try {
+    verifyLocalProjectIdentity(baseUrl);
+    return baseUrl;
+  } catch {
+    return null;
+  }
+}
+
+function findExistingLocalProjectUrl() {
+  const stablePort = stableProjectPort(projectRoot);
+  return tryVerifiedLocalProjectUrl(`http://localhost:${stablePort}`);
+}
+
 export function getPlaywrightBaseUrl() {
-  const output = execFileSync(process.execPath, [ensureScript, "--print-url"], {
+  const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+  if (configuredBaseUrl) {
+    if (!localUrlPattern.test(configuredBaseUrl)) {
+      throw new Error(`PLAYWRIGHT_BASE_URL must be a localhost URL, received: ${configuredBaseUrl}`);
+    }
+    verifyLocalProjectIdentity(configuredBaseUrl);
+    return configuredBaseUrl;
+  }
+
+  const existingUrl = findExistingLocalProjectUrl();
+  if (existingUrl) return existingUrl;
+
+  const result = spawnSync(process.execPath, [ensureScript, "--print-url"], {
     cwd: projectRoot,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  }).trim();
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const output = (result.stdout ?? "").trim();
 
   if (!localUrlPattern.test(output)) {
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      const diagnostic = (result.stderr ?? "").trim();
+      throw new Error(
+        `ensure-local-server failed before printing a localhost URL${diagnostic ? `: ${diagnostic}` : "."}`,
+      );
+    }
     throw new Error(`Expected ensure-local-server to print a localhost URL, received: ${output || "<empty>"}`);
   }
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildIngestionRecoveryPlan, isStaleProcessingJob } from "../src/lib/ingestion-recovery";
+import {
+  buildIngestionRecoveryPlan,
+  isFreshProcessingJob,
+  isRecoverableProcessingJob,
+  isStaleProcessingJob,
+} from "../src/lib/ingestion-recovery";
 
 describe("ingestion queue recovery planning", () => {
   const now = new Date("2026-06-15T00:00:00.000Z");
@@ -61,5 +66,36 @@ describe("ingestion queue recovery planning", () => {
         45,
       ),
     ).toBe(false);
+  });
+
+  it("retries processing jobs with no lock timestamp", () => {
+    const plan = buildIngestionRecoveryPlan({
+      now,
+      staleAfterMinutes: 45,
+      jobs: [
+        {
+          id: "null-lock",
+          document_id: "doc-null",
+          status: "processing",
+          locked_at: null,
+          documents: { status: "processing", chunk_count: 0 },
+        },
+      ],
+    });
+
+    expect(plan.retryCount).toBe(1);
+    expect(plan.actions[0]).toMatchObject({ action: "retry", jobId: "null-lock", documentId: "doc-null" });
+  });
+
+  it("treats fresh processing jobs as active but not recoverable", () => {
+    const job = {
+      id: "fresh",
+      document_id: "doc",
+      status: "processing" as const,
+      locked_at: "2026-06-14T23:30:00.000Z",
+    };
+
+    expect(isRecoverableProcessingJob(job, now, 45)).toBe(false);
+    expect(isFreshProcessingJob(job, now, 45)).toBe(true);
   });
 });

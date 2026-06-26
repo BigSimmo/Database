@@ -45,6 +45,9 @@ export type SearchEvalResult = {
   latencyMs: number;
   retrievalStrategy: string | null;
   queryClass: string | null;
+  textCandidateBudget: number | null;
+  textFastPathReason: string | null;
+  embeddingSkipReason: string | null;
   searchCacheHit: boolean;
   embeddingSkipped: boolean;
   embeddingCacheHit: boolean;
@@ -271,6 +274,9 @@ async function main() {
       latencyMs,
       retrievalStrategy: search.telemetry.retrieval_strategy ?? null,
       queryClass: search.telemetry.query_class ?? null,
+      textCandidateBudget: search.telemetry.text_candidate_budget ?? null,
+      textFastPathReason: search.telemetry.text_fast_path_reason ?? null,
+      embeddingSkipReason: search.telemetry.embedding_skip_reason ?? null,
       searchCacheHit: search.telemetry.search_cache_hit,
       embeddingSkipped: search.telemetry.embedding_skipped,
       embeddingCacheHit: search.telemetry.embedding_cache_hit,
@@ -288,7 +294,7 @@ async function main() {
       const failureSuffix = result.failures.length ? ` FAIL=${result.failures.join("; ")}` : "";
       const expectedCoverage = result.expectedFileCount > 1 ? ` allExpectedTop5=${result.expectedAllHitTop5}` : "";
       console.log(
-        `SEARCH ${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} skippedEmbedding=${result.embeddingSkipped} expectedHit=${result.expectedHitTop3}${expectedCoverage} topScore=${result.topScore.toFixed(3)}${failureSuffix}`,
+        `SEARCH ${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} skippedEmbedding=${result.embeddingSkipped} skipReason=${result.embeddingSkipReason ?? "none"} textBudget=${result.textCandidateBudget ?? "n/a"} expectedHit=${result.expectedHitTop3}${expectedCoverage} topScore=${result.topScore.toFixed(3)}${failureSuffix}`,
       );
       console.log(`  Q: ${testCase.question}`);
       console.log(`  Top files: ${result.topFiles.join("; ") || "none"} payloadBytes=${result.payloadBytes}`);

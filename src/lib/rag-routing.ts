@@ -291,6 +291,23 @@ export function chooseAnswerRoute(args: {
     };
   }
 
+  if (
+    shouldUseExtractiveAnswer({
+      query: args.query,
+      results: args.results,
+      queryClass,
+      conflictsOrGaps: args.conflictsOrGaps,
+    })
+  ) {
+    return {
+      mode: "extractive",
+      model: null,
+      reason: "high_confidence_extractive_retrieval",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
   if (isComplexClinicalQuery(args.query)) {
     return {
       mode: "strong",

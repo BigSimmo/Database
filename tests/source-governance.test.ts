@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { groupSourceGovernanceWarnings, sourceGovernanceWarnings } from "../src/lib/source-governance";
+import {
+  groupSourceGovernanceWarnings,
+  hasDangerSourceGovernanceWarning,
+  sourceGovernanceWarnings,
+} from "../src/lib/source-governance";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -114,5 +118,12 @@ describe("source governance warnings", () => {
       message: "2 sources have not been locally validated.",
       titles: ["A", "B"],
     });
+  });
+
+  it("identifies danger-class warnings for server-side answer refusal", () => {
+    const warnings = sourceGovernanceWarnings({ results: [result()] });
+
+    expect(hasDangerSourceGovernanceWarning(warnings)).toBe(true);
+    expect(hasDangerSourceGovernanceWarning(warnings.filter((warning) => warning.severity !== "danger"))).toBe(false);
   });
 });

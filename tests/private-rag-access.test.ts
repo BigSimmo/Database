@@ -9,7 +9,7 @@ const allowedRateLimit = {
   limit: 100,
   remaining: 99,
   retryAfterSeconds: 0,
-  resetAt: Date.now() + 60_000,
+  resetAt: new Date(Date.now() + 60_000).toISOString(),
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,13 +81,25 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     telemetry: {
       query_class: "document_lookup",
       retrieval_strategy: "hybrid",
+      retrieval_plan: "document_lookup:title_label_section_then_chunks",
+      retrieval_query_variant_count: 2,
       search_cache_hit: false,
       embedding_skipped: false,
+      embedding_skip_reason: null,
       embedding_cache_hit: false,
       text_fast_path_latency_ms: 0,
+      text_candidate_budget: 24,
+      text_candidate_count: 3,
+      text_fast_path_reason: null,
       embedding_latency_ms: 0,
+      vector_candidate_count: 5,
+      embedding_field_count: 1,
       supabase_rpc_latency_ms: 0,
       rerank_latency_ms: 0,
+      retrieval_provenance_counts: { chunk: 1, title: 1 },
+      second_stage_rerank_used: true,
+      second_stage_rerank_latency_ms: 2,
+      visual_direct_image_count: 0,
       memory_card_count: 0,
       memory_top_score: 0,
       weighted_top_score: 0.93,
@@ -123,10 +135,13 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     requireAuthenticatedUser,
     unauthorizedResponse,
   }));
-  vi.doMock("@/lib/public-rate-limit", () => ({
-    consumePublicAnswerRateLimit: vi.fn(() => allowedRateLimit),
-    consumePublicSearchRateLimit: vi.fn(() => allowedRateLimit),
-  }));
+  vi.doMock("@/lib/api-rate-limit", async () => {
+    const actual = await vi.importActual<typeof import("../src/lib/api-rate-limit")>("@/lib/api-rate-limit");
+    return {
+      ...actual,
+      consumeApiRateLimit: vi.fn(async () => allowedRateLimit),
+    };
+  });
   vi.doMock("@/lib/demo-data", () => ({ demoAnswer, demoSearch }));
   vi.doMock("@/lib/rag", () => ({ answerQuestionWithScope, searchChunksWithTelemetry }));
   vi.doMock("@/lib/document-enrichment", () => ({
@@ -218,6 +233,7 @@ describe("private RAG API access", () => {
     const { POST } = await import("../src/app/api/search/route");
 
     const response = await POST(jsonRequest("/api/search", { query: "clozapine monitoring" }, true));
+    const body = await payload(response);
 
     expect(response.status).toBe(200);
     expect(mocks.searchChunksWithTelemetry).toHaveBeenCalledWith(
@@ -230,6 +246,31 @@ describe("private RAG API access", () => {
       mocks.supabase.inserts.some(
         ({ payload: insertPayload }) => isRecord(insertPayload) && insertPayload.owner_id === ownerId,
       ),
+    ).toBe(true);
+    expect(body.telemetry).toMatchObject({
+      retrieval_plan: "document_lookup:title_label_section_then_chunks",
+      retrieval_query_variant_count: 2,
+      text_candidate_budget: 24,
+      text_candidate_count: 3,
+      text_fast_path_reason: null,
+      embedding_skip_reason: null,
+      vector_candidate_count: 5,
+      embedding_field_count: 1,
+      retrieval_provenance_counts: { chunk: 1, title: 1 },
+      second_stage_rerank_used: true,
+      second_stage_rerank_latency_ms: 2,
+      visual_direct_image_count: 0,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      mocks.supabase.inserts.some(({ payload: insertPayload }) => {
+        if (!isRecord(insertPayload) || !isRecord(insertPayload.metadata)) return false;
+        return (
+          insertPayload.metadata.retrieval_plan === "document_lookup:title_label_section_then_chunks" &&
+          insertPayload.metadata.text_candidate_budget === 24 &&
+          insertPayload.metadata.second_stage_rerank_used === true
+        );
+      }),
     ).toBe(true);
   });
 

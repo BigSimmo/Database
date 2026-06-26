@@ -4,6 +4,7 @@ import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 
 import { checkSupabaseProjectConfig } from "@/lib/supabase/project";
+import { checkNodeRuntime as checkStrictNodeRuntime } from "./check-runtime";
 
 loadEnvConfig(process.cwd());
 
@@ -59,12 +60,16 @@ async function checkOptionalFile(filePath: string, message: string) {
 }
 
 function checkNodeRuntime() {
-  const major = Number(process.versions.node.split(".")[0]);
-  if (major >= 22) {
-    result.passes.push(`Node runtime is ${process.versions.node}.`);
+  const runtime = checkStrictNodeRuntime(process.versions.node);
+  if (runtime.ok) {
+    result.passes.push(runtime.message);
     return;
   }
-  result.failures.push(`Node ${process.versions.node} is too old. This project targets Node 22.x.`);
+  if (runtime.message.includes("newer than the release target")) {
+    result.warnings.push(`${runtime.message} Run npm run check:runtime before release.`);
+    return;
+  }
+  result.failures.push(runtime.message);
 }
 
 function recordNoAuthProductionCheck() {

@@ -1,6 +1,7 @@
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
 
 export type SmartDocumentTagGroup =
+  | "Site"
   | "Medication"
   | "Risk"
   | "Workflow"
@@ -62,6 +63,7 @@ const labelTypes = new Set<DocumentLabelType>([
   "document_type",
   "medication",
   "risk",
+  "site",
   "setting",
   "workflow",
   "population",
@@ -70,6 +72,7 @@ const labelTypes = new Set<DocumentLabelType>([
 ]);
 
 const groupLabels: Record<DocumentLabelType, SmartDocumentTagGroup> = {
+  site: "Site",
   medication: "Medication",
   risk: "Risk",
   workflow: "Workflow",
@@ -82,18 +85,20 @@ const groupLabels: Record<DocumentLabelType, SmartDocumentTagGroup> = {
 };
 
 const groupRank: Record<SmartDocumentTagGroup, number> = {
-  Medication: 0,
-  Risk: 1,
-  Workflow: 2,
-  Topic: 3,
-  Population: 4,
-  Setting: 5,
-  Service: 6,
-  "Document type": 7,
-  Manual: 8,
+  Site: 0,
+  Medication: 1,
+  Risk: 2,
+  Workflow: 3,
+  Topic: 4,
+  Population: 5,
+  Setting: 6,
+  Service: 7,
+  "Document type": 8,
+  Manual: 9,
 };
 
 export const smartDocumentFacetGroups: SmartDocumentTagGroup[] = [
+  "Site",
   "Medication",
   "Risk",
   "Workflow",
@@ -139,7 +144,11 @@ export const clinicalDocumentTagAliases = [
   { from: "ctt", to: "clinical treatment team" },
   { from: "depot", to: "long acting injectable medication" },
   { from: "depot medication", to: "long acting injectable medication" },
+  { from: "emhs", to: "east metropolitan health service" },
+  { from: "emhs policy", to: "east metropolitan health service" },
   { from: "f b c", to: "full blood count" },
+  { from: "fh", to: "fiona stanley hospital" },
+  { from: "fsh", to: "fiona stanley hospital" },
   { from: "haematological monitoring", to: "hematological monitoring" },
   { from: "honos", to: "honos rating scale" },
   { from: "ho nos", to: "honos rating scale" },
@@ -156,6 +165,9 @@ export const clinicalDocumentTagAliases = [
   { from: "mhoa", to: "mental health older adult service" },
   { from: "nocc", to: "nocc outcome measures" },
   { from: "qtc", to: "qtc monitoring" },
+  { from: "rkpg", to: "rockingham peel group" },
+  { from: "smhs", to: "south metropolitan health service" },
+  { from: "smhs policy", to: "south metropolitan health service" },
   { from: "wcc", to: "white cell count" },
 ] as const;
 
@@ -250,6 +262,12 @@ function isNoisyLabel(label: string, labelType: DocumentLabelType) {
   if (usefulTokenCount(label) === 0) return true;
   if (label.split(/\s+/).length > 6) return true;
   if (labelType === "document_type" && ["clinical form", "clinical checklist"].includes(label)) return false;
+  if (
+    labelType === "site" &&
+    /\b(?:hospital|health service|fiona stanley|rockingham peel|mental health service)\b/.test(label)
+  ) {
+    return false;
+  }
   return false;
 }
 
@@ -289,6 +307,7 @@ function queryMatches(label: string, terms: Set<string>) {
 
 function clinicalValueBoost(label: string, labelType: DocumentLabelType) {
   let boost = 0;
+  if (labelType === "site") boost += 0.14;
   if (/\b(?:clozapine|lithium|antipsychotic|medication|dose|fbc|anc|qtc|ect|lai)\b/.test(label)) boost += 0.18;
   if (/\b(?:risk|escalation|safety|urgent|toxicity|suicide|violence|duress)\b/.test(label)) boost += 0.16;
   if (/\b(?:monitoring|threshold|pathway|workflow|admission|discharge|review|follow up)\b/.test(label)) boost += 0.12;

@@ -53,6 +53,15 @@ async function expectDashboardUsable(page: Page) {
   await expectNoPageHorizontalOverflow(page);
 }
 
+async function openScopeControl(page: Page) {
+  const scopeTrigger = page.locator('[data-testid="scope-trigger"]:visible');
+
+  await expect(async () => {
+    await scopeTrigger.click();
+    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+}
+
 test.describe("Clinical KB accessibility media smoke", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -63,8 +72,7 @@ test.describe("Clinical KB accessibility media smoke", () => {
     await gotoApp(page);
 
     await expectDashboardUsable(page);
-    await page.locator('[data-testid="scope-trigger"]:visible').click();
-    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible();
+    await openScopeControl(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -75,8 +83,7 @@ test.describe("Clinical KB accessibility media smoke", () => {
     await gotoApp(page);
 
     await expectDashboardUsable(page);
-    await page.locator('[data-testid="scope-trigger"]:visible').click();
-    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible();
+    await openScopeControl(page);
     await expectNoPageHorizontalOverflow(page);
   });
 });

@@ -261,6 +261,9 @@ describe("deep RAG memory indexing", () => {
         },
         select: (columns: string) => ({
           eq: (column: string, value: unknown) => {
+            void columns;
+            void column;
+            void value;
             if (table === "documents") {
               return {
                 single: async () => ({ data: { metadata: {} }, error: null }),
@@ -279,6 +282,8 @@ describe("deep RAG memory indexing", () => {
         }),
         update: (payload: Record<string, unknown>) => ({
           eq: (column: string, value: unknown) => {
+            void column;
+            void value;
             updatedRows.set(table, [...(updatedRows.get(table) ?? []), payload]);
             return Promise.resolve({ data: null, error: null });
           },
@@ -319,3 +324,4 @@ describe("deep RAG memory indexing", () => {
     );
   });
 });
+
