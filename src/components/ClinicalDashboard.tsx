@@ -5368,7 +5368,12 @@ export function ClinicalDashboard() {
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
-  const canUsePrivateApis = localProjectReady && (localNoAuthMode || authStatus === "authenticated");
+  const storedSessionExists =
+    typeof window !== "undefined" &&
+    Object.keys(localStorage).some((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+  const canUsePrivateApis =
+    localProjectReady &&
+    (localNoAuthMode || authStatus === "authenticated" || (supabaseEnvStatus === "ready" && storedSessionExists));
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const openGuide = useCallback(() => setGuideOpen(true), []);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
