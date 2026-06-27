@@ -61,7 +61,7 @@ async function switchToDocumentSearchMode(page: Page) {
     return;
   }
 
-  const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
+  const appModeMenu = page.getByRole("button", { name: /^Current app mode:/ });
   if (!(await isVisibleSafely(appModeMenu))) {
     throw new Error(
       "Could not switch to document search mode: neither the legacy mode toggle nor the app mode menu is visible.",
