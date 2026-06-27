@@ -66,14 +66,14 @@ async function switchToDocumentSearchMode(page: Page) {
   await expect(appModeMenu).toBeEnabled();
 
   await expect(async () => {
-    await appModeMenu.click({ force: true });
+    await appModeMenu.click();
     await expect(appModeMenu).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
     const documentsMode = page
       .locator('[role="menuitemradio"]')
       .filter({ hasText: /^Documents/ })
       .first();
     await expect(documentsMode).toBeVisible({ timeout: 3_000 });
-    await documentsMode.click({ force: true });
+    await documentsMode.click();
     await expect(page.getByRole("button", { name: "Current app mode: Documents" })).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 8_000 });
 }
