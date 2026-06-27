@@ -839,7 +839,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(visibleQuestionInput(page)).toBeVisible();
     await expect(page.getByTestId("document-home-overview")).toBeVisible();
-    await expect(page.getByRole("button", { name: /Last opened: Lithium monitoring guideline/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Resume Lithium monitoring guideline/i })).toBeVisible();
     await expect(page.getByRole("region", { name: "Document shortcuts" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Suggested searches" })).toBeVisible();
     await expect(page.getByRole("button", { name: "monitoring", exact: true })).toBeVisible();

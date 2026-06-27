@@ -856,16 +856,16 @@ export function MasterSearchHeader({
           </div>
         </Sheet>
       </form>
-        <Sheet
-          open={usesScopeSheet && dailyActionsOpen}
-          onClose={() => setDailyActionsOpen(false)}
-          title="Daily actions"
-          description="Search, add, scope, evidence, or tools."
-          closeLabel="Close daily actions"
-          initialFocusRef={firstDailyActionRef}
-          returnFocusRef={dailyActionButtonRef}
-          contentClassName="sm:max-w-sm"
-        >
+      <Sheet
+        open={usesScopeSheet && dailyActionsOpen}
+        onClose={() => setDailyActionsOpen(false)}
+        title="Daily actions"
+        description="Search, add, scope, evidence, or tools."
+        closeLabel="Close daily actions"
+        initialFocusRef={firstDailyActionRef}
+        returnFocusRef={dailyActionButtonRef}
+        contentClassName="sm:max-w-sm"
+      >
         <div id="daily-actions-sheet" data-testid="daily-actions-sheet" className="grid grid-cols-2 gap-2">
           {dailyActions.map((item, index) => {
             const Icon = item.icon;
