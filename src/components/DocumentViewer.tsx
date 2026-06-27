@@ -2221,9 +2221,6 @@ export function DocumentViewer({
               </p>
               <p className={cn("mt-1 truncate text-xs", textMuted)}>{readyDocument.file_name}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <DocumentBadge variant="high" icon={Target}>
-                  High relevance
-                </DocumentBadge>
                 {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
               </div>
             </section>
