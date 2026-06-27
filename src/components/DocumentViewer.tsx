@@ -38,7 +38,6 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import {
   DocumentActionAnchor,
   DocumentActionButton,
-  DocumentBadge,
   DocumentFileTile,
   DocumentMetaRow,
   documentFileKind,
