@@ -43,11 +43,11 @@ function runtimeResult(runtimeName: string, version: string, expectedMajor: numb
   };
 }
 
-export function checkNodeRuntime(version: string, expectedMajor = 22): RuntimeCheckResult {
+export function checkNodeRuntime(version: string, expectedMajor = 24): RuntimeCheckResult {
   return runtimeResult("Node", version, expectedMajor);
 }
 
-export function checkNpmRuntime(userAgent = process.env.npm_config_user_agent ?? "", expectedMajor = 10): RuntimeCheckResult {
+export function checkNpmRuntime(userAgent = process.env.npm_config_user_agent ?? "", expectedMajor = 11): RuntimeCheckResult {
   if (!userAgent) {
     return {
       ok: true,
