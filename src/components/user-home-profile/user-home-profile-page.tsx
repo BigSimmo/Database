@@ -76,6 +76,11 @@ const recentWork = [
 
 const contextChips = ["WA", "Adults", "Conservative", "Current sources"] as const;
 
+const userProfilePlaceholder = {
+  displayName: "Clinician profile",
+  initials: "CL",
+} as const;
+
 const reviewQueue = [
   {
     title: "NICE NG222 - Depression in adults",
@@ -299,7 +304,7 @@ function DesktopTopBar() {
           <Bell className="h-4 w-4" />
         </button>
         <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--app-shell)] text-sm font-semibold text-white">
-          JS
+          {userProfilePlaceholder.initials}
         </span>
       </div>
     </header>
@@ -320,7 +325,7 @@ function MobileHeader() {
           </div>
         </div>
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-sm font-semibold text-[color:var(--clinical-chat-teal)]">
-          JS
+          {userProfilePlaceholder.initials}
         </span>
       </div>
     </header>
@@ -332,7 +337,7 @@ function HeroHome() {
     <section className="pt-4 lg:pt-0">
       <p className="text-sm font-medium text-[color:var(--text-muted)] sm:text-base">Good afternoon,</p>
       <h1 className="mt-1 text-2xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-4xl lg:text-5xl">
-        Clinician profile
+        {userProfilePlaceholder.displayName}
       </h1>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-[color:var(--text-muted)] sm:mt-3">
         <span className="inline-flex items-center gap-2">
