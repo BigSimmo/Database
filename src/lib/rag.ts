@@ -2560,13 +2560,37 @@ async function attachIndexQualityMetadata(
   }
 }
 
+function sourceContextPackLimit(queryClass: RagQueryClass, options: { crossDocument?: boolean } = {}) {
+  return options.crossDocument || queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 5;
+}
+
+export function packedContextCacheKey(
+  results: SearchResult[],
+  queryClass: RagQueryClass,
+  options: { crossDocument?: boolean; documentIds?: string[] } = {},
+) {
+  const contextLimit = sourceContextPackLimit(queryClass, options);
+  const scopeKey = options.documentIds?.length
+    ? stableHash([...new Set(options.documentIds)].sort().join("|"))
+    : "all-documents";
+  return [
+    queryClass,
+    options.crossDocument ? "cross-document" : "single-document",
+    `scope:${scopeKey}`,
+    contextLimit,
+    ...results
+      .slice(0, contextLimit)
+      .map((result) => `${result.id}:${result.document_id}:${result.chunk_index}:${result.page_number ?? "na"}`),
+  ].join("|");
+}
+
 async function packAdjacentSourceContext(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   queryClass: RagQueryClass,
   options: { crossDocument?: boolean } = {},
 ) {
-  const contextLimit = options.crossDocument || queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 5;
+  const contextLimit = sourceContextPackLimit(queryClass, options);
   const targetResults = results.slice(0, contextLimit);
   const documentIds = Array.from(new Set(targetResults.map((result) => result.document_id)));
   const chunkIndexes = Array.from(
@@ -4925,6 +4949,29 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   let openAIUsage: OpenAITokenUsage = {};
   const openAIRequestIds: string[] = [];
   let contextPackLatencyMs = 0;
+  let contextPackCacheHits = 0;
+  let answerRetryCount = 0;
+  const answerRetryReasons: string[] = [];
+  const contextPackOptions = { crossDocument: crossDocumentPlan.enabled };
+  const packedContextCache = new Map<string, SearchResult[]>();
+
+  async function packContextForGeneration(contextResults: SearchResult[]) {
+    const cacheKey = packedContextCacheKey(contextResults, queryClass, {
+      ...contextPackOptions,
+      documentIds: args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined,
+    });
+    const cached = packedContextCache.get(cacheKey);
+    if (cached) {
+      contextPackCacheHits += 1;
+      return cached;
+    }
+
+    const contextPackStartedAt = Date.now();
+    const packed = await packAdjacentSourceContext(createAdminClient(), contextResults, queryClass, contextPackOptions);
+    contextPackLatencyMs += Date.now() - contextPackStartedAt;
+    packedContextCache.set(cacheKey, packed);
+    return packed;
+  }
 
   async function generateWithModel(
     model: string,
@@ -5014,6 +5061,9 @@ ${qualityRetryInstruction}`
         second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
         second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
         context_pack_latency_ms: contextPackLatencyMs,
+        context_pack_cache_hits: contextPackCacheHits,
+        answer_retry_count: answerRetryCount,
+        answer_retry_reasons: [...answerRetryReasons],
         search_latency_ms: searchLatencyMs,
         generation_latency_ms: generationLatencyMs,
         total_latency_ms: Date.now() - startedAt,
@@ -5051,11 +5101,7 @@ ${qualityRetryInstruction}`
       model: route.model,
       reason: route.reason,
     });
-    const contextPackStartedAt = Date.now();
-    let packedContextResults = await packAdjacentSourceContext(createAdminClient(), modelContextResults, queryClass, {
-      crossDocument: crossDocumentPlan.enabled,
-    });
-    contextPackLatencyMs += Date.now() - contextPackStartedAt;
+    let packedContextResults = await packContextForGeneration(modelContextResults);
     let generated = await generateWithModel(route.model!, packedContextResults);
     let answer = annotateAnswerWithDiagnostics(
       parseAnswerJson(generated.text, packedContextResults, args.query),
@@ -5074,6 +5120,8 @@ ${qualityRetryInstruction}`
           : fastAnswerWasTemplateLike
             ? "fast_template_retry_strong"
             : "fast_overexpanded_simple_retry_strong";
+      answerRetryCount += 1;
+      answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
       routingReason = `${route.reason}; ${retryReason}`;
       retriedWithStrong = true;
@@ -5091,11 +5139,7 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      const retryContextPackStartedAt = Date.now();
-      packedContextResults = await packAdjacentSourceContext(createAdminClient(), answerInputResults, queryClass, {
-        crossDocument: crossDocumentPlan.enabled,
-      });
-      contextPackLatencyMs += Date.now() - retryContextPackStartedAt;
+      packedContextResults = await packContextForGeneration(answerInputResults);
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults);
       retrievalDiagnostics.routeMode = "strong";
       answer = annotateAnswerWithDiagnostics(
@@ -5110,6 +5154,8 @@ ${qualityRetryInstruction}`
         isOverExpandedSimpleGeneratedAnswer(args.query, queryClass, answer));
     if (answerNeedsStrongQualityRepair) {
       routingReason = `${routingReason}; strong_quality_retry`;
+      answerRetryCount += 1;
+      answerRetryReasons.push("strong_quality_retry");
       await args.onProgress?.({
         stage: "retrying",
         message: "Strong answer failed quality checks, retrying once with stricter synthesis instructions.",
@@ -5149,6 +5195,9 @@ ${qualityRetryInstruction}`
       second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
       second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
       context_pack_latency_ms: contextPackLatencyMs,
+      context_pack_cache_hits: contextPackCacheHits,
+      answer_retry_count: answerRetryCount,
+      answer_retry_reasons: [...answerRetryReasons],
       search_latency_ms: searchLatencyMs,
       generation_latency_ms: generationLatencyMs,
       total_latency_ms: Date.now() - startedAt,
@@ -5250,6 +5299,9 @@ ${qualityRetryInstruction}`
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           context_pack_latency_ms: contextPackLatencyMs,
+          context_pack_cache_hits: contextPackCacheHits,
+          answer_retry_count: answerRetryCount,
+          answer_retry_reasons: answerRetryReasons,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
