@@ -6802,25 +6802,22 @@ export function ClinicalDashboard() {
               )}
 
               {searchMode === "documents" ? (
-                <>
-                  <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                  <DocumentSearchResultsPanel
-                    matches={documentMatches}
-                    query={query}
-                    loading={loading}
-                    documentCount={documents.length}
-                    realDataReady={canRunSearch}
-                    authUnavailable={!clientDemoMode && !canUsePrivateApis}
-                    apiUnavailable={apiUnavailable}
-                    setupWarning={setupWarning}
-                    facets={searchFacets}
-                    onQueryChange={setQuery}
-                    onSearch={ask}
-                    onScopeDocument={scopeOnlyDocument}
-                    onAnswerFromDocument={answerFromDocument}
-                    onTagSearch={handleTagSearch}
-                  />
-                </>
+                <DocumentSearchResultsPanel
+                  matches={documentMatches}
+                  query={query}
+                  loading={loading}
+                  documentCount={documents.length}
+                  realDataReady={canRunSearch}
+                  authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                  apiUnavailable={apiUnavailable}
+                  setupWarning={setupWarning}
+                  facets={searchFacets}
+                  onQueryChange={setQuery}
+                  onSearch={ask}
+                  onScopeDocument={scopeOnlyDocument}
+                  onAnswerFromDocument={answerFromDocument}
+                  onTagSearch={handleTagSearch}
+                />
               ) : loading && !answer ? (
                 <AnswerSkeleton />
               ) : answer ? (

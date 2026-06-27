@@ -132,6 +132,8 @@ $$;
 revoke execute on function public.search_schema_health() from public, anon, authenticated;
 grant execute on function public.search_schema_health() to service_role;
 
+drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid);
+
 create or replace function public.match_document_chunks_text(
   query_text text,
   match_count integer default 12,

@@ -283,7 +283,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
         const evidenceDrawer = page.locator("#answer-evidence-drawer");
         await expect(evidenceDrawer).toBeVisible();
         expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
-        await evidenceDrawer.locator("summary").click();
+        const evidenceSummary = evidenceDrawer.locator("summary");
+        await evidenceSummary.focus();
+        await page.keyboard.press("Enter");
         const evidenceReview = page.getByTestId("evidence-support-panel");
         await expect(evidenceReview).toBeVisible();
         await expect(evidenceReview.getByText("Evidence review")).toBeVisible();

@@ -13,9 +13,7 @@ import {
   ChevronDown,
   ExternalLink,
   FileImage,
-  FileSpreadsheet,
   FileText,
-  ListChecks,
   Loader2,
   Maximize2,
   Menu,
@@ -36,11 +34,16 @@ import {
 } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
+import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import {
-  DocumentOrganizationBadges,
-  documentDisplayTitle,
-  documentOrganizationProfile,
-} from "@/components/DocumentOrganizationBadges";
+  DocumentActionAnchor,
+  DocumentActionButton,
+  DocumentBadge,
+  DocumentFileTile,
+  DocumentMetaRow,
+  documentFileKind,
+  documentTileTone,
+} from "@/components/clinical-dashboard/document-ui";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -57,15 +60,13 @@ import {
   PanelHeading,
   primaryControl,
   proseMeasure,
-  SourceProvenance,
-  SourceStatusBadge,
   sourceCard,
   textMuted,
   toolbarButton,
 } from "@/components/ui-primitives";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { formatClinicalDate, normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { formatClinicalDate } from "@/lib/source-metadata";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -148,13 +149,6 @@ type DocumentSearchResult = {
   score: number;
 };
 
-type DocumentIndexHealth = {
-  extractionQuality?: string | null;
-  indexedAt?: string | null;
-  indexVersion?: string | null;
-  warnings?: unknown;
-};
-
 const profileSectionLabels: Array<{
   key: keyof Omit<ClinicalDocumentSummaryProfile, "overview">;
   label: string;
@@ -219,87 +213,6 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
           </ul>
         </section>
       ))}
-    </div>
-  );
-}
-
-function SourceMetadataSummary({ metadata }: { metadata?: unknown }) {
-  const source = normalizeSourceMetadata(metadata);
-
-  return (
-    <div className={cn(evidenceSurface, "mt-3 p-3")}>
-      <SourceStatusBadge metadata={source} showTitle={false} />
-      <SourceProvenance metadata={source} />
-    </div>
-  );
-}
-
-function DocumentOrganizationReviewPanel({ document }: { document: ClinicalDocument }) {
-  const profile = documentOrganizationProfile(document);
-  if (!profile) return null;
-
-  const candidates = profile.site?.candidates ?? [];
-  const siteEvidence = [
-    ...(profile.site?.evidence_sources ?? []),
-    ...candidates.flatMap((candidate) => candidate.evidence_sources),
-  ];
-  const evidence = Array.from(new Set([...siteEvidence, ...(profile.document_type?.evidence_sources ?? [])])).slice(
-    0,
-    6,
-  );
-  const reviewStatus = profile.review_status;
-  const showPanel = reviewStatus !== "confident" || candidates.length > 0 || evidence.length > 0;
-
-  if (!showPanel) return null;
-
-  return (
-    <div className={cn(sourceCard, "mt-4 p-3")}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-            <AlertCircle className="h-3.5 w-3.5 text-[color:var(--warning)]" />
-            Organisation review
-          </p>
-          <DocumentOrganizationBadges document={document} compact className="mt-2" />
-        </div>
-        <span className={cn("rounded-full px-2 py-1 text-[11px] font-bold", textMuted)}>
-          {reviewStatus === "manual_override"
-            ? "Manual override"
-            : reviewStatus === "needs_review"
-              ? "Needs review"
-              : "Evidence"}
-        </span>
-      </div>
-
-      {candidates.length ? (
-        <div className="mt-3 grid gap-2">
-          {candidates.slice(0, 3).map((candidate) => (
-            <div
-              key={`${candidate.raw_tag}:${candidate.label}`}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
-            >
-              <p className="text-sm font-semibold text-[color:var(--text)]">{candidate.label}</p>
-              <p className={cn("mt-0.5 text-[11px] font-semibold", textMuted)}>
-                {candidate.kind.replaceAll("_", " ")} from {candidate.raw_tag}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {evidence.length ? (
-        <ul className="mt-3 grid gap-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
-          {evidence.map((item) => (
-            <li key={item} className="break-words rounded-md bg-[color:var(--surface-subtle)] px-2 py-1">
-              {item.replaceAll(":", ": ")}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <p className={cn("mt-3 text-xs leading-5", textMuted)}>
-        Use a manual Site tag below when the generated site is ambiguous or should be overridden.
-      </p>
     </div>
   );
 }
@@ -1648,15 +1561,18 @@ function DocumentManualTagEditor({
 }
 
 function compactDocumentType(document: ClinicalDocument) {
-  const extension = document.file_name.split(".").pop()?.toUpperCase() || "PDF";
-  return extension === "PDF" ? "PDF" : extension;
+  return documentFileKind(document.file_name, "PDF");
 }
 
 function documentOverviewText(document: ClinicalDocument) {
   const profile = document.summary?.clinical_specifics?.profile;
-  if (profile?.overview) return cleanClinicalSummaryText(profile.overview);
-  if (document.summary?.summary) return cleanClinicalSummaryText(document.summary.summary);
-  return "Practical guidance, extracted evidence, pages, tables, and source metadata for this document.";
+  const overview = profile?.overview
+    ? cleanClinicalSummaryText(profile.overview)
+    : document.summary?.summary
+      ? cleanClinicalSummaryText(document.summary.summary)
+      : "";
+  if (overview && !/source-backed review/i.test(overview)) return overview;
+  return "A clear overview of this document, useful pages, and source PDF access.";
 }
 
 function documentKeySections(document: ClinicalDocument) {
@@ -1666,12 +1582,24 @@ function documentKeySections(document: ClinicalDocument) {
 
 function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
   return (
-    <a
-      href={pageNumber ? `#pdf-preview-section` : "#pdf-preview-section"}
-      className="grid min-h-[112px] place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-center shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
-    >
-      <FileText className="h-8 w-8 text-[color:var(--clinical-chat-teal)]" />
-      <span className="nums mt-2 text-xs font-semibold text-[color:var(--text-muted)]">p.{pageNumber ?? "n/a"}</span>
+    <a href="#pdf-preview-section" className="group grid min-w-0 justify-items-center gap-2 text-center">
+      <span className="grid aspect-[0.76] min-h-[86px] w-full max-w-[7.5rem] place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)] transition group-hover:border-[color:var(--border-strong)] group-hover:bg-[color:var(--surface-subtle)] sm:max-w-[5.5rem]">
+        <span className="grid w-full gap-1.5">
+          <span className="h-2 rounded bg-[color:var(--clinical-chat-teal-soft)]" />
+          <span className="h-1 rounded bg-[color:var(--border-strong)]/55" />
+          <span className="h-1 rounded bg-[color:var(--border-strong)]/45" />
+          <span className="h-1 rounded bg-[color:var(--border-strong)]/35" />
+          <span className="mt-1 grid grid-cols-2 gap-1">
+            <span className="h-8 rounded bg-[color:var(--clinical-chat-teal-soft)]/75" />
+            <span className="grid gap-1">
+              <span className="h-1 rounded bg-[color:var(--border-strong)]/35" />
+              <span className="h-1 rounded bg-[color:var(--border-strong)]/30" />
+              <span className="h-1 rounded bg-[color:var(--border-strong)]/25" />
+            </span>
+          </span>
+        </span>
+      </span>
+      <span className="nums text-sm font-semibold text-[color:var(--text-muted)]">p.{pageNumber ?? "n/a"}</span>
     </a>
   );
 }
@@ -1681,9 +1609,6 @@ function DocumentOverviewLanding({
   initialPage,
   signedUrl,
   pages,
-  chunks,
-  images,
-  tableFacts,
   onAskFromDocument,
   onAddToScope,
   canSummarizeDocument,
@@ -1692,14 +1617,10 @@ function DocumentOverviewLanding({
   initialPage: number;
   signedUrl: string | null;
   pages: PageRow[];
-  chunks: ChunkRow[];
-  images: ImageRow[];
-  tableFacts: TableFactRow[];
   onAskFromDocument: () => void;
   onAddToScope: () => void;
   canSummarizeDocument: boolean;
 }) {
-  const source = normalizeSourceMetadata(document.metadata);
   const keySections = documentKeySections(document);
   const usefulPages = Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
     .filter((page) => Number.isFinite(page))
@@ -1707,168 +1628,132 @@ function DocumentOverviewLanding({
   const documentType = compactDocumentType(document);
 
   return (
-    <section className="grid gap-3">
-      <article className={cn(panel, "p-3 sm:p-4")}>
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
-          <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-            <span className="grid place-items-center text-[11px] font-bold">
-              <FileText className="h-7 w-7" />
-              {documentType}
-            </span>
-          </span>
+    <section className="grid gap-4">
+      <Link
+        href="/?mode=documents"
+        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)]"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Documents
+      </Link>
+
+      <article className={cn(panel, "p-4 sm:p-5")}>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
+          <DocumentFileTile
+            kind={documentType}
+            tone={documentTileTone(documentType)}
+            className="h-20 w-20 rounded-xl text-sm sm:h-24 sm:w-24"
+          />
           <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+              Clinical guideline
+            </p>
             <h2 className="line-clamp-2 text-xl font-semibold leading-7 text-[color:var(--text-heading)]">
               {documentDisplayTitle(document)}
             </h2>
-            <p className={cn("mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs font-semibold", textMuted)}>
-              <span>{documentType}</span>
-              <span>{document.page_count ?? (pages.length || "?")} pages</span>
-              <span>Uploaded {formatClinicalDate(document.created_at)}</span>
-            </p>
+            <DocumentMetaRow
+              className="mt-1"
+              items={[
+                documentType,
+                `${document.page_count ?? (pages.length || "?")} pages`,
+                `Uploaded ${formatClinicalDate(document.created_at)}`,
+              ]}
+            />
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="inline-flex min-h-7 items-center gap-1 rounded-md bg-[color:var(--clinical-chat-teal)] px-2.5 text-[11px] font-bold text-white">
-                <Sparkles className="h-3.5 w-3.5" />
+              <DocumentBadge variant="best" icon={Sparkles}>
                 Best match
-              </span>
-              <SourceStatusBadge metadata={document.metadata} showTitle={false} />
+              </DocumentBadge>
+              <DocumentBadge variant="high" icon={Target}>
+                High relevance
+              </DocumentBadge>
             </div>
           </div>
         </div>
-        <div className="mt-3 grid gap-2">
+        <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.75fr)_minmax(0,1fr)]">
           {signedUrl ? (
-            <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(primaryButton, "w-full")}>
-              <ExternalLink className="h-4 w-4" />
+            <DocumentActionAnchor
+              href={signedUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(primaryButton, "w-full min-h-12 text-sm")}
+            >
               Open original PDF
-            </a>
+            </DocumentActionAnchor>
           ) : (
-            <a href="#pdf-preview-section" className={cn(primaryButton, "w-full")}>
-              <ExternalLink className="h-4 w-4" />
+            <DocumentActionAnchor href="#pdf-preview-section" className={cn(primaryButton, "w-full min-h-12 text-sm")}>
               Open original PDF
-            </a>
+            </DocumentActionAnchor>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={onAddToScope} className={cn(secondaryButton, "min-h-11 text-xs")}>
-              <Target className="h-4 w-4" />
+          <div className="grid grid-cols-2 gap-2 sm:contents">
+            <DocumentActionButton
+              onClick={onAddToScope}
+              icon={Target}
+              className={cn(secondaryButton, "min-h-12 px-2 text-xs sm:text-sm")}
+            >
               Scope
-            </button>
-            <button
-              type="button"
+            </DocumentActionButton>
+            <DocumentActionButton
               onClick={onAskFromDocument}
               disabled={!canSummarizeDocument}
-              className={cn(secondaryButton, "min-h-11 text-xs")}
+              icon={Sparkles}
+              className={cn(secondaryButton, "min-h-12 whitespace-nowrap px-2 text-xs sm:text-sm")}
             >
-              <Sparkles className="h-4 w-4" />
-              Summarise document
-            </button>
+              Answer from this
+            </DocumentActionButton>
           </div>
         </div>
       </article>
 
-      <nav
-        aria-label="Document overview sections"
-        className="grid grid-cols-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-      >
-        {[
-          { label: "Overview", href: "#document-overview", icon: FileText },
-          { label: "Content", href: "#source-summary", icon: ListChecks },
-          { label: "Pages", href: "#pdf-preview-section", icon: FileText },
-        ].map((item, index) => {
-          const Icon = item.icon;
-          return (
-            <a
-              key={item.label}
-              href={item.href}
-              className={cn(
-                "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md text-xs font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                index === 0 && "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </a>
-          );
-        })}
-      </nav>
-
       <section id="document-overview" className={cn(sourceCard, "scroll-mt-24 p-4")}>
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-            <ListChecks className="h-5 w-5" />
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+            <FileText className="h-6 w-6" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">What this document covers</h3>
-            <p className={cn("mt-1 line-clamp-3 text-xs leading-5", textMuted)}>{documentOverviewText(document)}</p>
+            <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Overview</h3>
+            <p className={cn("mt-1 line-clamp-3 text-sm leading-6", textMuted)}>{documentOverviewText(document)}</p>
           </div>
-          <ChevronDown className="-rotate-90 text-[color:var(--text-soft)]" />
+          <ChevronDown className="h-6 w-6 -rotate-90 text-[color:var(--text-soft)]" />
         </div>
       </section>
 
       <section className={cn(sourceCard, "p-4")}>
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
             <Tag className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Key sections</h3>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {(keySections.length ? keySections : ["Overview", "Pages", sourceStatusLabel(source)]).map((section) => (
+            <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Key sections</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(keySections.length ? keySections : ["Overview", "Useful pages", "Source PDF"]).map((section) => (
                 <span
                   key={section}
-                  className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--clinical-chat-teal-soft)] px-2 text-[11px] font-semibold text-[color:var(--clinical-chat-teal)]"
+                  className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-sm font-medium text-[color:var(--clinical-chat-teal)]"
                 >
                   {section}
                 </span>
               ))}
             </div>
           </div>
-          <ChevronDown className="-rotate-90 text-[color:var(--text-soft)]" />
+          <ChevronDown className="h-6 w-6 -rotate-90 text-[color:var(--text-soft)]" />
         </div>
       </section>
 
       <section className={cn(sourceCard, "p-4")}>
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Useful pages</h3>
-          <a href="#pdf-preview-section" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
-            View all pages
-          </a>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {(usefulPages.length ? usefulPages : [initialPage]).map((page) => (
-            <DocumentPagePreview key={page} pageNumber={page} />
-          ))}
-        </div>
-      </section>
-
-      <section className={cn(sourceCard, "p-4")}>
-        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Document parts</h3>
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {[
-            { label: "Quotes", value: chunks.length, icon: Quote },
-            { label: "Tables", value: tableFacts.length, icon: FileSpreadsheet },
-            { label: "Images", value: images.length, icon: FileImage },
-            { label: "Pages", value: document.page_count ?? pages.length, icon: FileText },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <a
-                key={item.label}
-                href={
-                  item.label === "Pages"
-                    ? "#pdf-preview-section"
-                    : item.label === "Images"
-                      ? "#source-images"
-                      : "#source-summary"
-                }
-                className="grid min-h-[70px] place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-center shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
-              >
-                <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-                <span className="nums text-base font-bold leading-none text-[color:var(--text-heading)]">
-                  {item.value ?? 0}
-                </span>
-                <span className="text-[11px] font-semibold text-[color:var(--text-muted)]">{item.label}</span>
-              </a>
-            );
-          })}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+            <FileText className="h-6 w-6" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Useful pages</h3>
+            <p className={cn("mt-1 text-sm leading-6", textMuted)}>Most relevant pages for this document.</p>
+            <div className="mt-4 grid max-w-md grid-cols-3 gap-3">
+              {(usefulPages.length ? usefulPages : [initialPage]).map((page) => (
+                <DocumentPagePreview key={page} pageNumber={page} />
+              ))}
+            </div>
+          </div>
+          <ChevronDown className="h-6 w-6 -rotate-90 text-[color:var(--text-soft)]" />
         </div>
       </section>
     </section>
@@ -1892,7 +1777,6 @@ export function DocumentViewer({
   const [chunks, setChunks] = useState<ChunkRow[]>([]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<RagAnswer | null>(null);
-  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const [loadingDocument, setLoadingDocument] = useState(true);
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -2006,14 +1890,12 @@ export function DocumentViewer({
           setImages(detail.images ?? []);
           setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
-          setIndexHealth(detail.indexHealth ?? null);
         } else {
           setDocument(null);
           setPages([]);
           setImages([]);
           setTableFacts([]);
           setChunks([]);
-          setIndexHealth(null);
           setViewerError(
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
           );
@@ -2184,10 +2066,14 @@ export function DocumentViewer({
     : viewerState === "loading"
       ? `page ${initialPage} · loading source`
       : (effectiveViewerError ?? "Source unavailable");
+  const documentHomeHref = "/?mode=documents";
+  const scopedDocumentHref = readyDocument
+    ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`
+    : documentHomeHref;
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument
-    ? "Generate a source-backed document summary"
-    : "Load a source document before summarising";
+    ? "Answer from this document"
+    : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
   const clinicalImages = images.filter(
@@ -2199,11 +2085,6 @@ export function DocumentViewer({
       (image.searchable === false ||
         ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
   );
-  const indexWarnings = Array.isArray(indexHealth?.warnings)
-    ? indexHealth.warnings.map((warning) => String(warning)).filter(Boolean)
-    : typeof indexHealth?.warnings === "string" && indexHealth.warnings
-      ? [indexHealth.warnings]
-      : [];
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
@@ -2274,7 +2155,7 @@ export function DocumentViewer({
       <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4">
         <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
           <Link
-            href="/"
+            href={documentHomeHref}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Back to documents"
           >
@@ -2303,9 +2184,9 @@ export function DocumentViewer({
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <Link
-              href="/"
+              href={scopedDocumentHref}
               className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Open document scope"
+              aria-label="Scope this document"
               title={headerSubtitle}
             >
               <Target className="h-5 w-5" />
@@ -2328,7 +2209,7 @@ export function DocumentViewer({
           open={mobileActionsOpen}
           onClose={() => setMobileActionsOpen(false)}
           title="This document"
-          description="Search, ask, open, or manage this source."
+          description="Search, answer, open, or scope this document."
           closeLabel="Close document actions"
         >
           <div className="space-y-3 pb-2">
@@ -2338,7 +2219,9 @@ export function DocumentViewer({
               </p>
               <p className={cn("mt-1 truncate text-xs", textMuted)}>{readyDocument.file_name}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <SourceStatusBadge metadata={readyDocument.metadata} showTitle={false} />
+                <DocumentBadge variant="high" icon={Target}>
+                  High relevance
+                </DocumentBadge>
                 {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
               </div>
             </section>
@@ -2352,7 +2235,7 @@ export function DocumentViewer({
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
                 <Search className="h-4 w-4" />
-                Search this PDF
+                Search in document
               </button>
               <button
                 type="button"
@@ -2365,7 +2248,7 @@ export function DocumentViewer({
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
                 {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Ask from this document
+                Answer from this
               </button>
               {signedUrl ? (
                 <a
@@ -2392,12 +2275,12 @@ export function DocumentViewer({
                 type="button"
                 onClick={() => {
                   setMobileActionsOpen(false);
-                  router.push(`/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`);
+                  router.push(scopedDocumentHref);
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
                 <Target className="h-4 w-4" />
-                Add to scope
+                Scope
               </button>
             </div>
             <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
@@ -2416,7 +2299,7 @@ export function DocumentViewer({
         </Sheet>
       ) : null}
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 pb-24 sm:gap-5 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 pb-36 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
         {(summary || summaryError) && (
           <div className="min-w-0 space-y-3 lg:col-span-2">
             {summary && (
@@ -2451,13 +2334,8 @@ export function DocumentViewer({
               initialPage={initialPage}
               signedUrl={signedUrl}
               pages={pages}
-              chunks={chunks}
-              images={images}
-              tableFacts={tableFacts}
               onAskFromDocument={() => void summarize()}
-              onAddToScope={() =>
-                router.push(`/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`)
-              }
+              onAddToScope={() => router.push(scopedDocumentHref)}
               canSummarizeDocument={canSummarizeDocument}
             />
           </div>
@@ -2468,7 +2346,7 @@ export function DocumentViewer({
             <section className={cn(panel, "p-4")}>
               <button type="button" disabled className={cn(secondaryButton, "min-h-11 text-xs")}>
                 <Sparkles className="h-4 w-4" />
-                Summarise document
+                Answer from this
               </button>
             </section>
           </div>
@@ -2605,44 +2483,33 @@ export function DocumentViewer({
           <section id="source-summary" className={cn(panel, "scroll-mt-24 p-4 source-print")}>
             <PanelHeading
               icon={FileText}
-              title="Evidence status"
-              description="Source provenance and indexing health."
+              title="Document details"
+              description="Indexed content available for this source."
             />
-            <SourceMetadataSummary metadata={document?.metadata} />
-            {indexHealth ? (
-              <div
-                className={cn(
-                  "mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3",
-                )}
-              >
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                  Index health
-                </p>
-                <dl className="mt-2 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
-                  <div>
-                    <dt>Extraction</dt>
-                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt>Index version</dt>
-                    <dd className="mt-0.5 truncate text-[color:var(--text)]">
-                      {indexHealth.indexVersion ?? "unknown"}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt>Indexed</dt>
-                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
-                  </div>
-                </dl>
-                {indexWarnings.length ? (
-                  <ul className="mt-3 grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-                    {indexWarnings.slice(0, 4).map((warning) => (
-                      <li key={warning}>{warning}</li>
-                    ))}
-                  </ul>
-                ) : null}
+            <dl className="mt-3 grid gap-2 text-sm font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
+              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <dt>Pages</dt>
+                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
+                  {(document?.page_count ?? pages.length) || "n/a"}
+                </dd>
               </div>
-            ) : null}
+              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <dt>Useful pages</dt>
+                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
+                  {pages.length ? Math.min(pages.length, 3) : 1}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <dt>Text sections</dt>
+                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">{chunks.length}</dd>
+              </div>
+              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <dt>Tables and diagrams</dt>
+                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
+                  {clinicalImages.length}
+                </dd>
+              </div>
+            </dl>
           </section>
 
           {document ? (
@@ -2683,15 +2550,21 @@ export function DocumentViewer({
                 </div>
               )}
               <DocumentTagCloud labels={document.labels} limit={18} className="mt-4" onTagClick={searchByTag} grouped />
-              <DocumentOrganizationReviewPanel document={document} />
-              <DocumentManualTagEditor
-                document={document}
-                canManage={canUsePrivateApis}
-                clientDemoMode={clientDemoMode}
-                authorizationHeader={authorizationHeader}
-                onLabelsUpdated={handleDocumentLabelsUpdated}
-                onUnauthorized={markSessionExpired}
-              />
+              {canUsePrivateApis ? (
+                <details className={cn(sourceCard, "mt-4 p-3")}>
+                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+                    Document tools
+                  </summary>
+                  <DocumentManualTagEditor
+                    document={document}
+                    canManage={canUsePrivateApis}
+                    clientDemoMode={clientDemoMode}
+                    authorizationHeader={authorizationHeader}
+                    onLabelsUpdated={handleDocumentLabelsUpdated}
+                    onUnauthorized={markSessionExpired}
+                  />
+                </details>
+              ) : null}
             </section>
           ) : null}
 
@@ -2702,12 +2575,21 @@ export function DocumentViewer({
               description="Indexed tables, diagrams, and image captions."
             />
             <div className="mt-3 space-y-3">
-              <TableReviewPanel
-                tableFacts={tableFacts}
-                canReview={canUsePrivateApis}
-                busyFactId={reviewingTableFactId}
-                onReview={reviewTableFact}
-              />
+              {canUsePrivateApis && tableFacts.length ? (
+                <details className={cn(sourceCard, "p-3")}>
+                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+                    Table tools
+                  </summary>
+                  <div className="mt-3">
+                    <TableReviewPanel
+                      tableFacts={tableFacts}
+                      canReview={canUsePrivateApis}
+                      busyFactId={reviewingTableFactId}
+                      onReview={reviewTableFact}
+                    />
+                  </div>
+                </details>
+              ) : null}
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading extracted tables" />
               ) : clinicalImages.length === 0 ? (
@@ -2748,11 +2630,11 @@ export function DocumentViewer({
             <Plus className="h-5 w-5" />
           </button>
           <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-            <span className="sr-only">Ask about this document</span>
+            <span className="sr-only">Search or answer from this document</span>
             <input
               value={sourceSearch}
               onChange={(event) => setSourceSearch(event.target.value)}
-              placeholder="Ask about this document..."
+              placeholder="Search or answer from this document..."
               className="min-h-[44px] min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
             />
           </label>
@@ -2767,7 +2649,7 @@ export function DocumentViewer({
             type="submit"
             disabled={!canSummarizeDocument}
             className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[inset_0_1px_0_rgb(255_255_255_/_18%),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Ask about this document"
+            aria-label="Answer from this document"
           >
             {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>

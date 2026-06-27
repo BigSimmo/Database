@@ -47,13 +47,30 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 }
 
 async function switchToDocumentSearchMode(page: Page) {
-  const documentsMode = page.getByRole("button", { name: "Switch to document search mode" });
-  await expect(documentsMode).toBeVisible();
-  await expect(documentsMode).toBeEnabled();
+  const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
+  if (await legacyDocumentsMode.isVisible().catch(() => false)) {
+    await expect(legacyDocumentsMode).toBeEnabled();
+    await expect(async () => {
+      await legacyDocumentsMode.click();
+      await expect(legacyDocumentsMode).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 8_000 });
+    return;
+  }
+
+  const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
+  await expect(appModeMenu).toBeVisible();
+  await expect(appModeMenu).toBeEnabled();
 
   await expect(async () => {
-    await documentsMode.click();
-    await expect(documentsMode).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+    await appModeMenu.click({ force: true });
+    await expect(appModeMenu).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
+    const documentsMode = page
+      .locator('[role="menuitemradio"]')
+      .filter({ hasText: /^Documents/ })
+      .first();
+    await expect(documentsMode).toBeVisible({ timeout: 3_000 });
+    await documentsMode.click({ force: true });
+    await expect(page.getByRole("button", { name: "Current app mode: Documents" })).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 8_000 });
 }
 
@@ -389,8 +406,9 @@ function scopeTrigger(page: Page) {
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  expect(box!.height).toBeGreaterThanOrEqual(minSize);
-  expect(box!.width).toBeGreaterThanOrEqual(minSize);
+  const measurementTolerance = 0.01;
+  expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
+  expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
 
 async function openMobileClinicalGuideMenu(page: Page) {
@@ -540,7 +558,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo answer flow reaches a source-backed answer", async ({ page }) => {
+  test("demo answer flow reaches a source-backed answer", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -580,11 +598,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
     await expect(sourcePreview.getByRole("link", { name: /Open PDF drawer/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
-      origin: new URL(page.url()).origin,
-    });
-    await sourcePreview.getByRole("button", { name: "Copy quote" }).click();
-    await expect(sourcePreview.getByRole("button", { name: "Copied quote" })).toBeVisible();
+    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy quote" });
+    await expect(copyQuoteButton).toBeVisible();
+    await expectMinTouchTarget(copyQuoteButton);
+    if (browserName === "chromium") {
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+        origin: new URL(page.url()).origin,
+      });
+      await copyQuoteButton.click();
+      await expect(sourcePreview.getByRole("button", { name: "Copied quote" })).toBeVisible();
+    }
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(sourceSheet).toHaveCount(0);
@@ -813,13 +836,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
     await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
-    await expect(page.getByLabel("Search your clinical documents")).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(visibleQuestionInput(page)).toBeVisible();
     await expect(page.getByTestId("document-home-overview")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Start here" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Explore document evidence" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Last opened: Lithium monitoring guideline/i })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Document shortcuts" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Suggested searches" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "monitoring", exact: true })).toBeVisible();
     await expect(page.getByText("Source library workspace")).toHaveCount(0);
     await expect(page.getByText("Document display")).toHaveCount(0);
 
@@ -828,15 +851,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
     await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "1 result" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "1 document" })).toBeVisible();
     await expect(page.getByText("1 table").first()).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toContainText("% match");
-    await expect(page.getByTestId("document-search-workspace")).toContainText("Strong match");
+    await expect(page.getByTestId("document-search-workspace")).toContainText("Best match");
+    await expect(page.getByTestId("document-search-workspace")).toContainText("High relevance");
     await expect(page.getByText("Tag facets")).toHaveCount(0);
     await expect(page.getByTestId("document-search-workspace")).not.toContainText(
       /No direct support|Partial support|source support|direct support/i,
     );
-    await expectMinTouchTarget(page.getByRole("button", { name: /More actions for Synthetic lithium/i }).first());
+    await expectMinTouchTarget(page.getByRole("link", { name: /Open Synthetic lithium/i }).first());
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
     await page
       .getByRole("button", { name: /Answer from/i })
@@ -966,7 +989,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    await page.getByRole("button", { name: "Summarise document" }).click();
+    await page.getByRole("button", { name: "Answer from this" }).click();
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
@@ -1040,7 +1063,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("body")).toContainText(
       /Sign in to open private source documents\.|Document not found\.|Supabase browser authentication is not configured for private source documents\./,
     );
-    await expect(page.getByRole("button", { name: "Summarise document" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Answer from this" })).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);

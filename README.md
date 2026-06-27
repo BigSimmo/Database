@@ -7,8 +7,8 @@ questions with source citations that link back to the original PDF/document.
 
 ## Setup
 
-1. Use Node.js 24.x. CI runs on Node 24, and `.nvmrc` / `.node-version`
-   pin the same runtime for local version managers.
+1. Use Node.js 24.x with npm 11.x. CI runs on Node 24, and `.nvmrc` /
+   `.node-version` pin the same runtime for local version managers.
 2. Copy `.env.example` to `.env.local` and fill in Supabase and OpenAI values.
 3. Confirm the Supabase target:
 
