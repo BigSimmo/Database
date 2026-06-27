@@ -1507,6 +1507,9 @@ async function processJob(job: JobRow) {
     }
   } finally {
     await cleanupExtractedTemporaryPaths(extracted);
+    // The progress-throttle entry is only needed while this job is processing;
+    // drop it so the module-level map does not grow for the worker's lifetime.
+    progressUpdateState.delete(job.id);
   }
 }
 

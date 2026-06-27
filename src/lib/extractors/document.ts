@@ -146,7 +146,24 @@ async function extractDocx(buffer: Buffer) {
       if (file.dir) continue;
       const bytes = await file.async("nodebuffer");
       const ext = path.extname(name).toLowerCase() || ".png";
-      const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".webp" ? "image/webp" : "image/png";
+      // Map the actual media extension to its real MIME type. Previously every
+      // non-jpg/webp extension (including .emf/.wmf/.tiff/.bmp/.gif vector and
+      // legacy-raster figures common in clinical .docx) was mislabeled image/png,
+      // which was then written to storage/DB and sent to the vision API as PNG.
+      const docxImageMimeByExt: Record<string, string> = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".tif": "image/tiff",
+        ".tiff": "image/tiff",
+        ".emf": "image/emf",
+        ".wmf": "image/wmf",
+        ".svg": "image/svg+xml",
+      };
+      const mimeType = docxImageMimeByExt[ext] ?? "application/octet-stream";
       const outputPath = path.join(tempRoot, `docx-image-${index}${ext}`);
       await writeFile(outputPath, bytes);
       images.push({

@@ -3483,8 +3483,12 @@ function buildExtractiveAnswer(args: {
     }
   }
   for (const quote of quoteCards) {
-    if (!citationIds.has(quote.chunk_id))
-      citations.push(resultCitation(args.results.find((result) => result.id === quote.chunk_id)!));
+    if (!citationIds.has(quote.chunk_id)) {
+      // Guard the lookup: a quote card whose chunk_id was filtered out of results
+      // would make find() return undefined and resultCitation(undefined) throw.
+      const source = args.results.find((result) => result.id === quote.chunk_id);
+      if (source) citations.push(resultCitation(source));
+    }
     citationIds.add(quote.chunk_id);
   }
 
@@ -3506,10 +3510,15 @@ function buildExtractiveAnswer(args: {
     sourceCount: args.results.length,
   });
 
+  // When no concise source sentence could be extracted, buildNaturalExtractiveAnswer
+  // returns a sentinel non-answer with no citationChunkIds. Do not present that as a
+  // grounded, confidence-rated answer just because compactCitations seeded a citation.
+  const hasExtractedAnswer = naturalAnswer.citationChunkIds.length > 0;
+
   return {
     answer: naturalAnswer.answer,
-    grounded: citations.length > 0,
-    confidence: deriveConfidence(args.results, citations.length),
+    grounded: hasExtractedAnswer && citations.length > 0,
+    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "low",
     citations: citations.slice(0, 5),
     sources: args.results,
     modelUsed: null,

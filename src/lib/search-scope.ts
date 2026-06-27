@@ -160,6 +160,10 @@ export async function resolveSearchScope(args: {
       .from("documents")
       .select("id,metadata,import_batch_id")
       .eq("status", "indexed")
+      // Deterministic total order over the unique id column. Without it, separate
+      // LIMIT/OFFSET page queries have no stable order, so rows can be silently
+      // skipped or duplicated across pages and the resolved scope is incomplete.
+      .order("id", { ascending: true })
       .range(offset, Math.min(offset + documentScopeQueryPageSize - 1, maxResolvedDocuments - 1));
     if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
     if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);

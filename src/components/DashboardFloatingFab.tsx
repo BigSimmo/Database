@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUp, ClipboardCopy, ExternalLink, Plus, Search, X } from "lucide-react";
 import { cn, floatingControl } from "@/components/ui-primitives";
 
@@ -51,6 +51,10 @@ export function DashboardFloatingFab() {
     window.scrollTo({ top: 0, behavior: "smooth" });
     setOpen(false);
   }, []);
+
+  // Clear any pending copy-notice timeout on unmount so it can't fire after the
+  // component is gone (leaked timer / stray setState).
+  useEffect(() => clearNotice, [clearNotice]);
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-6">

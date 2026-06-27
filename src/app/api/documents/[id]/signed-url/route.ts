@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getDemoDocument } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
 const signedUrlTtlSeconds = 60 * 10;
+const routeIdSchema = z.string().uuid();
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,6 +25,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         demoMode: true,
       });
     }
+
+    if (!routeIdSchema.safeParse(id).success) throw new PublicApiError("Invalid document id.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(_request, supabase);
