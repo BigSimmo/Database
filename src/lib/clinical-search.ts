@@ -842,7 +842,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     const oldestKey = clinicalQueryAnalysisCache.keys().next().value;
     if (oldestKey !== undefined) clinicalQueryAnalysisCache.delete(oldestKey);
   }
-  return analysis;
+  return { ...analysis };
 }
 
 export function classifyRagQuery(query: string): RagQueryClassification {
