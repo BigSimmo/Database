@@ -332,17 +332,17 @@ function HeroHome() {
     <section className="pt-4 lg:pt-0">
       <p className="text-sm font-medium text-[color:var(--text-muted)] sm:text-base">Good afternoon,</p>
       <h1 className="mt-1 text-2xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-4xl lg:text-5xl">
-        Dr Simpson
+        Clinician profile
       </h1>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-[color:var(--text-muted)] sm:mt-3">
         <span className="inline-flex items-center gap-2">
           <UserRound className="h-4 w-4" />
-          Consultant psychiatrist
+          Role not set
         </span>
         <span className="hidden h-4 w-px bg-[color:var(--border)] sm:block" />
         <span className="inline-flex items-center gap-2">
           <Stethoscope className="h-4 w-4" />
-          WA
+          Jurisdiction not set
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-2 sm:mt-3">
