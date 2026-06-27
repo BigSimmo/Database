@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectModelContextResults } from "../src/lib/rag";
+import { packedContextCacheKey, selectModelContextResults } from "../src/lib/rag";
 import type { RagQueryClass, SearchResult } from "../src/lib/types";
 
 function source(index: number): SearchResult {
@@ -52,5 +52,40 @@ describe("RAG model context budgeting", () => {
     expect(select({ routeMode: "strong", queryClass: "document_lookup" })).toHaveLength(12);
     expect(select({ routeMode: "extractive", queryClass: "document_lookup" })).toHaveLength(12);
     expect(select({ routeMode: "unsupported", queryClass: "unsupported_or_general" })).toHaveLength(12);
+  });
+
+  it("uses a stable context pack cache key for matching retry inputs", () => {
+    const key = packedContextCacheKey(results, "broad_summary", { crossDocument: true });
+    const sameInputs = packedContextCacheKey([...results], "broad_summary", { crossDocument: true });
+    const differentInputs = packedContextCacheKey(results.slice(0, 6), "broad_summary", { crossDocument: true });
+
+    expect(sameInputs).toBe(key);
+    expect(differentInputs).not.toBe(key);
+  });
+
+  it("includes document-scope for stricter packed context reuse", () => {
+    const keyA = packedContextCacheKey(results, "document_lookup", {
+      crossDocument: false,
+      documentIds: ["doc-1", "doc-2"],
+    });
+    const keyB = packedContextCacheKey(results, "document_lookup", {
+      crossDocument: false,
+      documentIds: ["doc-3"],
+    });
+
+    expect(keyA).not.toBe(keyB);
+  });
+
+  it("reuses packed context keys for the same document filter regardless of order", () => {
+    const keyA = packedContextCacheKey(results, "document_lookup", {
+      crossDocument: false,
+      documentIds: ["doc-2", "doc-1", "doc-1"],
+    });
+    const keyB = packedContextCacheKey(results, "document_lookup", {
+      crossDocument: false,
+      documentIds: ["doc-1", "doc-2"],
+    });
+
+    expect(keyA).toBe(keyB);
   });
 });
