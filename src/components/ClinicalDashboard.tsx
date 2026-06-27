@@ -817,7 +817,13 @@ function NaturalLanguageAnswer({
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
   const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
   const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
+  const copySourceQuoteTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const usePreviewSheet = useMobilePreviewSheet();
+  useEffect(() => {
+    return () => {
+      if (copySourceQuoteTimerRef.current !== null) clearTimeout(copySourceQuoteTimerRef.current);
+    };
+  }, []);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
   const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
@@ -828,7 +834,8 @@ function NaturalLanguageAnswer({
     try {
       await navigator.clipboard.writeText(quoteText);
       setCopiedSourceQuote(true);
-      window.setTimeout(() => setCopiedSourceQuote(false), 1600);
+      if (copySourceQuoteTimerRef.current !== null) clearTimeout(copySourceQuoteTimerRef.current);
+      copySourceQuoteTimerRef.current = window.setTimeout(() => setCopiedSourceQuote(false), 1600);
     } catch {
       setCopiedSourceQuote(false);
     }
