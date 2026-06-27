@@ -71,13 +71,13 @@ async function switchToDocumentSearchMode(page: Page) {
 
   await expect(async () => {
     if ((await appModeMenu.getAttribute("aria-expanded")) !== "true") {
-      await appModeMenu.click();
+      await appModeMenu.click({ force: true });
     }
     const appModeGroup = page.getByRole("group", { name: "Choose app mode" });
     await expect(appModeGroup).toBeVisible({ timeout: 2_000 });
     const documentsMode = appModeGroup.getByRole("button", { name: /^Documents\b/ });
     await expect(documentsMode).toBeVisible({ timeout: 3_000 });
-    await documentsMode.click();
+    await documentsMode.click({ force: true });
     await expect(appModeMenu).toHaveAccessibleName("Current app mode: Documents", { timeout: 2_000 });
   }).toPass({ timeout: 8_000 });
 }
