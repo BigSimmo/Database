@@ -1668,14 +1668,7 @@ function DocumentOverviewLanding({
                 `Uploaded ${formatClinicalDate(document.created_at)}`,
               ]}
             />
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <DocumentBadge variant="best" icon={Sparkles}>
-                Best match
-              </DocumentBadge>
-              <DocumentBadge variant="high" icon={Target}>
-                High relevance
-              </DocumentBadge>
-            </div>
+            {/* Search relevance badges are rendered in document search results; the viewer has no ranking context. */}
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.75fr)_minmax(0,1fr)]">
