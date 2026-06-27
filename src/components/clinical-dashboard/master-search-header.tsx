@@ -587,7 +587,7 @@ export function MasterSearchHeader({
               type="button"
               onClick={() => setModeMenuOpen((open) => !open)}
               className="inline-grid h-11 min-w-[10rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-[14rem]"
-              aria-haspopup="menu"
+              aria-haspopup="true"
               aria-expanded={modeMenuOpen}
               aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
@@ -612,7 +612,7 @@ export function MasterSearchHeader({
 
             {modeMenuOpen ? (
               <div
-                role="menu"
+                role="group"
                 aria-label="Choose app mode"
                 className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
               >
@@ -623,8 +623,7 @@ export function MasterSearchHeader({
                     <button
                       key={mode.id}
                       type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
+                      aria-pressed={active}
                       onClick={() => selectAppMode(mode)}
                       className={cn(
                         "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
