@@ -88,6 +88,13 @@ import {
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import { parseIndexedSourceText } from "@/lib/indexed-source-formatting";
 
+type DocumentIndexHealth = {
+  extractionQuality?: string | null;
+  indexedAt?: string | null;
+  indexVersion?: string | null;
+  warnings?: unknown;
+};
+
 type PageRow = {
   id: string;
   page_number: number;
@@ -1659,14 +1666,6 @@ function DocumentOverviewLanding({
                 `Uploaded ${formatClinicalDate(document.created_at)}`,
               ]}
             />
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <DocumentBadge variant="best" icon={Sparkles}>
-                Best match
-              </DocumentBadge>
-              <DocumentBadge variant="high" icon={Target}>
-                High relevance
-              </DocumentBadge>
-            </div>
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.75fr)_minmax(0,1fr)]">
@@ -1792,6 +1791,7 @@ export function DocumentViewer({
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
@@ -1890,12 +1890,14 @@ export function DocumentViewer({
           setImages(detail.images ?? []);
           setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
+          setIndexHealth(detail.indexHealth ?? null);
         } else {
           setDocument(null);
           setPages([]);
           setImages([]);
           setTableFacts([]);
           setChunks([]);
+          setIndexHealth(null);
           setViewerError(
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
           );
@@ -2219,9 +2221,6 @@ export function DocumentViewer({
               </p>
               <p className={cn("mt-1 truncate text-xs", textMuted)}>{readyDocument.file_name}</p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <DocumentBadge variant="high" icon={Target}>
-                  High relevance
-                </DocumentBadge>
                 {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
               </div>
             </section>
@@ -2510,6 +2509,43 @@ export function DocumentViewer({
                 </dd>
               </div>
             </dl>
+            {indexHealth ? (
+              <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  Index health
+                </p>
+                <dl className="mt-2 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
+                  <div>
+                    <dt>Extraction</dt>
+                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>Index version</dt>
+                    <dd className="mt-0.5 truncate text-[color:var(--text)]">
+                      {indexHealth.indexVersion ?? "unknown"}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt>Indexed</dt>
+                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
+                  </div>
+                </dl>
+                {(() => {
+                  const indexWarnings = Array.isArray(indexHealth.warnings)
+                    ? indexHealth.warnings.map((w) => String(w)).filter(Boolean)
+                    : typeof indexHealth.warnings === "string" && indexHealth.warnings
+                      ? [indexHealth.warnings]
+                      : [];
+                  return indexWarnings.length ? (
+                    <ul className="mt-3 grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+                      {indexWarnings.slice(0, 4).map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+              </div>
+            ) : null}
           </section>
 
           {document ? (

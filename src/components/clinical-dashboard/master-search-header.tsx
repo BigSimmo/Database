@@ -95,7 +95,8 @@ const appModeOptions: Array<{
     label: "Profile",
     description: "Home, preferences, review queue",
     icon: UserRound,
-    href: "/home",
+    href: "/mockups/user-home-profile",
+    devOnly: true,
   },
 ];
 
