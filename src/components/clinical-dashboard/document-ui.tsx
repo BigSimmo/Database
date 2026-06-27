@@ -157,12 +157,12 @@ export function DocumentActionButton({
   icon: Icon,
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> & {
   children: ReactNode;
   icon: LucideIcon;
 }) {
   return (
-    <button type="button" className={cn(documentActionClass, className)} {...props}>
+    <button {...props} type="button" className={cn(documentActionClass, className)}>
       <Icon className="h-4 w-4" />
       {children}
     </button>
