@@ -2495,7 +2495,12 @@ export function DocumentViewer({
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
                 <dt>Useful pages</dt>
                 <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
-                  {pages.length ? Math.min(pages.length, 3) : 1}
+                  {Math.max(
+                    1,
+                    Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
+                      .filter((page) => Number.isFinite(page))
+                      .slice(0, 3).length,
+                  )}
                 </dd>
               </div>
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
