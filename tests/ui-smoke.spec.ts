@@ -29,6 +29,10 @@ function visibleQuestionInput(page: Page) {
   return page.locator('[aria-label="Search indexed guidelines by question or keyword"]:visible').first();
 }
 
+async function isVisibleWithoutThrow(locator: Locator) {
+  return locator.isVisible().catch(() => false);
+}
+
 async function fillVisibleQuestionInput(page: Page, value: string) {
   const questionInput = visibleQuestionInput(page);
   const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
@@ -49,6 +53,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 async function switchToDocumentSearchMode(page: Page) {
   const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
   if (await legacyDocumentsMode.isVisible().catch(() => false)) {
+  if (await isVisibleWithoutThrow(legacyDocumentsMode)) {
     await expect(legacyDocumentsMode).toBeEnabled();
     await expect(async () => {
       await legacyDocumentsMode.click();
@@ -71,6 +76,21 @@ async function switchToDocumentSearchMode(page: Page) {
     await expect(documentsMode).toBeVisible({ timeout: 3_000 });
     await documentsMode.click({ force: true });
     await expect(page.getByRole("button", { name: "Current app mode: Documents" })).toBeVisible({ timeout: 2_000 });
+  const appModeMenu = page.getByRole("button", { name: /^Current app mode:/ });
+  if (!(await isVisibleWithoutThrow(appModeMenu))) {
+    throw new Error(
+      "Could not switch to document search mode: neither the legacy mode toggle nor the app mode menu is visible.",
+    );
+  }
+  await expect(appModeMenu).toBeEnabled();
+
+  await expect(async () => {
+    await appModeMenu.click();
+    await expect(appModeMenu).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
+    const documentsMode = page.getByRole("menuitemradio", { name: /^Documents\b/ });
+    await expect(documentsMode).toBeVisible({ timeout: 3_000 });
+    await documentsMode.click();
+    await expect(appModeMenu).toHaveAccessibleName("Current app mode: Documents", { timeout: 2_000 });
   }).toPass({ timeout: 8_000 });
 }
 
