@@ -30,13 +30,17 @@ demo mode if that stale ref appears in `.env.local`.
 
 4. Run `supabase/schema.sql` in the `Clinical KB Database` Supabase project SQL
    editor.
-5. Install optional PDF/OCR worker dependencies:
+5. Install Deno v2.x to run Edge Function type checks (`npm run check:edge:functions`).
+   CI installs Deno automatically via `denoland/setup-deno`. For local use, follow the
+   [Deno installation guide](https://docs.deno.com/runtime/getting_started/installation/)
+   and ensure `deno --version` reports a 2.x release.
+6. Install optional PDF/OCR worker dependencies:
 
 ```bash
 python -m pip install -r worker/python/requirements.txt
 ```
 
-6. Start the app:
+7. Start the app:
 
 ```bash
 npm run dev
