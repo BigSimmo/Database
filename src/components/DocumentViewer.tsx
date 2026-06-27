@@ -149,6 +149,13 @@ type DocumentSearchResult = {
   score: number;
 };
 
+type DocumentIndexHealth = {
+  extractionQuality?: string | null;
+  indexedAt?: string | null;
+  indexVersion?: string | null;
+  warnings?: unknown;
+};
+
 const profileSectionLabels: Array<{
   key: keyof Omit<ClinicalDocumentSummaryProfile, "overview">;
   label: string;
@@ -1028,12 +1035,13 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
 
   useEffect(() => {
     const nextPage = Math.max(1, initialPage || 1);
+    const boundedPage = totalPages > 0 ? Math.min(nextPage, totalPages) : nextPage;
     const frame = window.requestAnimationFrame(() => {
-      setPage((current) => (current === nextPage ? current : nextPage));
-      setPageInput(String(nextPage));
+      setPage((current) => (current === boundedPage ? current : boundedPage));
+      setPageInput(String(boundedPage));
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [initialPage]);
+  }, [initialPage, totalPages]);
 
   useEffect(() => {
     if (!holderRef.current) return;
@@ -1784,6 +1792,7 @@ export function DocumentViewer({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
@@ -1892,12 +1901,14 @@ export function DocumentViewer({
           setImages(detail.images ?? []);
           setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
+          setIndexHealth(detail.indexHealth ?? null);
         } else {
           setDocument(null);
           setPages([]);
           setImages([]);
           setTableFacts([]);
           setChunks([]);
+          setIndexHealth(null);
           setViewerError(
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
           );
@@ -2509,6 +2520,43 @@ export function DocumentViewer({
                 </dd>
               </div>
             </dl>
+            {indexHealth ? (
+              <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  Index health
+                </p>
+                <dl className="mt-2 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
+                  <div>
+                    <dt>Extraction</dt>
+                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt>Index version</dt>
+                    <dd className="mt-0.5 truncate text-[color:var(--text)]">
+                      {indexHealth.indexVersion ?? "unknown"}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt>Indexed</dt>
+                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
+                  </div>
+                </dl>
+                {(() => {
+                  const indexWarnings = Array.isArray(indexHealth.warnings)
+                    ? indexHealth.warnings.map((w) => String(w)).filter(Boolean)
+                    : typeof indexHealth.warnings === "string" && indexHealth.warnings
+                      ? [indexHealth.warnings]
+                      : [];
+                  return indexWarnings.length ? (
+                    <ul className="mt-3 grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+                      {indexWarnings.slice(0, 4).map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
+              </div>
+            ) : null}
           </section>
 
           {document ? (

@@ -151,7 +151,7 @@ function imageMatchScore(lookupText: string, sourceText: string) {
 }
 
 function dedupeChunkFingerprint(text: string) {
-  return text.toLowerCase().replace(/\s+/g, " ").trim();
+  return normalizeLookupText(text).replace(/\s+/g, " ").trim();
 }
 
 function clampChunkSize(value: number, minimum: number, maximum: number) {
