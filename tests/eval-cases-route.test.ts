@@ -115,7 +115,7 @@ describe("/api/eval-cases", () => {
       query_class: "table_threshold",
       source_chunk_ids_rejected: 1,
       cited_chunk_ids_rejected: 1,
-      answer: "",
+      answer: null,
       raw_query_retained: false,
     });
     expect(typeof (payload.metadata as Record<string, unknown>).query_hash).toBe("string");
@@ -217,7 +217,7 @@ describe("/api/eval-cases", () => {
     expect(payload.metadata).toMatchObject({
       rating: "needs_fixing",
       feedback_type: "numeric_error",
-      answer: "",
+      answer: null,
       source_governance_warnings: ["Source is review due."],
       unverified_numeric_tokens: ["15"],
       raw_query_retained: false,
