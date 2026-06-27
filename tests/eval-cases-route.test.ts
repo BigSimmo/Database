@@ -65,10 +65,14 @@ afterEach(() => {
   vi.resetModules();
 });
 
+function mockEnv(overrides: Record<string, unknown> = {}) {
+  return { isDemoMode: () => false, env: { RAG_PERSIST_RAW_QUERY_TEXT: false, ...overrides } };
+}
+
 describe("/api/eval-cases", () => {
   it("captures a good answer as a promoted eval case and filters malformed chunk ids", async () => {
     const { client, insert } = createInsertMock();
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => mockEnv());
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},
@@ -95,6 +99,7 @@ describe("/api/eval-cases", () => {
     expect(response.status).toBe(201);
     expect(payload).toMatchObject({
       owner_id: userId,
+      query: "what monitoring is needed for clozapine?",
       query_class: "table_threshold",
       miss_reason: "answer_good_eval",
       top_files: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
@@ -110,12 +115,44 @@ describe("/api/eval-cases", () => {
       query_class: "table_threshold",
       source_chunk_ids_rejected: 1,
       cited_chunk_ids_rejected: 1,
+      answer: "",
+      raw_query_retained: false,
     });
+    expect(typeof (payload.metadata as Record<string, unknown>).query_hash).toBe("string");
+  });
+
+  it("retains raw query and answer when RAG_PERSIST_RAW_QUERY_TEXT is true", async () => {
+    const { client, insert } = createInsertMock();
+    vi.doMock("@/lib/env", () => mockEnv({ RAG_PERSIST_RAW_QUERY_TEXT: true }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const response = await POST(
+      request({
+        query: "What monitoring is needed for clozapine?",
+        rating: "good",
+        answer: "Monitor FBC.",
+        queryMode: "auto",
+        queryClass: "table_threshold",
+        sourceChunkIds: [],
+        citedChunkIds: [],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(payload).toMatchObject({ query: "What monitoring is needed for clozapine?" });
+    expect(payload.metadata).toMatchObject({ answer: "Monitor FBC.", raw_query_retained: true });
   });
 
   it("captures a needs-fixing answer without requiring expected UUID fields", async () => {
     const { client, insert } = createInsertMock();
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => mockEnv());
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},
@@ -147,7 +184,7 @@ describe("/api/eval-cases", () => {
 
   it("captures category-specific missed-answer feedback for eval promotion", async () => {
     const { client, insert } = createInsertMock();
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => mockEnv());
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},
@@ -180,14 +217,16 @@ describe("/api/eval-cases", () => {
     expect(payload.metadata).toMatchObject({
       rating: "needs_fixing",
       feedback_type: "numeric_error",
+      answer: "",
       source_governance_warnings: ["Source is review due."],
       unverified_numeric_tokens: ["15"],
+      raw_query_retained: false,
     });
   });
 
   it("nulls unowned expected document and chunk references", async () => {
     const { client, insert } = createInsertMock({ ownedDocumentIds: [], ownedChunks: { [unownedChunkId]: documentId } });
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => mockEnv());
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},
