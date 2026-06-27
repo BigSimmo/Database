@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { extractDocument } from "../src/lib/extractors/document";
+import type { ExtractedPage } from "../src/lib/types";
 
 const files = [
   ["synthetic-lithium-monitoring.pdf", "application/pdf"],
@@ -17,9 +18,9 @@ async function main() {
   for (const [fileName, mimeType] of files) {
     const buffer = await readFile(path.join(base, fileName));
     const extracted = await extractDocument({ buffer, fileName, mimeType });
-    const textLength = extracted.pages.reduce((sum, page) => sum + page.text.length, 0);
+    const textLength = extracted.pages.reduce((sum: number, page: ExtractedPage) => sum + page.text.length, 0);
     console.log(
-      `${fileName}: pages=${extracted.pages.length} images=${extracted.images.length} textChars=${textLength} ocrPages=${extracted.pages.filter((page) => page.ocrUsed).length}`,
+      `${fileName}: pages=${extracted.pages.length} images=${extracted.images.length} textChars=${textLength} ocrPages=${extracted.pages.filter((page: ExtractedPage) => page.ocrUsed).length}`,
     );
   }
 }

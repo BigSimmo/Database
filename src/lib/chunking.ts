@@ -151,7 +151,7 @@ function imageMatchScore(lookupText: string, sourceText: string) {
 }
 
 function dedupeChunkFingerprint(text: string) {
-  return normalizeLookupText(text).replace(/\s+/g, " ").trim();
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function clampChunkSize(value: number, minimum: number, maximum: number) {
@@ -454,12 +454,13 @@ export function buildChunks(inputs: ChunkInput[]) {
         .map((image) => image.id);
 
       const fingerprint = dedupeChunkFingerprint(content);
-      if (fingerprint && chunkFingerprint.has(fingerprint)) {
+      const pageScopedFingerprint = fingerprint ? `${input.pageNumber ?? "unknown"}:${fingerprint}` : "";
+      if (pageScopedFingerprint && chunkFingerprint.has(pageScopedFingerprint)) {
         return;
       }
 
-      if (fingerprint) {
-        chunkFingerprint.set(fingerprint, chunks.length);
+      if (pageScopedFingerprint) {
+        chunkFingerprint.set(pageScopedFingerprint, chunks.length);
       }
       chunks.push({
         document_id: input.documentId,
