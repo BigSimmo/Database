@@ -52,6 +52,7 @@ const appModeOptions: Array<{
   description: string;
   icon: typeof Search;
   href?: string;
+  devOnly?: boolean;
 }> = [
   {
     id: "answer",
@@ -71,6 +72,7 @@ const appModeOptions: Array<{
     description: "Medication checks and guidance",
     icon: Pill,
     href: "/mockups/medication-prescribing",
+    devOnly: true,
   },
   {
     id: "evidence",
@@ -78,6 +80,7 @@ const appModeOptions: Array<{
     description: "Tables, quotes, images, PDFs",
     icon: ListChecks,
     href: "/mockups/answer-evidence-popups",
+    devOnly: true,
   },
   {
     id: "favourites",
@@ -85,6 +88,7 @@ const appModeOptions: Array<{
     description: "Saved sources and workflows",
     icon: Heart,
     href: "/mockups/favourites-hub",
+    devOnly: true,
   },
   {
     id: "profile",
@@ -94,6 +98,9 @@ const appModeOptions: Array<{
     href: "/home",
   },
 ];
+
+const isDev = process.env.NODE_ENV === "development";
+const visibleAppModeOptions = appModeOptions.filter((mode) => !mode.devOnly || isDev);
 
 function splitFilterText(value: string) {
   return value
@@ -608,7 +615,7 @@ export function MasterSearchHeader({
                 aria-label="Choose app mode"
                 className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
               >
-                {appModeOptions.map((mode) => {
+                {visibleAppModeOptions.map((mode) => {
                   const Icon = mode.icon;
                   const active = mode.id === searchMode;
                   return (
