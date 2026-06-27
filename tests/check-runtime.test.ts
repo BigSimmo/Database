@@ -11,8 +11,8 @@ describe("runtime release gate", () => {
   });
 
   it("rejects older and newer major runtimes", () => {
-    expect(checkNodeRuntime("22.22.3")).toMatchObject({ ok: false });
-    expect(checkNodeRuntime("25.1.0")).toMatchObject({ ok: false });
+    expect(checkNodeRuntime("23.11.0")).toMatchObject({ ok: false });
+    expect(checkNodeRuntime("25.0.0")).toMatchObject({ ok: false });
   });
 
   it("reports unparsable runtime versions as failures", () => {
@@ -27,6 +27,6 @@ describe("runtime release gate", () => {
   });
 
   it("rejects newer npm majors for release verification", () => {
-    expect(checkNpmRuntime("npm/12.1.0 node/v24.15.0 win32 x64")).toMatchObject({ ok: false });
+    expect(checkNpmRuntime("npm/12.0.0 node/v24.15.0 win32 x64")).toMatchObject({ ok: false });
   });
 });
