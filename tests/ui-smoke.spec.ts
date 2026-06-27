@@ -989,7 +989,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    await page.getByRole("button", { name: "Answer from this" }).click();
+    await page.getByRole("button", { name: /^Answer from this(?: document)?$/ }).first().click();
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
@@ -1063,7 +1063,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("body")).toContainText(
       /Sign in to open private source documents\.|Document not found\.|Supabase browser authentication is not configured for private source documents\./,
     );
-    await expect(page.getByRole("button", { name: "Answer from this" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Answer from this(?: document)?$/ }).first()).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
