@@ -1796,9 +1796,9 @@ export function DocumentViewer({
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
-  const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !isConfigured);
+  const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
-  const clientDemoMode = localNoAuthMode || serverDemoMode;
+  const clientDemoMode = localNoAuthMode || serverDemoMode || !isConfigured;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
 
   useEffect(() => {
