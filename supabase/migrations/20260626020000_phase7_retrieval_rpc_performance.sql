@@ -221,6 +221,9 @@ as $$
   limit match_count;
 $$;
 
+revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) to service_role;
+
 create or replace function public.match_document_lookup_chunks_text(
   query_text text,
   document_filters uuid[],
