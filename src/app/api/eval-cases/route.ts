@@ -85,6 +85,36 @@ export async function POST(request: Request) {
     const sourceFiles = uniqueValues(parsed.data.sourceFiles);
     const rating = feedbackRating(parsed.data);
     const missReason = missReasonFor(parsed.data, rating);
+    // Caller-supplied expected_* FKs are UUID-validated and FK-checked for existence,
+    // but neither enforces ownership. Confirm they resolve to rows owned by the
+    // caller so eval data can't be attributed to another tenant's document/chunk.
+    let expectedDocumentId: string | null = null;
+    if (parsed.data.expectedDocumentId) {
+      const { data: ownedDoc } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("id", parsed.data.expectedDocumentId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      if (ownedDoc) expectedDocumentId = parsed.data.expectedDocumentId;
+    }
+    let expectedChunkId: string | null = null;
+    if (parsed.data.expectedChunkId) {
+      const { data: chunkRow } = await supabase
+        .from("document_chunks")
+        .select("document_id")
+        .eq("id", parsed.data.expectedChunkId)
+        .maybeSingle();
+      if (chunkRow?.document_id) {
+        const { data: ownedChunkDoc } = await supabase
+          .from("documents")
+          .select("id")
+          .eq("id", chunkRow.document_id)
+          .eq("owner_id", user.id)
+          .maybeSingle();
+        if (ownedChunkDoc) expectedChunkId = parsed.data.expectedChunkId;
+      }
+    }
     const { data, error } = await supabase
       .from("rag_query_misses")
       .insert({
@@ -99,8 +129,8 @@ export async function POST(request: Request) {
         top_chunk_ids: sourceChunkIds,
         cited_chunk_ids: citedChunkIds,
         miss_reason: missReason,
-        expected_document_id: parsed.data.expectedDocumentId ?? null,
-        expected_chunk_id: parsed.data.expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null,
+        expected_document_id: expectedDocumentId,
+        expected_chunk_id: expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null,
         candidate_aliases: normalizedClinicalSearchTokens(parsed.data.query).slice(0, 12),
         promoted_eval_case: true,
         promoted_at: new Date().toISOString(),

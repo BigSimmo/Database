@@ -158,4 +158,52 @@ describe("/api/eval-cases", () => {
       unverified_numeric_tokens: ["15"],
     });
   });
+
+  it("drops a caller-supplied expected_document_id the caller does not own", async () => {
+    const unownedDocumentId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const insert = vi.fn((payload: unknown) => ({
+      select: vi.fn(() => ({ single: vi.fn(async () => ({ data: { id: "capture-1" }, error: null })) })),
+      payload,
+    }));
+    // documents ownership lookup resolves to no owned row → unowned.
+    const documentsLookup = {
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => ({ maybeSingle: vi.fn(async () => ({ data: null, error: null })) })),
+        })),
+      })),
+    };
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === "documents") return documentsLookup;
+        if (table === "rag_query_misses") return { insert };
+        throw new Error(`unexpected table ${table}`);
+      }),
+    };
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false, env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const response = await POST(
+      request({
+        query: "Which document covers clozapine titration?",
+        rating: "needs_fixing",
+        expectedDocumentId: unownedDocumentId,
+        sourceChunkIds: [validChunkId],
+        citedChunkIds: [validChunkId],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    // Unowned expected_document_id is not attributed to this owner's eval row.
+    expect(payload.expected_document_id).toBeNull();
+    // expected_chunk_id still falls back to the caller's own cited chunk.
+    expect(payload.expected_chunk_id).toBe(validChunkId);
+  });
 });
