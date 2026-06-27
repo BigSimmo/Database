@@ -77,7 +77,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
             <button
               type="button"
               className="inline-grid h-11 min-w-[10.75rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] sm:min-w-[14rem]"
-              aria-haspopup="menu"
+              aria-haspopup="true"
               aria-expanded={expanded}
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
@@ -96,7 +96,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
 
             {expanded ? (
               <div
-                role="menu"
+                role="group"
                 className="absolute left-1/2 top-[calc(100%+0.5rem)] z-10 w-[min(21rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:translate-x-0"
               >
                 {modes.map((mode) => {
@@ -105,8 +105,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                     <button
                       key={mode.label}
                       type="button"
-                      role="menuitemradio"
-                      aria-checked={mode.active}
+                      aria-pressed={mode.active}
                       className={[
                         "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition",
                         mode.active
