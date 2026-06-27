@@ -52,7 +52,6 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 
 async function switchToDocumentSearchMode(page: Page) {
   const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
-  if (await legacyDocumentsMode.isVisible().catch(() => false)) {
   if (await isVisibleWithoutThrow(legacyDocumentsMode)) {
     await expect(legacyDocumentsMode).toBeEnabled();
     await expect(async () => {
@@ -62,20 +61,6 @@ async function switchToDocumentSearchMode(page: Page) {
     return;
   }
 
-  const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
-  await expect(appModeMenu).toBeVisible();
-  await expect(appModeMenu).toBeEnabled();
-
-  await expect(async () => {
-    await appModeMenu.click({ force: true });
-    await expect(appModeMenu).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
-    const documentsMode = page
-      .locator('[role="menuitemradio"]')
-      .filter({ hasText: /^Documents/ })
-      .first();
-    await expect(documentsMode).toBeVisible({ timeout: 3_000 });
-    await documentsMode.click({ force: true });
-    await expect(page.getByRole("button", { name: "Current app mode: Documents" })).toBeVisible({ timeout: 2_000 });
   const appModeMenu = page.getByRole("button", { name: /^Current app mode:/ });
   if (!(await isVisibleWithoutThrow(appModeMenu))) {
     throw new Error(
