@@ -38,7 +38,6 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import {
   DocumentActionAnchor,
   DocumentActionButton,
-  DocumentBadge,
   DocumentFileTile,
   DocumentMetaRow,
   documentFileKind,
@@ -1621,6 +1620,12 @@ function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
   );
 }
 
+function usefulDocumentPages(initialPage: number, pages: PageRow[]) {
+  return Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
+    .filter((page) => Number.isFinite(page))
+    .slice(0, 3);
+}
+
 function DocumentOverviewLanding({
   document,
   initialPage,
@@ -1639,9 +1644,7 @@ function DocumentOverviewLanding({
   canSummarizeDocument: boolean;
 }) {
   const keySections = documentKeySections(document);
-  const usefulPages = Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
-    .filter((page) => Number.isFinite(page))
-    .slice(0, 3);
+  const usefulPages = usefulDocumentPages(initialPage, pages);
   const documentType = compactDocumentType(document);
 
   return (
@@ -2099,6 +2102,7 @@ export function DocumentViewer({
         ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
   );
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
+  const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
     const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
@@ -2505,9 +2509,7 @@ export function DocumentViewer({
               </div>
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
                 <dt>Useful pages</dt>
-                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
-                  {pages.length ? Math.min(pages.length, 3) : 1}
-                </dd>
+                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">{usefulPageCount}</dd>
               </div>
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
                 <dt>Text sections</dt>

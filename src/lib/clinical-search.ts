@@ -735,14 +735,8 @@ export function classifyQueryIntent(query: string): IntentSignals {
   };
 }
 
-const clinicalQueryAnalysisCache = new Map<string, ClinicalQueryAnalysis>();
-const clinicalQueryAnalysisCacheLimit = 32;
-
 export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   const originalQuery = query.trim();
-  const cached = clinicalQueryAnalysisCache.get(originalQuery);
-  if (cached) return { ...cached };
-
   const normalizedQuery = normalizeAnalysisText(originalQuery);
   const corrected = correctedTokens(originalQuery);
   const corrections = tokens(originalQuery)
@@ -837,11 +831,6 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     needsClassifierFallback: confidence < 0.58 && queryClass === "unsupported_or_general",
   };
 
-  clinicalQueryAnalysisCache.set(originalQuery, analysis);
-  if (clinicalQueryAnalysisCache.size > clinicalQueryAnalysisCacheLimit) {
-    const oldestKey = clinicalQueryAnalysisCache.keys().next().value;
-    if (oldestKey !== undefined) clinicalQueryAnalysisCache.delete(oldestKey);
-  }
   return { ...analysis };
 }
 

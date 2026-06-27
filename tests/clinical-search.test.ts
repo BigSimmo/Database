@@ -113,6 +113,15 @@ describe("clinical search query normalization", () => {
     expect(buildClinicalTextSearchQuery("clozapin agitaton arousl")).toBe("clozapine agitation arousal");
   });
 
+  it("does not retain mutable query analysis across calls", () => {
+    const first = analyzeClinicalQuery("What ANC threshold should stop clozapine?");
+    first.queryClass = "comparison";
+
+    const second = analyzeClinicalQuery("What ANC threshold should stop clozapine?");
+
+    expect(second.queryClass).toBe("table_threshold");
+  });
+
   it("falls back to the original query when only one useful token remains", () => {
     expect(buildClinicalTextSearchQuery("What are NOCC requirements?")).toBe("nocc");
   });
