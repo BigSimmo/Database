@@ -261,7 +261,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(appModeMenu).toBeVisible();
         await appModeMenu.click({ force: true });
         const answerMode = page
-          .locator('[role="menuitemradio"]')
+          .locator('[aria-pressed]')
           .filter({ hasText: /^Answer/ })
           .first();
         await expect(answerMode).toBeVisible();
