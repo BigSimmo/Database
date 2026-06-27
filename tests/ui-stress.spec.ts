@@ -261,9 +261,8 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(appModeMenu).toBeVisible();
         await appModeMenu.click({ force: true });
         const answerMode = page
-          .locator('[aria-pressed]')
-          .filter({ hasText: /^Answer/ })
-          .first();
+          .getByRole("group", { name: "Choose app mode" })
+          .getByRole("button", { name: /^Answer/ });
         await expect(answerMode).toBeVisible();
         await answerMode.click({ force: true });
         await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
