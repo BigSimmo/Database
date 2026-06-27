@@ -1798,7 +1798,7 @@ export function DocumentViewer({
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
-  const clientDemoMode = localNoAuthMode || serverDemoMode || !isConfigured;
+  const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
 
   useEffect(() => {
