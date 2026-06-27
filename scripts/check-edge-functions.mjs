@@ -1,17 +1,23 @@
 import { spawnSync } from "node:child_process";
 
 const args = ["check", "--node-modules-dir=false", "supabase/functions/indexing-v3-agent/index.ts"];
-const deno = spawnSync("deno", ["--version"], { stdio: "ignore" });
-const hasDeno = deno.status === 0;
+const deno = spawnSync("deno", ["--version"], { encoding: "utf8" });
+const denoVersionLine = deno.stdout?.split("\n")[0]?.trim() ?? "";
+const denoVersionMatch = denoVersionLine.match(/^deno\s+(\d+)\./);
+const denoMajor = denoVersionMatch ? Number(denoVersionMatch[1]) : null;
+const hasDeno = deno.status === 0 && denoMajor !== null && denoMajor >= 2;
 
 if (!hasDeno) {
+  const found = deno.status === 0 ? (denoVersionLine || "unknown version") : "not installed";
   if (process.env.CI) {
-    console.error("[check:edge:functions] Deno v2.x is required in CI. Install Deno and rerun this check.");
+    console.error(
+      `[check:edge:functions] Deno v2.x is required in CI (found: ${found}). Install Deno and rerun this check.`,
+    );
     process.exit(1);
   }
 
   console.warn(
-    "[check:edge:functions] Deno v2.x is not installed locally; skipping edge function type check. Install Deno to run this check locally.",
+    `[check:edge:functions] Deno v2.x is required to run this check locally (found: ${found}); skipping edge function type check. Install Deno v2.x to run this check locally.`,
   );
   process.exit(0);
 }
