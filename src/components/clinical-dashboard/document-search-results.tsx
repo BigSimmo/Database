@@ -5,11 +5,8 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   ChevronDown,
-  Clock,
-  ExternalLink,
   FileText,
   Filter,
-  FolderOpen,
   ListChecks,
   ShieldAlert,
   SlidersHorizontal,
@@ -257,36 +254,10 @@ function documentOpenHref(document: DocumentMatch) {
   return `/documents/${document.document_id}?${params.toString()}`;
 }
 
-const startRows = [
-  {
-    title: "Recent documents",
-    icon: Clock,
-    query: "recent documents",
-  },
-  {
-    title: "Browse library",
-    icon: FolderOpen,
-    query: "clinical guideline",
-  },
-  {
-    title: "Open a source PDF",
-    icon: ExternalLink,
-    query: "PDF",
-  },
-] as const;
-
-function DocumentSearchHome({
-  documentCount,
-  onSuggestedSearch,
-}: {
-  documentCount: number;
-  onSuggestedSearch: (query: string) => void;
-}) {
-  const suggestedSearches = ["lithium", "clozapine", "ECT pathway", "monitoring"];
-
+function DocumentSearchHome({ documentCount }: { documentCount: number }) {
   return (
-    <div className="mx-auto grid min-h-[calc(100dvh-210px)] w-full min-w-0 max-w-[44rem] content-start gap-5 px-3 pb-36 pt-6 sm:min-h-[calc(100dvh-230px)] sm:gap-5 sm:px-0 sm:pb-40 sm:pt-10 lg:pb-32">
-      <section data-testid="document-home-overview" className="min-w-0 text-center">
+    <div className="mx-auto grid min-h-[calc(100dvh-210px)] w-full min-w-0 max-w-[34rem] place-items-start px-3 pb-36 pt-10 sm:min-h-[calc(100dvh-230px)] sm:px-0 sm:pb-40 sm:pt-16 lg:pb-32">
+      <section data-testid="document-search-empty-state" className="min-w-0 justify-self-center text-center">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-[1.15rem] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-[4.5rem] sm:w-[4.5rem] sm:rounded-[1.25rem]">
           <FileText className="h-8 w-8" />
         </span>
@@ -296,61 +267,12 @@ function DocumentSearchHome({
         <p className={cn("mx-auto mt-2 max-w-[34rem] text-base leading-6 sm:leading-7", textMuted)}>
           Find guidelines, policies, forms, and source PDFs.
         </p>
-        <button
-          type="button"
-          onClick={() => onSuggestedSearch("Lithium monitoring guideline")}
-          className={cn(
-            metadataPill,
-            "mx-auto mt-3 w-full min-w-0 max-w-[calc(100vw-3rem)] justify-start gap-2 overflow-hidden rounded-lg px-3 text-sm font-semibold text-[color:var(--text-muted)] sm:mt-5 sm:w-fit sm:max-w-full",
-          )}
-        >
-          <Clock className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-          <span className="shrink-0 text-[color:var(--clinical-chat-teal)]">Resume</span>
-          <span className="min-w-0 truncate">Lithium monitoring guideline</span>
-        </button>
-        {documentCount > 0 ? <span className="sr-only">{documentCount.toLocaleString()} documents indexed</span> : null}
-      </section>
-
-      <section data-testid="document-home-recent-sources" className="grid gap-3" aria-label="Document shortcuts">
-        {startRows.map((row) => {
-          const Icon = row.icon;
-          return (
-            <button
-              key={row.title}
-              type="button"
-              onClick={() => onSuggestedSearch(row.query)}
-              className={cn(
-                panelSubtle,
-                "grid min-h-[76px] w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-xl px-4 text-left shadow-[0_8px_24px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] sm:min-h-[76px] sm:px-5",
-              )}
-            >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-                <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-lg font-semibold text-[color:var(--text-heading)]">
-                  {row.title}
-                </span>
-              </span>
-              <ChevronDown className="h-6 w-6 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          );
-        })}
-      </section>
-
-      <section aria-label="Suggested searches" className="pt-1">
-        <p className={cn("mb-3 text-base font-medium", textMuted)}>Suggested</p>
-        <div className="flex min-w-0 flex-wrap gap-3">
-          {suggestedSearches.map((search) => (
-            <button
-              key={search}
-              type="button"
-              onClick={() => onSuggestedSearch(search)}
-              className="inline-flex min-h-11 max-w-full items-center justify-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-5 text-base font-medium text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              {search}
-            </button>
-          ))}
+        <div className="mt-4 flex min-w-0 flex-wrap justify-center gap-2">
+          <DocumentBadge variant="neutral" icon={FileText} className="min-h-8 rounded-lg px-3 text-xs">
+            {documentCount > 0
+              ? `${documentCount.toLocaleString()} source${documentCount === 1 ? "" : "s"} indexed`
+              : "No indexed sources"}
+          </DocumentBadge>
         </div>
       </section>
     </div>
@@ -436,8 +358,6 @@ export function DocumentSearchResultsPanel({
   apiUnavailable,
   setupWarning,
   facets: _facets,
-  onQueryChange,
-  onSearch,
   onScopeDocument,
   onAnswerFromDocument,
   onTagSearch,
@@ -451,8 +371,6 @@ export function DocumentSearchResultsPanel({
   apiUnavailable: boolean;
   setupWarning: string | null;
   facets?: SearchFacets | null;
-  onQueryChange: (query: string) => void;
-  onSearch: () => void;
   onScopeDocument: (documentId: string) => void;
   onAnswerFromDocument: (documentId: string) => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
@@ -503,10 +421,6 @@ export function DocumentSearchResultsPanel({
         : trimmedQuery
           ? "No matching documents"
           : `${documentCount} document${documentCount === 1 ? "" : "s"}`;
-  const runSuggestedSearch = (nextQuery: string) => {
-    onQueryChange(nextQuery);
-    window.setTimeout(() => onSearch(), 0);
-  };
 
   return (
     <div data-testid="document-search-workspace" className="space-y-3">
@@ -542,7 +456,7 @@ export function DocumentSearchResultsPanel({
             </div>
           </div>
         ) : (
-          <DocumentSearchHome documentCount={documentCount} onSuggestedSearch={runSuggestedSearch} />
+          <DocumentSearchHome documentCount={documentCount} />
         )
       ) : (
         <>

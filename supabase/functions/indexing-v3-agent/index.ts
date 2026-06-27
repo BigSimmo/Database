@@ -1834,7 +1834,11 @@ async function needsVisualArtifacts(job: ClaimedJob): Promise<boolean> {
         from public.document_index_units
         where document_id = ${job.document_id}::uuid
           and source_image_id is not null
-          and metadata->>'generated_by' = ${GENERATED_BY}
+          and (
+            metadata->>'generated_by' = ${GENERATED_BY}
+            or metadata->>'generated_by' = 'local-worker'
+            or metadata->>'source' = 'visual_intelligence'
+          )
       ) as generated_visual_units
   `;
   const row = rows[0] ?? { eligible_images: 0, generated_visual_units: 0 };

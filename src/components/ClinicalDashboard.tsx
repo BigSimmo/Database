@@ -6821,8 +6821,6 @@ export function ClinicalDashboard() {
                     apiUnavailable={apiUnavailable}
                     setupWarning={setupWarning}
                     facets={searchFacets}
-                    onQueryChange={setQuery}
-                    onSearch={ask}
                     onScopeDocument={scopeOnlyDocument}
                     onAnswerFromDocument={answerFromDocument}
                     onTagSearch={handleTagSearch}

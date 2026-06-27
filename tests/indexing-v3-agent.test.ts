@@ -154,6 +154,17 @@ describe("indexing-v3-agent behavior", () => {
     expect(currentQuality.needs_quality_promotion).toBe(false);
   });
 
+  it("documents that local worker visual units satisfy visual artifact capture", async () => {
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+
+    expect(edgeSource).toContain("metadata->>'generated_by' = 'local-worker'");
+    expect(edgeSource).toContain("metadata->>'source' = 'visual_intelligence'");
+  });
+
   it("normalizes metadata counters for repeated idempotent runs", () => {
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "4" }, "indexing_v3_agent_deferral_count")).toBe(4);
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "bad" }, "indexing_v3_agent_deferral_count")).toBe(0);
