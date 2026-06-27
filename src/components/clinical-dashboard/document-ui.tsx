@@ -92,7 +92,7 @@ export function DocumentMetaRow({
   items: Array<ReactNode | false | null | undefined>;
   className?: string;
 }) {
-  const visibleItems = items.filter(Boolean);
+  const visibleItems = items.filter((item) => item !== false && item !== null && item !== undefined && item !== "");
   if (visibleItems.length === 0) return null;
 
   return (
