@@ -863,7 +863,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "1 document" })).toBeVisible();
     await expect(page.getByText("1 table").first()).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toContainText("Best match");
-    await expect(page.getByTestId("document-search-workspace")).toContainText("High relevance");
+    await expect(page.getByTestId("document-search-workspace")).toContainText("Relevant");
     await expect(page.getByRole("button", { name: "Lithium", exact: true })).toBeVisible();
     await expect(page.getByText("Tag facets")).toHaveCount(0);
     await expect(page.getByTestId("document-search-workspace")).not.toContainText(
