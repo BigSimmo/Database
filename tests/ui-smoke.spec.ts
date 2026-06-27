@@ -47,13 +47,34 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 }
 
 async function switchToDocumentSearchMode(page: Page) {
-  const documentsMode = page.getByRole("button", { name: "Switch to document search mode" });
-  await expect(documentsMode).toBeVisible();
-  await expect(documentsMode).toBeEnabled();
+  const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
+  if (await legacyDocumentsMode.isVisible().catch(() => false)) {
+    await expect(legacyDocumentsMode).toBeEnabled();
+    await expect(async () => {
+      await legacyDocumentsMode.click();
+      await expect(legacyDocumentsMode).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 8_000 });
+    return;
+  }
+
+  const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
+  if (!(await appModeMenu.isVisible().catch(() => false))) {
+    throw new Error(
+      "Could not switch to document search mode: neither the legacy mode toggle nor the app mode menu is visible.",
+    );
+  }
+  await expect(appModeMenu).toBeEnabled();
 
   await expect(async () => {
-    await documentsMode.click();
-    await expect(documentsMode).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+    await appModeMenu.click({ force: true });
+    await expect(appModeMenu).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
+    const documentsMode = page
+      .locator('[role="menuitemradio"]')
+      .filter({ hasText: /^Documents/ })
+      .first();
+    await expect(documentsMode).toBeVisible({ timeout: 3_000 });
+    await documentsMode.click({ force: true });
+    await expect(page.getByRole("button", { name: "Current app mode: Documents" })).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 8_000 });
 }
 
