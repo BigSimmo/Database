@@ -13,7 +13,6 @@ import {
   Sparkles,
   Star,
   Tag,
-  Search,
   Target,
   TrendingUp,
   X,
