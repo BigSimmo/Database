@@ -29,6 +29,10 @@ function visibleQuestionInput(page: Page) {
   return page.locator('[aria-label="Search indexed guidelines by question or keyword"]:visible').first();
 }
 
+async function isVisibleSafely(locator: Locator) {
+  return locator.isVisible().catch(() => false);
+}
+
 async function fillVisibleQuestionInput(page: Page, value: string) {
   const questionInput = visibleQuestionInput(page);
   const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
@@ -48,7 +52,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
 
 async function switchToDocumentSearchMode(page: Page) {
   const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
-  if (await legacyDocumentsMode.isVisible().catch(() => false)) {
+  if (await isVisibleSafely(legacyDocumentsMode)) {
     await expect(legacyDocumentsMode).toBeEnabled();
     await expect(async () => {
       await legacyDocumentsMode.click();
@@ -58,7 +62,7 @@ async function switchToDocumentSearchMode(page: Page) {
   }
 
   const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
-  if (!(await appModeMenu.isVisible().catch(() => false))) {
+  if (!(await isVisibleSafely(appModeMenu))) {
     throw new Error(
       "Could not switch to document search mode: neither the legacy mode toggle nor the app mode menu is visible.",
     );
