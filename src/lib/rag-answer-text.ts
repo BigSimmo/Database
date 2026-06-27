@@ -8,6 +8,12 @@ const likelyFragmentPhrases =
   /\b(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)\b/i;
 const answerSectionArtifactPattern =
   /"?(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"?\s*:\s*/i;
+// Mid-text truncation must only fire on a genuine leaked JSON key — i.e. a
+// double-quoted key followed by a colon ("confidence":). A bare English word +
+// colon ("...document the confidence: high...") is legitimate clinical prose and
+// must NOT cause the rest of the answer/section to be sliced away.
+const leakedJsonKeyPattern =
+  /"(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"\s*:/i;
 
 export function normalizeSectionText(value: string) {
   return value.trim().replace(/\s+/g, " ");
@@ -88,11 +94,15 @@ export function sanitizeStructuredText(
   const normalized = normalizeSectionText(sourceTextForClinicalProse(value));
   if (!normalized) return "";
 
+  // A leaked key at the very start is stripped (lenient: it is clearly an
+  // artifact prefix). Mid-text, only truncate at a genuine quoted JSON key so we
+  // never cut real prose at an ordinary word like "confidence:" or "body:".
+  const leakedKeyIndex = normalized.search(leakedJsonKeyPattern);
   const trimmed =
     normalized.search(answerSectionArtifactPattern) === 0
       ? normalized.replace(answerSectionArtifactPattern, "").trim()
-      : normalized.search(answerSectionArtifactPattern) > 0
-        ? normalized.slice(0, normalized.search(answerSectionArtifactPattern)).trim()
+      : leakedKeyIndex > 0
+        ? normalized.slice(0, leakedKeyIndex).trim()
         : normalized;
 
   const finalText = keepLeading ? trimmed : trimmed.trim();

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
-import { isDemoMode } from "@/lib/env";
+import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { searchScopeFiltersSchema } from "@/lib/search-scope";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -88,7 +89,10 @@ export async function POST(request: Request) {
       .from("rag_query_misses")
       .insert({
         owner_id: user.id,
-        query: parsed.data.query,
+        // Raw clinical queries are potential PHI: store the normalized form unless
+        // raw retention is explicitly enabled (RET-H4), matching every other
+        // rag_query_misses / rag_queries writer.
+        query: queryTextForStorage(parsed.data.query),
         normalized_query: normalizedQuery,
         query_class: parsed.data.queryClass ?? parsed.data.queryMode,
         top_files: sourceFiles,
@@ -101,11 +105,14 @@ export async function POST(request: Request) {
         promoted_eval_case: true,
         promoted_at: new Date().toISOString(),
         metadata: {
+          ...queryPrivacyMetadata(parsed.data.query),
           interaction: "answer_eval_capture",
           rating,
           feedback_type: parsed.data.feedbackType ?? null,
-          note: parsed.data.note,
-          answer: parsed.data.answer,
+          // Verbatim clinical note/answer are the larger PHI surface; only retain
+          // them when raw retention is explicitly enabled (RET-H4).
+          note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.note : "",
+          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.answer : "",
           query_class: parsed.data.queryClass ?? null,
           query_mode: parsed.data.queryMode,
           filters: parsed.data.filters ?? {},

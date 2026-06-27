@@ -37,7 +37,7 @@ afterEach(() => {
 describe("/api/eval-cases", () => {
   it("captures a good answer as a promoted eval case and filters malformed chunk ids", async () => {
     const { client, insert } = createInsertMock();
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false, env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},
@@ -63,6 +63,9 @@ describe("/api/eval-cases", () => {
     expect(response.status).toBe(201);
     expect(payload).toMatchObject({
       owner_id: userId,
+      // PHI control (RET-H4): with raw retention OFF the verbatim query is NOT
+      // stored — only the normalized form.
+      query: "what monitoring is needed for clozapine?",
       query_class: "table_threshold",
       miss_reason: "answer_good_eval",
       top_files: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
@@ -77,12 +80,16 @@ describe("/api/eval-cases", () => {
       query_class: "table_threshold",
       source_chunk_ids_rejected: 1,
       cited_chunk_ids_rejected: 1,
+      // Privacy metadata folded in; verbatim answer dropped when retention is off.
+      raw_query_retained: false,
+      query_hash: expect.any(String),
+      answer: "",
     });
   });
 
   it("captures a needs-fixing answer without requiring expected UUID fields", async () => {
     const { client, insert } = createInsertMock();
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false, env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},
@@ -114,7 +121,7 @@ describe("/api/eval-cases", () => {
 
   it("captures category-specific missed-answer feedback for eval promotion", async () => {
     const { client, insert } = createInsertMock();
-    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false, env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: class AuthenticationError extends Error {},

@@ -297,14 +297,18 @@ export function selectBestSourceRecommendation(
   const directQuote = quoteCards.find((quote) => quote.chunk_id === best.id);
   const documentQuote = quoteCards.find((quote) => quote.document_id === best.document_id);
   const quote = directQuote?.quote ?? documentQuote?.quote;
-  const snippet = quote ?? normalizeText(best.content).slice(0, 260).trim();
+  // Track truncation by the pre-slice length rather than guessing from the
+  // post-trim snippet length (=== 260 dropped the ellipsis when trim shortened a
+  // truncated slice, and appended a spurious "..." to a complete 260-char quote).
+  const fullContent = normalizeText(best.content).trim();
+  const snippet = quote ?? (fullContent.length > 260 ? `${fullContent.slice(0, 257).trimEnd()}...` : fullContent);
   const citation = citationFromResult(best);
 
   return {
     ...citation,
     source_strength: best.source_strength ?? sourceStrengthForSimilarity(best.similarity),
     score: best.hybrid_score ?? best.similarity,
-    snippet: snippet.length === 260 ? `${snippet.slice(0, 257).trim()}...` : snippet,
+    snippet,
     quote,
     section_heading: best.section_heading,
     image_count: (best.images ?? []).filter((image) => isClinicalImageEvidence(image)).length,
