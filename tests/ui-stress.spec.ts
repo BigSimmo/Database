@@ -258,16 +258,15 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await legacyAnswerModeToggle.click();
       } else {
         const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
-        if (await appModeMenu.isVisible().catch(() => false)) {
-          await appModeMenu.click({ force: true });
-          const answerMode = page
-            .locator('[role="menuitemradio"]')
-            .filter({ hasText: /^Answer/ })
-            .first();
-          await expect(answerMode).toBeVisible();
-          await answerMode.click({ force: true });
-          await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
-        }
+        await expect(appModeMenu).toBeVisible();
+        await appModeMenu.click({ force: true });
+        const answerMode = page
+          .locator('[role="menuitemradio"]')
+          .filter({ hasText: /^Answer/ })
+          .first();
+        await expect(answerMode).toBeVisible();
+        await answerMode.click({ force: true });
+        await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
       }
       await page
         .locator('[aria-label="Search indexed guidelines by question or keyword"]:visible')
