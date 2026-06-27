@@ -320,6 +320,7 @@ function visualUnit(args: {
     extraction_mode: args.profile.confidence >= 0.65 ? "hybrid" : "deterministic",
     metadata: {
       source: "visual_intelligence",
+      generated_by: "local-worker",
       visual_intelligence_version: visualIntelligenceVersion,
       image_type: args.image.imageType ?? null,
       source_kind: args.image.sourceKind ?? null,

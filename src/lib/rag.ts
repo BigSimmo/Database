@@ -2472,6 +2472,8 @@ async function searchIndexUnitCandidates(args: {
   return loadChunksForSignalMatches({ supabase: args.supabase, matches, ownerId: args.ownerId });
 }
 
+type MemoryCardCache = Map<string, ReturnType<typeof fetchMemoryCardsForQuery>>;
+
 async function withMemoryBoostedCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2480,15 +2482,26 @@ async function withMemoryBoostedCandidates(args: {
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
+  cardCache?: MemoryCardCache;
 }) {
-  const cards = await fetchMemoryCardsForQuery({
-    supabase: args.supabase,
-    query: args.query,
-    queryEmbedding: args.queryEmbedding,
-    ownerId: args.ownerId,
-    documentIds: args.documentIds,
-    matchCount: Math.max(args.matchCount, 48),
-  });
+  // A3: the memory-card fetch is invoked at several waterfall stages for the same query/owner.
+  // Memoize per request, keyed by the inputs that actually vary within a request — the query,
+  // whether an embedding is supplied (embedding vs text-only fetches differ), and the count.
+  const effectiveMatchCount = Math.max(args.matchCount, 48);
+  const cacheKey = `${args.query}\0${args.queryEmbedding?.length ? "vec" : "text"}\0${effectiveMatchCount}`;
+  let cardsPromise = args.cardCache?.get(cacheKey);
+  if (!cardsPromise) {
+    cardsPromise = fetchMemoryCardsForQuery({
+      supabase: args.supabase,
+      query: args.query,
+      queryEmbedding: args.queryEmbedding,
+      ownerId: args.ownerId,
+      documentIds: args.documentIds,
+      matchCount: effectiveMatchCount,
+    });
+    args.cardCache?.set(cacheKey, cardsPromise);
+  }
+  const cards = await cardsPromise;
   if (cards.length === 0) return { results: args.candidates, cards };
 
   const memoryChunkResults = await loadChunksForMemoryCards(args.supabase, cards, args.ownerId);
@@ -3646,6 +3659,9 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
   const supabase = createAdminClient();
+  // A3: shared across every withMemoryBoostedCandidates call in this request so the same
+  // owner/query memory cards are fetched at most once per (query, embedding-present, count).
+  const memoryCardCache: MemoryCardCache = new Map();
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery));
@@ -3794,6 +3810,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       ownerId: args.ownerId,
       documentIds: documentFilterList,
       matchCount: candidateCount,
+      cardCache: memoryCardCache,
     });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
@@ -3886,6 +3903,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         ownerId: args.ownerId,
         documentIds: documentFilterList,
         matchCount: candidateCount,
+        cardCache: memoryCardCache,
       });
       telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
       telemetry.memory_top_score = Math.max(
@@ -3966,37 +3984,63 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     latencyMs: telemetry.embedding_latency_ms,
   });
 
-  const embeddingFieldStartedAt = Date.now();
-  const embeddingFieldCandidates = await searchEmbeddingFieldCandidates({
-    supabase,
-    query: args.query,
-    queryEmbedding: embedding,
-    ownerId: args.ownerId,
-    documentIds: documentFilterList,
-    matchCount: Math.min(candidateCount, 48),
-  });
+  // A1: the embedding-field, index-unit, and chunk-hybrid RPCs each depend only on the
+  // already-computed query embedding and have no data dependency on one another, so run
+  // them concurrently instead of as three sequential Supabase round-trips. The two helper
+  // functions swallow their own RPC errors and resolve to [], so Promise.all cannot reject.
+  const parallelRpcStartedAt = Date.now();
+  const [embeddingFieldResult, indexUnitResult, hybridResult] = await Promise.all([
+    (async () => {
+      const startedAt = Date.now();
+      const candidates = await searchEmbeddingFieldCandidates({
+        supabase,
+        query: args.query,
+        queryEmbedding: embedding,
+        ownerId: args.ownerId,
+        documentIds: documentFilterList,
+        matchCount: Math.min(candidateCount, 48),
+      });
+      return { candidates, latencyMs: Date.now() - startedAt };
+    })(),
+    (async () => {
+      const startedAt = Date.now();
+      const candidates = await searchIndexUnitCandidates({
+        supabase,
+        query: args.query,
+        queryEmbedding: embedding,
+        ownerId: args.ownerId,
+        documentIds: documentFilterList,
+        matchCount: Math.min(candidateCount, 64),
+      });
+      return { candidates, latencyMs: Date.now() - startedAt };
+    })(),
+    (async () => {
+      const startedAt = Date.now();
+      const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
+        query_embedding: embedding,
+        query_text: textSearchQuery,
+        match_count: candidateCount,
+        min_similarity: minSimilarity,
+        document_filters: documentFilterList ?? null,
+        owner_filter: args.ownerId ?? null,
+      });
+      return { data, error, latencyMs: Date.now() - startedAt };
+    })(),
+  ]);
+  // The three calls overlap, so charge wall-clock once rather than summing per-call latencies.
+  telemetry.supabase_rpc_latency_ms += Date.now() - parallelRpcStartedAt;
+
+  const embeddingFieldCandidates = embeddingFieldResult.candidates;
   telemetry.embedding_field_count = embeddingFieldCandidates.length;
-  const embeddingFieldLatencyMs = Date.now() - embeddingFieldStartedAt;
-  telemetry.supabase_rpc_latency_ms += embeddingFieldLatencyMs;
   recordRetrievalLayer(telemetry, "embedding_fields", embeddingFieldCandidates.length, {
-    latencyMs: embeddingFieldLatencyMs,
+    latencyMs: embeddingFieldResult.latencyMs,
     topScore: layerTopScore(embeddingFieldCandidates),
   });
   if (embeddingFieldCandidates.length > 0) {
     textFastResults = mergeSearchResults(embeddingFieldCandidates, textFastResults);
   }
 
-  const indexUnitStartedAt = Date.now();
-  const indexUnitCandidates = await searchIndexUnitCandidates({
-    supabase,
-    query: args.query,
-    queryEmbedding: embedding,
-    ownerId: args.ownerId,
-    documentIds: documentFilterList,
-    matchCount: Math.min(candidateCount, 64),
-  });
-  const indexUnitLatencyMs = Date.now() - indexUnitStartedAt;
-  telemetry.supabase_rpc_latency_ms += indexUnitLatencyMs;
+  const indexUnitCandidates = indexUnitResult.candidates;
   telemetry.index_unit_count = indexUnitCandidates.length;
   telemetry.index_unit_top_score = Number(
     Math.max(0, ...indexUnitCandidates.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4),
@@ -4005,24 +4049,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     textFastResults = mergeSearchResults(indexUnitCandidates, textFastResults);
   }
   recordRetrievalLayer(telemetry, "index_units", indexUnitCandidates.length, {
-    latencyMs: indexUnitLatencyMs,
+    latencyMs: indexUnitResult.latencyMs,
     topScore: telemetry.index_unit_top_score,
   });
 
-  const hybridRpcStartedAt = Date.now();
-  const { data: hybridData, error: hybridError } = await supabase.rpc("match_document_chunks_hybrid", {
-    query_embedding: embedding,
-    query_text: textSearchQuery,
-    match_count: candidateCount,
-    min_similarity: minSimilarity,
-    document_filters: documentFilterList ?? null,
-    owner_filter: args.ownerId ?? null,
-  });
-  const hybridLatencyMs = Date.now() - hybridRpcStartedAt;
-  telemetry.supabase_rpc_latency_ms += hybridLatencyMs;
+  const { data: hybridData, error: hybridError } = hybridResult;
   telemetry.vector_candidate_count = hybridData?.length ?? 0;
   recordRetrievalLayer(telemetry, "hybrid_vector", hybridData?.length ?? 0, {
-    latencyMs: hybridLatencyMs,
+    latencyMs: hybridResult.latencyMs,
     topScore: layerTopScore((hybridData ?? []) as SearchResult[]),
   });
 
@@ -4038,6 +4072,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       ownerId: args.ownerId,
       documentIds: documentFilterList,
       matchCount: candidateCount,
+      cardCache: memoryCardCache,
     });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
@@ -4108,6 +4143,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     ownerId: args.ownerId,
     documentIds: documentFilterList,
     matchCount: candidateCount,
+    cardCache: memoryCardCache,
   });
   telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
   telemetry.memory_top_score = Math.max(

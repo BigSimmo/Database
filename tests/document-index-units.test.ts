@@ -141,6 +141,7 @@ describe("document index units", () => {
       "visual-intelligence-v1",
     );
     expect(units.find((unit) => unit.unit_type === "risk_matrix_cell")?.metadata).toMatchObject({
+      generated_by: "local-worker",
       source_image_id: "image-1",
       page_number: 5,
     });

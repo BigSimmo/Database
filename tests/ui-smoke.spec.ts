@@ -846,11 +846,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(visibleQuestionInput(page)).toBeVisible();
-    await expect(page.getByTestId("document-home-overview")).toBeVisible();
-    await expect(page.getByRole("button", { name: /Resume Lithium monitoring guideline/i })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Document shortcuts" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Suggested searches" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "monitoring", exact: true })).toBeVisible();
+    await expect(page.getByTestId("document-search-empty-state")).toBeVisible();
+    await expect(page.getByText(`${demoDocuments.length} sources indexed`)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Resume Lithium monitoring guideline/i })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Document shortcuts" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Suggested searches" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "monitoring", exact: true })).toHaveCount(0);
     await expect(page.getByText("Source library workspace")).toHaveCount(0);
     await expect(page.getByText("Document display")).toHaveCount(0);
 
@@ -863,6 +864,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("1 table").first()).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toContainText("Best match");
     await expect(page.getByTestId("document-search-workspace")).toContainText("High relevance");
+    await expect(page.getByRole("button", { name: "Lithium", exact: true })).toBeVisible();
     await expect(page.getByText("Tag facets")).toHaveCount(0);
     await expect(page.getByTestId("document-search-workspace")).not.toContainText(
       /No direct support|Partial support|source support|direct support/i,

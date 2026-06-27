@@ -3159,3 +3159,19 @@ create policy "document index units owner read" on public.document_index_units
   for select to authenticated using (
     exists (select 1 from public.documents d where d.id = document_id and d.owner_id = (select auth.uid()))
   );
+
+-- A2: raise pgvector HNSW ef_search on the vector retrieval functions so the index explores
+-- enough candidates to fill their up-to-128-row fetch (pgvector default ef_search is 40, which
+-- caps recall and wastes the deeper fetch). Function-level SET applies on every invocation
+-- regardless of connection role. Tunable ~80-120; see migration
+-- 20260627000000_retrieval_hnsw_ef_search.sql and validate with `npm run eval:retrieval`.
+alter function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  set hnsw.ef_search = 100;
+alter function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  set hnsw.ef_search = 100;
+alter function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  set hnsw.ef_search = 100;
+alter function public.match_document_embedding_fields_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  set hnsw.ef_search = 100;
+alter function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  set hnsw.ef_search = 100;

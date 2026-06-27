@@ -6,7 +6,7 @@ import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
 import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/document-enrichment";
 import { ragDeepMemoryVersion, upsertDocumentDeepMemory } from "../src/lib/deep-memory";
-import { extractDocument, fileToBase64 } from "../src/lib/extractors/document";
+import { extractDocument } from "../src/lib/extractors/document";
 import { assertEmbeddingDim } from "../src/lib/embedding-dimensions";
 import {
   buildVisualDocumentIndexUnitInputs,
@@ -202,6 +202,39 @@ async function completeJob(job: JobRow, stage: string) {
   });
   await markSupersededSiblingJobs(job);
   await updateBatch(job.batch_id);
+}
+
+async function completeStrictEnrichmentJob(job: JobRow) {
+  const { data, error } = await supabase.rpc("complete_strict_enrichment_job", {
+    p_document_id: job.document_id,
+    p_job_id: job.id,
+    p_stage: "indexed; enrichment completed",
+    p_agent_version: "visual-core-v3",
+    p_visual_indexing_version: "visual-v3",
+  });
+
+  if (error) {
+    return {
+      completed: false,
+      missing: ["strict_completion_rpc_failed"],
+      message: supabaseStageError("complete strict enrichment job", error).message,
+    };
+  }
+
+  const result = Array.isArray(data) ? (data[0] as Record<string, unknown> | undefined) : undefined;
+  const missing = Array.isArray(result?.missing) ? result.missing.map(String) : [];
+  if (result?.ok === true && result?.gate_passed === true) {
+    return { completed: true, missing, message: null };
+  }
+
+  return {
+    completed: false,
+    missing: missing.length > 0 ? missing : ["strict_completion_gate_blocked"],
+    message: `Strict enrichment completion blocked: ${JSON.stringify({
+      status: typeof result?.status === "string" ? result.status : "missing_result",
+      missing: missing.length > 0 ? missing : ["strict_completion_gate_blocked"],
+    })}`,
+  };
 }
 
 async function failOrRetryJob(args: {
@@ -659,6 +692,9 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       const bytes = await readFile(image.path);
       const imageHash = hashBytes(bytes);
       return {
+        // B4: retain the buffer so caption (base64) and storage upload reuse this single
+        // read instead of re-reading the same file from disk two more times per image.
+        bytes,
         imageHash,
         bytesLength: bytes.length,
         perceptualHash: lightweightPerceptualHash(bytes, image.width, image.height),
@@ -742,7 +778,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     }
     if (!classification) {
       classification = await classifyAndCaptionImageFromBase64({
-        base64: await fileToBase64(image.path),
+        base64: preparedImage.bytes.toString("base64"),
         mimeType: image.mimeType,
         nearbyText,
         sourceKind: image.sourceKind ?? null,
@@ -820,7 +856,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     }
 
     const ext = path.extname(image.path) || ".png";
-    const bytes = await readFile(image.path);
+    const bytes = preparedImage.bytes;
     const imagePrefix = job.documents.owner_id
       ? `${job.documents.owner_id}/images/${job.document_id}`
       : `local/${job.document_id}`;
@@ -1439,39 +1475,68 @@ async function processJob(job: JobRow) {
       enrichmentErrorMessage = optionalRepairMessage;
     }
 
+    const agentRepairRequired = enrichmentStatus !== "completed" || optionalRepairRequired;
+    const agentRepairReason = optionalRepairRequired
+      ? "optional_index_write_issues"
+      : enrichmentStatus === "failed"
+        ? "inline_enrichment_failed"
+        : "enrichment_deferred";
+    const finalMetadata = {
+      ...(job.documents.metadata ?? {}),
+      indexed_at: indexedAt,
+      index_generation_id: indexGenerationId,
+      rag_enrichment_version: ragEnrichmentVersion,
+      rag_indexing_version: ragDeepMemoryVersion,
+      rag_memory_version: ragDeepMemoryVersion,
+      rag_memory_updated_at: enrichmentUpdatedAt,
+      rag_enrichment_updated_at: enrichmentUpdatedAt,
+      enrichment_status: enrichmentStatus,
+      enrichment_error: enrichmentErrorMessage,
+      section_count: sectionCount,
+      memory_card_count: memoryCardCount,
+      extraction_quality: finalQuality.extraction_quality,
+      index_quality_score: finalQuality.quality_score,
+      index_quality_issues: finalQuality.issues,
+      index_quality_metrics: finalQuality.metrics,
+      optional_index_write_issues: optionalIndexWriteIssues,
+      ...(agentRepairRequired
+        ? {
+            indexing_v3_agent_status: "pending",
+            indexing_v3_agent_last_error: enrichmentErrorMessage ?? optionalRepairMessage,
+            indexing_v3_agent_repair_reason: agentRepairReason,
+            indexing_v3_agent_updated_at: new Date().toISOString(),
+          }
+        : {}),
+      embedding_model: env.OPENAI_EMBEDDING_MODEL,
+      ...metrics,
+    };
+
     await updateDocument(job.document_id, {
-      metadata: {
-        ...(job.documents.metadata ?? {}),
-        indexed_at: indexedAt,
-        index_generation_id: indexGenerationId,
-        rag_enrichment_version: ragEnrichmentVersion,
-        rag_indexing_version: ragDeepMemoryVersion,
-        rag_memory_version: ragDeepMemoryVersion,
-        rag_memory_updated_at: enrichmentUpdatedAt,
-        rag_enrichment_updated_at: enrichmentUpdatedAt,
-        enrichment_status: enrichmentStatus,
-        enrichment_error: enrichmentErrorMessage,
-        section_count: sectionCount,
-        memory_card_count: memoryCardCount,
-        extraction_quality: finalQuality.extraction_quality,
-        index_quality_score: finalQuality.quality_score,
-        index_quality_issues: finalQuality.issues,
-        index_quality_metrics: finalQuality.metrics,
-        optional_index_write_issues: optionalIndexWriteIssues,
-        ...(optionalRepairRequired
-          ? {
-              indexing_v3_agent_status: "pending",
-              indexing_v3_agent_last_error: enrichmentErrorMessage ?? optionalRepairMessage,
-              indexing_v3_agent_repair_reason: "optional_index_write_issues",
-              indexing_v3_agent_updated_at: new Date().toISOString(),
-            }
-          : {}),
-        embedding_model: env.OPENAI_EMBEDDING_MODEL,
-        ...metrics,
-      },
+      metadata: finalMetadata,
     });
 
-    await completeJob(job, enrichmentStatus === "completed" ? "indexed" : "indexed; enrichment deferred");
+    let completionStage = enrichmentStatus === "completed" ? "indexed" : "indexed; enrichment deferred";
+    if (enrichmentStatus === "completed") {
+      const strictCompletion = await completeStrictEnrichmentJob(job);
+      if (!strictCompletion.completed) {
+        completionStage = "indexed; enrichment deferred";
+        const strictCompletionMessage = strictCompletion.message ?? "Strict enrichment completion blocked.";
+        await updateDocument(job.document_id, {
+          metadata: {
+            ...finalMetadata,
+            enrichment_status: "pending",
+            enrichment_error: strictCompletionMessage,
+            indexing_v3_agent_status: "pending",
+            indexing_v3_agent_last_error: strictCompletionMessage,
+            indexing_v3_agent_repair_reason: "strict_completion_gate_blocked",
+            indexing_v3_agent_updated_at: new Date().toISOString(),
+            completion_gate_missing: strictCompletion.missing,
+          },
+        });
+      }
+    }
+
+    await completeJob(job, completionStage);
     await refreshRagTableStats();
   } catch (error) {
     console.error(`Ingestion job ${job.id} failed:`, error);

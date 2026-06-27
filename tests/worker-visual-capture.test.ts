@@ -24,9 +24,18 @@ describe("worker visual capture hardening", () => {
 
   it("leaves optional artifact write failures claimable by the Supabase v3 repair agent", () => {
     expect(workerSource).toContain('const optionalRepairRequired = optionalIndexWriteIssues.length > 0');
+    expect(workerSource).toContain('const agentRepairRequired = enrichmentStatus !== "completed" || optionalRepairRequired');
     expect(workerSource).toContain('enrichmentStatus = "pending"');
     expect(workerSource).toContain('indexing_v3_agent_status: "pending"');
     expect(workerSource).toContain('indexing_v3_agent_repair_reason: "optional_index_write_issues"');
+  });
+
+  it("uses the strict completion RPC when inline enrichment succeeds", () => {
+    expect(workerSource).toContain('async function completeStrictEnrichmentJob(job: JobRow)');
+    expect(workerSource).toContain('complete_strict_enrichment_job');
+    expect(workerSource).toContain('p_agent_version: "visual-core-v3"');
+    expect(workerSource).toContain('p_visual_indexing_version: "visual-v3"');
+    expect(workerSource).toContain('indexing_v3_agent_repair_reason: "strict_completion_gate_blocked"');
   });
 
   it("invalidates stale image caption cache entries by policy, prompt, and context versions", () => {
