@@ -18,7 +18,7 @@
 
 - CI verifies the project on Node.js 24, so local development should also use Node.js 24.x.
 - `.nvmrc`, `.node-version`, and `package.json` `engines` all declare the Node 24 runtime expectation.
-- New cleanup or dependency work should be verified on Node 24 before release, even when local shells happen to use newer Node versions.
+- New cleanup or dependency work should be verified on Node 24 before release, even when local shells happen to use a different Node version.
 
 ## Stale branch audit
 

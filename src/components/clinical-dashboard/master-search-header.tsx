@@ -3,20 +3,25 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  Check,
   CheckCircle2,
+  ChevronDown,
   FileText,
   Filter,
   Globe2,
+  Heart,
   ListChecks,
   Loader2,
   Menu,
   Mic,
   Moon,
+  Pill,
   Plus,
   Search,
   Send,
   Sparkles,
   Sun,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -38,6 +43,65 @@ import type { SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
+
+type AppModeId = "answer" | "documents" | "prescribing" | "evidence" | "favourites" | "profile";
+
+const appModeOptions: Array<{
+  id: AppModeId;
+  label: string;
+  description: string;
+  icon: typeof Search;
+  href?: string;
+  devOnly?: boolean;
+}> = [
+  {
+    id: "answer",
+    label: "Answer",
+    description: "Source-backed clinical answer",
+    icon: Sparkles,
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    description: "Search indexed PDFs and notes",
+    icon: FileText,
+  },
+  {
+    id: "prescribing",
+    label: "Prescribing",
+    description: "Medication checks and guidance",
+    icon: Pill,
+    href: "/mockups/medication-prescribing",
+    devOnly: true,
+  },
+  {
+    id: "evidence",
+    label: "Evidence",
+    description: "Tables, quotes, images, PDFs",
+    icon: ListChecks,
+    href: "/mockups/answer-evidence-popups",
+    devOnly: true,
+  },
+  {
+    id: "favourites",
+    label: "Favourites",
+    description: "Saved sources and workflows",
+    icon: Heart,
+    href: "/mockups/favourites-hub",
+    devOnly: true,
+  },
+  {
+    id: "profile",
+    label: "Profile",
+    description: "Home, preferences, review queue",
+    icon: UserRound,
+    href: "/mockups/user-home-profile",
+    devOnly: true,
+  },
+];
+
+const isDev = process.env.NODE_ENV === "development";
+const visibleAppModeOptions = appModeOptions.filter((mode) => !mode.devOnly || isDev);
 
 function splitFilterText(value: string) {
   return value
@@ -119,9 +183,11 @@ export function MasterSearchHeader({
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [dailyActionsOpen, setDailyActionsOpen] = useState(false);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const dailyActionButtonRef = useRef<HTMLButtonElement | null>(null);
   const firstDailyActionRef = useRef<HTMLButtonElement | null>(null);
+  const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const scopeSummaryRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -157,8 +223,9 @@ export function MasterSearchHeader({
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocumentIds.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
   const submitLabel = searchMode === "answer" ? (trimmedQuery ? "Answer" : "Ask") : "Docs";
-  const queryPlaceholder =
-    searchMode === "documents" ? "Search your clinical documents..." : "Ask a clinical question...";
+  const queryPlaceholder = searchMode === "documents" ? "Search documents..." : "Ask a clinical question...";
+  const selectedAppMode = appModeOptions.find((mode) => mode.id === searchMode) ?? appModeOptions[0];
+  const SelectedAppModeIcon = selectedAppMode.icon;
   const dailyActions = [
     { label: "Search library", icon: Search },
     { label: "Add document", icon: FileText },
@@ -190,6 +257,15 @@ export function MasterSearchHeader({
       return;
     }
     window.location.assign("/tools");
+  }
+
+  function selectAppMode(mode: (typeof appModeOptions)[number]) {
+    setModeMenuOpen(false);
+    if (mode.id === "answer" || mode.id === "documents") {
+      onSearchModeChange(mode.id);
+      return;
+    }
+    if (mode.href) window.location.assign(mode.href);
   }
   const collectionOptions = useMemo(() => {
     const values = new Set<string>();
@@ -228,6 +304,30 @@ export function MasterSearchHeader({
   useEffect(() => {
     onScopeOpenChange?.(scopeOpen || scopeSheetOpen);
   }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
+
+  useEffect(() => {
+    if (!modeMenuOpen) return undefined;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!modeMenuRef.current?.contains(target)) setModeMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setModeMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [modeMenuOpen]);
 
   useEffect(() => {
     const details = scopeDetailsRef.current;
@@ -482,36 +582,78 @@ export function MasterSearchHeader({
             <Menu className="h-5 w-5" />
           </button>
 
-          <div
-            role="group"
-            aria-label="Search mode"
-            className="mx-auto grid w-[min(13.25rem,52vw)] grid-cols-2 gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)] sm:mx-0 sm:w-auto sm:min-w-[14rem]"
-          >
-            {[
-              { mode: "answer" as const, label: "Answer", icon: Sparkles },
-              { mode: "documents" as const, label: "Documents", icon: FileText },
-            ].map((item) => {
-              const active = searchMode === item.mode;
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.mode}
-                  type="button"
-                  onClick={() => onSearchModeChange(item.mode)}
-                  className={cn(
-                    "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition sm:text-sm",
-                    active
-                      ? "bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]"
-                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                  )}
-                  aria-pressed={active}
-                  aria-label={item.mode === "answer" ? "Switch to answer mode" : "Switch to document search mode"}
-                >
-                  <Icon className="hidden h-3.5 w-3.5 sm:block" />
-                  {item.label}
-                </button>
-              );
-            })}
+          <div ref={modeMenuRef} className="relative z-40 mx-auto sm:mx-0">
+            <button
+              type="button"
+              onClick={() => setModeMenuOpen((open) => !open)}
+              className="inline-grid h-11 min-w-[10rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-[14rem]"
+              aria-haspopup="true"
+              aria-expanded={modeMenuOpen}
+              aria-label={`Current app mode: ${selectedAppMode.label}`}
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+                <SelectedAppModeIcon className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Mode
+                </span>
+                <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                  {selectedAppMode.label}
+                </span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                  modeMenuOpen && "rotate-180",
+                )}
+              />
+            </button>
+
+            {modeMenuOpen ? (
+              <div
+                role="group"
+                aria-label="Choose app mode"
+                className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
+              >
+                {visibleAppModeOptions.map((mode) => {
+                  const Icon = mode.icon;
+                  const active = mode.id === searchMode;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => selectAppMode(mode)}
+                      className={cn(
+                        "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                        active
+                          ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "grid h-8 w-8 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+                          active
+                            ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)]"
+                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{mode.label}</span>
+                        <span className="block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
+                          {mode.description}
+                        </span>
+                      </span>
+                      {active ? <Check className="h-4 w-4" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -721,16 +863,16 @@ export function MasterSearchHeader({
           </div>
         </Sheet>
       </form>
-        <Sheet
-          open={usesScopeSheet && dailyActionsOpen}
-          onClose={() => setDailyActionsOpen(false)}
-          title="Daily actions"
-          description="Search, add, scope, evidence, or tools."
-          closeLabel="Close daily actions"
-          initialFocusRef={firstDailyActionRef}
-          returnFocusRef={dailyActionButtonRef}
-          contentClassName="sm:max-w-sm"
-        >
+      <Sheet
+        open={usesScopeSheet && dailyActionsOpen}
+        onClose={() => setDailyActionsOpen(false)}
+        title="Daily actions"
+        description="Search, add, scope, evidence, or tools."
+        closeLabel="Close daily actions"
+        initialFocusRef={firstDailyActionRef}
+        returnFocusRef={dailyActionButtonRef}
+        contentClassName="sm:max-w-sm"
+      >
         <div id="daily-actions-sheet" data-testid="daily-actions-sheet" className="grid grid-cols-2 gap-2">
           {dailyActions.map((item, index) => {
             const Icon = item.icon;

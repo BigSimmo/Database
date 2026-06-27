@@ -66,7 +66,7 @@ function DocumentTagChip({
 }) {
   const Icon = groupIcon[tag.group];
   const tagClassName = cn(
-    "inline-flex items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)]",
+    "inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)]",
     compact ? "min-h-6 px-2 text-[10px]" : "min-h-7 px-2 text-[11px]",
     groupTone[tag.group],
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
@@ -76,8 +76,8 @@ function DocumentTagChip({
   );
   const content = (
     <>
-      <Icon className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
-      {tag.label}
+      <Icon className={cn("shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+      <span className="max-w-[18ch] truncate whitespace-nowrap sm:max-w-[32ch]">{tag.label}</span>
     </>
   );
 

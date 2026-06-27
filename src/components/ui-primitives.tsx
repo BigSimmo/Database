@@ -71,7 +71,7 @@ export const chatAnswerText =
 export const chatActionRow =
   "flex min-h-11 flex-wrap items-center gap-1.5 text-xs font-semibold text-[color:var(--text-heading)] sm:min-h-8";
 export const chatMicroAction =
-  "inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-heading)] transition hover:bg-[color:var(--clinical-chat-teal-soft)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-8";
+  "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-heading)] transition hover:bg-[color:var(--clinical-chat-teal-soft)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-8 sm:min-w-0";
 export const sourceCapsule =
   "inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/32 hover:bg-[color:var(--clinical-chat-teal-soft)]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-8";
 export const evidenceRow =

@@ -24,11 +24,19 @@ jobs:
           node-version-file: ".nvmrc"
           cache: npm
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Install dependencies
         run: npm ci
 
       - name: Runtime alignment
         run: npm run check:runtime
+
+      - name: Edge function typecheck
+        run: npm run check:edge:functions
 
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci

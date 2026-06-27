@@ -4,29 +4,36 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
-  ArrowUpDown,
   ChevronDown,
+  Clock,
   ExternalLink,
-  FileImage,
-  FileSpreadsheet,
   FileText,
   Filter,
   FolderOpen,
   ListChecks,
-  MoreVertical,
-  Quote,
-  Search,
   ShieldAlert,
+  SlidersHorizontal,
   Sparkles,
+  Star,
   Tag,
   Target,
+  TrendingUp,
   X,
   type LucideIcon,
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
-import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import {
+  DocumentActionButton,
+  DocumentActionLink,
+  DocumentBadge,
+  DocumentFileTile,
+  DocumentMetaRow,
+  documentFileKind,
+  documentTileTone,
+} from "@/components/clinical-dashboard/document-ui";
 import {
   cn,
   floatingControl,
@@ -200,13 +207,20 @@ function compactEvidenceBadges(document: DocumentMatch) {
 function compactMatchReason(document: DocumentMatch) {
   const relevance = document.relevance;
   if (relevance?.verdict === "direct") {
-    if (document.tableCount > 0) return `Direct table match - ${documentPageLabel(document)}`;
-    if (document.imageCount > 0) return `Direct image match - ${documentPageLabel(document)}`;
-    return `Direct source match - ${documentPageLabel(document)}`;
+    if (document.tableCount > 0) return `Table match - ${documentPageLabel(document)}`;
+    if (document.imageCount > 0) return `Image match - ${documentPageLabel(document)}`;
+    return `Source match - ${documentPageLabel(document)}`;
   }
-  if (relevance?.verdict === "partial") return `Partial source support - ${documentPageLabel(document)}`;
+  if (relevance?.verdict === "partial") return `Related source - ${documentPageLabel(document)}`;
   if (document.matchReason) return document.matchReason;
   return `${documentKindLabel(document)} - ${documentPageLabel(document)}`;
+}
+
+function cleanDocumentCardSummary(value: string) {
+  if (/source-backed review/i.test(value)) {
+    return "Indexed source text is available for this document.";
+  }
+  return value;
 }
 
 function relevancePercent(document: DocumentMatch) {
@@ -226,73 +240,36 @@ function relevancePercent(document: DocumentMatch) {
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = relevancePercent(document);
-  if (verdict === "direct" || percent >= 90) return { label: "High relevance", short: `${percent}% high` };
-  if (verdict === "partial" || percent >= 75) return { label: "Relevant", short: `${percent}% relevant` };
-  return { label: "Nearby match", short: `${percent}% nearby` };
+  if (verdict === "direct" || percent >= 90) {
+    return { label: "High relevance", short: "High relevance", detail: `${percent}% match` };
+  }
+  if (verdict === "partial" || percent >= 75) {
+    return { label: "High relevance", short: "High relevance", detail: `${percent}% related` };
+  }
+  return { label: "Relevant", short: "Relevant", detail: `${percent}% nearby` };
 }
 
-function FileTypeTile({ document }: { document: DocumentMatch }) {
-  const extension = document.file_name.split(".").pop()?.toUpperCase() || "DOC";
-  const isDocx = extension === "DOCX" || extension === "DOC";
-  return (
-    <span
-      className={cn(
-        "grid h-14 w-14 shrink-0 place-items-center rounded-lg border text-[10px] font-bold uppercase shadow-[var(--shadow-inset)]",
-        isDocx
-          ? "border-[color:var(--info)]/15 bg-[color:var(--info-soft)]/60 text-[color:var(--info)]"
-          : "border-[color:var(--clinical-chat-teal)]/12 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
-      )}
-      aria-hidden
-    >
-      <FileText className="h-5 w-5" />
-      <span className="mt-0.5 leading-none">{extension}</span>
-    </span>
-  );
+function documentOpenHref(document: DocumentMatch) {
+  const params = new URLSearchParams();
+  params.set("page", String(document.bestPages[0] ?? 1));
+  const chunkId = document.bestChunkIds[0];
+  if (chunkId) params.set("chunk", chunkId);
+  return `/documents/${document.document_id}?${params.toString()}`;
 }
-
-const exploreEntries = [
-  {
-    title: "Documents",
-    detail: "Guidelines, protocols, policies",
-    icon: FileText,
-    query: "clinical guideline",
-  },
-  {
-    title: "Tables",
-    detail: "Monitoring and threshold tables",
-    icon: FileSpreadsheet,
-    query: "monitoring table",
-  },
-  {
-    title: "Images",
-    detail: "Figures, forms, diagrams",
-    icon: FileImage,
-    query: "diagram",
-  },
-  {
-    title: "Quotes",
-    detail: "Evidence statements",
-    icon: Quote,
-    query: "clinical recommendation",
-  },
-] as const;
 
 const startRows = [
   {
     title: "Recent documents",
-    detail: "Continue with recently viewed documents",
-    icon: ListChecks,
+    icon: Clock,
     query: "recent documents",
   },
   {
     title: "Browse library",
-    detail: "Explore all indexed clinical documents",
     icon: FolderOpen,
     query: "clinical guideline",
   },
   {
     title: "Open a source PDF",
-    detail: "Search by source name or file title",
     icon: ExternalLink,
     query: "PDF",
   },
@@ -305,128 +282,72 @@ function DocumentSearchHome({
   documentCount: number;
   onSuggestedSearch: (query: string) => void;
 }) {
-  const suggestedSearches = ["lithium", "clozapine", "ECT pathway"];
-  const [localQuery, setLocalQuery] = useState("");
-  const trimmedLocalQuery = localQuery.trim();
+  const suggestedSearches = ["lithium", "clozapine", "ECT pathway", "monitoring"];
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-5 py-4 sm:py-8">
-      <section data-testid="document-home-overview" className="text-center">
-        <span className="mx-auto grid h-16 w-16 place-items-center rounded-[1.25rem] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+    <div className="mx-auto grid min-h-[calc(100dvh-210px)] w-full min-w-0 max-w-[44rem] content-start gap-5 px-3 pb-36 pt-6 sm:min-h-[calc(100dvh-230px)] sm:gap-5 sm:px-0 sm:pb-40 sm:pt-10 lg:pb-32">
+      <section data-testid="document-home-overview" className="min-w-0 text-center">
+        <span className="mx-auto grid h-16 w-16 place-items-center rounded-[1.15rem] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-[4.5rem] sm:w-[4.5rem] sm:rounded-[1.25rem]">
           <FileText className="h-8 w-8" />
         </span>
-        <h2 className="mt-4 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)]">Documents</h2>
-        <p className={cn("mx-auto mt-2 max-w-xs text-sm leading-6", textMuted)}>
-          Find source PDFs, guidelines, policies, forms, tables, and figures.
+        <h2 className="mt-4 text-[2rem] font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2.25rem]">
+          Documents
+        </h2>
+        <p className={cn("mx-auto mt-2 max-w-[34rem] text-base leading-6 sm:leading-7", textMuted)}>
+          Find guidelines, policies, forms, and source PDFs.
         </p>
-        {documentCount > 0 ? (
-          <span className={cn(metadataPill, "nums mx-auto mt-3 min-h-7 px-2.5 text-[11px]")}>
-            {documentCount.toLocaleString()} indexed
-          </span>
-        ) : null}
-      </section>
-
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (trimmedLocalQuery) onSuggestedSearch(trimmedLocalQuery);
-        }}
-        className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--shadow-tight)] sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-      >
-        <label className="relative block min-w-0">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-          <input
-            value={localQuery}
-            onChange={(event) => setLocalQuery(event.target.value)}
-            aria-label="Search your clinical documents"
-            placeholder="Search your clinical documents"
-            className="min-h-11 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] py-2 pl-9 pr-3 text-sm font-medium text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--primary)] focus:ring-2 focus:ring-[color:var(--primary)]/15"
-          />
-        </label>
         <button
           type="button"
+          onClick={() => onSuggestedSearch("Lithium monitoring guideline")}
           className={cn(
-            floatingControl,
-            "min-h-11 justify-center rounded-md px-3 text-xs text-[color:var(--text-muted)]",
+            metadataPill,
+            "mx-auto mt-3 w-full min-w-0 max-w-[calc(100vw-3rem)] justify-start gap-2 overflow-hidden rounded-lg px-3 text-sm font-semibold text-[color:var(--text-muted)] sm:mt-5 sm:w-fit sm:max-w-full",
           )}
         >
-          <ArrowUpDown className="h-3.5 w-3.5" />
-          Sort: Relevance
-          <ChevronDown className="h-3.5 w-3.5" />
+          <Clock className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+          <span className="shrink-0 text-[color:var(--clinical-chat-teal)]">Resume</span>
+          <span className="min-w-0 truncate">Lithium monitoring guideline</span>
         </button>
-        <button
-          type="submit"
-          disabled={!trimmedLocalQuery}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-bold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-55"
-        >
-          <Search className="h-4 w-4" />
-          Search
-        </button>
-      </form>
-
-      <section
-        data-testid="document-home-recent-sources"
-        className={cn(panelSubtle, "p-4 shadow-[0_8px_22px_rgb(15_27_45_/_5%)] sm:p-5")}
-      >
-        <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Start here</h3>
-        <div className="mt-3 divide-y divide-[color:var(--border)]">
-          {startRows.map((row) => {
-            const Icon = row.icon;
-            return (
-              <button
-                key={row.title}
-                type="button"
-                onClick={() => onSuggestedSearch(row.query)}
-                className="grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3 text-left first:pt-1 last:pb-1"
-              >
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.title}</span>
-                  <span className={cn("mt-0.5 block truncate text-xs", textMuted)}>{row.detail}</span>
-                </span>
-                <ChevronDown className="-rotate-90 text-[color:var(--text-soft)]" />
-              </button>
-            );
-          })}
-        </div>
+        {documentCount > 0 ? <span className="sr-only">{documentCount.toLocaleString()} documents indexed</span> : null}
       </section>
 
-      <section aria-label="Explore document evidence" className="grid gap-2 sm:grid-cols-4">
-        {exploreEntries.map((entry) => {
-          const Icon = entry.icon;
+      <section data-testid="document-home-recent-sources" className="grid gap-3" aria-label="Document shortcuts">
+        {startRows.map((row) => {
+          const Icon = row.icon;
           return (
             <button
-              key={entry.title}
+              key={row.title}
               type="button"
-              onClick={() => onSuggestedSearch(entry.query)}
-              className="grid min-h-[88px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 text-left shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] sm:block sm:min-h-[118px]"
+              onClick={() => onSuggestedSearch(row.query)}
+              className={cn(
+                panelSubtle,
+                "grid min-h-[76px] w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-xl px-4 text-left shadow-[0_8px_24px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] sm:min-h-[76px] sm:px-5",
+              )}
             >
-              <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-                <Icon className="h-5 w-5" />
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+                <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
               </span>
-              <span className="min-w-0 sm:mt-3 sm:block">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
-                <span className={cn("mt-0.5 block line-clamp-2 text-xs leading-5", textMuted)}>{entry.detail}</span>
+              <span className="min-w-0">
+                <span className="block truncate text-lg font-semibold text-[color:var(--text-heading)]">
+                  {row.title}
+                </span>
               </span>
-              <ChevronDown className="-rotate-90 text-[color:var(--text-soft)] sm:hidden" />
+              <ChevronDown className="h-6 w-6 -rotate-90 text-[color:var(--text-muted)]" />
             </button>
           );
         })}
       </section>
 
-      <section aria-label="Suggested searches">
-        <p className={cn("mb-2 text-sm font-semibold", textMuted)}>Suggested searches</p>
-        <div className="flex flex-wrap gap-2">
+      <section aria-label="Suggested searches" className="pt-1">
+        <p className={cn("mb-3 text-base font-medium", textMuted)}>Suggested</p>
+        <div className="flex min-w-0 flex-wrap gap-3">
           {suggestedSearches.map((search) => (
             <button
               key={search}
               type="button"
               onClick={() => onSuggestedSearch(search)}
-              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
+              className="inline-flex min-h-11 max-w-full items-center justify-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-5 text-base font-medium text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
             >
-              <Search className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
               {search}
             </button>
           ))}
@@ -447,7 +368,12 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
           <div className="min-w-0">
             <h3 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{resultLabel}</h3>
             {trimmedQuery ? (
-              <p className="truncate text-sm font-medium text-[color:var(--clinical-chat-teal)]">{trimmedQuery}</p>
+              <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:truncate">
+                <span className="block sm:inline">Results for</span>{" "}
+                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-chat-teal)] sm:inline sm:line-clamp-none">
+                  {trimmedQuery}
+                </span>
+              </p>
             ) : null}
           </div>
         </div>
@@ -456,11 +382,11 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
         type="button"
         className={cn(
           floatingControl,
-          "min-h-10 shrink-0 gap-1.5 rounded-lg px-3 text-[11px] text-[color:var(--text-muted)]",
+          "min-h-11 shrink-0 gap-2 rounded-lg px-3 text-sm text-[color:var(--text-heading)]",
         )}
       >
-        <ArrowUpDown className="h-3.5 w-3.5" />
-        Sort: Relevance
+        <SlidersHorizontal className="h-4 w-4" />
+        Best match
         <ChevronDown className="h-3.5 w-3.5" />
       </button>
     </section>
@@ -571,7 +497,7 @@ export function DocumentSearchResultsPanel({
   const resultLabel = loading
     ? "Finding matching documents"
     : matches.length
-      ? `${displayedMatches.length} result${displayedMatches.length === 1 ? "" : "s"}`
+      ? `${displayedMatches.length} document${displayedMatches.length === 1 ? "" : "s"}`
       : documentCount === 0
         ? "No indexed source documents"
         : trimmedQuery
@@ -666,105 +592,103 @@ export function DocumentSearchResultsPanel({
             {displayedMatches.map((document, index) => {
               const evidenceBadges = compactEvidenceBadges(document);
               const relevanceDisplay = relevanceTone(document);
-              const openHref = `/documents/${document.document_id}?page=${document.bestPages[0] ?? 1}&chunk=${
-                document.bestChunkIds[0] ?? ""
-              }`;
+              const fileKind = documentFileKind(document.file_name, "DOC");
+              const relevanceVariant = relevanceDisplay.short === "Relevant" ? "relevant" : "high";
+              const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
+              const openHref = documentOpenHref(document);
               return (
                 <article
                   key={document.document_id}
                   className={cn(
                     sourceCard,
-                    "relative overflow-hidden p-0 shadow-[0_8px_22px_rgb(15_27_45_/_5%)]",
+                    "relative overflow-hidden p-0 shadow-[0_10px_24px_rgb(15_27_45_/_5%)]",
                     index === 0 && "border-l-4 border-l-[color:var(--clinical-chat-teal)]",
                   )}
                 >
-                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 sm:p-4">
-                    <FileTypeTile document={document} />
-                    <div className="min-w-0 pr-9 sm:pr-24">
-                      <div className="flex min-h-7 flex-wrap items-center gap-1.5">
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4">
+                    <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} className="h-16 w-16 text-xs" />
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                            {documentKindLabel(document)}
+                          </p>
+                          <Link
+                            href={openHref}
+                            className="mt-1 inline-flex min-h-7 items-center text-lg font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
+                          >
+                            <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
+                          </Link>
+                        </div>
+                        <div className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
+                          {index === 0 ? (
+                            <DocumentBadge variant="best" icon={Star} className="min-h-8 rounded-lg px-3 text-xs">
+                              Best match
+                            </DocumentBadge>
+                          ) : null}
+                          <DocumentBadge
+                            variant={relevanceVariant}
+                            icon={TrendingUp}
+                            className="min-h-8 rounded-lg px-3 text-xs"
+                          >
+                            {relevanceDisplay.short}
+                            <span className="sr-only">, {relevanceDisplay.detail}</span>
+                          </DocumentBadge>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5 sm:hidden">
                         {index === 0 ? (
-                          <span className="inline-flex min-h-6 items-center gap-1 rounded-md bg-[color:var(--clinical-chat-teal)] px-2 text-[10px] font-bold text-white">
-                            <Sparkles className="h-3 w-3" />
+                          <DocumentBadge variant="best" icon={Star} className="min-h-7 rounded-lg px-2.5 text-[11px]">
                             Best match
-                          </span>
+                          </DocumentBadge>
                         ) : null}
-                        <span className="inline-flex min-h-6 items-center gap-1 rounded-md border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] px-2 text-[10px] font-bold text-[color:var(--clinical-chat-teal)]">
-                          <Target className="h-3 w-3" />
-                          {relevanceDisplay.short}
-                        </span>
-                        <button
-                          type="button"
-                          className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                          aria-label={`More actions for ${document.title}`}
+                        <DocumentBadge
+                          variant={relevanceVariant}
+                          icon={TrendingUp}
+                          className="min-h-7 rounded-lg px-2.5 text-[11px]"
                         >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
+                          {relevanceDisplay.short}
+                          <span className="sr-only">, {relevanceDisplay.detail}</span>
+                        </DocumentBadge>
                       </div>
-                      <Link
-                        href={openHref}
-                        className="mt-1 inline-flex min-h-7 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)]"
-                      >
-                        <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                      </Link>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-[color:var(--text-soft)]">
-                        <span className="uppercase text-[color:var(--text-muted)]">{documentKindLabel(document)}</span>
-                        {evidenceBadges.map((badge) => (
-                          <span key={badge} className="inline-flex items-center gap-1">
-                            <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden />
-                            {badge}
-                          </span>
-                        ))}
-                      </div>
-                      <DocumentOrganizationBadges document={document} compact className="mt-1.5" />
-                      <p className={cn("mt-1 line-clamp-1 text-xs leading-5", textMuted)}>
-                        {compactMatchReason(document)}
-                      </p>
+                      <DocumentMetaRow className="mt-2 text-sm" items={evidenceBadges} />
                       {evidenceBadges.length ? <span className="sr-only">{evidenceBadges.join(", ")}</span> : null}
-                      {document.summarySnippet && (
-                        <p className={cn("mt-1.5 line-clamp-2 text-xs leading-5", textMuted)}>
-                          <SafeBoldText text={document.summarySnippet} />
-                        </p>
-                      )}
+                      <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>
+                        <SafeBoldText text={summaryText} />
+                      </p>
                       <DocumentTagCloud
                         labels={document.labels}
                         query={query}
-                        limit={3}
+                        limit={2}
                         className="mt-2"
                         onTagClick={onTagSearch}
                       />
-                      <div className="absolute right-3 top-14 hidden rounded-lg bg-[color:var(--clinical-chat-teal-soft)] px-3 py-2 text-center text-[color:var(--clinical-chat-teal)] sm:block">
-                        <span className="nums block text-lg font-bold leading-none">{relevancePercent(document)}%</span>
-                        <span className="mt-1 block text-[10px] font-bold leading-none">{relevanceDisplay.label}</span>
-                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 border-t border-[color:var(--border)]">
-                    <Link
+                    <DocumentActionLink
                       href={openHref}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] text-xs font-semibold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+                      className="min-h-12 border-r border-[color:var(--border)] text-sm text-[color:var(--text)]"
                       aria-label={`Open ${document.title}`}
                     >
-                      <ExternalLink className="h-4 w-4" />
                       Open
-                    </Link>
-                    <button
-                      type="button"
+                    </DocumentActionLink>
+                    <DocumentActionButton
                       onClick={() => onScopeDocument(document.document_id)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] text-xs font-semibold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+                      icon={Filter}
+                      className="min-h-12 border-r border-[color:var(--border)] text-sm text-[color:var(--text)]"
                       aria-label={`Scope search to ${document.title}`}
                     >
-                      <Filter className="h-4 w-4" />
                       Scope
-                    </button>
-                    <button
-                      type="button"
+                    </DocumentActionButton>
+                    <DocumentActionButton
                       onClick={() => onAnswerFromDocument(document.document_id)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-semibold text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]"
+                      icon={Sparkles}
+                      className="min-h-12 text-sm text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]"
                       aria-label={`Answer from ${document.title}`}
                     >
-                      <Sparkles className="h-4 w-4" />
                       Answer
-                    </button>
+                    </DocumentActionButton>
                   </div>
                 </article>
               );
