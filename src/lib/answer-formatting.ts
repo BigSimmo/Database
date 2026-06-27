@@ -184,6 +184,30 @@ function stripBulletPrefix(value: string) {
   return value.replace(/^(?:[-*•]|\d+[.)])\s+/, "").trim();
 }
 
+const bulletPrefixPattern = /^(?:[-*•]|\d+[.)])\s+/;
+
+function mergeBulletContinuations(lines: string[]) {
+  const merged: string[] = [];
+  let current = "";
+
+  for (const line of lines) {
+    if (bulletPrefixPattern.test(line)) {
+      if (current) merged.push(current);
+      current = stripBulletPrefix(line);
+      continue;
+    }
+
+    if (current) {
+      current = `${current} ${line}`.trim();
+    } else {
+      merged.push(line);
+    }
+  }
+
+  if (current) merged.push(current);
+  return merged;
+}
+
 function splitBySemicolonList(value: string) {
   const semicolonCount = (value.match(/;/g) ?? []).length;
   if (semicolonCount < 2 || semicolonCount > 5) return [];
@@ -210,10 +234,10 @@ function splitInlineBullets(value: string) {
     .split(/\r?\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const bulletLineIndex = newlineParts.findIndex((line) => /^(?:[-*•]|\d+[.)])\s+/.test(line));
-  if (newlineParts.filter((line) => /^(?:[-*•]|\d+[.)])\s+/.test(line)).length >= 2) {
+  const bulletLineIndex = newlineParts.findIndex((line) => bulletPrefixPattern.test(line));
+  if (newlineParts.filter((line) => bulletPrefixPattern.test(line)).length >= 2) {
     const lead = bulletLineIndex > 0 ? [newlineParts.slice(0, bulletLineIndex).join(" ")] : [];
-    return [...lead, ...newlineParts.slice(Math.max(0, bulletLineIndex)).map(stripBulletPrefix)];
+    return [...lead, ...mergeBulletContinuations(newlineParts.slice(Math.max(0, bulletLineIndex)))];
   }
 
   const inlineParts = trimmed

@@ -70,6 +70,44 @@ function missReasonFor(data: z.infer<typeof evalCaptureSchema>, rating: "good" |
   return "answer_needs_fixing";
 }
 
+async function ownedDocumentId(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  documentId: string | undefined;
+}) {
+  if (!args.documentId) return null;
+  const { data, error } = await args.supabase
+    .from("documents")
+    .select("id")
+    .eq("id", args.documentId)
+    .eq("owner_id", args.ownerId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return typeof data?.id === "string" ? data.id : null;
+}
+
+async function ownedChunkReference(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  chunkId: string | null | undefined;
+}) {
+  if (!args.chunkId) return null;
+  const { data: chunk, error: chunkError } = await args.supabase
+    .from("document_chunks")
+    .select("id,document_id")
+    .eq("id", args.chunkId)
+    .maybeSingle();
+  if (chunkError) throw new Error(chunkError.message);
+  const documentId = typeof chunk?.document_id === "string" ? chunk.document_id : null;
+  if (!documentId) return null;
+  const validatedDocumentId = await ownedDocumentId({
+    supabase: args.supabase,
+    ownerId: args.ownerId,
+    documentId,
+  });
+  return validatedDocumentId ? { id: args.chunkId, documentId: validatedDocumentId } : null;
+}
+
 export async function POST(request: Request) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Eval capture is unavailable in demo mode." }, { status: 400 });
@@ -85,43 +123,23 @@ export async function POST(request: Request) {
     const sourceFiles = uniqueValues(parsed.data.sourceFiles);
     const rating = feedbackRating(parsed.data);
     const missReason = missReasonFor(parsed.data, rating);
-    // Caller-supplied expected_* FKs are UUID-validated and FK-checked for existence,
-    // but neither enforces ownership. Confirm they resolve to rows owned by the
-    // caller so eval data can't be attributed to another tenant's document/chunk.
-    let expectedDocumentId: string | null = null;
-    if (parsed.data.expectedDocumentId) {
-      const { data: ownedDoc } = await supabase
-        .from("documents")
-        .select("id")
-        .eq("id", parsed.data.expectedDocumentId)
-        .eq("owner_id", user.id)
-        .maybeSingle();
-      if (ownedDoc) expectedDocumentId = parsed.data.expectedDocumentId;
-    }
-    let expectedChunkId: string | null = null;
-    if (parsed.data.expectedChunkId) {
-      const { data: chunkRow } = await supabase
-        .from("document_chunks")
-        .select("document_id")
-        .eq("id", parsed.data.expectedChunkId)
-        .maybeSingle();
-      if (chunkRow?.document_id) {
-        const { data: ownedChunkDoc } = await supabase
-          .from("documents")
-          .select("id")
-          .eq("id", chunkRow.document_id)
-          .eq("owner_id", user.id)
-          .maybeSingle();
-        if (ownedChunkDoc) expectedChunkId = parsed.data.expectedChunkId;
-      }
-    }
+    const expectedDocumentId = await ownedDocumentId({
+      supabase,
+      ownerId: user.id,
+      documentId: parsed.data.expectedDocumentId,
+    });
+    const expectedChunkCandidate = parsed.data.expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null;
+    const expectedChunk = await ownedChunkReference({
+      supabase,
+      ownerId: user.id,
+      chunkId: expectedChunkCandidate,
+    });
+    const expectedChunkId =
+      expectedChunk && (!expectedDocumentId || expectedChunk.documentId === expectedDocumentId) ? expectedChunk.id : null;
     const { data, error } = await supabase
       .from("rag_query_misses")
       .insert({
         owner_id: user.id,
-        // Raw clinical queries are potential PHI: store the normalized form unless
-        // raw retention is explicitly enabled (RET-H4), matching every other
-        // rag_query_misses / rag_queries writer.
         query: queryTextForStorage(parsed.data.query),
         normalized_query: normalizedQuery,
         query_class: parsed.data.queryClass ?? parsed.data.queryMode,
@@ -130,19 +148,16 @@ export async function POST(request: Request) {
         cited_chunk_ids: citedChunkIds,
         miss_reason: missReason,
         expected_document_id: expectedDocumentId,
-        expected_chunk_id: expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null,
+        expected_chunk_id: expectedChunkId,
         candidate_aliases: normalizedClinicalSearchTokens(parsed.data.query).slice(0, 12),
         promoted_eval_case: true,
         promoted_at: new Date().toISOString(),
         metadata: {
-          ...queryPrivacyMetadata(parsed.data.query),
           interaction: "answer_eval_capture",
           rating,
           feedback_type: parsed.data.feedbackType ?? null,
-          // Verbatim clinical note/answer are the larger PHI surface; only retain
-          // them when raw retention is explicitly enabled (RET-H4).
-          note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.note : "",
-          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.answer : "",
+          note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.note : null,
+          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.answer : null,
           query_class: parsed.data.queryClass ?? null,
           query_mode: parsed.data.queryMode,
           filters: parsed.data.filters ?? {},
@@ -151,6 +166,7 @@ export async function POST(request: Request) {
           source_chunk_ids_rejected: parsed.data.sourceChunkIds.length - sourceChunkIds.length,
           cited_chunk_ids_rejected: parsed.data.citedChunkIds.length - citedChunkIds.length,
           captured_at: new Date().toISOString(),
+          ...queryPrivacyMetadata(parsed.data.query),
         },
       })
       .select("id")

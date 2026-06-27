@@ -64,6 +64,21 @@ describe("answer display formatting", () => {
     expect(parsed.lines[2]).toMatchObject({ displayLabel: "Medication", group: "medication" });
   });
 
+  it("merges non-bullet continuation lines into the previous bullet", () => {
+    const parsed = parseAnswerDisplayContent(
+      "- Monitoring: Check FBC weekly.\nContinue weekly until stable and document abnormal results.\n- Medication/dose details: Withhold clozapine if ANC is unsafe.\nRestart only when the source threshold is met.",
+    );
+
+    expect(parsed.type).toBe("bullets");
+    expect(parsed.lines).toHaveLength(2);
+    expect(parsed.lines[0].text).toBe(
+      "Check FBC weekly. Continue weekly until stable and document abnormal results.",
+    );
+    expect(parsed.lines[1].text).toBe(
+      "Withhold clozapine if ANC is unsafe. Restart only when the source threshold is met.",
+    );
+  });
+
   it("keeps ordinary prose as a paragraph", () => {
     const parsed = parseAnswerDisplayContent("The indexed source does not contain enough information.");
 

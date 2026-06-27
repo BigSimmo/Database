@@ -27,7 +27,7 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain('const agentRepairRequired = enrichmentStatus !== "completed" || optionalRepairRequired');
     expect(workerSource).toContain('enrichmentStatus = "pending"');
     expect(workerSource).toContain('indexing_v3_agent_status: "pending"');
-    expect(workerSource).toContain('indexing_v3_agent_repair_reason: "optional_index_write_issues"');
+    expect(workerSource).toContain("indexing_v3_agent_repair_reason: agentRepairReason");
   });
 
   it("uses the strict completion RPC when inline enrichment succeeds", () => {
