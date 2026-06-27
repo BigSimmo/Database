@@ -215,8 +215,7 @@ export function MasterSearchHeader({
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocumentIds.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
   const submitLabel = searchMode === "answer" ? (trimmedQuery ? "Answer" : "Ask") : "Docs";
-  const queryPlaceholder =
-    searchMode === "documents" ? "Search your clinical documents..." : "Ask a clinical question...";
+  const queryPlaceholder = searchMode === "documents" ? "Search documents..." : "Ask a clinical question...";
   const selectedAppMode = appModeOptions.find((mode) => mode.id === searchMode) ?? appModeOptions[0];
   const SelectedAppModeIcon = selectedAppMode.icon;
   const dailyActions = [

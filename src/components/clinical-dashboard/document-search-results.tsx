@@ -305,7 +305,8 @@ function DocumentSearchHome({
           )}
         >
           <Clock className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-          <span className="min-w-0 truncate">Last opened: Lithium monitoring guideline</span>
+          <span className="shrink-0 text-[color:var(--clinical-chat-teal)]">Resume</span>
+          <span className="min-w-0 truncate">Lithium monitoring guideline</span>
         </button>
         {documentCount > 0 ? <span className="sr-only">{documentCount.toLocaleString()} documents indexed</span> : null}
       </section>
@@ -367,8 +368,11 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
           <div className="min-w-0">
             <h3 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{resultLabel}</h3>
             {trimmedQuery ? (
-              <p className="truncate text-sm font-medium text-[color:var(--text-muted)]">
-                Results for <span className="font-semibold text-[color:var(--clinical-chat-teal)]">{trimmedQuery}</span>
+              <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:truncate">
+                <span className="block sm:inline">Results for</span>{" "}
+                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-chat-teal)] sm:inline sm:line-clamp-none">
+                  {trimmedQuery}
+                </span>
               </p>
             ) : null}
           </div>
