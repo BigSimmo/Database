@@ -817,11 +817,11 @@ function NaturalLanguageAnswer({
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
   const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
   const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
-  const copySourceQuoteTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const copySourceQuoteTimerRef = useRef<number | null>(null);
   const usePreviewSheet = useMobilePreviewSheet();
   useEffect(() => {
     return () => {
-      if (copySourceQuoteTimerRef.current !== null) clearTimeout(copySourceQuoteTimerRef.current);
+      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
     };
   }, []);
   const cleaned = primaryAnswerDisplayText(text);
@@ -834,7 +834,7 @@ function NaturalLanguageAnswer({
     try {
       await navigator.clipboard.writeText(quoteText);
       setCopiedSourceQuote(true);
-      if (copySourceQuoteTimerRef.current !== null) clearTimeout(copySourceQuoteTimerRef.current);
+      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
       copySourceQuoteTimerRef.current = window.setTimeout(() => setCopiedSourceQuote(false), 1600);
     } catch {
       setCopiedSourceQuote(false);
