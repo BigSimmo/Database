@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
-import { isDemoMode } from "@/lib/env";
+import { env, isDemoMode } from "@/lib/env";
+import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { searchScopeFiltersSchema } from "@/lib/search-scope";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
       .from("rag_query_misses")
       .insert({
         owner_id: user.id,
-        query: parsed.data.query,
+        query: queryTextForStorage(parsed.data.query),
         normalized_query: normalizedQuery,
         query_class: parsed.data.queryClass ?? parsed.data.queryMode,
         top_files: sourceFiles,
@@ -155,8 +156,8 @@ export async function POST(request: Request) {
           interaction: "answer_eval_capture",
           rating,
           feedback_type: parsed.data.feedbackType ?? null,
-          note: parsed.data.note,
-          answer: parsed.data.answer,
+          note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.note : "",
+          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.answer : "",
           query_class: parsed.data.queryClass ?? null,
           query_mode: parsed.data.queryMode,
           filters: parsed.data.filters ?? {},
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
           source_chunk_ids_rejected: parsed.data.sourceChunkIds.length - sourceChunkIds.length,
           cited_chunk_ids_rejected: parsed.data.citedChunkIds.length - citedChunkIds.length,
           captured_at: new Date().toISOString(),
+          ...queryPrivacyMetadata(parsed.data.query),
         },
       })
       .select("id")
