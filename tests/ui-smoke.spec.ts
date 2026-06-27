@@ -75,7 +75,7 @@ async function switchToDocumentSearchMode(page: Page) {
     const documentsMode = page.getByRole("menuitemradio", { name: /^Documents\b/ });
     await expect(documentsMode).toBeVisible({ timeout: 3_000 });
     await documentsMode.click();
-    await expect(page.getByRole("button", { name: "Current app mode: Documents" })).toBeVisible({ timeout: 2_000 });
+    await expect(appModeMenu).toHaveAccessibleName("Current app mode: Documents", { timeout: 2_000 });
   }).toPass({ timeout: 8_000 });
 }
 
