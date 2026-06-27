@@ -105,13 +105,12 @@ function tokenCoverage(tokens: string[], haystack: string) {
   return hits.length / tokens.length;
 }
 
-function phraseScore(query: string, haystack: string) {
-  const queryTokens = uniqueQueryTokens(query);
-  if (queryTokens.length < 2 || !haystack) return 0;
+function phraseScore(tokens: string[], haystack: string) {
+  if (tokens.length < 2 || !haystack) return 0;
   const phrases: string[] = [];
-  for (let size = Math.min(4, queryTokens.length); size >= 2; size -= 1) {
-    for (let index = 0; index <= queryTokens.length - size; index += 1) {
-      phrases.push(queryTokens.slice(index, index + size).join(" "));
+  for (let size = Math.min(4, tokens.length); size >= 2; size -= 1) {
+    for (let index = 0; index <= tokens.length - size; index += 1) {
+      phrases.push(tokens.slice(index, index + size).join(" "));
     }
   }
   const hits = phrases.filter((phrase) => haystack.includes(phrase)).length;
@@ -168,9 +167,8 @@ function sourceQualityScore(result: SearchResult) {
   return score;
 }
 
-function answerEvidenceScore(query: string, result: SearchResult, queryClass: RagQueryClass) {
+function answerEvidenceScore(tokens: string[], result: SearchResult, queryClass: RagQueryClass) {
   const texts = resultTexts(result);
-  const tokens = uniqueQueryTokens(query);
   const base = Math.min(1, result.hybrid_score ?? result.similarity ?? 0) * 0.28;
   const contentCoverage = tokenCoverage(tokens, texts.content);
   const titleCoverage = tokenCoverage(tokens, texts.title);
@@ -178,7 +176,7 @@ function answerEvidenceScore(query: string, result: SearchResult, queryClass: Ra
   const metadataCoverage = tokenCoverage(tokens, texts.metadata);
   const combinedCoverage = tokenCoverage(tokens, texts.combined);
   const adjacentCoverage = tokenCoverage(tokens, texts.adjacent);
-  const phraseCoverage = phraseScore(query, texts.combined);
+  const phraseCoverage = phraseScore(tokens, texts.combined);
   const directnessScore =
     contentCoverage * 0.34 + titleCoverage * 0.12 + sectionCoverage * 0.1 + metadataCoverage * 0.08;
   const weakOverlapPenalty = combinedCoverage < 0.2 ? -0.18 : combinedCoverage < 0.34 ? -0.07 : 0;
@@ -243,11 +241,12 @@ export function rankAnswerEvidence(
   results: SearchResult[],
   queryClass: RagQueryClass = classifyRagQuery(query).queryClass,
 ) {
+  const tokens = uniqueQueryTokens(query);
   const ranked = results
     .map((result, index) => ({
       result,
       index,
-      score: answerEvidenceScore(query, result, queryClass),
+      score: answerEvidenceScore(tokens, result, queryClass),
     }))
     .sort(
       (a, b) =>

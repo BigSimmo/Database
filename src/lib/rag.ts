@@ -1131,7 +1131,7 @@ function scopedAnswerCacheKey(
 }
 
 function cloneAnswer(answer: RagAnswer) {
-  return JSON.parse(JSON.stringify(answer)) as RagAnswer;
+  return structuredClone(answer);
 }
 
 function getCachedAnswer(
@@ -1212,7 +1212,7 @@ function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass
 }
 
 function cloneSearchResults(results: SearchResult[]) {
-  return JSON.parse(JSON.stringify(results)) as SearchResult[];
+  return structuredClone(results);
 }
 
 function getCachedSearch(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {

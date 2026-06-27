@@ -1,6 +1,4 @@
-import { defineConfig } from "vitest/config";
-
-export default defineConfig({
+export default {
   test: {
     testTimeout: 15000,
     coverage: {
@@ -18,4 +16,4 @@ export default defineConfig({
       "@": new URL("./src", import.meta.url).pathname,
     },
   },
-});
+};

@@ -51,7 +51,7 @@ Unverified or limited:
 | Lint             | `npm run lint` (eslint 9.39.4)                                  | ✅ pass, no warnings |
 | Smoke (chromium) | `npx playwright test tests/ui-smoke.spec.ts --project=chromium` | ✅ **22/22 pass**    |
 
-Clean-install caveat resolved in the reconciliation branch: `eslint` was pinned back to the latest compatible 9.x range because `eslint-config-next@16.2.7` pulls `eslint-plugin-react@7.37.5`, whose peer range supports ESLint 9 but not ESLint 10. `npm ci` now completes and `npm run lint` passes under Node 22.22.3.
+Clean-install caveat resolved in the reconciliation branch: `eslint` was pinned back to the latest compatible 9.x range because `eslint-config-next@16.2.9` pulls `eslint-plugin-react@7.37.5`, whose peer range supports ESLint 9 but not ESLint 10. The current runtime target is Node 24.x.
 
 ## 2. Smoke detail
 

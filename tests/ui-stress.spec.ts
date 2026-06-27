@@ -253,11 +253,25 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Open document scope")).toBeFocused();
       await expectNoPageHorizontalOverflow(page);
 
-      await page.getByRole("button", { name: "Switch to answer mode" }).click();
+      const legacyAnswerModeToggle = page.getByRole("button", { name: "Switch to answer mode" });
+      if (await legacyAnswerModeToggle.isVisible().catch(() => false)) {
+        await legacyAnswerModeToggle.click();
+      } else {
+        const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
+        await expect(appModeMenu).toBeVisible();
+        await appModeMenu.click({ force: true });
+        const answerMode = page
+          .getByRole("group", { name: "Choose app mode" })
+          .getByRole("button", { name: /^Answer/ });
+        await expect(answerMode).toBeVisible();
+        await answerMode.click({ force: true });
+        await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
+      }
       await page
-        .getByLabel("Search indexed guidelines by question or keyword")
+        .locator('[aria-label="Search indexed guidelines by question or keyword"]:visible')
+        .first()
         .fill("Show all stress citations and source cards");
-      await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+      await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();
 
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
@@ -283,7 +297,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
         const evidenceDrawer = page.locator("#answer-evidence-drawer");
         await expect(evidenceDrawer).toBeVisible();
         expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
-        await evidenceDrawer.locator("summary").click();
+        const evidenceSummary = evidenceDrawer.locator("summary");
+        await evidenceSummary.focus();
+        await page.keyboard.press("Enter");
         const evidenceReview = page.getByTestId("evidence-support-panel");
         await expect(evidenceReview).toBeVisible();
         await expect(evidenceReview.getByText("Evidence review")).toBeVisible();

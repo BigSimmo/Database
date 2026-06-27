@@ -7,8 +7,8 @@ questions with source citations that link back to the original PDF/document.
 
 ## Setup
 
-1. Use Node.js 24.x. CI runs on Node 24, and `.nvmrc` / `.node-version`
-   pin the same runtime for local version managers.
+1. Use Node.js 24.x with npm 11.x. CI runs on Node 24, and `.nvmrc` /
+   `.node-version` pin the same runtime for local version managers. CI also runs `npm run check:edge:functions`, which requires Deno v2.x.
 2. Copy `.env.example` to `.env.local` and fill in Supabase and OpenAI values.
 3. Confirm the Supabase target:
 
@@ -30,13 +30,17 @@ demo mode if that stale ref appears in `.env.local`.
 
 4. Run `supabase/schema.sql` in the `Clinical KB Database` Supabase project SQL
    editor.
-5. Install optional PDF/OCR worker dependencies:
+5. Install Deno v2.x to run Edge Function type checks (`npm run check:edge:functions`).
+   CI installs Deno automatically via `denoland/setup-deno`. For local use, follow the
+   [Deno installation guide](https://docs.deno.com/runtime/getting_started/installation/)
+   and ensure `deno --version` reports a 2.x release.
+6. Install optional PDF/OCR worker dependencies:
 
 ```bash
 python -m pip install -r worker/python/requirements.txt
 ```
 
-6. Start the app:
+7. Start the app:
 
 ```bash
 npm run dev

@@ -11,7 +11,7 @@ describe("runtime release gate", () => {
   });
 
   it("rejects older and newer major runtimes", () => {
-    expect(checkNodeRuntime("23.11.0")).toMatchObject({ ok: false });
+    expect(checkNodeRuntime("23.7.0")).toMatchObject({ ok: false });
     expect(checkNodeRuntime("25.0.0")).toMatchObject({ ok: false });
   });
 

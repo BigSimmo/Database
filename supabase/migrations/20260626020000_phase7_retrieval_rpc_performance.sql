@@ -132,6 +132,8 @@ $$;
 revoke execute on function public.search_schema_health() from public, anon, authenticated;
 grant execute on function public.search_schema_health() to service_role;
 
+-- Avoid dropping match_document_chunks_text here; CREATE OR REPLACE below updates it in place and preserves existing privileges.
+
 create or replace function public.match_document_chunks_text(
   query_text text,
   match_count integer default 12,
@@ -218,6 +220,9 @@ as $$
   order by lexical_score desc, text_rank desc
   limit match_count;
 $$;
+
+revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) to service_role;
 
 create or replace function public.match_document_lookup_chunks_text(
   query_text text,

@@ -6,6 +6,9 @@ This folder collects the current mockup files for the Clinical KB Database proje
 
 - `favourites-hub/page.tsx` - copied from `src/app/mockups/favourites-hub/page.tsx`
 - `medication-prescribing/page.tsx` - copied from `src/app/mockups/medication-prescribing/page.tsx`
+- `answer-evidence-popups/page.tsx` - copied from `src/app/mockups/answer-evidence-popups/page.tsx`
+- `user-home-profile/page.tsx` - copied from `src/app/mockups/user-home-profile/page.tsx`
+- `mode-dropdown` - runnable mockup only, in `src/app/mockups/mode-dropdown/page.tsx`
 
 ## App routes
 
@@ -13,4 +16,6 @@ The runnable versions remain in the Next.js app route tree:
 
 - `/mockups/favourites-hub`
 - `/mockups/medication-prescribing`
-
+- `/mockups/answer-evidence-popups`
+- `/mockups/user-home-profile`
+- `/mockups/mode-dropdown`
