@@ -422,6 +422,178 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answerSections?.[0]?.heading).toBe("Direct source-backed answer");
   });
 
+  it("records fast-template and strong-quality retry telemetry", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_AWAIT_QUERY_LOGS", "true");
+
+    const firstSource = source({
+      id: "template-retry-1",
+      document_id: "document-a",
+      title: "Document Monitoring Pathway Guide A",
+      file_name: "document-monitoring-pathway-guide-a.pdf",
+      page_number: 3,
+      section_heading: "Monitoring pathway",
+      content:
+        "Guide A defines document monitoring pathways, routine review intervals, safety checks, and referral thresholds for comparison across guides.",
+      similarity: 0.96,
+      hybrid_score: 0.96,
+      text_rank: 1.1,
+    });
+
+    const secondSource = source({
+      id: "template-retry-2",
+      document_id: "document-b",
+      title: "Document Monitoring Pathway Guide B",
+      file_name: "document-monitoring-pathway-guide-b.pdf",
+      page_number: 4,
+      section_heading: "Monitoring pathway",
+      content:
+        "Guide B describes a second document monitoring pathway with review frequency, escalation triggers, and referral thresholds for comparison.",
+      similarity: 0.92,
+      hybrid_score: 0.92,
+      text_rank: 1.0,
+    });
+
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [firstSource, secondSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    const generateStructuredTextResult = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "This is a Direct source-backed answer derived from the retrieved sources and structured for the same citations.",
+          grounded: false,
+          confidence: "low",
+          answerSections: [
+            {
+              heading: "Direct source-backed answer",
+              kind: "documentation",
+              supportLevel: "direct",
+              body: "Use the retrieved evidence to guide a routine review.",
+              citation_chunk_ids: ["template-retry-1"],
+            },
+          ],
+          citations: [{ chunk_id: "template-retry-1" }],
+          quoteCards: [
+            {
+              chunk_id: "template-retry-1",
+              quote:
+                "Retrieved source supports that this document defines the first-line management of a condition and associated safety checks.",
+              section_heading: "Summary",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-5.4-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_fast_template",
+        usage: { input_tokens: 80, output_tokens: 90, total_tokens: 170 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Source-backed summaries mention management steps and review intervals.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "template-retry-1" }],
+          quoteCards: [
+            {
+              chunk_id: "template-retry-1",
+              quote: "Retrieved source supports that this document defines the first-line management.",
+              section_heading: "Summary",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-5.4",
+        operation: "answer",
+        latencyMs: 18,
+        requestId: "req_strong_template",
+        usage: { input_tokens: 140, output_tokens: 120, total_tokens: 260 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Compare the guide pathways by using routine review intervals, escalation triggers, and urgent referral thresholds.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [
+            {
+              heading: "Monitoring",
+              kind: "required_actions",
+              supportLevel: "direct",
+              body: "Review the pathway criteria regularly and escalate when safety checks or referral thresholds are met.",
+              citation_chunk_ids: ["template-retry-2"],
+            },
+          ],
+          citations: [{ chunk_id: "template-retry-2" }],
+          quoteCards: [
+            {
+              chunk_id: "template-retry-2",
+              quote:
+                "Guide B describes a second document monitoring pathway with review frequency, escalation triggers, and referral thresholds for comparison.",
+              section_heading: "Monitoring",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-5.4",
+        operation: "answer",
+        latencyMs: 14,
+        requestId: "req_strong_quality",
+        usage: { input_tokens: 170, output_tokens: 120, total_tokens: 290 },
+      });
+
+    const insert = vi.fn(async () => ({ data: null, error: null }));
+    const from = vi.fn((table: string) => (table === "rag_queries" ? { insert } : new EmptyQuery()));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from,
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "Compare document monitoring pathways across two guides",
+      ownerId: undefined,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.latencyTimings?.answer_retry_count).toBe(2);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_template_retry_strong",
+      "strong_quality_retry",
+    ]);
+    expect(answer.routingReason).toContain("fast_template_retry_strong");
+    expect(answer.routingReason).toContain("strong_quality_retry");
+    expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
+    expect(insert).toHaveBeenCalledTimes(1);
+    const insertCalls = insert.mock.calls as unknown as Array<[{ metadata?: Record<string, unknown> }]>;
+    const loggedMetadata = insertCalls[0]?.[0]?.metadata ?? {};
+    expect(loggedMetadata.answer_retry_count).toBe(2);
+    expect(loggedMetadata.answer_retry_reasons).toEqual([
+      "fast_template_retry_strong",
+      "strong_quality_retry",
+    ]);
+  });
+
   it("filters table-caption metadata from extractive answer points", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -524,13 +696,25 @@ describe("RAG structured-output fallback", () => {
     expect(plainAnswer).not.toContain("table_crop");
   });
 
-  it("retries malformed fast output with the strong model and fails safely without extractive stitching", async () => {
+  it("retries malformed fast output and fails safely through extractive recovery", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_MAX_OUTPUT_TOKENS", "650");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
-    const sources = [source(), source({ id: "agitation-chunk-2", page_number: 10, chunk_index: 1 })];
+    const sources = [
+      source({
+        content:
+          "Inpatient approach details for agitation and arousal management include oral medication when the patient is willing, increased observation when ratings rise, and intramuscular medication when oral medication is refused.",
+      }),
+      source({
+        id: "agitation-chunk-2",
+        page_number: 10,
+        chunk_index: 1,
+        content:
+          "Inpatient approach details include review of route, rating severity, escalation triggers, and monitoring after medication administration.",
+      }),
+    ];
     const rpc = vi.fn(async (name: string) => {
       if (name === "match_document_chunks_text") return { data: sources, error: null };
       if (name === "get_related_document_metadata") return { data: [], error: null };
@@ -574,6 +758,11 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
     expect(answer.openAIRequestIds).toEqual(["req_truncated", "req_truncated", "req_truncated"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1950 });
+    expect(answer.latencyTimings?.answer_retry_count).toBe(2);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_unusable_retry_strong",
+      "strong_quality_retry",
+    ]);
     expect(answer.citations[0]?.source_metadata?.document_status).toBe("current");
   });
 
@@ -582,7 +771,12 @@ describe("RAG structured-output fallback", () => {
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
-    const sources = [source()];
+    const sources = [
+      source({
+        content:
+          "Inpatient approach details for agitation and arousal management include a stepwise approach based on rating severity, route, oral options, and intramuscular options.",
+      }),
+    ];
     const rpc = vi.fn(async (name: string) => {
       if (name === "match_document_chunks_text") return { data: sources, error: null };
       if (name === "get_related_document_metadata") return { data: [], error: null };

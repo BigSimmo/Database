@@ -802,6 +802,9 @@ export type RagAnswer = {
     second_stage_rerank_used?: boolean;
     second_stage_rerank_latency_ms?: number;
     context_pack_latency_ms?: number;
+    context_pack_cache_hits?: number;
+    answer_retry_count?: number;
+    answer_retry_reasons?: string[];
     search_latency_ms?: number;
     generation_latency_ms?: number;
     total_latency_ms?: number;
