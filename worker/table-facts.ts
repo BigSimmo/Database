@@ -83,7 +83,12 @@ function firstRoleColumn(columns: string[], roles: Record<string, string> | unde
   return columns.findIndex((column) => normalizedCandidates.has(String(roles[column] ?? "").toLowerCase()));
 }
 
-function firstColumnByRoleOrPattern(columns: string[], roles: Record<string, string> | undefined, roleCandidates: string[], patterns: RegExp[]) {
+function firstColumnByRoleOrPattern(
+  columns: string[],
+  roles: Record<string, string> | undefined,
+  roleCandidates: string[],
+  patterns: RegExp[],
+) {
   const roleIndex = firstRoleColumn(columns, roles, roleCandidates);
   return roleIndex >= 0 ? roleIndex : firstMatchingColumn(columns, patterns);
 }

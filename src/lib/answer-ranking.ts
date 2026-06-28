@@ -271,14 +271,29 @@ function escapeRegExp(value: string) {
 
 function queryHighlightPatterns(query?: string) {
   if (!query) return [];
-  const tokens = uniqueQueryTokens(query).filter((token) => token.length >= 4 && !queryTermExclusions.has(token));
+  const lowValueHighlightTerms = new Set([
+    "dose",
+    "dosing",
+    "monitor",
+    "monitoring",
+    "test",
+    "tests",
+    "result",
+    "results",
+    "baseline",
+    "clinical",
+    "patient",
+  ]);
+  const tokens = uniqueQueryTokens(query).filter(
+    (token) => token.length >= 4 && !queryTermExclusions.has(token) && !lowValueHighlightTerms.has(token),
+  );
   const patterns: RegExp[] = [];
   const normalizedQuery = normalizeText(query);
   const queryPhrase = tokens.length >= 2 ? tokens.join(" ") : "";
   if (queryPhrase && normalizedQuery.includes(queryPhrase)) {
     patterns.push(new RegExp(`\\b${escapeRegExp(queryPhrase).replace(/\\ /g, "\\s+")}\\b`, "gi"));
   }
-  for (const token of tokens.slice(0, 6).sort((a, b) => b.length - a.length)) {
+  for (const token of tokens.slice(0, 3).sort((a, b) => b.length - a.length)) {
     patterns.push(new RegExp(`\\b${escapeRegExp(token)}\\w*\\b`, "gi"));
   }
   return patterns;
@@ -305,8 +320,11 @@ export function boldHighYieldClinicalText(text: string, query?: string) {
   if (query === undefined) return text;
   if (/[{}\[\]]/.test(text) && /"?(?:answer|heading|citation_chunk_ids|chunk_id)"?\s*:/i.test(text)) return text;
   let output = text;
-  for (const pattern of [...queryHighlightPatterns(query), ...fixedHighYieldPatterns]) {
-    output = applyBoldPatternOutsideExisting(output, pattern, 8);
+  for (const pattern of queryHighlightPatterns(query)) {
+    output = applyBoldPatternOutsideExisting(output, pattern, 1);
+  }
+  for (const pattern of fixedHighYieldPatterns) {
+    output = applyBoldPatternOutsideExisting(output, pattern, 1);
   }
   return output;
 }

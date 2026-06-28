@@ -40,6 +40,13 @@ function consumePublicRateLimit(
 ): PublicRateLimitResult {
   const limit = options.limit;
   const windowMs = options.windowMs;
+  // Evict expired entries to prevent memory leak
+  for (const [k, v] of buckets.entries()) {
+    if (now >= v.resetAt) {
+      buckets.delete(k);
+    }
+  }
+
   const key = publicRateLimitKey(headers);
   const existing = buckets.get(key);
   const bucket =

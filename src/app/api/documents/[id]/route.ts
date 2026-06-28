@@ -4,6 +4,7 @@ import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -117,6 +118,11 @@ function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
     tableRows: metadataStringArrayRows(metadata, "table_rows"),
     tableColumns: metadataStringArray(metadata, "table_columns"),
   };
+}
+
+function committedRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
+  const committedGeneration = committedIndexGeneration(document.metadata);
+  return rows.filter((row) => isCommittedGenerationMetadata({ rowMetadata: row.metadata, committedGeneration }));
 }
 
 function storageWarningsFrom(error: unknown, label: string) {
@@ -305,7 +311,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         .maybeSingle();
 
       if (selectedChunkError) throw new Error(selectedChunkError.message);
-      selectedChunk = data ?? null;
+      selectedChunk = data && committedRows(document, [data]).length > 0 ? data : null;
     }
 
     const effectivePage = selectedChunk?.page_number ?? requestedPage;
@@ -373,9 +379,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         summary: summaryResult.data ?? null,
       },
       pages: pages ?? [],
-      images: (images ?? []).map(withImageTableMetadata),
-      tableFacts: tableFactsResult.data ?? [],
-      chunks: chunks ?? [],
+      images: committedRows(document, images ?? []).map(withImageTableMetadata),
+      tableFacts: committedRows(document, tableFactsResult.data ?? []),
+      chunks: committedRows(document, chunks ?? []),
       pageWindow: {
         from: pageWindow.from,
         to: pageWindow.to,

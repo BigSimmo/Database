@@ -12,8 +12,7 @@ type SupabaseProbeClient = {
 };
 
 export type SupabaseHealthResult =
-  | { ok: true; checkedAt: string }
-  | { ok: false; checkedAt: string; message: string; rawMessage: string };
+  { ok: true; checkedAt: string } | { ok: false; checkedAt: string; message: string; rawMessage: string };
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

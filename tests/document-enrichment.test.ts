@@ -64,6 +64,11 @@ function createSupabaseMock() {
       return this;
     }
 
+    is(column: string, value: unknown) {
+      this.call.filters.push({ column, value });
+      return this;
+    }
+
     single() {
       return this.resolve();
     }

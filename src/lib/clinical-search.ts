@@ -440,7 +440,10 @@ function queryClassFromSignals(args: {
     return "document_lookup";
   if (outsideCorpusMedicalPattern.test(args.normalizedQuery) && args.documentTitleTerms.length === 0)
     return "unsupported_or_general";
-  if (/\bflow\s*chart|flowchart\b/i.test(args.normalizedQuery) && /\b(?:next step|step after|after)\b/i.test(args.normalizedQuery))
+  if (
+    /\bflow\s*chart|flowchart\b/i.test(args.normalizedQuery) &&
+    /\b(?:next step|step after|after)\b/i.test(args.normalizedQuery)
+  )
     return "document_lookup";
   if (
     /\b(?:dose|dosage|dosing|route|mg|mcg|microgram|\bim\b|\bpo\b|\bprn\b)\b/i.test(args.normalizedQuery) &&
@@ -454,7 +457,9 @@ function queryClassFromSignals(args: {
   if (
     args.documentTitleTerms.length > 0 &&
     (!broadSummaryPattern.test(args.normalizedQuery) ||
-      /\b(?:active community patients?|community patients in ed|patient safety plan|nocc)\b/i.test(args.normalizedQuery))
+      /\b(?:active community patients?|community patients in ed|patient safety plan|nocc)\b/i.test(
+        args.normalizedQuery,
+      ))
   ) {
     return "document_lookup";
   }
@@ -1254,7 +1259,9 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
   const queryClass = analysis.queryClass;
   const queryTokens = normalizedClinicalSearchTokens(query);
   const titleText = normalizeQueryTokenForLookups(`${result.title} ${result.file_name}`);
-  const sectionText = normalizeQueryTokenForLookups(`${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`);
+  const sectionText = normalizeQueryTokenForLookups(
+    `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`,
+  );
   const contentText = normalizeQueryTokenForLookups(result.content ?? "");
   const tableText = normalizeQueryTokenForLookups(
     (result.table_facts ?? [])
@@ -1277,7 +1284,9 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
   const hasStructuredTable = hasStructuredThresholdEvidence(result) || hasNumericOrTableEvidence(result);
   const hasDoseEvidence = hasDoseEvidenceSupport(result);
   const hasDoseAmountEvidence = hasMedicationDoseAmountEvidence(result);
-  const titleAliasHit = analysis.documentTitleTerms.some((term) => titleText.includes(normalizeQueryTokenForLookups(term)));
+  const titleAliasHit = analysis.documentTitleTerms.some((term) =>
+    titleText.includes(normalizeQueryTokenForLookups(term)),
+  );
 
   let score = 0;
   score += explanation.titleBoost * 0.32;
@@ -1296,8 +1305,12 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
   if (queryClass === "medication_dose_risk" && hasDoseEvidence) score += 0.08;
   if (queryClass === "medication_dose_risk" && hasDoseAmountEvidence) score += 0.14;
   if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && hasStructuredTable) score += 0.04;
-  if (hasImageEvidenceNeed(query) && (result.images ?? []).some((image) => isClinicalImageEvidence(image))) score += 0.05;
-  if (/\bflow\s*chart|flowchart|matrix|red\s*zone\b/i.test(query) && /\bflow\s*chart|flowchart|matrix|red\s*zone|risk\b/i.test(haystack))
+  if (hasImageEvidenceNeed(query) && (result.images ?? []).some((image) => isClinicalImageEvidence(image)))
+    score += 0.05;
+  if (
+    /\bflow\s*chart|flowchart|matrix|red\s*zone\b/i.test(query) &&
+    /\bflow\s*chart|flowchart|matrix|red\s*zone|risk\b/i.test(haystack)
+  )
     score += 0.07;
   if (/\bpatient safety plan\b/i.test(query) && /\bpatient safety plan\b/.test(titleText)) score += 0.18;
   if (
@@ -1308,7 +1321,11 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
     score += 0.45;
   }
   if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query) && /\badmission\b/.test(titleText)) score += 0.08;
-  if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query) && /\badmission of community patient/.test(titleText))
+  if (
+    /\badmission\b/i.test(query) &&
+    /\bdischarge\b/i.test(query) &&
+    /\badmission of community patient/.test(titleText)
+  )
     score += 0.22;
   if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query) && /\bdischarge\b/.test(titleText)) score += 0.04;
 

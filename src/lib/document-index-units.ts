@@ -105,6 +105,11 @@ function compact(value: unknown, limit = 900) {
   return compacted.length <= limit ? compacted : `${compacted.slice(0, limit - 3).trim()}...`;
 }
 
+function indexGenerationFromChunk(chunk?: { metadata?: Record<string, unknown> | null } | null) {
+  const generation = chunk?.metadata?.index_generation_id;
+  return typeof generation === "string" && generation.trim() ? generation.trim() : null;
+}
+
 const sentenceBoundary = /(?<=[.!?])\s+|\n+/;
 const thresholdPattern =
   /\b(?:threshold|cut[\s-]?off|level|range|score|scale|criteria|criterion|maximum|minimum|baseline|anc|fbc|wbc|neutrophil|withhold|cease|stop|urgent|review|<|>|<=|>=|\d+(?:\.\d+)?\s*(?:mg|mcg|mmol|x\s*10\^?9\/l|%))\b/i;
@@ -214,12 +219,15 @@ function visualProfileForImage(image: IndexUnitVisualImage) {
 
 function visualFamilyKey(image: IndexUnitVisualImage) {
   const metadata = image.metadata ?? {};
-  const family = metadata.visual_family_id ?? metadata.visual_duplicate_group ?? metadata.perceptual_hash ?? metadata.image_hash;
+  const family =
+    metadata.visual_family_id ?? metadata.visual_duplicate_group ?? metadata.perceptual_hash ?? metadata.image_hash;
   return typeof family === "string" && family.trim() ? family.trim() : image.id;
 }
 
 function visualRepresentativeScore(image: IndexUnitVisualImage) {
-  const profileConfidence = Number(image.structuredVisualProfile?.confidence ?? image.metadata?.structured_extraction_confidence ?? 0.55);
+  const profileConfidence = Number(
+    image.structuredVisualProfile?.confidence ?? image.metadata?.structured_extraction_confidence ?? 0.55,
+  );
   const priority = Number(image.candidatePriorityScore ?? image.metadata?.candidate_priority_score ?? 0.55);
   const quality = Number(image.imageQualityScore ?? image.metadata?.image_quality_score ?? 0.55);
   const density = Number(image.ocrTextDensity ?? image.metadata?.ocr_text_density ?? 0);
@@ -235,17 +243,25 @@ function representativeVisualImages(images: IndexUnitVisualImage[]) {
       bestByFamily.set(familyKey, image);
     }
   }
-  return [...bestByFamily.values()].sort((left, right) => visualRepresentativeScore(right) - visualRepresentativeScore(left));
+  return [...bestByFamily.values()].sort(
+    (left, right) => visualRepresentativeScore(right) - visualRepresentativeScore(left),
+  );
 }
 
 function sourceChunkForImage(image: IndexUnitVisualImage, chunks: IndexUnitChunk[]) {
-  const linked = chunks.find((chunk) => Array.isArray((chunk as { image_ids?: string[] }).image_ids) && (chunk as { image_ids?: string[] }).image_ids?.includes(image.id));
+  const linked = chunks.find(
+    (chunk) =>
+      Array.isArray((chunk as { image_ids?: string[] }).image_ids) &&
+      (chunk as { image_ids?: string[] }).image_ids?.includes(image.id),
+  );
   if (linked) return linked;
   return chunks.find((chunk) => image.pageNumber !== null && chunk.page_number === image.pageNumber) ?? null;
 }
 
 function visualTitle(image: IndexUnitVisualImage) {
-  return image.tableTitle || image.tableLabel || image.caption || `Visual evidence page ${image.pageNumber ?? "unknown"}`;
+  return (
+    image.tableTitle || image.tableLabel || image.caption || `Visual evidence page ${image.pageNumber ?? "unknown"}`
+  );
 }
 
 function visualSearchableText(image: IndexUnitVisualImage, profile: StructuredVisualProfile, title: string) {
@@ -266,9 +282,14 @@ function visualSearchableText(image: IndexUnitVisualImage, profile: StructuredVi
     .join(" ");
 }
 
-function fallbackVisualUnitType(image: IndexUnitVisualImage, profile: StructuredVisualProfile, text: string): DocumentIndexUnitType {
+function fallbackVisualUnitType(
+  image: IndexUnitVisualImage,
+  profile: StructuredVisualProfile,
+  text: string,
+): DocumentIndexUnitType {
   if (/\b(?:flow\s*chart|flowchart|algorithm|decision|yes|no|next step|pathway)\b/i.test(text)) return "flowchart_step";
-  if (/\b(?:risk matrix|red zone|likelihood|consequence|high risk|visual alert)\b/i.test(text)) return "risk_matrix_cell";
+  if (/\b(?:risk matrix|red zone|likelihood|consequence|high risk|visual alert)\b/i.test(text))
+    return "risk_matrix_cell";
   if (
     /\b(?:medication|medicine|dose|dosage|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|frequency)\b/i.test(
       text,
@@ -330,10 +351,12 @@ function visualUnit(args: {
       page_number: args.image.pageNumber,
       source_region: sourceRegion,
       visual_family_id: metadata.visual_family_id ?? visualFamilyKey(args.image),
-      visual_duplicate_group: metadata.visual_duplicate_group ?? metadata.perceptual_hash ?? metadata.image_hash ?? null,
+      visual_duplicate_group:
+        metadata.visual_duplicate_group ?? metadata.perceptual_hash ?? metadata.image_hash ?? null,
       structured_extraction_confidence: args.profile.confidence,
       image_quality_score: args.image.imageQualityScore ?? args.image.metadata?.image_quality_score ?? null,
-      candidate_priority_score: args.image.candidatePriorityScore ?? args.image.metadata?.candidate_priority_score ?? null,
+      candidate_priority_score:
+        args.image.candidatePriorityScore ?? args.image.metadata?.candidate_priority_score ?? null,
       ...args.metadata,
     },
   });
@@ -435,7 +458,9 @@ export function buildVisualDocumentIndexUnitInputs(args: {
           chunks: args.chunks,
           unit_type: "table_threshold",
           title: threshold.label,
-          content: [title, threshold.label, threshold.value, threshold.action, threshold.source_text].filter(Boolean).join(" | "),
+          content: [title, threshold.label, threshold.value, threshold.action, threshold.source_text]
+            .filter(Boolean)
+            .join(" | "),
           profile,
           quality_score: threshold.confidence,
           metadata: { visual_item_type: "threshold", threshold },
@@ -569,6 +594,7 @@ function buildUnit(args: {
     metadata: {
       document_index_unit_version: documentIndexUnitVersion,
       document_intelligence_version: documentIntelligenceVersion,
+      index_generation_id: indexGenerationFromChunk(args.sourceChunk),
       chunk_index: args.sourceChunk?.chunk_index ?? null,
       section_heading: args.sourceChunk?.section_heading ?? null,
       ...args.metadata,

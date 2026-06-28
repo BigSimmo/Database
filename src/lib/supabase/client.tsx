@@ -24,11 +24,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 let browserSupabaseClient: SupabaseClient | null | undefined;
 let browserSupabaseClientConfig: string | null = null;
 
+export function isUsableBrowserSupabaseKey(key: string | null | undefined): key is string {
+  const value = key?.trim();
+  if (!value) return false;
+  return !/<[^>]+>|^your-|replace-with|placeholder/i.test(value);
+}
+
 function createBrowserSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-  if (!url || !key) {
+  if (!url || !isUsableBrowserSupabaseKey(key)) {
     browserSupabaseClient = null;
     browserSupabaseClientConfig = null;
     return null;
@@ -42,13 +48,14 @@ function createBrowserSupabaseClient() {
     return null;
   }
 
-  const configKey = `${url}:${key}`;
+  const publishableKey: string = key;
+  const configKey = `${url}:${publishableKey}`;
   if (browserSupabaseClientConfig === configKey) {
     return browserSupabaseClient ?? null;
   }
 
   browserSupabaseClientConfig = configKey;
-  browserSupabaseClient = createClient(url, key, {
+  browserSupabaseClient = createClient(url, publishableKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,

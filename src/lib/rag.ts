@@ -29,6 +29,7 @@ import {
   sourceTextForModel,
 } from "@/lib/source-text-sanitizer";
 import {
+  hasClinicalAnswerQualityIssue,
   isUsableAnswerSectionText,
   looksLikeJsonArtifact,
   normalizeSectionText,
@@ -44,6 +45,7 @@ import {
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import {
@@ -484,7 +486,9 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
   const doseAmountText = `${result.section_heading ?? ""} ${result.content} ${(result.images ?? [])
     .map((image) => `${image.caption ?? ""} ${image.tableTextSnippet ?? ""} ${image.tableTitle ?? ""}`)
     .join(" ")} ${(result.table_facts ?? [])
-    .map((fact) => `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`)
+    .map(
+      (fact) => `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
+    )
     .join(" ")}`;
   const hasDoseAmount = /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(doseAmountText);
   score += Math.max(0, 0.09 - index * 0.004);
@@ -759,6 +763,18 @@ function removeIncompleteTrailingSentence(value: string) {
   return complete.length >= 32 ? complete : text;
 }
 
+function sanitizeAnswerSectionHeadingText(heading: string, body: string) {
+  const structuredHeading = sanitizeStructuredText(heading, { minLength: 1, minTokens: 1 });
+  const polishedHeading = structuredHeading ? sanitizeAnswerText(structuredHeading) || structuredHeading : "";
+  const usableHeading =
+    polishedHeading &&
+    !hasClinicalAnswerQualityIssue(polishedHeading) &&
+    !isLowYieldClinicalText(`${polishedHeading}. ${body}`)
+      ? polishedHeading
+      : "";
+  return cleanAnswerSectionHeading(usableHeading, body);
+}
+
 function sanitizeAnswerSections(
   sections: AnswerSection[] | undefined,
   results: SearchResult[],
@@ -769,10 +785,10 @@ function sanitizeAnswerSections(
 
   return (sections ?? [])
     .map((section) => {
-      const heading = sanitizeStructuredText(section.heading, { minLength: 1, minTokens: 1 });
       const body = removeIncompleteTrailingSentence(
-        sanitizeStructuredText(section.body, { minLength: 8, minTokens: 2 }),
+        sanitizeAnswerText(section.body) || sanitizeStructuredText(section.body, { minLength: 8, minTokens: 2 }),
       );
+      const heading = sanitizeAnswerSectionHeadingText(section.heading, body);
       const citation_chunk_ids = [...new Set(section.citation_chunk_ids.filter((id) => allowed.has(id)))];
       const citationSources = citation_chunk_ids
         .map((id) => allowed.get(id))
@@ -789,6 +805,7 @@ function sanitizeAnswerSections(
       if (!section.heading || !section.body || section.citation_chunk_ids.length === 0) return false;
       if (!isUsableAnswerSectionText(section.heading, { minTokens: 1, minLength: 1 })) return false;
       if (!isUsableAnswerSectionText(section.body, { minTokens: 2, minLength: 8 })) return false;
+      if (hasClinicalAnswerQualityIssue(section.heading) || hasClinicalAnswerQualityIssue(section.body)) return false;
       if (isLowYieldClinicalText(`${section.heading}. ${section.body}`)) return false;
       const key = `${section.heading.toLowerCase()}||${section.body.toLowerCase()}`;
       if (seen.has(key)) return false;
@@ -1184,7 +1201,10 @@ function stableHash(value: string) {
 }
 
 export function retrievalPlanCacheQuery(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity"
+  >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
 ) {
@@ -1481,8 +1501,9 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
     void (async () => {
       try {
         await createAdminClient().from("rag_response_cache").delete().in("cache_kind", ["search", "answer"]);
-      } catch {
+      } catch (error) {
         // Shared cache invalidation is best effort.
+        console.warn("Shared cache invalidation failed (all kinds):", error);
       }
     })();
     return;
@@ -1506,8 +1527,9 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
         .delete()
         [sharedCacheOwnerId ? "eq" : "is"]("owner_id", sharedCacheOwnerId)
         .in("cache_kind", ["search", "answer"]);
-    } catch {
+    } catch (error) {
       // Shared cache invalidation is best effort.
+      console.warn("Shared cache invalidation failed for owner:", error);
     }
   })();
 }
@@ -1520,8 +1542,9 @@ function invalidateAnonymousSharedRagCaches() {
         .delete()
         .is("owner_id", null)
         .in("cache_kind", ["search", "answer"]);
-    } catch {
+    } catch (error) {
       // Shared cache invalidation is best effort.
+      console.warn("Shared cache invalidation failed for anonymous:", error);
     }
   })();
 }
@@ -2187,7 +2210,7 @@ async function loadChunksForMemoryCards(
   const { data: chunks, error: chunksError } = await supabase
     .from("document_chunks")
     .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
     )
     .in("id", chunkIds)
     .limit(chunkIds.length);
@@ -2216,6 +2239,8 @@ async function loadChunksForMemoryCards(
     .map((chunk) => {
       const document = documentById.get(chunk.document_id);
       if (!document) return null;
+      const committedGeneration = committedIndexGeneration(document.metadata);
+      if (chunk.index_generation_id && chunk.index_generation_id !== committedGeneration) return null;
       const card = bestCardByChunk.get(chunk.id);
       const similarity = Math.min(0.92, 0.58 + (card?.confidence ?? 0.5) * 0.28);
       return {
@@ -2259,7 +2284,7 @@ async function loadChunksForSignalMatches(args: {
   const { data: chunks, error: chunksError } = await args.supabase
     .from("document_chunks")
     .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
     )
     .in("id", chunkIds)
     .limit(chunkIds.length);
@@ -2281,6 +2306,8 @@ async function loadChunksForSignalMatches(args: {
       const document = documentById.get(chunk.document_id);
       const match = bestMatchByChunk.get(chunk.id);
       if (!document || !match) return null;
+      const committedGeneration = committedIndexGeneration(document.metadata);
+      if (chunk.index_generation_id && chunk.index_generation_id !== committedGeneration) return null;
       return {
         id: chunk.id,
         document_id: chunk.document_id,
@@ -2616,7 +2643,7 @@ async function packAdjacentSourceContext(
   try {
     const { data, error } = await supabase
       .from("document_chunks")
-      .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis")
+      .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,index_generation_id")
       .in("document_id", documentIds)
       .in("chunk_index", chunkIndexes)
       .order("chunk_index", { ascending: true })
@@ -2628,7 +2655,12 @@ async function packAdjacentSourceContext(
       string,
       { id: string; section_heading: string | null; content: string; retrieval_synopsis?: string | null }
     >();
+    const committedGenerationByDocument = new Map(
+      targetResults.map((result) => [result.document_id, committedIndexGeneration(result.source_metadata)] as const),
+    );
     for (const chunk of data) {
+      const committedGeneration = committedGenerationByDocument.get(chunk.document_id);
+      if (chunk.index_generation_id && chunk.index_generation_id !== committedGeneration) continue;
       chunksByDocumentAndIndex.set(`${chunk.document_id}:${chunk.chunk_index}`, {
         id: chunk.id,
         section_heading: chunk.section_heading,
@@ -2716,11 +2748,22 @@ async function attachPageVisualEvidence(
   const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
   if ((pageData.error && directData.error) || data.length === 0) return results;
 
+  const committedGenerationByDocument = new Map(
+    results.map((result) => [result.document_id, committedIndexGeneration(result.source_metadata)] as const),
+  );
   const imagesByPage = new Map<string, ChunkImage[]>();
   const imagesById = new Map<string, ChunkImage>();
   for (const image of data) {
     if (imagesById.has(image.id)) continue;
     const metadata = safeRecord(image.metadata);
+    if (
+      !isCommittedGenerationMetadata({
+        rowMetadata: metadata,
+        committedGeneration: committedGenerationByDocument.get(image.document_id),
+      })
+    ) {
+      continue;
+    }
     const rawTableText = metadataText(metadata, "table_text");
     const tableText = metadataText(metadata, "table_text_snippet") ?? rawTableText;
     const publicImage: ChunkImage = {
@@ -2801,10 +2844,7 @@ export function decideTextFastPath(
   ) {
     return { returnFastPath: false, reason: "missing_structured_threshold_evidence" };
   }
-  if (
-    queryClass === "table_threshold" &&
-    /\b(?:withhold|withheld|withholding|cease|stop|stopped)\b/i.test(query)
-  ) {
+  if (queryClass === "table_threshold" && /\b(?:withhold|withheld|withholding|cease|stop|stopped)\b/i.test(query)) {
     return { returnFastPath: false, reason: "threshold_action_requires_structured_retrieval" };
   }
   if (queryClass === "medication_dose_risk" && !results.slice(0, 5).some((result) => hasDoseEvidenceSupport(result))) {
@@ -2915,7 +2955,10 @@ function hasDirectSourceImageEvidence(result: SearchResult) {
 }
 
 function sourceImageRequiredForQuery(query: string) {
-  return /\b(?:show|display|attach|open|view|source|original)\b/i.test(query) && /\b(?:image|table|chart|figure|crop|visual)\b/i.test(query);
+  return (
+    /\b(?:show|display|attach|open|view|source|original)\b/i.test(query) &&
+    /\b(?:image|table|chart|figure|crop|visual)\b/i.test(query)
+  );
 }
 
 function directTitleOrAliasSupport(query: string, results: SearchResult[]) {
@@ -2975,7 +3018,10 @@ export function evaluateEvidenceCoverageGate(
       /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i.test(query)
     ) {
       const hasBlood = hasAnyTerm(evidenceText, /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i);
-      const hasAction = hasAnyTerm(evidenceText, /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i);
+      const hasAction = hasAnyTerm(
+        evidenceText,
+        /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i,
+      );
       return {
         accepted: hasStructuredThreshold && hasBlood && hasAction,
         reason:
@@ -2993,7 +3039,9 @@ export function evaluateEvidenceCoverageGate(
         hasAnyTerm(evidenceText, /\bproperty\b/i) &&
         hasAnyTerm(evidenceText, /\b(?:restricted|prohibited|contraband|items?)\b/i);
       return {
-        accepted: hasPropertyTerms && (hasStructuredThreshold || sourceImageSatisfied || hasVisualUnit || strongestScore >= 0.62),
+        accepted:
+          hasPropertyTerms &&
+          (hasStructuredThreshold || sourceImageSatisfied || hasVisualUnit || strongestScore >= 0.62),
         reason: hasPropertyTerms ? "patient_property_restricted_items_gate" : "missing_patient_property_terms",
         strategy: "text_fast_path",
         sourceImageRequired,
@@ -3273,6 +3321,105 @@ function cleanExtractivePointText(value: string) {
 
 const extractiveClinicalDirectivePattern =
   /\b(?:arrange|assess|cease|check|complete|contact|continue|discontinue|escalate|notify|prescribe|record|refer|report|review|stop|withhold|must|required|requires?|should)\b/i;
+const extractiveQueryStopwords = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "about",
+  "be",
+  "by",
+  "can",
+  "do",
+  "does",
+  "for",
+  "from",
+  "how",
+  "in",
+  "is",
+  "it",
+  "of",
+  "on",
+  "or",
+  "the",
+  "to",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "should",
+  "dose",
+  "dosing",
+  "dosage",
+  "medication",
+  "medicine",
+  "monitoring",
+  "monitor",
+  "baseline",
+  "tests",
+  "result",
+  "results",
+  "pathway",
+  "referral",
+  "patient",
+  "patients",
+  "clinical",
+  "advice",
+  "contraindication",
+  "contraindications",
+  "please",
+]);
+const extractiveTruncationPattern =
+  /\b(?:stabili[sz]e\s+the\s+do|the\s+do\b|liver\s+functi\b|respiratio\b|if\s+a\s+60%\s+decrease\s+in\s+b\b)\b/i;
+const extractiveProductCataloguePattern =
+  /\b(?:Lithicarb|Quilonum\s+SR|Campral|imprest\s+location|formulary\s+one)\b|[®™]/i;
+
+function extractiveQueryTokens(query: string) {
+  return splitBalancedWords(query).filter((token) => token.length > 2 && !extractiveQueryStopwords.has(token));
+}
+
+function escapeQueryToken(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function queryTokenVariants(token: string) {
+  const variants = new Set([token]);
+  if (token.length > 5 && token.endsWith("ing")) variants.add(token.slice(0, -3));
+  if (token.length > 4 && token.endsWith("ies")) variants.add(`${token.slice(0, -3)}y`);
+  if (token.length > 4 && token.endsWith("es")) variants.add(token.slice(0, -2));
+  if (token.length > 4 && token.endsWith("s")) variants.add(token.slice(0, -1));
+  return [...variants].filter((variant) => variant.length > 2);
+}
+
+function queryTokenMatchesText(token: string, text: string) {
+  if (token === "ect") return /\b(?:ect|electroconvulsive)\b/i.test(text);
+  for (const variant of queryTokenVariants(token)) {
+    const pattern =
+      variant.length <= 3
+        ? new RegExp(`\\b${escapeQueryToken(variant)}\\b`, "i")
+        : new RegExp(`\\b${escapeQueryToken(variant)}\\w*\\b`, "i");
+    if (pattern.test(text)) return true;
+  }
+  return false;
+}
+
+function hasRelevantQueryOverlap(text: string, query: string) {
+  const tokens = extractiveQueryTokens(query);
+  if (!tokens.length) return true;
+  return tokens.some((token) => queryTokenMatchesText(token, text));
+}
+
+function hasBadExtractiveQuality(text: string) {
+  const normalized = normalizeSectionText(text);
+  if (!normalized) return true;
+  if (extractiveTruncationPattern.test(normalized)) return true;
+  if (extractiveProductCataloguePattern.test(normalized)) return true;
+  if (hasClinicalAnswerQualityIssue(normalized)) return true;
+  if (/\btable\s+\d+\b/i.test(normalized) && normalized.length > 180) return true;
+  return false;
+}
 
 function isLowValueExtractiveCaption(clause: string) {
   const descriptor =
@@ -3284,11 +3431,18 @@ function isLowValueExtractiveCaption(clause: string) {
 }
 
 function sourcePointClauses(value: string, query: string) {
-  const tokens = splitBalancedWords(query).filter((token) => token.length > 3);
+  const tokens = extractiveQueryTokens(query);
   const clauses = cleanExtractivePointText(value)
     .split(/(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
     .map((clause) => cleanExtractivePointText(clause))
-    .filter((clause) => clause.length >= 18 && !looksLikeJsonArtifact(clause) && !isLowValueExtractiveCaption(clause));
+    .filter(
+      (clause) =>
+        clause.length >= 18 &&
+        !looksLikeJsonArtifact(clause) &&
+        !isLowValueExtractiveCaption(clause) &&
+        !hasBadExtractiveQuality(clause) &&
+        hasRelevantQueryOverlap(clause, query),
+    );
 
   return clauses
     .map((clause, index) => {
@@ -3425,30 +3579,9 @@ function quoteToExtractivePoint(quote: QuoteCard, query: string): ExtractiveAnsw
   };
 }
 
-function naturalAnswerLead(query: string, queryClass: RagQueryClass, points: ExtractiveAnswerPoint[]) {
-  if (/\bclozapine\b/i.test(query) && /\bmonitor/i.test(query)) {
-    return "The retrieved clozapine sources support a monitoring-focused answer, but the selected excerpts are strongest for specific source points rather than a full monitoring schedule.";
-  }
-  if (queryClass === "medication_dose_risk") {
-    return "The retrieved medication/risk sources support these practical points.";
-  }
-  if (queryClass === "table_threshold") {
-    return "The retrieved table or threshold evidence supports these points.";
-  }
-  if (points.length === 1) return "The strongest retrieved source supports this point.";
-  return "The strongest retrieved sources support these points.";
-}
-
 function formatNaturalPoint(point: ExtractiveAnswerPoint) {
-  const text = cleanExtractivePointText(point.text).replace(/[.;,\s]+$/, "");
+  const text = sanitizeAnswerText(cleanExtractivePointText(point.text)).replace(/[.;,\s]+$/, "");
   if (!text) return "";
-  if (
-    /^(the|this|these|there|monitor|review|ensure|commence|copy|prescribe|annual|time since|blood test)\b/i.test(text)
-  ) {
-    return `${text}.`;
-  }
-  if (point.label === "Monitoring") return `Monitoring evidence: ${text}.`;
-  if (point.label === "Dose detail") return `Dose evidence: ${text}.`;
   return `${text}.`;
 }
 
@@ -3460,27 +3593,21 @@ function buildNaturalExtractiveAnswer(args: {
 }) {
   const points = uniqueExtractivePoints(args.points, 3);
   if (!points.length) {
+    const gapAnswer = finalQualityGapAnswer(args.query, args.queryClass);
     return {
-      answer:
-        "The indexed source passages matched the question, but no concise source sentence could be extracted. Open the cited sources before relying on this result.",
-      body: "No concise source sentence could be extracted from the selected passages. Use the linked citations to inspect the source text.",
+      answer: gapAnswer,
+      body: gapAnswer,
       citationChunkIds: [] as string[],
     };
   }
 
-  const lead = naturalAnswerLead(args.query, args.queryClass, points);
   const pointSentences = points.map(formatNaturalPoint).filter(Boolean);
-  const caveat =
-    args.queryClass === "medication_dose_risk" && /\bmonitor/i.test(args.query)
-      ? "If you need the complete monitoring schedule, open the linked source pages and check the surrounding table or section."
-      : "";
-  const answer = [lead, ...pointSentences, caveat].filter(Boolean).join(" ");
-  const body = [lead, ...pointSentences].filter(Boolean).join(" ");
+  const answer = sanitizeAnswerText(pointSentences.join(" "));
 
   return {
     answer: boldHighYieldClinicalText(answer, args.query),
-    body: boldHighYieldClinicalText(body, args.query),
-    citationChunkIds: Array.from(new Set(points.flatMap((point) => point.citationChunkIds))),
+    body: boldHighYieldClinicalText(answer, args.query),
+    citationChunkIds: answer ? Array.from(new Set(points.flatMap((point) => point.citationChunkIds))) : [],
   };
 }
 
@@ -3563,15 +3690,7 @@ function buildExtractiveAnswer(args: {
     routingReason: args.routeReason,
     queryClass: args.queryClass,
     latencyTimings: args.timings,
-    answerSections: naturalAnswer.citationChunkIds.length
-      ? [
-          {
-            heading: "Direct source-backed answer",
-            body: naturalAnswer.body,
-            citation_chunk_ids: naturalAnswer.citationChunkIds,
-          },
-        ]
-      : [],
+    answerSections: [],
     quoteCards,
     visualEvidence: args.visualEvidence,
     bestSource: args.bestSource,
@@ -3654,6 +3773,148 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
   return /\b(?:gap|not enough|insufficient|unsupported|urgent|escalat\w*|risk|safety)\b/i.test(
     `${section.heading} ${section.body}`,
   );
+}
+
+const clinicalQuerySignalPattern =
+  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|dose|renal|pregnan|monitor|fbc|anc|qtc|opioid|contraindicat|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib|therapy|treatment)\b/i;
+
+function finalQualityGapAnswer(query: string, queryClass: RagQueryClass) {
+  if (queryClass === "unsupported_or_general" && !clinicalQuerySignalPattern.test(query)) {
+    return "No relevant clinical source was found for this query.";
+  }
+  return "I could not find enough clean, directly relevant source text to answer this query safely. Try a narrower clinical term or scope to a likely document.";
+}
+
+function isFragmentLikeClinicalAnswer(text: string, query: string) {
+  const normalized = normalizeSectionText(text);
+  const lower = normalized.toLowerCase();
+  if (/\bbaby\s+whilst\b.*\bpost\s+anaesthetic\b/i.test(normalized)) return true;
+  if (/^(\*{0,2}[a-z][a-z0-9 -]{2,}\*{0,2})\s*:\s*\1\b/i.test(normalized)) return true;
+  if (/\?\s+(?:monitoring|adverse effects|when prescribed|prescribed for)\b/i.test(normalized)) return true;
+  if (/\bmonitoring adverse effects when prescribed\b/i.test(normalized)) return true;
+  if (/\b(?:after starting|ongoing)\s+\*{0,2}[a-z]+\*{0,2}\.?$/i.test(normalized) && normalized.length < 90) {
+    return true;
+  }
+  if (/\bect\b/i.test(query) && !/\b(?:ect|electroconvulsive|refer|referral)\b/i.test(lower)) return true;
+  return false;
+}
+
+function isMissingCriticalQueryIntent(query: string, text: string) {
+  const normalizedQuery = normalizeSectionText(query).toLowerCase();
+  const normalizedText = normalizeSectionText(text).toLowerCase();
+  if (/\bcontraindicat\w*\b/.test(normalizedQuery)) {
+    return !/\b(?:contraindicat\w*|avoid|must not|do not|should not|not use|opioid[-\s]?free|withdrawal|precipitat\w*)\b/.test(
+      normalizedText,
+    );
+  }
+  if (/\b(?:what to do|red|amber|anc|result|results)\b/.test(normalizedQuery)) {
+    return !/\b(?:withhold|cease|stop|contact|urgent|repeat|review|monitor|range|threshold|blood|patholog\w*|haematolog\w*|hematolog\w*|anc)\b/.test(
+      normalizedText,
+    );
+  }
+  if (/\b(?:referral|refer|pathway)\b/.test(normalizedQuery) && /\bect\b/.test(normalizedQuery)) {
+    return !/\b(?:ect|electroconvulsive|refer|referral|criteria|indicat\w*|psychiat\w*)\b/.test(normalizedText);
+  }
+  return false;
+}
+
+function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQueryClass, reason: string): RagAnswer {
+  return {
+    ...answer,
+    answer: finalQualityGapAnswer(query, queryClass),
+    grounded: false,
+    confidence: "unsupported",
+    answerSections: [],
+    responseMode: "evidence_gap",
+    routingReason: [answer.routingReason, `final_quality_gate:${reason}`].filter(Boolean).join("; "),
+  };
+}
+
+function sectionHeadingKind(heading: string): AnswerSectionKind {
+  if (/\b(?:dose|dosing|medication)\b/i.test(heading)) return "medication_dose";
+  if (/\b(?:monitor|timing|baseline|follow)\b/i.test(heading)) return "monitoring_timing";
+  if (/\b(?:threshold|red|amber|withhold|stop|cease)\b/i.test(heading)) return "thresholds";
+  if (/\b(?:gap|unsupported|source)\b/i.test(heading)) return "source_gap";
+  if (/\b(?:contraindicat|caution|avoid|risk)\b/i.test(heading)) return "contraindications_cautions";
+  return "required_actions";
+}
+
+function cleanAnswerSectionHeading(heading: string, body: string) {
+  const normalized = normalizeSectionText(heading);
+  if (
+    !normalized ||
+    /^(?:direct answer|bottom line|high-yield summary|source-backed answer|direct source-backed answer)$/i.test(
+      normalized,
+    )
+  ) {
+    if (/\b(?:dose|mg|daily|tds|bd)\b/i.test(body)) return "Dose";
+    if (/\b(?:monitor|baseline|fbc|anc|ecg|level)\b/i.test(body)) return "Monitoring";
+    if (/\b(?:withhold|stop|cease|threshold|red|amber)\b/i.test(body)) return "Thresholds";
+    if (/\b(?:gap|not enough|unsupported|insufficient)\b/i.test(body)) return "Source gap";
+    return "Key point";
+  }
+  return normalized;
+}
+
+function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
+  const cleanedAnswer = sanitizeAnswerText(answer.answer);
+  const existingGapAnswer =
+    !answer.grounded &&
+    /could not find enough clean|no relevant clinical source|cannot provide a source-backed clinical answer/i.test(
+      cleanedAnswer,
+    );
+  if (existingGapAnswer) {
+    const gapAnswer = finalQualityGapAnswer(query, queryClass);
+    return {
+      ...answer,
+      answer: gapAnswer,
+      answerSections: [],
+      responseMode: "evidence_gap",
+    };
+  }
+
+  const answerIsBad =
+    !cleanedAnswer ||
+    cleanedAnswer.length < 18 ||
+    hasClinicalAnswerQualityIssue(cleanedAnswer) ||
+    isLowYieldClinicalText(cleanedAnswer) ||
+    isFragmentLikeClinicalAnswer(cleanedAnswer, query) ||
+    isMissingCriticalQueryIntent(query, cleanedAnswer) ||
+    ((answer.routingMode === "extractive" || answer.confidence === "low") &&
+      !hasRelevantQueryOverlap(cleanedAnswer, query));
+
+  if (answerIsBad) {
+    return finalQualityFailure(
+      answer,
+      query,
+      queryClass,
+      !cleanedAnswer ? "empty_after_sanitize" : "low_quality_answer",
+    );
+  }
+
+  const answerKey = normalizeSectionText(cleanedAnswer).toLowerCase();
+  const answerSections = (answer.answerSections ?? [])
+    .map((section) => {
+      const body = sanitizeAnswerText(section.body);
+      if (!body || hasClinicalAnswerQualityIssue(body) || isLowYieldClinicalText(body)) return null;
+      const bodyKey = normalizeSectionText(body).toLowerCase();
+      if (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey)) return null;
+      const heading = cleanAnswerSectionHeading(section.heading, body);
+      return {
+        ...section,
+        heading,
+        body: boldHighYieldClinicalText(body, query),
+        kind: section.kind ?? sectionHeadingKind(heading),
+        supportLevel: section.supportLevel ?? "direct",
+      } satisfies AnswerSection;
+    })
+    .filter((section): section is Exclude<typeof section, null> => Boolean(section));
+
+  return applyNumericVerification({
+    ...answer,
+    answer: boldHighYieldClinicalText(cleanedAnswer, query),
+    answerSections,
+  });
 }
 
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
@@ -3910,9 +4171,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         telemetry.memory_top_score ?? 0,
         ...memoryBoost.cards.map(memoryCardChunkScore),
       );
-      recordRetrievalLayer(telemetry, "memory_cards", Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length), {
-        topScore: Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore)),
-      });
+      recordRetrievalLayer(
+        telemetry,
+        "memory_cards",
+        Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length),
+        {
+          topScore: Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore)),
+        },
+      );
       let documentLookupResults = await attachPageVisualEvidence(
         supabase,
         diversifySearchResults(
@@ -4341,6 +4607,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
     const parsedAnswer = parsed.answer ?? "";
     const nonArtifactParsedAnswer = parsedAnswer.trim() && !looksLikeJsonArtifact(parsedAnswer) ? parsedAnswer : "";
     const sanitizedAnswer =
+      sanitizeAnswerText(parsedAnswer) ||
       sanitizeStructuredText(parsedAnswer, { minLength: 8, minTokens: 2 }) ||
       nonArtifactParsedAnswer ||
       machineReadableFallbackAnswer;
@@ -4365,7 +4632,8 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
     }
     // GEN-C2 / GEN-H2: numeric faithfulness gate.
     return applyNumericVerification(answer);
-  } catch {
+  } catch (error) {
+    console.warn("Failed to parse answer payload, falling back to safe text:", error);
     return safeFallbackAnswer(raw, results, query);
   }
 }
@@ -4750,18 +5018,20 @@ export async function answerQuestionWithScope(args: {
       retrievalDiagnostics,
     );
 
+    const finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
-        answer: answer.answer,
+        answer: finalizedAnswer.answer,
         source_chunk_ids: answerInputResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
           document_ids: args.documentIds ?? null,
-          grounded: answer.grounded,
-          confidence: answer.confidence,
+          grounded: finalizedAnswer.grounded,
+          confidence: finalizedAnswer.confidence,
           routing_mode: route.mode,
           routing_reason: route.reason,
           query_class: queryClass,
@@ -4774,8 +5044,8 @@ export async function answerQuestionWithScope(args: {
           ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: 0,
-          quote_count: answer.quoteCards?.length ?? 0,
-          visual_evidence_count: answer.visualEvidence?.length ?? 0,
+          quote_count: finalizedAnswer.quoteCards?.length ?? 0,
+          visual_evidence_count: finalizedAnswer.visualEvidence?.length ?? 0,
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
@@ -4788,16 +5058,16 @@ export async function answerQuestionWithScope(args: {
           rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
-          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? searchLatencyMs,
-          evidence_summary: answer.evidenceSummary,
-          source_coverage: answer.sourceCoverage,
-          ...retrievalLogMetadata(answer.retrievalDiagnostics ?? retrievalDiagnostics),
+          total_latency_ms: finalizedAnswer.latencyTimings?.total_latency_ms ?? searchLatencyMs,
+          evidence_summary: finalizedAnswer.evidenceSummary,
+          source_coverage: finalizedAnswer.sourceCoverage,
+          ...retrievalLogMetadata(finalizedAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
           related_document_count: relatedDocuments.length,
         },
       });
 
-    setCachedAnswer(args, answer);
-    return answer;
+    setCachedAnswer(args, finalizedAnswer);
+    return finalizedAnswer;
   }
 
   if (route.mode === "extractive") {
@@ -4848,23 +5118,24 @@ export async function answerQuestionWithScope(args: {
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
     answer.smartApiPlan = smartApiPlan;
     answer.scoreExplanations = answerScoreExplanations;
+    const finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
 
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
-        answer: answer.answer,
+        answer: finalizedAnswer.answer,
         source_chunk_ids: answerInputResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
           document_ids: args.documentIds ?? null,
-          grounded: answer.grounded,
-          confidence: answer.confidence,
-          routing_mode: answer.routingMode,
-          routing_reason: answer.routingReason,
+          grounded: finalizedAnswer.grounded,
+          confidence: finalizedAnswer.confidence,
+          routing_mode: finalizedAnswer.routingMode,
+          routing_reason: finalizedAnswer.routingReason,
           query_class: queryClass,
-          fallback_reason: fallbackReasonFromRouting(answer.routingReason),
+          fallback_reason: fallbackReasonFromRouting(finalizedAnswer.routingReason),
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
@@ -4872,11 +5143,11 @@ export async function answerQuestionWithScope(args: {
           ...memoryLogMetadata,
           ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
-          cited_chunk_count: answer.citations.length,
-          quote_count: answer.quoteCards?.length ?? 0,
-          visual_evidence_count: answer.visualEvidence?.length ?? 0,
+          cited_chunk_count: finalizedAnswer.citations.length,
+          quote_count: finalizedAnswer.quoteCards?.length ?? 0,
+          visual_evidence_count: finalizedAnswer.visualEvidence?.length ?? 0,
           related_document_count: relatedDocuments.length,
-          ...retrievalLogMetadata(answer.retrievalDiagnostics ?? retrievalDiagnostics),
+          ...retrievalLogMetadata(finalizedAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
@@ -4889,14 +5160,14 @@ export async function answerQuestionWithScope(args: {
           rrf_top_score: search.telemetry.rrf_top_score,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
-          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
-          evidence_summary: answer.evidenceSummary,
-          source_coverage: answer.sourceCoverage,
+          total_latency_ms: finalizedAnswer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          evidence_summary: finalizedAnswer.evidenceSummary,
+          source_coverage: finalizedAnswer.sourceCoverage,
         },
       });
 
-    setCachedAnswer(args, answer);
-    return answer;
+    setCachedAnswer(args, finalizedAnswer);
+    return finalizedAnswer;
   }
 
   const answerInstructions = `You are answering for a psychiatrist in Perth, Australia using only uploaded clinical document excerpts.
@@ -4908,6 +5179,7 @@ Rules:
 - Start the answer field with the direct clinical answer in the first sentence. Keep only the vital and most relevant information there.
 - First, silently interpret what the clinician is really asking: clinical task, population/scope, likely decision point, urgency/risk, and whether they need a pathway, threshold, comparison, or document lookup. Use that interpretation to shape the answer.
 - Write like a clinician who has read the source material and is explaining the logical clinical approach. Avoid template language, source-inventory wording, and generic phrases such as "the strongest retrieved sources support", "source-backed", "the source states", or "based on the provided excerpts".
+- Use polished sentence case in prose. Do not copy source title casing, all-caps headings, product catalogue lines, brand lists, imprest/formulary labels, or source section headings into the answer field.
 - For broad management, treatment, care, pathway, or approach questions, organize the synthesis naturally: immediate risk/specialist referral if supported, core first-line intervention, adjunctive medication or monitoring when supported, special populations, and important gaps. Do not dump every treatment option with equal weight.
 - For simple definition or direct fact questions, answer only the direct question. Do not broaden into management, treatment, monitoring, or pathway content unless the user explicitly asks for it. Return no answerSections unless one source-gap or safety caveat is essential.
 - Use model-generated clinical synthesis by default; do not stitch disconnected source quotes into the answer.
@@ -4922,6 +5194,7 @@ Rules:
 - Use thresholds for numeric cutoffs, ranges, score boundaries, withhold/stop criteria, or table-like criteria. Use comparison for source differences, conflicting guidance, or when the query asks "compare", "versus", or "difference".
 - Omit sections that are not supported by the retrieved excerpts.
 - Do not include low-yield provenance in answer or answerSections: no document IDs, procedure codes, page labels, file names, chunk numbers, similarity scores, source metadata, headers, footers, review tables, or document-control text.
+- Do not include source footnote markers or trailing citation digits in prose, such as "Tests1" or "months.1"; citation links belong only in the structured citations.
 - Keep provenance only in citations and quoteCards via chunk IDs. If source titles or page numbers are useful, leave them to the UI citations rather than writing them in prose.
 - Be concise: usually 1-3 short sentences in the answer field and about 35-75 words. Use answerSections for extra detail instead of lengthening the answer field.
 - Prefer Australian or WA-specific guidance when present in the sources.
@@ -4940,6 +5213,7 @@ Rules:
 - Treat the fused source brief as an orientation layer only. Verify every claim against the raw source excerpts below it.
 - Structured memory lines are indexing-time source facts mapped back to source chunks. Use them to focus the answer, but cite the original chunks.
 - Start with the direct answer. Omit tangential background, administrative details, source titles, file names, page labels, and provenance from the answer field even when they appear in retrieved sources.
+- Never start an answer by listing available products or formulations unless the user specifically asks what formulations exist. If a formulation matters clinically, mention only the clinically relevant formulation in normal sentence case.
 - Bold only source-supported high-yield details using **bold**: medications, thresholds, timing, escalation triggers, required actions, contraindications, and terms central to the question.
 - Do not bold whole sentences or routine filler wording.
 - Do not use Markdown other than **bold** inside answer or answerSections.
@@ -5297,6 +5571,7 @@ ${qualityRetryInstruction}`
       ...retrievalDiagnostics,
       routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
     });
+    answer = finalizeRagAnswerQuality(answer, args.query, queryClass);
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -5362,9 +5637,10 @@ ${qualityRetryInstruction}`
       mode: "unsupported",
       reason: "generation_fallback",
     });
-    const fallbackAnswer = annotateAnswerWithDiagnostics(
-      await buildGenerationFallbackAnswer(error, relatedDocuments),
-      retrievalDiagnostics,
+    const fallbackAnswer = finalizeRagAnswerQuality(
+      annotateAnswerWithDiagnostics(await buildGenerationFallbackAnswer(error, relatedDocuments), retrievalDiagnostics),
+      args.query,
+      queryClass,
     );
     if (args.logQuery !== false)
       await logRagQuery({
@@ -5437,13 +5713,19 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
 
   const { data: chunks, error } = await supabase
     .from("document_chunks")
-    .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,image_ids")
+    .select(
+      "id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,image_ids,index_generation_id",
+    )
     .eq("document_id", documentId)
     .order("chunk_index", { ascending: true })
     .limit(40);
 
   if (error) throw new Error(error.message);
-  if (!chunks?.length) {
+  const committedGeneration = committedIndexGeneration((document as { metadata?: unknown }).metadata);
+  const committedChunks = (chunks ?? []).filter(
+    (chunk) => !chunk.index_generation_id || chunk.index_generation_id === committedGeneration,
+  );
+  if (!committedChunks.length) {
     return {
       answer: "This document has not been indexed yet, so no summary can be generated.",
       grounded: false,
@@ -5453,7 +5735,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
     } satisfies RagAnswer;
   }
 
-  const results = chunks.map((chunk) => ({
+  const results = committedChunks.map((chunk) => ({
     ...chunk,
     title: document.title,
     file_name: document.file_name,

@@ -172,7 +172,7 @@ function normalizedSourceRegion(row: Record<string, unknown>, fallback?: Record<
     ? safeRecord(row.source_region)
     : Object.keys(safeRecord(row.bbox)).length
       ? safeRecord(row.bbox)
-      : fallback ?? null;
+      : (fallback ?? null);
 }
 
 function withSourceProvenance<T extends Record<string, unknown>>(
@@ -373,7 +373,8 @@ export function deterministicStructuredVisualProfile(args: {
   for (const column of args.tableColumns ?? []) {
     const normalized = column.toLowerCase();
     if (/medication|drug/.test(normalized)) tableColumnRoles[column] = "medication";
-    else if (/dose|mg|mcg|route/.test(normalized)) tableColumnRoles[column] = /route/.test(normalized) ? "route" : "dose";
+    else if (/dose|mg|mcg|route/.test(normalized))
+      tableColumnRoles[column] = /route/.test(normalized) ? "route" : "dose";
     else if (/frequency|schedule/.test(normalized)) tableColumnRoles[column] = "frequency";
     else if (/threshold|range|value|level|count/.test(normalized)) tableColumnRoles[column] = "threshold";
     else if (/action|management|response|intervention|required/.test(normalized)) tableColumnRoles[column] = "action";
@@ -431,17 +432,22 @@ function visualBudgetClass(args: { sourceKind?: string | null; metadata: Record<
   if (args.sourceKind === "table_crop" || /table|threshold/.test(candidate)) return "clinical_table" as const;
   if (/flowchart|algorithm|decision|pathway/.test(candidate) || /flowchart|algorithm|next step|decision/.test(text))
     return "flowchart" as const;
-  if (/risk matrix|matrix/.test(candidate) || /risk matrix|likelihood|consequence/.test(text)) return "risk_matrix" as const;
+  if (/risk matrix|matrix/.test(candidate) || /risk matrix|likelihood|consequence/.test(text))
+    return "risk_matrix" as const;
   if (/medication|dose|route/.test(candidate) || /\b(?:dose|route|mg|mcg|im|po)\b/.test(text))
     return "medication_chart" as const;
-  if (/form|checklist/.test(candidate) || /checklist|tick box|required fields/.test(text)) return "form_checklist" as const;
+  if (/form|checklist/.test(candidate) || /checklist|tick box|required fields/.test(text))
+    return "form_checklist" as const;
   if (/graph|chart|axis|trend/.test(candidate) || /graph|chart|axis|trend/.test(text)) return "graph" as const;
   return clinicalSignalPattern.test(text) ? ("clinical_region" as const) : ("low_signal" as const);
 }
 
 export function scoreVisualCandidate(image: VisualCandidateInput): RankedVisualCandidate {
   const metadata = safeRecord(image.metadata);
-  const tableText = compact(metadata.table_text ?? metadata.accessible_table_markdown ?? metadata.table_text_snippet, 2400);
+  const tableText = compact(
+    metadata.table_text ?? metadata.accessible_table_markdown ?? metadata.table_text_snippet,
+    2400,
+  );
   const nearbyText = compact(image.nearbyText, 1400);
   const text = [metadata.table_title, metadata.table_label, tableText, nearbyText].filter(Boolean).join(" ");
   const width = Number(image.width ?? 0);

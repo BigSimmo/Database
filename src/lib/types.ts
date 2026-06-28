@@ -16,11 +16,7 @@ export type ImageEvidenceCategory =
   | "unclear";
 
 export type ClinicalImageUseClass =
-  | "clinical_evidence"
-  | "administrative"
-  | "reference"
-  | "decorative_or_empty"
-  | "ambiguous";
+  "clinical_evidence" | "administrative" | "reference" | "decorative_or_empty" | "ambiguous";
 
 export type DocumentLabelType =
   | "site"
@@ -45,6 +41,11 @@ export type DocumentOrganizationType =
   | "checklist"
   | "pathway"
   | "reference"
+  | "algorithm"
+  | "factsheet"
+  | "manual"
+  | "assessment_tool"
+  | "prescribing_aid"
   | "unknown";
 
 export type DocumentOrganizationProfile = {
@@ -764,12 +765,7 @@ export type SmartRagApiPlan = {
 };
 
 export type AnswerResponseMode =
-  | "checklist"
-  | "comparison_matrix"
-  | "threshold_table"
-  | "clinical_pathway"
-  | "document_lookup"
-  | "evidence_gap";
+  "checklist" | "comparison_matrix" | "threshold_table" | "clinical_pathway" | "document_lookup" | "evidence_gap";
 
 export type RagAnswer = {
   answer: string;

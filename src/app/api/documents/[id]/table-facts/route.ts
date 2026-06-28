@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { tableReviewMetadata, tableReviewSchema } from "@/lib/table-review";
@@ -17,19 +18,19 @@ function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 }
 
-async function assertDocumentOwner(args: {
+async function loadOwnedDocument(args: {
   supabase: ReturnType<typeof createAdminClient>;
   documentId: string;
   ownerId: string;
 }) {
   const { data, error } = await args.supabase
     .from("documents")
-    .select("id")
+    .select("id,metadata")
     .eq("id", args.documentId)
     .eq("owner_id", args.ownerId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return Boolean(data);
+  return data;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -39,9 +40,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    if (!(await assertDocumentOwner({ supabase, documentId: id, ownerId: user.id }))) {
+    const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
+    if (!document) {
       return NextResponse.json({ error: "Document not found." }, { status: 404 });
     }
+    const committedGeneration = committedIndexGeneration(document.metadata);
 
     const { data, error } = await supabase
       .from("document_table_facts")
@@ -50,7 +53,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .order("page_number", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
-    return NextResponse.json({ tableFacts: data ?? [] });
+    return NextResponse.json({
+      tableFacts: (data ?? []).filter((fact) =>
+        isCommittedGenerationMetadata({ rowMetadata: fact.metadata, committedGeneration }),
+      ),
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
@@ -67,9 +74,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    if (!(await assertDocumentOwner({ supabase, documentId: id, ownerId: user.id }))) {
+    const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
+    if (!document) {
       return NextResponse.json({ error: "Document not found." }, { status: 404 });
     }
+    const committedGeneration = committedIndexGeneration(document.metadata);
 
     const { data: fact, error: factError } = await supabase
       .from("document_table_facts")
@@ -80,6 +89,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .maybeSingle();
     if (factError) throw new Error(factError.message);
     if (!fact) return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+    if (!isCommittedGenerationMetadata({ rowMetadata: fact.metadata, committedGeneration })) {
+      return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+    }
 
     const reviewMetadata = tableReviewMetadata({
       reviewClass: parsed.data.reviewClass,
@@ -105,6 +117,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .eq("document_id", id)
         .maybeSingle();
       if (image) {
+        if (!isCommittedGenerationMetadata({ rowMetadata: image.metadata, committedGeneration })) {
+          return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+        }
         await supabase
           .from("document_images")
           .update({

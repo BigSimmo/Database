@@ -223,6 +223,31 @@ describe("RAG trust validation", () => {
     expect(sections[0]?.citation_chunk_ids).toEqual(["chunk-1"]);
   });
 
+  it("strips prose footnotes and replaces source-catalogue section headings", () => {
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Monitor FBC [1] and ANC (2) before clozapine.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: "chunk-1" }],
+        answerSections: [
+          {
+            heading: "Lithium Carbonate 250 mg Tablet - Lithicarb®",
+            body: "Check ANC1 and FBC2 before clozapine.",
+            citation_chunk_ids: ["chunk-1"],
+          },
+        ],
+      }),
+      [source()],
+      "clozapine monitoring",
+    );
+
+    expect(answer.answer.replace(/\*\*/g, "")).toBe("Monitor FBC and ANC before clozapine.");
+    expect(answer.answer).not.toMatch(/\[\d+\]|\(\d+\)|ANC1|FBC2/);
+    expect(answer.answerSections?.[0]?.heading).toBe("Monitoring");
+    expect(answer.answerSections?.[0]?.body.replace(/\*\*/g, "")).toBe("Check ANC and FBC before clozapine.");
+  });
+
   it("includes exact citation chunk IDs in the model source block", () => {
     const block = buildRagSourceBlock([source()]);
 

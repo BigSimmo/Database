@@ -97,4 +97,64 @@ describe("document organization classifier", () => {
       }),
     ).toBe("Management Of(CAR-T Cell) Therapy Recipients");
   });
+
+  it("classifies new document types accurately based on title keywords", () => {
+    expect(
+      classifyDocumentOrganization({
+        title: "6C Orientation Manual",
+        file_name: "6C Orientation Manual (RPBG).pdf",
+        contentText: "Welcome to 6C.",
+      }).profile.document_type.label,
+    ).toBe("manual");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Abnormal Involuntary Movement Scale (AIMS)",
+        file_name: "AIMS (FSH).pdf",
+        contentText: "Movement scale assessment.",
+      }).profile.document_type.label,
+    ).toBe("assessment_tool");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Lithium Prescribing Aid and Calculator",
+        file_name: "lithium_prescribing_aid.pdf",
+        contentText: "Dosing and monitoring aid.",
+      }).profile.document_type.label,
+    ).toBe("prescribing_aid");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Clozapine Factsheet for Patients",
+        file_name: "clozapine_patient_factsheet.pdf",
+        contentText: "Patient information sheet.",
+      }).profile.document_type.label,
+    ).toBe("factsheet");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Acute Severe Behavioral Disturbance (ASBD) Management Algorithm",
+        file_name: "ASBD Algorithm (PHC).pdf",
+        contentText: "Clinical decision flowchart.",
+      }).profile.document_type.label,
+    ).toBe("algorithm");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Acute Surgical Unit SOP",
+        file_name: "ASU SOP (RPBG).pdf",
+        contentText: "Standard operating procedure.",
+      }).profile.document_type.label,
+    ).toBe("procedure");
+  });
+
+  it("flags low-confidence document type classifications as needs_review", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Random Document",
+      file_name: "random_doc.pdf",
+      contentText: "Does not contain any pattern keywords.",
+    });
+    expect(classification.profile.document_type.label).toBe("unknown");
+    expect(classification.profile.review_status).toBe("needs_review");
+  });
 });

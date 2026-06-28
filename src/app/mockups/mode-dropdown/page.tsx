@@ -10,7 +10,6 @@ import {
   Search,
   Sparkles,
   Stethoscope,
-  UserRound,
 } from "lucide-react";
 
 const modes = [
@@ -42,12 +41,6 @@ const modes = [
     label: "Favourites",
     description: "Saved sources and workflows",
     icon: Heart,
-    active: false,
-  },
-  {
-    label: "Profile",
-    description: "Home, preferences, review queue",
-    icon: UserRound,
     active: false,
   },
 ] as const;

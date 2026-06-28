@@ -70,15 +70,17 @@ export function assessDocumentIndexQuality(args: {
     .filter((score) => Number.isFinite(score));
   const visualUnitCoverage = searchableVisuals
     ? args.insertedImages.filter((image) => {
-        const profile = image.structuredVisualProfile ?? (image.metadata?.structured_visual_profile as typeof image.structuredVisualProfile);
+        const profile =
+          image.structuredVisualProfile ??
+          (image.metadata?.structured_visual_profile as typeof image.structuredVisualProfile);
         return Boolean(
           profile &&
-            ((profile.thresholds?.length ?? 0) +
-              (profile.flowchart_nodes?.length ?? 0) +
-              (profile.risk_matrix_cells?.length ?? 0) +
-              (profile.chart_findings?.length ?? 0) >
-              0 ||
-              image.tableRows?.length),
+          ((profile.thresholds?.length ?? 0) +
+            (profile.flowchart_nodes?.length ?? 0) +
+            (profile.risk_matrix_cells?.length ?? 0) +
+            (profile.chart_findings?.length ?? 0) >
+            0 ||
+            image.tableRows?.length),
         );
       }).length / searchableVisuals
     : null;
@@ -159,7 +161,9 @@ export function assessDocumentIndexQuality(args: {
       searchable_image_coverage: searchableImageCoverage === null ? null : Number(searchableImageCoverage.toFixed(3)),
       visual_unit_coverage: visualUnitCoverage === null ? null : Number(visualUnitCoverage.toFixed(3)),
       average_image_quality_score: visualQualityScores.length ? Number(average(visualQualityScores).toFixed(3)) : null,
-      average_crop_completeness: cropCompletenessScores.length ? Number(average(cropCompletenessScores).toFixed(3)) : null,
+      average_crop_completeness: cropCompletenessScores.length
+        ? Number(average(cropCompletenessScores).toFixed(3))
+        : null,
       average_structured_visual_confidence: structuredConfidenceScores.length
         ? Number(average(structuredConfidenceScores).toFixed(3))
         : null,

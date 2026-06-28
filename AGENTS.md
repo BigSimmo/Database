@@ -99,6 +99,7 @@ After setup:
 - Never attach to a local server unless `/api/local-project-id` confirms it is this project.
 - Do not kill or modify other projects' local servers. If the stable project port is busy, let `npm run ensure` choose the next safe project URL.
 - Do not run a permanent watcher. Only start or verify the server when the current chat task needs the app or the user asks to run it.
+
 <!-- END:local-server-safety -->
 
 <!-- BEGIN:process-hardening -->
@@ -111,6 +112,7 @@ After setup:
 - For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
 - For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
 - Track known verification debts and staged process improvements in `docs/process-hardening.md` instead of relying on chat-only memory.
+
 <!-- END:process-hardening -->
 
 <!-- BEGIN:supabase-project-safety -->
@@ -121,6 +123,7 @@ After setup:
 - Expected project ref: `sjrfecxgysukkwxsowpy`.
 - Older unused project ref `qjgitjyhxrwxsrydablr` belongs to `Database`; treat it as stale and do not use it.
 - Run `npm run check:supabase-project` after changing Supabase env values.
+
 <!-- END:supabase-project-safety -->
 
 <!-- BEGIN:upload-shortcut -->

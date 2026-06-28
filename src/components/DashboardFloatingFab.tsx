@@ -92,12 +92,12 @@ export function DashboardFloatingFab() {
             Copy link
           </button>
           <Link
-            href="/tools"
+            href="/applications"
             onClick={() => setOpen(false)}
             className={cn(floatingControl, "h-9 min-h-9 px-3 text-xs", !open && "hidden")}
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Tools
+            Applications
           </Link>
           {copyNotice && (
             <p className="rounded-md border border-white/20 bg-[color:var(--surface-raised)] px-3 py-2 text-xs text-[color:var(--text-muted)] shadow-[var(--shadow-soft)]">

@@ -34,6 +34,10 @@ const phase7RetrievalPerformanceMigration = readFileSync(
   new URL("../supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const atomicReindexMigration = readFileSync(
+  new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -117,6 +121,39 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("delete from public.document_sections where document_id = p_document_id;");
   });
 
+  it("keeps replacement reindex generations invisible until commit", () => {
+    for (const sql of [schema, atomicReindexMigration]) {
+      expect(sql).toContain("create or replace function public.commit_document_index_generation");
+      expect(sql).toContain("document_chunks_document_generation_chunk_idx");
+      expect(sql).toContain("create or replace function public.is_committed_document_generation");
+      expect(sql).toContain("create or replace function public.is_committed_artifact_generation");
+      expect(sql).toContain("p_pages jsonb default null");
+      expect(sql).toContain("p_quality jsonb default null");
+      expect(sql).toContain("insert into public.document_pages");
+      expect(sql).toContain("insert into public.document_index_quality");
+    }
+    expect(schema).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
+    expect(schema).toContain("public.is_committed_artifact_generation(m.metadata, d.metadata)");
+    expect(schema).toContain("public.is_committed_artifact_generation(f.metadata, d.metadata)");
+    expect(schema).toContain("public.is_committed_artifact_generation(u.metadata, d.metadata)");
+    for (const sql of [schema, atomicReindexMigration]) {
+      expect(sql).toContain(
+        "revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated",
+      );
+    }
+    expect(schema).toContain(
+      "grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role",
+    );
+    expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_chunks_hybrid");
+    expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_index_units_hybrid");
+  });
+
   it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
     expect(schema).toContain("create table if not exists public.ingestion_job_stages");
     expect(schema).toContain("drop constraint if exists ingestion_job_stages_job_id_fkey");
@@ -127,11 +164,28 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("state.enrichment_status in ('pending', 'failed', 'processing')");
     expect(schema).toContain("'indexing_v3_agent_locked_by', p_worker_id");
     expect(schema).toContain("'indexing_v3_agent_attempt_count', e.attempt_count + 1");
-    expect(schema).toContain("grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role");
+    expect(schema).toContain(
+      "grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role",
+    );
     expect(schema).toContain("alter table public.ingestion_job_stages enable row level security");
     expect(schema).toContain('create policy "ingestion job stages service role all" on public.ingestion_job_stages');
     const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
     expect(authenticatedSelectGrant).not.toContain("public.ingestion_job_stages");
+  });
+
+  it("keeps the cron indexing-v3 invoker in the schema snapshot with service-role-only execute grants", () => {
+    expect(schema).toContain("create or replace function public.invoke_indexing_v3_agent");
+    expect(schema).toContain("returns bigint");
+    expect(schema).toContain("security definer");
+    expect(schema).toContain("set search_path = public, extensions, vault, pg_temp");
+    expect(schema).toContain("from vault.decrypted_secrets");
+    expect(schema).toContain("where name = 'indexing_v3_agent_secret'");
+    expect(schema).toContain("select net.http_post(");
+    expect(schema).toContain("https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/indexing-v3-agent?limit=");
+    expect(schema).toContain(
+      "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
+    );
+    expect(schema).toContain("grant execute on function public.invoke_indexing_v3_agent(integer) to service_role");
   });
 
   it("drops the stale duplicate ingestion_job_stages document index", () => {
@@ -155,7 +209,9 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("case when title_embedding then null else 'title_embedding' end");
       expect(sql).toContain("case when summary_embedding then null else 'summary_embedding' end");
       expect(sql).toContain("or l.metadata->>'generated_by' = 'indexing-v3-agent'");
-      expect(sql).toContain("lower(coalesce(l.metadata->>'generation_source', '')) = 'indexing_v3_agent_parsed_artifacts'");
+      expect(sql).toContain(
+        "lower(coalesce(l.metadata->>'generation_source', '')) = 'indexing_v3_agent_parsed_artifacts'",
+      );
       expect(sql).toContain("'indexing_v3_agent_status', 'completed'");
       expect(sql).toContain("'indexing_v3_agent_status', 'deferred'");
       expect(sql).toContain("stage = 'strict_gate_deferred'");
@@ -163,8 +219,12 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("extraction_quality = 'good'");
       expect(sql).toContain("revoke all on table public.document_strict_gate_status from public, anon, authenticated");
       expect(sql).toContain("grant select on table public.document_strict_gate_status to service_role");
-      expect(sql).toContain("revoke execute on function public.repair_strict_enrichment_gate_batch(integer) from public, anon, authenticated");
-      expect(sql).toContain("grant execute on function public.repair_strict_enrichment_gate_batch(integer) to service_role");
+      expect(sql).toContain(
+        "revoke execute on function public.repair_strict_enrichment_gate_batch(integer) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.repair_strict_enrichment_gate_batch(integer) to service_role",
+      );
     }
   });
 
@@ -183,8 +243,12 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("on conflict on constraint document_index_quality_pkey");
       expect(sql).toContain("'{}'::uuid[]");
       expect(sql).not.toContain("perform public.refresh_import_batch_status(batch_ref)");
-      expect(sql).toContain("revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated");
-      expect(sql).toContain("grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role");
+      expect(sql).toContain(
+        "revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role",
+      );
     }
   });
 
