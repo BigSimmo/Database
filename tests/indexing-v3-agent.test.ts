@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   completionGateFromRow,
@@ -21,8 +20,6 @@ const completeGateRow: CompletionGateRow = {
   missing: [],
   gate_passed: true,
 };
-const edgeSource = readFileSync(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8");
-
 function gateRow(overrides: Partial<CompletionGateRow> = {}): CompletionGateRow {
   return { ...completeGateRow, ...overrides };
 }
@@ -156,7 +153,13 @@ describe("indexing-v3-agent behavior", () => {
     expect(currentQuality.needs_quality_promotion).toBe(false);
   });
 
-  it("documents that local worker visual units satisfy visual artifact capture", () => {
+  it("documents that local worker visual units satisfy visual artifact capture", async () => {
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+
     expect(edgeSource).toContain("metadata->>'generated_by' = 'local-worker'");
     expect(edgeSource).toContain("metadata->>'source' = 'visual_intelligence'");
   });

@@ -50,6 +50,7 @@ import {
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
 import type { DocumentMatch, SearchResult } from "@/lib/types";
+import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
@@ -242,30 +243,16 @@ function cleanDocumentCardSummary(value: string) {
   return value;
 }
 
-function relevancePercent(document: DocumentMatch) {
-  const verdict = document.relevance?.verdict as string | undefined;
-  if (verdict === "direct") return 96;
-  if (verdict === "partial") return 84;
-  if (verdict === "nearby") return 78;
-  const values = [document.relevance?.score, document.score].filter(
-    (value): value is number => typeof value === "number" && Number.isFinite(value),
-  );
-  const raw = values[0] ?? 0;
-  if (raw > 0 && raw < 0.1) return 96;
-  const normalized = raw > 1 ? raw : raw * 100;
-  return Math.max(0, Math.min(99, Math.round(normalized)));
-}
-
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
-  const percent = relevancePercent(document);
-  if (verdict === "direct" || percent >= 90) {
+  const percent = documentRelevancePercent(document);
+  if (verdict === "direct") {
     return { label: "High relevance", short: "High relevance", detail: `${percent}% match` };
   }
   if (verdict === "partial" || percent >= 75) {
-    return { label: "High relevance", short: "High relevance", detail: `${percent}% related` };
+    return { label: "Relevant", short: "Relevant", detail: `${percent}% related` };
   }
-  return { label: "Relevant", short: "Relevant", detail: `${percent}% nearby` };
+  return { label: "Related", short: "Related", detail: `${percent}% nearby` };
 }
 
 function sourceSupportLabel(document: DocumentMatch) {
@@ -612,7 +599,6 @@ export function DocumentSearchResultsPanel({
         : trimmedQuery
           ? "No matching documents"
           : `${documentCount} document${documentCount === 1 ? "" : "s"}`;
-
   return (
     <div data-testid="document-search-workspace" className="space-y-3">
       {matches.length > 0 || trimmedQuery || loading || unavailableMessage ? (
@@ -710,8 +696,8 @@ export function DocumentSearchResultsPanel({
             {displayedMatches.map((document, index) => {
               const evidenceBadges = compactEvidenceBadges(document);
               const relevanceDisplay = relevanceTone(document);
-              const relevanceVariant = relevanceDisplay.short === "Relevant" ? "relevant" : "high";
               const fileKind = documentFileKind(document.file_name, "DOC");
+              const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
               const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
               const openHref = documentOpenHref(document);
               return (

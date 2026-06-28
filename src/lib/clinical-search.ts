@@ -810,7 +810,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     vocabularyTerms,
   });
 
-  return {
+  const analysis = {
     originalQuery,
     normalizedQuery,
     queryClass,
@@ -835,6 +835,8 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
       /recommend|decide|should|manage|consider|contraindicat|interaction|risk/i.test(normalizedQuery),
     needsClassifierFallback: confidence < 0.58 && queryClass === "unsupported_or_general",
   };
+
+  return { ...analysis };
 }
 
 export function classifyRagQuery(query: string): RagQueryClassification {

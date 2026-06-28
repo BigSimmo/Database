@@ -225,4 +225,26 @@ describe("section-aware chunking groundwork", () => {
     expect(content).toContain("Check renal function");
     expect(content).toContain("Review lithium levels");
   });
+
+  it("keeps repeated clinical chunks on different pages instead of document-wide deduping them", () => {
+    const repeatedMonitoringText =
+      "Clozapine monitoring table\n\nANC threshold 0.5 x 10^9/L: withhold clozapine and repeat FBC daily.";
+    const chunks = buildChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 4,
+        pageText: repeatedMonitoringText,
+        metadata: {},
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 7,
+        pageText: repeatedMonitoringText,
+        metadata: {},
+      },
+    ]);
+
+    expect(chunks.filter((chunk) => chunk.content.includes("ANC threshold 0.5 x 10^9/L"))).toHaveLength(2);
+    expect(chunks.map((chunk) => chunk.page_number)).toEqual([4, 7]);
+  });
 });

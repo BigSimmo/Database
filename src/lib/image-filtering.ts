@@ -35,6 +35,8 @@ export type ImageUseAssessmentInput = {
   caption?: string | null;
   labels?: string[] | null;
   skipReason?: string | null;
+  width?: number | null;
+  height?: number | null;
 };
 
 export type ImageUseAssessment = {
@@ -186,6 +188,8 @@ export function assessClinicalImageUse(input: ImageUseAssessmentInput): ImageUse
     tableText: input.tableText,
     tableTitle: input.tableTitle,
     tableLabel: input.tableLabel,
+    width: input.width,
+    height: input.height,
   });
 
   let useClass: ClinicalImageUseClass = "ambiguous";
@@ -243,6 +247,8 @@ export function isClinicalImageEvidence(image: {
   tableRole?: string | null;
   source_kind?: string | null;
   sourceKind?: string | null;
+  width?: number | null;
+  height?: number | null;
   metadata?: unknown;
 }) {
   if (image.searchable === false || image.image_type === "logo_decorative") return false;
@@ -255,6 +261,8 @@ export function isClinicalImageEvidence(image: {
     searchable: image.searchable,
     clinicalRelevanceScore: image.clinical_relevance_score,
     sourceKind: image.sourceKind ?? image.source_kind,
+    width: image.width,
+    height: image.height,
     tableRole: image.tableRole ?? (typeof metadata.table_role === "string" ? metadata.table_role : null),
     tableText:
       typeof metadata.table_text === "string"

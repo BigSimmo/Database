@@ -87,13 +87,6 @@ import {
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import { parseIndexedSourceText } from "@/lib/indexed-source-formatting";
 
-type DocumentIndexHealth = {
-  extractionQuality?: string | null;
-  indexedAt?: string | null;
-  indexVersion?: string | null;
-  warnings?: unknown;
-};
-
 type PageRow = {
   id: string;
   page_number: number;
@@ -153,6 +146,13 @@ type DocumentSearchResult = {
   matched_terms: string[];
   image_ids: string[];
   score: number;
+};
+
+type DocumentIndexHealth = {
+  extractionQuality?: string | null;
+  indexedAt?: string | null;
+  indexVersion?: string | null;
+  warnings?: unknown;
 };
 
 const profileSectionLabels: Array<{
@@ -1033,6 +1033,16 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
   }, [loadAttempt, url]);
 
   useEffect(() => {
+    const nextPage = Math.max(1, initialPage || 1);
+    const boundedPage = totalPages > 0 ? Math.min(nextPage, totalPages) : nextPage;
+    const frame = window.requestAnimationFrame(() => {
+      setPage((current) => (current === boundedPage ? current : boundedPage));
+      setPageInput(String(boundedPage));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialPage, totalPages]);
+
+  useEffect(() => {
     if (!holderRef.current) return;
     let timeout: number | undefined;
     const observer = new ResizeObserver((entries) => {
@@ -1610,6 +1620,12 @@ function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
   );
 }
 
+function usefulDocumentPages(initialPage: number, pages: PageRow[]) {
+  return Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
+    .filter((page) => Number.isFinite(page))
+    .slice(0, 3);
+}
+
 function DocumentOverviewLanding({
   document,
   initialPage,
@@ -1628,9 +1644,7 @@ function DocumentOverviewLanding({
   canSummarizeDocument: boolean;
 }) {
   const keySections = documentKeySections(document);
-  const usefulPages = Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
-    .filter((page) => Number.isFinite(page))
-    .slice(0, 3);
+  const usefulPages = usefulDocumentPages(initialPage, pages);
   const documentType = compactDocumentType(document);
 
   return (
@@ -1665,6 +1679,7 @@ function DocumentOverviewLanding({
                 `Uploaded ${formatClinicalDate(document.created_at)}`,
               ]}
             />
+            {/* Search relevance badges are rendered in document search results; the viewer has no ranking context. */}
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.75fr)_minmax(0,1fr)]">
@@ -1780,6 +1795,7 @@ export function DocumentViewer({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
@@ -1790,7 +1806,6 @@ export function DocumentViewer({
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
-  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
@@ -2085,6 +2100,7 @@ export function DocumentViewer({
         ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
   );
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
+  const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
     const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
@@ -2433,7 +2449,7 @@ export function DocumentViewer({
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
                 <PdfCanvasViewer
-                  key={`${signedUrl}:${initialPage}`}
+                  key={documentId}
                   url={signedUrl}
                   title={documentDisplayTitle(document)}
                   initialPage={initialPage}
@@ -2491,14 +2507,7 @@ export function DocumentViewer({
               </div>
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
                 <dt>Useful pages</dt>
-                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
-                  {Math.max(
-                    1,
-                    Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
-                      .filter((page) => Number.isFinite(page))
-                      .slice(0, 3).length,
-                  )}
-                </dd>
+                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">{usefulPageCount}</dd>
               </div>
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
                 <dt>Text sections</dt>
