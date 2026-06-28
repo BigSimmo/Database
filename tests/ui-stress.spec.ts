@@ -239,7 +239,12 @@ test.describe("Clinical KB long-content stress coverage", () => {
         viewport.name === "mobile"
           ? page.getByRole("dialog", { name: "Upload and indexing" })
           : page.locator("#sources");
-      await expect(uploadSurface.getByText("24 indexed").first()).toBeVisible();
+      await expect(dailyActions).toBeHidden();
+      await expect(uploadSurface).toBeVisible();
+      await expect(uploadSurface.getByRole("button", { name: "Show indexed document files" })).toContainText(
+        "24 indexed",
+        { timeout: 20_000 },
+      );
       const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
       if (await closeUploadSheet.isVisible().catch(() => false)) {
         await closeUploadSheet.click();
