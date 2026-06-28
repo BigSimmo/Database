@@ -49,7 +49,8 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("complete_strict_enrichment_job");
     expect(workerSource).toContain('p_agent_version: "visual-core-v3"');
     expect(workerSource).toContain('p_visual_indexing_version: "visual-v3"');
-    expect(workerSource).toContain('indexing_v3_agent_repair_reason: "strict_completion_gate_blocked"');
+    expect(workerSource).toContain('strictCompletion.missing.includes("strict_completion_rpc_failed")');
+    expect(workerSource).toContain("indexing_v3_agent_repair_reason: strictCompletionRepairReason");
   });
 
   it("invalidates stale image caption cache entries by policy, prompt, and context versions", () => {
@@ -62,9 +63,10 @@ describe("worker visual capture hardening", () => {
   });
 
   it("computes perceptual duplicate groups before caption budget selection", () => {
-    expect(workerSource.indexOf("const preparedImages = await Promise.all")).toBeLessThan(
+    expect(workerSource.indexOf("const preparedImages: Array")).toBeLessThan(
       workerSource.indexOf("const scoredCandidates = rankVisualCandidates"),
     );
+    expect(workerSource).not.toContain("preparedImage.bytes.toString");
     expect(workerSource).toContain("lightweightPerceptualHash(bytes, image.width, image.height)");
     expect(workerSource).toContain("perceptualHash: preparedImages[index]?.perceptualHash ?? null");
   });

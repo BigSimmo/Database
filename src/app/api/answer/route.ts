@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
         answer:
-          "The selected filters did not match any indexed documents, so I cannot generate a source-backed answer for that scope.",
+          "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
         grounded: false,
         confidence: "unsupported",
         citations: [],

@@ -130,6 +130,6 @@ describe("source governance warnings", () => {
 
   it("keeps the refusal message free of backend and source-backed wording", () => {
     expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin/i);
-    expect(sourceGovernanceRefusalAnswer).toContain("supporting documents need review");
+    expect(sourceGovernanceRefusalAnswer).toContain("matched documents need review");
   });
 });

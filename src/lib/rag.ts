@@ -2512,11 +2512,17 @@ async function withMemoryBoostedCandidates(args: {
   matchCount: number;
   cardCache?: MemoryCardCache;
 }) {
-  // A3: the memory-card fetch is invoked at several waterfall stages for the same query/owner.
-  // Memoize per request, keyed by the inputs that actually vary within a request — the query,
-  // whether an embedding is supplied (embedding vs text-only fetches differ), and the count.
+  // A3: the memory-card fetch is invoked at several waterfall stages. Memoize per request,
+  // scoped by owner/document filters because fetchMemoryCardsForQuery applies those filters.
   const effectiveMatchCount = Math.max(args.matchCount, 48);
-  const cacheKey = `${args.query}\0${args.queryEmbedding?.length ? "vec" : "text"}\0${effectiveMatchCount}`;
+  const documentScope = args.documentIds?.length ? [...args.documentIds].sort().join(",") : "all-documents";
+  const cacheKey = [
+    args.ownerId ?? "anonymous",
+    documentScope,
+    args.query,
+    args.queryEmbedding?.length ? "vec" : "text",
+    effectiveMatchCount,
+  ].join("\0");
   let cardsPromise = args.cardCache?.get(cacheKey);
   if (!cardsPromise) {
     cardsPromise = fetchMemoryCardsForQuery({
@@ -3338,6 +3344,10 @@ function cleanExtractivePointText(value: string) {
       /^(?:clinical\s+)?table\s+(?:showing|detailing|listing|outlining|describing)\b.*?:\s*(?=\b(?:if|when|for|cease|stop|withhold|contact|repeat|monitor|clozapine)\b)/i,
       "",
     )
+    .replace(
+      /^[A-Z][A-Za-z /-]{3,80}:\s*(?=\b(?:if|when|for|cease|stop|withhold|contact|repeat|monitor|clozapine)\b)/,
+      "",
+    )
     .replace(extractiveLabelPattern, " ")
     .replace(/^[\s\-•:]+/, "")
     .replace(/^(?:monitoring|dose|dosing|source|section|table|guideline)\s*[.;:,-]\s*/i, "")
@@ -3354,7 +3364,7 @@ function cleanExtractivePointText(value: string) {
 }
 
 const extractiveClinicalDirectivePattern =
-  /\b(?:arrange|assess|cease|check|complete|contact|continue|discontinue|escalate|notify|prescribe|record|refer|report|review|stop|withhold|must|required|requires?|should)\b/i;
+  /\b(?:arrange|assess|cease|check|complete|contact|continue|discontinue|discontinued|escalate|notify|prescribe|record|refer|report|review|stop|withhold|must|required|requires?|should)\b/i;
 const extractiveQueryStopwords = new Set([
   "a",
   "an",
@@ -3486,6 +3496,23 @@ function queryEntityTokens(query: string, intent: AnswerIntent) {
   return tokens;
 }
 
+function uniqueAnswerTokens(tokens: string[]) {
+  return Array.from(new Set(tokens.filter(Boolean)));
+}
+
+function queryIntentTokens(query: string, intent: AnswerIntent) {
+  const tokens = extractiveQueryTokens(query).filter((token) => answerIntentTerms.has(token));
+  if (intent === "dose" && /\b(?:renal|egfr|creatinine|kidney)\b/i.test(query))
+    return uniqueAnswerTokens(["renal", ...tokens]);
+  if (intent === "dose" && /\bmax(?:imum)?\b/i.test(query)) return uniqueAnswerTokens(["maximum", ...tokens]);
+  if (intent === "monitoring_schedule") return uniqueAnswerTokens(["monitoring", ...tokens]);
+  if (intent === "red_result_action")
+    return uniqueAnswerTokens(["red", "range", "blood", "result", "results", "threshold", "action", ...tokens]);
+  if (intent === "contraindication") return uniqueAnswerTokens(["contraindication", ...tokens]);
+  if (intent === "pathway_referral") return uniqueAnswerTokens(["referral", "criteria", ...tokens]);
+  return tokens;
+}
+
 function answerIntentEvidencePattern(intent: AnswerIntent) {
   switch (intent) {
     case "dose":
@@ -3495,7 +3522,7 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
     case "monitoring_schedule":
       return /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|fbc|anc|ecg|lft|renal|review)\b/i;
     case "red_result_action":
-      return /\b(?:red|amber|threshold|withhold|cease|stop|urgent|contact|repeat|review|anc|fbc|wbc|neutrophil|patholog\w*|haematolog\w*|hematolog\w*)\b/i;
+      return /\b(?:red|amber|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|review|anc|fbc|wbc|neutrophil|patholog\w*|haematolog\w*|hematolog\w*)\b/i;
     case "pathway_referral":
       return /\b(?:pathway|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*)\b/i;
     case "document_lookup":
@@ -3509,6 +3536,7 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   if (intent === "unsupported") return false;
   const text = evidenceTextForGate(result);
   const entityTokens = queryEntityTokens(query, intent);
+  const intentTokens = queryIntentTokens(query, intent);
   const entityCoverage =
     entityTokens.length === 0 ||
     entityTokens.some((token) => queryTokenMatchesText(token, text)) ||
@@ -3517,6 +3545,7 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   if (intent === "general") return true;
   const intentCoverage = answerIntentEvidencePattern(intent).test(text);
   if (!intentCoverage) return false;
+  if (intentTokens.length > 0 && !intentTokens.some((token) => queryTokenMatchesText(token, text))) return false;
   if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine)\b/i.test(text)) return false;
   if (/\bmax(?:imum)?\b/i.test(query) && !/\b(?:max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg))\b/i.test(text)) {
     return false;
@@ -3557,18 +3586,27 @@ function queryTokenMatchesText(token: string, text: string) {
   return false;
 }
 
-function hasRelevantQueryOverlap(text: string, query: string, intent: AnswerIntent = classifyAnswerIntent(query, classifyRagQuery(query).queryClass)) {
+function hasRelevantQueryOverlap(
+  text: string,
+  query: string,
+  intent: AnswerIntent = classifyAnswerIntent(query, classifyRagQuery(query).queryClass),
+) {
   const tokens = extractiveQueryTokens(query);
   if (!tokens.length) return true;
   const normalized = normalizeSectionText(text).toLowerCase();
   const entityTokens = queryEntityTokens(query, intent);
+  const intentTokens = queryIntentTokens(query, intent);
   const entityCovered =
     entityTokens.length === 0 ||
     entityTokens.some((token) => queryTokenMatchesText(token, normalized)) ||
     (/\bect\b/i.test(query) && /\b(?:ect|electroconvulsive)\b/i.test(normalized));
   if (!entityCovered && intent !== "general") return false;
-  if (intent === "general" || intent === "unsupported") return tokens.some((token) => queryTokenMatchesText(token, text));
-  return answerIntentEvidencePattern(intent).test(normalized);
+  if (intent === "general" || intent === "unsupported")
+    return tokens.some((token) => queryTokenMatchesText(token, text));
+  return (
+    answerIntentEvidencePattern(intent).test(normalized) &&
+    (intentTokens.length === 0 || intentTokens.some((token) => queryTokenMatchesText(token, normalized)))
+  );
 }
 
 function hasBadExtractiveQuality(text: string) {
@@ -3663,16 +3701,24 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
     return "contraindication";
   }
   if (/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return "renal_limit";
-  if (/\b(?:red|amber|threshold|withhold|cease|stop|urgent|contact|repeat|anc|fbc|wbc|neutrophil)\b/i.test(text)) {
+  if (
+    /\b(?:red|amber|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|anc|fbc|wbc|neutrophil)\b/i.test(
+      text,
+    )
+  ) {
     return "threshold_action";
   }
-  if (/\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|ecg|lft|review)\b/i.test(text)) {
+  if (
+    /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|ecg|lft|review)\b/i.test(text)
+  ) {
     return "monitoring";
   }
   if (/\b(?:pathway|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*)\b/i.test(text)) {
     return "pathway_referral";
   }
-  if (/\b(?:dose|dosing|dosage|max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg)|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text)) {
+  if (
+    /\b(?:dose|dosing|dosage|max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg)|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text)
+  ) {
     return "dose";
   }
   if (/\b(?:caution|risk|adverse|side effect|limited|not enough|insufficient)\b/i.test(text)) return "caveat";
@@ -3829,7 +3875,12 @@ function buildFactSynthesizedAnswer(args: {
   }
 
   const leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
-  const answer = sanitizeAnswerText(leadFacts.map((fact) => sentenceFromFact(fact, args.query)).filter(Boolean).join(" "));
+  const answer = sanitizeAnswerText(
+    leadFacts
+      .map((fact) => sentenceFromFact(fact, args.query))
+      .filter(Boolean)
+      .join(" "),
+  );
   const answerSections = buildFactSections(facts, args.query);
   return {
     answer: boldHighYieldClinicalText(answer, args.query),
@@ -3840,7 +3891,10 @@ function buildFactSynthesizedAnswer(args: {
 }
 
 function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
-  return classifyAnswerIntent(query, queryClass) === "document_lookup" && /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query);
+  return (
+    classifyAnswerIntent(query, queryClass) === "document_lookup" &&
+    /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query)
+  );
 }
 
 function buildDocumentSupportListAnswer(args: { query: string; results: SearchResult[] }) {
@@ -3856,14 +3910,32 @@ function buildDocumentSupportListAnswer(args: { query: string; results: SearchRe
       : `I found ${names.length} indexed documents that support this query: ${names.slice(0, -1).join("; ")}; and ${names.at(-1)}.`;
   return {
     answer,
-    citationChunkIds: Array.from(new Set(documents.flatMap((document) => args.results.filter((result) => result.document_id === document.document_id).slice(0, 1).map((result) => result.id)))),
+    citationChunkIds: Array.from(
+      new Set(
+        documents.flatMap((document) =>
+          args.results
+            .filter((result) => result.document_id === document.document_id)
+            .slice(0, 1)
+            .map((result) => result.id),
+        ),
+      ),
+    ),
     answerSections: [
       {
         heading: "Document matches",
         kind: "documentation",
         supportLevel: "direct",
         body: names.join("; "),
-        citation_chunk_ids: Array.from(new Set(documents.flatMap((document) => args.results.filter((result) => result.document_id === document.document_id).slice(0, 1).map((result) => result.id)))),
+        citation_chunk_ids: Array.from(
+          new Set(
+            documents.flatMap((document) =>
+              args.results
+                .filter((result) => result.document_id === document.document_id)
+                .slice(0, 1)
+                .map((result) => result.id),
+            ),
+          ),
+        ),
       },
     ] satisfies AnswerSection[],
   };
@@ -4069,14 +4141,14 @@ function buildExtractiveAnswer(args: {
         results: args.results,
       });
   const fallbackNaturalAnswer =
-    naturalAnswer.citationChunkIds.length > 0
-      ? naturalAnswer
-      : buildNaturalExtractiveAnswer({
+    answerIntent === "general" && naturalAnswer.citationChunkIds.length === 0
+      ? buildNaturalExtractiveAnswer({
           query: args.query,
           queryClass: args.queryClass,
           points: [...dosePoints, ...memoryPoints, ...quotePoints],
           sourceCount: args.results.length,
-        });
+        })
+      : naturalAnswer;
 
   // When no concise source sentence could be extracted, buildNaturalExtractiveAnswer
   // returns a sentinel non-answer with no citationChunkIds. Do not present that as a
@@ -4086,7 +4158,7 @@ function buildExtractiveAnswer(args: {
   return {
     answer: fallbackNaturalAnswer.answer,
     grounded: hasExtractedAnswer && citations.length > 0,
-    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "low",
+    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "unsupported",
     citations: citations.slice(0, 5),
     sources: args.results,
     modelUsed: null,
@@ -4180,7 +4252,7 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
 }
 
 const clinicalQuerySignalPattern =
-  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|dose|renal|pregnan|monitor|fbc|anc|qtc|opioid|contraindicat|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib|therapy|treatment)\b/i;
+  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|bulimia|anorexia|eating disorder|dose|renal|pregnan|monitor|fbc|anc|qtc|opioid|contraindicat|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib|therapy|treatment)\b/i;
 
 function finalQualityGapAnswer(
   query: string,
@@ -4196,8 +4268,12 @@ function finalQualityGapAnswer(
   }
   if (intent === "pathway_referral") return "No current source with referral or pathway criteria was found.";
   if (intent === "contraindication") return "No current source with contraindication or avoid-use guidance was found.";
-  if (intent === "monitoring_schedule") return "No current source with monitoring timing or schedule guidance was found.";
-  if (intent === "red_result_action") return "No current source with threshold-specific action guidance was found.";
+  if (intent === "monitoring_schedule")
+    return "No current source with monitoring timing or schedule guidance was found.";
+  if (intent === "red_result_action") {
+    if (/\bqtc\b/i.test(query)) return "No current source with QTc threshold or ECG action guidance was found.";
+    return "No current source with threshold-specific action guidance was found.";
+  }
   if (intent === "dose") {
     if (/\brenal\b/i.test(query)) return "No current source with renal dosing limits for this query was found.";
     return "No current source with dose guidance for this query was found.";
@@ -4228,7 +4304,7 @@ function isMissingCriticalQueryIntent(query: string, text: string) {
     );
   }
   if (/\b(?:what to do|red|amber|anc|result|results)\b/.test(normalizedQuery)) {
-    return !/\b(?:withhold|cease|stop|contact|urgent|repeat|review|monitor|range|threshold|blood|patholog\w*|haematolog\w*|hematolog\w*|anc)\b/.test(
+    return !/\b(?:withhold|cease|stop|discontinue|discontinued|contact|urgent|repeat|review|monitor|range|threshold|blood|patholog\w*|haematolog\w*|hematolog\w*|anc)\b/.test(
       normalizedText,
     );
   }
@@ -4318,7 +4394,13 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
       const body = sanitizeAnswerText(section.body);
       if (!body || hasClinicalAnswerQualityIssue(body) || isLowYieldClinicalText(body)) return null;
       const bodyKey = normalizeSectionText(body).toLowerCase();
-      if (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey)) return null;
+      const isDocumentListSection = section.kind === "documentation" || /\bdocument matches\b/i.test(section.heading);
+      if (
+        !isDocumentListSection &&
+        (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey))
+      ) {
+        return null;
+      }
       const heading = cleanAnswerSectionHeading(section.heading, body);
       return {
         ...section,

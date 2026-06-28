@@ -288,7 +288,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
     expect(answer.openAIRequestIds ?? []).toEqual([]);
     expect(answer.grounded).toBe(false);
-    expect(answer.confidence).toBe("low");
+    expect(answer.confidence).toBe("unsupported");
     expect(answer.responseMode).toBe("evidence_gap");
     expect(answer.answer).toMatch(/No current source with monitoring timing or schedule guidance/i);
     expect(answer.answer).not.toMatch(/retrieved source|source-backed|based on the provided excerpts/i);
@@ -901,6 +901,138 @@ describe("RAG structured-output fallback", () => {
     expect(answer.grounded).toBe(false);
     expect(answer.citations).toHaveLength(0);
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
+  });
+
+  it("returns document names for source-support questions instead of clinical advice", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const lithiumDocument = {
+      id: "lithium-doc",
+      title: "Lithium Monitoring Guideline",
+      file_name: "CG.MHSP.Lithium.pdf",
+      metadata: {
+        source_title: "Lithium Monitoring Guideline",
+        publisher: "Local service",
+        jurisdiction: "Australia/WA",
+        document_status: "current",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+      text_rank: 0.31,
+    };
+    const lithiumChunk = {
+      id: "lithium-doc-chunk-1",
+      document_id: "lithium-doc",
+      page_number: 4,
+      chunk_index: 0,
+      section_heading: "Lithium monitoring",
+      section_path: ["Lithium monitoring"],
+      content: "Lithium monitoring guidance covers baseline tests, level checks, and renal review.",
+      retrieval_synopsis: "Lithium monitoring source summary.",
+      image_ids: [],
+      text_rank: 0.42,
+    };
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_documents_for_query") return { data: [lithiumDocument], error: null };
+      if (name === "match_document_lookup_chunks_text") return { data: [lithiumChunk], error: null };
+      if (name === "match_document_chunks_hybrid") {
+        return {
+          data: [
+            source({
+              id: "lithium-doc-chunk-1",
+              document_id: "lithium-doc",
+              title: "Lithium Monitoring Guideline",
+              file_name: "CG.MHSP.Lithium.pdf",
+              section_heading: "Lithium monitoring",
+              content: "Lithium monitoring guidance covers baseline tests, level checks, and renal review.",
+              similarity: 0.91,
+              hybrid_score: 0.93,
+              text_rank: 0.42,
+            }),
+          ],
+          error: null,
+        };
+      }
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "What documents support lithium monitoring?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("Lithium Monitoring Guideline");
+    expect(answer.answer).toContain("indexed document");
+    expect(answer.answer).not.toMatch(/level checks|renal review|baseline tests/i);
+  });
+
+  it("fails closed for classified dose intent when no accepted fact covers entity and intent together", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const broadDoseSource = source({
+      id: "sertraline-broad-dose-1",
+      document_id: "sertraline-doc",
+      title: "Antidepressant Dose Overview",
+      file_name: "antidepressant-overview.pdf",
+      section_heading: "Maximum doses",
+      content:
+        "Antidepressant maximum oral doses include fluoxetine 60 mg, citalopram 40 mg, and escitalopram 20 mg. Sertraline patient information is provided in another section.",
+      similarity: 0.94,
+      hybrid_score: 0.94,
+      text_rank: 1.2,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [broadDoseSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(),
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "What is the maximum sertraline dose?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.answer).toBe("No current source with dose guidance for this query was found.");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.answer).not.toMatch(/fluoxetine|citalopram|escitalopram/i);
+    expect(answer.answerSections ?? []).toEqual([]);
   });
 
   it("continues hybrid chunk retrieval when index-unit hybrid retrieval times out", async () => {
