@@ -783,20 +783,15 @@ async function uploadAndCaptionImages(
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
   const imageTypeCounts = new Map<string, number>();
-  const preparedImages = await Promise.all(
-    extracted.images.map(async (image) => {
-      const bytes = await readFile(image.path);
-      const imageHash = hashBytes(bytes);
-      return {
-        // B4: retain the buffer so caption (base64) and storage upload reuse this single
-        // read instead of re-reading the same file from disk two more times per image.
-        bytes,
-        imageHash,
-        bytesLength: bytes.length,
-        perceptualHash: lightweightPerceptualHash(bytes, image.width, image.height),
-      };
-    }),
-  );
+  const preparedImages: Array<{ imageHash: string; bytesLength: number; perceptualHash: string }> = [];
+  for (const image of extracted.images) {
+    const bytes = await readFile(image.path);
+    preparedImages.push({
+      imageHash: hashBytes(bytes),
+      bytesLength: bytes.length,
+      perceptualHash: lightweightPerceptualHash(bytes, image.width, image.height),
+    });
+  }
   const scoredCandidates = rankVisualCandidates(
     extracted.images.map((image, index) => ({
       pageNumber: image.pageNumber,
@@ -822,7 +817,6 @@ async function uploadAndCaptionImages(
     candidate: (typeof scoredCandidates)[number];
     index: number;
     image: ExtractedDocument["images"][number];
-    preparedImage: (typeof preparedImages)[number];
     perceptualHash: string;
     imageHash: string;
     nearbyText: string | undefined;
@@ -880,7 +874,6 @@ async function uploadAndCaptionImages(
       candidate,
       index,
       image,
-      preparedImage,
       perceptualHash: preparedImage.perceptualHash,
       imageHash,
       nearbyText,
@@ -891,8 +884,11 @@ async function uploadAndCaptionImages(
   }
 
   const captionConcurrency = 4;
-  const resolvedTasks: Array<{ task: CaptionTask; classification: ImageClassification; classificationCacheHit: boolean }> =
-    [];
+  const resolvedTasks: Array<{
+    task: CaptionTask;
+    classification: ImageClassification;
+    classificationCacheHit: boolean;
+  }> = [];
   for (let start = 0; start < captionTasks.length; start += captionConcurrency) {
     const batch = captionTasks.slice(start, start + captionConcurrency);
     await updateJobProgress(job.id, {
@@ -908,8 +904,9 @@ async function uploadAndCaptionImages(
           classificationCacheHit = Boolean(classification);
         }
         if (!classification) {
+          const bytes = await readFile(task.image.path);
           classification = await classifyAndCaptionImageFromBase64({
-            base64: task.preparedImage.bytes.toString("base64"),
+            base64: bytes.toString("base64"),
             mimeType: task.image.mimeType,
             nearbyText: task.nearbyText,
             sourceKind: task.image.sourceKind ?? null,
@@ -935,8 +932,16 @@ async function uploadAndCaptionImages(
 
   for (const resolved of resolvedTasks) {
     const { task, classificationCacheHit } = resolved;
-    const { candidate, index, image, preparedImage, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } =
-      task;
+    const {
+      candidate,
+      index,
+      image,
+      perceptualHash,
+      imageHash,
+      nearbyText,
+      tableMetadata,
+      contextHash,
+    } = task;
     let classification = resolved.classification;
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
@@ -998,7 +1003,7 @@ async function uploadAndCaptionImages(
     }
 
     const ext = path.extname(image.path) || ".png";
-    const bytes = preparedImage.bytes;
+    const bytes = await readFile(image.path);
     const imagePrefix = job.documents.owner_id
       ? `${job.documents.owner_id}/images/${job.document_id}`
       : `local/${job.document_id}`;
@@ -1677,6 +1682,9 @@ async function processJob(job: JobRow) {
       if (!strictCompletion.completed) {
         completionStage = "indexed; enrichment deferred";
         const strictCompletionMessage = strictCompletion.message ?? "Strict enrichment completion blocked.";
+        const strictCompletionRepairReason = strictCompletion.missing.includes("strict_completion_rpc_failed")
+          ? "strict_completion_rpc_failed"
+          : "strict_completion_gate_blocked";
         await updateDocument(job.document_id, {
           metadata: {
             ...finalMetadata,
@@ -1684,7 +1692,7 @@ async function processJob(job: JobRow) {
             enrichment_error: strictCompletionMessage,
             indexing_v3_agent_status: "pending",
             indexing_v3_agent_last_error: strictCompletionMessage,
-            indexing_v3_agent_repair_reason: "strict_completion_gate_blocked",
+            indexing_v3_agent_repair_reason: strictCompletionRepairReason,
             indexing_v3_agent_updated_at: new Date().toISOString(),
             completion_gate_missing: strictCompletion.missing,
           },

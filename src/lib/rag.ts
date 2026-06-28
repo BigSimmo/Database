@@ -13,7 +13,7 @@ import {
   rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
@@ -1210,7 +1210,7 @@ export function retrievalPlanCacheQuery(
 ) {
   const normalizedQuery = normalizedCacheQuery(args.query);
   const variantHash = stableHash(queryVariants.join("\n"));
-  return [
+  const cacheKey = [
     `plan:${retrievalPlanForQueryClass(queryClass)}`,
     `class:${queryClass ?? "unknown"}`,
     `query:${normalizedQuery}`,
@@ -1220,6 +1220,7 @@ export function retrievalPlanCacheQuery(
     `min:${args.minSimilarity ?? 0.15}`,
     `rag:${ragDeepMemoryVersion}`,
   ].join("|");
+  return queryCacheKeyForStorage(cacheKey);
 }
 
 function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
@@ -1290,7 +1291,7 @@ function sharedCacheSelector(
   kind: SharedCacheKind,
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
   indexingVersion: string,
-  normalizedQuery: string = normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
+  normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
 ) {
   let query = supabase
     .from("rag_response_cache")
@@ -1438,7 +1439,7 @@ async function replaceSharedCacheRow(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
   payload: unknown,
   ttlMs: number,
-  normalizedQuery: string = normalizedCacheQuery(`${modeKey(args)} ${args.query}`),
+  normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
 ) {
   if (ttlMs <= 0) return;
   try {
@@ -2511,11 +2512,17 @@ async function withMemoryBoostedCandidates(args: {
   matchCount: number;
   cardCache?: MemoryCardCache;
 }) {
-  // A3: the memory-card fetch is invoked at several waterfall stages for the same query/owner.
-  // Memoize per request, keyed by the inputs that actually vary within a request — the query,
-  // whether an embedding is supplied (embedding vs text-only fetches differ), and the count.
+  // A3: the memory-card fetch is invoked at several waterfall stages. Memoize per request,
+  // scoped by owner/document filters because fetchMemoryCardsForQuery applies those filters.
   const effectiveMatchCount = Math.max(args.matchCount, 48);
-  const cacheKey = `${args.query}\0${args.queryEmbedding?.length ? "vec" : "text"}\0${effectiveMatchCount}`;
+  const documentScope = args.documentIds?.length ? [...args.documentIds].sort().join(",") : "all-documents";
+  const cacheKey = [
+    args.ownerId ?? "anonymous",
+    documentScope,
+    args.query,
+    args.queryEmbedding?.length ? "vec" : "text",
+    effectiveMatchCount,
+  ].join("\0");
   let cardsPromise = args.cardCache?.get(cacheKey);
   if (!cardsPromise) {
     cardsPromise = fetchMemoryCardsForQuery({
@@ -3292,6 +3299,33 @@ type ExtractiveAnswerPoint = {
   source: "dose" | "memory" | "quote";
 };
 
+type AnswerIntent =
+  | "dose"
+  | "contraindication"
+  | "monitoring_schedule"
+  | "red_result_action"
+  | "document_lookup"
+  | "pathway_referral"
+  | "unsupported"
+  | "general";
+
+type ExtractedClinicalFactKind =
+  | "bottom_line"
+  | "dose"
+  | "renal_limit"
+  | "monitoring"
+  | "threshold_action"
+  | "contraindication"
+  | "pathway_referral"
+  | "caveat";
+
+type ExtractedClinicalFact = {
+  kind: ExtractedClinicalFactKind;
+  text: string;
+  citationChunkIds: string[];
+  priority: number;
+};
+
 function cleanExtractiveLine(line: string) {
   return sourceTextForClinicalProse(line)
     .replace(/^[-•]\s*/, "")
@@ -3305,9 +3339,19 @@ const extractiveLabelPattern =
 
 function cleanExtractivePointText(value: string) {
   return sourceTextForClinicalProse(value)
+    .replace(/\b(?:clinical_table|table_crop|diagram_crop)\b/gi, " ")
+    .replace(
+      /^(?:clinical\s+)?table\s+(?:showing|detailing|listing|outlining|describing)\b.*?:\s*(?=\b(?:if|when|for|cease|stop|withhold|contact|repeat|monitor|clozapine)\b)/i,
+      "",
+    )
+    .replace(
+      /^[A-Z][A-Za-z /-]{3,80}:\s*(?=\b(?:if|when|for|cease|stop|withhold|contact|repeat|monitor|clozapine)\b)/,
+      "",
+    )
     .replace(extractiveLabelPattern, " ")
     .replace(/^[\s\-•:]+/, "")
     .replace(/^(?:monitoring|dose|dosing|source|section|table|guideline)\s*[.;:,-]\s*/i, "")
+    .replace(/([A-Za-z)])\s*(\d{1,2})(?=(?:[,.;]|\s|$))/g, "$1")
     .replace(/\s+[•]\s+/g, ". ")
     .replace(
       /\s+-\s+(?=[A-Z][a-z])|(?:\s+-\s*)?(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point)\s*:\s*/gi,
@@ -3320,7 +3364,7 @@ function cleanExtractivePointText(value: string) {
 }
 
 const extractiveClinicalDirectivePattern =
-  /\b(?:arrange|assess|cease|check|complete|contact|continue|discontinue|escalate|notify|prescribe|record|refer|report|review|stop|withhold|must|required|requires?|should)\b/i;
+  /\b(?:arrange|assess|cease|check|complete|contact|continue|discontinue|discontinued|escalate|notify|prescribe|record|refer|report|review|stop|withhold|must|required|requires?|should)\b/i;
 const extractiveQueryStopwords = new Set([
   "a",
   "an",
@@ -3369,8 +3413,145 @@ const extractiveQueryStopwords = new Set([
   "advice",
   "contraindication",
   "contraindications",
+  "documents",
+  "document",
+  "support",
+  "supports",
+  "supported",
+  "sources",
+  "source",
+  "guidance",
+  "guideline",
+  "guidelines",
   "please",
 ]);
+
+const answerIntentTerms = new Set([
+  "action",
+  "actions",
+  "avoid",
+  "contraindicated",
+  "contraindication",
+  "contraindications",
+  "criteria",
+  "dose",
+  "doses",
+  "dosing",
+  "dosage",
+  "maximum",
+  "max",
+  "monitor",
+  "monitors",
+  "monitoring",
+  "pathway",
+  "refer",
+  "referral",
+  "renal",
+  "result",
+  "results",
+  "schedule",
+  "threshold",
+  "thresholds",
+  "what",
+]);
+
+export function classifyAnswerIntent(query: string, queryClass: RagQueryClass): AnswerIntent {
+  const normalized = normalizeSectionText(query).toLowerCase();
+  if (!normalized) return "unsupported";
+  if (
+    /\b(?:what|which|list|show|find)\s+(?:documents?|sources?|guidelines?|files?)\b.*\b(?:support|cover|contain|for|about)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:documents?|sources?|guidelines?|files?)\s+(?:support|cover|contain|for|about)\b/.test(normalized)
+  ) {
+    return "document_lookup";
+  }
+  if (/\b(?:contraindicat\w*|avoid|do not use|must not|should not|not use|opioid[-\s]?free)\b/.test(normalized)) {
+    return "contraindication";
+  }
+  if (/\b(?:red|amber|green|anc|fbc|wbc|result|results|threshold|withhold|cease|stop|stopped)\b/.test(normalized)) {
+    return "red_result_action";
+  }
+  if (/\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up|level|levels|test|tests)\b/.test(normalized)) {
+    return "monitoring_schedule";
+  }
+  if (/\b(?:dose|dosing|dosage|max(?:imum)?|mg|mcg|renal|eGFR|creatinine)\b/i.test(query)) return "dose";
+  if (/\b(?:pathway|refer|referral|criteria|ect|electroconvulsive)\b/.test(normalized)) return "pathway_referral";
+  if (
+    queryClass === "document_lookup" ||
+    /\b(?:find|show|open|which)\b.*\b(?:document|guideline|procedure|policy|protocol|form|source|file)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:documentation|forms?|documents?|sources?|guidelines?|procedure|policy|protocol)\b/.test(normalized)
+  ) {
+    return "document_lookup";
+  }
+  if (queryClass === "unsupported_or_general" && !clinicalQuerySignalPattern.test(query)) return "unsupported";
+  return "general";
+}
+
+function queryEntityTokens(query: string, intent: AnswerIntent) {
+  const tokens = extractiveQueryTokens(query).filter((token) => !answerIntentTerms.has(token));
+  if (intent === "document_lookup") return tokens.filter((token) => token.length > 3);
+  return tokens;
+}
+
+function uniqueAnswerTokens(tokens: string[]) {
+  return Array.from(new Set(tokens.filter(Boolean)));
+}
+
+function queryIntentTokens(query: string, intent: AnswerIntent) {
+  const tokens = extractiveQueryTokens(query).filter((token) => answerIntentTerms.has(token));
+  if (intent === "dose" && /\b(?:renal|egfr|creatinine|kidney)\b/i.test(query))
+    return uniqueAnswerTokens(["renal", ...tokens]);
+  if (intent === "dose" && /\bmax(?:imum)?\b/i.test(query)) return uniqueAnswerTokens(["maximum", ...tokens]);
+  if (intent === "monitoring_schedule") return uniqueAnswerTokens(["monitoring", ...tokens]);
+  if (intent === "red_result_action")
+    return uniqueAnswerTokens(["red", "range", "blood", "result", "results", "threshold", "action", ...tokens]);
+  if (intent === "contraindication") return uniqueAnswerTokens(["contraindication", ...tokens]);
+  if (intent === "pathway_referral") return uniqueAnswerTokens(["referral", "criteria", ...tokens]);
+  return tokens;
+}
+
+function answerIntentEvidencePattern(intent: AnswerIntent) {
+  switch (intent) {
+    case "dose":
+      return /\b(?:dose|dosing|dosage|max(?:imum)?|mg|mcg|microgram|micrograms|mmol\/l|eGFR|renal|creatinine|daily|bd|tds|mane|nocte)\b/i;
+    case "contraindication":
+      return /\b(?:contraindicat\w*|avoid|must not|do not|should not|not use|opioid[-\s]?free|withdrawal|precipitat\w*)\b/i;
+    case "monitoring_schedule":
+      return /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|fbc|anc|ecg|lft|renal|review)\b/i;
+    case "red_result_action":
+      return /\b(?:red|amber|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|review|anc|fbc|wbc|neutrophil|patholog\w*|haematolog\w*|hematolog\w*)\b/i;
+    case "pathway_referral":
+      return /\b(?:pathway|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*)\b/i;
+    case "document_lookup":
+      return /\b(?:document|guideline|procedure|policy|protocol|form|source|file|support|supports|covers|contains)\b/i;
+    default:
+      return /\b(?:assess|arrange|check|continue|review|treat|manage|monitor|refer|dose|risk|therapy|diagnos\w*)\b/i;
+  }
+}
+
+function resultCoversAnswerIntent(result: SearchResult, query: string, intent: AnswerIntent) {
+  if (intent === "unsupported") return false;
+  const text = evidenceTextForGate(result);
+  const entityTokens = queryEntityTokens(query, intent);
+  const intentTokens = queryIntentTokens(query, intent);
+  const entityCoverage =
+    entityTokens.length === 0 ||
+    entityTokens.some((token) => queryTokenMatchesText(token, text)) ||
+    (/\bect\b/i.test(query) && /\b(?:ect|electroconvulsive)\b/i.test(text));
+  if (!entityCoverage) return false;
+  if (intent === "general") return true;
+  const intentCoverage = answerIntentEvidencePattern(intent).test(text);
+  if (!intentCoverage) return false;
+  if (intentTokens.length > 0 && !intentTokens.some((token) => queryTokenMatchesText(token, text))) return false;
+  if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine)\b/i.test(text)) return false;
+  if (/\bmax(?:imum)?\b/i.test(query) && !/\b(?:max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg))\b/i.test(text)) {
+    return false;
+  }
+  return true;
+}
 const extractiveTruncationPattern =
   /\b(?:stabili[sz]e\s+the\s+do|the\s+do\b|liver\s+functi\b|respiratio\b|if\s+a\s+60%\s+decrease\s+in\s+b\b)\b/i;
 const extractiveProductCataloguePattern =
@@ -3405,10 +3586,27 @@ function queryTokenMatchesText(token: string, text: string) {
   return false;
 }
 
-function hasRelevantQueryOverlap(text: string, query: string) {
+function hasRelevantQueryOverlap(
+  text: string,
+  query: string,
+  intent: AnswerIntent = classifyAnswerIntent(query, classifyRagQuery(query).queryClass),
+) {
   const tokens = extractiveQueryTokens(query);
   if (!tokens.length) return true;
-  return tokens.some((token) => queryTokenMatchesText(token, text));
+  const normalized = normalizeSectionText(text).toLowerCase();
+  const entityTokens = queryEntityTokens(query, intent);
+  const intentTokens = queryIntentTokens(query, intent);
+  const entityCovered =
+    entityTokens.length === 0 ||
+    entityTokens.some((token) => queryTokenMatchesText(token, normalized)) ||
+    (/\bect\b/i.test(query) && /\b(?:ect|electroconvulsive)\b/i.test(normalized));
+  if (!entityCovered && intent !== "general") return false;
+  if (intent === "general" || intent === "unsupported")
+    return tokens.some((token) => queryTokenMatchesText(token, text));
+  return (
+    answerIntentEvidencePattern(intent).test(normalized) &&
+    (intentTokens.length === 0 || intentTokens.some((token) => queryTokenMatchesText(token, normalized)))
+  );
 }
 
 function hasBadExtractiveQuality(text: string) {
@@ -3477,6 +3675,270 @@ function uniqueExtractivePoints(points: ExtractiveAnswerPoint[], limit: number) 
     if (selected.length >= limit) break;
   }
   return selected;
+}
+
+function splitClinicalEvidenceSentences(value: string) {
+  return sourceTextForClinicalProse(value)
+    .split(/\r?\n+|(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
+    .map(cleanExtractivePointText)
+    .filter(
+      (sentence) =>
+        sentence.length >= 18 &&
+        !looksLikeJsonArtifact(sentence) &&
+        !isLowValueExtractiveCaption(sentence) &&
+        !hasBadExtractiveQuality(sentence),
+    );
+}
+
+function factKindForSentence(sentence: string, query: string, intent: AnswerIntent): ExtractedClinicalFactKind | null {
+  const text = normalizeSectionText(sentence);
+  if (!text) return null;
+  if (
+    /\b(?:contraindicat\w*|avoid|must not|do not|should not|not use|opioid[-\s]?free|withdrawal|precipitat\w*)\b/i.test(
+      text,
+    )
+  ) {
+    return "contraindication";
+  }
+  if (/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return "renal_limit";
+  if (
+    /\b(?:red|amber|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|anc|fbc|wbc|neutrophil)\b/i.test(
+      text,
+    )
+  ) {
+    return "threshold_action";
+  }
+  if (
+    /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|ecg|lft|review)\b/i.test(text)
+  ) {
+    return "monitoring";
+  }
+  if (/\b(?:pathway|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*)\b/i.test(text)) {
+    return "pathway_referral";
+  }
+  if (
+    /\b(?:dose|dosing|dosage|max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg)|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text)
+  ) {
+    return "dose";
+  }
+  if (/\b(?:caution|risk|adverse|side effect|limited|not enough|insufficient)\b/i.test(text)) return "caveat";
+  if (intent === "general" && hasRelevantQueryOverlap(text, query, intent)) return "bottom_line";
+  return null;
+}
+
+function factPriority(kind: ExtractedClinicalFactKind, intent: AnswerIntent) {
+  if (intent === "contraindication" && kind === "contraindication") return 9;
+  if (intent === "red_result_action" && kind === "threshold_action") return 9;
+  if (intent === "monitoring_schedule" && kind === "monitoring") return 9;
+  if (intent === "pathway_referral" && kind === "pathway_referral") return 9;
+  if (intent === "dose" && kind === "dose") return 9;
+  if (intent === "dose" && kind === "renal_limit") return 8;
+  if (kind === "bottom_line") return 5;
+  if (kind === "caveat") return 3;
+  return 6;
+}
+
+function tableFactsToClinicalFacts(result: SearchResult, query: string, intent: AnswerIntent): ExtractedClinicalFact[] {
+  return (result.table_facts ?? [])
+    .map((fact) => {
+      const text = cleanExtractivePointText(
+        [fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].filter(Boolean).join(": "),
+      );
+      const kind = factKindForSentence(text, query, intent);
+      if (!text || !kind || !hasRelevantQueryOverlap(text, query, intent)) return null;
+      return {
+        kind,
+        text,
+        citationChunkIds: [result.id],
+        priority: factPriority(kind, intent) + 1,
+      } satisfies ExtractedClinicalFact;
+    })
+    .filter((fact): fact is ExtractedClinicalFact => Boolean(fact));
+}
+
+function extractClinicalFactsFromResults(results: SearchResult[], query: string, intent: AnswerIntent, limit = 8) {
+  const seen = new Set<string>();
+  const facts: ExtractedClinicalFact[] = [];
+  const usableResults = results.filter((result) => resultCoversAnswerIntent(result, query, intent));
+
+  for (const result of usableResults) {
+    for (const fact of tableFactsToClinicalFacts(result, query, intent)) {
+      const key = `${fact.kind}:${normalizeSectionText(fact.text).toLowerCase().slice(0, 160)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      facts.push(fact);
+    }
+
+    const text = [
+      result.retrieval_synopsis,
+      result.section_heading,
+      result.content,
+      result.adjacent_context,
+      ...(result.memory_cards ?? []).map((card) => card.content),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    for (const sentence of splitClinicalEvidenceSentences(text)) {
+      if (!hasRelevantQueryOverlap(sentence, query, intent)) continue;
+      const kind = factKindForSentence(sentence, query, intent);
+      if (!kind) continue;
+      const cleaned = sentence.length <= 280 ? sentence : `${sentence.slice(0, 277).trim()}...`;
+      const key = `${kind}:${normalizeSectionText(cleaned).toLowerCase().slice(0, 160)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      facts.push({
+        kind,
+        text: cleaned,
+        citationChunkIds: [result.id],
+        priority: factPriority(kind, intent) + Math.min(scoreValue(result), 1),
+      });
+      if (facts.length >= limit) break;
+    }
+    if (facts.length >= limit) break;
+  }
+
+  return facts.sort((a, b) => b.priority - a.priority || a.text.length - b.text.length).slice(0, limit);
+}
+
+function sentenceFromFact(fact: ExtractedClinicalFact, query: string) {
+  const text = sanitizeAnswerText(cleanExtractivePointText(fact.text)).replace(/[.;,\s]+$/, "");
+  if (!text) return "";
+  const entity = queryEntityTokens(query, classifyAnswerIntent(query, classifyRagQuery(query).queryClass))[0];
+  const needsEntityPrefix =
+    entity &&
+    fact.kind !== "bottom_line" &&
+    !queryTokenMatchesText(entity, text) &&
+    !/^(?:for|in|when|if|avoid|do not|must not|withhold|cease|stop|monitor|check|refer|arrange)\b/i.test(text);
+  const sentence = needsEntityPrefix ? `For ${entity}, ${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
+  return `${sentence}.`;
+}
+
+function sectionForFactKind(kind: ExtractedClinicalFactKind): Pick<AnswerSection, "heading" | "kind"> {
+  switch (kind) {
+    case "dose":
+      return { heading: "Dose", kind: "medication_dose" };
+    case "renal_limit":
+      return { heading: "Renal limits", kind: "contraindications_cautions" };
+    case "monitoring":
+      return { heading: "Monitoring", kind: "monitoring_timing" };
+    case "threshold_action":
+      return { heading: "Result action", kind: "thresholds" };
+    case "contraindication":
+      return { heading: "Contraindications", kind: "contraindications_cautions" };
+    case "pathway_referral":
+      return { heading: "Pathway/referral", kind: "required_actions" };
+    case "caveat":
+      return { heading: "Caveat", kind: "source_gap" };
+    default:
+      return { heading: "Bottom line", kind: "bottom_line" };
+  }
+}
+
+function buildFactSections(facts: ExtractedClinicalFact[], query: string) {
+  const grouped = new Map<ExtractedClinicalFactKind, ExtractedClinicalFact[]>();
+  for (const fact of facts) grouped.set(fact.kind, [...(grouped.get(fact.kind) ?? []), fact]);
+  return Array.from(grouped.entries())
+    .slice(0, 4)
+    .map(([kind, group]) => {
+      const section = sectionForFactKind(kind);
+      const body = group
+        .slice(0, 2)
+        .map((fact) => sentenceFromFact(fact, query))
+        .filter(Boolean)
+        .join(" ");
+      return {
+        heading: section.heading,
+        kind: section.kind,
+        supportLevel: "direct",
+        body: boldHighYieldClinicalText(body, query),
+        citation_chunk_ids: Array.from(new Set(group.flatMap((fact) => fact.citationChunkIds))),
+      } satisfies AnswerSection;
+    })
+    .filter((section) => section.body && section.citation_chunk_ids.length > 0);
+}
+
+function buildFactSynthesizedAnswer(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  intent: AnswerIntent;
+  results: SearchResult[];
+}) {
+  const facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
+  if (!facts.length) {
+    const gapAnswer = finalQualityGapAnswer(args.query, args.queryClass, args.intent);
+    return {
+      answer: gapAnswer,
+      body: gapAnswer,
+      citationChunkIds: [] as string[],
+      answerSections: [] as AnswerSection[],
+    };
+  }
+
+  const leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
+  const answer = sanitizeAnswerText(
+    leadFacts
+      .map((fact) => sentenceFromFact(fact, args.query))
+      .filter(Boolean)
+      .join(" "),
+  );
+  const answerSections = buildFactSections(facts, args.query);
+  return {
+    answer: boldHighYieldClinicalText(answer, args.query),
+    body: boldHighYieldClinicalText(answer, args.query),
+    citationChunkIds: Array.from(new Set(facts.flatMap((fact) => fact.citationChunkIds))),
+    answerSections,
+  };
+}
+
+function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
+  return (
+    classifyAnswerIntent(query, queryClass) === "document_lookup" &&
+    /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query)
+  );
+}
+
+function buildDocumentSupportListAnswer(args: { query: string; results: SearchResult[] }) {
+  const documents = buildDocumentBreakdown(args.results, extractQuoteCards(args.results, args.query)).slice(0, 5);
+  if (!documents.length) {
+    const gapAnswer = finalQualityGapAnswer(args.query, "document_lookup", "document_lookup");
+    return { answer: gapAnswer, citationChunkIds: [] as string[], answerSections: [] as AnswerSection[] };
+  }
+  const names = documents.map((document) => document.title || document.file_name).filter(Boolean);
+  const answer =
+    names.length === 1
+      ? `I found one indexed document that supports this query: ${names[0]}.`
+      : `I found ${names.length} indexed documents that support this query: ${names.slice(0, -1).join("; ")}; and ${names.at(-1)}.`;
+  return {
+    answer,
+    citationChunkIds: Array.from(
+      new Set(
+        documents.flatMap((document) =>
+          args.results
+            .filter((result) => result.document_id === document.document_id)
+            .slice(0, 1)
+            .map((result) => result.id),
+        ),
+      ),
+    ),
+    answerSections: [
+      {
+        heading: "Document matches",
+        kind: "documentation",
+        supportLevel: "direct",
+        body: names.join("; "),
+        citation_chunk_ids: Array.from(
+          new Set(
+            documents.flatMap((document) =>
+              args.results
+                .filter((result) => result.document_id === document.document_id)
+                .slice(0, 1)
+                .map((result) => result.id),
+            ),
+          ),
+        ),
+      },
+    ] satisfies AnswerSection[],
+  };
 }
 
 function extractMedicationDosePoints(results: SearchResult[], query: string, limit = 4): ExtractiveAnswerPoint[] {
@@ -3598,6 +4060,7 @@ function buildNaturalExtractiveAnswer(args: {
       answer: gapAnswer,
       body: gapAnswer,
       citationChunkIds: [] as string[],
+      answerSections: [] as AnswerSection[],
     };
   }
 
@@ -3608,6 +4071,7 @@ function buildNaturalExtractiveAnswer(args: {
     answer: boldHighYieldClinicalText(answer, args.query),
     body: boldHighYieldClinicalText(answer, args.query),
     citationChunkIds: answer ? Array.from(new Set(points.flatMap((point) => point.citationChunkIds))) : [],
+    answerSections: [] as AnswerSection[],
   };
 }
 
@@ -3667,22 +4131,34 @@ function buildExtractiveAnswer(args: {
     .slice(0, Math.max(0, 5 - dosePoints.length - memoryPoints.length))
     .map((quote) => quoteToExtractivePoint(quote, args.query))
     .filter((point): point is ExtractiveAnswerPoint => Boolean(point));
-  const naturalAnswer = buildNaturalExtractiveAnswer({
-    query: args.query,
-    queryClass: args.queryClass,
-    points: [...dosePoints, ...memoryPoints, ...quotePoints],
-    sourceCount: args.results.length,
-  });
+  const answerIntent = classifyAnswerIntent(args.query, args.queryClass);
+  const naturalAnswer = documentSupportListIntent(args.query, args.queryClass)
+    ? buildDocumentSupportListAnswer({ query: args.query, results: args.results })
+    : buildFactSynthesizedAnswer({
+        query: args.query,
+        queryClass: args.queryClass,
+        intent: answerIntent,
+        results: args.results,
+      });
+  const fallbackNaturalAnswer =
+    answerIntent === "general" && naturalAnswer.citationChunkIds.length === 0
+      ? buildNaturalExtractiveAnswer({
+          query: args.query,
+          queryClass: args.queryClass,
+          points: [...dosePoints, ...memoryPoints, ...quotePoints],
+          sourceCount: args.results.length,
+        })
+      : naturalAnswer;
 
   // When no concise source sentence could be extracted, buildNaturalExtractiveAnswer
   // returns a sentinel non-answer with no citationChunkIds. Do not present that as a
   // grounded, confidence-rated answer just because compactCitations seeded a citation.
-  const hasExtractedAnswer = naturalAnswer.citationChunkIds.length > 0;
+  const hasExtractedAnswer = fallbackNaturalAnswer.citationChunkIds.length > 0;
 
   return {
-    answer: naturalAnswer.answer,
+    answer: fallbackNaturalAnswer.answer,
     grounded: hasExtractedAnswer && citations.length > 0,
-    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "low",
+    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "unsupported",
     citations: citations.slice(0, 5),
     sources: args.results,
     modelUsed: null,
@@ -3690,7 +4166,7 @@ function buildExtractiveAnswer(args: {
     routingReason: args.routeReason,
     queryClass: args.queryClass,
     latencyTimings: args.timings,
-    answerSections: [],
+    answerSections: fallbackNaturalAnswer.answerSections ?? [],
     quoteCards,
     visualEvidence: args.visualEvidence,
     bestSource: args.bestSource,
@@ -3776,13 +4252,33 @@ function isEssentialSimpleQuestionSection(section: Pick<AnswerSection, "heading"
 }
 
 const clinicalQuerySignalPattern =
-  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|dose|renal|pregnan|monitor|fbc|anc|qtc|opioid|contraindicat|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib|therapy|treatment)\b/i;
+  /\b(?:lithium|clozapine|acamprosate|naltrexone|sertraline|valproate|antipsychotic|ect|bulimia|anorexia|eating disorder|dose|renal|pregnan|monitor|fbc|anc|qtc|opioid|contraindicat|referral|pathway|patient|clinical|guideline|medication|medicine|prescrib|therapy|treatment)\b/i;
 
-function finalQualityGapAnswer(query: string, queryClass: RagQueryClass) {
+function finalQualityGapAnswer(
+  query: string,
+  queryClass: RagQueryClass,
+  intent: AnswerIntent = classifyAnswerIntent(query, queryClass),
+) {
   if (queryClass === "unsupported_or_general" && !clinicalQuerySignalPattern.test(query)) {
     return "No relevant clinical source was found for this query.";
   }
-  return "I could not find enough clean, directly relevant source text to answer this query safely. Try a narrower clinical term or scope to a likely document.";
+  if (intent === "document_lookup") return "No current indexed document directly supporting this request was found.";
+  if (intent === "pathway_referral" && /\bect\b/i.test(query)) {
+    return "No current source with ECT referral criteria was found.";
+  }
+  if (intent === "pathway_referral") return "No current source with referral or pathway criteria was found.";
+  if (intent === "contraindication") return "No current source with contraindication or avoid-use guidance was found.";
+  if (intent === "monitoring_schedule")
+    return "No current source with monitoring timing or schedule guidance was found.";
+  if (intent === "red_result_action") {
+    if (/\bqtc\b/i.test(query)) return "No current source with QTc threshold or ECG action guidance was found.";
+    return "No current source with threshold-specific action guidance was found.";
+  }
+  if (intent === "dose") {
+    if (/\brenal\b/i.test(query)) return "No current source with renal dosing limits for this query was found.";
+    return "No current source with dose guidance for this query was found.";
+  }
+  return "No current source with directly relevant clinical guidance was found.";
 }
 
 function isFragmentLikeClinicalAnswer(text: string, query: string) {
@@ -3808,7 +4304,7 @@ function isMissingCriticalQueryIntent(query: string, text: string) {
     );
   }
   if (/\b(?:what to do|red|amber|anc|result|results)\b/.test(normalizedQuery)) {
-    return !/\b(?:withhold|cease|stop|contact|urgent|repeat|review|monitor|range|threshold|blood|patholog\w*|haematolog\w*|hematolog\w*|anc)\b/.test(
+    return !/\b(?:withhold|cease|stop|discontinue|discontinued|contact|urgent|repeat|review|monitor|range|threshold|blood|patholog\w*|haematolog\w*|hematolog\w*|anc)\b/.test(
       normalizedText,
     );
   }
@@ -3860,7 +4356,7 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   const existingGapAnswer =
     !answer.grounded &&
-    /could not find enough clean|no relevant clinical source|cannot provide a source-backed clinical answer/i.test(
+    /could not find enough clean|no relevant clinical source|no current source|cannot provide a clinical answer|cannot provide a source-backed clinical answer/i.test(
       cleanedAnswer,
     );
   if (existingGapAnswer) {
@@ -3898,7 +4394,13 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
       const body = sanitizeAnswerText(section.body);
       if (!body || hasClinicalAnswerQualityIssue(body) || isLowYieldClinicalText(body)) return null;
       const bodyKey = normalizeSectionText(body).toLowerCase();
-      if (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey)) return null;
+      const isDocumentListSection = section.kind === "documentation" || /\bdocument matches\b/i.test(section.heading);
+      if (
+        !isDocumentListSection &&
+        (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey))
+      ) {
+        return null;
+      }
       const heading = cleanAnswerSectionHeading(section.heading, body);
       return {
         ...section,

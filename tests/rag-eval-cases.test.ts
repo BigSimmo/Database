@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { loadCapturedRagEvalCases, mapCapturedEvalCase, mergeRagEvalCases } from "../src/lib/rag-eval-cases";
+import {
+  answerQualityEvalCases,
+  answerQualityMetricLabels,
+  loadCapturedRagEvalCases,
+  mapCapturedEvalCase,
+  mergeRagEvalCases,
+  scoreAnswerQualityEvalCase,
+} from "../src/lib/rag-eval-cases";
+import type { RagAnswer } from "../src/lib/types";
 
 const row = {
   id: "capture-1",
@@ -122,5 +130,44 @@ describe("captured RAG eval cases", () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0].id).toBe("captured-capture-1");
+  });
+
+  it("keeps a 30-query answer-quality fixture with the expected scoring dimensions", () => {
+    expect(answerQualityEvalCases).toHaveLength(30);
+    expect(new Set(answerQualityEvalCases.map((testCase) => testCase.id)).size).toBe(30);
+    expect(Object.keys(answerQualityMetricLabels).sort()).toEqual([
+      "artifact_leaks",
+      "fail_closed",
+      "intent_coverage",
+      "readability",
+      "relevance",
+    ]);
+    expect(answerQualityEvalCases.some((testCase) => testCase.expectedIntent === "document_lookup")).toBe(true);
+    expect(answerQualityEvalCases.some((testCase) => testCase.supported === false)).toBe(true);
+  });
+
+  it("scores answer quality for relevance, readability, artifacts, intent coverage, and fail-closed behavior", () => {
+    const testCase = answerQualityEvalCases.find((item) => item.id === "quality-naltrexone-source-gap-specific")!;
+    const answer = {
+      answer: "No current source with contraindication or avoid-use guidance was found.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      routingMode: "unsupported",
+      queryClass: "medication_dose_risk",
+      answerSections: [],
+    } satisfies RagAnswer;
+
+    const scores = scoreAnswerQualityEvalCase(testCase, answer);
+
+    expect(scores.map((score) => score.metric).sort()).toEqual([
+      "artifact_leaks",
+      "fail_closed",
+      "intent_coverage",
+      "readability",
+      "relevance",
+    ]);
+    expect(scores.every((score) => score.score === 1)).toBe(true);
   });
 });

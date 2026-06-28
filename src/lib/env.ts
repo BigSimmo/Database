@@ -47,8 +47,8 @@ const envSchema = z.object({
     .default("false")
     .transform((value) => value === "true"),
   // Clinical search queries can contain patient-identifying text (names, MRNs,
-  // "patient with X on Y dose"). Default OFF: persist only a hash + normalized
-  // tokens needed for miss-promotion. Set true only where retaining raw query
+  // "patient with X on Y dose"). Default OFF: persist only hash-derived
+  // placeholders. Set true only where retaining raw query
   // text is permitted and a retention policy exists (RET-H4).
   RAG_PERSIST_RAW_QUERY_TEXT: z
     .enum(["true", "false"])
@@ -103,9 +103,19 @@ export function requireOpenAIEnv() {
 }
 
 export function isDemoMode() {
+  // Explicit opt-in is honored in every environment (e.g. a deliberate demo deploy).
+  if (env.NEXT_PUBLIC_DEMO_MODE === "true") {
+    return true;
+  }
+  // Production must never silently fall back to demo mode: missing or mismatched
+  // Supabase config has to fail loudly (see requireServerEnv / instrumentation.ts),
+  // not serve unauthenticated demo content from the 22 routes that gate on this
+  // (DEMO fail-open guard). Mirrors the prod guard in isLocalNoAuthMode below.
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
   const projectCheck = checkSupabaseProjectConfig(env);
   return (
-    env.NEXT_PUBLIC_DEMO_MODE === "true" ||
     !env.NEXT_PUBLIC_SUPABASE_URL ||
     !env.SUPABASE_SERVICE_ROLE_KEY ||
     projectCheck.status === "mismatch"

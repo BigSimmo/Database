@@ -202,9 +202,18 @@ begin
   if patched = ddl then raise exception 'atomic reindex patch did not match match_document_chunks_hybrid'; end if;
   execute patched;
 
-  select pg_get_functiondef('public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)'::regprocedure) into ddl;
+  if to_regprocedure('public.match_document_memory_cards_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid)') is not null then
+    select pg_get_functiondef('public.match_document_memory_cards_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid)'::regprocedure) into ddl;
+  else
+    select pg_get_functiondef('public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)'::regprocedure) into ddl;
+  end if;
   patched := replace(
     ddl,
+    E'      and d.status = ''indexed''\n      and (1 - (m.embedding <=> query_embedding)) >= min_similarity',
+    E'      and d.status = ''indexed''\n      and public.is_committed_artifact_generation(m.metadata, d.metadata)\n      and (1 - (m.embedding <=> query_embedding)) >= min_similarity'
+  );
+  patched := replace(
+    patched,
     E'      and d.status = ''indexed''\n      and 1 - (m.embedding <=> query_embedding) >= min_similarity',
     E'      and d.status = ''indexed''\n      and public.is_committed_artifact_generation(m.metadata, d.metadata)\n      and 1 - (m.embedding <=> query_embedding) >= min_similarity'
   );
@@ -221,6 +230,16 @@ begin
     ddl,
     E'      and d.status = ''indexed''\n      and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)',
     E'      and d.status = ''indexed''\n      and public.is_committed_document_generation(c.index_generation_id, d.metadata)\n      and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)'
+  );
+  patched := replace(
+    patched,
+    E'      and d.status = ''indexed''\n    limit greatest(match_count * 80, 1200)',
+    E'      and d.status = ''indexed''\n      and public.is_committed_document_generation(c.index_generation_id, d.metadata)\n    limit greatest(match_count * 80, 1200)'
+  );
+  patched := replace(
+    patched,
+    E'      where c.document_id = td.id\n      order by ts_rank_cd(c.search_tsv, td.tsq) desc, c.chunk_index asc',
+    E'      where c.document_id = td.id\n        and public.is_committed_document_generation(c.index_generation_id, td.metadata)\n      order by ts_rank_cd(c.search_tsv, td.tsq) desc, c.chunk_index asc'
   );
   if patched = ddl then raise exception 'atomic reindex patch did not match match_document_chunks_text'; end if;
   execute patched;
@@ -240,6 +259,26 @@ begin
     E'      and d.status = ''indexed''\n      and (',
     E'      and d.status = ''indexed''\n      and public.is_committed_artifact_generation(f.metadata, d.metadata)\n      and ('
   );
+  patched := replace(
+    patched,
+    E'  doc_scope as (\n    select d.id\n    from public.documents d',
+    E'  doc_scope as (\n    select d.id, d.metadata\n    from public.documents d'
+  );
+  patched := replace(
+    patched,
+    E'    join doc_scope ds on ds.id = f.document_id\n    order by ts_rank_cd(f.search_tsv, q.tsq) desc',
+    E'    join doc_scope ds on ds.id = f.document_id\n    where public.is_committed_artifact_generation(f.metadata, ds.metadata)\n    order by ts_rank_cd(f.search_tsv, q.tsq) desc'
+  );
+  patched := replace(
+    patched,
+    E'    join doc_scope ds on ds.id = f.document_id\n    limit greatest(match_count * 4, 48)',
+    E'    join doc_scope ds on ds.id = f.document_id\n    where public.is_committed_artifact_generation(f.metadata, ds.metadata)\n    limit greatest(match_count * 4, 48)'
+  );
+  patched := replace(
+    patched,
+    E'    join doc_scope ds on ds.id = f.document_id\n    where similarity(',
+    E'    join doc_scope ds on ds.id = f.document_id\n    where public.is_committed_artifact_generation(f.metadata, ds.metadata)\n      and similarity('
+  );
   if patched = ddl then raise exception 'atomic reindex patch did not match match_document_table_facts_text'; end if;
   execute patched;
 
@@ -257,6 +296,11 @@ begin
     ddl,
     E'    where d.status = ''indexed''\n      and (document_filters is null or u.document_id = any(document_filters))\n      and (owner_filter is null or u.owner_id = owner_filter)\n      and u.source_chunk_id is not null',
     E'    where d.status = ''indexed''\n      and (document_filters is null or u.document_id = any(document_filters))\n      and (owner_filter is null or u.owner_id = owner_filter)\n      and public.is_committed_artifact_generation(u.metadata, d.metadata)\n      and u.source_chunk_id is not null'
+  );
+  patched := replace(
+    patched,
+    E'    where d.status = ''indexed''\n      and (document_filters is null or u.document_id = any(document_filters))\n      and (owner_filter is null or d.owner_id = owner_filter)\n      and u.source_chunk_id is not null',
+    E'    where d.status = ''indexed''\n      and (document_filters is null or u.document_id = any(document_filters))\n      and (owner_filter is null or d.owner_id = owner_filter)\n      and public.is_committed_artifact_generation(u.metadata, d.metadata)\n      and u.source_chunk_id is not null'
   );
   if patched = ddl then raise exception 'atomic reindex patch did not match match_document_index_units_hybrid'; end if;
   execute patched;

@@ -99,7 +99,6 @@ describe("/api/eval-cases", () => {
     expect(response.status).toBe(201);
     expect(payload).toMatchObject({
       owner_id: userId,
-      query: "what monitoring is needed for clozapine?",
       query_class: "table_threshold",
       miss_reason: "answer_good_eval",
       top_files: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
@@ -107,8 +106,12 @@ describe("/api/eval-cases", () => {
       cited_chunk_ids: [validChunkId],
       expected_document_id: documentId,
       expected_chunk_id: validChunkId,
+      candidate_aliases: [],
       promoted_eval_case: true,
     });
+    expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
+    expect(payload.normalized_query).toBe(payload.query);
+    expect(String(payload.query)).not.toContain("clozapine");
     expect(payload.metadata).toMatchObject({
       interaction: "answer_eval_capture",
       rating: "good",
@@ -119,6 +122,41 @@ describe("/api/eval-cases", () => {
       raw_query_retained: false,
     });
     expect(typeof (payload.metadata as Record<string, unknown>).query_hash).toBe("string");
+  });
+
+  it("does not persist PHI-capable query text when capturing an eval case", async () => {
+    const { client, insert } = createInsertMock();
+    vi.doMock("@/lib/env", () => mockEnv());
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+    const phiQuery = "Patient Jane Citizen MRN 123456 born 01/02/1970 missed clozapine dose";
+
+    const response = await POST(
+      request({
+        query: phiQuery,
+        rating: "needs_fixing",
+        answer: "Check local protocol.",
+        queryMode: "auto",
+        sourceChunkIds: [validChunkId],
+        citedChunkIds: [],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+    const serialized = JSON.stringify(payload);
+
+    expect(response.status).toBe(201);
+    expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
+    expect(payload.normalized_query).toBe(payload.query);
+    expect(payload.candidate_aliases).toEqual([]);
+    expect(serialized).not.toContain("Jane");
+    expect(serialized).not.toContain("123456");
+    expect(serialized).not.toContain("01/02/1970");
+    expect(serialized).not.toContain("clozapine");
   });
 
   it("retains raw query and answer when RAG_PERSIST_RAW_QUERY_TEXT is true", async () => {

@@ -29,13 +29,17 @@ function visibleQuestionInput(page: Page) {
   return page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
 }
 
+function visibleAnswerSubmitButton(page: Page) {
+  return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
+}
+
 async function isVisibleWithoutThrow(locator: Locator) {
   return locator.isVisible().catch(() => false);
 }
 
 async function fillVisibleQuestionInput(page: Page, value: string) {
   const questionInput = visibleQuestionInput(page);
-  const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+  const submitAnswer = visibleAnswerSubmitButton(page);
 
   await expect(async () => {
     await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
@@ -73,9 +77,9 @@ async function switchToDocumentSearchMode(page: Page) {
     if ((await appModeMenu.getAttribute("aria-expanded")) !== "true") {
       await appModeMenu.click({ force: true });
     }
-    const appModeGroup = page.getByRole("group", { name: "Choose app mode" });
+    const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
     await expect(appModeGroup).toBeVisible({ timeout: 2_000 });
-    const documentsMode = appModeGroup.getByRole("button", { name: /^Documents\b/ });
+    const documentsMode = appModeGroup.getByRole("menuitemradio", { name: /^Documents\b/ });
     await expect(documentsMode).toBeVisible({ timeout: 3_000 });
     await documentsMode.click({ force: true });
     await expect(appModeMenu).toHaveAccessibleName("Current app mode: Documents", { timeout: 2_000 });
@@ -181,6 +185,9 @@ async function mockDemoApi(page: Page) {
   });
   await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { batches: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { items: [], demoMode: true } });
   });
   await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
     const body = route.request().postDataJSON() as {
@@ -455,10 +462,10 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
   await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
   await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
-  await expect(menu.getByText("Applications", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("link", { name: "Applications", exact: true })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Guide & help" })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Settings" })).toBeVisible();
-  await expect(menu.getByText("Dr A. Khan")).toBeVisible();
+  await expect(menu.getByText("Guest")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
   return menu;
@@ -647,7 +654,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const question = "What clozapine monitoring items are shown in the table image?";
     const questionInput = await fillVisibleQuestionInput(page, question);
     await expect(questionInput).toHaveValue(question);
-    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+    await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
     const questionBubble = page.getByTestId("user-question-bubble");
@@ -868,7 +875,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await waitForDemoDashboardReady(page);
 
       await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
-      const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+      const submitAnswer = visibleAnswerSubmitButton(page);
       await submitAnswer.click();
 
       const clinicalTable = page.getByLabel("Inline table preview").first();
@@ -951,6 +958,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
     await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toBeFocused();
+  });
+
+  test("app mode and favourites menus support keyboard navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=favourites");
+
+    const appModeButton = page.getByRole("button", { name: "Current app mode: Favourites" });
+    await appModeButton.focus();
+    await page.keyboard.press("ArrowDown");
+    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+    await expect(appModeMenu).toBeVisible();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(appModeMenu).toBeHidden();
+    await expect(appModeButton).toBeFocused();
+
+    const favouritesTypeButton = page.getByRole("button", { name: "Choose favourite type" });
+    await favouritesTypeButton.focus();
+    await page.keyboard.press("ArrowDown");
+    const favouritesTypeList = page.getByRole("listbox", { name: "Favourite type" });
+    await expect(favouritesTypeList).toBeVisible();
+    await expect(favouritesTypeList.getByRole("option", { name: /^All\b/ })).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(favouritesTypeList.getByRole("option", { name: /^Sets\b/ })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(favouritesTypeList).toBeHidden();
+    await expect(favouritesTypeButton).toBeFocused();
+    await expect(page.getByTestId("favourites-hub")).toContainText("Saved sets");
   });
 
   test("prescribing workflow uses in-app medication routes", async ({ page }) => {

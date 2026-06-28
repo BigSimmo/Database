@@ -277,6 +277,14 @@ async function payload(response: Response) {
   return (await response.json()) as Record<string, unknown>;
 }
 
+function ssePayload(body: string, eventName: string) {
+  const block = body.split("\n\n").find((chunk) => chunk.includes(`event: ${eventName}\n`));
+  expect(block).toBeTruthy();
+  const dataLine = block?.split("\n").find((line) => line.startsWith("data: "));
+  expect(dataLine).toBeTruthy();
+  return JSON.parse(dataLine!.slice("data: ".length)) as Record<string, unknown>;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
@@ -2373,6 +2381,69 @@ describe("private document API access", () => {
     expect(body).not.toContain("42P01");
   });
 
+  it("refuses streamed answer final events backed by danger-class source governance warnings", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Use the old protocol.",
+      grounded: true,
+      confidence: "high",
+      citations: [{ chunk_id: "chunk-1", page_number: 1, quote: "old protocol", document_id: documentId }],
+      smartPanel: { query: "monitoring" },
+      smartApiPlan: { displayMode: "direct" },
+      sources: [
+        {
+          id: "chunk-1",
+          document_id: documentId,
+          title: "Outdated guideline",
+          file_name: "old.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          content: "old protocol",
+          image_ids: [],
+          similarity: 0.9,
+          source_metadata: {
+            source_title: "Outdated guideline",
+            publisher: "Local WA service",
+            jurisdiction: "WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "outdated",
+            clinical_validation_status: "approved",
+            extraction_quality: "good",
+          },
+          images: [],
+        },
+      ],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId }),
+      }),
+    );
+    const finalPayload = ssePayload(await response.text(), "final");
+
+    expect(response.status).toBe(200);
+    expect(finalPayload.grounded).toBe(false);
+    expect(finalPayload.confidence).toBe("unsupported");
+    expect(finalPayload.citations).toEqual([]);
+    expect(finalPayload.sources).toEqual([]);
+    expect(finalPayload.smartPanel).toBeUndefined();
+    expect(finalPayload.smartApiPlan).toBeUndefined();
+    expect(String(finalPayload.answer)).toContain("cannot provide a clinical answer");
+    expect(finalPayload.sourceGovernanceWarnings).toEqual([
+      expect.objectContaining({ code: "outdated_source", severity: "danger" }),
+    ]);
+  });
+
   it("refuses answer responses backed by danger-class source governance warnings", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Use the old protocol.",
@@ -2425,7 +2496,11 @@ describe("private document API access", () => {
     expect(body.grounded).toBe(false);
     expect(body.confidence).toBe("unsupported");
     expect(body.citations).toEqual([]);
-    expect(String(body.answer)).toContain("cannot provide a source-backed clinical answer");
+    // The refused answer's sources/smartPanel/smartApiPlan must not leak through.
+    expect(body.sources).toEqual([]);
+    expect(body.smartPanel).toBeUndefined();
+    expect(body.smartApiPlan).toBeUndefined();
+    expect(String(body.answer)).toContain("cannot provide a clinical answer");
     expect(body.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);

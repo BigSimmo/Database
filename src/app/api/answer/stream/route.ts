@@ -15,7 +15,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuthenticatedUser } from "@/lib/supabase/auth";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -64,7 +64,9 @@ function streamErrorPayload(error: unknown) {
   if (error instanceof Error) {
     return {
       message: "Answer generation failed. Retry with a narrower question.",
-      status: 503,
+      // Match the non-streaming /api/answer route, which returns 500 for a
+      // generic answer-generation failure.
+      status: 500,
       details: { code: error.name },
     };
   }
@@ -107,7 +109,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
           if (scope?.documentIds?.length === 0) {
             send("final", {
               answer:
-                "The selected filters did not match any indexed documents, so I cannot generate a source-backed answer for that scope.",
+                "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
               grounded: false,
               confidence: "unsupported",
               citations: [],
@@ -159,12 +161,14 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
             relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
           });
           if (hasDangerSourceGovernanceWarning(warnings)) {
+            // Explicit refusal payload — do not spread ...answer (see /api/answer):
+            // the refused sources/smartPanel/smartApiPlan must not reach the client.
             send("final", {
-              ...answer,
               answer: sourceGovernanceRefusalAnswer,
               grounded: false,
               confidence: "unsupported",
               citations: [],
+              sources: [],
               scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
               sourceGovernanceWarnings: warnings,
             });
@@ -213,8 +217,8 @@ export async function POST(request: Request) {
 
     return streamAnswer(body, user.id);
   } catch (error) {
-    if (error instanceof Error && error.name === "AuthenticationError") {
-      return Response.json({ error: "Authentication required." }, { status: 401 });
+    if (error instanceof AuthenticationError) {
+      return unauthorizedResponse(error);
     }
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);

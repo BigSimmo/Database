@@ -38,72 +38,38 @@ export type ToolItem = {
   disabledHint?: string;
 };
 
+// In-app clinical workflows only. External companion apps (formulation, DSM-5,
+// differentials, etc.) previously pointed at hardcoded localhost ports that were
+// dead outside a single dev machine, so they have been removed. Every entry here
+// resolves to a working internal route.
 export const toolCatalog: ToolItem[] = [
   {
-    id: "formulation",
-    title: "Formulation",
+    id: "clinical-answer",
+    title: "Clinical Answer",
     description:
-      "Build concise biopsychosocial formulations that connect presenting problems, maintaining factors, risk, and treatment direction.",
-    href: "http://localhost:53210",
-    icon: "Brain",
+      "Ask a source-backed clinical question and get a cited synthesis drawn from the indexed guideline library.",
+    href: "/?mode=answer",
+    icon: "Sparkles",
     category: "Clinical",
-    target: "external",
+    target: "internal",
     status: "online",
-    openInNewTab: true,
   },
   {
-    id: "forms",
-    title: "Forms",
+    id: "documents",
+    title: "Documents",
     description:
-      "Open structured clinical form workflows for capture, review, validation, and repeatable patient-facing documentation.",
-    href: "http://localhost:5173",
-    icon: "ClipboardList",
-    category: "Operations",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "therapy",
-    title: "Therapy",
-    description:
-      "Navigate therapy planning, intervention selection, session structure, and patient-centred psychological treatment pathways.",
-    href: "http://localhost:53211",
-    icon: "HeartHandshake",
-    category: "Clinical",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "specifiers",
-    title: "Specifiers",
-    description:
-      "Refine diagnostic pictures with specifiers, severity cues, course descriptors, and structured clinical qualification.",
-    href: "http://127.0.0.1:58123",
-    icon: "ListChecks",
+      "Search indexed PDFs, guidelines, policies, and source documents, then open them with provenance intact.",
+    href: "/?mode=documents",
+    icon: "FileText",
     category: "Docs",
-    target: "external",
+    target: "internal",
     status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "dsm-5-diagnoses",
-    title: "DSM-5 Diagnoses",
-    description:
-      "Launch diagnostic criteria, differential anchors, symptom clusters, and structured DSM-5 review support.",
-    href: "http://127.0.0.1:53173",
-    icon: "BookOpen",
-    category: "Research",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
   },
   {
     id: "medications",
     title: "Medications",
     description:
-      "Open the clinical drug guide for prescribing context, monitoring, safety checks, and medication-specific review.",
+      "Open prescribing context, monitoring, safety checks, and medication-specific review without leaving the dashboard.",
     href: "/?mode=prescribing",
     icon: "Pill",
     category: "Clinical",
@@ -111,43 +77,17 @@ export const toolCatalog: ToolItem[] = [
     status: "online",
   },
   {
-    id: "services",
-    title: "Services",
-    description:
-      "Navigate psychiatry service pathways, referral destinations, access points, and practical service-matching decisions.",
-    href: "http://127.0.0.1:53174",
-    icon: "Network",
+    id: "applications",
+    title: "Applications",
+    description: "Browse the full clinical applications launcher and the connected in-app workflows in one place.",
+    href: "/applications",
+    icon: "ListChecks",
     category: "Operations",
-    target: "external",
+    target: "internal",
     status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "differentials",
-    title: "Differentials",
-    description:
-      "Compare psychiatric differentials, rule-outs, red flags, and competing diagnostic explanations in one focused workspace.",
-    href: "http://127.0.0.1:53375",
-    icon: "Search",
-    category: "Research",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
-  },
-  {
-    id: "psychiatry-notes",
-    title: "Psychiatry Notes",
-    description:
-      "Open the Psychiatry Application for clinical note workflows, patient summaries, documentation, and review-ready outputs.",
-    href: "http://localhost:4391",
-    icon: "FileText",
-    category: "Admin",
-    target: "external",
-    status: "online",
-    openInNewTab: true,
   },
 ];
 
-export const defaultFavoriteToolIds = ["formulation", "dsm-5-diagnoses", "psychiatry-notes"];
+export const defaultFavoriteToolIds = ["clinical-answer", "documents", "medications"];
 
-export const quickLaunchSeedToolIds = ["formulation", "differentials", "medications"];
+export const quickLaunchSeedToolIds = ["clinical-answer", "documents", "medications"];

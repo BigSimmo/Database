@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { isDemoMode } from "@/lib/env";
-import { normalizeQueryText, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  normalizedQueryTextForStorage,
+  queryDerivedTokensForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 
@@ -76,14 +81,14 @@ export async function POST(request: Request) {
     await supabase.from("rag_query_misses").insert({
       owner_id: user.id,
       query: queryTextForStorage(body.query),
-      normalized_query: normalizeQueryText(body.query),
+      normalized_query: normalizedQueryTextForStorage(body.query),
       query_class: body.queryClass ?? null,
       clicked_document_id: clickedDocumentId,
       clicked_chunk_id: clickedChunkId,
       top_files: safeFileName ? [safeFileName] : [],
       top_chunk_ids: clickedChunkId ? [clickedChunkId] : [],
       miss_reason: "clicked_result",
-      candidate_aliases: normalizedClinicalSearchTokens(body.query).slice(0, 10),
+      candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(body.query).slice(0, 10)),
       candidate_labels: safeTitle
         ? [
             {

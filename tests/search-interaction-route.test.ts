@@ -86,7 +86,10 @@ describe("/api/search/interaction", () => {
       clicked_chunk_id: chunkId,
       top_files: ["Clozapine guideline.pdf"],
       top_chunk_ids: [chunkId],
+      candidate_aliases: [],
     });
+    expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
+    expect(payload.normalized_query).toBe(payload.query);
     expect(payload.candidate_labels).toEqual([
       {
         label: "Clozapine Monitoring",
@@ -95,6 +98,39 @@ describe("/api/search/interaction", () => {
         confidence: 0.6,
       },
     ]);
+  });
+
+  it("does not persist PHI-capable query text in source-open miss telemetry", async () => {
+    const { client, insert } = createClient({ ownsDocument: true, ownsChunk: true });
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false }, isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/search/interaction/route");
+    const phiQuery = "Patient Jane Citizen MRN 123456 born 01/02/1970 missed clozapine dose";
+
+    const response = await POST(
+      request({
+        query: phiQuery,
+        documentId,
+        chunkId,
+        fileName: "Clozapine guideline.pdf",
+        title: "Clozapine Monitoring",
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+    const serialized = JSON.stringify(payload);
+
+    expect(response.status).toBe(200);
+    expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
+    expect(payload.normalized_query).toBe(payload.query);
+    expect(payload.candidate_aliases).toEqual([]);
+    expect(serialized).not.toContain("Jane");
+    expect(serialized).not.toContain("123456");
+    expect(serialized).not.toContain("01/02/1970");
   });
 
   it("nulls unowned clicked ids and drops caller labels from telemetry", async () => {

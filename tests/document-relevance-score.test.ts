@@ -12,4 +12,10 @@ describe("document relevance score display", () => {
     expect(documentRelevancePercent({ relevance: { verdict: "partial", score: 0.2 } as never, score: 0.2 })).toBe(84);
     expect(documentRelevancePercent({ relevance: { verdict: "nearby", score: 0.2 } as never, score: 0.2 })).toBe(78);
   });
+
+  it("does not collapse a strong unit-scale score just above 1 into ~1%", () => {
+    // A raw search score of 1.2 is a strong score on the unit scale, not 1.2%.
+    expect(documentRelevancePercent({ score: 1.2 })).toBe(99);
+    expect(documentRelevancePercent({ score: 1 })).toBe(99);
+  });
 });

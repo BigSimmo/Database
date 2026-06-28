@@ -7,7 +7,7 @@ This document turns the current process review into phased, durable repo practic
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: lint, typecheck, and unit tests.
 - `npm run verify:ui` is the default UI gate: Chromium Playwright smoke, stress, and accessibility media checks.
 - `npm run verify:release` is the release-confidence gate: lint, typecheck, unit tests, build, and the full Playwright browser project set.
-- CI now installs Chromium and runs the Chromium UI gate after build.
+- CI now installs Chromium and runs the Chromium UI gate after build on all branches; a gated release-browser job runs the full Playwright browser matrix on `main`, `release/*`, manual dispatch, and the weekly schedule.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the `/applications` launcher at mobile and desktop sizes.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -36,13 +36,13 @@ This document turns the current process review into phased, durable repo practic
 - `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 24.x or npm 11.x when run through npm.
 - CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 24.
 - `npm run check:edge:functions` is the Deno type gate for the Supabase `indexing-v3-agent` Edge Function.
-- Decide whether CI should run all Playwright browser projects on protected branches, release branches, or a scheduled workflow instead of every push.
+- Tune the full-browser CI cadence if release branches or weekly schedules prove too slow or too sparse.
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.
 
 ## Known limits
 
-- Chromium UI coverage is active in CI now; Firefox and WebKit remain available through `npm run test:e2e` and `npm run verify:release`.
+- Chromium UI coverage is active in CI on all branches; Firefox and WebKit run in the gated release-browser CI job and remain available locally through `npm run test:e2e` and `npm run verify:release`.
 - The new accessibility media smoke verifies usability and layout in reduced-motion and forced-colors modes; it is not a full WCAG audit.
 - The format gate intentionally ignores `.tmp-visual/` and `scratch/`; those folders are local investigation output, not release source.
 - Process scripts do not commit, push, deploy, mutate Supabase data, or run dependency updates.

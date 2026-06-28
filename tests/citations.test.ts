@@ -37,13 +37,23 @@ describe("citations", () => {
     expect(formatCitationLabel(citationFromResult(result))).toBe("RANZCP guideline, p. 12");
   });
 
-  it("creates compact mobile labels", () => {
+  it("creates compact mobile labels from the actual title (no keyword shortcuts)", () => {
     expect(
       formatCompactCitationLabel({
         ...citationFromResult(result),
         title: "Synthetic Lithium Monitoring Guideline",
       }),
-    ).toBe("Lithium p.12");
+    ).toBe("Lithium Monitoring p.12");
+  });
+
+  it("does not collapse unrelated titles to a hardcoded keyword label", () => {
+    expect(
+      formatCompactCitationLabel({
+        title: "Clinical Risk Assessment",
+        file_name: "risk.pdf",
+        page_number: 5,
+      }),
+    ).toBe("Clinical Risk p.5");
   });
 
   it("links to source document, page, and chunk", () => {

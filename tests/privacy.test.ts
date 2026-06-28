@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.resetModules();
+});
 
 describe("privacy-safe logging helpers", () => {
   it("logs ingestion jobs by job id without document filenames", () => {
@@ -39,5 +44,47 @@ describe("privacy-safe logging helpers", () => {
     expect(details).toMatchObject({ name: "SupabaseRecoveryError", message: "<!DOCTYPE html>" });
     expect(details.stack).not.toContain("<!DOCTYPE html>");
     expect(details.stack).not.toContain("<!--[if");
+  });
+});
+
+describe("query privacy storage helpers", () => {
+  it("stores only hash-derived placeholders for PHI-capable query text by default", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
+    const {
+      normalizedQueryTextForStorage,
+      queryCacheKeyForStorage,
+      queryDerivedTokensForStorage,
+      queryPrivacyMetadata,
+      queryTextForStorage,
+    } = await import("../src/lib/query-privacy");
+    const query = "Patient Jane Citizen MRN 123456 born 01/02/1970 needs clozapine monitoring";
+
+    const storedQuery = queryTextForStorage(query);
+    const storedNormalizedQuery = normalizedQueryTextForStorage(query);
+    const storedCacheKey = queryCacheKeyForStorage(`query:${query}`);
+    const metadata = queryPrivacyMetadata(query);
+
+    expect(storedQuery).toMatch(/^redacted-query:[a-f0-9]{64}$/);
+    expect(storedNormalizedQuery).toBe(storedQuery);
+    expect(storedCacheKey).toMatch(/^redacted-cache:[a-f0-9]{64}$/);
+    expect(queryDerivedTokensForStorage(["jane", "123456", "clozapine"])).toEqual([]);
+    expect(metadata).toMatchObject({ query_hash: storedQuery.replace("redacted-query:", ""), raw_query_retained: false });
+    for (const value of [storedQuery, storedNormalizedQuery, storedCacheKey, JSON.stringify(metadata)]) {
+      expect(value).not.toContain("Jane");
+      expect(value).not.toContain("123456");
+      expect(value).not.toContain("01/02/1970");
+      expect(value).not.toContain("clozapine");
+    }
+  });
+
+  it("retains raw and normalized text only when raw retention is explicitly enabled", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: true } }));
+    const { normalizedQueryTextForStorage, queryCacheKeyForStorage, queryDerivedTokensForStorage, queryTextForStorage } =
+      await import("../src/lib/query-privacy");
+
+    expect(queryTextForStorage("  Clozapine Monitoring  ")).toBe("  Clozapine Monitoring  ");
+    expect(normalizedQueryTextForStorage("  Clozapine Monitoring  ")).toBe("clozapine monitoring");
+    expect(queryCacheKeyForStorage("query:clozapine monitoring")).toBe("query:clozapine monitoring");
+    expect(queryDerivedTokensForStorage(["clozapine"])).toEqual(["clozapine"]);
   });
 });

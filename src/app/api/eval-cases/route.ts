@@ -4,7 +4,12 @@ import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  normalizedQueryTextForStorage,
+  queryDerivedTokensForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import { searchScopeFiltersSchema } from "@/lib/search-scope";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const normalizedQuery = parsed.data.query.toLowerCase().replace(/\s+/g, " ").trim();
+    const normalizedQuery = normalizedQueryTextForStorage(parsed.data.query);
     const sourceChunkIds = uniqueUuidValues(parsed.data.sourceChunkIds);
     const citedChunkIds = uniqueUuidValues(parsed.data.citedChunkIds);
     const sourceFiles = uniqueValues(parsed.data.sourceFiles);
@@ -149,7 +154,7 @@ export async function POST(request: Request) {
         miss_reason: missReason,
         expected_document_id: expectedDocumentId,
         expected_chunk_id: expectedChunkId,
-        candidate_aliases: normalizedClinicalSearchTokens(parsed.data.query).slice(0, 12),
+        candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(parsed.data.query).slice(0, 12)),
         promoted_eval_case: true,
         promoted_at: new Date().toISOString(),
         metadata: {

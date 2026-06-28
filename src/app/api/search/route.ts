@@ -16,7 +16,12 @@ import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
-import { normalizeQueryText, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  normalizedQueryTextForStorage,
+  queryDerivedTokensForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -86,43 +91,48 @@ function buildDocumentMatchesFromResults(results: SearchResult[], limit: number)
       file_name: string;
       bestPages: number[];
       bestChunkIds: string[];
-      imageCount: number;
-      tableCount: number;
+      // Track unique image ids: the same image is often hydrated onto several of
+      // a document's chunks, so summing per-chunk counts would inflate the badge.
+      imageIds: Set<string>;
+      tableImageIds: Set<string>;
       score: number;
     }
   >();
   for (const result of results) {
-    const current = grouped.get(result.document_id);
     const score = result.hybrid_score ?? result.similarity;
     const page = result.page_number ?? null;
     const clinicalImages = result.images?.filter((image) => isClinicalImageEvidence(image)) ?? [];
-    const tableCount = clinicalImages.filter((image) => image.source_kind === "table_crop").length;
-    const imageCount = clinicalImages.length;
+    let current = grouped.get(result.document_id);
     if (!current) {
-      grouped.set(result.document_id, {
+      current = {
         document_id: result.document_id,
         title: result.title,
         file_name: result.file_name,
-        bestPages: page ? [page] : [],
-        bestChunkIds: [result.id],
-        imageCount,
-        tableCount,
+        bestPages: [],
+        bestChunkIds: [],
+        imageIds: new Set<string>(),
+        tableImageIds: new Set<string>(),
         score,
-      });
-      continue;
+      };
+      grouped.set(result.document_id, current);
     }
     current.score = Math.max(current.score, score);
     if (page && !current.bestPages.includes(page)) current.bestPages.push(page);
     if (!current.bestChunkIds.includes(result.id)) current.bestChunkIds.push(result.id);
-    current.imageCount += imageCount;
-    current.tableCount += tableCount;
+    for (const image of clinicalImages) {
+      if (!image.id) continue;
+      current.imageIds.add(image.id);
+      if (image.source_kind === "table_crop") current.tableImageIds.add(image.id);
+    }
   }
 
   return Array.from(grouped.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map((document) => ({
+    .map(({ imageIds, tableImageIds, ...document }) => ({
       ...document,
+      imageCount: imageIds.size,
+      tableCount: tableImageIds.size,
       labels: [],
       summarySnippet: null,
       matchReason: `Matched ${document.bestChunkIds.length} indexed passage${
@@ -337,7 +347,7 @@ function candidatePromotions(query: string, results: SearchResult[]) {
       confidence: label.confidence,
     }));
   return {
-    aliases: Array.from(new Set(queryTerms)).slice(0, 10),
+    aliases: queryDerivedTokensForStorage(Array.from(new Set(queryTerms)).slice(0, 10)),
     labels: topLabels,
   };
 }
@@ -370,7 +380,7 @@ function logWeakSearch(args: {
     .insert({
       owner_id: args.ownerId,
       query: queryTextForStorage(args.query),
-      normalized_query: normalizeQueryText(args.query),
+      normalized_query: normalizedQueryTextForStorage(args.query),
       query_class: args.queryClass,
       route: args.route ?? null,
       retrieval_strategy: args.retrievalStrategy ?? null,
@@ -478,7 +488,7 @@ function logRetrievalDiagnostics(args: {
       await args.supabase.from("rag_retrieval_logs").insert({
         owner_id: args.ownerId,
         query: queryTextForStorage(args.query),
-        normalized_query: normalizeQueryText(args.query),
+        normalized_query: normalizedQueryTextForStorage(args.query),
         query_class: (args.telemetry.query_class as string) ?? null,
         retrieval_strategy: (args.telemetry.retrieval_strategy as string) ?? null,
         candidate_count: args.results.length,

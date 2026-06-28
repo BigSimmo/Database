@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   BookOpen,
-  Brain,
   Check,
   ChevronRight,
   ClipboardList,
@@ -11,7 +10,6 @@ import {
   FileText,
   Grid2X2,
   Globe2,
-  ListChecks,
   Mic,
   Menu,
   MoreVertical,
@@ -19,14 +17,11 @@ import {
   Pin,
   PinOff,
   Plus,
-  Puzzle,
   Search,
   Send,
   Settings,
   Sparkles,
   Star,
-  Stethoscope,
-  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -43,8 +38,6 @@ import {
   sidebarToolTile as sidebarApplicationTile,
   textMuted,
 } from "@/components/ui-primitives";
-import { toolCatalog } from "@/lib/tools";
-
 type LauncherStatus = "ready" | "recent" | "review_due";
 type LauncherCategory = "clinical" | "admin" | "recent";
 
@@ -87,110 +80,13 @@ const filterOptions = [
 ] as const;
 
 const sidebarApplicationItems = [
-  { label: "Formulation", icon: Brain, href: "/applications" },
-  { label: "DSM-5", icon: BookOpen, href: "/applications" },
+  { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
+  { label: "Documents", icon: FileText, href: "/?mode=documents" },
   { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
-  { label: "Diffs", icon: Search, href: "/applications" },
+  { label: "Favourites", icon: Star, href: "/?mode=favourites" },
 ] as const;
 
-function toolById(id: string) {
-  return toolCatalog.find((tool) => tool.id === id);
-}
-
-function hrefForTool(id: string, fallback: string) {
-  return toolById(id)?.href ?? fallback;
-}
-
-function isExternalTool(id: string) {
-  return toolById(id)?.target === "external";
-}
-
 const launcherApps: LauncherApp[] = [
-  {
-    id: "differential-diagnosis",
-    title: "Differential Diagnosis",
-    description: "Generate and explore differential diagnoses.",
-    detail: "Compare likely differentials, rule-outs, red flags, and competing diagnostic explanations.",
-    href: hrefForTool("differentials", "http://127.0.0.1:53375"),
-    external: isExternalTool("differentials"),
-    icon: Stethoscope,
-    category: "recent",
-    workflow: "Assessment",
-    lastUsed: "Today, 10:24 AM",
-    status: "recent",
-    sourceToolId: "differentials",
-    relatedIds: ["specifiers", "services", "clinical-kb-search"],
-    quickActions: ["Start differential", "Review red flags", "Compare rule-outs", "Open assessment history"],
-    recentWorkflows: [
-      { title: "Chest pain differential", date: "Today, 10:24 AM" },
-      { title: "Headache workup", date: "Yesterday, 3:11 PM" },
-      { title: "Fatigue assessment", date: "May 10, 2025" },
-    ],
-  },
-  {
-    id: "specifiers",
-    title: "Specifiers",
-    description: "Add clinical specifiers and refine conditions.",
-    detail: "Review severity, course, qualifiers, and specifier language for a diagnosis.",
-    href: hrefForTool("specifiers", "http://127.0.0.1:58123"),
-    external: isExternalTool("specifiers"),
-    icon: ListChecks,
-    category: "clinical",
-    workflow: "Assessment",
-    lastUsed: "Yesterday, 4:15 PM",
-    status: "ready",
-    sourceToolId: "specifiers",
-    relatedIds: ["differential-diagnosis", "formulation", "clinical-kb-search"],
-    quickActions: ["Open specifier review", "Check course descriptors", "Review severity", "Browse qualifiers"],
-    recentWorkflows: [
-      { title: "Mood episode specifiers", date: "Yesterday, 4:15 PM" },
-      { title: "Anxiety course review", date: "May 11, 2025" },
-      { title: "Psychosis qualifiers", date: "May 8, 2025" },
-    ],
-  },
-  {
-    id: "services",
-    title: "Services",
-    description: "Browse and manage clinical services.",
-    detail: "Find referral pathways, access points, service matching, and destination options.",
-    href: hrefForTool("services", "http://127.0.0.1:53174"),
-    external: isExternalTool("services"),
-    icon: Users,
-    category: "clinical",
-    workflow: "Care planning",
-    lastUsed: "May 12, 2025",
-    status: "ready",
-    sourceToolId: "services",
-    relatedIds: ["formulation", "documents", "clinical-kb-search"],
-    quickActions: ["Find referral pathway", "Browse service options", "Review access criteria", "Open saved pathway"],
-    recentWorkflows: [
-      { title: "Community referral options", date: "May 12, 2025" },
-      { title: "Crisis pathway review", date: "May 9, 2025" },
-      { title: "Outpatient access check", date: "May 7, 2025" },
-    ],
-  },
-  {
-    id: "formulation",
-    title: "Formulation",
-    description: "Create and manage clinical formulations.",
-    detail: "Structure case formulations to support assessment, conceptualisation, care planning, and team reuse.",
-    href: hrefForTool("formulation", "http://localhost:53210"),
-    external: isExternalTool("formulation"),
-    icon: Puzzle,
-    category: "recent",
-    workflow: "Care planning",
-    lastUsed: "Today, 9:02 AM",
-    status: "recent",
-    sourceToolId: "formulation",
-    relatedIds: ["differential-diagnosis", "medication-prescribing", "documents", "clinical-kb-search"],
-    quickActions: ["Create new formulation", "Browse my formulations", "Shared with me", "Formulation templates"],
-    recentWorkflows: [
-      { title: "Mood & anxiety formulation - Jane D.", date: "Today, 9:02 AM" },
-      { title: "Complex case review - M. Smith", date: "May 12, 2025" },
-      { title: "Care plan formulation - P. Johnson", date: "May 9, 2025" },
-      { title: "Discharge formulation - K. Patel", date: "May 7, 2025" },
-    ],
-  },
   {
     id: "medication-prescribing",
     title: "Medication Prescribing",
@@ -205,7 +101,7 @@ const launcherApps: LauncherApp[] = [
     lastUsed: "May 12, 2025",
     status: "review_due",
     sourceToolId: "medications",
-    relatedIds: ["formulation", "documents", "clinical-kb-search"],
+    relatedIds: ["documents", "clinical-kb-search", "favourites"],
     quickActions: ["Create new prescription", "Browse formulary", "Review interactions", "Medication templates"],
     recentWorkflows: [
       { title: "Medication review - Sam T.", date: "May 12, 2025" },
@@ -225,7 +121,7 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "May 10, 2025",
     status: "ready",
-    relatedIds: ["clinical-kb-search", "favourites", "formulation"],
+    relatedIds: ["clinical-kb-search", "favourites", "medication-prescribing"],
     quickActions: ["Search documents", "Browse library", "Open source PDF", "Review indexed documents"],
     recentWorkflows: [
       { title: "Lithium monitoring guideline", date: "May 10, 2025" },
@@ -245,7 +141,7 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "Today, 8:45 AM",
     status: "recent",
-    relatedIds: ["documents", "clinical-kb-search", "formulation"],
+    relatedIds: ["documents", "clinical-kb-search", "medication-prescribing"],
     quickActions: ["Open saved items", "Manage pinned sets", "Review due favourites", "Add current answer"],
     recentWorkflows: [
       { title: "Ward round set", date: "Today, 8:45 AM" },
@@ -265,7 +161,7 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "Today, 7:30 AM",
     status: "ready",
-    relatedIds: ["documents", "favourites", "differential-diagnosis"],
+    relatedIds: ["documents", "favourites", "medication-prescribing"],
     quickActions: ["Ask clinical question", "Search indexed guidelines", "Open document scope", "Review sources"],
     recentWorkflows: [
       { title: "Lithium monitoring search", date: "Today, 7:30 AM" },
@@ -275,18 +171,13 @@ const launcherApps: LauncherApp[] = [
   },
 ];
 
-const seedPinnedIds = ["formulation", "differential-diagnosis", "medication-prescribing"];
+const seedPinnedIds = ["clinical-kb-search", "medication-prescribing", "documents"];
 
 const recentActivity = [
-  { id: "formulation", label: "Formulation opened", date: "Today, 9:02 AM", icon: Puzzle },
-  {
-    id: "differential-diagnosis",
-    label: "Differential Diagnosis launched",
-    date: "Today, 10:24 AM",
-    icon: Stethoscope,
-  },
+  { id: "clinical-kb-search", label: "Clinical KB Search opened", date: "Today, 7:30 AM", icon: Search },
   { id: "medication-prescribing", label: "Medication Prescribing reviewed", date: "May 12, 2025", icon: Pill },
   { id: "documents", label: "Documents opened", date: "May 10, 2025", icon: FileText },
+  { id: "favourites", label: "Favourites reviewed", date: "Today, 8:45 AM", icon: Star },
 ] as const;
 
 function appById(id: string) {
@@ -937,7 +828,7 @@ function ApplicationsHeader({
 export function ApplicationsLauncherPage() {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<(typeof filterOptions)[number]["id"]>("all");
-  const [selectedId, setSelectedId] = useState("formulation");
+  const [selectedId, setSelectedId] = useState("clinical-kb-search");
   const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -990,8 +881,8 @@ export function ApplicationsLauncherPage() {
       />
       <ApplicationsMobileMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
 
-      <main id="main-content" className="min-w-0 pb-32 lg:pb-28">
-        <section className="mx-auto flex min-h-[17rem] max-w-3xl flex-col items-center justify-center px-5 py-10 text-center sm:min-h-[20rem] sm:py-12 lg:min-h-[22rem]">
+      <main id="main-content" className="min-w-0 pb-8 lg:pb-10">
+        <section className="mx-auto flex min-h-[14rem] max-w-3xl flex-col items-center justify-center px-5 py-7 text-center sm:min-h-[16rem] sm:py-8 lg:min-h-[17rem]">
           <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
           </span>
@@ -1005,6 +896,37 @@ export function ApplicationsLauncherPage() {
           <div className="mt-6">
             <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
           </div>
+          <form onSubmit={submitFooterSearch} className={cn(chatComposerShell, "mt-5 w-full max-w-2xl")}>
+            <button
+              type="button"
+              className={chatComposerIconButton}
+              aria-label="Open application actions"
+              title="Open application actions"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+            <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label="Search applications"
+                placeholder="Search applications..."
+                className={cn(chatComposerInput, "w-full min-w-0")}
+              />
+            </label>
+            <button type="button" className={chatComposerIconButton} aria-label="Voice input" title="Voice input">
+              <Mic className="h-4.5 w-4.5" />
+            </button>
+            <button
+              type="submit"
+              disabled={filteredApps.length === 0}
+              className={chatSendButton}
+              aria-label="Open selected application"
+            >
+              <Send className="h-4 w-4" />
+              <span className="sr-only">Open</span>
+            </button>
+          </form>
         </section>
 
         <div className="mx-auto grid max-w-7xl gap-4 px-4 pb-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
@@ -1120,43 +1042,6 @@ export function ApplicationsLauncherPage() {
         />
       </Sheet>
 
-      <form
-        onSubmit={submitFooterSearch}
-        className={cn(
-          chatComposerShell,
-          "fixed inset-x-3 bottom-3 z-40 mx-auto max-w-3xl sm:bottom-4 lg:left-8 lg:right-8 lg:max-w-3xl",
-        )}
-      >
-        <button
-          type="button"
-          className={chatComposerIconButton}
-          aria-label="Open application actions"
-          title="Open application actions"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
-        <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label="Search applications"
-            placeholder="Search applications..."
-            className={cn(chatComposerInput, "w-full min-w-0")}
-          />
-        </label>
-        <button type="button" className={chatComposerIconButton} aria-label="Voice input" title="Voice input">
-          <Mic className="h-4.5 w-4.5" />
-        </button>
-        <button
-          type="submit"
-          disabled={filteredApps.length === 0}
-          className={chatSendButton}
-          aria-label="Open selected application"
-        >
-          <Send className="h-4 w-4" />
-          <span className="sr-only">Open</span>
-        </button>
-      </form>
     </div>
   );
 }

@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertCircle,
-  ArrowUpDown,
   BookOpen,
   Brain,
   CheckCircle2,
@@ -19,8 +18,6 @@ import {
   FileImage,
   FileText,
   Filter,
-  Folder,
-  FolderInput,
   Heart,
   HeartHandshake,
   Layers,
@@ -142,6 +139,8 @@ import {
   sourceDisplayTitle,
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
+import { favouritePrototypeCount } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
 import {
   DocumentSearchResultsPanel,
@@ -5331,32 +5330,61 @@ function DrawerGroupLabel({ title }: { title: string }) {
 }
 
 const sidebarToolItems = [
-  { label: "Formulation", icon: Brain, href: "/applications" },
-  { label: "DSM-5", icon: BookOpen, href: "/applications" },
+  { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
+  { label: "Documents", icon: FileText, href: "/?mode=documents" },
   { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
-  { label: "Diffs", icon: Search, href: "/applications" },
+  { label: "Applications", icon: ListChecks, href: "/applications" },
 ] as const;
+
+type SidebarIdentity = {
+  displayName: string;
+  initials: string;
+  detail: string;
+  signedIn: boolean;
+};
+
+function deriveSidebarIdentity(email: string | null | undefined): SidebarIdentity {
+  const normalized = email?.trim();
+  if (!normalized) {
+    return { displayName: "Guest", initials: "G", detail: "Not signed in", signedIn: false };
+  }
+  const handle = normalized.split("@")[0] || normalized;
+  const parts = handle.split(/[._\-+]+/).filter(Boolean);
+  const initials = (parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : handle.slice(0, 2)).toUpperCase() || "U";
+  const displayName =
+    parts.length > 0 ? parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") : normalized;
+  return { displayName, initials, detail: normalized, signedIn: true };
+}
 
 function ClinicalSidebarContent({
   recentQueries,
+  identity,
   onNewChat,
   onPickRecent,
   onOpenGuide,
+  onOpenSettings,
   onPrefetchApplications,
   showHeader = true,
   onCollapsedChange,
   onNavigate,
 }: {
   recentQueries: string[];
+  identity: SidebarIdentity;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
+  onOpenSettings: () => void;
   onPrefetchApplications?: () => void;
   showHeader?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   onNavigate?: () => void;
 }) {
-  const visibleRecentQueries = recentQueries.slice(0, 5);
+  const [chatFilter, setChatFilter] = useState("");
+  const normalizedChatFilter = chatFilter.trim().toLowerCase();
+  const matchingRecentQueries = normalizedChatFilter
+    ? recentQueries.filter((recent) => recent.toLowerCase().includes(normalizedChatFilter))
+    : recentQueries;
+  const visibleRecentQueries = matchingRecentQueries.slice(0, 5);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
@@ -5400,6 +5428,9 @@ function ClinicalSidebarContent({
         <input
           type="search"
           placeholder="Search chats"
+          value={chatFilter}
+          onChange={(event) => setChatFilter(event.target.value)}
+          aria-label="Search recent chats"
           className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
         />
       </label>
@@ -5438,7 +5469,7 @@ function ClinicalSidebarContent({
                 textMuted,
               )}
             >
-              Recent chats will appear here.
+              {normalizedChatFilter ? "No recent chats match your search." : "Recent chats will appear here."}
             </p>
           )}
         </div>
@@ -5494,19 +5525,28 @@ function ClinicalSidebarContent({
           <BookOpen className="h-4 w-4 shrink-0" />
           <span>Guide & help</span>
         </button>
-        <button type="button" className={sidebarItem}>
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            window.requestAnimationFrame(onOpenSettings);
+          }}
+          className={sidebarItem}
+        >
           <SettingsIcon className="h-4 w-4 shrink-0" />
           <span>Settings</span>
         </button>
         <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-            AK
+            {identity.initials}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
+            <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
+              {identity.displayName}
+            </span>
             <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
-              <span className={statusDotReady} aria-hidden="true" />
-              Ready
+              {identity.signedIn ? <span className={statusDotReady} aria-hidden="true" /> : null}
+              <span className="truncate">{identity.detail}</span>
             </span>
           </span>
         </div>
@@ -5518,18 +5558,22 @@ function ClinicalSidebarContent({
 function ClinicalDesktopSidebar({
   collapsed,
   recentQueries,
+  identity,
   onCollapsedChange,
   onNewChat,
   onPickRecent,
   onOpenGuide,
+  onOpenSettings,
   onPrefetchApplications,
 }: {
   collapsed: boolean;
   recentQueries: string[];
+  identity: SidebarIdentity;
   onCollapsedChange: (collapsed: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
+  onOpenSettings: () => void;
   onPrefetchApplications: () => void;
 }) {
   if (collapsed) {
@@ -5550,7 +5594,13 @@ function ClinicalDesktopSidebar({
         <button type="button" onClick={onNewChat} className={sidebarItem} aria-label="New chat" title="New chat">
           <Plus className="h-4 w-4" />
         </button>
-        <button type="button" className={sidebarItem} aria-label="Search chats" title="Search chats">
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(false)}
+          className={sidebarItem}
+          aria-label="Search chats"
+          title="Search chats"
+        >
           <Search className="h-4 w-4" />
         </button>
         <Link
@@ -5567,11 +5617,15 @@ function ClinicalDesktopSidebar({
         <button type="button" onClick={onOpenGuide} className={sidebarItem} aria-label="Guide and help" title="Guide">
           <BookOpen className="h-4 w-4" />
         </button>
-        <button type="button" className={sidebarItem} aria-label="Settings" title="Settings">
+        <button type="button" onClick={onOpenSettings} className={sidebarItem} aria-label="Settings" title="Settings">
           <SettingsIcon className="h-4 w-4" />
         </button>
-        <div className="mt-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-          AK
+        <div
+          className="mt-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]"
+          title={identity.detail}
+          aria-label={identity.signedIn ? `Signed in as ${identity.detail}` : "Not signed in"}
+        >
+          {identity.initials}
         </div>
       </aside>
     );
@@ -5585,10 +5639,12 @@ function ClinicalDesktopSidebar({
     >
       <ClinicalSidebarContent
         recentQueries={recentQueries}
+        identity={identity}
         onCollapsedChange={onCollapsedChange}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
+        onOpenSettings={onOpenSettings}
         onPrefetchApplications={onPrefetchApplications}
       />
     </aside>
@@ -5598,18 +5654,22 @@ function ClinicalDesktopSidebar({
 function ClinicalMobileSidebar({
   open,
   recentQueries,
+  identity,
   onOpenChange,
   onNewChat,
   onPickRecent,
   onOpenGuide,
+  onOpenSettings,
   onPrefetchApplications,
 }: {
   open: boolean;
   recentQueries: string[];
+  identity: SidebarIdentity;
   onOpenChange: (open: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
+  onOpenSettings: () => void;
   onPrefetchApplications: () => void;
 }) {
   return (
@@ -5625,9 +5685,11 @@ function ClinicalMobileSidebar({
       <ClinicalSidebarContent
         showHeader={false}
         recentQueries={recentQueries}
+        identity={identity}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
+        onOpenSettings={onOpenSettings}
         onPrefetchApplications={onPrefetchApplications}
         onNavigate={() => onOpenChange(false)}
       />
@@ -5635,569 +5697,127 @@ function ClinicalMobileSidebar({
   );
 }
 
-type FavouriteType = "medications" | "documents" | "sources" | "sets";
-type FavouriteTabId = "all" | FavouriteType;
-
-type FavouriteItem = {
-  id: string;
-  title: string;
-  type: Exclude<FavouriteType, "sets">;
-  set: string;
-  meta: string;
-  sourceMeta: string;
-  primaryAction: string;
-  icon: typeof FileText;
-  keywords: string;
-};
-
-type FavouriteSet = {
-  id: string;
-  title: string;
-  count: number;
-  meta: string;
-  keywords: string;
-};
-
-const favouriteTabs: Array<{
-  id: FavouriteTabId;
-  label: string;
-  shortLabel: string;
-  icon: typeof FileText;
-}> = [
-  { id: "all", label: "All", shortLabel: "All", icon: LayoutList },
-  { id: "medications", label: "Medications", shortLabel: "Meds", icon: Pill },
-  { id: "documents", label: "Documents", shortLabel: "Docs", icon: FileText },
-  { id: "sources", label: "Sources", shortLabel: "Sources", icon: Quote },
-  { id: "sets", label: "Sets", shortLabel: "Sets", icon: Folder },
-];
-
-const favouriteItems: FavouriteItem[] = [
-  {
-    id: "acamprosate-renal-screen",
-    title: "Acamprosate renal screen",
-    type: "medications",
-    set: "Ward round",
-    meta: "Medication page · renal cautions · dose notes",
-    sourceMeta: "3 sources",
-    primaryAction: "Open",
-    icon: Pill,
-    keywords: "acamprosate renal screen medication dose safety ward round pbs",
-  },
-  {
-    id: "lithium-monitoring-guideline",
-    title: "Lithium monitoring guideline",
-    type: "documents",
-    set: "Prescribing safety",
-    meta: "PDF · p.4-9 · 2 tables",
-    sourceMeta: "PDF",
-    primaryAction: "Ask",
-    icon: FileText,
-    keywords: "lithium monitoring guideline blood tests shared care renal toxicity",
-  },
-  {
-    id: "clozapine-monitoring-table",
-    title: "Clozapine monitoring table",
-    type: "sources",
-    set: "Clozapine clinic",
-    meta: "Saved table · ANC monitoring",
-    sourceMeta: "Table",
-    primaryAction: "Source",
-    icon: Quote,
-    keywords: "clozapine monitoring table anc fbc neutrophil clinic",
-  },
-  {
-    id: "renal-dose-search",
-    title: "renal dose saved search",
-    type: "sources",
-    set: "Ward round",
-    meta: "Saved query · medicines + documents",
-    sourceMeta: "Run",
-    primaryAction: "Run",
-    icon: Search,
-    keywords: "renal dose saved search kidney egfr medicines documents",
-  },
-  {
-    id: "qt-prolongation-quote",
-    title: "QT prolongation quote",
-    type: "sources",
-    set: "Prescribing safety",
-    meta: "Source card · prescribing safety",
-    sourceMeta: "Quote",
-    primaryAction: "Copy",
-    icon: Quote,
-    keywords: "qt prolongation quote source card prescribing safety",
-  },
-];
-
-const favouriteSets: FavouriteSet[] = [
-  {
-    id: "ward-round",
-    title: "Ward round",
-    count: 12,
-    meta: "Medication pages, renal checks, forms",
-    keywords: "ward round acamprosate lithium renal mht forms",
-  },
-  {
-    id: "prescribing-safety",
-    title: "Prescribing safety",
-    count: 9,
-    meta: "Dose limits, pregnancy, renal cautions",
-    keywords: "prescribing safety dose pregnancy renal qt interactions",
-  },
-  {
-    id: "clozapine-clinic",
-    title: "Clozapine clinic",
-    count: 7,
-    meta: "Monitoring, ANC table, counselling",
-    keywords: "clozapine clinic monitoring anc table counselling",
-  },
-];
-
-function favouriteTypeCount(type: FavouriteTabId) {
-  if (type === "all") return favouriteItems.length + favouriteSets.length;
-  if (type === "sets") return favouriteSets.length;
-  return favouriteItems.filter((item) => item.type === type).length;
-}
-
-function favouriteMatchesQuery(value: { title: string; meta?: string; set?: string; keywords: string }, query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  return [value.title, value.meta, value.set, value.keywords]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(normalized);
-}
-
-function FavouritesHub({
-  query,
-  onClearQuery,
-  onAddFavourite,
+function SettingsDialog({
+  open,
+  onClose,
+  identity,
+  theme,
+  onToggleTheme,
+  onSignOut,
+  onOpenGuide,
 }: {
-  query: string;
-  onClearQuery: () => void;
-  onAddFavourite: () => void;
+  open: boolean;
+  onClose: () => void;
+  identity: SidebarIdentity;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
+  onSignOut: () => void;
+  onOpenGuide: () => void;
 }) {
-  const [selectedTab, setSelectedTab] = useState<FavouriteTabId>("all");
-  const [tabMenuOpen, setTabMenuOpen] = useState(false);
-  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
-  const tabMenuRef = useRef<HTMLDivElement | null>(null);
-  const normalizedQuery = query.trim();
-  const selectedSet = selectedSetId ? favouriteSets.find((set) => set.id === selectedSetId) : null;
-  const tabItems =
-    selectedTab === "all" || selectedTab === "sets"
-      ? favouriteItems
-      : favouriteItems.filter((item) => item.type === selectedTab);
-  const visibleItems = tabItems
-    .filter((item) => favouriteMatchesQuery(item, normalizedQuery))
-    .filter((item) => !selectedSet || item.set === selectedSet.title);
-  const visibleSets = favouriteSets.filter((set) => favouriteMatchesQuery(set, normalizedQuery));
-  const showSets = selectedTab === "all" || selectedTab === "sets";
-  const showItems = selectedTab !== "sets";
-  const empty = (!showItems || visibleItems.length === 0) && (!showSets || visibleSets.length === 0);
-  const selectedTabMeta = favouriteTabs.find((tab) => tab.id === selectedTab) ?? favouriteTabs[0];
-  const selectedTabLabel = selectedTabMeta.label;
-  const selectedTabCount = favouriteTypeCount(selectedTab);
-  const SelectedTabIcon = selectedTabMeta.icon;
-  const itemCount = favouriteItems.length;
-  const setCount = favouriteSets.length;
-  const activeFilterCount = (normalizedQuery ? 1 : 0) + (selectedSet ? 1 : 0);
-
-  useEffect(() => {
-    if (!tabMenuOpen) return undefined;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!tabMenuRef.current?.contains(target)) setTabMenuOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setTabMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [tabMenuOpen]);
+  const themeOptions: Array<{ value: "light" | "dark"; label: string }> = [
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+  ];
 
   return (
-    <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
-      <div className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div className="grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-left">
-          <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-            <Heart className="h-6 w-6 sm:h-7 sm:w-7" />
-          </span>
-          <div className="max-w-2xl space-y-2">
-            <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
-              Favourites
-            </h2>
-            <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">
-              Keep trusted notes, sources, medication pages, and clinical sets ready for reuse.
-            </p>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Settings"
+      description="Appearance, account, and help for the Clinical KB workspace."
+      closeLabel="Close settings"
+      contentClassName="sm:max-w-lg"
+    >
+      <div className="grid gap-4">
+        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Appearance</h3>
           </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 text-left sm:mx-auto sm:w-full sm:max-w-md lg:mx-0 lg:w-[24rem]">
-          {[
-            { label: "Items", value: itemCount, icon: Heart },
-            { label: "Sets", value: setCount, icon: Folder },
-            { label: "Active", value: activeFilterCount, icon: Filter },
-          ].map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={stat.label}
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-chat-teal)]" />
-                  <span className="truncate">{stat.label}</span>
-                </div>
-                <p className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]">
-                  {stat.value}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mx-auto grid w-full max-w-5xl gap-2 px-0.5 text-[11px] font-semibold text-[color:var(--text-muted)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="grid min-w-0 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <div ref={tabMenuRef} className="relative min-w-0">
-            <button
-              type="button"
-              onClick={() => setTabMenuOpen((open) => !open)}
-              className="grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-left shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-chat-teal)]/30 hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-56"
-              aria-haspopup="listbox"
-              aria-expanded={tabMenuOpen}
-              aria-label="Choose favourite type"
-            >
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-                <SelectedTabIcon className="h-3.5 w-3.5" />
-              </span>
-              <span className="grid min-w-0 gap-0.5">
-                <span className="text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-soft)]">
-                  View
-                </span>
-                <span className="truncate text-xs font-bold leading-none text-[color:var(--text-heading)]">
-                  {selectedTabLabel} · {selectedTabCount}
-                </span>
-              </span>
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
-                  tabMenuOpen && "rotate-180",
-                )}
-              />
-            </button>
-
-            {tabMenuOpen ? (
-              <div
-                role="listbox"
-                aria-label="Favourite type"
-                className="absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-1 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)] ring-1 ring-white/30 backdrop-blur-md dark:ring-white/10"
-              >
-                {favouriteTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const selected = selectedTab === tab.id;
-                  const count = favouriteTypeCount(tab.id);
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      onClick={() => {
-                        setSelectedTab(tab.id);
-                        setTabMenuOpen(false);
-                      }}
-                      className={cn(
-                        "grid min-h-10 grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        selected
-                          ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
-                          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-7 w-7 place-items-center rounded-md",
-                          selected ? "bg-[color:var(--surface)]" : "bg-transparent",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="font-bold">{tab.label}</span>
-                      <span
-                        className={cn(
-                          "nums rounded-full px-2 py-0.5 text-[11px] font-bold",
-                          selected
-                            ? "bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)]"
-                            : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-          {normalizedQuery ? (
-            <button
-              type="button"
-              onClick={onClearQuery}
-              className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 hover:bg-[color:var(--surface-subtle)]"
-            >
-              <span className="truncate">Filter: {normalizedQuery}</span>
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-          {selectedSet ? (
-            <button
-              type="button"
-              onClick={() => setSelectedSetId(null)}
-              className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] px-2 font-bold text-[color:var(--clinical-chat-teal)] hover:border-[color:var(--clinical-chat-teal)]/35"
-            >
-              <span className="truncate">Set: {selectedSet.title}</span>
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-end">
-          <button type="button" className={cn(floatingControl, "min-h-11 px-3 text-xs sm:min-h-9 sm:px-2.5")}>
-            <ArrowUpDown className="h-4 w-4" />
-            Recent
-          </button>
-          <button
-            type="button"
-            onClick={onAddFavourite}
-            className={cn(primaryControl, "min-h-11 justify-center px-3 text-xs sm:min-h-9 sm:px-2.5")}
+          <p className={cn("mt-1 text-xs", textMuted)}>Choose the workspace theme. Saved to this browser.</p>
+          <div
+            role="group"
+            aria-label="Theme"
+            className="mt-3 inline-grid grid-cols-2 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1"
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add favourite</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="lg:hidden">
-        <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-          <p className="text-sm font-bold text-[color:var(--text-heading)]">Saved sets</p>
-          <button
-            type="button"
-            onClick={() => setSelectedTab("sets")}
-            className="text-xs font-bold text-[color:var(--clinical-chat-teal)]"
-          >
-            View all
-          </button>
-        </div>
-        <div className="grid gap-2">
-          {visibleSets.slice(0, 3).map((set) => (
-            <FavouriteSetRow
-              key={set.id}
-              favouriteSet={set}
-              compact
-              selected={selectedSetId === set.id}
-              onSelect={() => {
-                setSelectedSetId(set.id);
-                if (selectedTab === "sets") setSelectedTab("all");
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className={cn(panelSubtle, "min-w-0 overflow-hidden p-4 sm:p-5")}>
-          <div className="mb-3 flex min-h-10 items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
-            <div>
-              <p className="text-base font-bold text-[color:var(--text-heading)]">
-                {selectedTab === "all"
-                  ? "Recent favourites"
-                  : selectedTab === "sets"
-                    ? "Saved sets"
-                    : `${selectedTabLabel} favourites`}
-              </p>
-              <p className="text-xs font-medium text-[color:var(--text-soft)]">
-                {selectedTab === "sets" ? "Open a focused clinical set." : "Open, ask, copy, or organise saved items."}
-              </p>
-            </div>
-            <span className="nums shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-xs font-bold text-[color:var(--text-muted)]">
-              {selectedTab === "sets" ? visibleSets.length : visibleItems.length}
-            </span>
-          </div>
-
-          <div className="grid gap-1.5">
-            {showSets && selectedTab === "sets"
-              ? visibleSets.map((set) => (
-                  <FavouriteSetRow
-                    key={set.id}
-                    favouriteSet={set}
-                    selected={selectedSetId === set.id}
-                    onSelect={() => {
-                      setSelectedSetId(set.id);
-                      setSelectedTab("all");
-                    }}
-                  />
-                ))
-              : null}
-
-            {showItems
-              ? visibleItems.map((item) => (
-                  <FavouriteItemRow key={item.id} item={item} onMoveToSet={() => setSelectedTab("sets")} />
-                ))
-              : null}
-
-            {empty ? (
-              <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center">
-                <div>
-                  <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" />
-                  <p className="font-semibold text-[color:var(--text-heading)]">No favourites match</p>
-                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                    Clear the composer text or choose another tab.
-                  </p>
-                </div>
-              </div>
-            ) : null}
+            {themeOptions.map((option) => {
+              const active = option.value === theme;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    if (!active) onToggleTheme();
+                  }}
+                  className={cn(
+                    "min-h-9 rounded-md px-4 text-sm font-semibold transition",
+                    active
+                      ? "bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        <aside className="hidden min-w-0 gap-4 lg:grid">
-          <section className={cn(panelSubtle, "p-4")}>
-            <div className="mb-3 flex items-center justify-between gap-2 border-b border-[color:var(--border)] pb-3">
-              <div className="min-w-0">
-                <p className="text-base font-bold text-[color:var(--text-heading)]">Saved sets</p>
-                <p className="mt-0.5 text-xs font-medium text-[color:var(--text-soft)]">
-                  Filter favourites by workflow.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedTab("sets")}
-                className="shrink-0 text-xs font-bold text-[color:var(--clinical-chat-teal)] hover:underline"
-              >
-                View all
-              </button>
-            </div>
-            <div className="grid gap-1.5">
-              {visibleSets.slice(0, 3).map((set) => (
-                <FavouriteSetRow
-                  key={set.id}
-                  favouriteSet={set}
-                  compact
-                  selected={selectedSetId === set.id}
-                  onSelect={() => {
-                    setSelectedSetId(set.id);
-                    if (selectedTab === "sets") setSelectedTab("all");
-                  }}
-                />
-              ))}
-            </div>
+        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Account</h3>
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+              {identity.initials}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
+                {identity.displayName}
+              </span>
+              <span className={cn("flex items-center gap-1.5 truncate text-xs", textMuted)}>
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{identity.detail}</span>
+              </span>
+            </span>
+          </div>
+          {identity.signedIn ? (
             <button
               type="button"
-              onClick={onAddFavourite}
-              className={cn(floatingControl, "mt-3 min-h-9 w-full px-3 text-xs")}
+              onClick={() => {
+                onSignOut();
+                onClose();
+              }}
+              className={cn(floatingControl, "mt-3 w-full")}
             >
-              <Plus className="h-4 w-4" />
-              New set
+              <LogOut className="h-4 w-4" />
+              Sign out
             </button>
-          </section>
-        </aside>
-      </div>
-    </div>
-  );
-}
+          ) : (
+            <p className={cn("mt-3 text-xs", textMuted)}>
+              Sign in from the search header to access private documents and saved reviews.
+            </p>
+          )}
+        </section>
 
-function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveToSet: () => void }) {
-  const Icon = item.icon;
-  return (
-    <article className="grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
-      <span className={iconTilePremium}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</p>
-        <p className="mt-0.5 truncate text-sm font-medium text-[color:var(--text-muted)]">{item.meta}</p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="truncate text-xs font-semibold text-[color:var(--text-soft)]">{item.set}</span>
-          <span className="nums rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--text-muted)]">
-            {item.sourceMeta}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onOpenGuide();
+          }}
+          className={cn(floatingControl, "w-full justify-between")}
+        >
+          <span className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Guide &amp; help
           </span>
-        </div>
-      </div>
-      <div className="hidden items-center gap-1.5 sm:flex">
-        <button type="button" className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
-          {item.primaryAction}
-        </button>
-        <button type="button" onClick={onMoveToSet} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
-          <FolderInput className="h-3.5 w-3.5" />
-          Move
+          <ChevronDown className="-rotate-90 h-4 w-4" />
         </button>
       </div>
-      <button
-        type="button"
-        className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
-        aria-label={`Open ${item.title}`}
-      >
-        <ChevronDown className="-rotate-90 h-4 w-4" />
-      </button>
-    </article>
-  );
-}
-
-function FavouriteSetRow({
-  favouriteSet,
-  compact = false,
-  selected = false,
-  onSelect,
-}: {
-  favouriteSet: FavouriteSet;
-  compact?: boolean;
-  selected?: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        "grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-        compact ? "min-h-[3.75rem]" : "min-h-[4.25rem]",
-        selected && "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
-      )}
-    >
-      <span className={iconTilePremium}>
-        <Folder className="h-4 w-4" />
-      </span>
-      <span className="min-w-0">
-        <span
-          className={cn(
-            "block truncate font-bold",
-            selected ? "text-[color:var(--clinical-chat-teal)]" : "text-[color:var(--text-heading)]",
-          )}
-        >
-          {favouriteSet.title}
-        </span>
-        <span
-          className={cn(
-            "block truncate text-sm font-medium",
-            selected ? "text-[color:var(--clinical-chat-teal)]" : "text-[color:var(--text-muted)]",
-          )}
-        >
-          {favouriteSet.count} items{compact ? "" : ` · ${favouriteSet.meta}`}
-        </span>
-      </span>
-      <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />
-    </button>
+    </Sheet>
   );
 }
 
@@ -6907,6 +6527,7 @@ export function ClinicalDashboard({
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -6942,6 +6563,9 @@ export function ClinicalDashboard({
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const openGuide = useCallback(() => setGuideOpen(true), []);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const prefetchApplications = useCallback(() => {
     router.prefetch("/applications");
     void import("@/components/applications-launcher-page");
@@ -8269,7 +7893,7 @@ export function ClinicalDashboard({
       href: "#search",
       count:
         activeModeResultKind === "favourites"
-          ? favouriteItems.length + favouriteSets.length
+          ? favouritePrototypeCount
           : activeModeResultKind === "tools"
             ? toolCatalog.length
             : activeModeResultKind === "documents"
@@ -8441,10 +8065,12 @@ export function ClinicalDashboard({
       <ClinicalDesktopSidebar
         collapsed={sidebarCollapsed}
         recentQueries={recentQueries}
+        identity={sidebarIdentity}
         onCollapsedChange={setSidebarCollapsed}
         onNewChat={startNewChat}
         onPickRecent={pickRecentQuery}
         onOpenGuide={openGuide}
+        onOpenSettings={openSettings}
         onPrefetchApplications={prefetchApplications}
       />
 
@@ -8834,13 +8460,24 @@ export function ClinicalDashboard({
           onNavigate={navigateMobileSection}
         />
         <GuideDialog open={guideOpen} onClose={closeGuide} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={closeSettings}
+          identity={sidebarIdentity}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSignOut={auth.signOut}
+          onOpenGuide={openGuide}
+        />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
+          identity={sidebarIdentity}
           onOpenChange={setMobileSidebarOpen}
           onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}
           onOpenGuide={openGuide}
+          onOpenSettings={openSettings}
           onPrefetchApplications={prefetchApplications}
         />
       </div>
