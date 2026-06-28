@@ -853,20 +853,22 @@ export async function fetchMemoryCardsForQuery(args: {
 
     const cards = (data ?? []) as DocumentMemoryCard[];
     const documentIds = Array.from(new Set(cards.map((card) => card.document_id)));
-    const { data: documents } = documentIds.length
-      ? await args.supabase.from("documents").select("id,metadata").in("id", documentIds)
-      : { data: [] };
-    const committedGenerationByDocument = new Map(
-      (documents ?? []).map((document) => [document.id, committedIndexGeneration(document.metadata)] as const),
-    );
+const { data: documents, error: documentsError } = documentIds.length
+  ? await args.supabase.from("documents").select("id,metadata").in("id", documentIds)
+  : { data: [], error: null };
+const committedGenerationByDocument = new Map(
+  (documents ?? []).map((document) => [document.id, committedIndexGeneration(document.metadata)] as const),
+);
 
-    return cards
-      .filter((card) =>
-        isCommittedGenerationMetadata({
-          rowMetadata: card.metadata,
-          committedGeneration: committedGenerationByDocument.get(card.document_id),
-        }),
-      )
+return cards
+  .filter((card) => {
+    if (documentsError) return true;
+    if (!committedGenerationByDocument.has(card.document_id)) return true;
+    return isCommittedGenerationMetadata({
+      rowMetadata: card.metadata,
+      committedGeneration: committedGenerationByDocument.get(card.document_id),
+    });
+  })
       .map((card) => ({ ...card, confidence: Number(card.confidence ?? 0.5) }))
       .sort((a, b) => scoreMemoryCardForQuery(args.query, b) - scoreMemoryCardForQuery(args.query, a))
       .slice(0, args.matchCount ?? 32);
