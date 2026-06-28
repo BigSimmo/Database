@@ -1,31 +1,18 @@
--- A2: raise pgvector HNSW ef_search for the vector retrieval functions.
+-- Deliberately deferred.
 --
--- The hybrid/vector match functions request up to 128 candidates from their HNSW indexes
--- (limit least(greatest(match_count * 2, 48), 128)), but the pgvector default hnsw.ef_search
--- is 40 — so the index returns at most ~40 quality neighbours, the deeper fetch is wasted,
--- and recall is capped below intent. Pin a higher ef_search per vector function so the index
--- explores enough candidates to fill the requested depth.
+-- The intended optimization was to attach `hnsw.ef_search = 100` as a
+-- function-level GUC on the vector retrieval RPCs. Supabase hosted migrations
+-- currently reject that operation for this project with:
 --
--- Body-preserving: ALTER FUNCTION ... SET only attaches a per-function GUC; it does not
--- redefine the function body, so this is low-risk relative to recall gains. The function-level
--- SET reliably applies on every invocation regardless of the connection/role (Supabase
--- PostgREST connects as `authenticator` then SET ROLE service_role, so role-level GUCs would
--- not apply — function-level does).
+--   ERROR: permission denied to set parameter "hnsw.ef_search" (SQLSTATE 42501)
 --
--- Tunable range ~80-120; comparison-class queries fetch the full 128 and may warrant raising
--- toward 128 at some latency cost. Validate recall vs latency with
--- `npm run eval:retrieval:quality` and `npm run eval:retrieval:latency` on a Supabase branch
--- (and `npm run profile:retrieval` for EXPLAIN plans) before applying to the live project.
+-- Keep this version in migration history as an explicit no-op so later schema
+-- repairs can apply in order. Revisit the tuning only if Supabase exposes a
+-- supported way to set pgvector HNSW search depth for hosted RPC execution, or
+-- after validating an equivalent function-body/session-local approach on a
+-- branch database.
 
-set search_path = public, extensions;
-
-alter function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
-  set hnsw.ef_search = 100;
-alter function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
-  set hnsw.ef_search = 100;
-alter function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
-  set hnsw.ef_search = 100;
-alter function public.match_document_embedding_fields_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
-  set hnsw.ef_search = 100;
-alter function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
-  set hnsw.ef_search = 100;
+do $$
+begin
+  raise notice '20260627000000 deferred: hosted migrations cannot set hnsw.ef_search for functions';
+end $$;
