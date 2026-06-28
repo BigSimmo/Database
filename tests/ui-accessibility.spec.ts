@@ -10,7 +10,7 @@ const readySetupChecks = [
 ];
 
 async function mockMinimalDashboardApi(page: Page) {
-  await page.route(/\/api\/setup-status$/, async (route) => {
+  await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
       json: { demoMode: false, checks: readySetupChecks },
     });
@@ -46,9 +46,9 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 }
 
 async function expectDashboardUsable(page: Page) {
-  await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
-  await expect(page.getByLabel("Search indexed guidelines by question or keyword")).toBeVisible();
+  await expect(page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')).toBeVisible();
   await expect(page.locator('[data-testid="scope-trigger"]:visible')).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 
 import {
+  Activity,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -19,10 +21,11 @@ import {
   Plus,
   Search,
   Send,
+  ShieldCheck,
   Sparkles,
   Sun,
-  UserRound,
   X,
+  Lock,
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
@@ -37,6 +40,14 @@ import {
   eyebrowText,
 } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import {
+  appModeDefinition,
+  appModeDefinitions,
+  appModeSearchConfig,
+  isSearchableAppMode,
+  visibleAppModeDefinitions,
+  type AppModeId,
+} from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
@@ -44,64 +55,14 @@ import { tagSearchText } from "@/lib/document-tags";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
 
-type AppModeId = "answer" | "documents" | "prescribing" | "evidence" | "favourites" | "profile";
-
-const appModeOptions: Array<{
-  id: AppModeId;
-  label: string;
-  description: string;
-  icon: typeof Search;
-  href?: string;
-  devOnly?: boolean;
-}> = [
-  {
-    id: "answer",
-    label: "Answer",
-    description: "Source-backed clinical answer",
-    icon: Sparkles,
-  },
-  {
-    id: "documents",
-    label: "Documents",
-    description: "Search indexed PDFs and notes",
-    icon: FileText,
-  },
-  {
-    id: "prescribing",
-    label: "Prescribing",
-    description: "Medication checks and guidance",
-    icon: Pill,
-    href: "/mockups/medication-prescribing",
-    devOnly: true,
-  },
-  {
-    id: "evidence",
-    label: "Evidence",
-    description: "Tables, quotes, images, PDFs",
-    icon: ListChecks,
-    href: "/mockups/answer-evidence-popups",
-    devOnly: true,
-  },
-  {
-    id: "favourites",
-    label: "Favourites",
-    description: "Saved sources and workflows",
-    icon: Heart,
-    href: "/mockups/favourites-hub",
-    devOnly: true,
-  },
-  {
-    id: "profile",
-    label: "Profile",
-    description: "Home, preferences, review queue",
-    icon: UserRound,
-    href: "/mockups/user-home-profile",
-    devOnly: true,
-  },
-];
-
-const isDev = process.env.NODE_ENV === "development";
-const visibleAppModeOptions = appModeOptions.filter((mode) => !mode.devOnly || isDev);
+const visibleAppModeOptions = visibleAppModeDefinitions();
+const appModeIcons: Record<AppModeId, typeof Search> = {
+  answer: Sparkles,
+  documents: FileText,
+  prescribing: Pill,
+  evidence: ListChecks,
+  favourites: Heart,
+};
 
 function splitFilterText(value: string) {
   return value
@@ -128,6 +89,7 @@ function documentScopeMeta(document: ClinicalDocument) {
 
 export function MasterSearchHeader({
   documents,
+  documentTotal,
   query,
   searchMode,
   loading,
@@ -151,10 +113,15 @@ export function MasterSearchHeader({
   onOpenMobileSidebar,
   onToggleTheme,
   queryModeOptions,
+  scopeVariant = "full",
+  queryInputRef,
+  queryInputAutoFocus = false,
+  modeAlignment = "default",
 }: {
   documents: ClinicalDocument[];
+  documentTotal?: number;
   query: string;
-  searchMode: "answer" | "documents";
+  searchMode: AppModeId;
   loading: boolean;
   selectedDocumentIds: string[];
   queryMode: ClinicalQueryMode;
@@ -162,7 +129,7 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   theme: ResolvedTheme;
   onQueryChange: (query: string) => void;
-  onSearchModeChange: (mode: "answer" | "documents") => void;
+  onSearchModeChange: (mode: AppModeId) => void;
   onAsk: () => void;
   onClearQuery: () => void;
   onClearScope: () => void;
@@ -176,9 +143,24 @@ export function MasterSearchHeader({
   onOpenMobileSidebar?: () => void;
   onToggleTheme: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
+  scopeVariant?: "full" | "placeholder";
+  queryInputRef?: Ref<HTMLInputElement>;
+  queryInputAutoFocus?: boolean;
+  modeAlignment?: "default" | "center";
 }) {
   const trimmedQuery = query.trim();
-  const canAsk = trimmedQuery.length >= 1 && !loading && realDataReady;
+  const selectedSearch = appModeSearchConfig(searchMode);
+  const selectedAppMode = appModeDefinition(searchMode);
+  const selectedSearchable = isSearchableAppMode(searchMode);
+  const scopeIsPlaceholder = scopeVariant === "placeholder";
+  const canRunLocalSearch = selectedSearch.kind === "favourites";
+  const canAsk =
+    trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
+  const indexedDocumentTotal = documentTotal ?? documents.length;
+  const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
+  const loadedScopeSummary = hasUnloadedDocuments
+    ? `${documents.length.toLocaleString()} loaded of ${indexedDocumentTotal.toLocaleString()}`
+    : `${documents.length.toLocaleString()} available`;
   const [scopeFilter, setScopeFilter] = useState("");
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
@@ -186,6 +168,7 @@ export function MasterSearchHeader({
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const dailyActionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dailyActionsMenuRef = useRef<HTMLDivElement | null>(null);
   const firstDailyActionRef = useRef<HTMLButtonElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
@@ -222,18 +205,59 @@ export function MasterSearchHeader({
   const hiddenScopeMatchCount = requireScopeFilter
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocumentIds.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
-  const submitLabel = searchMode === "answer" ? (trimmedQuery ? "Answer" : "Ask") : "Docs";
-  const queryPlaceholder = searchMode === "documents" ? "Search documents..." : "Ask a clinical question...";
-  const selectedAppMode = appModeOptions.find((mode) => mode.id === searchMode) ?? appModeOptions[0];
-  const SelectedAppModeIcon = selectedAppMode.icon;
-  const dailyActions = [
-    { label: "Search library", icon: Search },
-    { label: "Add document", icon: FileText },
-    { label: "Scope", icon: Filter },
-    { label: "Evidence", icon: ListChecks },
-    { label: "Clinical tools", icon: Sparkles },
-  ] as const;
+  const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
+  const queryPlaceholder = selectedSearch.placeholder;
+  const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
+  const dailyActions =
+    searchMode === "prescribing"
+      ? ([
+          { label: "Dose", icon: CalendarDays },
+          { label: "Safety", icon: ShieldCheck },
+          { label: "Monitoring", icon: Activity },
+          { label: "Access", icon: Lock },
+        ] as const)
+      : ([
+          { label: "Search library", icon: Search },
+          { label: "Add document", icon: FileText },
+          { label: "Scope", icon: Filter },
+          { label: "Evidence", icon: ListChecks },
+          { label: "Applications", icon: Sparkles },
+        ] as const);
+  const dailyActionsTitle = searchMode === "prescribing" ? "Medication checks" : "Daily actions";
+  const dailyActionsButtonLabel = searchMode === "prescribing" ? "Open medication checks" : "Open daily actions";
+  const dailyActionsDescription =
+    searchMode === "prescribing"
+      ? "Choose a dose, safety, monitoring, or access focus."
+      : "Search, add, scope, evidence, or applications.";
+
+  function currentUsesScopeSheet() {
+    return window.matchMedia(mobileSheetMediaQuery).matches;
+  }
+
   function runDailyAction(label: (typeof dailyActions)[number]["label"]) {
+    if (searchMode === "prescribing") {
+      const medicationQuery = trimmedQuery || "acamprosate renal dose";
+      if (label === "Dose") {
+        onQueryModeChange("dose_threshold_lookup");
+        onQueryChange(medicationQuery);
+        return;
+      }
+      if (label === "Safety") {
+        onQueryModeChange("contraindications_cautions");
+        onQueryChange(trimmedQuery || "acamprosate contraindications");
+        return;
+      }
+      if (label === "Monitoring") {
+        onQueryModeChange("monitoring_schedule");
+        onQueryChange(trimmedQuery || "acamprosate monitoring");
+        return;
+      }
+      if (label === "Access") {
+        onQueryModeChange("required_documentation");
+        onQueryChange(trimmedQuery || "acamprosate PBS access");
+        return;
+      }
+    }
     if (label === "Search library") {
       onSearchModeChange("documents");
       return;
@@ -243,7 +267,9 @@ export function MasterSearchHeader({
       return;
     }
     if (label === "Scope") {
-      if (usesScopeSheet) {
+      const nextUsesScopeSheet = currentUsesScopeSheet();
+      setUsesScopeSheet(nextUsesScopeSheet);
+      if (nextUsesScopeSheet) {
         setScopeSheetOpen(true);
       } else {
         setScopeOpen(true);
@@ -256,16 +282,16 @@ export function MasterSearchHeader({
       onOpenEvidence?.();
       return;
     }
-    window.location.assign("/tools");
+    window.location.assign("/applications");
   }
 
-  function selectAppMode(mode: (typeof appModeOptions)[number]) {
+  function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
-    if (mode.id === "answer" || mode.id === "documents") {
+    if (isSearchableAppMode(mode.id)) {
       onSearchModeChange(mode.id);
       return;
     }
-    if (mode.href) window.location.assign(mode.href);
+    if ("href" in mode && mode.href) window.location.assign(mode.href);
   }
   const collectionOptions = useMemo(() => {
     const values = new Set<string>();
@@ -304,6 +330,31 @@ export function MasterSearchHeader({
   useEffect(() => {
     onScopeOpenChange?.(scopeOpen || scopeSheetOpen);
   }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
+
+  useEffect(() => {
+    if (!dailyActionsOpen || usesScopeSheet) return undefined;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!dailyActionsMenuRef.current?.contains(target)) setDailyActionsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setDailyActionsOpen(false);
+        window.requestAnimationFrame(() => dailyActionButtonRef.current?.focus());
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dailyActionsOpen, usesScopeSheet]);
 
   useEffect(() => {
     if (!modeMenuOpen) return undefined;
@@ -452,7 +503,7 @@ export function MasterSearchHeader({
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Document scope</p>
             <span className="nums shrink-0 text-[11px] font-semibold text-[color:var(--text-soft)]">
-              {selectedDocumentIds.length ? `${selectedDocumentIds.length} selected` : `${documents.length} available`}
+              {selectedDocumentIds.length ? `${selectedDocumentIds.length} selected` : loadedScopeSummary}
             </span>
           </div>
           <div className="space-y-2">
@@ -495,7 +546,8 @@ export function MasterSearchHeader({
               <div className="grid gap-1.5">
                 {requireScopeFilter && visibleScopeDocuments.length === 0 ? (
                   <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
-                    Type to filter {documents.length} documents. Selected documents stay pinned here.
+                    Type to filter {documents.length.toLocaleString()} loaded documents. Selected documents stay pinned
+                    here.
                   </p>
                 ) : null}
                 {visibleScopeDocuments.map((document) => {
@@ -556,7 +608,7 @@ export function MasterSearchHeader({
             {hiddenScopeMatchCount > 0 ? (
               <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
                 {requireScopeFilter
-                  ? `${documents.length} documents available. Type a title or file name to narrow the list.`
+                  ? `${loadedScopeSummary} documents. Type a title or file name to narrow the loaded list.`
                   : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
               </p>
             ) : null}
@@ -572,7 +624,7 @@ export function MasterSearchHeader({
         id="search"
         className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4 lg:px-6"
       >
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
+        <div className="relative mx-auto flex h-12 max-w-7xl items-center gap-2">
           <button
             type="button"
             onClick={onOpenMobileSidebar}
@@ -582,7 +634,14 @@ export function MasterSearchHeader({
             <Menu className="h-5 w-5" />
           </button>
 
-          <div ref={modeMenuRef} className="relative z-40 mx-auto sm:mx-0">
+          <div
+            ref={modeMenuRef}
+            className={cn(
+              "relative z-40 mx-auto sm:mx-0",
+              modeAlignment === "center" &&
+                "absolute left-1/2 top-1/2 mx-0 -translate-x-1/2 -translate-y-1/2",
+            )}
+          >
             <button
               type="button"
               onClick={() => setModeMenuOpen((open) => !open)}
@@ -617,7 +676,7 @@ export function MasterSearchHeader({
                 className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
               >
                 {visibleAppModeOptions.map((mode) => {
-                  const Icon = mode.icon;
+                  const Icon = appModeIcons[mode.id];
                   const active = mode.id === searchMode;
                   return (
                     <button
@@ -657,7 +716,19 @@ export function MasterSearchHeader({
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {usesScopeSheet ? (
+            {scopeIsPlaceholder ? (
+              <button
+                type="button"
+                data-testid="scope-trigger"
+                aria-disabled="true"
+                aria-label="Document scope placeholder"
+                title="Document scope"
+                className="flex min-h-10 shrink-0 cursor-default items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
+              >
+                <Globe2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Scope</span>
+              </button>
+            ) : usesScopeSheet ? (
               <button
                 type="button"
                 ref={(element) => {
@@ -755,23 +826,27 @@ export function MasterSearchHeader({
           "fixed inset-x-3 bottom-3 z-40 mx-auto max-w-3xl sm:bottom-4 lg:left-[calc(var(--clinical-sidebar-width,20rem)+2rem)] lg:right-8 lg:max-w-4xl",
         )}
       >
-        <div className="relative shrink-0">
+        <div ref={dailyActionsMenuRef} className="relative shrink-0">
           <button
             type="button"
             ref={dailyActionButtonRef}
             className={chatComposerIconButton}
-            aria-label="Open daily actions"
+            aria-label={dailyActionsButtonLabel}
             aria-controls={dailyActionsOpen ? "daily-actions-sheet" : undefined}
             aria-expanded={dailyActionsOpen}
-            title="Open daily actions"
-            onClick={() => setDailyActionsOpen((open) => !open)}
+            title={dailyActionsButtonLabel}
+            onClick={() => {
+              setUsesScopeSheet(currentUsesScopeSheet());
+              setDailyActionsOpen((open) => !open);
+            }}
           >
             <Plus className="h-5 w-5" />
           </button>
           {dailyActionsOpen && !usesScopeSheet ? (
             <div
               id="daily-actions-sheet"
-              aria-label="Daily actions"
+              data-testid="daily-actions-menu"
+              aria-label={dailyActionsTitle}
               className="absolute bottom-[calc(100%+0.75rem)] left-0 z-50 hidden max-h-none w-64 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-elevated)] sm:block"
             >
               {dailyActions.map((item) => {
@@ -797,12 +872,16 @@ export function MasterSearchHeader({
 
         <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
           <input
+            ref={queryInputRef}
+            data-testid="global-search-input"
+            autoFocus={queryInputAutoFocus}
             value={query}
+            onInput={(event) => onQueryChange(event.currentTarget.value)}
             onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={(event) => {
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
             }}
-            aria-label="Search indexed guidelines by question or keyword"
+            aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
             placeholder={queryPlaceholder}
             className={cn(chatComposerInput, "w-full min-w-0", query ? "pr-11" : null)}
           />
@@ -827,15 +906,11 @@ export function MasterSearchHeader({
             !realDataReady
               ? "Search setup not ready"
               : trimmedQuery.length < 1
-                ? searchMode === "answer"
-                  ? "Enter a clinical question"
-                  : "Enter a document search term"
-                : searchMode === "answer"
-                  ? "Generate a source-backed answer"
-                  : "Find matching documents"
+                ? selectedSearch.emptyTitle
+                : selectedSearch.readyTitle
           }
           className={chatSendButton}
-          aria-label={searchMode === "answer" ? "Generate source-backed answer" : "Find matching documents"}
+          aria-label={selectedSearch.submitAriaLabel}
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           <span className="sr-only">{submitLabel}</span>
@@ -866,8 +941,8 @@ export function MasterSearchHeader({
       <Sheet
         open={usesScopeSheet && dailyActionsOpen}
         onClose={() => setDailyActionsOpen(false)}
-        title="Daily actions"
-        description="Search, add, scope, evidence, or tools."
+        title={dailyActionsTitle}
+        description={dailyActionsDescription}
         closeLabel="Close daily actions"
         initialFocusRef={firstDailyActionRef}
         returnFocusRef={dailyActionButtonRef}
@@ -888,7 +963,7 @@ export function MasterSearchHeader({
                 className={cn(
                   "grid min-h-[72px] place-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-3 text-center text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                   "hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  index === dailyActions.length - 1 && "col-span-2",
+                  dailyActions.length % 2 === 1 && index === dailyActions.length - 1 && "col-span-2",
                 )}
               >
                 <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-chat-teal)]" />

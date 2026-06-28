@@ -104,12 +104,11 @@ export const toolCatalog: ToolItem[] = [
     title: "Medications",
     description:
       "Open the clinical drug guide for prescribing context, monitoring, safety checks, and medication-specific review.",
-    href: "http://127.0.0.1:8081",
+    href: "/?mode=prescribing",
     icon: "Pill",
     category: "Clinical",
-    target: "external",
+    target: "internal",
     status: "online",
-    openInNewTab: true,
   },
   {
     id: "services",

@@ -8,7 +8,7 @@ const localUrlPattern = /^http:\/\/localhost:\d+$/;
 const identityScript = `
 const http = require("node:http");
 const url = process.argv[1] + "/api/local-project-id";
-const request = http.get(url, { timeout: 5000 }, (response) => {
+const request = http.get(url, { timeout: 15000 }, (response) => {
   let body = "";
   response.setEncoding("utf8");
   response.on("data", (chunk) => { body += chunk; });
@@ -21,12 +21,33 @@ request.on("timeout", () => { request.destroy(); process.exit(3); });
 request.on("error", () => process.exit(4));
 `;
 
+function sleepSync(ms: number) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function verifyLocalProjectIdentity(baseUrl: string) {
-  const output = execFileSync(process.execPath, ["-e", identityScript, baseUrl], {
-    cwd: projectRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  }).trim();
+  let lastError: unknown = null;
+  let output = "";
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      output = execFileSync(process.execPath, ["-e", identityScript, baseUrl], {
+        cwd: projectRoot,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "inherit"],
+        timeout: 20_000,
+      }).trim();
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) sleepSync(750);
+    }
+  }
+
+  if (!output) {
+    throw lastError instanceof Error ? lastError : new Error(`Could not verify local project identity: ${baseUrl}`);
+  }
+
   const payload = JSON.parse(output) as {
     appName?: string;
     projectId?: string;
