@@ -401,6 +401,12 @@ async function commitDocumentIndexGeneration(args: {
   if (!error) return;
   if (!isMissingSchemaError(error)) throw supabaseStageError("commit_document_index_generation", error);
 
+  const { error: deletePagesError } = await supabase
+    .from("document_pages")
+    .delete()
+    .eq("document_id", args.documentId);
+  if (deletePagesError) throw supabaseStageError("delete document_pages", deletePagesError);
+
   await updateDocument(args.documentId, {
     status: "indexed",
     page_count: args.pageCount,
@@ -409,6 +415,7 @@ async function commitDocumentIndexGeneration(args: {
     error_message: null,
     metadata: sanitizeJsonbRecord(args.metadata),
   });
+
   await insertPageRows(args.pages);
   await upsertIndexQuality(args.quality);
 }
