@@ -1529,6 +1529,7 @@ async function processJob(job: JobRow) {
     });
 
     const indexedAt = new Date().toISOString();
+    const coreAgentMessage = "Core index committed; enrichment pending.";
     const committedCoreMetadata = {
       ...(job.documents.metadata ?? {}),
       indexed_at: indexedAt,
