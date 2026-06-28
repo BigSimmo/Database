@@ -41,7 +41,7 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId)");
     expect(workerSource).toContain("async function deleteStaleIndexGenerationRows");
     expect(workerSource).toContain("`${imagePrefix}/${indexGenerationId}/image-${index + 1}${ext}`");
-    expect(workerSource).toContain('indexing_v3_agent_repair_reason: "core_index_committed"');
+    expect(workerSource).toContain("indexing_v3_agent_repair_reason: null");
   });
 
   it("uses the strict completion RPC when inline enrichment succeeds", () => {
