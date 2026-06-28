@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
+  ClipboardList,
   Copy,
   ExternalLink,
   FileImage,
@@ -21,6 +22,7 @@ import {
   Folder,
   FolderInput,
   Heart,
+  HeartHandshake,
   Layers,
   LayoutList,
   ListChecks,
@@ -30,6 +32,7 @@ import {
   Mail,
   MessageSquare,
   MoreHorizontal,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Pill,
@@ -47,6 +50,7 @@ import {
   Target,
   UploadCloud,
   WifiOff,
+  Wrench,
   X,
 } from "lucide-react";
 import {
@@ -174,6 +178,7 @@ import { logSourceOpen, SourceActionRow, sourceResultHref } from "@/components/c
 import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
+import { toolCatalog, type ToolItem } from "@/lib/tools";
 import {
   reviewDocumentTagQuality,
   tagSearchText,
@@ -6011,6 +6016,208 @@ function FavouriteSetRow({
   );
 }
 
+function toolMatchesQuery(tool: ToolItem, query: string) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+  return [tool.title, tool.description, tool.category, tool.status, tool.id]
+    .join(" ")
+    .toLowerCase()
+    .includes(normalized);
+}
+
+function toolStatusLabel(tool: ToolItem) {
+  if (tool.status === "coming-soon") return "Soon";
+  if (tool.status === "offline") return "Paused";
+  if (tool.status === "beta") return "Preview";
+  return "Ready";
+}
+
+const TOOL_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Brain,
+  ClipboardList,
+  Search,
+  FileImage,
+  FileText,
+  HeartHandshake,
+  Network,
+  Pill,
+  UploadCloud,
+  BookOpen,
+  Quote,
+  ShieldAlert,
+  Target,
+  ClipboardCheck,
+  ListChecks,
+  Sparkles,
+  Clipboard: ClipboardCheck,
+  ExternalLink,
+};
+
+function getToolIcon(iconName: string) {
+  return TOOL_ICON_MAP[iconName] || Wrench;
+}
+
+function cleanToolHrefLabel(href: string) {
+  try {
+    if (href.startsWith("/")) return href;
+    const url = new URL(href);
+    return url.host;
+  } catch {
+    return href;
+  }
+}
+
+function ToolsHub({ query, onClearQuery }: { query: string; onClearQuery: () => void }) {
+  const normalizedQuery = query.trim();
+  const visibleTools = toolCatalog.filter((tool) => toolMatchesQuery(tool, normalizedQuery));
+  const onlineTools = toolCatalog.filter((tool) => tool.status === "online" || tool.status === "beta").length;
+  const internalTools = toolCatalog.filter((tool) => tool.target === "internal").length;
+  const activeFilterCount = normalizedQuery ? 1 : 0;
+
+  return (
+    <div data-testid="tools-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
+      <div className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-left">
+          <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
+            <Wrench className="h-6 w-6 sm:h-7 sm:w-7" />
+          </span>
+          <div className="max-w-2xl space-y-2">
+            <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">Tools</h2>
+            <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">
+              Search the existing clinical applications registry and launch the right workflow without leaving the
+              dashboard shell.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-left sm:mx-auto sm:w-full sm:max-w-md lg:mx-0 lg:w-[24rem]">
+          {[
+            { label: "Tools", value: toolCatalog.length, icon: Wrench },
+            { label: "Ready", value: onlineTools, icon: CheckCircle2 },
+            { label: "In-app", value: internalTools, icon: LayoutList },
+          ].map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={stat.label}
+                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-chat-teal)]" />
+                  <span className="truncate">{stat.label}</span>
+                </div>
+                <p className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]">
+                  {stat.value}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
+        <span>
+          Showing {visibleTools.length} of {toolCatalog.length} tools
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {activeFilterCount > 0 && (
+            <button type="button" onClick={onClearQuery} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+              <X className="h-3.5 w-3.5" />
+              Clear search
+            </button>
+          )}
+          <Link href="/applications" className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+            <LayoutList className="h-3.5 w-3.5" />
+            Full launcher
+          </Link>
+        </div>
+      </div>
+
+      {visibleTools.length === 0 ? (
+        <EmptyState
+          icon={Wrench}
+          title="No tools match"
+          body="Clear the search or try a clinical workflow, app name, category, or status."
+        />
+      ) : (
+        <div className="mx-auto grid w-full max-w-5xl gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleTools.map((tool) => {
+            const disabled = tool.status === "offline" || tool.status === "coming-soon";
+            const launchLabel = `Launch ${tool.title}`;
+            const launchClassName = cn(
+              "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              disabled
+                ? "border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]"
+                : "bg-[color:var(--clinical-chat-teal)] text-white hover:bg-[color:var(--clinical-chat-teal-strong)]",
+            );
+            const ToolIcon = getToolIcon(tool.icon);
+            const isOnline = tool.status === "online" || tool.status === "beta";
+            const statusColorClass = tool.status === "online"
+              ? "bg-emerald-500 shadow-[0_0_8px_#10b981]"
+              : tool.status === "beta"
+              ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]"
+              : "bg-slate-400";
+
+            return (
+              <article
+                key={tool.id}
+                data-testid={`tool-mode-result-${tool.id}`}
+                className="group grid min-h-48 grid-rows-[auto_1fr_auto] gap-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-tight)] transition-all duration-200 hover:border-[color:var(--primary)]/40 hover:shadow-[var(--shadow-hover)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className={cn(iconTilePremium, "group-hover:scale-105 transition-transform duration-200")}>
+                    <ToolIcon className="h-4 w-4" />
+                  </span>
+                  <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[11px] font-bold text-[color:var(--text-muted)]">
+                    {toolStatusLabel(tool)}
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-bold text-[color:var(--text-heading)]">{tool.title}</h3>
+                  <p className="mt-1 line-clamp-3 text-sm leading-6 text-[color:var(--text-muted)]">
+                    {tool.description}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold text-[color:var(--text-soft)]">
+                    <span className="rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5">{tool.category}</span>
+                    <span className="rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5">
+                      {tool.target === "internal" ? "In-app" : "Connected"}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1.5 rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-medium text-[color:var(--text-muted)] border border-[color:var(--border)] w-fit group-hover:border-[color:var(--primary)]/20 transition-colors">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", statusColorClass, isOnline && "animate-pulse")} />
+                    <span className="font-mono text-[10px] text-[color:var(--text-soft)]">{cleanToolHrefLabel(tool.href)}</span>
+                  </div>
+                </div>
+
+                {disabled ? (
+                  <span className={launchClassName}>{tool.disabledHint ?? "Unavailable"}</span>
+                ) : tool.target === "internal" ? (
+                  <Link href={tool.href} aria-label={launchLabel} className={launchClassName}>
+                    Launch
+                    <ChevronDown className="-rotate-90 h-4 w-4" />
+                  </Link>
+                ) : (
+                  <a
+                    href={tool.href}
+                    target={tool.openInNewTab ? "_blank" : undefined}
+                    rel="noopener noreferrer"
+                    aria-label={launchLabel}
+                    className={launchClassName}
+                  >
+                    Launch
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type MobileSectionFabItem = {
   label: string;
   description: string;
@@ -6070,6 +6277,15 @@ function buildMobileSectionFabState({
         statusLabel: "Favourites",
         statusTone: "neutral",
         nextStep: "Browse saved items",
+        badgeLabel: null,
+        badgeTone: "neutral",
+      };
+    }
+    if (modeSearch.resultKind === "tools") {
+      return {
+        statusLabel: "Tools",
+        statusTone: "neutral",
+        nextStep: "Launch a clinical tool",
         badgeLabel: null,
         badgeTone: "neutral",
       };
@@ -7067,7 +7283,7 @@ export function ClinicalDashboard({
     const modeSearch = appModeSearchConfig(mode);
     const shouldRun = params.get("run") === "1" || modeSearch.kind === "documents";
     if (!shouldRun) return;
-    if (modeSearch.kind !== "favourites" && !canRunSearch) return;
+    if (modeSearch.kind !== "favourites" && modeSearch.kind !== "tools" && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
@@ -7274,6 +7490,12 @@ export function ClinicalDashboard({
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
+      return;
+    }
+    if (modeSearch.kind === "tools") {
+      setError(null);
+      rememberRecentQuery(trimmedQuery);
+      setActionNotice({ tone: "success", message: "Tools filtered from the composer." });
       return;
     }
     if (!canRunSearch) {
@@ -7835,6 +8057,10 @@ export function ClinicalDashboard({
           ? query.trim()
             ? "Filtered favourites"
             : "Browse saved items"
+          : activeModeResultKind === "tools"
+            ? query.trim()
+              ? "Filtered tools"
+              : "Browse tools"
           : activeModeResultKind === "answer"
             ? answer
               ? weakEvidence
@@ -7844,11 +8070,20 @@ export function ClinicalDashboard({
             : documentMatches.length
               ? "Document results"
               : activeModeSearch.readyTitle,
-      icon: activeModeResultKind === "favourites" ? Heart : activeModeResultKind === "answer" ? Search : FileText,
+      icon:
+        activeModeResultKind === "favourites"
+          ? Heart
+          : activeModeResultKind === "tools"
+            ? Wrench
+            : activeModeResultKind === "answer"
+              ? Search
+              : FileText,
       href: "#search",
       count:
         activeModeResultKind === "favourites"
           ? favouriteItems.length + favouriteSets.length
+          : activeModeResultKind === "tools"
+            ? toolCatalog.length
           : activeModeResultKind === "documents"
             ? documentMatches.length
             : null,
@@ -8094,6 +8329,8 @@ export function ClinicalDashboard({
                   ? "grid place-items-center"
                   : activeModeResultKind === "favourites"
                     ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                    : activeModeResultKind === "tools"
+                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                     : activeModeResultKind === "documents"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                       : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
@@ -8133,6 +8370,8 @@ export function ClinicalDashboard({
                     })
                   }
                 />
+              ) : activeModeResultKind === "tools" ? (
+                <ToolsHub query={query} onClearQuery={() => setQuery("")} />
               ) : activeModeResultKind === "documents" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace

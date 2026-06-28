@@ -1,10 +1,10 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 
-export type AppModeId = "answer" | "documents" | "prescribing" | "evidence" | "favourites";
+export type AppModeId = "answer" | "documents" | "prescribing" | "evidence" | "favourites" | "tools";
 export type SearchableAppModeId = AppModeId;
 
-export type AppModeSearchKind = "answer" | "documents" | "favourites";
-export type AppModeResultKind = "answer" | "documents" | "favourites";
+export type AppModeSearchKind = "answer" | "documents" | "favourites" | "tools";
+export type AppModeResultKind = "answer" | "documents" | "favourites" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -104,7 +104,7 @@ export const appModeDefinitions = [
     label: "Evidence",
     description: "Tables, quotes, images, PDFs",
     devOnly: true,
-    href: "/mockups/answer-evidence-popups",
+    href: "/mockups/evidence-option",
     search: {
       kind: "documents",
       placeholder: "Search evidence...",
@@ -142,6 +142,28 @@ export const appModeDefinitions = [
       resultHeading: "Favourites",
       statusLabel: "Favourites",
       nextStep: "Browse saved items",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    description: "Clinical tools and applications",
+    href: "/?mode=tools",
+    search: {
+      kind: "tools",
+      placeholder: "Search tools...",
+      inputAriaLabel: "Search clinical tools and applications",
+      submitIdleLabel: "Tools",
+      submitBusyLabel: "Tools",
+      submitAriaLabel: "Search tools",
+      emptyTitle: "Browse tools",
+      readyTitle: "Search clinical tools",
+      progressLabel: "Searching tools.",
+      resultKind: "tools",
+      resultHeading: "Tools",
+      statusLabel: "Tools",
+      nextStep: "Launch a tool",
       badgeLabel: null,
     },
   },
@@ -195,5 +217,5 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
   const mode = appModeDefinitions.find((definition) => definition.id === modeId);
   if (!mode) return false;
   const kind = mode.search.kind;
-  return kind === "answer" || kind === "documents" || kind === "favourites";
+  return kind === "answer" || kind === "documents" || kind === "favourites" || kind === "tools";
 }

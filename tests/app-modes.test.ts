@@ -55,6 +55,15 @@ describe("app mode search contract", () => {
     expect(config.placeholder.toLowerCase()).toContain("favourites");
   });
 
+  it("keeps tools searchable inside the dashboard composer", () => {
+    const config = appModeSearchConfig("tools");
+
+    expect(isSearchableAppMode("tools")).toBe(true);
+    expect(config.kind).toBe("tools");
+    expect(config.resultKind).toBe("tools");
+    expect(config.placeholder.toLowerCase()).toContain("tools");
+  });
+
   it("builds stable dashboard home URLs for shared global search chrome", () => {
     expect(appModeHomeHref("answer")).toBe("/?mode=answer");
     expect(appModeHomeHref("documents", { query: "lithium monitoring", run: true, focus: true })).toBe(
@@ -64,11 +73,17 @@ describe("app mode search contract", () => {
       "/?mode=prescribing&q=acamprosate+renal+dose",
     );
     expect(appModeHomeHref("favourites")).toBe("/?mode=favourites");
+    expect(appModeHomeHref("tools", { query: "  medications  ", run: true, focus: true })).toBe(
+      "/?mode=tools&q=medications&focus=1&run=1",
+    );
   });
 
-  it("keeps the removed profile mockup out of app mode routing", () => {
+  it("keeps evidence and tools while keeping the removed profile mockup out of app mode routing", () => {
     expect(isAppModeId("profile")).toBe(false);
     expect(appModeDefinitions.map((mode) => mode.id)).not.toContain("profile");
+    expect(appModeDefinitions.map((mode) => mode.id)).toEqual(
+      expect.arrayContaining(["answer", "documents", "prescribing", "evidence", "favourites", "tools"]),
+    );
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).not.toContain("profile");
   });
 
@@ -78,8 +93,10 @@ describe("app mode search contract", () => {
 
     expect(isAppModeVisible("favourites", "production")).toBe(false);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
+    expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(productionModes).not.toContain("favourites");
     expect(productionModes).toContain("prescribing");
-    expect(developmentModes).toEqual(expect.arrayContaining(["favourites", "prescribing"]));
+    expect(productionModes).toContain("tools");
+    expect(developmentModes).toEqual(expect.arrayContaining(["evidence", "favourites", "prescribing", "tools"]));
   });
 });

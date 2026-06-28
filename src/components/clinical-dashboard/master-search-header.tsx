@@ -26,6 +26,7 @@ import {
   Sun,
   X,
   Lock,
+  Wrench,
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
@@ -62,6 +63,7 @@ const appModeIcons: Record<AppModeId, typeof Search> = {
   prescribing: Pill,
   evidence: ListChecks,
   favourites: Heart,
+  tools: Wrench,
 };
 
 function splitFilterText(value: string) {
@@ -153,7 +155,7 @@ export function MasterSearchHeader({
   const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const scopeIsPlaceholder = scopeVariant === "placeholder";
-  const canRunLocalSearch = selectedSearch.kind === "favourites";
+  const canRunLocalSearch = selectedSearch.kind === "favourites" || selectedSearch.kind === "tools";
   const canAsk =
     trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
@@ -221,14 +223,14 @@ export function MasterSearchHeader({
           { label: "Add document", icon: FileText },
           { label: "Scope", icon: Filter },
           { label: "Evidence", icon: ListChecks },
-          { label: "Applications", icon: Sparkles },
+          { label: "Tools", icon: Wrench },
         ] as const);
   const dailyActionsTitle = searchMode === "prescribing" ? "Medication checks" : "Daily actions";
   const dailyActionsButtonLabel = searchMode === "prescribing" ? "Open medication checks" : "Open daily actions";
   const dailyActionsDescription =
     searchMode === "prescribing"
       ? "Choose a dose, safety, monitoring, or access focus."
-      : "Search, add, scope, evidence, or applications.";
+      : "Search, add, scope, evidence, or tools.";
 
   function currentUsesScopeSheet() {
     return window.matchMedia(mobileSheetMediaQuery).matches;
@@ -282,7 +284,7 @@ export function MasterSearchHeader({
       onOpenEvidence?.();
       return;
     }
-    window.location.assign("/applications");
+    onSearchModeChange("tools");
   }
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {

@@ -535,7 +535,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const dailyActions = await openDailyActions(page);
         const addDocument = dailyActions.getByRole("button", { name: "Add document" });
         await expect(addDocument).toBeVisible();
-        await expect(dailyActions.getByRole("button", { name: "Applications" })).toBeVisible();
+        await expect(dailyActions.getByRole("button", { name: "Tools" })).toBeVisible();
         await expectMinTouchTarget(addDocument);
         await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");
@@ -997,6 +997,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       .first()
       .click();
     await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
+
+    await expect(page.getByRole("button", { name: "Current app mode: Tools" })).toBeVisible();
+    await expect(page.getByPlaceholder("Search tools...")).toHaveValue("medications");
+    await expect(page.getByTestId("tools-hub")).toBeVisible();
+    await expect(page.getByTestId("tool-mode-result-medications")).toContainText("Medications");
+    await expect(page.getByLabel("Launch Medications")).toHaveAttribute("href", "/?mode=prescribing");
     await expectNoPageHorizontalOverflow(page);
   });
 

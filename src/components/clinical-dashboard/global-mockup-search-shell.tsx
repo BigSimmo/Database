@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FileText, Heart, ListChecks, Pill, Search, Sparkles } from "lucide-react";
+import { FileText, Heart, ListChecks, Pill, Search, Sparkles, Wrench } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -35,6 +35,7 @@ const appModeIcons: Record<AppModeId, typeof Search> = {
   prescribing: Pill,
   evidence: ListChecks,
   favourites: Heart,
+  tools: Wrench,
 };
 
 export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
