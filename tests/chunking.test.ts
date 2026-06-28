@@ -179,6 +179,27 @@ describe("image-aware chunks", () => {
   });
 });
 
+describe("buildChunks dedupe", () => {
+  it("dedupes same-page chunks despite punctuation and table-label noise", () => {
+    const chunks = buildChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "Table: Lithium monitoring",
+        metadata: { content_hash: "abc", embedding_model: "text-embedding-3-small" },
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "Lithium-monitoring",
+        metadata: { content_hash: "abc", embedding_model: "text-embedding-3-small" },
+      },
+    ]);
+
+    expect(chunks.map((chunk) => chunk.content)).toEqual(["Table: Lithium monitoring"]);
+  });
+});
+
 describe("section-aware chunking groundwork", () => {
   it("carries the previous section path onto a following page without a new heading", () => {
     const chunks = buildChunks([
