@@ -816,17 +816,27 @@ async function uploadAndCaptionImages(
     env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE,
   );
 
+  // Keep selection, de-dupe, and budget checks sequential so the chosen images
+  // are deterministic; only the expensive cache/model calls run concurrently.
+  type CaptionTask = {
+    candidate: (typeof scoredCandidates)[number];
+    index: number;
+    image: ExtractedDocument["images"][number];
+    preparedImage: (typeof preparedImages)[number];
+    perceptualHash: string;
+    imageHash: string;
+    nearbyText: string | undefined;
+    tableMetadata: ReturnType<typeof imageTableMetadata>;
+    contextHash: string;
+    presetClassification: ImageClassification | null;
+  };
+
+  const captionTasks: CaptionTask[] = [];
   for (const candidate of scoredCandidates) {
     const index = candidate.originalIndex;
     const image = extracted.images[index];
-    await updateJobProgress(job.id, {
-      stage: `captioning image ${index + 1}/${extracted.images.length}`,
-      progress: Math.min(70, 35 + Math.round((index / Math.max(extracted.images.length, 1)) * 25)),
-    });
-
     const preparedImage = preparedImages[index];
     const imageHash = preparedImage.imageHash;
-    const perceptualHash = preparedImage.perceptualHash;
     const skipReason = cheapImageSkipReason({
       bytesLength: preparedImage.bytesLength,
       imageHash,
@@ -857,41 +867,77 @@ async function uploadAndCaptionImages(
       noteSkippedImage(skipReasons, lowSignalSkipReason);
       continue;
     }
-    let classification: ImageClassification | null =
+    const presetClassification: ImageClassification | null =
       image.sourceKind === "table_crop"
         ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
         : null;
-    let classificationCacheHit = false;
-    const usesModelCaptionBudget = !classification;
-    if (usesModelCaptionBudget && !selectedCaptionCandidateIndexes.has(index)) {
+    if (!presetClassification && !selectedCaptionCandidateIndexes.has(index)) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, "visual intelligence candidate below caption budget");
       continue;
     }
-    if (!classification) {
-      classification = await getCachedImageClassification(job.documents.owner_id, imageHash, contextHash);
-      classificationCacheHit = Boolean(classification);
-    }
-    if (!classification) {
-      classification = await classifyAndCaptionImageFromBase64({
-        base64: preparedImage.bytes.toString("base64"),
-        mimeType: image.mimeType,
-        nearbyText,
-        sourceKind: image.sourceKind ?? null,
-        candidateType: tableMetadata.candidateType,
-        tableLabel: tableMetadata.tableLabel,
-        tableTitle: tableMetadata.tableTitle,
-        tableRole: tableMetadata.tableRole,
-        tableText: tableMetadata.tableText,
-      });
-      await setCachedImageClassification({
-        ownerId: job.documents.owner_id,
-        imageHash,
-        contextHash,
-        mimeType: image.mimeType,
-        classification,
-      });
-    }
+    captionTasks.push({
+      candidate,
+      index,
+      image,
+      preparedImage,
+      perceptualHash: preparedImage.perceptualHash,
+      imageHash,
+      nearbyText,
+      tableMetadata,
+      contextHash,
+      presetClassification,
+    });
+  }
+
+  const captionConcurrency = 4;
+  const resolvedTasks: Array<{ task: CaptionTask; classification: ImageClassification; classificationCacheHit: boolean }> =
+    [];
+  for (let start = 0; start < captionTasks.length; start += captionConcurrency) {
+    const batch = captionTasks.slice(start, start + captionConcurrency);
+    await updateJobProgress(job.id, {
+      stage: `captioning images ${start + 1}-${start + batch.length}/${captionTasks.length}`,
+      progress: Math.min(70, 35 + Math.round(((start + batch.length) / Math.max(captionTasks.length, 1)) * 25)),
+    });
+    const batchResults = await Promise.all(
+      batch.map(async (task) => {
+        let classification: ImageClassification | null = task.presetClassification;
+        let classificationCacheHit = false;
+        if (!classification) {
+          classification = await getCachedImageClassification(job.documents.owner_id, task.imageHash, task.contextHash);
+          classificationCacheHit = Boolean(classification);
+        }
+        if (!classification) {
+          classification = await classifyAndCaptionImageFromBase64({
+            base64: task.preparedImage.bytes.toString("base64"),
+            mimeType: task.image.mimeType,
+            nearbyText: task.nearbyText,
+            sourceKind: task.image.sourceKind ?? null,
+            candidateType: task.tableMetadata.candidateType,
+            tableLabel: task.tableMetadata.tableLabel,
+            tableTitle: task.tableMetadata.tableTitle,
+            tableRole: task.tableMetadata.tableRole,
+            tableText: task.tableMetadata.tableText,
+          });
+          await setCachedImageClassification({
+            ownerId: job.documents.owner_id,
+            imageHash: task.imageHash,
+            contextHash: task.contextHash,
+            mimeType: task.image.mimeType,
+            classification,
+          });
+        }
+        return { task, classification, classificationCacheHit };
+      }),
+    );
+    resolvedTasks.push(...batchResults);
+  }
+
+  for (const resolved of resolvedTasks) {
+    const { task, classificationCacheHit } = resolved;
+    const { candidate, index, image, preparedImage, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } =
+      task;
+    let classification = resolved.classification;
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
       searchable: classification.searchable,
@@ -1497,10 +1543,6 @@ async function processJob(job: JobRow) {
       index_quality_metrics: initialQuality.metrics,
       optional_index_write_issues: optionalIndexWriteIssues,
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
-      indexing_v3_agent_status: "pending",
-      indexing_v3_agent_last_error: coreAgentMessage,
-      indexing_v3_agent_repair_reason: "core_index_committed",
-      indexing_v3_agent_updated_at: indexedAt,
       ...metrics,
     };
     await commitDocumentIndexGeneration({
