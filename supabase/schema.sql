@@ -3369,7 +3369,7 @@ grant execute on function public.commit_document_index_generation(uuid, uuid, te
 revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_document_generation(uuid, jsonb) to service_role;
 revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role
+grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
 create policy "document index units owner read" on public.document_index_units
   for select to authenticated using (

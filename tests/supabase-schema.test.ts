@@ -136,6 +136,17 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("public.is_committed_artifact_generation(m.metadata, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(f.metadata, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(u.metadata, d.metadata)");
+    for (const sql of [schema, atomicReindexMigration]) {
+      expect(sql).toContain(
+        "revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated",
+      );
+    }
     expect(schema).toContain(
       "grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role",
     );

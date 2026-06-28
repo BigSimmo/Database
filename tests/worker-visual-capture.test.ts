@@ -33,6 +33,15 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain('indexing_v3_agent_status: "pending"');
     expect(workerSource).toContain('"optional_index_write_issues"');
     expect(workerSource).toContain("indexing_v3_agent_repair_reason: agentRepairReason");
+    expect(workerSource).toContain('indexing_v3_agent_status: "completed"');
+  });
+
+  it("keeps atomic reindex fallback rows and image uploads generation-scoped", () => {
+    expect(workerSource).toContain("await replacePageRows(args.documentId, args.pages)");
+    expect(workerSource).toContain("await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId)");
+    expect(workerSource).toContain("async function deleteStaleIndexGenerationRows");
+    expect(workerSource).toContain("`${imagePrefix}/${indexGenerationId}/image-${index + 1}${ext}`");
+    expect(workerSource).toContain('indexing_v3_agent_repair_reason: "core_index_committed"');
   });
 
   it("uses the strict completion RPC when inline enrichment succeeds", () => {

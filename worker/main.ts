@@ -401,12 +401,6 @@ async function commitDocumentIndexGeneration(args: {
   if (!error) return;
   if (!isMissingSchemaError(error)) throw supabaseStageError("commit_document_index_generation", error);
 
-  const { error: deletePagesError } = await supabase
-    .from("document_pages")
-    .delete()
-    .eq("document_id", args.documentId);
-  if (deletePagesError) throw supabaseStageError("delete document_pages", deletePagesError);
-
   await updateDocument(args.documentId, {
     status: "indexed",
     page_count: args.pageCount,
@@ -415,9 +409,9 @@ async function commitDocumentIndexGeneration(args: {
     error_message: null,
     metadata: sanitizeJsonbRecord(args.metadata),
   });
-
-  await insertPageRows(args.pages);
+  await replacePageRows(args.documentId, args.pages);
   await upsertIndexQuality(args.quality);
+  await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId);
 }
 
 function buildDocumentPageRows(documentId: string, extracted: ExtractedDocument) {
@@ -436,6 +430,47 @@ async function insertPageRows(pages: ReturnType<typeof buildDocumentPageRows>) {
     onConflict: "document_id,page_number",
   });
   if (error) throw supabaseStageError("upsert document_pages", error);
+}
+
+async function replacePageRows(documentId: string, pages: ReturnType<typeof buildDocumentPageRows>) {
+  const { error: deleteError } = await supabase.from("document_pages").delete().eq("document_id", documentId);
+  if (deleteError) throw supabaseStageError("delete stale document_pages", deleteError);
+  await insertPageRows(pages);
+}
+
+async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
+  const deleteDirectGenerationRows = async (table: string) => {
+    const stale = await supabase
+      .from(table)
+      .delete()
+      .eq("document_id", documentId)
+      .neq("index_generation_id", indexGenerationId);
+    if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
+    const missing = await supabase.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
+    if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
+  };
+  const deleteMetadataGenerationRows = async (table: string) => {
+    const stale = await supabase
+      .from(table)
+      .delete()
+      .eq("document_id", documentId)
+      .neq("metadata->>index_generation_id", indexGenerationId);
+    if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
+    const missing = await supabase
+      .from(table)
+      .delete()
+      .eq("document_id", documentId)
+      .is("metadata->>index_generation_id", null);
+    if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
+  };
+
+  await deleteDirectGenerationRows("document_chunks");
+  await deleteMetadataGenerationRows("document_images");
+  await deleteMetadataGenerationRows("document_table_facts");
+  await deleteMetadataGenerationRows("document_embedding_fields");
+  await deleteMetadataGenerationRows("document_index_units");
+  await deleteMetadataGenerationRows("document_memory_cards");
+  await deleteMetadataGenerationRows("document_sections");
 }
 
 async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {
@@ -921,7 +956,7 @@ async function uploadAndCaptionImages(
     const imagePrefix = job.documents.owner_id
       ? `${job.documents.owner_id}/images/${job.document_id}`
       : `local/${job.document_id}`;
-    const imagePath = `${imagePrefix}/image-${index + 1}${ext}`;
+    const imagePath = `${imagePrefix}/${indexGenerationId}/image-${index + 1}${ext}`;
     const upload = await supabase.storage
       .from(env.SUPABASE_IMAGE_BUCKET)
       .upload(imagePath, bytes, { contentType: image.mimeType, upsert: true });
@@ -1443,6 +1478,7 @@ async function processJob(job: JobRow) {
     });
 
     const indexedAt = new Date().toISOString();
+    const coreAgentMessage = "Core index committed; enrichment pending.";
     const committedCoreMetadata = {
       ...(job.documents.metadata ?? {}),
       indexed_at: indexedAt,
@@ -1461,6 +1497,10 @@ async function processJob(job: JobRow) {
       index_quality_metrics: initialQuality.metrics,
       optional_index_write_issues: optionalIndexWriteIssues,
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
+      indexing_v3_agent_status: "pending",
+      indexing_v3_agent_last_error: coreAgentMessage,
+      indexing_v3_agent_repair_reason: "core_index_committed",
+      indexing_v3_agent_updated_at: indexedAt,
       ...metrics,
     };
     await commitDocumentIndexGeneration({
@@ -1571,7 +1611,12 @@ async function processJob(job: JobRow) {
             indexing_v3_agent_repair_reason: agentRepairReason,
             indexing_v3_agent_updated_at: new Date().toISOString(),
           }
-        : {}),
+        : {
+            indexing_v3_agent_status: "completed",
+            indexing_v3_agent_last_error: null,
+            indexing_v3_agent_repair_reason: null,
+            indexing_v3_agent_updated_at: enrichmentUpdatedAt ?? new Date().toISOString(),
+          }),
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
       ...metrics,
     };

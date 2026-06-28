@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { demoChunks, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -16,6 +17,8 @@ type DocumentChunkSearchRow = {
   image_ids: string[] | null;
   text_rank?: number | null;
   trigram_score?: number | null;
+  metadata?: Record<string, unknown> | null;
+  index_generation_id?: string | null;
 };
 
 const maxSearchTerms = 8;
@@ -139,6 +142,10 @@ function resultFromChunk(row: DocumentChunkSearchRow, query: string, terms: stri
   };
 }
 
+function generationMetadataForRow(row: DocumentChunkSearchRow) {
+  return row.index_generation_id ? { index_generation_id: row.index_generation_id } : row.metadata;
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -174,13 +181,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const user = await requireAuthenticatedUser(request, supabase);
     const { data: document, error: documentError } = await supabase
       .from("documents")
-      .select("id")
+      .select("id,metadata")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    const committedGeneration = committedIndexGeneration(document.metadata);
 
     const { data: rpcData, error: rpcError } = await supabase.rpc("search_document_chunks", {
       p_document_id: id,
@@ -191,6 +199,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!rpcError) {
       const results = ((rpcData ?? []) as DocumentChunkSearchRow[])
+        .filter((row) =>
+          isCommittedGenerationMetadata({
+            rowMetadata: generationMetadataForRow(row),
+            committedGeneration,
+          }),
+        )
         .map((row) => resultFromChunk(row, query, terms))
         .filter((result) => result.score > 0)
         .sort(
@@ -219,7 +233,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const queryBuilder = supabase
       .from("document_chunks")
-      .select("id,page_number,chunk_index,section_heading,content,image_ids")
+      .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata,index_generation_id")
       .eq("document_id", id)
       .order("chunk_index", { ascending: true })
       .limit(Math.min(maxSearchLimit * 3, Math.max(limit * 3, limit)));
@@ -228,11 +242,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (error) throw new Error(error.message);
 
     const importantTerms = importantTermsFor(terms);
-    const candidateRows = ((data ?? []) as DocumentChunkSearchRow[]).filter((row) => {
+    const committedData = ((data ?? []) as DocumentChunkSearchRow[]).filter((row) =>
+      isCommittedGenerationMetadata({
+        rowMetadata: generationMetadataForRow(row),
+        committedGeneration,
+      }),
+    );
+    const candidateRows = committedData.filter((row) => {
       if (importantTerms.length <= 1) return true;
       return importantTerms.every((term) => coveredTermsFor(row, [term]).length > 0);
     });
-    const fallbackRows = candidateRows.length ? candidateRows : ((data ?? []) as DocumentChunkSearchRow[]);
+    const fallbackRows = candidateRows.length ? candidateRows : committedData;
     const results = fallbackRows
       .map((row) => resultFromChunk(row, query, terms))
       .filter((result) => {
