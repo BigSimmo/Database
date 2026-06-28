@@ -167,9 +167,12 @@ begin
 end;
 $$;
 
+revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
+revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_document_generation(uuid, jsonb) to service_role;
-grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
+revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role
 
 do $$
 declare
