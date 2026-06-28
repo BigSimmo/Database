@@ -2,6 +2,16 @@ import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 export type RagEvalCategory = "routine" | "complex" | "unsupported";
 export type RagEvalRelevanceGrade = "direct" | "partial" | "unsupported";
+export type AnswerQualityMetric = "relevance" | "readability" | "artifact_leaks" | "intent_coverage" | "fail_closed";
+export type AnswerQualityIntent =
+  | "dose"
+  | "contraindication"
+  | "monitoring_schedule"
+  | "red_result_action"
+  | "document_lookup"
+  | "pathway_referral"
+  | "unsupported"
+  | "general";
 
 export type RagEvalCase = {
   id: string;
@@ -18,6 +28,70 @@ export type RagEvalCase = {
   latencyTargetMs: number;
   requireVisualEvidence?: boolean;
 };
+
+export type AnswerQualityEvalCase = RagEvalCase & {
+  expectedIntent: AnswerQualityIntent;
+  mustContainAny?: string[];
+  mustNotContain?: string[];
+};
+
+export type AnswerQualityMetricScore = {
+  metric: AnswerQualityMetric;
+  score: 0 | 1;
+  reason: string;
+};
+
+export const answerQualityMetricLabels: Record<AnswerQualityMetric, string> = {
+  relevance: "Answer addresses the requested entity and task.",
+  readability: "Answer is grammatical, concise, and not fragment-like.",
+  artifact_leaks: "Answer avoids backend, admin, provenance, and template wording.",
+  intent_coverage: "Answer includes the action, dose, schedule, document list, or gap required by intent.",
+  fail_closed: "Unsupported or weakly supported answers refuse specifically instead of guessing.",
+};
+
+function answerTextForQuality(answer: RagAnswer) {
+  return [answer.answer, ...(answer.answerSections ?? []).map((section) => `${section.heading}: ${section.body}`)]
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function containsAny(text: string, values: string[] | undefined) {
+  if (!values?.length) return true;
+  const normalized = text.toLowerCase();
+  return values.some((value) => normalized.includes(value.toLowerCase()));
+}
+
+function containsNone(text: string, values: string[] | undefined) {
+  if (!values?.length) return true;
+  const normalized = text.toLowerCase();
+  return values.every((value) => !normalized.includes(value.toLowerCase()));
+}
+
+export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
+  const text = answerTextForQuality(answer);
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const artifactPattern =
+    /\b(?:source-backed|source-governance|retrieved sources?|provided excerpts?|chunk\s+\d+|similarity score|admin\/source)\b/i;
+  const fragmentPattern = /\b(?:anyMANAGEMENT|\w+\d+(?:,\d+)+)\b|[?]\s+(?:monitoring|adverse effects)\b/i;
+  const unsupported = answer.confidence === "unsupported" || answer.grounded === false;
+  const expectedClassOk = !testCase.expectedQueryClass || answer.queryClass === testCase.expectedQueryClass;
+  const relevanceOk = testCase.supported
+    ? answer.grounded && answer.citations.length >= testCase.minCitations && expectedClassOk
+    : unsupported;
+  const readabilityOk = wordCount >= 5 && wordCount <= 220 && !fragmentPattern.test(text);
+  const artifactOk = !artifactPattern.test(text) && containsNone(text, testCase.mustNotContain);
+  const intentOk = containsAny(text, testCase.mustContainAny);
+  const failClosedOk = testCase.supported || (unsupported && /no current source|could not find|not enough|no relevant/i.test(text));
+
+  return [
+    { metric: "relevance", score: relevanceOk ? 1 : 0, reason: relevanceOk ? "relevant" : "missing relevance" },
+    { metric: "readability", score: readabilityOk ? 1 : 0, reason: readabilityOk ? "readable" : "fragmented or too long" },
+    { metric: "artifact_leaks", score: artifactOk ? 1 : 0, reason: artifactOk ? "clean" : "artifact wording present" },
+    { metric: "intent_coverage", score: intentOk ? 1 : 0, reason: intentOk ? "covered" : "intent cue missing" },
+    { metric: "fail_closed", score: failClosedOk ? 1 : 0, reason: failClosedOk ? "safe" : "did not fail closed" },
+  ] satisfies AnswerQualityMetricScore[];
+}
 
 type CapturedEvalCaseRow = {
   id: string;
@@ -134,6 +208,310 @@ export function mergeRagEvalCases(baseCases: RagEvalCase[], capturedCases: RagEv
   }
   return merged;
 }
+
+const commonQualityCase = {
+  category: "complex",
+  suite: "core",
+  relevanceGrade: "direct",
+  supported: true,
+  allowedRoutes: ["extractive", "fast", "strong"],
+  minCitations: 1,
+  latencyTargetMs: 20000,
+  mustNotContain: ["source-backed", "source-governance", "retrieved source", "provided excerpts", "anyMANAGEMENT"],
+} satisfies Partial<AnswerQualityEvalCase>;
+
+export const answerQualityEvalCases: AnswerQualityEvalCase[] = [
+  {
+    ...commonQualityCase,
+    id: "quality-lithium-monitoring-range",
+    question: "What lithium level range is used for maintenance monitoring?",
+    expectedIntent: "monitoring_schedule",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Lithium.pdf"],
+    mustContainAny: ["lithium", "level", "mmol"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-lithium-monitoring-documents",
+    question: "What documents support lithium monitoring?",
+    expectedIntent: "document_lookup",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["CG.MHSP.Lithium.pdf"],
+    mustContainAny: ["document", "lithium"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-sertraline-max-dose",
+    question: "What is the maximum sertraline dose?",
+    expectedIntent: "dose",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Sertraline.pdf"],
+    mustContainAny: ["sertraline", "dose"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-metformin-renal-dosing",
+    question: "What metformin renal dosing limits apply?",
+    expectedIntent: "dose",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Metformin.pdf"],
+    mustContainAny: ["metformin", "renal"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-benzodiazepine-agitation-dose",
+    question: "What benzodiazepine dosing is recommended for agitation?",
+    expectedIntent: "dose",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["MHSP.AgitationArousalPharmaMgt.pdf"],
+    mustContainAny: ["benzodiazepine", "dose"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-adhd-medication-monitoring",
+    question: "What monitoring is required for ADHD medication?",
+    expectedIntent: "monitoring_schedule",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.ADHD.pdf"],
+    mustContainAny: ["monitor", "ADHD"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-acamprosate-renal-limits",
+    question: "What acamprosate dose and renal limits apply?",
+    expectedIntent: "dose",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Acamprosate.pdf"],
+    mustContainAny: ["acamprosate", "renal"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-naltrexone-contraindications",
+    question: "What are naltrexone contraindications?",
+    expectedIntent: "contraindication",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Naltrexone.pdf"],
+    mustContainAny: ["naltrexone", "contraindication"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-clozapine-red-result-action",
+    question: "What should I do with a red clozapine ANC result?",
+    expectedIntent: "red_result_action",
+    expectedQueryClass: "table_threshold",
+    expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
+    mustContainAny: ["ANC", "withhold"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-clozapine-fbc-monitoring",
+    question: "What FBC monitoring schedule applies for clozapine?",
+    expectedIntent: "monitoring_schedule",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
+    mustContainAny: ["FBC", "monitor"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-ect-referral-criteria",
+    question: "What are ECT referral criteria?",
+    expectedIntent: "pathway_referral",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["MHSP.ECTProcedure.pdf"],
+    mustContainAny: ["ECT", "referral"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-ect-source-gap-specific",
+    question: "What are ECT referral criteria if no ECT source is indexed?",
+    category: "unsupported",
+    relevanceGrade: "unsupported",
+    supported: false,
+    expectedIntent: "pathway_referral",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: [],
+    allowedRoutes: ["unsupported", "extractive"],
+    minCitations: 0,
+    mustContainAny: ["ECT referral criteria", "No current source"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-qtc-source-gap-specific",
+    question: "What QTc threshold requires action if no QTc source is indexed?",
+    category: "unsupported",
+    relevanceGrade: "unsupported",
+    supported: false,
+    expectedIntent: "red_result_action",
+    expectedQueryClass: "table_threshold",
+    expectedFiles: [],
+    allowedRoutes: ["unsupported", "extractive"],
+    minCitations: 0,
+    mustContainAny: ["threshold", "No current source"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-naltrexone-source-gap-specific",
+    question: "What naltrexone contraindications apply if no naltrexone source is indexed?",
+    category: "unsupported",
+    relevanceGrade: "unsupported",
+    supported: false,
+    expectedIntent: "contraindication",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: [],
+    allowedRoutes: ["unsupported", "extractive"],
+    minCitations: 0,
+    mustContainAny: ["contraindication", "No current source"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-valproate-pregnancy-contraindication",
+    question: "What valproate pregnancy contraindication guidance is indexed?",
+    expectedIntent: "contraindication",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Valproate.pdf"],
+    mustContainAny: ["valproate", "pregnancy"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-olanzapine-lai-monitoring",
+    question: "What monitoring is required after olanzapine LAI?",
+    expectedIntent: "monitoring_schedule",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.OlanzapineLAI.pdf"],
+    mustContainAny: ["olanzapine", "monitor"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-long-acting-injectable-documents",
+    question: "What sources support long acting injectable management?",
+    expectedIntent: "document_lookup",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["MHSP.LongActingInjectable.pdf"],
+    mustContainAny: ["document", "injectable"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-patient-safety-plan-documents",
+    question: "Which documents support patient safety plan requirements?",
+    expectedIntent: "document_lookup",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["CG.MHSP.PtSafetyPlan.pdf"],
+    mustContainAny: ["document", "safety plan"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-nocc-document-support",
+    question: "What documents support NOCC requirements?",
+    expectedIntent: "document_lookup",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["MHSP.NOCC.pdf"],
+    mustContainAny: ["document", "NOCC"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-agitation-im-route",
+    question: "When is IM medication used in the agitation pathway?",
+    expectedIntent: "pathway_referral",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["MHSP.AgitationArousalPharmaMgt.pdf"],
+    mustContainAny: ["IM", "agitation"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-bulimia-definition-simple",
+    question: "What is bulimia nervosa?",
+    expectedIntent: "general",
+    expectedQueryClass: "unsupported_or_general",
+    expectedFiles: ["Bulimia Nervosa.pdf"],
+    mustContainAny: ["bulimia", "binge"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-antipsychotic-metabolic-monitoring",
+    question: "What metabolic monitoring is required for antipsychotics?",
+    expectedIntent: "monitoring_schedule",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["MHSP.MetabolicScreening.pdf"],
+    mustContainAny: ["metabolic", "monitor"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-lithium-toxicity-action",
+    question: "What action is required for suspected lithium toxicity?",
+    expectedIntent: "red_result_action",
+    expectedQueryClass: "table_threshold",
+    expectedFiles: ["CG.MHSP.Lithium.pdf"],
+    mustContainAny: ["lithium", "toxicity"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-discharge-documentation",
+    question: "What discharge documentation is required?",
+    expectedIntent: "document_lookup",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["MHSP.Discharge.pdf"],
+    mustContainAny: ["discharge", "document"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-duress-pathway",
+    question: "What is the duress procedure pathway?",
+    expectedIntent: "pathway_referral",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["MHSP.Duress.pdf"],
+    mustContainAny: ["duress", "procedure"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-form-required-documentation",
+    question: "What forms are required for a patient safety plan?",
+    expectedIntent: "document_lookup",
+    expectedQueryClass: "document_lookup",
+    expectedFiles: ["CG.MHSP.PtSafetyPlan.pdf"],
+    mustContainAny: ["form", "safety plan"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-lamotrigine-rash-action",
+    question: "What action is required for lamotrigine rash?",
+    expectedIntent: "red_result_action",
+    expectedQueryClass: "table_threshold",
+    expectedFiles: ["CG.MHSP.Lamotrigine.pdf"],
+    mustContainAny: ["lamotrigine", "rash"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-quetiapine-dose",
+    question: "What quetiapine dose guidance is indexed?",
+    expectedIntent: "dose",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Quetiapine.pdf"],
+    mustContainAny: ["quetiapine", "dose"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-mirtazapine-dose",
+    question: "What mirtazapine dose guidance is indexed?",
+    expectedIntent: "dose",
+    expectedQueryClass: "medication_dose_risk",
+    expectedFiles: ["CG.MHSP.Mirtazapine.pdf"],
+    mustContainAny: ["mirtazapine", "dose"],
+  },
+  {
+    ...commonQualityCase,
+    id: "quality-unsupported-perth-weather",
+    question: "What is the weather in Perth today?",
+    category: "unsupported",
+    relevanceGrade: "unsupported",
+    supported: false,
+    expectedIntent: "unsupported",
+    expectedQueryClass: "unsupported_or_general",
+    expectedFiles: [],
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    mustContainAny: ["No relevant clinical source"],
+  },
+];
 
 export const ragEvalCases: RagEvalCase[] = [
   {

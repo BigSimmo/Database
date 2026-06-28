@@ -56,6 +56,7 @@ import {
 import {
   type CSSProperties,
   FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -142,6 +143,16 @@ import {
   sourceDisplayTitle,
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  favouriteItems,
+  favouritePrototypeCount,
+  favouriteSets,
+  favouriteTabs,
+  favouriteTypeCount,
+  type FavouriteItem,
+  type FavouriteSet,
+  type FavouriteTabId,
+} from "@/components/clinical-dashboard/favourites-prototype-data";
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
 import {
   DocumentSearchResultsPanel,
@@ -5331,32 +5342,61 @@ function DrawerGroupLabel({ title }: { title: string }) {
 }
 
 const sidebarToolItems = [
-  { label: "Formulation", icon: Brain, href: "/applications" },
-  { label: "DSM-5", icon: BookOpen, href: "/applications" },
+  { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
+  { label: "Documents", icon: FileText, href: "/?mode=documents" },
   { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
-  { label: "Diffs", icon: Search, href: "/applications" },
+  { label: "Applications", icon: ListChecks, href: "/applications" },
 ] as const;
+
+type SidebarIdentity = {
+  displayName: string;
+  initials: string;
+  detail: string;
+  signedIn: boolean;
+};
+
+function deriveSidebarIdentity(email: string | null | undefined): SidebarIdentity {
+  const normalized = email?.trim();
+  if (!normalized) {
+    return { displayName: "Guest", initials: "G", detail: "Not signed in", signedIn: false };
+  }
+  const handle = normalized.split("@")[0] || normalized;
+  const parts = handle.split(/[._\-+]+/).filter(Boolean);
+  const initials = (parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : handle.slice(0, 2)).toUpperCase() || "U";
+  const displayName =
+    parts.length > 0 ? parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") : normalized;
+  return { displayName, initials, detail: normalized, signedIn: true };
+}
 
 function ClinicalSidebarContent({
   recentQueries,
+  identity,
   onNewChat,
   onPickRecent,
   onOpenGuide,
+  onOpenSettings,
   onPrefetchApplications,
   showHeader = true,
   onCollapsedChange,
   onNavigate,
 }: {
   recentQueries: string[];
+  identity: SidebarIdentity;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
+  onOpenSettings: () => void;
   onPrefetchApplications?: () => void;
   showHeader?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   onNavigate?: () => void;
 }) {
-  const visibleRecentQueries = recentQueries.slice(0, 5);
+  const [chatFilter, setChatFilter] = useState("");
+  const normalizedChatFilter = chatFilter.trim().toLowerCase();
+  const matchingRecentQueries = normalizedChatFilter
+    ? recentQueries.filter((recent) => recent.toLowerCase().includes(normalizedChatFilter))
+    : recentQueries;
+  const visibleRecentQueries = matchingRecentQueries.slice(0, 5);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
@@ -5400,6 +5440,9 @@ function ClinicalSidebarContent({
         <input
           type="search"
           placeholder="Search chats"
+          value={chatFilter}
+          onChange={(event) => setChatFilter(event.target.value)}
+          aria-label="Search recent chats"
           className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
         />
       </label>
@@ -5438,7 +5481,7 @@ function ClinicalSidebarContent({
                 textMuted,
               )}
             >
-              Recent chats will appear here.
+              {normalizedChatFilter ? "No recent chats match your search." : "Recent chats will appear here."}
             </p>
           )}
         </div>
@@ -5494,19 +5537,26 @@ function ClinicalSidebarContent({
           <BookOpen className="h-4 w-4 shrink-0" />
           <span>Guide & help</span>
         </button>
-        <button type="button" className={sidebarItem}>
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            window.requestAnimationFrame(onOpenSettings);
+          }}
+          className={sidebarItem}
+        >
           <SettingsIcon className="h-4 w-4 shrink-0" />
           <span>Settings</span>
         </button>
         <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-            AK
+            {identity.initials}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
+            <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{identity.displayName}</span>
             <span className={cn("flex items-center gap-1.5 text-xs", textMuted)}>
-              <span className={statusDotReady} aria-hidden="true" />
-              Ready
+              {identity.signedIn ? <span className={statusDotReady} aria-hidden="true" /> : null}
+              <span className="truncate">{identity.detail}</span>
             </span>
           </span>
         </div>
@@ -5518,18 +5568,22 @@ function ClinicalSidebarContent({
 function ClinicalDesktopSidebar({
   collapsed,
   recentQueries,
+  identity,
   onCollapsedChange,
   onNewChat,
   onPickRecent,
   onOpenGuide,
+  onOpenSettings,
   onPrefetchApplications,
 }: {
   collapsed: boolean;
   recentQueries: string[];
+  identity: SidebarIdentity;
   onCollapsedChange: (collapsed: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
+  onOpenSettings: () => void;
   onPrefetchApplications: () => void;
 }) {
   if (collapsed) {
@@ -5550,7 +5604,13 @@ function ClinicalDesktopSidebar({
         <button type="button" onClick={onNewChat} className={sidebarItem} aria-label="New chat" title="New chat">
           <Plus className="h-4 w-4" />
         </button>
-        <button type="button" className={sidebarItem} aria-label="Search chats" title="Search chats">
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(false)}
+          className={sidebarItem}
+          aria-label="Search chats"
+          title="Search chats"
+        >
           <Search className="h-4 w-4" />
         </button>
         <Link
@@ -5567,11 +5627,21 @@ function ClinicalDesktopSidebar({
         <button type="button" onClick={onOpenGuide} className={sidebarItem} aria-label="Guide and help" title="Guide">
           <BookOpen className="h-4 w-4" />
         </button>
-        <button type="button" className={sidebarItem} aria-label="Settings" title="Settings">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={sidebarItem}
+          aria-label="Settings"
+          title="Settings"
+        >
           <SettingsIcon className="h-4 w-4" />
         </button>
-        <div className="mt-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-          AK
+        <div
+          className="mt-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]"
+          title={identity.detail}
+          aria-label={identity.signedIn ? `Signed in as ${identity.detail}` : "Not signed in"}
+        >
+          {identity.initials}
         </div>
       </aside>
     );
@@ -5585,10 +5655,12 @@ function ClinicalDesktopSidebar({
     >
       <ClinicalSidebarContent
         recentQueries={recentQueries}
+        identity={identity}
         onCollapsedChange={onCollapsedChange}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
+        onOpenSettings={onOpenSettings}
         onPrefetchApplications={onPrefetchApplications}
       />
     </aside>
@@ -5598,18 +5670,22 @@ function ClinicalDesktopSidebar({
 function ClinicalMobileSidebar({
   open,
   recentQueries,
+  identity,
   onOpenChange,
   onNewChat,
   onPickRecent,
   onOpenGuide,
+  onOpenSettings,
   onPrefetchApplications,
 }: {
   open: boolean;
   recentQueries: string[];
+  identity: SidebarIdentity;
   onOpenChange: (open: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
+  onOpenSettings: () => void;
   onPrefetchApplications: () => void;
 }) {
   return (
@@ -5625,9 +5701,11 @@ function ClinicalMobileSidebar({
       <ClinicalSidebarContent
         showHeader={false}
         recentQueries={recentQueries}
+        identity={identity}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
+        onOpenSettings={onOpenSettings}
         onPrefetchApplications={onPrefetchApplications}
         onNavigate={() => onOpenChange(false)}
       />
@@ -5635,128 +5713,128 @@ function ClinicalMobileSidebar({
   );
 }
 
-type FavouriteType = "medications" | "documents" | "sources" | "sets";
-type FavouriteTabId = "all" | FavouriteType;
+function SettingsDialog({
+  open,
+  onClose,
+  identity,
+  theme,
+  onToggleTheme,
+  onSignOut,
+  onOpenGuide,
+}: {
+  open: boolean;
+  onClose: () => void;
+  identity: SidebarIdentity;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
+  onSignOut: () => void;
+  onOpenGuide: () => void;
+}) {
+  const themeOptions: Array<{ value: "light" | "dark"; label: string }> = [
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+  ];
 
-type FavouriteItem = {
-  id: string;
-  title: string;
-  type: Exclude<FavouriteType, "sets">;
-  set: string;
-  meta: string;
-  sourceMeta: string;
-  primaryAction: string;
-  icon: typeof FileText;
-  keywords: string;
-};
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Settings"
+      description="Appearance, account, and help for the Clinical KB workspace."
+      closeLabel="Close settings"
+      contentClassName="sm:max-w-lg"
+    >
+      <div className="grid gap-4">
+        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Appearance</h3>
+          </div>
+          <p className={cn("mt-1 text-xs", textMuted)}>Choose the workspace theme. Saved to this browser.</p>
+          <div
+            role="group"
+            aria-label="Theme"
+            className="mt-3 inline-grid grid-cols-2 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1"
+          >
+            {themeOptions.map((option) => {
+              const active = option.value === theme;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    if (!active) onToggleTheme();
+                  }}
+                  className={cn(
+                    "min-h-9 rounded-md px-4 text-sm font-semibold transition",
+                    active
+                      ? "bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-type FavouriteSet = {
-  id: string;
-  title: string;
-  count: number;
-  meta: string;
-  keywords: string;
-};
+        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Account</h3>
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+              {identity.initials}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
+                {identity.displayName}
+              </span>
+              <span className={cn("flex items-center gap-1.5 truncate text-xs", textMuted)}>
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{identity.detail}</span>
+              </span>
+            </span>
+          </div>
+          {identity.signedIn ? (
+            <button
+              type="button"
+              onClick={() => {
+                onSignOut();
+                onClose();
+              }}
+              className={cn(floatingControl, "mt-3 w-full")}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </button>
+          ) : (
+            <p className={cn("mt-3 text-xs", textMuted)}>
+              Sign in from the search header to access private documents and saved reviews.
+            </p>
+          )}
+        </section>
 
-const favouriteTabs: Array<{
-  id: FavouriteTabId;
-  label: string;
-  shortLabel: string;
-  icon: typeof FileText;
-}> = [
-  { id: "all", label: "All", shortLabel: "All", icon: LayoutList },
-  { id: "medications", label: "Medications", shortLabel: "Meds", icon: Pill },
-  { id: "documents", label: "Documents", shortLabel: "Docs", icon: FileText },
-  { id: "sources", label: "Sources", shortLabel: "Sources", icon: Quote },
-  { id: "sets", label: "Sets", shortLabel: "Sets", icon: Folder },
-];
-
-const favouriteItems: FavouriteItem[] = [
-  {
-    id: "acamprosate-renal-screen",
-    title: "Acamprosate renal screen",
-    type: "medications",
-    set: "Ward round",
-    meta: "Medication page · renal cautions · dose notes",
-    sourceMeta: "3 sources",
-    primaryAction: "Open",
-    icon: Pill,
-    keywords: "acamprosate renal screen medication dose safety ward round pbs",
-  },
-  {
-    id: "lithium-monitoring-guideline",
-    title: "Lithium monitoring guideline",
-    type: "documents",
-    set: "Prescribing safety",
-    meta: "PDF · p.4-9 · 2 tables",
-    sourceMeta: "PDF",
-    primaryAction: "Ask",
-    icon: FileText,
-    keywords: "lithium monitoring guideline blood tests shared care renal toxicity",
-  },
-  {
-    id: "clozapine-monitoring-table",
-    title: "Clozapine monitoring table",
-    type: "sources",
-    set: "Clozapine clinic",
-    meta: "Saved table · ANC monitoring",
-    sourceMeta: "Table",
-    primaryAction: "Source",
-    icon: Quote,
-    keywords: "clozapine monitoring table anc fbc neutrophil clinic",
-  },
-  {
-    id: "renal-dose-search",
-    title: "renal dose saved search",
-    type: "sources",
-    set: "Ward round",
-    meta: "Saved query · medicines + documents",
-    sourceMeta: "Run",
-    primaryAction: "Run",
-    icon: Search,
-    keywords: "renal dose saved search kidney egfr medicines documents",
-  },
-  {
-    id: "qt-prolongation-quote",
-    title: "QT prolongation quote",
-    type: "sources",
-    set: "Prescribing safety",
-    meta: "Source card · prescribing safety",
-    sourceMeta: "Quote",
-    primaryAction: "Copy",
-    icon: Quote,
-    keywords: "qt prolongation quote source card prescribing safety",
-  },
-];
-
-const favouriteSets: FavouriteSet[] = [
-  {
-    id: "ward-round",
-    title: "Ward round",
-    count: 12,
-    meta: "Medication pages, renal checks, forms",
-    keywords: "ward round acamprosate lithium renal mht forms",
-  },
-  {
-    id: "prescribing-safety",
-    title: "Prescribing safety",
-    count: 9,
-    meta: "Dose limits, pregnancy, renal cautions",
-    keywords: "prescribing safety dose pregnancy renal qt interactions",
-  },
-  {
-    id: "clozapine-clinic",
-    title: "Clozapine clinic",
-    count: 7,
-    meta: "Monitoring, ANC table, counselling",
-    keywords: "clozapine clinic monitoring anc table counselling",
-  },
-];
-
-function favouriteTypeCount(type: FavouriteTabId) {
-  if (type === "all") return favouriteItems.length + favouriteSets.length;
-  if (type === "sets") return favouriteSets.length;
-  return favouriteItems.filter((item) => item.type === type).length;
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onOpenGuide();
+          }}
+          className={cn(floatingControl, "w-full justify-between")}
+        >
+          <span className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Guide &amp; help
+          </span>
+          <ChevronDown className="-rotate-90 h-4 w-4" />
+        </button>
+      </div>
+    </Sheet>
+  );
 }
 
 function favouriteMatchesQuery(value: { title: string; meta?: string; set?: string; keywords: string }, query: string) {
@@ -5782,6 +5860,8 @@ function FavouritesHub({
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const tabMenuRef = useRef<HTMLDivElement | null>(null);
+  const tabButtonRef = useRef<HTMLButtonElement | null>(null);
+  const tabOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const normalizedQuery = query.trim();
   const selectedSet = selectedSetId ? favouriteSets.find((set) => set.id === selectedSetId) : null;
   const tabItems =
@@ -5802,6 +5882,50 @@ function FavouritesHub({
   const itemCount = favouriteItems.length;
   const setCount = favouriteSets.length;
   const activeFilterCount = (normalizedQuery ? 1 : 0) + (selectedSet ? 1 : 0);
+  const selectedTabIndex = Math.max(
+    0,
+    favouriteTabs.findIndex((tab) => tab.id === selectedTab),
+  );
+
+  function focusFavouriteTabOption(index: number) {
+    const nextIndex = (index + favouriteTabs.length) % favouriteTabs.length;
+    tabOptionRefs.current[nextIndex]?.focus();
+  }
+
+  function openFavouriteTabMenu(focusIndex: number) {
+    setTabMenuOpen(true);
+    window.requestAnimationFrame(() => focusFavouriteTabOption(focusIndex));
+  }
+
+  function handleFavouriteTabTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      openFavouriteTabMenu(selectedTabIndex);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openFavouriteTabMenu(selectedTabIndex - 1);
+    }
+  }
+
+  function handleFavouriteTabOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusFavouriteTabOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusFavouriteTabOption(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusFavouriteTabOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusFavouriteTabOption(favouriteTabs.length - 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setTabMenuOpen(false);
+      window.requestAnimationFrame(() => tabButtonRef.current?.focus());
+    }
+  }
 
   useEffect(() => {
     if (!tabMenuOpen) return undefined;
@@ -5816,6 +5940,7 @@ function FavouritesHub({
       if (event.key === "Escape") {
         event.preventDefault();
         setTabMenuOpen(false);
+        window.requestAnimationFrame(() => tabButtonRef.current?.focus());
       }
     }
 
@@ -5873,11 +5998,14 @@ function FavouritesHub({
         <div className="grid min-w-0 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <div ref={tabMenuRef} className="relative min-w-0">
             <button
+              ref={tabButtonRef}
               type="button"
               onClick={() => setTabMenuOpen((open) => !open)}
+              onKeyDown={handleFavouriteTabTriggerKeyDown}
               className="grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-left shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-chat-teal)]/30 hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-56"
               aria-haspopup="listbox"
               aria-expanded={tabMenuOpen}
+              aria-controls={tabMenuOpen ? "favourites-type-listbox" : undefined}
               aria-label="Choose favourite type"
             >
               <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
@@ -5901,23 +6029,30 @@ function FavouritesHub({
 
             {tabMenuOpen ? (
               <div
+                id="favourites-type-listbox"
                 role="listbox"
                 aria-label="Favourite type"
                 className="absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-1 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)] ring-1 ring-white/30 backdrop-blur-md dark:ring-white/10"
               >
-                {favouriteTabs.map((tab) => {
+                {favouriteTabs.map((tab, index) => {
                   const Icon = tab.icon;
                   const selected = selectedTab === tab.id;
                   const count = favouriteTypeCount(tab.id);
                   return (
                     <button
                       key={tab.id}
+                      ref={(element) => {
+                        tabOptionRefs.current[index] = element;
+                      }}
                       type="button"
                       role="option"
                       aria-selected={selected}
+                      tabIndex={selected ? 0 : -1}
+                      onKeyDown={(event) => handleFavouriteTabOptionKeyDown(event, index)}
                       onClick={() => {
                         setSelectedTab(tab.id);
                         setTabMenuOpen(false);
+                        window.requestAnimationFrame(() => tabButtonRef.current?.focus());
                       }}
                       className={cn(
                         "grid min-h-10 grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
@@ -6907,6 +7042,7 @@ export function ClinicalDashboard({
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -6942,6 +7078,9 @@ export function ClinicalDashboard({
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const openGuide = useCallback(() => setGuideOpen(true), []);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const prefetchApplications = useCallback(() => {
     router.prefetch("/applications");
     void import("@/components/applications-launcher-page");
@@ -8269,7 +8408,7 @@ export function ClinicalDashboard({
       href: "#search",
       count:
         activeModeResultKind === "favourites"
-          ? favouriteItems.length + favouriteSets.length
+          ? favouritePrototypeCount
           : activeModeResultKind === "tools"
             ? toolCatalog.length
             : activeModeResultKind === "documents"
@@ -8441,10 +8580,12 @@ export function ClinicalDashboard({
       <ClinicalDesktopSidebar
         collapsed={sidebarCollapsed}
         recentQueries={recentQueries}
+        identity={sidebarIdentity}
         onCollapsedChange={setSidebarCollapsed}
         onNewChat={startNewChat}
         onPickRecent={pickRecentQuery}
         onOpenGuide={openGuide}
+        onOpenSettings={openSettings}
         onPrefetchApplications={prefetchApplications}
       />
 
@@ -8834,13 +8975,24 @@ export function ClinicalDashboard({
           onNavigate={navigateMobileSection}
         />
         <GuideDialog open={guideOpen} onClose={closeGuide} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={closeSettings}
+          identity={sidebarIdentity}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSignOut={auth.signOut}
+          onOpenGuide={openGuide}
+        />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
+          identity={sidebarIdentity}
           onOpenChange={setMobileSidebarOpen}
           onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}
           onOpenGuide={openGuide}
+          onOpenSettings={openSettings}
           onPrefetchApplications={prefetchApplications}
         />
       </div>

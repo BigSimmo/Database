@@ -290,7 +290,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.grounded).toBe(false);
     expect(answer.confidence).toBe("low");
     expect(answer.responseMode).toBe("evidence_gap");
-    expect(answer.answer).toMatch(/could not find enough clean, directly relevant source text/i);
+    expect(answer.answer).toMatch(/No current source with monitoring timing or schedule guidance/i);
     expect(answer.answer).not.toMatch(/retrieved source|source-backed|based on the provided excerpts/i);
     expect(answer.answerSections ?? []).toEqual([]);
   });

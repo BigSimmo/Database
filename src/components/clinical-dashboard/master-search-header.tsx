@@ -1,6 +1,15 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type Ref,
+} from "react";
 
 import {
   Activity,
@@ -172,6 +181,8 @@ export function MasterSearchHeader({
   const dailyActionsMenuRef = useRef<HTMLDivElement | null>(null);
   const firstDailyActionRef = useRef<HTMLButtonElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
+  const modeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const scopeSummaryRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -294,6 +305,51 @@ export function MasterSearchHeader({
     }
     if ("href" in mode && mode.href) window.location.assign(mode.href);
   }
+
+  const selectedModeIndex = Math.max(
+    0,
+    visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
+  );
+
+  function focusModeOption(index: number) {
+    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    modeOptionRefs.current[nextIndex]?.focus();
+  }
+
+  function openModeMenuWithFocus(index: number) {
+    setModeMenuOpen(true);
+    window.requestAnimationFrame(() => focusModeOption(index));
+  }
+
+  function handleModeTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      openModeMenuWithFocus(selectedModeIndex);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openModeMenuWithFocus(selectedModeIndex - 1);
+    }
+  }
+
+  function handleModeOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusModeOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusModeOption(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusModeOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusModeOption(visibleAppModeOptions.length - 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setModeMenuOpen(false);
+      window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+    }
+  }
   const collectionOptions = useMemo(() => {
     const values = new Set<string>();
     for (const document of documents) {
@@ -370,6 +426,7 @@ export function MasterSearchHeader({
       if (event.key === "Escape") {
         event.preventDefault();
         setModeMenuOpen(false);
+        window.requestAnimationFrame(() => modeButtonRef.current?.focus());
       }
     }
 
@@ -643,11 +700,14 @@ export function MasterSearchHeader({
             )}
           >
             <button
+              ref={modeButtonRef}
               type="button"
               onClick={() => setModeMenuOpen((open) => !open)}
+              onKeyDown={handleModeTriggerKeyDown}
               className="inline-grid h-11 min-w-[10rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-[14rem]"
-              aria-haspopup="true"
+              aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
+              aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
@@ -671,19 +731,29 @@ export function MasterSearchHeader({
 
             {modeMenuOpen ? (
               <div
-                role="group"
+                id="app-mode-menu"
+                role="menu"
                 aria-label="Choose app mode"
                 className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
               >
-                {visibleAppModeOptions.map((mode) => {
+                {visibleAppModeOptions.map((mode, index) => {
                   const Icon = appModeIcons[mode.id];
                   const active = mode.id === searchMode;
                   return (
                     <button
                       key={mode.id}
+                      ref={(element) => {
+                        modeOptionRefs.current[index] = element;
+                      }}
                       type="button"
-                      aria-pressed={active}
-                      onClick={() => selectAppMode(mode)}
+                      role="menuitemradio"
+                      aria-checked={active}
+                      tabIndex={active ? 0 : -1}
+                      onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+                      onClick={() => {
+                        selectAppMode(mode);
+                        window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+                      }}
                       className={cn(
                         "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                         active

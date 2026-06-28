@@ -20,19 +20,18 @@ export function formatCitationLabel(citation: Citation) {
 
 export function formatCompactCitationLabel(citation: Pick<Citation, "title" | "file_name" | "page_number">) {
   const rawTitle = (citation.title || citation.file_name || "Source").replace(/^Synthetic\s+/i, "");
-  const title = rawTitle.toLowerCase();
-  const shortTitle = title.includes("clozapine")
-    ? "Clozapine"
-    : title.includes("lithium")
-      ? "Lithium"
-      : title.includes("risk") || title.includes("triage")
-        ? "Risk"
-        : rawTitle
-            .replace(/\.(pdf|docx|xlsx|txt)$/i, "")
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 2)
-            .join(" ") || "Source";
+  // Derive the compact label from the actual document title (first 1–2
+  // significant words). Do NOT special-case drug/keyword names: this chip is the
+  // affordance that tells a clinician which source they are opening, so
+  // collapsing every "...Risk..." title to "Risk", or dropping "lithium" when
+  // "clozapine" also appears, mislabels the cited source.
+  const shortTitle =
+    rawTitle
+      .replace(/\.(pdf|docx|xlsx|txt)$/i, "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(" ") || "Source";
   const page = citation.page_number ? `p.${citation.page_number}` : "source";
   return `${shortTitle} ${page}`;
 }

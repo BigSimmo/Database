@@ -97,12 +97,16 @@ export async function POST(request: Request) {
       relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
     });
     if (hasDangerSourceGovernanceWarning(warnings)) {
+      // Build the refusal explicitly — never spread ...answer here, or the original
+      // (refused) sources/smartPanel/smartApiPlan would still reach the client and
+      // defeat the refusal. Keep only the safe "unsupported" contract fields, matching
+      // the empty-scope branch above.
       return NextResponse.json({
-        ...answer,
         answer: sourceGovernanceRefusalAnswer,
         grounded: false,
         confidence: "unsupported",
         citations: [],
+        sources: [],
         scope: { ...scope, queryMode: body.queryMode },
         sourceGovernanceWarnings: warnings,
       });

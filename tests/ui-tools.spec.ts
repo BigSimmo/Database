@@ -30,22 +30,23 @@ test.describe("Clinical KB applications launcher", () => {
       await expect(page.getByRole("heading", { name: "All applications" })).toBeVisible();
       if (viewport.name === "mobile") {
         await expect(page.getByTestId("selected-application-panel")).toBeHidden();
-        await page.getByTestId("mobile-application-row-differential-diagnosis").click();
+        await page.getByTestId("mobile-application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Selected application" });
         await expect(selectedSheet).toBeVisible();
-        await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Differential Diagnosis");
+        await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Medication Prescribing");
         const mobileLaunchLink = page
           .getByTestId("selected-application-sheet-panel")
-          .getByLabel("Launch Differential Diagnosis");
+          .getByLabel("Launch Medication Prescribing");
         await expect(mobileLaunchLink).toBeVisible();
-        await expect(mobileLaunchLink).toHaveAttribute("href", "http://127.0.0.1:53375");
+        await expect(mobileLaunchLink).toHaveAttribute("href", "/?mode=prescribing");
+        await expect(mobileLaunchLink).not.toHaveAttribute("target", "_blank");
         await page.getByLabel("Close selected application").click();
         await expect(selectedSheet).toBeHidden();
       } else {
-        await expect(page.getByTestId("selected-application-panel")).toContainText("Formulation");
-        const desktopLaunchLink = page.getByTestId("selected-application-panel").getByLabel("Launch Formulation");
+        await expect(page.getByTestId("selected-application-panel")).toContainText("Clinical KB Search");
+        const desktopLaunchLink = page.getByTestId("selected-application-panel").getByLabel("Launch Clinical KB Search");
         await expect(desktopLaunchLink).toBeVisible();
-        await expect(desktopLaunchLink).toHaveAttribute("href", "http://localhost:53210");
+        await expect(desktopLaunchLink).toHaveAttribute("href", "/?mode=answer");
       }
       await expect(page.getByLabel("Current app mode: Applications")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
@@ -54,18 +55,10 @@ test.describe("Clinical KB applications launcher", () => {
     });
   }
 
-  test("launcher links point to the expected applications", async ({ page }) => {
+  test("launcher links point to the expected in-app modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    await expect(page.locator('a[aria-label="Launch Formulation"]').first()).toHaveAttribute(
-      "href",
-      "http://localhost:53210",
-    );
-    await expect(page.locator('a[aria-label="Launch Differential Diagnosis"]').first()).toHaveAttribute(
-      "href",
-      "http://127.0.0.1:53375",
-    );
     const medicationLink = page.locator('a[aria-label="Launch Medication Prescribing"]').first();
     await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
     await expect(medicationLink).not.toHaveAttribute("target", "_blank");
@@ -78,17 +71,19 @@ test.describe("Clinical KB applications launcher", () => {
       "href",
       "/?mode=answer",
     );
+    // External companion-app launchers were removed; no localhost links should remain.
+    await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
 
   test("search and filters reduce visible application rows without overflow", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    await page.getByLabel("Search applications").fill("specifier");
+    await page.getByLabel("Search applications").fill("medication");
 
-    await expect(page.getByTestId("application-row-specifiers")).toBeVisible();
-    await expect(page.getByTestId("application-row-formulation")).toBeHidden();
-    await expect(page.getByText("Showing 1 to 1 of 8 applications")).toBeVisible();
+    await expect(page.getByTestId("application-row-medication-prescribing")).toBeVisible();
+    await expect(page.getByTestId("application-row-documents")).toBeHidden();
+    await expect(page.getByText("Showing 1 to 2 of 4 applications")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 });

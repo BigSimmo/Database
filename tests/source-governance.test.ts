@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   groupSourceGovernanceWarnings,
   hasDangerSourceGovernanceWarning,
+  sourceGovernanceRefusalAnswer,
   sourceGovernanceWarnings,
 } from "../src/lib/source-governance";
 import type { SearchResult } from "../src/lib/types";
@@ -125,5 +126,10 @@ describe("source governance warnings", () => {
 
     expect(hasDangerSourceGovernanceWarning(warnings)).toBe(true);
     expect(hasDangerSourceGovernanceWarning(warnings.filter((warning) => warning.severity !== "danger"))).toBe(false);
+  });
+
+  it("keeps the refusal message free of backend and source-backed wording", () => {
+    expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin/i);
+    expect(sourceGovernanceRefusalAnswer).toContain("supporting documents need review");
   });
 });

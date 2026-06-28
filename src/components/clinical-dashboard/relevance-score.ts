@@ -10,6 +10,10 @@ export function documentRelevancePercent(document: Pick<DocumentMatch, "relevanc
     (value): value is number => typeof value === "number" && Number.isFinite(value),
   );
   const raw = values[0] ?? 0;
-  const normalized = raw > 1 ? raw : raw * 100;
+  // Scores here are unit-scale fractions: relevance.score is clamped to [0,1] and
+  // raw search scores can drift slightly above 1. Treat anything on the unit
+  // scale (<= 1.5) as a fraction so e.g. 1.2 renders as ~100% (capped) rather
+  // than "1%". Only values clearly on a 0–100 scale are passed through as-is.
+  const normalized = raw <= 1.5 ? raw * 100 : raw;
   return Math.max(0, Math.min(99, Math.round(normalized)));
 }

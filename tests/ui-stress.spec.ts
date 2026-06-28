@@ -173,6 +173,9 @@ async function mockStressData(page: Page) {
   await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { batches: [], demoMode: true } });
   });
+  await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { items: [], demoMode: true } });
+  });
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
       json: {
@@ -284,8 +287,8 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(appModeMenu).toBeVisible();
         await appModeMenu.click({ force: true });
         const answerMode = page
-          .getByRole("group", { name: "Choose app mode" })
-          .getByRole("button", { name: /^Answer/ });
+          .getByRole("menu", { name: "Choose app mode" })
+          .getByRole("menuitemradio", { name: /^Answer\b/ });
         await expect(answerMode).toBeVisible();
         await answerMode.click({ force: true });
         await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();

@@ -340,7 +340,7 @@ describe("retrieval query variants", () => {
     ).toMatchObject({ accepted: true, sourceImageSatisfied: true });
   });
 
-  it("includes query class, variants, scope, mode, version, topK, and min similarity in retrieval cache keys", () => {
+  it("redacts retrieval cache keys while preserving query class and variant uniqueness", () => {
     const baseArgs = {
       query: "What ANC threshold should stop clozapine?",
       ownerId: "owner-1",
@@ -350,11 +350,11 @@ describe("retrieval query variants", () => {
     };
     const key = retrievalPlanCacheQuery(baseArgs, "table_threshold", ["clozapine anc", "clozapine fbc"]);
 
-    expect(key).toContain("class:table_threshold");
-    expect(key).toContain("topK:8");
-    expect(key).toContain("min:0.12");
-    expect(key).toContain("rag:");
+    expect(key).toMatch(/^redacted-cache:[a-f0-9]{64}$/);
+    expect(key).not.toContain("clozapine");
+    expect(key).not.toContain("class:table_threshold");
     expect(key).not.toEqual(retrievalPlanCacheQuery(baseArgs, "document_lookup", ["clozapine anc", "clozapine fbc"]));
     expect(key).not.toEqual(retrievalPlanCacheQuery(baseArgs, "table_threshold", ["different variant"]));
+    expect(key).not.toEqual(retrievalPlanCacheQuery({ ...baseArgs, topK: 12 }, "table_threshold", ["clozapine anc"]));
   });
 });

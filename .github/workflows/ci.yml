@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: ["**"]
   workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * 0"
 
 permissions:
   contents: read
@@ -61,3 +63,32 @@ jobs:
 
       - name: Chromium UI smoke
         run: npm run test:e2e:chromium
+
+  release-browser-matrix:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Full browser UI matrix
+        run: npm run test:e2e

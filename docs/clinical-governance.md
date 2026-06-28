@@ -36,3 +36,11 @@ Use the `.github/pull_request_template.md` clinical governance section for any c
 - Confirm unknown or outdated source metadata is treated conservatively.
 - Confirm demo/synthetic content remains separated from real clinical sources.
 - Confirm clinical decision-support behavior changes have deployment classification and TGA SaMD impact reviewed before production use.
+
+## Verification Records
+
+### RLS & access scoping — 2026-06-28
+- Supabase **security advisors: 0 findings** for `Clinical KB Database` (`sjrfecxgysukkwxsowpy`). The linter specifically flags missing RLS / insecure policies, so a clean run confirms RLS is enabled and policy-covered across `public` tables.
+- Supabase **performance advisors: INFO only** — unused indexes (expected on a low-traffic database; do not drop pre-launch) and one auth connection-strategy tip (switch to percentage-based allocation when scaling instance size).
+- **Application-layer cross-owner denial** (service-role routes enforce `owner_id` scoping in code) is covered by `tests/private-access-routes.test.ts` and `tests/private-rag-access.test.ts` (unowned document detail/signed-url/rename rejected; listing and search scoped to the authenticated owner).
+- **Follow-up:** add a live DB-level RLS integration test that connects as two real authenticated users via the publishable (anon) key and asserts owner B cannot read owner A's rows. This needs a seeded test project/harness and is tracked as a remaining item.

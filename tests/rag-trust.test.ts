@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRagSourceBlock, parseAnswerJson } from "../src/lib/rag";
+import { buildRagSourceBlock, classifyAnswerIntent, parseAnswerJson } from "../src/lib/rag";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -34,6 +34,20 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe("RAG trust validation", () => {
+  it("classifies answer-specific intents for quality gating", () => {
+    expect(classifyAnswerIntent("What documents support lithium monitoring?", "document_lookup")).toBe(
+      "document_lookup",
+    );
+    expect(classifyAnswerIntent("What is the maximum sertraline dose?", "medication_dose_risk")).toBe("dose");
+    expect(classifyAnswerIntent("What are naltrexone contraindications?", "medication_dose_risk")).toBe(
+      "contraindication",
+    );
+    expect(classifyAnswerIntent("What should I do with a red clozapine ANC result?", "table_threshold")).toBe(
+      "red_result_action",
+    );
+    expect(classifyAnswerIntent("What are ECT referral criteria?", "document_lookup")).toBe("pathway_referral");
+  });
+
   // B5: on model-JSON parse failure the fallback must fail closed — it must NOT
   // back-fill retrieved chunks as citations or stamp the answer grounded (that
   // is exactly the back-fill GEN-C3 removed). It must drop to ungrounded /
