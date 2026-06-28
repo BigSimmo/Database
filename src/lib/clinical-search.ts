@@ -840,8 +840,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     const oldestKey = clinicalQueryAnalysisCache.keys().next().value;
     if (oldestKey !== undefined) clinicalQueryAnalysisCache.delete(oldestKey);
   }
-  return { ...analysis };
-}
+  return structuredClone(analysis);
 
 export function classifyRagQuery(query: string): RagQueryClassification {
   const analysis = analyzeClinicalQuery(query);
