@@ -739,10 +739,8 @@ const clinicalQueryAnalysisCache = new Map<string, ClinicalQueryAnalysis>();
 const clinicalQueryAnalysisCacheLimit = 32;
 
 export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
-  const originalQuery = query.trim();
   const cached = clinicalQueryAnalysisCache.get(originalQuery);
-  if (cached) return { ...cached };
-
+  if (cached) return structuredClone(cached);
   const normalizedQuery = normalizeAnalysisText(originalQuery);
   const corrected = correctedTokens(originalQuery);
   const corrections = tokens(originalQuery)
