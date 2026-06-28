@@ -3364,8 +3364,11 @@ alter table public.document_index_units enable row level security;
 grant select, insert, update, delete on table public.document_index_units to service_role;
 grant select on table public.document_index_units to authenticated;
 grant execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) to service_role;
+revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
+revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_document_generation(uuid, jsonb) to service_role;
+revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
 create policy "document index units owner read" on public.document_index_units

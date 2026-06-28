@@ -11,9 +11,9 @@ export type DocumentTileTone = "teal" | "info";
 
 const badgeStyles: Record<DocumentBadgeVariant, string> = {
   best: "border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]",
-  high: "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+  high: "border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--surface-raised)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]",
   relevant: "border-[color:var(--info)]/15 bg-[color:var(--info-soft)]/70 text-[color:var(--info)]",
-  neutral: "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+  neutral: "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
 const tileStyles: Record<DocumentTileTone, string> = {

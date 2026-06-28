@@ -173,7 +173,7 @@ async function mockStressData(page: Page) {
   await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { batches: [], demoMode: true } });
   });
-  await page.route(/\/api\/setup-status(?:\?.*)?$/, async (route) => {
+  await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
       json: {
         demoMode: true,
@@ -206,6 +206,22 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function openDailyActions(page: Page) {
+  const trigger = page.getByRole("button", { name: "Open daily actions" });
+  const dialog = page.getByRole("dialog", { name: "Daily actions" });
+  const menu = page.getByTestId("daily-actions-menu");
+
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toBeEnabled();
+  await expect(async () => {
+    if ((await dialog.isVisible().catch(() => false)) || (await menu.isVisible().catch(() => false))) return;
+    await trigger.click();
+    await expect(dialog.or(menu)).toBeVisible({ timeout: 1_500 });
+  }).toPass({ timeout: 10_000 });
+
+  return (await dialog.isVisible().catch(() => false)) ? dialog : menu;
+}
+
 test.describe("Clinical KB long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
@@ -217,14 +233,13 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
-      await page.getByRole("button", { name: "Open daily actions" }).click();
-      await page.getByRole("button", { name: "Add document" }).click();
-      await expect(
-        page
-          .locator("#sources")
-          .getByText(viewport.name === "mobile" ? "24 documents" : "24 indexed documents available")
-          .first(),
-      ).toBeVisible();
+      const dailyActions = await openDailyActions(page);
+      await dailyActions.getByRole("button", { name: "Add document" }).click();
+      const uploadSurface =
+        viewport.name === "mobile"
+          ? page.getByRole("dialog", { name: "Upload and indexing" })
+          : page.locator("#sources");
+      await expect(uploadSurface.getByText("24 indexed").first()).toBeVisible();
       const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
       if (await closeUploadSheet.isVisible().catch(() => false)) {
         await closeUploadSheet.click();
@@ -235,10 +250,12 @@ test.describe("Clinical KB long-content stress coverage", () => {
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(scopeContainer).toBeVisible();
       await expect(
-        scopeContainer.getByText("Type to filter 24 documents. Selected documents stay pinned here."),
+        scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),
       ).toBeVisible();
       await expect(
-        scopeContainer.getByText("24 documents available. Type a title or file name to narrow the list."),
+        scopeContainer.getByText(
+          /(?:24 documents available|24 available documents)\. Type a title or file name to narrow the (?:loaded )?list\./,
+        ),
       ).toBeVisible();
       const scopeFilter = scopeContainer.locator('[data-testid="document-scope-filter"]');
       await expect(scopeFilter).toBeVisible();
@@ -268,7 +285,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
       }
       await page
-        .locator('[aria-label="Search indexed guidelines by question or keyword"]:visible')
+        .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
         .first()
         .fill("Show all stress citations and source cards");
       await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();

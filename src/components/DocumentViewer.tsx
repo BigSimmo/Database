@@ -2087,9 +2087,7 @@ export function DocumentViewer({
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`
     : documentHomeHref;
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
-  const summarizeTitle = canSummarizeDocument
-    ? "Answer from this document"
-    : "Load a source document before answering";
+  const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
   const clinicalImages = images.filter(

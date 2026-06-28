@@ -14,6 +14,34 @@ const answerSectionArtifactPattern =
 // must NOT cause the rest of the answer/section to be sliced away.
 const leakedJsonKeyPattern =
   /"(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"\s*:/i;
+const productCatalogueFragmentPattern =
+  /\b[A-Z][A-Za-z ]+\s+\d+\s*mg\b[^.?!]*?\b(?:tablet|capsule|solution|modified release|enteric-coated)\b[^.?!]*?[®™]\s*/gi;
+const brandOrFormularyFragmentPattern =
+  /\b(?:Lithicarb|Quilonum\s+SR|Campral)[®™]?|\b(?:imprest|formulary)\s+(?:location|one)\b.*?(?=\b(?:therapy|treatment|start|commence|begin|check|monitor|baseline|dose|dosing)\b|[.?!]|$)/gi;
+const imprestLocationPattern =
+  /\bimprest\s+location\s*:\s*.*?(?=\b(?:therapy|treatment|start|commence|begin|check|monitor|baseline|dose|dosing)\b|$)/gi;
+const allCapsSourceHeadingPattern = /\b(?=[A-Z0-9/&,+() -]*\s[A-Z0-9])[A-Z][A-Z0-9/&,+() -]{8,}\b/g;
+const sourceFormCodePattern = /\b[A-Z]{2,8}\d{3,}(?:\/\d+)?\b/g;
+const bracketedCitationMarkerPattern =
+  /\s*(?:\[\s*\d+(?:\s*[-,]\s*\d+)*\s*\]|\(\s*\d+(?:\s*[-,]\s*\d+)*\s*\))(?=\.?(?:\s|$))/g;
+const trailingCitationDigitPattern = /(?<=[a-z)])\d+(?=\.?(?:\s|$))/g;
+const clinicalAbbreviationCitationDigitPattern =
+  /\b(ANC|FBC|WBC|ECG|EEG|LFTs?|UEC|U&E|QTc|BMI|BP|HR|RR|CRP|ESR|TSH|HbA1c)\d+(?=\.?(?:\s|$))/gi;
+const orphanSourceHeadingPattern =
+  /^(?:lithium\s+)?(?:monitoring|baseline tests?|dose|dosage|dosage adjustments?|therapy|source|table|section)$/i;
+const sourceInventoryWordingPattern =
+  /\b(?:the\s+(?:strongest\s+)?retrieved\s+(?:source|sources|passages|excerpts)\s+(?:support|supports|show|shows|indicate|indicates)|retrieved\s+(?:source|sources|passages|excerpts)|indexed\s+source\s+passages\s+matched|no\s+concise\s+source\s+sentence|source-backed|based\s+on\s+(?:the\s+)?(?:provided\s+)?(?:sources|excerpts|passages|retrieved\s+sources)|dose evidence|monitoring evidence|table evidence|direct source-backed answer)\b/i;
+const clippedClinicalFragmentPattern =
+  /\b(?:stabili[sz]e\s+the\s+do|the\s+do\b|liver\s+functi\b|respiratio\b|if\s+a\s+60%\s+decrease\s+in\s+b\b)\b/i;
+const genericMedicationCasePatterns: Array<[RegExp, string]> = [
+  [/\bLithium Carbonate\b/g, "lithium carbonate"],
+  [/\bClozapine\b/g, "clozapine"],
+  [/\bAcamprosate\b/g, "acamprosate"],
+  [/\bSertraline\b/g, "sertraline"],
+  [/\bNaltrexone\b/g, "naltrexone"],
+  [/\bDisulfiram\b/g, "disulfiram"],
+  [/\bBaclofen\b/g, "baclofen"],
+];
 
 export function normalizeSectionText(value: string) {
   return value.trim().replace(/\s+/g, " ");
@@ -117,8 +145,96 @@ export function sanitizeStructuredText(
   return usefulness.text || finalText;
 }
 
+function normalizeGenericMedicationCase(value: string) {
+  let normalized = value;
+  for (const [pattern, replacement] of genericMedicationCasePatterns) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  return normalized;
+}
+
+function answerSentenceFragments(value: string) {
+  return value.match(/(?:\d+\.\d+|[^.!?])+[.!?]?/g) ?? [value];
+}
+
+function removeOrphanAnswerHeadings(value: string) {
+  const fragments = answerSentenceFragments(value);
+  return fragments
+    .map((fragment) => normalizeSectionText(fragment))
+    .filter((fragment) => {
+      const normalized = fragment.replace(/[.!?]+$/, "").trim();
+      if (!normalized) return false;
+      if (orphanSourceHeadingPattern.test(normalized)) return false;
+      return true;
+    })
+    .join(" ");
+}
+
+function removeBadAnswerFragments(value: string) {
+  const fragments = answerSentenceFragments(value);
+  return fragments
+    .map((fragment) => normalizeSectionText(fragment))
+    .filter((fragment) => {
+      const normalized = fragment.replace(/[.!?]+$/, "").trim();
+      if (!normalized) return false;
+      if (sourceInventoryWordingPattern.test(normalized)) return false;
+      if (clippedClinicalFragmentPattern.test(normalized)) return false;
+      brandOrFormularyFragmentPattern.lastIndex = 0;
+      if (brandOrFormularyFragmentPattern.test(normalized)) return false;
+      if (/\btable\s+\d+\b/i.test(normalized) && normalized.length > 180) return false;
+      return true;
+    })
+    .join(" ");
+}
+
+export function polishClinicalAnswerProse(value: string) {
+  const cleaned = normalizeSectionText(value)
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(productCatalogueFragmentPattern, " ")
+    .replace(brandOrFormularyFragmentPattern, " ")
+    .replace(imprestLocationPattern, " ")
+    .replace(allCapsSourceHeadingPattern, " ")
+    .replace(sourceFormCodePattern, " ")
+    .replace(/\b(?:dose evidence|monitoring evidence|table evidence|source point)\s*:\s*/gi, " ")
+    .replace(/\s+to\s+stabili[sz]e\s+the\s+do\b\.?/gi, ".")
+    .replace(/\b(?:liver functi|respiratio)\b[^.?!]*[.?!]?/gi, " ")
+    .replace(bracketedCitationMarkerPattern, "")
+    .replace(clinicalAbbreviationCitationDigitPattern, "$1")
+    .replace(/(?<=[a-z)])\s*\.\s*\d+(?=\.?(?:\s|$))/g, ".")
+    .replace(trailingCitationDigitPattern, "")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/(?:\.\s*){2,}/g, ". ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalizeGenericMedicationCase(removeOrphanAnswerHeadings(removeBadAnswerFragments(cleaned)));
+}
+
 export function sanitizeAnswerText(value: string) {
-  return sanitizeStructuredText(value, { minLength: 8, minTokens: 2, keepLeading: true });
+  const cleaned = sanitizeStructuredText(value, { minLength: 8, minTokens: 2, keepLeading: true });
+  return cleaned ? polishClinicalAnswerProse(cleaned) : "";
+}
+
+export function hasClinicalAnswerQualityIssue(value: string) {
+  const normalized = normalizeSectionText(value);
+  if (!normalized) return true;
+  productCatalogueFragmentPattern.lastIndex = 0;
+  brandOrFormularyFragmentPattern.lastIndex = 0;
+  allCapsSourceHeadingPattern.lastIndex = 0;
+  sourceFormCodePattern.lastIndex = 0;
+  bracketedCitationMarkerPattern.lastIndex = 0;
+  clinicalAbbreviationCitationDigitPattern.lastIndex = 0;
+  return (
+    sourceInventoryWordingPattern.test(normalized) ||
+    clippedClinicalFragmentPattern.test(normalized) ||
+    productCatalogueFragmentPattern.test(normalized) ||
+    brandOrFormularyFragmentPattern.test(normalized) ||
+    allCapsSourceHeadingPattern.test(normalized) ||
+    sourceFormCodePattern.test(normalized) ||
+    bracketedCitationMarkerPattern.test(normalized) ||
+    clinicalAbbreviationCitationDigitPattern.test(normalized) ||
+    /(?<=[a-z)])\d+(?=\.?(?:\s|$))/.test(normalized)
+  );
 }
 
 export function isUsableAnswerSectionText(value: string, options: { minTokens?: number; minLength?: number } = {}) {

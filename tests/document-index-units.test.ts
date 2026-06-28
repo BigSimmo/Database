@@ -112,7 +112,13 @@ describe("document index units", () => {
             flowchart_edges: [{ from: "assess", to: "escalate", label: "red zone" }],
             risk_matrix_axes: ["likelihood", "consequence"],
             risk_matrix_cells: [
-              { row: "High likelihood", column: "Severe consequence", risk: "Red", action: "Escalate", confidence: 0.9 },
+              {
+                row: "High likelihood",
+                column: "Severe consequence",
+                risk: "Red",
+                action: "Escalate",
+                confidence: 0.9,
+              },
             ],
             chart_axes: [],
             chart_findings: [],
@@ -136,7 +142,9 @@ describe("document index units", () => {
         "risk_matrix_cell",
       ]),
     );
-    expect(units.filter((unit) => unit.unit_type.startsWith("visual")).every((unit) => unit.source_image_id === "image-1")).toBe(true);
+    expect(
+      units.filter((unit) => unit.unit_type.startsWith("visual")).every((unit) => unit.source_image_id === "image-1"),
+    ).toBe(true);
     expect(units.find((unit) => unit.unit_type === "risk_matrix_cell")?.metadata.visual_intelligence_version).toBe(
       "visual-intelligence-v1",
     );

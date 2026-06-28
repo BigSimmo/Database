@@ -105,7 +105,14 @@ describe("/api/ingestion/quality", () => {
 
     expect(response.status).toBe(200);
     expect(payload.items.map((item: { type: string }) => item.type)).toEqual(
-      expect.arrayContaining(["failed_job", "failed_ocr", "image_only_pages", "missing_tables", "low_extraction_confidence", "manual_review"]),
+      expect.arrayContaining([
+        "failed_job",
+        "failed_ocr",
+        "image_only_pages",
+        "missing_tables",
+        "low_extraction_confidence",
+        "manual_review",
+      ]),
     );
     expect(payload.items[0]).toMatchObject({
       type: "failed_job",

@@ -85,6 +85,21 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  gte(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
+  lte(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
+  is(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
   not(column: string, _operator: string, value: unknown) {
     this.call.filters.push({ column, value });
     return this;
@@ -392,6 +407,22 @@ describe("private document API access", () => {
     expect(await payload(response)).toEqual({ error: "Request failed." });
   });
 
+  it("does not leak demo documents from real-mode listing failures", async () => {
+    const client = createSupabaseMock(() => {
+      throw new Error("Missing server environment variables: SUPABASE_SERVICE_ROLE_KEY. See .env.example.");
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "Request failed." });
+    expect(body.documents).toBeUndefined();
+    expect(body.demoMode).toBeUndefined();
+  });
+
   it("allows document signed URLs only for owned documents", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
@@ -437,10 +468,11 @@ describe("private document API access", () => {
           storage_path: `${userId}/images/${imageId}.png`,
           mime_type: "image/png",
           caption: "Owned image",
+          metadata: { index_generation_id: "generation-a" },
         });
       }
       if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
-        return ok({ id: documentId });
+        return ok({ id: documentId, metadata: { index_generation_id: "generation-a" } });
       }
       return ok(null);
     });
@@ -455,6 +487,33 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.mimeType).toBe("image/png");
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
+  });
+
+  it("rejects image signed URLs for uncommitted replacement generations", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Replacement image",
+          metadata: { index_generation_id: "generation-new" },
+        });
+      }
+      if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
+        return ok({ id: documentId, metadata: { index_generation_id: "generation-old" } });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
   it("rejects image signed URLs when the parent document belongs to another user", async () => {
@@ -861,6 +920,97 @@ describe("private document API access", () => {
     );
   });
 
+  it("filters enrichment-only reindex rows to the committed document generation", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Atomic Protocol",
+      file_name: "atomic.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const committedChunk = {
+      id: "chunk-committed",
+      document_id: documentId,
+      page_number: 1,
+      chunk_index: 0,
+      section_heading: "Committed",
+      content: "Committed generation content.",
+      image_ids: [],
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const uncommittedChunk = {
+      id: "chunk-uncommitted",
+      document_id: documentId,
+      page_number: 1,
+      chunk_index: 1,
+      section_heading: "Uncommitted",
+      content: "Replacement generation content.",
+      image_ids: [],
+      metadata: { index_generation_id: "22222222-2222-4222-8222-222222222222" },
+    };
+    const committedImage = {
+      id: imageId,
+      page_number: 1,
+      caption: "Committed image.",
+      image_type: "clinical_table",
+      labels: [],
+      clinical_relevance_score: 0.8,
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const uncommittedImage = {
+      id: "33333333-3333-4333-8333-333333333333",
+      page_number: 1,
+      caption: "Uncommitted image.",
+      image_type: "clinical_table",
+      labels: [],
+      clinical_relevance_score: 0.9,
+      metadata: { index_generation_id: "22222222-2222-4222-8222-222222222222" },
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "document_chunks") return ok([committedChunk, uncommittedChunk]);
+      if (call.table === "document_images") return ok([uncommittedImage, committedImage]);
+      return ok([]);
+    });
+    const upsertDocumentEnrichment = vi.fn(async () => ({
+      summary: { id: "summary-1", document_id: documentId, summary: "Source-backed summary." },
+      labels: [],
+    }));
+    const upsertDocumentDeepMemory = vi.fn(async () => ({
+      sections: [],
+      memoryCards: [],
+      indexUnits: [],
+    }));
+    mockRuntime(client);
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: [committedChunk],
+        images: [committedImage],
+      }),
+    );
+    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: [committedChunk],
+        images: [committedImage],
+      }),
+    );
+  });
+
   it("paginates enrichment-only reindex chunks and images for deep memory rebuilds", async () => {
     const document = {
       id: documentId,
@@ -1019,6 +1169,62 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
   });
 
+  it("blocks enrichment-only reindex when the selected document already has active indexing work", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Active Protocol",
+      file_name: "active.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok([
+          {
+            id: "active-job-1",
+            document_id: documentId,
+            status: "pending",
+            stage: "queued",
+            locked_at: null,
+            updated_at: new Date().toISOString(),
+            error_message: null,
+            attempt_count: 0,
+            max_attempts: 3,
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    const upsertDocumentEnrichment = vi.fn();
+    mockRuntime(client);
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      safety: {
+        safeToRun: false,
+        reason: "active_jobs",
+        activeJobCount: 1,
+      },
+    });
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(client.calls.some((call) => call.table === "document_chunks")).toBe(false);
+  });
+
   it("pauses full reindex when Supabase health is unavailable before queue mutation", async () => {
     const document = {
       id: documentId,
@@ -1119,6 +1325,161 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toEqual({ error: "Document not found." });
     expect(client.calls).toHaveLength(1);
+  });
+
+  it("filters document detail rows to the committed index generation", async () => {
+    const committedGeneration = "11111111-1111-4111-8111-111111111111";
+    const replacementGeneration = "22222222-2222-4222-8222-222222222222";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({
+          id: documentId,
+          owner_id: userId,
+          page_count: 1,
+          chunk_count: 1,
+          image_count: 1,
+          metadata: { index_generation_id: committedGeneration },
+        });
+      }
+      if (call.table === "document_pages") return ok([{ id: "page-1", page_number: 1, text: "Page", metadata: {} }]);
+      if (call.table === "document_images") {
+        return ok([
+          {
+            id: "image-old",
+            page_number: 1,
+            caption: "Old",
+            image_type: "clinical_table",
+            metadata: { index_generation_id: committedGeneration },
+          },
+          {
+            id: "image-new",
+            page_number: 1,
+            caption: "New",
+            image_type: "clinical_table",
+            metadata: { index_generation_id: replacementGeneration },
+          },
+        ]);
+      }
+      if (call.table === "document_chunks") {
+        return ok([
+          {
+            id: "chunk-old",
+            page_number: 1,
+            chunk_index: 0,
+            content: "Old",
+            image_ids: [],
+            metadata: { index_generation_id: committedGeneration },
+          },
+          {
+            id: "chunk-new",
+            page_number: 1,
+            chunk_index: 1,
+            content: "New",
+            image_ids: [],
+            metadata: { index_generation_id: replacementGeneration },
+          },
+        ]);
+      }
+      if (call.table === "document_table_facts") {
+        return ok([
+          { id: "fact-old", document_id: documentId, metadata: { index_generation_id: committedGeneration } },
+          { id: "fact-new", document_id: documentId, metadata: { index_generation_id: replacementGeneration } },
+        ]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await GET(authenticatedRequest(`/api/documents/${documentId}`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as {
+      images: Array<{ id: string }>;
+      chunks: Array<{ id: string }>;
+      tableFacts: Array<{ id: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.images.map((image: { id: string }) => image.id)).toEqual(["image-old"]);
+    expect(body.chunks.map((chunk: { id: string }) => chunk.id)).toEqual(["chunk-old"]);
+    expect(body.tableFacts.map((fact: { id: string }) => fact.id)).toEqual(["fact-old"]);
+  });
+
+  it("filters direct document search fallback rows to the committed index generation", async () => {
+    const committedGeneration = "11111111-1111-4111-8111-111111111111";
+    const replacementGeneration = "22222222-2222-4222-8222-222222222222";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({ id: documentId, metadata: { index_generation_id: committedGeneration } });
+      }
+      if (call.table === "document_chunks") {
+        return ok([
+          {
+            id: "chunk-old",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Committed",
+            content: "lithium monitoring committed row",
+            image_ids: [],
+            metadata: { index_generation_id: committedGeneration },
+            index_generation_id: committedGeneration,
+          },
+          {
+            id: "chunk-new",
+            page_number: 1,
+            chunk_index: 1,
+            section_heading: "Replacement",
+            content: "lithium monitoring replacement row",
+            image_ids: [],
+            metadata: { index_generation_id: replacementGeneration },
+            index_generation_id: replacementGeneration,
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "search_document_chunks" ? fail("missing rpc") : ok([]),
+    );
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/search/route");
+
+    const response = await GET(authenticatedRequest(`/api/documents/${documentId}/search?q=lithium`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { strategy: string; results: Array<{ id: string }> };
+
+    expect(response.status).toBe(200);
+    expect(body.strategy).toBe("portable_ilike_fallback");
+    expect(body.results.map((result: { id: string }) => result.id)).toEqual(["chunk-old"]);
+  });
+
+  it("filters table fact review rows to the committed index generation", async () => {
+    const committedGeneration = "11111111-1111-4111-8111-111111111111";
+    const replacementGeneration = "22222222-2222-4222-8222-222222222222";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok({ id: documentId, metadata: { index_generation_id: committedGeneration } });
+      }
+      if (call.table === "document_table_facts") {
+        return ok([
+          { id: "fact-old", document_id: documentId, metadata: { index_generation_id: committedGeneration } },
+          { id: "fact-new", document_id: documentId, metadata: { index_generation_id: replacementGeneration } },
+        ]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/table-facts/route");
+
+    const response = await GET(authenticatedRequest(`/api/documents/${documentId}/table-facts`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { tableFacts: Array<{ id: string }> };
+
+    expect(response.status).toBe(200);
+    expect(body.tableFacts.map((fact: { id: string }) => fact.id)).toEqual(["fact-old"]);
   });
 
   it("rejects malformed document detail ids before Supabase uuid filters", async () => {

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "playwright/test";
 
-async function gotoTools(page: Page) {
-  await page.goto("/tools", { waitUntil: "domcontentloaded" });
+async function gotoLauncher(page: Page, path = "/applications") {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
@@ -14,25 +14,81 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test.describe("Clinical KB tools launcher", () => {
+test.describe("Clinical KB applications launcher", () => {
   test.describe.configure({ timeout: 60_000 });
 
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
-    test(`tools launcher is usable at ${viewport.name}`, async ({ page }) => {
+    test(`applications launcher is usable at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await gotoTools(page);
+      await gotoLauncher(page);
 
-      await expect(page.getByRole("heading", { level: 1, name: "Open the right clinical tool." })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "All clinical tools" })).toBeVisible();
-      await expect(page.getByLabel("Return to Clinical KB dashboard")).toBeVisible();
-      await expect(page.getByLabel("Launch priority tool Formulation")).toBeVisible();
-      await expect(page.getByLabel("Launch Formulation")).toBeVisible();
-      await expect(page.getByLabel("Launch Psychiatry Notes")).toBeVisible();
-      await expect(page.getByRole("link", { name: "Launchers" })).toHaveAttribute("href", "#launchers");
+      await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Pinned applications" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "All applications" })).toBeVisible();
+      if (viewport.name === "mobile") {
+        await expect(page.getByTestId("selected-application-panel")).toBeHidden();
+        await page.getByTestId("mobile-application-row-differential-diagnosis").click();
+        const selectedSheet = page.getByRole("dialog", { name: "Selected application" });
+        await expect(selectedSheet).toBeVisible();
+        await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Differential Diagnosis");
+        const mobileLaunchLink = page
+          .getByTestId("selected-application-sheet-panel")
+          .getByLabel("Launch Differential Diagnosis");
+        await expect(mobileLaunchLink).toBeVisible();
+        await expect(mobileLaunchLink).toHaveAttribute("href", "http://127.0.0.1:53375");
+        await page.getByLabel("Close selected application").click();
+        await expect(selectedSheet).toBeHidden();
+      } else {
+        await expect(page.getByTestId("selected-application-panel")).toContainText("Formulation");
+        const desktopLaunchLink = page.getByTestId("selected-application-panel").getByLabel("Launch Formulation");
+        await expect(desktopLaunchLink).toBeVisible();
+        await expect(desktopLaunchLink).toHaveAttribute("href", "http://localhost:53210");
+      }
+      await expect(page.getByLabel("Current app mode: Applications")).toBeVisible();
+      await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
+      await expect(page.getByLabel("Open selected application")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("launcher links point to the expected applications", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page);
+
+    await expect(page.locator('a[aria-label="Launch Formulation"]').first()).toHaveAttribute(
+      "href",
+      "http://localhost:53210",
+    );
+    await expect(page.locator('a[aria-label="Launch Differential Diagnosis"]').first()).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:53375",
+    );
+    const medicationLink = page.locator('a[aria-label="Launch Medication Prescribing"]').first();
+    await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
+    await expect(medicationLink).not.toHaveAttribute("target", "_blank");
+    await expect(page.locator('a[aria-label="Launch Documents"]').first()).toHaveAttribute("href", "/?mode=documents");
+    await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveAttribute(
+      "href",
+      "/?mode=favourites",
+    );
+    await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
+      "href",
+      "/?mode=answer",
+    );
+  });
+
+  test("search and filters reduce visible application rows without overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page);
+
+    await page.getByLabel("Search applications").fill("specifier");
+
+    await expect(page.getByTestId("application-row-specifiers")).toBeVisible();
+    await expect(page.getByTestId("application-row-formulation")).toBeHidden();
+    await expect(page.getByText("Showing 1 to 1 of 8 applications")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
 });

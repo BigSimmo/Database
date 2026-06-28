@@ -8,7 +8,7 @@ const denoMajor = denoVersionMatch ? Number(denoVersionMatch[1]) : null;
 const hasDeno = deno.status === 0 && denoMajor !== null && denoMajor >= 2;
 
 if (!hasDeno) {
-  const found = deno.status === 0 ? (denoVersionLine || "unknown version") : "not installed";
+  const found = deno.status === 0 ? denoVersionLine || "unknown version" : "not installed";
   if (process.env.CI) {
     console.error(
       `[check:edge:functions] Deno v2.x is required in CI (found: ${found}). Install Deno and rerun this check.`,

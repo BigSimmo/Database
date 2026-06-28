@@ -14,11 +14,11 @@ This single command encapsulates the full safe sequence below: it confirms the t
 
 Options:
 
-| Flag | Default | Description |
-|---|---|---|
-| `--yes` | off | Skip confirmation prompts (non-interactive / CI use) |
-| `--max-rounds` | 10 | Maximum worker iterations before stopping |
-| `--limit` | 20 | Recovery action limit per round |
+| Flag           | Default | Description                                          |
+| -------------- | ------- | ---------------------------------------------------- |
+| `--yes`        | off     | Skip confirmation prompts (non-interactive / CI use) |
+| `--max-rounds` | 10      | Maximum worker iterations before stopping            |
+| `--limit`      | 20      | Recovery action limit per round                      |
 
 ```sh
 # Non-interactive, up to 5 worker rounds:

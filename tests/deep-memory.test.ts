@@ -4,6 +4,7 @@ import {
   applyMemoryCardBoosts,
   buildDocumentMemoryCards,
   buildDocumentSections,
+  fetchMemoryCardsForQuery,
   ragDeepMemoryVersion,
   upsertDocumentDeepMemory,
 } from "../src/lib/deep-memory";
@@ -233,6 +234,70 @@ describe("deep RAG memory indexing", () => {
     expect(boosted[0].hybrid_score).toBeGreaterThan(0.7);
   });
 
+  it("keeps memory cards when committed-generation metadata lookup fails", async () => {
+    const cards = [
+      {
+        id: "card-new",
+        document_id: "doc-1",
+        owner_id: "user-1",
+        section_id: null,
+        card_type: "threshold",
+        title: "Lithium monitoring",
+        content: "Lithium monitoring threshold evidence.",
+        normalized_terms: ["lithium", "monitoring"],
+        page_number: 1,
+        source_chunk_ids: ["chunk-1"],
+        source_image_ids: [],
+        confidence: 0.8,
+        metadata: { index_generation_id: "replacement-generation" },
+      } satisfies DocumentMemoryCard,
+    ];
+    class QueryStub implements PromiseLike<{ data: unknown; error: { message: string } | null }> {
+      constructor(private readonly table: string) {}
+      select() {
+        return this;
+      }
+      textSearch() {
+        return this;
+      }
+      order() {
+        return this;
+      }
+      limit() {
+        return this;
+      }
+      eq() {
+        return this;
+      }
+      in() {
+        return this;
+      }
+      then<TResult1 = { data: unknown; error: { message: string } | null }, TResult2 = never>(
+        onfulfilled?:
+          ((value: { data: unknown; error: { message: string } | null }) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        const value =
+          this.table === "document_memory_cards"
+            ? { data: cards, error: null }
+            : { data: null, error: { message: "metadata unavailable" } };
+        return Promise.resolve(value).then(onfulfilled, onrejected);
+      }
+    }
+    const supabase = {
+      from: vi.fn((table: string) => new QueryStub(table)),
+    };
+
+    const result = await fetchMemoryCardsForQuery({
+      supabase: supabase as never,
+      query: "lithium monitoring",
+      ownerId: "user-1",
+      matchCount: 8,
+    });
+
+    expect(result.map((card) => card.id)).toEqual(["card-new"]);
+  });
+
   it("persists memory cards without leaking internal section indexes into inserts", async () => {
     const insertedMemoryRows: Record<string, unknown>[] = [];
     const insertedIndexUnits: Record<string, unknown>[] = [];
@@ -324,4 +389,3 @@ describe("deep RAG memory indexing", () => {
     );
   });
 });
-

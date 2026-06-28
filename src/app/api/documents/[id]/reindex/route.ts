@@ -5,6 +5,11 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import { checkIngestionMutationSafety, ingestionMutationSafetyPayload } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  committedIndexGeneration,
+  isAtomicReindexCandidate,
+  isCommittedGenerationMetadata,
+} from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -33,6 +38,16 @@ type ReindexImage = {
   clinical_relevance_score?: number | null;
   metadata?: Record<string, unknown> | null;
 };
+
+function committedReindexRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
+  const committedGeneration = committedIndexGeneration(document.metadata);
+  return rows.filter((row) =>
+    isCommittedGenerationMetadata({
+      rowMetadata: row.metadata,
+      committedGeneration,
+    }),
+  );
+}
 
 async function readMode(request: Request) {
   try {
@@ -78,7 +93,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: document, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id,metadata")
+      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,metadata")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
@@ -90,7 +105,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       supabase,
       documentIds: [id],
       action: "Reindex",
-      checkActiveJobs: mode !== "enrichment",
+      checkActiveJobs: true,
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
@@ -112,24 +127,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }),
       ]);
 
-      chunks.sort((a, b) => Number(a.chunk_index ?? 0) - Number(b.chunk_index ?? 0));
-      images.sort((a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0));
+      const committedChunks = committedReindexRows(document, chunks);
+      const committedImages = committedReindexRows(document, images);
 
-      if (!chunks.length) {
+      committedChunks.sort((a, b) => Number(a.chunk_index ?? 0) - Number(b.chunk_index ?? 0));
+      committedImages.sort((a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0));
+
+      if (!committedChunks.length) {
         return NextResponse.json({ error: "Document has no indexed chunks to enrich." }, { status: 400 });
       }
 
       const enrichment = await upsertDocumentEnrichment({
         supabase,
         document,
-        chunks,
-        images,
+        chunks: committedChunks,
+        images: committedImages,
       });
       const deepMemory = await upsertDocumentDeepMemory({
         supabase,
         document,
-        chunks,
-        images,
+        chunks: committedChunks,
+        images: committedImages,
         summary: enrichment.summary.summary,
       });
       return NextResponse.json({
@@ -143,12 +161,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       });
     }
 
-    const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: id });
-    if (resetError) throw new Error(resetError.message);
-
+    const atomicReindex = isAtomicReindexCandidate(document);
     const { error: updateError } = await supabase
       .from("documents")
-      .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
+      .update(
+        atomicReindex
+          ? { error_message: null }
+          : { status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 },
+      )
       .eq("id", id)
       .eq("owner_id", user.id);
     if (updateError) throw new Error(updateError.message);

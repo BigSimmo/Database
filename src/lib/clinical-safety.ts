@@ -1,5 +1,6 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
+import { sanitizeAnswerText } from "@/lib/rag-answer-text";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,
@@ -8,13 +9,7 @@ import {
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
 export type SafetyFindingKind =
-  | "contraindication"
-  | "red_flag"
-  | "escalation"
-  | "dose_limit"
-  | "monitoring"
-  | "exclusion"
-  | "caveat";
+  "contraindication" | "red_flag" | "escalation" | "dose_limit" | "monitoring" | "exclusion" | "caveat";
 
 export type SafetyFinding = {
   id: string;
@@ -132,7 +127,7 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
   const findings: SafetyFinding[] = [];
 
   for (const candidate of candidates) {
-    const text = conciseSourceText(candidate.text);
+    const text = sanitizeAnswerText(conciseSourceText(candidate.text)) || conciseSourceText(candidate.text);
     if (!text) continue;
     if (answer.relevance) {
       const sourceBacked = candidate.source?.relevance?.isSourceBacked;

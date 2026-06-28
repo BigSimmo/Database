@@ -11,7 +11,8 @@ describe("strict embedding dimension guard", () => {
   it("rejects non-arrays, wrong dimensions, and non-finite values", () => {
     expect(() => assertEmbeddingDim("not-a-vector", "test_vector")).toThrow(/must be an array/);
     expect(() => assertEmbeddingDim([0.1, 0.2], "test_vector")).toThrow(/2 dimensions; expected 1536/);
-    expect(() => assertEmbeddingDim([...Array.from({ length: EXPECTED_EMBED_DIM - 1 }, () => 0), Infinity], "test_vector"))
-      .toThrow(/non-finite value at index 1535/);
+    expect(() =>
+      assertEmbeddingDim([...Array.from({ length: EXPECTED_EMBED_DIM - 1 }, () => 0), Infinity], "test_vector"),
+    ).toThrow(/non-finite value at index 1535/);
   });
 });

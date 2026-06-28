@@ -50,8 +50,16 @@ function parseArgs(argv: string[]): Args {
     if (token === "--owner-email") args.ownerEmail = value;
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--match-count") args.matchCount = Number.parseInt(value, 10);
-    if (token === "--document-ids") args.documentIds = value.split(",").map((item) => item.trim()).filter(Boolean);
-    if (token === "--rpc") args.rpcs = value.split(",").map((item) => item.trim()).filter(Boolean);
+    if (token === "--document-ids")
+      args.documentIds = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    if (token === "--rpc")
+      args.rpcs = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
     if (token === "--output") args.output = value;
   }
 
@@ -95,7 +103,8 @@ async function main() {
   };
   const json = JSON.stringify(payload, null, 2);
   if (args.output) {
-    const outputPath = args.output.includes("\\") || args.output.includes("/") ? args.output : join(process.cwd(), args.output);
+    const outputPath =
+      args.output.includes("\\") || args.output.includes("/") ? args.output : join(process.cwd(), args.output);
     await writeFile(outputPath, json, "utf8");
     console.log(`Retrieval RPC profile written to ${outputPath}`);
   } else {

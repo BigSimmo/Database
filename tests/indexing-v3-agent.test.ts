@@ -20,7 +20,6 @@ const completeGateRow: CompletionGateRow = {
   missing: [],
   gate_passed: true,
 };
-
 function gateRow(overrides: Partial<CompletionGateRow> = {}): CompletionGateRow {
   return { ...completeGateRow, ...overrides };
 }

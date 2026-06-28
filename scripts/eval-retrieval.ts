@@ -140,7 +140,8 @@ function parseArgs(argv: string[]): EvalArgs {
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
     if (token === "--mode") {
-      if (!["combined", "quality", "latency"].includes(value)) throw new Error("--mode must be combined, quality, or latency.");
+      if (!["combined", "quality", "latency"].includes(value))
+        throw new Error("--mode must be combined, quality, or latency.");
       args.mode = value as EvalArgs["mode"];
     }
     if (token === "--case-timeout-ms") args.caseTimeoutMs = Number.parseInt(value, 10);
@@ -151,7 +152,8 @@ function parseArgs(argv: string[]): EvalArgs {
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
     throw new Error("--limit must be a positive integer.");
   }
-  if (!Number.isInteger(args.caseTimeoutMs) || args.caseTimeoutMs < 0) throw new Error("--case-timeout-ms must be >= 0.");
+  if (!Number.isInteger(args.caseTimeoutMs) || args.caseTimeoutMs < 0)
+    throw new Error("--case-timeout-ms must be >= 0.");
   if (!Number.isInteger(args.p90BudgetMs) || args.p90BudgetMs <= 0) throw new Error("--p90-ms must be positive.");
   if (!Number.isInteger(args.p50BudgetMs) || args.p50BudgetMs <= 0) throw new Error("--p50-ms must be positive.");
 
@@ -580,7 +582,10 @@ function caseNeedsVisualUnits(testCase: GoldenRetrievalCase) {
   );
 }
 
-async function visualReadinessWarnings(supabase: Awaited<ReturnType<typeof loadAdminClient>>, cases: GoldenRetrievalCase[]) {
+async function visualReadinessWarnings(
+  supabase: Awaited<ReturnType<typeof loadAdminClient>>,
+  cases: GoldenRetrievalCase[],
+) {
   const visualCases = cases.filter(caseNeedsVisualUnits);
   if (visualCases.length === 0) return [] as string[];
   const { count, error } = await supabase
@@ -647,7 +652,10 @@ function latencyFailuresForCase(result: Pick<GoldenRetrievalResult, "latencyMs" 
   return failures;
 }
 
-async function withCaseTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
+async function withCaseTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
   if (timeoutMs <= 0) return { timedOut: false, value: await promise };
   let timeout: NodeJS.Timeout | undefined;
   try {
@@ -701,24 +709,23 @@ async function main() {
       skipCache: args.mode !== "latency",
     });
     const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
-    const search =
-      searchOutcome.timedOut
-        ? {
-            results: [] as SearchResult[],
-            telemetry: {
-              query_class: testCase.expectedQueryClass,
-              retrieval_strategy: "timeout",
-              embedding_skipped: false,
-              text_fast_path_latency_ms: 0,
-              embedding_latency_ms: 0,
-              supabase_rpc_latency_ms: args.caseTimeoutMs,
-              rerank_latency_ms: 0,
-              retrieval_layer_counts: {},
-              retrieval_layer_top_scores: {},
-              retrieval_layer_latencies_ms: {},
-            },
-          }
-        : searchOutcome.value;
+    const search = searchOutcome.timedOut
+      ? {
+          results: [] as SearchResult[],
+          telemetry: {
+            query_class: testCase.expectedQueryClass,
+            retrieval_strategy: "timeout",
+            embedding_skipped: false,
+            text_fast_path_latency_ms: 0,
+            embedding_latency_ms: 0,
+            supabase_rpc_latency_ms: args.caseTimeoutMs,
+            rerank_latency_ms: 0,
+            retrieval_layer_counts: {},
+            retrieval_layer_top_scores: {},
+            retrieval_layer_latencies_ms: {},
+          },
+        }
+      : searchOutcome.value;
     const latencyMs = searchOutcome.timedOut
       ? args.caseTimeoutMs
       : latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
@@ -780,8 +787,7 @@ async function main() {
   const qualityThresholdFailed = args.mode !== "latency" && summary.failed_cases.length > 0;
   const latencyThresholdFailed =
     args.mode === "latency" && (summary.latency_failed_cases.length > 0 || latencyThresholdFailures.length > 0);
-  if (args.failOnThreshold && (qualityThresholdFailed || latencyThresholdFailed))
-    process.exit(1);
+  if (args.failOnThreshold && (qualityThresholdFailed || latencyThresholdFailed)) process.exit(1);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

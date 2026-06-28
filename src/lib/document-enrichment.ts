@@ -402,10 +402,21 @@ export function inferLabels(document: Pick<ClinicalDocument, "title" | "file_nam
   if (/\bid\s*pts|identification/.test(haystack)) add("patient identification", "workflow", 0.68);
   if (/nocc/.test(haystack)) add("nocc outcome measures", "topic", 0.75);
   if (/mhat|mhct|treatment\s*team/.test(haystack)) add("treatment team process", "workflow", 0.7);
-  if (/prescri|medicat|injectable|neuroleptic/.test(haystack)) add("medication management", "topic", 0.72);
-  if (/form|checklist|documentation|assessment/.test(haystack)) add("documentation", "document_type", 0.66);
+  if (/policy/.test(haystack)) add("policy", "document_type", 0.9);
+  if (/procedure|procedural|sop/.test(haystack)) add("procedure", "document_type", 0.88);
+  if (/guideline|guidance/.test(haystack)) add("guideline", "document_type", 0.84);
+  if (/protocol/.test(haystack)) add("protocol", "document_type", 0.84);
+  if (/form|request|referral/.test(haystack)) add("form", "document_type", 0.82);
+  if (/checklist/.test(haystack)) add("checklist", "document_type", 0.82);
+  if (/pathway/.test(haystack)) add("pathway", "document_type", 0.82);
+  if (/algorithm|flowchart|decision\s*tree/.test(haystack)) add("algorithm", "document_type", 0.84);
+  if (/factsheet|fact\s*sheet|patient\s+information|patient\s+info|consumer\s+info/.test(haystack))
+    add("factsheet", "document_type", 0.82);
+  if (/manual|handbook|orientation/.test(haystack)) add("manual", "document_type", 0.82);
+  if (/tool|scale|score|assessment/.test(haystack)) add("assessment_tool", "document_type", 0.82);
+  if (/prescrib|aid|calculator|dosing|nomogram/.test(haystack)) add("prescribing_aid", "document_type", 0.82);
+  if (/reference|information\s*sheet|placecard/.test(haystack)) add("reference", "document_type", 0.72);
   add(document.title, "topic", 0.64);
-  add("clinical guideline", "document_type", 0.55);
 
   return labels;
 }

@@ -312,12 +312,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
         width: image.width,
         height: image.height,
         sourceKind: image.source_kind as
-          | "embedded"
-          | "table_crop"
-          | "diagram_crop"
-          | "page_region"
-          | "fallback"
-          | undefined,
+          "embedded" | "table_crop" | "diagram_crop" | "page_region" | "fallback" | undefined,
       },
     });
 

@@ -28,7 +28,7 @@ export type GroupedSourceGovernanceWarning = {
 };
 
 export const sourceGovernanceRefusalAnswer =
-  "I cannot provide a source-backed clinical answer because one or more supporting sources are marked outdated or have poor extraction quality. Review or reindex the source material before using it for clinical guidance.";
+  "I cannot provide a source-backed clinical answer from the matched evidence because one or more supporting sources have source-governance warnings that require review. Try a narrower clinical term, scope to a current approved document, or review the source warnings before using this result.";
 
 function isLocalMetadataText(value: string) {
   return /\b(?:wa|western australia|perth|north metropolitan|east metropolitan|south metropolitan|health service)\b/i.test(

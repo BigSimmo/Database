@@ -10,12 +10,7 @@ import {
 import type { ImageEvidenceCategory, OpenAITokenUsage } from "@/lib/types";
 
 type OpenAIOperation =
-  | "embedding"
-  | "answer"
-  | "summary"
-  | "vision_caption"
-  | "vision_classification"
-  | "text_generation";
+  "embedding" | "answer" | "summary" | "vision_caption" | "vision_classification" | "text_generation";
 
 type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high";
 type OpenAITextVerbosity = "low" | "medium" | "high";

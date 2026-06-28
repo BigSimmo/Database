@@ -130,17 +130,30 @@ async function writeClassification(
     .eq("status", "indexed");
   if (documentError) throw new Error(documentError.message);
 
+  // Delete all previously generated labels for this document (all types)
   const { error: deleteError } = await supabase
     .from("document_labels")
     .delete()
     .eq("document_id", document.id)
     .eq("source", "generated")
-    .eq("label_type", "site");
+    .in("label_type", ["site", "document_type", "population", "topic", "setting", "service", "workflow"]);
   if (deleteError) throw new Error(deleteError.message);
 
-  const generatedLabels = classification.labels.filter(
-    (label) => label.label_type === "site" && label.confidence >= 0.75,
+  // Write site labels (confident only, >= 0.75)
+  const siteLabels = classification.labels.filter((label) => label.label_type === "site" && label.confidence >= 0.75);
+
+  // Write document_type labels (any confidence >= 0.5 — so even needs_review types are captured)
+  const typeLabels = classification.labels.filter(
+    (label) => label.label_type === "document_type" && label.confidence >= 0.5,
   );
+
+  // Write all secondary facet labels (population, topic, setting, service, workflow)
+  const secondaryLabels = classification.labels.filter(
+    (label) =>
+      ["population", "topic", "setting", "service", "workflow"].includes(label.label_type) && label.confidence >= 0.5,
+  );
+
+  const generatedLabels = [...siteLabels, ...typeLabels, ...secondaryLabels];
   if (!generatedLabels.length) return;
 
   const { error: labelError } = await supabase.from("document_labels").upsert(
