@@ -3,6 +3,7 @@ import {
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
 } from "@/lib/source-text-sanitizer";
+import { polishClinicalAnswerProse } from "@/lib/rag-answer-text";
 import type { SearchResult } from "@/lib/types";
 
 const displayJsonArtifactPattern =
@@ -110,7 +111,7 @@ export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[
 }
 
 export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = sourceTextForClinicalProsePreservingBreaks(value).trim();
+  const normalized = polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value)).trim();
   if (!normalized) return "";
   const artifactStart = normalizeDisplayText(normalized).search(
     /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,

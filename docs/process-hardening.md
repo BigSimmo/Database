@@ -9,7 +9,7 @@ This document turns the current process review into phased, durable repo practic
 - `npm run verify:release` is the release-confidence gate: lint, typecheck, unit tests, build, and the full Playwright browser project set.
 - CI now installs Chromium and runs the Chromium UI gate after build.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
-- `tests/ui-tools.spec.ts` covers the `/tools` launcher at mobile and desktop sizes.
+- `tests/ui-tools.spec.ts` covers the `/applications` launcher at mobile and desktop sizes.
 - `AGENTS.md` now points future agents to these gates and to this document.
 
 ## Phase 2 - Active now
@@ -17,7 +17,7 @@ This document turns the current process review into phased, durable repo practic
 - Previous deterministic smoke failures are reclassified as resolved in the current Chromium UI gate: `npm run verify:ui` passed 26/26 on June 23, 2026.
 - Local scratch and visual-capture output are excluded from Prettier through `.prettierignore` so generated investigation files do not block the format gate.
 - Pull requests now include a clinical governance preflight for ingestion, answer generation, source rendering, privacy, production environment, and clinical-output changes.
-- `/tools` now has dedicated Playwright coverage in the UI gate.
+- `/applications` now has dedicated Playwright coverage in the UI gate.
 
 ## Phase 3 - Structural cleanup
 

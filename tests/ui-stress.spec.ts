@@ -236,7 +236,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
       const dailyActions = await openDailyActions(page);
       await dailyActions.getByRole("button", { name: "Add document" }).click();
       const uploadSurface =
-        viewport.name === "mobile" ? page.getByRole("dialog", { name: "Upload and indexing" }) : page.locator("#sources");
+        viewport.name === "mobile"
+          ? page.getByRole("dialog", { name: "Upload and indexing" })
+          : page.locator("#sources");
       await expect(uploadSurface.getByText("24 indexed").first()).toBeVisible();
       const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
       if (await closeUploadSheet.isVisible().catch(() => false)) {

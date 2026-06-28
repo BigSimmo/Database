@@ -573,11 +573,7 @@ function MedicationResults({
             }
 
             return (
-              <article
-                key={result.id}
-                data-testid={`medication-result-${result.id}-desktop`}
-                className={rowClassName}
-              >
+              <article key={result.id} data-testid={`medication-result-${result.id}-desktop`} className={rowClassName}>
                 {rowContent}
               </article>
             );
@@ -641,11 +637,7 @@ function MedicationResults({
           }
 
           return (
-            <article
-              key={result.id}
-              data-testid={`medication-result-${result.id}-phone`}
-              className={cardClassName}
-            >
+            <article key={result.id} data-testid={`medication-result-${result.id}-phone`} className={cardClassName}>
               {cardContent}
             </article>
           );
@@ -1181,7 +1173,9 @@ export function AcamprosateMedicationPage() {
             <span className="hidden sm:inline">Medication search</span>
             <span className="sm:hidden">Search</span>
           </Link>
-          <div className="text-center text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">Clinical KB</div>
+          <div className="text-center text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
+            Clinical KB
+          </div>
           <div className="flex justify-end">
             <span className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
               <Pill className="h-3.5 w-3.5" aria-hidden="true" />

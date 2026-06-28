@@ -54,25 +54,28 @@ async function main() {
     .limit(limit);
   if (ownerId) logsQuery = logsQuery.eq("owner_id", ownerId);
 
-  const [{ data: logsData, error: logsError }, { data: qualityData, error: qualityError }, { data: visualUnitsData, error: visualUnitsError }] =
-    await Promise.all([
-      logsQuery,
-      supabase.from("document_index_quality").select("document_id,metrics,issues").limit(5000),
-      supabase
-        .from("document_index_units")
-        .select("document_id,unit_type,source_image_id")
-        .in("unit_type", [
-          "visual_summary",
-          "flowchart_step",
-          "diagram_decision",
-          "risk_matrix_cell",
-          "medication_chart_row",
-          "chart_finding",
-          "visual_askable_question",
-          "table_threshold",
-        ])
-        .limit(5000),
-    ]);
+  const [
+    { data: logsData, error: logsError },
+    { data: qualityData, error: qualityError },
+    { data: visualUnitsData, error: visualUnitsError },
+  ] = await Promise.all([
+    logsQuery,
+    supabase.from("document_index_quality").select("document_id,metrics,issues").limit(5000),
+    supabase
+      .from("document_index_units")
+      .select("document_id,unit_type,source_image_id")
+      .in("unit_type", [
+        "visual_summary",
+        "flowchart_step",
+        "diagram_decision",
+        "risk_matrix_cell",
+        "medication_chart_row",
+        "chart_finding",
+        "visual_askable_question",
+        "table_threshold",
+      ])
+      .limit(5000),
+  ]);
 
   if (logsError) throw new Error(logsError.message);
   if (qualityError) throw new Error(qualityError.message);
@@ -105,9 +108,7 @@ async function main() {
   const missingSourceImageCount = logs.filter(
     (row) => row.metadata?.source_image_required === true && row.metadata?.source_image_satisfied !== true,
   ).length;
-  const documentDiversity = logs
-    .map((row) => row.selected_document_ids?.length ?? 0)
-    .filter((count) => count > 0);
+  const documentDiversity = logs.map((row) => row.selected_document_ids?.length ?? 0).filter((count) => count > 0);
   const visualUnitTypes = countBy((visualUnitsData ?? []).map((row) => String(row.unit_type)));
   const sparseVisualDocs = (qualityData ?? []).filter((row) => {
     const issues = Array.isArray(row.issues) ? row.issues.map(String) : [];

@@ -156,8 +156,7 @@ export function MasterSearchHeader({
   const selectedSearchable = isSearchableAppMode(searchMode);
   const scopeIsPlaceholder = scopeVariant === "placeholder";
   const canRunLocalSearch = selectedSearch.kind === "favourites" || selectedSearch.kind === "tools";
-  const canAsk =
-    trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
+  const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
   const loadedScopeSummary = hasUnloadedDocuments
@@ -640,8 +639,7 @@ export function MasterSearchHeader({
             ref={modeMenuRef}
             className={cn(
               "relative z-40 mx-auto sm:mx-0",
-              modeAlignment === "center" &&
-                "absolute left-1/2 top-1/2 mx-0 -translate-x-1/2 -translate-y-1/2",
+              modeAlignment === "center" && "absolute left-1/2 top-1/2 mx-0 -translate-x-1/2 -translate-y-1/2",
             )}
           >
             <button

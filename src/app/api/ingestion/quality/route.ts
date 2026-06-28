@@ -8,12 +8,7 @@ export const runtime = "nodejs";
 
 type Severity = "danger" | "warning" | "info";
 type ReviewType =
-  | "failed_ocr"
-  | "low_extraction_confidence"
-  | "missing_tables"
-  | "image_only_pages"
-  | "failed_job"
-  | "manual_review";
+  "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
 
 type DocumentRow = {
   id: string;
@@ -141,10 +136,12 @@ function buildReviewItems(args: {
   const pagesByDocument = new Map<string, PageRow[]>();
   const imagesByDocument = new Map<string, ImageRow[]>();
 
-  for (const row of args.jobs) jobsByDocument.set(row.document_id, [...(jobsByDocument.get(row.document_id) ?? []), row]);
+  for (const row of args.jobs)
+    jobsByDocument.set(row.document_id, [...(jobsByDocument.get(row.document_id) ?? []), row]);
   for (const row of args.stages)
     stagesByDocument.set(row.document_id, [...(stagesByDocument.get(row.document_id) ?? []), row]);
-  for (const row of args.pages) pagesByDocument.set(row.document_id, [...(pagesByDocument.get(row.document_id) ?? []), row]);
+  for (const row of args.pages)
+    pagesByDocument.set(row.document_id, [...(pagesByDocument.get(row.document_id) ?? []), row]);
   for (const row of args.images)
     imagesByDocument.set(row.document_id, [...(imagesByDocument.get(row.document_id) ?? []), row]);
 
@@ -206,13 +203,15 @@ function buildReviewItems(args: {
         type: "failed_ocr",
         severity: "danger",
         title: "OCR or extraction failed",
-        detail: failedOcrStage?.error_message || ocrWarning || "OCR/extraction warnings were recorded for this document.",
+        detail:
+          failedOcrStage?.error_message || ocrWarning || "OCR/extraction warnings were recorded for this document.",
         jobId: failedOcrStage?.job_id ?? null,
         qualityScore: normalizedQualityScore,
         extractionQuality,
         reasons: unique([failedOcrStage?.stage_name, failedOcrStage?.error_message, ocrWarning]),
         metrics,
-        updatedAt: failedOcrStage?.finished_at ?? failedOcrStage?.started_at ?? quality?.updated_at ?? document.updated_at,
+        updatedAt:
+          failedOcrStage?.finished_at ?? failedOcrStage?.started_at ?? quality?.updated_at ?? document.updated_at,
       });
     }
 
@@ -230,7 +229,10 @@ function buildReviewItems(args: {
         jobId: null,
         qualityScore: normalizedQualityScore,
         extractionQuality,
-        reasons: unique(["low page text coverage", ...issues.filter((issue) => includesAny(issue, ["text coverage", "text volume"]))]),
+        reasons: unique([
+          "low page text coverage",
+          ...issues.filter((issue) => includesAny(issue, ["text coverage", "text volume"])),
+        ]),
         metrics,
         updatedAt: quality?.updated_at ?? document.updated_at,
       });
@@ -242,7 +244,9 @@ function buildReviewItems(args: {
         type: "missing_tables",
         severity: "warning",
         title: "Table extraction needs review",
-        detail: tableIssue || `${tablesWithoutRows.length} detected table image${tablesWithoutRows.length === 1 ? "" : "s"} have no structured rows.`,
+        detail:
+          tableIssue ||
+          `${tablesWithoutRows.length} detected table image${tablesWithoutRows.length === 1 ? "" : "s"} have no structured rows.`,
         jobId: null,
         qualityScore: normalizedQualityScore,
         extractionQuality,
@@ -256,12 +260,17 @@ function buildReviewItems(args: {
       extractionQuality === "poor" ||
       extractionQuality === "partial" ||
       (normalizedQualityScore !== null && normalizedQualityScore < 0.72) ||
-      issues.some((issue) => includesAny(issue, ["low structured visual extraction confidence", "low visual unit coverage"]))
+      issues.some((issue) =>
+        includesAny(issue, ["low structured visual extraction confidence", "low visual unit coverage"]),
+      )
     ) {
       pushItem(document, {
         id: `low_extraction_confidence:${document.id}`,
         type: "low_extraction_confidence",
-        severity: extractionQuality === "poor" || (normalizedQualityScore !== null && normalizedQualityScore < 0.52) ? "danger" : "warning",
+        severity:
+          extractionQuality === "poor" || (normalizedQualityScore !== null && normalizedQualityScore < 0.52)
+            ? "danger"
+            : "warning",
         title: "Low extraction confidence",
         detail: `Extraction is ${extractionQuality}; index quality is ${normalizedQualityScore === null ? "unknown" : normalizedQualityScore.toFixed(2)}.`,
         jobId: null,
@@ -290,7 +299,9 @@ function buildReviewItems(args: {
     }
   }
 
-  return items.sort((a, b) => itemPriority(a) - itemPriority(b) || (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+  return items.sort(
+    (a, b) => itemPriority(a) - itemPriority(b) || (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""),
+  );
 }
 
 export async function GET(request: Request) {
@@ -326,7 +337,9 @@ export async function GET(request: Request) {
         .limit(200),
       supabase
         .from("ingestion_job_stages")
-        .select("id,document_id,job_id,stage_name,stage_status,error_message,metadata,artifact_counts,finished_at,started_at")
+        .select(
+          "id,document_id,job_id,stage_name,stage_status,error_message,metadata,artifact_counts,finished_at,started_at",
+        )
         .in("document_id", documentIds)
         .order("started_at", { ascending: false })
         .limit(300),

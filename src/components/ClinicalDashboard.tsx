@@ -204,6 +204,7 @@ import type {
   SearchScopeSummary,
   VisualEvidenceCard,
   ClinicalQueryMode,
+  DocumentOrganizationProfile,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import {
@@ -305,12 +306,7 @@ type AnswerFeedbackType =
   | "numeric_error"
   | "outdated_guidance";
 type IngestionQualityReviewType =
-  | "failed_ocr"
-  | "low_extraction_confidence"
-  | "missing_tables"
-  | "image_only_pages"
-  | "failed_job"
-  | "manual_review";
+  "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
 type IngestionQualityReviewItem = {
   id: string;
   type: IngestionQualityReviewType;
@@ -1260,7 +1256,9 @@ function clinicalNoteDetailFromItem(item: string, title: string) {
 }
 
 function clinicalNoteTitleFromFragment(fragment: string) {
-  const text = compactClinicalNoteText(fragment).replace(/^(and|or)\s+/i, "").replace(/[.;:,]+$/g, "");
+  const text = compactClinicalNoteText(fragment)
+    .replace(/^(and|or)\s+/i, "")
+    .replace(/[.;:,]+$/g, "");
   if (!text) return "Clinical note";
   return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -1310,8 +1308,7 @@ function clinicalNotesRowsForTab(sections: ClinicalDetailSection[], tab: Clinica
     if (!meta.sectionIds.includes(section.id) && !hasMonitoringText) {
       continue;
     }
-    const tone: ClinicalNotesRow["tone"] =
-      section.id === "escalation" || section.id === "cautions" ? "warn" : "safe";
+    const tone: ClinicalNotesRow["tone"] = section.id === "escalation" || section.id === "cautions" ? "warn" : "safe";
 
     for (const item of section.items.slice(0, 4)) {
       if (section.tables?.length && /\b(table|showing domains|table showing)\b/i.test(item)) continue;
@@ -1412,12 +1409,7 @@ function ClinicalNotesChecklistPanel({
 
   if (!tabs.length || rows.length === 0) {
     return (
-      <ClinicalOutputPanel
-        answer={answer}
-        showLead={false}
-        viewMode={viewMode}
-        evidenceMapRows={evidenceMapRows}
-      />
+      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
     );
   }
 
@@ -1496,11 +1488,7 @@ function ClinicalNotesChecklistPanel({
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
           const RowIcon = row.tone === "warn" ? AlertCircle : CheckCircle2;
           return (
-            <article
-              key={row.id}
-              data-testid="clinical-note-row"
-              className={cn("relative py-4", expanded && "pl-4")}
-            >
+            <article key={row.id} data-testid="clinical-note-row" className={cn("relative py-4", expanded && "pl-4")}>
               {expanded ? (
                 <span className="absolute bottom-4 left-0 top-4 w-1 rounded-full bg-[color:var(--primary)]" />
               ) : null}
@@ -4176,6 +4164,12 @@ function DocumentDrawer({
   onTagSearch: (tag: SmartDocumentTag) => void;
 }) {
   const [filter, setFilter] = useState("");
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedSite, setSelectedSite] = useState<string>("all");
+  const [selectedTopic, setSelectedTopic] = useState<string>("all");
+  const [selectedPopulation, setSelectedPopulation] = useState<string>("all");
+  const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState<boolean>(false);
+
   const [collectionDraft, setCollectionDraft] = useState("");
   const [metadataDraft, setMetadataDraft] = useState({
     sourceStatus: "",
@@ -4187,6 +4181,58 @@ function DocumentDrawer({
     sourceType: "",
     category: "",
   });
+
+  const allTypes = useMemo(() => {
+    const types = new Set<string>();
+    for (const doc of documents) {
+      const typeLabel = doc.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
+      if (typeLabel) types.add(typeLabel);
+      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      if (profile?.document_type?.label && profile.document_type.label !== "unknown") {
+        types.add(profile.document_type.label);
+      }
+    }
+    return Array.from(types).sort();
+  }, [documents]);
+
+  const allSites = useMemo(() => {
+    const sites = new Set<string>();
+    for (const doc of documents) {
+      const siteLabels = doc.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
+      for (const l of siteLabels) sites.add(l.label);
+      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      if (profile?.site?.label) sites.add(profile.site.label);
+    }
+    return Array.from(sites).sort();
+  }, [documents]);
+
+  const allTopics = useMemo(() => {
+    const topics = new Set<string>();
+    for (const doc of documents) {
+      const topicLabels =
+        doc.labels?.filter((l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5) ?? [];
+      for (const l of topicLabels) topics.add(l.label);
+      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      if (profile?.secondary_facets?.topic) {
+        for (const t of profile.secondary_facets.topic) topics.add(t);
+      }
+    }
+    return Array.from(topics).sort();
+  }, [documents]);
+
+  const allPopulations = useMemo(() => {
+    const populations = new Set<string>();
+    for (const doc of documents) {
+      const popLabels = doc.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
+      for (const l of popLabels) populations.add(l.label);
+      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      if (profile?.secondary_facets?.population) {
+        for (const p of profile.secondary_facets.population) populations.add(p);
+      }
+    }
+    return Array.from(populations).sort();
+  }, [documents]);
+
   const isAdminMode = mode === "admin" && canManageDocuments;
   const modeLabel =
     mode === "recent"
@@ -4205,6 +4251,7 @@ function DocumentDrawer({
           ? "Document maintenance and indexing tools."
           : "Search and open indexed clinical sources.";
   const filterValue = filter.toLowerCase();
+
   const filtered = documents
     .filter((document) => {
       if (!documentStatusMatchesFilter(document, statusFilter)) return false;
@@ -4212,6 +4259,52 @@ function DocumentDrawer({
         const typeText = `${document.file_type} ${document.file_name}`.toLowerCase();
         if (!typeText.includes("pdf")) return false;
       }
+
+      // Filter by Type
+      if (selectedType !== "all") {
+        const typeLabel = document.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
+        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const hasTypeMatch = typeLabel === selectedType || profile?.document_type?.label === selectedType;
+        if (!hasTypeMatch) return false;
+      }
+
+      // Filter by Site
+      if (selectedSite !== "all") {
+        const siteLabels = document.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
+        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const hasSiteMatch = siteLabels.some((l) => l.label === selectedSite) || profile?.site?.label === selectedSite;
+        if (!hasSiteMatch) return false;
+      }
+
+      // Filter by Topic
+      if (selectedTopic !== "all") {
+        const topicLabels =
+          document.labels?.filter(
+            (l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5,
+          ) ?? [];
+        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const hasTopicMatch =
+          topicLabels.some((l) => l.label === selectedTopic) ||
+          profile?.secondary_facets?.topic?.includes(selectedTopic);
+        if (!hasTopicMatch) return false;
+      }
+
+      // Filter by Population
+      if (selectedPopulation !== "all") {
+        const popLabels = document.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
+        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const hasPopMatch =
+          popLabels.some((l) => l.label === selectedPopulation) ||
+          profile?.secondary_facets?.population?.includes(selectedPopulation);
+        if (!hasPopMatch) return false;
+      }
+
+      // Filter by Needs Review
+      if (showNeedsReviewOnly) {
+        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        if (profile?.review_status !== "needs_review") return false;
+      }
+
       const labelText = tagSearchText(document);
       const summaryText = document.summary?.summary ?? "";
       const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
@@ -4241,6 +4334,95 @@ function DocumentDrawer({
           className={fieldControlWithIcon}
         />
       </label>
+
+      {/* Dynamic Browse Library Filters */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            aria-label="Filter by document type"
+          >
+            <option value="all">All Types</option>
+            {allTypes.map((t) => (
+              <option key={t} value={t}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <select
+            value={selectedSite}
+            onChange={(e) => setSelectedSite(e.target.value)}
+            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            aria-label="Filter by site"
+          >
+            <option value="all">All Sites</option>
+            {allSites.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <select
+            value={selectedTopic}
+            onChange={(e) => setSelectedTopic(e.target.value)}
+            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            aria-label="Filter by topic"
+          >
+            <option value="all">All Topics</option>
+            {allTopics.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+            Population
+          </label>
+          <select
+            value={selectedPopulation}
+            onChange={(e) => setSelectedPopulation(e.target.value)}
+            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            aria-label="Filter by population"
+          >
+            <option value="all">All Populations</option>
+            {allPopulations.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Admin Queue Toggle */}
+      {isAdminMode ? (
+        <div className="flex items-center gap-2 py-1">
+          <input
+            type="checkbox"
+            id="needs-review-filter"
+            checked={showNeedsReviewOnly}
+            onChange={(e) => setShowNeedsReviewOnly(e.target.checked)}
+            className="rounded border-[color:var(--border)] text-[color:var(--primary)] focus:ring-[color:var(--primary)] h-4 w-4"
+          />
+          <label
+            htmlFor="needs-review-filter"
+            className="text-xs font-semibold text-[color:var(--text-soft)] cursor-pointer select-none"
+          >
+            Show &quot;Needs review&quot; queue only
+          </label>
+        </div>
+      ) : null}
       {pagination && pagination.total > documents.length ? (
         <p className={cn("text-xs", textMuted)}>
           Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
@@ -6152,11 +6334,12 @@ function ToolsHub({ query, onClearQuery }: { query: string; onClearQuery: () => 
             );
             const ToolIcon = getToolIcon(tool.icon);
             const isOnline = tool.status === "online" || tool.status === "beta";
-            const statusColorClass = tool.status === "online"
-              ? "bg-emerald-500 shadow-[0_0_8px_#10b981]"
-              : tool.status === "beta"
-              ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]"
-              : "bg-slate-400";
+            const statusColorClass =
+              tool.status === "online"
+                ? "bg-emerald-500 shadow-[0_0_8px_#10b981]"
+                : tool.status === "beta"
+                  ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]"
+                  : "bg-slate-400";
 
             return (
               <article
@@ -6186,7 +6369,9 @@ function ToolsHub({ query, onClearQuery }: { query: string; onClearQuery: () => 
                   </div>
                   <div className="mt-3 flex items-center gap-1.5 rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-medium text-[color:var(--text-muted)] border border-[color:var(--border)] w-fit group-hover:border-[color:var(--primary)]/20 transition-colors">
                     <span className={cn("h-1.5 w-1.5 rounded-full", statusColorClass, isOnline && "animate-pulse")} />
-                    <span className="font-mono text-[10px] text-[color:var(--text-soft)]">{cleanToolHrefLabel(tool.href)}</span>
+                    <span className="font-mono text-[10px] text-[color:var(--text-soft)]">
+                      {cleanToolHrefLabel(tool.href)}
+                    </span>
                   </div>
                 </div>
 
@@ -8061,15 +8246,15 @@ export function ClinicalDashboard({
             ? query.trim()
               ? "Filtered tools"
               : "Browse tools"
-          : activeModeResultKind === "answer"
-            ? answer
-              ? weakEvidence
-                ? "Read synthesis carefully"
-                : "Clinical synthesis"
-              : activeModeSearch.nextStep
-            : documentMatches.length
-              ? "Document results"
-              : activeModeSearch.readyTitle,
+            : activeModeResultKind === "answer"
+              ? answer
+                ? weakEvidence
+                  ? "Read synthesis carefully"
+                  : "Clinical synthesis"
+                : activeModeSearch.nextStep
+              : documentMatches.length
+                ? "Document results"
+                : activeModeSearch.readyTitle,
       icon:
         activeModeResultKind === "favourites"
           ? Heart
@@ -8084,9 +8269,9 @@ export function ClinicalDashboard({
           ? favouriteItems.length + favouriteSets.length
           : activeModeResultKind === "tools"
             ? toolCatalog.length
-          : activeModeResultKind === "documents"
-            ? documentMatches.length
-            : null,
+            : activeModeResultKind === "documents"
+              ? documentMatches.length
+              : null,
       empty: activeModeResultKind === "documents" && documentMatches.length === 0,
     },
     {
@@ -8331,9 +8516,9 @@ export function ClinicalDashboard({
                     ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                     : activeModeResultKind === "tools"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "documents"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                      : activeModeResultKind === "documents"
+                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
               )}
             >
               <h2 data-testid="answer-section-heading" className="sr-only">
@@ -8467,35 +8652,35 @@ export function ClinicalDashboard({
                     open={documentsDrawerOpen}
                     onOpenChange={setDocumentsDrawerOpen}
                   >
-                  {documentsDrawerIsAdmin ? (
-                    <LibraryHealthStrip
+                    {documentsDrawerIsAdmin ? (
+                      <LibraryHealthStrip
+                        documents={documents}
+                        jobs={jobs}
+                        batches={batches}
+                        checks={setupChecks}
+                        loading={dashboardDataLoading}
+                        onSelectTarget={openLibraryHealthTarget}
+                      />
+                    ) : null}
+                    <DocumentDrawer
                       documents={documents}
-                      jobs={jobs}
-                      batches={batches}
-                      checks={setupChecks}
-                      loading={dashboardDataLoading}
-                      onSelectTarget={openLibraryHealthTarget}
+                      pagination={documentsPagination}
+                      loadingMoreDocuments={loadingMoreDocuments}
+                      mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
+                      selectedDocumentIds={selectedDocumentIds}
+                      statusFilter={documentDrawerStatusFilter}
+                      onToggleScope={toggleDocumentScope}
+                      onLoadMoreDocuments={loadMoreDocuments}
+                      onDocumentRenamed={handleDocumentRenamed}
+                      onDocumentDeleted={handleDocumentDeleted}
+                      onBulkReindex={bulkReindexSelected}
+                      onBulkAssignCollection={bulkAssignCollection}
+                      onBulkMetadataUpdate={bulkUpdateMetadata}
+                      bulkActionStatus={bulkActionStatus}
+                      bulkActionBusy={bulkActionBusy}
+                      canManageDocuments={canUsePrivateApis}
+                      onTagSearch={handleTagSearch}
                     />
-                  ) : null}
-                  <DocumentDrawer
-                    documents={documents}
-                    pagination={documentsPagination}
-                    loadingMoreDocuments={loadingMoreDocuments}
-                    mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
-                    selectedDocumentIds={selectedDocumentIds}
-                    statusFilter={documentDrawerStatusFilter}
-                    onToggleScope={toggleDocumentScope}
-                    onLoadMoreDocuments={loadMoreDocuments}
-                    onDocumentRenamed={handleDocumentRenamed}
-                    onDocumentDeleted={handleDocumentDeleted}
-                    onBulkReindex={bulkReindexSelected}
-                    onBulkAssignCollection={bulkAssignCollection}
-                    onBulkMetadataUpdate={bulkUpdateMetadata}
-                    bulkActionStatus={bulkActionStatus}
-                    bulkActionBusy={bulkActionBusy}
-                    canManageDocuments={canUsePrivateApis}
-                    onTagSearch={handleTagSearch}
-                  />
                   </UtilityDrawer>
                 ) : null}
 
@@ -8509,124 +8694,126 @@ export function ClinicalDashboard({
                     open={uploadDrawerOpen}
                     onOpenChange={setUploadDrawerOpen}
                   >
-                  <LibraryHealthStrip
-                    documents={documents}
-                    jobs={jobs}
-                    batches={batches}
-                    checks={setupChecks}
-                    loading={dashboardDataLoading}
-                    onSelectTarget={openLibraryHealthTarget}
-                  />
-                  <div
-                    role="tablist"
-                    aria-label="Upload and indexing sections"
-                    className="grid grid-cols-4 gap-2 lg:hidden"
-                  >
-                    {uploadTabs.map((tab) => {
-                      const active = uploadMobileTab === tab.id;
-                      const Icon = tab.icon;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={active}
-                          aria-controls={tab.panelId}
-                          onClick={() => setUploadMobileTab(tab.id)}
-                          className={cn(
-                            "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
-                            active
-                              ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
-                              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                          )}
-                        >
-                          <span className="flex items-center gap-1.5 text-xs font-bold">
-                            <Icon className="h-3.5 w-3.5" />
-                            {tab.label}
-                          </span>
-                          <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
-                            {tab.summary}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="grid gap-4 lg:grid-cols-2">
+                    <LibraryHealthStrip
+                      documents={documents}
+                      jobs={jobs}
+                      batches={batches}
+                      checks={setupChecks}
+                      loading={dashboardDataLoading}
+                      onSelectTarget={openLibraryHealthTarget}
+                    />
                     <div
-                      id="dashboard-setup-section"
-                      role="tabpanel"
-                      aria-label="Setup"
-                      className={cn(
-                        "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                        uploadMobileTab !== "setup" && "hidden lg:block",
-                      )}
+                      role="tablist"
+                      aria-label="Upload and indexing sections"
+                      className="grid grid-cols-4 gap-2 lg:hidden"
                     >
-                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                        Developer setup status
-                      </p>
-                      <SetupChecklist checks={setupChecks} />
-                      {showAuthPanel && <AuthPanel />}
+                      {uploadTabs.map((tab) => {
+                        const active = uploadMobileTab === tab.id;
+                        const Icon = tab.icon;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            aria-controls={tab.panelId}
+                            onClick={() => setUploadMobileTab(tab.id)}
+                            className={cn(
+                              "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                              active
+                                ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
+                                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                            )}
+                          >
+                            <span className="flex items-center gap-1.5 text-xs font-bold">
+                              <Icon className="h-3.5 w-3.5" />
+                              {tab.label}
+                            </span>
+                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                              {tab.summary}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div
-                      id="dashboard-upload-section"
-                      role="tabpanel"
-                      aria-label="Upload"
-                      className={cn(
-                        "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                        uploadMobileTab !== "upload" && "hidden lg:block",
-                      )}
-                    >
-                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical upload</p>
-                      <UploadPanel
-                        onUploaded={handleUploadQueued}
-                        demoMode={uploadReadOnlyMode}
-                        canUpload={canUsePrivateApis}
-                        authorizationHeader={authorizationHeader}
-                      />
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div
+                        id="dashboard-setup-section"
+                        role="tabpanel"
+                        aria-label="Setup"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                          uploadMobileTab !== "setup" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Developer setup status
+                        </p>
+                        <SetupChecklist checks={setupChecks} />
+                        {showAuthPanel && <AuthPanel />}
+                      </div>
+                      <div
+                        id="dashboard-upload-section"
+                        role="tabpanel"
+                        aria-label="Upload"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                          uploadMobileTab !== "upload" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Clinical upload
+                        </p>
+                        <UploadPanel
+                          onUploaded={handleUploadQueued}
+                          demoMode={uploadReadOnlyMode}
+                          canUpload={canUsePrivateApis}
+                          authorizationHeader={authorizationHeader}
+                        />
+                      </div>
+                      <div
+                        id="dashboard-indexing-section"
+                        role="tabpanel"
+                        aria-label="Jobs"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                          uploadMobileTab !== "jobs" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Indexing progress
+                        </p>
+                        <IndexingMonitor
+                          jobs={jobs}
+                          batches={batches}
+                          filter={indexingMonitorFilter}
+                          actionId={indexingActionId}
+                          onRetry={retryJob}
+                          onReindex={reindexDocument}
+                          onEnrich={enrichDocument}
+                        />
+                      </div>
+                      <div
+                        id="dashboard-quality-section"
+                        role="tabpanel"
+                        aria-label="Quality"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
+                          uploadMobileTab !== "quality" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Ingestion quality console
+                        </p>
+                        <IngestionQualityConsole
+                          items={qualityItems}
+                          actionId={indexingActionId}
+                          onRetry={retryJob}
+                          onReindex={reindexDocument}
+                          onEnrich={enrichDocument}
+                        />
+                      </div>
                     </div>
-                    <div
-                      id="dashboard-indexing-section"
-                      role="tabpanel"
-                      aria-label="Jobs"
-                      className={cn(
-                        "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                        uploadMobileTab !== "jobs" && "hidden lg:block",
-                      )}
-                    >
-                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                        Indexing progress
-                      </p>
-                      <IndexingMonitor
-                        jobs={jobs}
-                        batches={batches}
-                        filter={indexingMonitorFilter}
-                        actionId={indexingActionId}
-                        onRetry={retryJob}
-                        onReindex={reindexDocument}
-                        onEnrich={enrichDocument}
-                      />
-                    </div>
-                    <div
-                      id="dashboard-quality-section"
-                      role="tabpanel"
-                      aria-label="Quality"
-                      className={cn(
-                        "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                        uploadMobileTab !== "quality" && "hidden lg:block",
-                      )}
-                    >
-                      <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                        Ingestion quality console
-                      </p>
-                      <IngestionQualityConsole
-                        items={qualityItems}
-                        actionId={indexingActionId}
-                        onRetry={retryJob}
-                        onReindex={reindexDocument}
-                        onEnrich={enrichDocument}
-                      />
-                    </div>
-                  </div>
                   </UtilityDrawer>
                 ) : null}
               </section>

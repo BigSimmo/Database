@@ -83,7 +83,9 @@ describe("visual intelligence v1", () => {
 
     const selected = selectCaptionCandidateIndexes(ranked, 3, 2);
 
-    const selectedGroups = [...selected].map((index) => ranked.find((candidate) => candidate.originalIndex === index)?.duplicateGroup);
+    const selectedGroups = [...selected].map(
+      (index) => ranked.find((candidate) => candidate.originalIndex === index)?.duplicateGroup,
+    );
     expect(selectedGroups.filter((group) => group === "same-table")).toHaveLength(1);
   });
 

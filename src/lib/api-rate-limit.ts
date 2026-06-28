@@ -33,6 +33,7 @@ type RateLimitRpcRow = {
 type InMemoryRateLimitWindow = {
   windowStartMs: number;
   requestCount: number;
+  resetAtMs: number;
 };
 
 type GlobalWithRateLimitFallback = typeof globalThis & {
@@ -117,12 +118,20 @@ function consumeInMemoryApiRateLimit({
   const now = Date.now();
   const windowMs = windowSeconds * 1000;
   const key = `${ownerId}:${bucket}`;
+
+  // Evict expired entries to prevent memory leak
+  for (const [k, v] of inMemoryApiRateLimits.entries()) {
+    if (now >= v.resetAtMs) {
+      inMemoryApiRateLimits.delete(k);
+    }
+  }
+
   const current = inMemoryApiRateLimits.get(key);
   const windowStartMs = current && now - current.windowStartMs < windowMs ? current.windowStartMs : now;
   const requestCount = (current && current.windowStartMs === windowStartMs ? current.requestCount : 0) + 1;
   const resetAtMs = windowStartMs + windowMs;
 
-  inMemoryApiRateLimits.set(key, { windowStartMs, requestCount });
+  inMemoryApiRateLimits.set(key, { windowStartMs, requestCount, resetAtMs });
 
   return {
     limited: requestCount > limit,

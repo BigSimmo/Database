@@ -3,11 +3,7 @@ import type { ExtractedImage, ImageEvidenceCategory } from "@/lib/types";
 export const clinicalImagePolicyVersion = "clinical-image-use-v1" as const;
 
 export type ClinicalImageUseClass =
-  | "clinical_evidence"
-  | "administrative"
-  | "reference"
-  | "decorative_or_empty"
-  | "ambiguous";
+  "clinical_evidence" | "administrative" | "reference" | "decorative_or_empty" | "ambiguous";
 
 export type CheapImageFilterInput = {
   bytesLength: number;

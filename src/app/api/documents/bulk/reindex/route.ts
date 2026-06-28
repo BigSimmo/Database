@@ -7,6 +7,11 @@ import { jsonError, PublicApiError } from "@/lib/http";
 import { checkIngestionMutationSafety, ingestionMutationSafetyPayload } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
+import {
+  committedIndexGeneration,
+  isAtomicReindexCandidate,
+  isCommittedGenerationMetadata,
+} from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -40,6 +45,16 @@ type ReindexImage = {
   clinical_relevance_score?: number | null;
   metadata?: Record<string, unknown> | null;
 };
+
+function committedReindexRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
+  const committedGeneration = committedIndexGeneration(document.metadata);
+  return rows.filter((row) =>
+    isCommittedGenerationMetadata({
+      rowMetadata: row.metadata,
+      committedGeneration,
+    }),
+  );
+}
 
 async function selectRowsInPages<T>(args: {
   supabase: ReturnType<typeof createAdminClient>;
@@ -86,7 +101,7 @@ export async function POST(request: Request) {
       supabase,
       documentIds: documents.map((document) => document.id),
       action: "Bulk reindex",
-      checkActiveJobs: parsed.data.mode !== "enrichment",
+      checkActiveJobs: true,
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
@@ -121,15 +136,24 @@ export async function POST(request: Request) {
               searchableOnly: true,
             }),
           ]);
-          if (!chunks.length) throw new Error("Document has no indexed chunks to enrich.");
-          chunks.sort((a, b) => Number(a.chunk_index ?? 0) - Number(b.chunk_index ?? 0));
-          images.sort((a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0));
-          const enrichment = await upsertDocumentEnrichment({ supabase, document, chunks, images });
+          const committedChunks = committedReindexRows(document, chunks);
+          const committedImages = committedReindexRows(document, images);
+          if (!committedChunks.length) throw new Error("Document has no indexed chunks to enrich.");
+          committedChunks.sort((a, b) => Number(a.chunk_index ?? 0) - Number(b.chunk_index ?? 0));
+          committedImages.sort(
+            (a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0),
+          );
+          const enrichment = await upsertDocumentEnrichment({
+            supabase,
+            document,
+            chunks: committedChunks,
+            images: committedImages,
+          });
           const memory = await upsertDocumentDeepMemory({
             supabase,
             document,
-            chunks,
-            images,
+            chunks: committedChunks,
+            images: committedImages,
             summary: enrichment.summary.summary,
           });
           results.push({
@@ -141,11 +165,14 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: document.id });
-        if (resetError) throw new Error(resetError.message);
+        const atomicReindex = isAtomicReindexCandidate(document);
         const { error: updateError } = await supabase
           .from("documents")
-          .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
+          .update(
+            atomicReindex
+              ? { error_message: null }
+              : { status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 },
+          )
           .eq("id", document.id)
           .eq("owner_id", user.id);
         if (updateError) throw new Error(updateError.message);

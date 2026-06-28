@@ -85,6 +85,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  is(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
   not(column: string, _operator: string, value: unknown) {
     this.call.filters.push({ column, value });
     return this;
@@ -390,6 +395,22 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(500);
     expect(await payload(response)).toEqual({ error: "Request failed." });
+  });
+
+  it("does not leak demo documents from real-mode listing failures", async () => {
+    const client = createSupabaseMock(() => {
+      throw new Error("Missing server environment variables: SUPABASE_SERVICE_ROLE_KEY. See .env.example.");
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "Request failed." });
+    expect(body.documents).toBeUndefined();
+    expect(body.demoMode).toBeUndefined();
   });
 
   it("allows document signed URLs only for owned documents", async () => {
@@ -861,6 +882,97 @@ describe("private document API access", () => {
     );
   });
 
+  it("filters enrichment-only reindex rows to the committed document generation", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Atomic Protocol",
+      file_name: "atomic.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const committedChunk = {
+      id: "chunk-committed",
+      document_id: documentId,
+      page_number: 1,
+      chunk_index: 0,
+      section_heading: "Committed",
+      content: "Committed generation content.",
+      image_ids: [],
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const uncommittedChunk = {
+      id: "chunk-uncommitted",
+      document_id: documentId,
+      page_number: 1,
+      chunk_index: 1,
+      section_heading: "Uncommitted",
+      content: "Replacement generation content.",
+      image_ids: [],
+      metadata: { index_generation_id: "22222222-2222-4222-8222-222222222222" },
+    };
+    const committedImage = {
+      id: imageId,
+      page_number: 1,
+      caption: "Committed image.",
+      image_type: "clinical_table",
+      labels: [],
+      clinical_relevance_score: 0.8,
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const uncommittedImage = {
+      id: "33333333-3333-4333-8333-333333333333",
+      page_number: 1,
+      caption: "Uncommitted image.",
+      image_type: "clinical_table",
+      labels: [],
+      clinical_relevance_score: 0.9,
+      metadata: { index_generation_id: "22222222-2222-4222-8222-222222222222" },
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "document_chunks") return ok([committedChunk, uncommittedChunk]);
+      if (call.table === "document_images") return ok([uncommittedImage, committedImage]);
+      return ok([]);
+    });
+    const upsertDocumentEnrichment = vi.fn(async () => ({
+      summary: { id: "summary-1", document_id: documentId, summary: "Source-backed summary." },
+      labels: [],
+    }));
+    const upsertDocumentDeepMemory = vi.fn(async () => ({
+      sections: [],
+      memoryCards: [],
+      indexUnits: [],
+    }));
+    mockRuntime(client);
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: [committedChunk],
+        images: [committedImage],
+      }),
+    );
+    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chunks: [committedChunk],
+        images: [committedImage],
+      }),
+    );
+  });
+
   it("paginates enrichment-only reindex chunks and images for deep memory rebuilds", async () => {
     const document = {
       id: documentId,
@@ -1017,6 +1129,62 @@ describe("private document API access", () => {
     });
     expect(client.rpc).not.toHaveBeenCalledWith("reset_document_index", expect.anything());
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+  });
+
+  it("blocks enrichment-only reindex when the selected document already has active indexing work", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Active Protocol",
+      file_name: "active.pdf",
+      source_path: null,
+      import_batch_id: null,
+      metadata: { index_generation_id: "11111111-1111-4111-8111-111111111111" },
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok([
+          {
+            id: "active-job-1",
+            document_id: documentId,
+            status: "pending",
+            stage: "queued",
+            locked_at: null,
+            updated_at: new Date().toISOString(),
+            error_message: null,
+            attempt_count: 0,
+            max_attempts: 3,
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    const upsertDocumentEnrichment = vi.fn();
+    mockRuntime(client);
+    vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "enrichment" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      safety: {
+        safeToRun: false,
+        reason: "active_jobs",
+        activeJobCount: 1,
+      },
+    });
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(client.calls.some((call) => call.table === "document_chunks")).toBe(false);
   });
 
   it("pauses full reindex when Supabase health is unavailable before queue mutation", async () => {

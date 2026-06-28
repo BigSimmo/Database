@@ -16,6 +16,7 @@ import {
 } from "@/lib/model-index-extraction";
 import { assertEmbeddingDim } from "@/lib/embedding-dimensions";
 import { embedTexts } from "@/lib/openai";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { sourceTextForDisplay, sourceTextForModel } from "@/lib/source-text-sanitizer";
 import type {
   ClinicalDocument,
@@ -80,6 +81,13 @@ function metadataRecord(metadata: unknown): Record<string, unknown> {
     : {};
 }
 
+function indexGenerationForChunks(chunks: Array<{ metadata?: Record<string, unknown> | null }>) {
+  const generation = chunks
+    .map((chunk) => metadataRecord(chunk.metadata).index_generation_id)
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  return generation ?? null;
+}
+
 function compactText(value: string | null | undefined, limit = 420) {
   const clean = sourceTextForModel(String(value ?? ""));
   if (!clean) return "";
@@ -129,6 +137,7 @@ function sectionHeadingForChunk(chunk: MemoryChunk) {
 export function buildDocumentSections(args: { document: MemoryDocument; chunks: MemoryChunk[] }): SectionInsertRow[] {
   const sorted = [...args.chunks].sort((a, b) => a.chunk_index - b.chunk_index);
   const groups: MemoryChunk[][] = [];
+  const indexGenerationId = indexGenerationForChunks(args.chunks);
 
   for (const chunk of sorted) {
     const previous = groups.at(-1);
@@ -164,6 +173,7 @@ export function buildDocumentSections(args: { document: MemoryDocument; chunks: 
       extraction_quality: extractionQualityForChunks(group),
       metadata: {
         rag_indexing_version: ragDeepMemoryVersion,
+        index_generation_id: indexGenerationId,
         source_path: args.document.source_path ?? null,
       },
     };
@@ -283,6 +293,7 @@ function titleForCard(type: DocumentMemoryCardType, document: MemoryDocument, co
 function createCard(args: {
   document: MemoryDocument;
   chunk?: MemoryChunk;
+  indexGenerationId?: string | null;
   sectionIndex?: number;
   type: DocumentMemoryCardType;
   content: string;
@@ -306,6 +317,7 @@ function createCard(args: {
     confidence: Math.max(0.35, Math.min(0.99, args.confidence)),
     metadata: {
       rag_indexing_version: ragDeepMemoryVersion,
+      index_generation_id: args.indexGenerationId ?? metadataRecord(args.chunk?.metadata).index_generation_id ?? null,
       generated_by: "local-worker",
       chunk_index: args.chunk?.chunk_index ?? null,
       section_heading: args.chunk?.section_heading ?? null,
@@ -364,6 +376,7 @@ export function buildDocumentMemoryCards(args: {
 }) {
   const cards: BuiltMemoryCard[] = [];
   const sections = args.sections ?? buildDocumentSections({ document: args.document, chunks: args.chunks });
+  const indexGenerationId = indexGenerationForChunks(args.chunks);
   const chunkById = new Map(args.chunks.map((chunk) => [chunk.id, chunk]));
   const imagesByPage = new Map<number | null, MemoryImage[]>();
   for (const image of args.images ?? []) {
@@ -378,6 +391,7 @@ export function buildDocumentMemoryCards(args: {
         type: "section_summary",
         content: `${section.heading}: ${section.summary}`,
         confidence: 0.68,
+        indexGenerationId,
         metadata: { chunk_ids: section.chunk_ids, page_start: section.page_start, page_end: section.page_end },
       }),
     );
@@ -398,6 +412,7 @@ export function buildDocumentMemoryCards(args: {
           type: "table_row",
           content: row,
           confidence: 0.9,
+          indexGenerationId,
           sourceImageIds,
           metadata: { extraction_source: "table_row" },
         }),
@@ -415,6 +430,7 @@ export function buildDocumentMemoryCards(args: {
           type: classification.type,
           content: statement,
           confidence: 0.55 + classification.score * 0.42,
+          indexGenerationId,
           sourceImageIds,
           metadata: { extraction_source: "chunk_statement" },
         }),
@@ -835,7 +851,22 @@ export async function fetchMemoryCardsForQuery(args: {
     const { data, error } = await queryBuilder;
     if (error) return [];
 
-    return ((data ?? []) as DocumentMemoryCard[])
+    const cards = (data ?? []) as DocumentMemoryCard[];
+    const documentIds = Array.from(new Set(cards.map((card) => card.document_id)));
+    const { data: documents } = documentIds.length
+      ? await args.supabase.from("documents").select("id,metadata").in("id", documentIds)
+      : { data: [] };
+    const committedGenerationByDocument = new Map(
+      (documents ?? []).map((document) => [document.id, committedIndexGeneration(document.metadata)] as const),
+    );
+
+    return cards
+      .filter((card) =>
+        isCommittedGenerationMetadata({
+          rowMetadata: card.metadata,
+          committedGeneration: committedGenerationByDocument.get(card.document_id),
+        }),
+      )
       .map((card) => ({ ...card, confidence: Number(card.confidence ?? 0.5) }))
       .sort((a, b) => scoreMemoryCardForQuery(args.query, b) - scoreMemoryCardForQuery(args.query, a))
       .slice(0, args.matchCount ?? 32);

@@ -244,7 +244,7 @@ async function insertDocumentLevelEmbeddingFields(args: {
     .in(
       "field_type",
       inputs.map((input) => input.field_type),
-  );
+    );
   if (existing.error) throw new Error(supabaseErrorMessage(existing.error));
   const existingKeys = new Set((existing.data ?? []).map((row) => `${row.field_type}:${row.content_hash}`));
   const missing = inputs.filter((input) => !existingKeys.has(`${input.field_type}:${hashContent(input.content)}`));
@@ -271,7 +271,10 @@ async function insertDocumentLevelEmbeddingFields(args: {
 }
 
 async function countRows(supabase: SupabaseAdmin, table: string, documentId: string) {
-  const query = supabase.from(table).select("document_id", { count: "exact", head: true }).eq("document_id", documentId);
+  const query = supabase
+    .from(table)
+    .select("document_id", { count: "exact", head: true })
+    .eq("document_id", documentId);
   const result = await query;
   if (result.error) throw new Error(supabaseErrorMessage(result.error));
   return result.count ?? 0;

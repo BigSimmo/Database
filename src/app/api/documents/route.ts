@@ -194,13 +194,6 @@ export async function GET(request: Request) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
-    if (error instanceof Error && error.message.includes("Missing server environment")) {
-      return NextResponse.json({
-        documents: demoDocuments,
-        demoMode: true,
-        error: "Server environment is not configured; demo data is being served.",
-      });
-    }
     return jsonError(error);
   }
 }

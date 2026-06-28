@@ -1,13 +1,5 @@
 export type ClinicalVocabularyType =
-  | "medication"
-  | "lab"
-  | "service"
-  | "form"
-  | "risk"
-  | "workflow"
-  | "document_title"
-  | "clinical_term"
-  | "typo";
+  "medication" | "lab" | "service" | "form" | "risk" | "workflow" | "document_title" | "clinical_term" | "typo";
 
 export type ClinicalVocabularyEntry = {
   canonical: string;

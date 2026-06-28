@@ -191,10 +191,7 @@ export function appModeSearchConfig(modeId: AppModeId) {
   return appModeDefinition(modeId).search;
 }
 
-export function appModeHomeHref(
-  modeId: AppModeId,
-  options: { query?: string; focus?: boolean; run?: boolean } = {},
-) {
+export function appModeHomeHref(modeId: AppModeId, options: { query?: string; focus?: boolean; run?: boolean } = {}) {
   const params = new URLSearchParams({ mode: modeId });
   const query = options.query?.trim();
   if (query) params.set("q", query);

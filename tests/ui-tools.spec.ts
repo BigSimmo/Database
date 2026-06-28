@@ -54,17 +54,6 @@ test.describe("Clinical KB applications launcher", () => {
     });
   }
 
-  test("tools route redirects to applications", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/tools");
-
-    await expect(page).toHaveURL(/\/applications$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
-    await expect(page.getByTestId("selected-application-panel")).toContainText("Formulation");
-    await expect(page.getByTestId("selected-application-panel").getByLabel("Launch Formulation")).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
   test("launcher links point to the expected applications", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);

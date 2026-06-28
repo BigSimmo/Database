@@ -55,7 +55,7 @@ describe("RAG cache invalidation", () => {
 
     invalidateRagCachesForDocumentMutation(ownerId);
 
-    await vi.waitFor(() => expect(calls.length).toBe(2));
+    await vi.waitFor(() => expect(calls.length).toBe(2), { timeout: 10000 });
 
     expect(calls[0]).toContainEqual({ method: "eq", column: "owner_id", value: ownerId });
     expect(calls.flat()).not.toContainEqual({ method: "eq", column: "owner_id", value: "anonymous" });

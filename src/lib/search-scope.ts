@@ -193,7 +193,9 @@ export async function resolveSearchScope(args: {
       documentQuery = documentQuery.or(orParts.join(","));
     }
     if (filters.extractionQualities?.length) {
-      const orParts = filters.extractionQualities.map((q) => `metadata->>extraction_quality.eq.${normalizeFilterText(q)}`);
+      const orParts = filters.extractionQualities.map(
+        (q) => `metadata->>extraction_quality.eq.${normalizeFilterText(q)}`,
+      );
       if (filters.extractionQualities.includes("unknown")) orParts.push("metadata->>extraction_quality.is.null");
       documentQuery = documentQuery.or(orParts.join(","));
     }
@@ -201,8 +203,8 @@ export async function resolveSearchScope(args: {
       documentQuery = documentQuery.in("import_batch_id", filters.importBatchIds);
     }
     if (filters.collections?.length) {
-      const orParts = filters.collections.map((collection) =>
-        `metadata->>collection.ilike.${escapePostgrestValue(normalizeFilterText(collection))}`,
+      const orParts = filters.collections.map(
+        (collection) => `metadata->>collection.ilike.${escapePostgrestValue(normalizeFilterText(collection))}`,
       );
       documentQuery = documentQuery.or(orParts.join(","));
     }

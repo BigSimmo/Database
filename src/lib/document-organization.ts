@@ -36,23 +36,122 @@ type SecondaryFacet = {
 const organizationProfileVersion = "document-organization-v1";
 
 const siteDefinitions: SiteDefinition[] = [
+  // ── Individual hospitals ──────────────────────────────────────────────────
   {
-    canonical: "Fiona Stanley Hospital",
-    rawTags: ["fsh", "fh"],
+    canonical: "Royal Perth Hospital",
+    rawTags: ["rph"],
     kind: "hospital",
-    evidence: [/\bfiona stanley\b/i, /\bfsh\b/i, /\bfremantle hospital\b/i],
+    evidence: [/\broyal perth hospital\b/i, /\brph\b/i],
   },
   {
+    canonical: "Sir Charles Gairdner Hospital",
+    rawTags: ["scgh"],
+    kind: "hospital",
+    evidence: [/\bsir charles gairdner\b/i, /\bscgh\b/i],
+  },
+  {
+    canonical: "Perth Children's Hospital",
+    rawTags: ["pch"],
+    kind: "hospital",
+    evidence: [/\bperth children['']?s hospital\b/i, /\bpch\b/i],
+  },
+  {
+    canonical: "King Edward Memorial Hospital",
+    rawTags: ["kemh"],
+    kind: "hospital",
+    evidence: [/\bking edward memorial\b/i, /\bkemh\b/i],
+  },
+  {
+    canonical: "Fiona Stanley Hospital",
+    rawTags: ["fsh"],
+    kind: "hospital",
+    evidence: [/\bfiona stanley\b/i, /\bfsh\b/i],
+  },
+  {
+    canonical: "Fremantle Hospital",
+    rawTags: ["fh", "freo"],
+    kind: "hospital",
+    evidence: [/\bfremantle hospital\b/i, /\bfremantle health\b/i],
+  },
+  {
+    canonical: "Armadale Kalamunda Group",
+    rawTags: ["akg", "armadale"],
+    kind: "hospital",
+    evidence: [/\barmadale kalamunda\b/i, /\barmadale hospital\b/i, /\bakg\b/i],
+  },
+  {
+    canonical: "Joondalup Health Campus",
+    rawTags: ["jhc", "joondalup"],
+    kind: "hospital",
+    evidence: [/\bjoondalup health campus\b/i, /\bjoondalup hospital\b/i, /\bjhc\b/i],
+  },
+  {
+    canonical: "Osborne Park Hospital",
+    rawTags: ["oph", "osborne park"],
+    kind: "hospital",
+    evidence: [/\bosborne park hospital\b/i, /\boph\b/i],
+  },
+  {
+    canonical: "Swan / Midland Hospitals",
+    rawTags: ["swan", "midland", "smh"],
+    kind: "hospital",
+    evidence: [/\bswan hospital\b/i, /\bmidland hospital\b/i, /\bst john of god midland\b/i],
+  },
+  {
+    canonical: "Bentley Hospital",
+    rawTags: ["bentley"],
+    kind: "hospital",
+    evidence: [/\bbentley hospital\b/i],
+  },
+  {
+    canonical: "Rockingham General Hospital",
+    rawTags: ["rgh", "rockingham"],
+    kind: "hospital",
+    evidence: [/\brockingham general hospital\b/i, /\brgh\b/i],
+  },
+  {
+    canonical: "Peel Health Campus",
+    rawTags: ["phc", "peel"],
+    kind: "hospital",
+    evidence: [/\bpeel health campus\b/i, /\bphc\b/i],
+  },
+  {
+    canonical: "Graylands / Neuropsychiatric",
+    rawTags: ["graylands", "npscu"],
+    kind: "hospital",
+    evidence: [/\bgraylands\b/i, /\bneuropsychiatric\b/i, /\bnpscu\b/i],
+  },
+
+  // ── Health services / networks ────────────────────────────────────────────
+  {
     canonical: "East Metropolitan Health Service",
-    rawTags: ["emhs policy", "emhs"],
+    rawTags: ["emhs", "emhs policy"],
     kind: "health_service",
     evidence: [/\beast metropolitan health service\b/i, /\bemhs\b/i],
   },
   {
     canonical: "South Metropolitan Health Service",
-    rawTags: ["smhs policy", "smhs"],
+    rawTags: ["smhs", "smhs policy"],
     kind: "health_service",
     evidence: [/\bsouth metropolitan health service\b/i, /\bsmhs\b/i],
+  },
+  {
+    canonical: "North Metropolitan Health Service",
+    rawTags: ["nmhs", "nmhs policy"],
+    kind: "health_service",
+    evidence: [/\bnorth metropolitan health service\b/i, /\bnmhs\b/i],
+  },
+  {
+    canonical: "Child and Adolescent Health Service",
+    rawTags: ["cahs"],
+    kind: "health_service",
+    evidence: [/\bchild and adolescent health service\b/i, /\bcahs\b/i],
+  },
+  {
+    canonical: "WA Country Health Service",
+    rawTags: ["wachs"],
+    kind: "health_service",
+    evidence: [/\bwa country health service\b/i, /\bwachs\b/i],
   },
   {
     canonical: "Rockingham Peel Group",
@@ -60,13 +159,28 @@ const siteDefinitions: SiteDefinition[] = [
     kind: "health_service",
     evidence: [/\brockingham peel\b/i, /\brkpg\b/i],
   },
+
+  // ── Specialty programs / services ─────────────────────────────────────────
   {
     canonical: "Child and Adolescent Mental Health Service",
     rawTags: ["camhs"],
     kind: "program",
     evidence: [/\bchild and adolescent mental health\b/i, /\bcamhs\b/i],
   },
+  {
+    canonical: "Mental Health Commission",
+    rawTags: ["mhc"],
+    kind: "program",
+    evidence: [/\bmental health commission\b/i, /\bmhc\b/i],
+  },
+  {
+    canonical: "WA Health",
+    rawTags: ["wah", "wa health", "doh"],
+    kind: "health_service",
+    evidence: [/\bwa health\b/i, /\bdepartment of health\b/i, /\bdoh\b/i],
+  },
 ];
+
 
 const secondaryTagMap = new Map<string, SecondaryFacet>([
   ["adult", { label: "adult", label_type: "population" }],
@@ -87,12 +201,35 @@ const documentTypePatterns: Array<{
   patterns: RegExp[];
 }> = [
   { label: "policy", confidence: 0.9, patterns: [/\bpolicy\b/i] },
-  { label: "procedure", confidence: 0.88, patterns: [/\bprocedure\b/i, /\bprocedural\b/i] },
+  { label: "procedure", confidence: 0.88, patterns: [/\bprocedure\b/i, /\bprocedural\b/i, /\bsop\b/i] },
   { label: "guideline", confidence: 0.84, patterns: [/\bguideline\b/i, /\bguidance\b/i] },
   { label: "protocol", confidence: 0.84, patterns: [/\bprotocol\b/i] },
   { label: "form", confidence: 0.82, patterns: [/\bform\b/i, /\brequest\b/i, /\breferral\b/i] },
   { label: "checklist", confidence: 0.82, patterns: [/\bchecklist\b/i] },
-  { label: "pathway", confidence: 0.82, patterns: [/\bpathway\b/i, /\bflowchart\b/i] },
+  { label: "pathway", confidence: 0.82, patterns: [/\bpathway\b/i] },
+  { label: "algorithm", confidence: 0.84, patterns: [/\balgorithm\b/i, /\bflowchart\b/i, /\bdecision tree\b/i] },
+  {
+    label: "factsheet",
+    confidence: 0.82,
+    patterns: [
+      /\bfactsheet\b/i,
+      /\bfact\s*sheet\b/i,
+      /\bpatient information\b/i,
+      /\bpatient info\b/i,
+      /\bconsumer info\b/i,
+    ],
+  },
+  { label: "manual", confidence: 0.82, patterns: [/\bmanual\b/i, /\bhandbook\b/i, /\borientation\b/i] },
+  {
+    label: "assessment_tool",
+    confidence: 0.82,
+    patterns: [/\btool\b/i, /\bscale\b/i, /\bscore\b/i, /\bassessment\b/i],
+  },
+  {
+    label: "prescribing_aid",
+    confidence: 0.82,
+    patterns: [/\bprescrib\b/i, /\baid\b/i, /\bcalculator\b/i, /\bdosing\b/i, /\bnomogram\b/i],
+  },
   { label: "reference", confidence: 0.72, patterns: [/\breference\b/i, /\binformation sheet\b/i, /\bplacecard\b/i] },
 ];
 
@@ -223,18 +360,43 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
 }
 
 function classifyDocumentType(input: OrganizationDocumentInput): DocumentOrganizationProfile["document_type"] {
-  const text = [
-    input.title,
-    input.file_name,
-    input.source_path ?? "",
-    input.summaryText ?? "",
-    input.contentText ?? "",
-    metadataString(input.metadata, "source_type"),
-    metadataString(input.metadata, "category"),
-  ].join(" ");
-  const matched = documentTypePatterns.find((candidate) => candidate.patterns.some((pattern) => pattern.test(text)));
-  if (!matched) return { label: "unknown", confidence: 0.2, evidence_sources: [] };
-  return { label: matched.label, confidence: matched.confidence, evidence_sources: [`pattern:${matched.label}`] };
+  const titleText = `${input.title} ${input.file_name}`;
+  const matchedTitle = documentTypePatterns.find((candidate) =>
+    candidate.patterns.some((pattern) => pattern.test(titleText)),
+  );
+  if (matchedTitle) {
+    return {
+      label: matchedTitle.label,
+      confidence: matchedTitle.confidence,
+      evidence_sources: [`title_pattern:${matchedTitle.label}`],
+    };
+  }
+
+  const metaText = `${metadataString(input.metadata, "source_type")} ${metadataString(input.metadata, "category")}`;
+  const matchedMeta = documentTypePatterns.find((candidate) =>
+    candidate.patterns.some((pattern) => pattern.test(metaText)),
+  );
+  if (matchedMeta) {
+    return {
+      label: matchedMeta.label,
+      confidence: Math.max(0.5, matchedMeta.confidence - 0.05),
+      evidence_sources: [`metadata_pattern:${matchedMeta.label}`],
+    };
+  }
+
+  const fullText = `${input.source_path ?? ""} ${input.summaryText ?? ""} ${input.contentText ?? ""}`;
+  const matchedContent = documentTypePatterns.find((candidate) =>
+    candidate.patterns.some((pattern) => pattern.test(fullText)),
+  );
+  if (matchedContent) {
+    return {
+      label: matchedContent.label,
+      confidence: Math.max(0.5, matchedContent.confidence - 0.15),
+      evidence_sources: [`content_pattern:${matchedContent.label}`],
+    };
+  }
+
+  return { label: "unknown", confidence: 0.2, evidence_sources: [] };
 }
 
 function emptySecondaryFacets(): DocumentOrganizationProfile["secondary_facets"] {
@@ -306,7 +468,11 @@ export function classifyDocumentOrganization(input: OrganizationDocumentInput) {
   const raw_bracket_tags = extractDocumentBracketTags(input.title, input.file_name, input.source_path);
   const site = classifySite(input, raw_bracket_tags);
   const document_type = classifyDocumentType(input);
-  const review_status = site.label || site.candidates.length === 0 ? "confident" : "needs_review";
+
+  const type_confident = document_type.label !== "unknown" && document_type.confidence >= 0.7;
+  const site_confident = site.label || site.candidates.length === 0;
+  const review_status = type_confident && site_confident ? "confident" : "needs_review";
+
   const profile: DocumentOrganizationProfile = {
     canonical_display_title: canonicalDocumentDisplayTitle(input),
     raw_bracket_tags,

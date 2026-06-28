@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, ChevronDown, type LucideIcon } from "lucide-react";
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import {
@@ -76,6 +76,14 @@ export function UtilityDrawer({
   onOpenChange,
   className,
   mobileInline = false,
+  sheetHeaderLeading,
+  sheetTitleAccessory,
+  sheetDescriptionContent,
+  sheetHeaderActions,
+  sheetContentClassName,
+  sheetContentStyle,
+  sheetBodyClassName,
+  sheetDescription,
 }: {
   id?: string;
   title: string;
@@ -88,10 +96,23 @@ export function UtilityDrawer({
   onOpenChange?: (open: boolean) => void;
   className?: string;
   mobileInline?: boolean;
+  sheetHeaderLeading?: ReactNode;
+  sheetTitleAccessory?: ReactNode;
+  sheetDescriptionContent?: ReactNode;
+  sheetHeaderActions?: ReactNode;
+  sheetContentClassName?: string;
+  sheetContentStyle?: CSSProperties;
+  sheetBodyClassName?: string;
+  sheetDescription?: string | null;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [usesSheet, setUsesSheet] = useState(false);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const open = controlledOpen ?? uncontrolledOpen;
+  const triggerClassName = cn(
+    "flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]",
+    className,
+  );
   const setOpen = useCallback(
     (nextOpen: boolean) => {
       if (controlledOpen === undefined) setUncontrolledOpen(nextOpen);
@@ -111,16 +132,12 @@ export function UtilityDrawer({
   return (
     <>
       <button
+        ref={mobileTriggerRef}
         type="button"
         id={id ? `${id}-mobile-trigger` : undefined}
         onClick={() => setOpen(true)}
         aria-expanded={usesSheet ? open : undefined}
-        className={cn(
-          "group flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)] sm:hidden",
-          panelSubtle,
-          mobileInline && "hidden",
-          className,
-        )}
+        className={cn("group sm:hidden", triggerClassName, mobileInline && "hidden")}
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className={iconTilePremium}>
@@ -144,9 +161,9 @@ export function UtilityDrawer({
           const nextOpen = event.currentTarget.open;
           if (nextOpen !== open) setOpen(nextOpen);
         }}
-        className={cn("group", mobileInline ? "block" : "hidden sm:block", panelSubtle, className)}
+        className={cn("group overflow-hidden", mobileInline ? "block" : "hidden sm:block", panelSubtle)}
       >
-        <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]">
+        <summary className={triggerClassName}>
           <span className="flex min-w-0 items-center gap-3">
             <span className={iconTilePremium}>
               <Icon className="h-4 w-4" />
@@ -180,8 +197,17 @@ export function UtilityDrawer({
         open={usesSheet && open && !mobileInline}
         onClose={() => setOpen(false)}
         title={title}
-        description={mobileSummary ?? summary}
+        description={sheetDescription === undefined ? (mobileSummary ?? summary) : (sheetDescription ?? undefined)}
         closeLabel={`Close ${title}`}
+        headerLeading={sheetHeaderLeading}
+        titleAccessory={sheetTitleAccessory}
+        descriptionContent={sheetDescriptionContent}
+        headerActions={sheetHeaderActions}
+        contentClassName={sheetContentClassName}
+        contentStyle={sheetContentStyle}
+        bodyClassName={sheetBodyClassName}
+        returnFocusRef={mobileTriggerRef}
+        portal
       >
         <div className="space-y-3">{children}</div>
       </Sheet>

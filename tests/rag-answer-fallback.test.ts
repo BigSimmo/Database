@@ -169,11 +169,10 @@ describe("RAG structured-output fallback", () => {
 
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
     expect(answer.routingMode).toBe("extractive");
-    expect(answer.answer.replace(/\*\*/g, "")).toContain("Clozapine Monitoring Form");
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/clozapine Monitoring Form/i);
     expect(answer.answer).not.toContain("- Medication point");
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
-    expect(answer.answerSections?.[0]?.heading).toBe("Direct source-backed answer");
-    expect(answer.answerSections?.[0]?.body).not.toContain("- Medication point");
+    expect(answer.answerSections ?? []).toEqual([]);
   });
 
   it("retries template-like fast answers with the strong model before returning", async () => {
@@ -288,9 +287,12 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingMode).toBe("extractive");
     expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
     expect(answer.openAIRequestIds ?? []).toEqual([]);
-    expect(answer.answer.replace(/\*\*/g, "")).toContain("Clozapine Monitoring Form");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("low");
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.answer).toMatch(/could not find enough clean, directly relevant source text/i);
     expect(answer.answer).not.toMatch(/retrieved source|source-backed|based on the provided excerpts/i);
-    expect(answer.answerSections?.[0]?.body).not.toMatch(/retrieved source|source-backed/i);
+    expect(answer.answerSections ?? []).toEqual([]);
   });
 
   it("retries over-expanded fast answers for simple direct questions", async () => {
@@ -419,7 +421,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
     expect(answer.openAIRequestIds ?? []).toEqual([]);
     expect(answer.answer.replace(/\*\*/g, "")).toContain("Bulimia nervosa is an eating disorder");
-    expect(answer.answerSections?.[0]?.heading).toBe("Direct source-backed answer");
+    expect(answer.answerSections ?? []).toEqual([]);
   });
 
   it("records fast-template and strong-quality retry telemetry", async () => {
@@ -498,8 +500,7 @@ describe("RAG structured-output fallback", () => {
       })
       .mockResolvedValueOnce({
         text: JSON.stringify({
-          answer:
-            "Source-backed summaries mention management steps and review intervals.",
+          answer: "Source-backed summaries mention management steps and review intervals.",
           grounded: true,
           confidence: "high",
           answerSections: [],
@@ -577,10 +578,7 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
     expect(answer.routingMode).toBe("strong");
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
-    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
-      "fast_template_retry_strong",
-      "strong_quality_retry",
-    ]);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
     expect(answer.routingReason).toContain("fast_template_retry_strong");
     expect(answer.routingReason).toContain("strong_quality_retry");
     expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
@@ -588,10 +586,7 @@ describe("RAG structured-output fallback", () => {
     const insertCalls = insert.mock.calls as unknown as Array<[{ metadata?: Record<string, unknown> }]>;
     const loggedMetadata = insertCalls[0]?.[0]?.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
-    expect(loggedMetadata.answer_retry_reasons).toEqual([
-      "fast_template_retry_strong",
-      "strong_quality_retry",
-    ]);
+    expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
   });
 
   it("filters table-caption metadata from extractive answer points", async () => {
@@ -759,10 +754,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.openAIRequestIds).toEqual(["req_truncated", "req_truncated", "req_truncated"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1950 });
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
-    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
-      "fast_unusable_retry_strong",
-      "strong_quality_retry",
-    ]);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual(["fast_unusable_retry_strong", "strong_quality_retry"]);
     expect(answer.citations[0]?.source_metadata?.document_status).toBe("current");
   });
 

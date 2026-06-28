@@ -93,9 +93,8 @@ async function main() {
   console.log("=== Reindex Pipeline ===\n");
 
   // Step 1 – Confirm target project
-  const { checkSupabaseProjectConfig, expectedSupabaseProject, formatSupabaseProjectCheck } = await import(
-    "@/lib/supabase/project"
-  );
+  const { checkSupabaseProjectConfig, expectedSupabaseProject, formatSupabaseProjectCheck } =
+    await import("@/lib/supabase/project");
   const projectCheck = checkSupabaseProjectConfig({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
@@ -129,45 +128,44 @@ async function main() {
       processingDocuments,
       failedDocuments,
       indexedDocuments,
-    ] =
-      await Promise.all([
-        safeCount(
-          "jobs_pending",
-          supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        ),
-        safeCount(
-          "jobs_processing",
-          supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "processing"),
-        ),
-        safeCount(
-          "jobs_failed",
-          supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
-        ),
-        safeCount(
-          "jobs_stale",
-          supabase
-            .from("ingestion_jobs")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "processing")
-            .or(`locked_at.is.null,locked_at.lt.${staleCutoff}`),
-        ),
-        safeCount(
-          "documents_queued",
-          supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued"),
-        ),
-        safeCount(
-          "documents_processing",
-          supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "processing"),
-        ),
-        safeCount(
-          "documents_failed",
-          supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed"),
-        ),
-        safeCount(
-          "documents_indexed",
-          supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "indexed"),
-        ),
-      ]);
+    ] = await Promise.all([
+      safeCount(
+        "jobs_pending",
+        supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      ),
+      safeCount(
+        "jobs_processing",
+        supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "processing"),
+      ),
+      safeCount(
+        "jobs_failed",
+        supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+      ),
+      safeCount(
+        "jobs_stale",
+        supabase
+          .from("ingestion_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "processing")
+          .or(`locked_at.is.null,locked_at.lt.${staleCutoff}`),
+      ),
+      safeCount(
+        "documents_queued",
+        supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "queued"),
+      ),
+      safeCount(
+        "documents_processing",
+        supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "processing"),
+      ),
+      safeCount(
+        "documents_failed",
+        supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "failed"),
+      ),
+      safeCount(
+        "documents_indexed",
+        supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "indexed"),
+      ),
+    ]);
 
     const countItems = [
       pendingJobs,
@@ -376,9 +374,7 @@ async function main() {
     }
 
     if (hasActiveProcessingJobs) {
-      console.log(
-        "\n  Active processing jobs detected; skipping worker run to avoid concurrency spikes.",
-      );
+      console.log("\n  Active processing jobs detected; skipping worker run to avoid concurrency spikes.");
       continue;
     }
 
@@ -393,7 +389,9 @@ async function main() {
     }
   }
 
-  console.log(`\nReached maximum rounds (${args.maxRounds}). Queue did not clear; re-run with a higher --max-rounds or inspect stale jobs first.`);
+  console.log(
+    `\nReached maximum rounds (${args.maxRounds}). Queue did not clear; re-run with a higher --max-rounds or inspect stale jobs first.`,
+  );
   process.exitCode = 1;
 }
 

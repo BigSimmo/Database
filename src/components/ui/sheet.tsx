@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn, toolbarButton } from "@/components/ui-primitives";
 
@@ -22,8 +23,15 @@ export function Sheet({
   labelledBy,
   initialFocusRef,
   returnFocusRef,
+  headerLeading,
+  titleAccessory,
+  descriptionContent,
+  headerActions,
   contentClassName,
+  contentStyle,
+  bodyClassName,
   placement = "default",
+  portal = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -35,8 +43,15 @@ export function Sheet({
   labelledBy?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  headerLeading?: ReactNode;
+  titleAccessory?: ReactNode;
+  descriptionContent?: ReactNode;
+  headerActions?: ReactNode;
   contentClassName?: string;
+  contentStyle?: CSSProperties;
+  bodyClassName?: string;
   placement?: "default" | "left";
+  portal?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -97,14 +112,14 @@ export function Sheet({
 
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
 
-  return (
+  const sheet = (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex bg-[color:var(--surface-glass)] backdrop-blur-sm motion-reduce:animate-none motion-reduce:transition-none",
+        "fixed inset-0 z-[100] flex bg-black/45 backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         placement !== "left" && "motion-safe:animate-overlay-in",
         placement === "left" ? "items-stretch justify-start" : "items-end justify-center sm:items-center sm:p-6",
       )}
-      onMouseDown={(event) => {
+      onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
@@ -113,8 +128,9 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
-        aria-describedby={description ? descId : undefined}
-        onMouseDown={(event) => event.stopPropagation()}
+        aria-describedby={description || descriptionContent ? descId : undefined}
+        onPointerDown={(event) => event.stopPropagation()}
+        style={contentStyle}
         className={cn(
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
           "transition duration-200 motion-reduce:transition-none sm:duration-150",
@@ -133,25 +149,47 @@ export function Sheet({
           aria-hidden
         />
         {title ? (
-          <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5">
-            <div className="min-w-0">
-              <h2 id={titleId} className="text-base font-semibold text-[color:var(--text-heading)]">
-                {title}
-              </h2>
-              {description ? (
-                <p id={descId} className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-                  {description}
-                </p>
-              ) : null}
+          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {headerLeading ? <div className="shrink-0">{headerLeading}</div> : null}
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 id={titleId} className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
+                    {title}
+                  </h2>
+                  {titleAccessory}
+                </div>
+                {descriptionContent ? (
+                  <div id={descId} className="mt-1">
+                    {descriptionContent}
+                  </div>
+                ) : description ? (
+                  <p id={descId} className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                    {description}
+                  </p>
+                ) : null}
+              </div>
             </div>
-            <button ref={closeRef} type="button" onClick={onClose} aria-label={closeLabel} className={toolbarButton}>
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {headerActions}
+              <button ref={closeRef} type="button" onClick={onClose} aria-label={closeLabel} className={toolbarButton}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         ) : null}
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5">{children}</div>
+        <div className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}>
+          {children}
+        </div>
         {footer ? <div className="shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4">{footer}</div> : null}
       </div>
     </div>
   );
+
+  if (portal) {
+    if (typeof document === "undefined") return null;
+    return createPortal(sheet, document.body);
+  }
+
+  return sheet;
 }

@@ -125,17 +125,17 @@ Use one calm humanist sans direction throughout, aligned with the current app fo
 
 Recommended scale:
 
-| Use | Size | Weight | Line height | Notes |
-| --- | --- | --- | --- | --- |
-| Page/app title | 18-20px | 600 | 1.25 | Desktop sidebar/header only |
-| Section heading | 15-17px | 600 | 1.35 | Keep compact |
-| Answer paragraph | 15-16px | 450-500 | 1.55-1.7 | Primary reading surface |
-| Bullets | 14-15px | 450-550 | 1.55-1.65 | No bullet icons |
-| Sidebar labels | 13px | 500-600 | 1.3 | Icons secondary |
-| Metadata/chips | 12-13px | 500-600 | 1.25 | Avoid tiny unreadable text |
-| Table header | 12-13px | 600 | 1.25 | Blue-grey header |
-| Table cells | 12-13px | 450-500 | 1.35 | Accessible expanded view required |
-| Mobile composer | 15-16px | 400-500 | 1.3 | Prevent mobile zoom |
+| Use              | Size    | Weight  | Line height | Notes                             |
+| ---------------- | ------- | ------- | ----------- | --------------------------------- |
+| Page/app title   | 18-20px | 600     | 1.25        | Desktop sidebar/header only       |
+| Section heading  | 15-17px | 600     | 1.35        | Keep compact                      |
+| Answer paragraph | 15-16px | 450-500 | 1.55-1.7    | Primary reading surface           |
+| Bullets          | 14-15px | 450-550 | 1.55-1.65   | No bullet icons                   |
+| Sidebar labels   | 13px    | 500-600 | 1.3         | Icons secondary                   |
+| Metadata/chips   | 12-13px | 500-600 | 1.25        | Avoid tiny unreadable text        |
+| Table header     | 12-13px | 600     | 1.25        | Blue-grey header                  |
+| Table cells      | 12-13px | 450-500 | 1.35        | Accessible expanded view required |
+| Mobile composer  | 15-16px | 400-500 | 1.3         | Prevent mobile zoom               |
 
 Reading constraints:
 
@@ -147,16 +147,16 @@ Reading constraints:
 
 Target tokens:
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Deep teal | `#006C67` | active tab, send, source capsule text/border |
-| Pale teal | `#E7F4F2` | active tab/source capsule background |
-| Clinical sand | `#F7F1E6` | Clinical notes row only |
-| Document blue-grey | `#EEF3F6` | Documents mode/search surfaces |
-| Table blue-grey | `#F4F7F8` | Table header |
-| Amber dot | `#C88719` | older/review-due source dot only |
-| Ready green dot | `#1A8F5A` | profile/current/high-confidence dot only |
-| Ink navy | existing app ink token or `#13232B` | primary text |
+| Token              | Value                               | Use                                          |
+| ------------------ | ----------------------------------- | -------------------------------------------- |
+| Deep teal          | `#006C67`                           | active tab, send, source capsule text/border |
+| Pale teal          | `#E7F4F2`                           | active tab/source capsule background         |
+| Clinical sand      | `#F7F1E6`                           | Clinical notes row only                      |
+| Document blue-grey | `#EEF3F6`                           | Documents mode/search surfaces               |
+| Table blue-grey    | `#F4F7F8`                           | Table header                                 |
+| Amber dot          | `#C88719`                           | older/review-due source dot only             |
+| Ready green dot    | `#1A8F5A`                           | profile/current/high-confidence dot only     |
+| Ink navy           | existing app ink token or `#13232B` | primary text                                 |
 
 Rules:
 
@@ -189,21 +189,21 @@ Do not put icons beside every bullet or source metadata item.
 
 Mapping:
 
-| Feature | Icon |
-| --- | --- |
-| New chat | plus in rounded square |
-| Search library | magnifying glass |
-| Scope | filter/funnel or globe-filter |
-| Evidence | stacked layers |
-| Clinical notes | clipboard/check |
-| Documents | file text |
-| Images | image |
-| Tables | grid/table |
-| PDFs | file badge |
+| Feature        | Icon                              |
+| -------------- | --------------------------------- |
+| New chat       | plus in rounded square            |
+| Search library | magnifying glass                  |
+| Scope          | filter/funnel or globe-filter     |
+| Evidence       | stacked layers                    |
+| Clinical notes | clipboard/check                   |
+| Documents      | file text                         |
+| Images         | image                             |
+| Tables         | grid/table                        |
+| PDFs           | file badge                        |
 | Clinical tools | toolkit or stethoscope, sparingly |
-| Guide | question circle |
-| Settings | gear |
-| Profile | initials only |
+| Guide          | question circle                   |
+| Settings       | gear                              |
+| Profile        | initials only                     |
 
 Status:
 
@@ -225,17 +225,17 @@ Likely primary files:
 
 Mapping:
 
-| Current area | Final design role |
-| --- | --- |
-| MasterSearchHeader | simplified top bar, Answer/Documents, scope, composer |
-| ClinicalDashboard | app shell, sidebar, answer/evidence/document layout |
-| UtilityDrawer | standard collapsed row / desktop accordion / mobile sheet |
-| AnswerEmptyState | quiet starter state |
-| VisualEvidenceStrip | evidence drawer Images/Tables sections |
-| QuoteCards | evidence drawer Quotes section |
-| SourceList | evidence drawer Sources section |
-| DocumentSearchResultsPanel | Documents mode result cards |
-| AccessibleTable | compact inline table and accessible expanded table |
+| Current area               | Final design role                                         |
+| -------------------------- | --------------------------------------------------------- |
+| MasterSearchHeader         | simplified top bar, Answer/Documents, scope, composer     |
+| ClinicalDashboard          | app shell, sidebar, answer/evidence/document layout       |
+| UtilityDrawer              | standard collapsed row / desktop accordion / mobile sheet |
+| AnswerEmptyState           | quiet starter state                                       |
+| VisualEvidenceStrip        | evidence drawer Images/Tables sections                    |
+| QuoteCards                 | evidence drawer Quotes section                            |
+| SourceList                 | evidence drawer Sources section                           |
+| DocumentSearchResultsPanel | Documents mode result cards                               |
+| AccessibleTable            | compact inline table and accessible expanded table        |
 
 ## Final default UI states
 
