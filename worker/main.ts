@@ -1546,6 +1546,10 @@ async function processJob(job: JobRow) {
       index_quality_issues: initialQuality.issues,
       index_quality_metrics: initialQuality.metrics,
       optional_index_write_issues: optionalIndexWriteIssues,
+      indexing_v3_agent_status: "pending",
+      indexing_v3_agent_last_error: coreAgentMessage,
+      indexing_v3_agent_repair_reason: "core_index_committed",
+      indexing_v3_agent_updated_at: indexedAt,
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
       ...metrics,
     };
