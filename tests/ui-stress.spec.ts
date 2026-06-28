@@ -186,6 +186,7 @@ async function mockStressData(page: Page) {
             detail: "Mocked Supabase project ready.",
           },
           { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Mocked schema ready." },
+          { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Mocked search ready." },
           { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Mocked key ready." },
           { id: "worker", label: "npm run worker running", status: "ready", detail: "Mocked worker ready." },
         ],
@@ -238,8 +239,13 @@ test.describe("Clinical KB long-content stress coverage", () => {
       const uploadSurface =
         viewport.name === "mobile"
           ? page.getByRole("dialog", { name: "Upload and indexing" })
-          : page.locator("#sources");
-      await expect(uploadSurface.getByText("24 indexed").first()).toBeVisible();
+          : page.locator("#dashboard-upload-drawer");
+      await expect(dailyActions).toBeHidden();
+      await expect(uploadSurface).toBeVisible();
+      await expect(uploadSurface.getByRole("button", { name: "Show indexed document files" })).toContainText(
+        "24 indexed",
+        { timeout: 20_000 },
+      );
       const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
       if (await closeUploadSheet.isVisible().catch(() => false)) {
         await closeUploadSheet.click();
