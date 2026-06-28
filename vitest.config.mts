@@ -1,4 +1,4 @@
-export default {
+const config = {
   test: {
     testTimeout: 15000,
     coverage: {
@@ -17,3 +17,5 @@ export default {
     },
   },
 };
+
+export default config;

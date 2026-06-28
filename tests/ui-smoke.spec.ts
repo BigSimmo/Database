@@ -91,6 +91,28 @@ const readySetupChecks = [
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
 ];
 
+async function mockLocalProjectIdentity(page: Page) {
+  await page.route(/\/api\/local-project-id$/, async (route) => {
+    await route.fulfill({
+      json: {
+        appName: "Clinical KB",
+        projectId: "test-project",
+        identityPath: "/api/local-project-id",
+        localServer: {
+          currentUrl: "http://localhost:4298",
+          currentPort: 4298,
+          projectPortStart: 4298,
+          projectPortEnd: 53210,
+          safeLocalOrigin: true,
+          requestOrigin: null,
+          requestReferer: null,
+          unsafeLocalCaller: null,
+        },
+      },
+    });
+  });
+}
+
 async function mockPrivateUnauthenticatedApi(page: Page) {
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
@@ -133,6 +155,7 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 }
 
 async function mockDemoApi(page: Page) {
+  await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
       json: { demoMode: true, checks: readySetupChecks },
@@ -596,14 +619,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const dailyActionsTrigger = page.getByRole("button", { name: "Open daily actions" });
     const dailyActionsMenu = page.getByTestId("daily-actions-menu");
 
-    await dailyActionsTrigger.click();
-    await expect(dailyActionsMenu).toBeVisible();
+    // First open — use robust retry helper to handle async state update timing.
+    await openDailyActions(page);
     await visibleQuestionInput(page).click();
     await expect(dailyActionsMenu).toHaveCount(0);
     await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
 
-    await dailyActionsTrigger.click();
-    await expect(dailyActionsMenu).toBeVisible();
+    // Second open — verify closing via scope trigger.
+    await openDailyActions(page);
     await scopeTrigger(page).click();
 
     await expect(dailyActionsMenu).toHaveCount(0);
