@@ -64,7 +64,11 @@ import {
   useSyncExternalStore,
 } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
-import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import {
+  DocumentOrganizationBadges,
+  documentDisplayTitle,
+  documentOrganizationProfile,
+} from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
@@ -204,7 +208,6 @@ import type {
   SearchScopeSummary,
   VisualEvidenceCard,
   ClinicalQueryMode,
-  DocumentOrganizationProfile,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import {
@@ -4187,7 +4190,7 @@ function DocumentDrawer({
     for (const doc of documents) {
       const typeLabel = doc.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
       if (typeLabel) types.add(typeLabel);
-      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      const profile = documentOrganizationProfile(doc);
       if (profile?.document_type?.label && profile.document_type.label !== "unknown") {
         types.add(profile.document_type.label);
       }
@@ -4200,7 +4203,7 @@ function DocumentDrawer({
     for (const doc of documents) {
       const siteLabels = doc.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
       for (const l of siteLabels) sites.add(l.label);
-      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      const profile = documentOrganizationProfile(doc);
       if (profile?.site?.label) sites.add(profile.site.label);
     }
     return Array.from(sites).sort();
@@ -4212,7 +4215,7 @@ function DocumentDrawer({
       const topicLabels =
         doc.labels?.filter((l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5) ?? [];
       for (const l of topicLabels) topics.add(l.label);
-      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      const profile = documentOrganizationProfile(doc);
       if (profile?.secondary_facets?.topic) {
         for (const t of profile.secondary_facets.topic) topics.add(t);
       }
@@ -4225,7 +4228,7 @@ function DocumentDrawer({
     for (const doc of documents) {
       const popLabels = doc.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
       for (const l of popLabels) populations.add(l.label);
-      const profile = (doc.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+      const profile = documentOrganizationProfile(doc);
       if (profile?.secondary_facets?.population) {
         for (const p of profile.secondary_facets.population) populations.add(p);
       }
@@ -4263,7 +4266,7 @@ function DocumentDrawer({
       // Filter by Type
       if (selectedType !== "all") {
         const typeLabel = document.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
-        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const profile = documentOrganizationProfile(document);
         const hasTypeMatch = typeLabel === selectedType || profile?.document_type?.label === selectedType;
         if (!hasTypeMatch) return false;
       }
@@ -4271,7 +4274,7 @@ function DocumentDrawer({
       // Filter by Site
       if (selectedSite !== "all") {
         const siteLabels = document.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
-        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const profile = documentOrganizationProfile(document);
         const hasSiteMatch = siteLabels.some((l) => l.label === selectedSite) || profile?.site?.label === selectedSite;
         if (!hasSiteMatch) return false;
       }
@@ -4282,7 +4285,7 @@ function DocumentDrawer({
           document.labels?.filter(
             (l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5,
           ) ?? [];
-        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const profile = documentOrganizationProfile(document);
         const hasTopicMatch =
           topicLabels.some((l) => l.label === selectedTopic) ||
           profile?.secondary_facets?.topic?.includes(selectedTopic);
@@ -4292,7 +4295,7 @@ function DocumentDrawer({
       // Filter by Population
       if (selectedPopulation !== "all") {
         const popLabels = document.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
-        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const profile = documentOrganizationProfile(document);
         const hasPopMatch =
           popLabels.some((l) => l.label === selectedPopulation) ||
           profile?.secondary_facets?.population?.includes(selectedPopulation);
@@ -4301,7 +4304,7 @@ function DocumentDrawer({
 
       // Filter by Needs Review
       if (showNeedsReviewOnly) {
-        const profile = (document.metadata as { organization_profile?: DocumentOrganizationProfile })?.organization_profile;
+        const profile = documentOrganizationProfile(document);
         if (profile?.review_status !== "needs_review") return false;
       }
 
