@@ -8,10 +8,7 @@ import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/docum
 import { ragDeepMemoryVersion, upsertDocumentDeepMemory } from "../src/lib/deep-memory";
 import { extractDocument } from "../src/lib/extractors/document";
 import { assertEmbeddingDim } from "../src/lib/embedding-dimensions";
-import {
-  buildVisualDocumentIndexUnitInputs,
-  embeddingTextForDocumentIndexUnit,
-} from "../src/lib/document-index-units";
+import { buildVisualDocumentIndexUnitInputs, embeddingTextForDocumentIndexUnit } from "../src/lib/document-index-units";
 import {
   deterministicStructuredVisualProfile,
   normalizeStructuredVisualProfile,
@@ -37,6 +34,7 @@ import {
 import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
+import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
@@ -54,6 +52,7 @@ type JobDocument = {
   content_hash?: string | null;
   source_path?: string | null;
   import_batch_id?: string | null;
+  status?: string | null;
   metadata: Record<string, unknown> | null;
 };
 
@@ -240,7 +239,7 @@ async function completeStrictEnrichmentJob(job: JobRow) {
 async function failOrRetryJob(args: {
   job: JobRow;
   retry: boolean;
-  documentStatus: "queued" | "failed";
+  documentStatus: "queued" | "failed" | "indexed";
   stage: string;
   errorMessage: string;
   nextRunAt?: string;
@@ -373,20 +372,70 @@ async function resetDocumentIndex(documentId: string) {
   if (error) throw supabaseStageError("reset_document_index", error);
 }
 
-async function insertPages(documentId: string, extracted: ExtractedDocument) {
-  const pages = extracted.pages.map((page) => ({
+async function commitDocumentIndexGeneration(args: {
+  documentId: string;
+  indexGenerationId: string;
+  pageCount: number;
+  chunkCount: number;
+  imageCount: number;
+  metadata: Record<string, unknown>;
+  pages: ReturnType<typeof buildDocumentPageRows>;
+  quality: ReturnType<typeof buildIndexQualityPayload>;
+}) {
+  const { error } = await supabase.rpc("commit_document_index_generation", {
+    p_document_id: args.documentId,
+    p_index_generation_id: args.indexGenerationId,
+    p_status: "indexed",
+    p_page_count: args.pageCount,
+    p_chunk_count: args.chunkCount,
+    p_image_count: args.imageCount,
+    p_metadata: sanitizeJsonbRecord(args.metadata),
+    p_pages: args.pages.map((page) => ({
+      page_number: page.page_number,
+      text: page.text,
+      ocr_used: page.ocr_used,
+      metadata: sanitizeJsonbRecord(page.metadata),
+    })),
+    p_quality: sanitizeJsonbRecord(args.quality),
+  });
+  if (!error) return;
+  if (!isMissingSchemaError(error)) throw supabaseStageError("commit_document_index_generation", error);
+
+  await updateDocument(args.documentId, {
+    status: "indexed",
+    page_count: args.pageCount,
+    chunk_count: args.chunkCount,
+    image_count: args.imageCount,
+    error_message: null,
+    metadata: sanitizeJsonbRecord(args.metadata),
+  });
+  await insertPageRows(args.pages);
+  await upsertIndexQuality(args.quality);
+}
+
+function buildDocumentPageRows(documentId: string, extracted: ExtractedDocument) {
+  return extracted.pages.map((page) => ({
     document_id: documentId,
     page_number: page.pageNumber,
     text: cleanString(page.text),
     ocr_used: Boolean(page.ocrUsed),
     metadata: {},
   }));
+}
 
+async function insertPageRows(pages: ReturnType<typeof buildDocumentPageRows>) {
   if (pages.length === 0) return;
   const { error } = await supabase.from("document_pages").upsert(pages, {
     onConflict: "document_id,page_number",
   });
   if (error) throw supabaseStageError("upsert document_pages", error);
+}
+
+async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {
+  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality), {
+    onConflict: "document_id",
+  });
+  if (error) throw supabaseStageError("upsert document_index_quality", error);
 }
 
 function hashBytes(bytes: Buffer) {
@@ -662,7 +711,12 @@ async function setCachedImageClassification(args: {
   }
 }
 
-async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument, pagesByNumber: Map<number, string>) {
+async function uploadAndCaptionImages(
+  job: JobRow,
+  extracted: ExtractedDocument,
+  pagesByNumber: Map<number, string>,
+  indexGenerationId: string,
+) {
   const insertedImages: Array<{
     id: string;
     caption: string;
@@ -720,17 +774,27 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
     env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE,
   );
 
+  // Keep selection, de-dupe, and budget checks sequential so the chosen images
+  // are deterministic; only the expensive cache/model calls run concurrently.
+  type CaptionTask = {
+    candidate: (typeof scoredCandidates)[number];
+    index: number;
+    image: ExtractedDocument["images"][number];
+    preparedImage: (typeof preparedImages)[number];
+    perceptualHash: string;
+    imageHash: string;
+    nearbyText: string | undefined;
+    tableMetadata: ReturnType<typeof imageTableMetadata>;
+    contextHash: string;
+    presetClassification: ImageClassification | null;
+  };
+
+  const captionTasks: CaptionTask[] = [];
   for (const candidate of scoredCandidates) {
     const index = candidate.originalIndex;
     const image = extracted.images[index];
-    await updateJobProgress(job.id, {
-      stage: `captioning image ${index + 1}/${extracted.images.length}`,
-      progress: Math.min(70, 35 + Math.round((index / Math.max(extracted.images.length, 1)) * 25)),
-    });
-
     const preparedImage = preparedImages[index];
     const imageHash = preparedImage.imageHash;
-    const perceptualHash = preparedImage.perceptualHash;
     const skipReason = cheapImageSkipReason({
       bytesLength: preparedImage.bytesLength,
       imageHash,
@@ -761,41 +825,77 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
       noteSkippedImage(skipReasons, lowSignalSkipReason);
       continue;
     }
-    let classification: ImageClassification | null =
+    const presetClassification: ImageClassification | null =
       image.sourceKind === "table_crop"
         ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
         : null;
-    let classificationCacheHit = false;
-    const usesModelCaptionBudget = !classification;
-    if (usesModelCaptionBudget && !selectedCaptionCandidateIndexes.has(index)) {
+    if (!presetClassification && !selectedCaptionCandidateIndexes.has(index)) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, "visual intelligence candidate below caption budget");
       continue;
     }
-    if (!classification) {
-      classification = await getCachedImageClassification(job.documents.owner_id, imageHash, contextHash);
-      classificationCacheHit = Boolean(classification);
-    }
-    if (!classification) {
-      classification = await classifyAndCaptionImageFromBase64({
-        base64: preparedImage.bytes.toString("base64"),
-        mimeType: image.mimeType,
-        nearbyText,
-        sourceKind: image.sourceKind ?? null,
-        candidateType: tableMetadata.candidateType,
-        tableLabel: tableMetadata.tableLabel,
-        tableTitle: tableMetadata.tableTitle,
-        tableRole: tableMetadata.tableRole,
-        tableText: tableMetadata.tableText,
-      });
-      await setCachedImageClassification({
-        ownerId: job.documents.owner_id,
-        imageHash,
-        contextHash,
-        mimeType: image.mimeType,
-        classification,
-      });
-    }
+    captionTasks.push({
+      candidate,
+      index,
+      image,
+      preparedImage,
+      perceptualHash: preparedImage.perceptualHash,
+      imageHash,
+      nearbyText,
+      tableMetadata,
+      contextHash,
+      presetClassification,
+    });
+  }
+
+  const captionConcurrency = 4;
+  const resolvedTasks: Array<{ task: CaptionTask; classification: ImageClassification; classificationCacheHit: boolean }> =
+    [];
+  for (let start = 0; start < captionTasks.length; start += captionConcurrency) {
+    const batch = captionTasks.slice(start, start + captionConcurrency);
+    await updateJobProgress(job.id, {
+      stage: `captioning images ${start + 1}-${start + batch.length}/${captionTasks.length}`,
+      progress: Math.min(70, 35 + Math.round(((start + batch.length) / Math.max(captionTasks.length, 1)) * 25)),
+    });
+    const batchResults = await Promise.all(
+      batch.map(async (task) => {
+        let classification: ImageClassification | null = task.presetClassification;
+        let classificationCacheHit = false;
+        if (!classification) {
+          classification = await getCachedImageClassification(job.documents.owner_id, task.imageHash, task.contextHash);
+          classificationCacheHit = Boolean(classification);
+        }
+        if (!classification) {
+          classification = await classifyAndCaptionImageFromBase64({
+            base64: task.preparedImage.bytes.toString("base64"),
+            mimeType: task.image.mimeType,
+            nearbyText: task.nearbyText,
+            sourceKind: task.image.sourceKind ?? null,
+            candidateType: task.tableMetadata.candidateType,
+            tableLabel: task.tableMetadata.tableLabel,
+            tableTitle: task.tableMetadata.tableTitle,
+            tableRole: task.tableMetadata.tableRole,
+            tableText: task.tableMetadata.tableText,
+          });
+          await setCachedImageClassification({
+            ownerId: job.documents.owner_id,
+            imageHash: task.imageHash,
+            contextHash: task.contextHash,
+            mimeType: task.image.mimeType,
+            classification,
+          });
+        }
+        return { task, classification, classificationCacheHit };
+      }),
+    );
+    resolvedTasks.push(...batchResults);
+  }
+
+  for (const resolved of resolvedTasks) {
+    const { task, classificationCacheHit } = resolved;
+    const { candidate, index, image, preparedImage, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } =
+      task;
+    let classification = resolved.classification;
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
       searchable: classification.searchable,
@@ -888,6 +988,7 @@ async function uploadAndCaptionImages(job: JobRow, extracted: ExtractedDocument,
         metadata: sanitizeJsonbRecord({
           ...(image.metadata ?? {}),
           extractor: "local-worker",
+          index_generation_id: indexGenerationId,
           image_hash: imageHash,
           perceptual_hash: perceptualHash,
           classification_cache_hit: classificationCacheHit,
@@ -1091,6 +1192,7 @@ async function insertDocumentLevelEmbeddingFields(args: {
     embedding: assertEmbeddingDim(embeddings[index], `document_embedding_fields.${field.field_type}`),
     metadata: {
       source: "document_level",
+      index_generation_id: args.chunkRows[0]?.index_generation_id ?? null,
     },
   }));
   const { error } = await supabase.from("document_embedding_fields").insert(rows);
@@ -1100,9 +1202,9 @@ async function insertDocumentLevelEmbeddingFields(args: {
 
 async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
   const pagesByNumber = new Map(extracted.pages.map((page) => [page.pageNumber, page.text] as const));
-  const imageResult = await uploadAndCaptionImages(job, extracted, pagesByNumber);
-  const { insertedImages } = imageResult;
   const indexGenerationId = randomUUID();
+  const imageResult = await uploadAndCaptionImages(job, extracted, pagesByNumber, indexGenerationId);
+  const { insertedImages } = imageResult;
   const optionalIndexWriteIssues: OptionalIndexWriteIssue[] = [];
 
   await updateJob(job.id, { stage: "chunking", progress: 72 });
@@ -1170,7 +1272,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           content: cleanString(field.content),
           content_hash: hashEmbeddingFieldContent(cleanString(field.content)),
           embedding: assertEmbeddingDim(fieldEmbeddings[index], `document_embedding_fields.section_context.${index}`),
-          metadata: sanitizeJsonbRecord(field.metadata),
+          metadata: sanitizeJsonbRecord({ ...field.metadata, index_generation_id: indexGenerationId }),
         }));
         for (let start = 0; start < fieldRows.length; start += 50) {
           const batch = fieldRows.slice(start, start + 50);
@@ -1190,7 +1292,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     clinical_parameter: row.clinical_parameter ? cleanString(row.clinical_parameter) : null,
     threshold_value: row.threshold_value ? cleanString(row.threshold_value) : null,
     action: row.action ? cleanString(row.action) : null,
-    metadata: sanitizeJsonbRecord(row.metadata),
+    metadata: sanitizeJsonbRecord({ ...row.metadata, index_generation_id: indexGenerationId }),
   }));
   if (tableFacts.length > 0) {
     const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
@@ -1218,7 +1320,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
         const batch = visualIndexUnits.slice(start, start + 50).map((unit, index) => ({
           ...unit,
           embedding: assertEmbeddingDim(unitEmbeddings[start + index], `document_index_units.visual.${start + index}`),
-          metadata: sanitizeJsonbRecord(unit.metadata),
+          metadata: sanitizeJsonbRecord({ ...unit.metadata, index_generation_id: indexGenerationId }),
         }));
         const { error: visualUnitError } = await supabase.from("document_index_units").insert(batch);
         if (visualUnitError) throw supabaseStageError("insert visual index units", visualUnitError);
@@ -1245,7 +1347,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           content,
           content_hash: hashEmbeddingFieldContent(content),
           embedding: assertEmbeddingDim(additionalEmbeddings[index], `document_embedding_fields.${field.field_type}`),
-          metadata: sanitizeJsonbRecord(field.metadata),
+          metadata: sanitizeJsonbRecord({ ...field.metadata, index_generation_id: indexGenerationId }),
         };
       });
       for (let start = 0; start < additionalRows.length; start += 50) {
@@ -1331,16 +1433,21 @@ async function loadEnrichmentRows(documentId: string) {
 }
 
 async function processJob(job: JobRow) {
+  const atomicReindex = isAtomicReindexCandidate(job.documents);
   await updateJobProgress(job.id, {
     stage: "downloading",
     progress: 5,
   });
-  await updateDocument(job.document_id, { status: "processing", error_message: null });
+  if (atomicReindex) {
+    await updateDocument(job.document_id, { error_message: null });
+  } else {
+    await updateDocument(job.document_id, { status: "processing", error_message: null });
+  }
   await updateBatch(job.batch_id);
   let extracted: ExtractedDocument | null = null;
 
   try {
-    await resetDocumentIndex(job.document_id);
+    if (!atomicReindex) await resetDocumentIndex(job.document_id);
     const buffer = await downloadDocument(job.documents.storage_path);
     await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
     extracted = await extractDocument({
@@ -1350,7 +1457,7 @@ async function processJob(job: JobRow) {
     });
 
     await updateJobProgress(job.id, { stage: "saving pages", progress: 32 });
-    await insertPages(job.document_id, extracted);
+    const pageRows = buildDocumentPageRows(job.document_id, extracted);
     const {
       chunks,
       indexedChunkRows,
@@ -1373,40 +1480,37 @@ async function processJob(job: JobRow) {
       memoryCardCount: 0,
       optionalIndexWriteIssues,
     });
-    const { error: initialQualityError } = await supabase
-      .from("document_index_quality")
-      .upsert(sanitizeJsonbRecord(initialQuality), {
-        onConflict: "document_id",
-      });
-    if (initialQualityError) throw new Error(initialQualityError.message);
 
     const indexedAt = new Date().toISOString();
-    await updateDocument(job.document_id, {
-      status: "indexed",
-      page_count: extracted.pages.length,
-      chunk_count: chunks.length,
-      image_count: imageCount,
-      error_message: null,
-      metadata: {
-        ...(job.documents.metadata ?? {}),
-        indexed_at: indexedAt,
-        index_generation_id: indexGenerationId,
-        rag_enrichment_version: ragEnrichmentVersion,
-        rag_indexing_version: ragDeepMemoryVersion,
-        rag_memory_version: ragDeepMemoryVersion,
-        rag_memory_updated_at: null,
-        rag_enrichment_updated_at: null,
-        enrichment_status: "pending",
-        section_count: 0,
-        memory_card_count: 0,
-        extraction_quality: initialQuality.extraction_quality,
-        index_quality_score: initialQuality.quality_score,
-        index_quality_issues: initialQuality.issues,
-        index_quality_metrics: initialQuality.metrics,
-        optional_index_write_issues: optionalIndexWriteIssues,
-        embedding_model: env.OPENAI_EMBEDDING_MODEL,
-        ...metrics,
-      },
+    const committedCoreMetadata = {
+      ...(job.documents.metadata ?? {}),
+      indexed_at: indexedAt,
+      index_generation_id: indexGenerationId,
+      rag_enrichment_version: ragEnrichmentVersion,
+      rag_indexing_version: ragDeepMemoryVersion,
+      rag_memory_version: ragDeepMemoryVersion,
+      rag_memory_updated_at: null,
+      rag_enrichment_updated_at: null,
+      enrichment_status: "pending",
+      section_count: 0,
+      memory_card_count: 0,
+      extraction_quality: initialQuality.extraction_quality,
+      index_quality_score: initialQuality.quality_score,
+      index_quality_issues: initialQuality.issues,
+      index_quality_metrics: initialQuality.metrics,
+      optional_index_write_issues: optionalIndexWriteIssues,
+      embedding_model: env.OPENAI_EMBEDDING_MODEL,
+      ...metrics,
+    };
+    await commitDocumentIndexGeneration({
+      documentId: job.document_id,
+      indexGenerationId,
+      pageCount: extracted.pages.length,
+      chunkCount: chunks.length,
+      imageCount,
+      metadata: committedCoreMetadata,
+      pages: pageRows,
+      quality: initialQuality,
     });
 
     let enrichmentStatus = env.WORKER_INLINE_ENRICHMENT ? "completed" : "pending";
@@ -1452,12 +1556,7 @@ async function processJob(job: JobRow) {
           documentEmbeddingFieldTypes,
           optionalIndexWriteIssues,
         });
-        const { error: qualityError } = await supabase
-          .from("document_index_quality")
-          .upsert(sanitizeJsonbRecord(finalQuality), {
-            onConflict: "document_id",
-          });
-        if (qualityError) throw new Error(qualityError.message);
+        await upsertIndexQuality(finalQuality);
         enrichmentUpdatedAt = new Date().toISOString();
       } catch (enrichmentError) {
         enrichmentStatus = "failed";
@@ -1481,8 +1580,13 @@ async function processJob(job: JobRow) {
       : enrichmentStatus === "failed"
         ? "inline_enrichment_failed"
         : "enrichment_deferred";
+    const agentRepairMessage =
+      enrichmentErrorMessage ??
+      (optionalRepairRequired
+        ? optionalRepairMessage
+        : "Core index complete; enrichment queued for indexing-v3-agent.");
     const finalMetadata = {
-      ...(job.documents.metadata ?? {}),
+      ...committedCoreMetadata,
       indexed_at: indexedAt,
       index_generation_id: indexGenerationId,
       rag_enrichment_version: ragEnrichmentVersion,
@@ -1502,7 +1606,7 @@ async function processJob(job: JobRow) {
       ...(agentRepairRequired
         ? {
             indexing_v3_agent_status: "pending",
-            indexing_v3_agent_last_error: enrichmentErrorMessage ?? optionalRepairMessage,
+            indexing_v3_agent_last_error: agentRepairMessage,
             indexing_v3_agent_repair_reason: agentRepairReason,
             indexing_v3_agent_updated_at: new Date().toISOString(),
           }
@@ -1548,7 +1652,7 @@ async function processJob(job: JobRow) {
       await failOrRetryJob({
         job,
         retry: false,
-        documentStatus: "failed",
+        documentStatus: atomicReindex ? "indexed" : "failed",
         stage: "needs recovery after partial index write",
         errorMessage: `${message}. Run npm run recover:ingestion -- --apply before retrying this document.`,
       });
@@ -1556,7 +1660,7 @@ async function processJob(job: JobRow) {
       await failOrRetryJob({
         job,
         retry: true,
-        documentStatus: "queued",
+        documentStatus: atomicReindex ? "indexed" : "queued",
         stage: `retry scheduled after attempt ${job.attempt_count}/${job.max_attempts}`,
         errorMessage: message,
         nextRunAt: nextRetryAt(job.attempt_count),
@@ -1565,7 +1669,7 @@ async function processJob(job: JobRow) {
       await failOrRetryJob({
         job,
         retry: false,
-        documentStatus: "failed",
+        documentStatus: atomicReindex ? "indexed" : "failed",
         stage: "failed",
         errorMessage: message,
       });

@@ -273,8 +273,7 @@ create table if not exists public.document_chunks (
   search_tsv tsvector generated always as (
     to_tsvector('english', coalesce(section_heading, '') || ' ' || coalesce(retrieval_synopsis, '') || ' ' || content)
   ) stored,
-  created_at timestamptz not null default now(),
-  unique (document_id, chunk_index)
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.document_table_facts (
@@ -569,6 +568,9 @@ create index if not exists document_memory_cards_embedding_hnsw_idx
   with (m = 24, ef_construction = 128);
 create index if not exists document_chunks_document_idx on public.document_chunks(document_id, chunk_index);
 create index if not exists document_chunks_generation_idx on public.document_chunks(document_id, index_generation_id);
+create unique index if not exists document_chunks_document_generation_chunk_idx
+  on public.document_chunks(document_id, index_generation_id, chunk_index)
+  where index_generation_id is not null;
 create index if not exists document_chunks_content_hash_idx on public.document_chunks(document_id, content_hash);
 create index if not exists document_chunks_section_path_gin_idx
   on public.document_chunks using gin(section_path);
@@ -1068,6 +1070,141 @@ begin
 end;
 $$;
 
+create or replace function public.commit_document_index_generation(
+  p_document_id uuid,
+  p_index_generation_id uuid,
+  p_status text default 'indexed',
+  p_page_count integer default 0,
+  p_chunk_count integer default 0,
+  p_image_count integer default 0,
+  p_metadata jsonb default '{}'::jsonb,
+  p_pages jsonb default null,
+  p_quality jsonb default null
+)
+returns jsonb
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  perform set_config('statement_timeout', '180000', true);
+
+  update public.documents
+  set
+    status = p_status,
+    page_count = p_page_count,
+    chunk_count = p_chunk_count,
+    image_count = p_image_count,
+    error_message = null,
+    metadata = coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id),
+    updated_at = now()
+  where id = p_document_id;
+
+  if p_pages is not null then
+    delete from public.document_pages
+    where document_id = p_document_id;
+
+    insert into public.document_pages (document_id, page_number, text, ocr_used, metadata)
+    select
+      p_document_id,
+      page_row.page_number,
+      coalesce(page_row.text, ''),
+      coalesce(page_row.ocr_used, false),
+      coalesce(page_row.metadata, '{}'::jsonb)
+    from jsonb_to_recordset(coalesce(p_pages, '[]'::jsonb)) as page_row(
+      page_number integer,
+      text text,
+      ocr_used boolean,
+      metadata jsonb
+    )
+    where page_row.page_number is not null;
+  end if;
+
+  if p_quality is not null then
+    insert into public.document_index_quality (
+      document_id,
+      owner_id,
+      quality_score,
+      extraction_quality,
+      metrics,
+      issues,
+      updated_at
+    )
+    values (
+      p_document_id,
+      nullif(p_quality->>'owner_id', '')::uuid,
+      coalesce((p_quality->>'quality_score')::real, 0),
+      coalesce(nullif(p_quality->>'extraction_quality', ''), 'unknown'),
+      coalesce(p_quality->'metrics', '{}'::jsonb),
+      coalesce(
+        array(select jsonb_array_elements_text(coalesce(p_quality->'issues', '[]'::jsonb))),
+        '{}'::text[]
+      ),
+      now()
+    )
+    on conflict on constraint document_index_quality_pkey
+    do update set
+      owner_id = excluded.owner_id,
+      quality_score = excluded.quality_score,
+      extraction_quality = excluded.extraction_quality,
+      metrics = excluded.metrics,
+      issues = excluded.issues,
+      updated_at = excluded.updated_at;
+  end if;
+
+  delete from public.document_chunks
+  where document_id = p_document_id
+    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+
+  delete from public.document_images
+  where document_id = p_document_id
+    and (
+      nullif(metadata->>'index_generation_id', '') is null
+      or metadata->>'index_generation_id' <> p_index_generation_id::text
+    );
+
+  delete from public.document_table_facts
+  where document_id = p_document_id
+    and (
+      nullif(metadata->>'index_generation_id', '') is null
+      or metadata->>'index_generation_id' <> p_index_generation_id::text
+    );
+
+  delete from public.document_embedding_fields
+  where document_id = p_document_id
+    and (
+      nullif(metadata->>'index_generation_id', '') is null
+      or metadata->>'index_generation_id' <> p_index_generation_id::text
+    );
+
+  delete from public.document_index_units
+  where document_id = p_document_id
+    and (
+      nullif(metadata->>'index_generation_id', '') is null
+      or metadata->>'index_generation_id' <> p_index_generation_id::text
+    );
+
+  delete from public.document_memory_cards
+  where document_id = p_document_id
+    and (
+      nullif(metadata->>'index_generation_id', '') is null
+      or metadata->>'index_generation_id' <> p_index_generation_id::text
+    );
+
+  delete from public.document_sections
+  where document_id = p_document_id
+    and (
+      nullif(metadata->>'index_generation_id', '') is null
+      or metadata->>'index_generation_id' <> p_index_generation_id::text
+    );
+
+  return jsonb_build_object(
+    'ok', true,
+    'document_id', p_document_id,
+    'index_generation_id', p_index_generation_id
+  );
+end;
+$$;
+
 create or replace function public.refresh_import_batch_status(p_batch_id uuid)
 returns jsonb
 language plpgsql
@@ -1307,6 +1444,33 @@ as $$
   limit 1;
 $$;
 
+create or replace function public.is_committed_document_generation(
+  row_generation uuid,
+  document_metadata jsonb
+)
+returns boolean
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select row_generation is null
+    or row_generation::text = nullif(coalesce(document_metadata, '{}'::jsonb)->>'index_generation_id', '');
+$$;
+
+create or replace function public.is_committed_artifact_generation(
+  artifact_metadata jsonb,
+  document_metadata jsonb
+)
+returns boolean
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select nullif(coalesce(artifact_metadata, '{}'::jsonb)->>'index_generation_id', '') is null
+    or nullif(coalesce(artifact_metadata, '{}'::jsonb)->>'index_generation_id', '') =
+      nullif(coalesce(document_metadata, '{}'::jsonb)->>'index_generation_id', '');
+$$;
+
 create or replace function public.match_document_chunks(
   query_embedding extensions.vector(1536),
   match_count integer default 8,
@@ -1356,6 +1520,7 @@ as $$
   where (document_filter is null or c.document_id = document_filter)
     and (owner_filter is null or d.owner_id = owner_filter)
     and d.status = 'indexed'
+    and public.is_committed_document_generation(c.index_generation_id, d.metadata)
     and 1 - (c.embedding <=> query_embedding) >= min_similarity
   order by c.embedding <=> query_embedding
   limit match_count;
@@ -1423,6 +1588,7 @@ as $$
     where (document_filters is null or c.document_id = any(document_filters))
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
     order by c.embedding <=> query_embedding
     limit least(greatest(match_count * 2, 48), 128)
@@ -1463,6 +1629,7 @@ as $$
     where (document_filters is null or c.document_id = any(document_filters))
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
     order by (
       ts_rank_cd(c.search_tsv, query.tsq) +
@@ -1614,6 +1781,7 @@ as $$
     where (document_filters is null or m.document_id = any(document_filters))
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and 1 - (m.embedding <=> query_embedding) >= min_similarity
     order by m.embedding <=> query_embedding
     limit greatest(match_count * 4, 64)
@@ -1633,6 +1801,7 @@ as $$
     where (document_filters is null or m.document_id = any(document_filters))
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and m.search_tsv @@ query.tsq
     order by ts_rank_cd(m.search_tsv, query.tsq) desc
     limit greatest(match_count * 4, 64)
@@ -2024,6 +2193,7 @@ as $$
     where (document_filters is null or c.document_id = any(document_filters))
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
     order by (
       ts_rank_cd(c.search_tsv, query.tsq) +
@@ -2115,6 +2285,7 @@ as $$
     and c.document_id = any(document_filters)
     and (owner_filter is null or d.owner_id = owner_filter)
     and d.status = 'indexed'
+    and public.is_committed_document_generation(c.index_generation_id, d.metadata)
     and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
   order by text_rank desc, c.chunk_index asc
   limit least(greatest(match_count, 1), 80);
@@ -2254,6 +2425,7 @@ as $$
     where (document_filters is null or f.document_id = any(document_filters))
       and (owner_filter is null or f.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and (
         f.search_tsv @@ query.tsq
         or f.normalized_terms && query.terms
@@ -2316,6 +2488,7 @@ as $$
     where (document_filters is null or f.document_id = any(document_filters))
       and (owner_filter is null or f.owner_id = owner_filter)
       and d.status = 'indexed'
+      and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
       and (
         1 - (f.embedding <=> query_embedding) >= min_similarity
@@ -2798,6 +2971,40 @@ $$;
 revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role;
 
+create or replace function public.invoke_indexing_v3_agent(p_limit integer default 1)
+returns bigint
+language plpgsql
+security definer
+set search_path = public, extensions, vault, pg_temp
+as $$
+declare
+  v_request_id bigint;
+  v_secret text;
+begin
+  select decrypted_secret
+    into v_secret
+  from vault.decrypted_secrets
+  where name = 'indexing_v3_agent_secret'
+  limit 1;
+
+  if nullif(v_secret, '') is null then
+    raise exception 'indexing_v3_agent_secret is missing from Supabase Vault';
+  end if;
+
+  select net.http_post(
+    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/indexing-v3-agent?limit=' || greatest(1, least(coalesce(p_limit, 1), 10))::text,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-indexing-agent-secret', v_secret
+    ),
+    body := jsonb_build_object('source', 'pg_cron', 'worker', 'v3-indexing-worker', 'ts', now()),
+    timeout_milliseconds := 60000
+  ) into v_request_id;
+
+  return v_request_id;
+end;
+$$;
+
 alter default privileges for role postgres in schema public
   revoke all privileges on tables from anon, authenticated;
 alter default privileges for role postgres in schema public
@@ -2847,6 +3054,8 @@ grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
 revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
+revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated;
+grant execute on function public.invoke_indexing_v3_agent(integer) to service_role;
 
 grant select on table
   public.import_batches,
@@ -3091,6 +3300,7 @@ as $$
     where d.status = 'indexed'
       and (document_filters is null or u.document_id = any(document_filters))
       and (owner_filter is null or u.owner_id = owner_filter)
+      and public.is_committed_artifact_generation(u.metadata, d.metadata)
       and u.source_chunk_id is not null
       and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)
     order by text_rank desc, similarity desc
@@ -3154,6 +3364,9 @@ alter table public.document_index_units enable row level security;
 grant select, insert, update, delete on table public.document_index_units to service_role;
 grant select on table public.document_index_units to authenticated;
 grant execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) to service_role;
+grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
+grant execute on function public.is_committed_document_generation(uuid, jsonb) to service_role;
+grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
 create policy "document index units owner read" on public.document_index_units
   for select to authenticated using (
