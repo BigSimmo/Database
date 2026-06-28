@@ -95,6 +95,22 @@ describe("smart image filtering", () => {
     expect(assessment.searchable).toBe(true);
   });
 
+  it("uses dimensions in clinical-use assessment for small low-signal visuals", () => {
+    const assessment = assessClinicalImageUse({
+      imageType: "unclear",
+      searchable: true,
+      clinicalRelevanceScore: 0.7,
+      sourceKind: "embedded",
+      caption: "Small divider graphic",
+      width: 80,
+      height: 64,
+    });
+
+    expect(assessment.clinical_use_class).toBe("decorative_or_empty");
+    expect(assessment.searchable).toBe(false);
+    expect(assessment.clinical_use_reason).toBe("small low-signal visual");
+  });
+
   it("treats role tables as clinical only when responsibilities affect patient care", () => {
     expect(
       assessClinicalImageUse({

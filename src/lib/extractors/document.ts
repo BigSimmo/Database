@@ -6,7 +6,7 @@ import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
-import type { ExtractedDocument } from "@/lib/types";
+import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
 
 function runPythonPdfExtractor(filePath: string, outputDir: string) {
   const scriptPath = path.join(process.cwd(), "worker", "python", "extract_pdf_assets.py");
@@ -106,12 +106,16 @@ async function extractPdf(buffer: Buffer) {
         imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
       }
 
-      const rawPages =
+      const rawPages: ExtractedPage[] =
         parsed.pages.length > 0
-          ? parsed.pages.map((page) => ({ pageNumber: page.num, text: page.text || "" }))
-          : [{ pageNumber: 1, text: parsed.text || "" }];
+          ? parsed.pages.map((page: { num: number; text?: string }) => ({
+              pageNumber: page.num,
+              text: page.text || "",
+              ocrUsed: false,
+            }))
+          : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }];
 
-      const pages = rawPages.map((page) => {
+      const pages: ExtractedPage[] = rawPages.map((page) => {
         const textLength = page.text.trim().length;
         const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
         const needsOcr = textLength < JS_FALLBACK_MIN_TEXT_CHARS && hasImages;
