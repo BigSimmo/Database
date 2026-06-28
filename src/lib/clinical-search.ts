@@ -739,6 +739,7 @@ const clinicalQueryAnalysisCache = new Map<string, ClinicalQueryAnalysis>();
 const clinicalQueryAnalysisCacheLimit = 32;
 
 export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
+  const originalQuery = query.trim();
   const cached = clinicalQueryAnalysisCache.get(originalQuery);
   if (cached) return structuredClone(cached);
   const normalizedQuery = normalizeAnalysisText(originalQuery);
@@ -841,6 +842,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
     if (oldestKey !== undefined) clinicalQueryAnalysisCache.delete(oldestKey);
   }
   return structuredClone(analysis);
+}
 
 export function classifyRagQuery(query: string): RagQueryClassification {
   const analysis = analyzeClinicalQuery(query);
