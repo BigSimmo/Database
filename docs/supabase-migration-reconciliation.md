@@ -19,15 +19,13 @@ These previously local-only versions have been verified in the live project hist
 - `20260626000000` - duplicate index `ingestion_job_stages_doc_idx` is absent and canonical index `ingestion_job_stages_document_started_idx` exists.
 - `20260626020000` - retrieval RPC performance migration is present in remote history.
 - `20260626030000` - document organisation profile label constraint migration is present in remote history.
+- `20260627000000` - deliberately applied as a no-op deferral for retrieval HNSW `ef_search`; hosted migrations cannot set this function GUC for this project, and the live vector RPC bodies already use session-local `set_config('hnsw.ef_search', '100', true)` where relevant.
+- `20260628000000` - atomic document index generation commit RPC and committed-generation retrieval filters are present and verified in live.
+- `20260628135727` - explicit `invoke_indexing_v3_agent(integer)` execute grant hardening is present and verified in live.
 
-## Pending
+## Current Status
 
-As of this review, the only local-only migrations before the audit-grant follow-up are:
-
-- `20260627000000` - deliberately deferred no-op for retrieval HNSW `ef_search`; hosted migrations cannot set this function GUC for this project.
-- `20260628000000` - atomic document index generation commit RPC and committed-generation retrieval filters.
-
-These should be deliberately applied to `sjrfecxgysukkwxsowpy` before running the current branch worker against live if atomic reindex behavior is required.
+As of this review, `npx supabase migration list --linked` shows no local-only migrations for `sjrfecxgysukkwxsowpy`. Remote migration history is aligned through `20260628135727`.
 
 ## Verification Commands
 
