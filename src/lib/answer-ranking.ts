@@ -105,14 +105,19 @@ function tokenCoverage(tokens: string[], haystack: string) {
   return hits.length / tokens.length;
 }
 
-function phraseScore(tokens: string[], haystack: string) {
-  if (tokens.length < 2 || !haystack) return 0;
+function buildQueryPhrases(tokens: string[]): string[] {
+  if (tokens.length < 2) return [];
   const phrases: string[] = [];
   for (let size = Math.min(4, tokens.length); size >= 2; size -= 1) {
     for (let index = 0; index <= tokens.length - size; index += 1) {
       phrases.push(tokens.slice(index, index + size).join(" "));
     }
   }
+  return phrases;
+}
+
+function phraseScore(phrases: string[], haystack: string) {
+  if (!phrases.length || !haystack) return 0;
   const hits = phrases.filter((phrase) => haystack.includes(phrase)).length;
   return Math.min(1, hits / Math.max(1, Math.min(phrases.length, 4)));
 }
@@ -167,7 +172,7 @@ function sourceQualityScore(result: SearchResult) {
   return score;
 }
 
-function answerEvidenceScore(tokens: string[], result: SearchResult, queryClass: RagQueryClass) {
+function answerEvidenceScore(tokens: string[], phrases: string[], result: SearchResult, queryClass: RagQueryClass) {
   const texts = resultTexts(result);
   const base = Math.min(1, result.hybrid_score ?? result.similarity ?? 0) * 0.28;
   const contentCoverage = tokenCoverage(tokens, texts.content);
@@ -176,7 +181,7 @@ function answerEvidenceScore(tokens: string[], result: SearchResult, queryClass:
   const metadataCoverage = tokenCoverage(tokens, texts.metadata);
   const combinedCoverage = tokenCoverage(tokens, texts.combined);
   const adjacentCoverage = tokenCoverage(tokens, texts.adjacent);
-  const phraseCoverage = phraseScore(tokens, texts.combined);
+  const phraseCoverage = phraseScore(phrases, texts.combined);
   const directnessScore =
     contentCoverage * 0.34 + titleCoverage * 0.12 + sectionCoverage * 0.1 + metadataCoverage * 0.08;
   const weakOverlapPenalty = combinedCoverage < 0.2 ? -0.18 : combinedCoverage < 0.34 ? -0.07 : 0;
@@ -242,11 +247,12 @@ export function rankAnswerEvidence(
   queryClass: RagQueryClass = classifyRagQuery(query).queryClass,
 ) {
   const tokens = uniqueQueryTokens(query);
+  const phrases = buildQueryPhrases(tokens);
   const ranked = results
     .map((result, index) => ({
       result,
       index,
-      score: answerEvidenceScore(tokens, result, queryClass),
+      score: answerEvidenceScore(tokens, phrases, result, queryClass),
     }))
     .sort(
       (a, b) =>
