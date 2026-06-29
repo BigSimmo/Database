@@ -77,6 +77,7 @@ export type DocumentOrganizationProfile = {
     topic: string[];
     workflow: string[];
     medication: string[];
+    risk: string[];
   };
   review_status: DocumentOrganizationReviewStatus;
 };
