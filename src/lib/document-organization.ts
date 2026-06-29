@@ -37,174 +37,165 @@ const organizationProfileVersion = "document-organization-v1";
 
 const siteDefinitions: SiteDefinition[] = [
   // ── Individual hospitals ──────────────────────────────────────────────────
-  // Royal Perth Bentley Group — 688 docs
+  // RPBG = Royal Perth Bentley Group (RPH + Bentley Health Service) — 688 docs, most common tag
   {
-    canonical: "RPBG",
+    canonical: "Royal Perth Bentley Group",
     rawTags: ["rpbg"],
     kind: "hospital",
     evidence: [/\broyal perth bentley\b/i, /\brpbg\b/i, /\broyal perth hospital\b/i, /\brph\b/i],
   },
-  // Armadale Kalamunda Group — 197 docs
+  // AKG = Armadale Kalamunda Group — 197 docs
   {
-    canonical: "AKG",
+    canonical: "Armadale Kalamunda Group",
     rawTags: ["akg"],
     kind: "hospital",
     evidence: [/\barmadale kalamunda\b/i, /\barmadale hospital\b/i, /\bakg\b/i],
   },
-  // Fiona Stanley Hospital (incl. Fremantle Hospital / FSFHG group) — 340 docs
+  // FSH = Fiona Stanley Hospital (includes Fremantle Hospital, FSFHG) — 340 docs
   {
-    canonical: "FSH",
+    canonical: "Fiona Stanley Hospital",
     rawTags: ["fsh"],
     kind: "hospital",
     evidence: [/\bfiona stanley\b/i, /\bfsh\b/i, /\bfsfhg\b/i],
   },
-  // Fremantle Hospital (legacy tag — now part of FSH group)
+  // FH = Fremantle Hospital (legacy tag, 1 doc — now under FSH group)
   {
-    canonical: "FH",
+    canonical: "Fremantle Hospital",
     rawTags: ["fh", "freo"],
     kind: "hospital",
     evidence: [/\bfremantle hospital\b/i, /\bfremantle health\b/i],
   },
-  // Peel Health Campus — 156 docs
+  // PHC = Peel Health Campus — 156 docs
   {
-    canonical: "PHC",
+    canonical: "Peel Health Campus",
     rawTags: ["phc"],
     kind: "hospital",
     evidence: [/\bpeel health campus\b/i, /\bpeel hospital\b/i, /\bphc\b/i],
   },
-  // Bentley Health Service (subsidiary of RPBG)
+  // BHS = Bentley Health Service (subsidiary of RPBG, 1 doc)
   {
-    canonical: "BHS",
+    canonical: "Bentley Health Service",
     rawTags: ["bhs"],
     kind: "hospital",
     evidence: [/\bbentley health service\b/i, /\bbhs\b/i],
   },
-  // King Edward Memorial Hospital — 26 docs
+  // KEMH = King Edward Memorial Hospital — 26 docs
   {
-    canonical: "KEMH",
+    canonical: "King Edward Memorial Hospital",
     rawTags: ["kemh"],
     kind: "hospital",
     evidence: [/\bking edward memorial\b/i, /\bkemh\b/i],
   },
-  // Sir Charles Gairdner Hospital
+  // Other major metro hospitals (not yet in this dataset but worth including)
   {
-    canonical: "SCGH",
+    canonical: "Sir Charles Gairdner Hospital",
     rawTags: ["scgh"],
     kind: "hospital",
     evidence: [/\bsir charles gairdner\b/i, /\bscgh\b/i],
   },
-  // Perth Children's Hospital
   {
-    canonical: "PCH",
+    canonical: "Perth Children's Hospital",
     rawTags: ["pch"],
     kind: "hospital",
     evidence: [/\bperth children['']?s hospital\b/i, /\bpch\b/i],
   },
-  // Joondalup Health Campus
   {
-    canonical: "JHC",
+    canonical: "Joondalup Health Campus",
     rawTags: ["jhc", "joondalup"],
     kind: "hospital",
     evidence: [/\bjoondalup health campus\b/i, /\bjhc\b/i],
   },
-  // Osborne Park Hospital
   {
-    canonical: "OPH",
+    canonical: "Osborne Park Hospital",
     rawTags: ["oph", "osborne park"],
     kind: "hospital",
     evidence: [/\bosborne park hospital\b/i, /\boph\b/i],
   },
-  // Rockingham General Hospital
   {
-    canonical: "RGH",
+    canonical: "Rockingham General Hospital",
     rawTags: ["rgh"],
     kind: "hospital",
     evidence: [/\brockingham general hospital\b/i, /\brgh\b/i],
   },
-  // Graylands / Neuropsychiatric Campus
   {
-    canonical: "GRAYLANDS",
+    canonical: "Graylands / Neuropsychiatric",
     rawTags: ["graylands", "npscu"],
     kind: "hospital",
     evidence: [/\bgraylands\b/i, /\bneuropsychiatric\b/i, /\bnpscu\b/i],
   },
 
-  // ── Health service networks ───────────────────────────────────────────────
-  // East Metropolitan Health Service — 65 docs at network level
+  // ── Health services / networks ────────────────────────────────────────────
+  // EMHS = East Metropolitan Health Service — 45 docs at network level
   {
-    canonical: "EMHS",
+    canonical: "East Metropolitan Health Service",
     rawTags: ["emhs", "emhs policy"],
     kind: "health_service",
     evidence: [/\beast metropolitan health service\b/i, /\bemhs\b/i],
   },
-  // South Metropolitan Health Service (parent of FSH, FH, CAMHS, RKPG)
+  // SMHS = South Metropolitan Health Service (parent of FSH, Fremantle, CAMHS, RKPG)
   {
-    canonical: "SMHS",
+    canonical: "South Metropolitan Health Service",
     rawTags: ["smhs", "smhs policy"],
     kind: "health_service",
     evidence: [/\bsouth metropolitan health service\b/i, /\bsmhs\b/i],
   },
-  // North Metropolitan Health Service — 262 docs
+  // NMHS = North Metropolitan Health Service — 262 docs
   {
-    canonical: "NMHS",
+    canonical: "North Metropolitan Health Service",
     rawTags: ["nmhs", "nmhs policy"],
     kind: "health_service",
     evidence: [/\bnorth metropolitan health service\b/i, /\bnmhs\b/i],
   },
-  // Rockingham Peel Group — 168 docs
+  // RKPG = Rockingham Peel Group — 168 docs
   {
-    canonical: "RKPG",
+    canonical: "Rockingham Peel Group",
     rawTags: ["rkpg", "rockingham peel group"],
     kind: "health_service",
     evidence: [/\brockingham peel\b/i, /\brkpg\b/i],
   },
-  // Child and Adolescent Health Service
   {
-    canonical: "CAHS",
+    canonical: "Child and Adolescent Health Service",
     rawTags: ["cahs"],
     kind: "health_service",
     evidence: [/\bchild and adolescent health service\b/i, /\bcahs\b/i],
   },
-  // WA Country Health Service
   {
-    canonical: "WACHS",
+    canonical: "WA Country Health Service",
     rawTags: ["wachs"],
     kind: "health_service",
     evidence: [/\bwa country health service\b/i, /\bwachs\b/i],
   },
-  // WA Health / Department of Health
   {
-    canonical: "WAH",
+    canonical: "WA Health",
     rawTags: ["wah", "wa health", "doh"],
     kind: "health_service",
     evidence: [/\bwa health\b/i, /\bdepartment of health\b/i, /\bdoh\b/i],
   },
 
   // ── Specialty programs / services ─────────────────────────────────────────
-  // Child and Adolescent Mental Health Service — 83 docs
+  // CAMHS = Child and Adolescent Mental Health Service — 83 docs
   {
-    canonical: "CAMHS",
+    canonical: "Child and Adolescent Mental Health Service",
     rawTags: ["camhs"],
     kind: "program",
     evidence: [/\bchild and adolescent mental health\b/i, /\bcamhs\b/i],
   },
-  // Mental Health Hospital in the Home — 3 docs
+  // MHHITH = Mental Health Hospital in the Home — 3 docs
   {
-    canonical: "MHHITH",
+    canonical: "Mental Health Hospital in the Home",
     rawTags: ["mhhith"],
     kind: "program",
     evidence: [/\bmental health hospital in the home\b/i, /\bmhhith\b/i],
   },
-  // Peel Mental Health Service — 1 doc
+  // PMHS = Peel Mental Health Service — 1 doc
   {
-    canonical: "PMHS",
+    canonical: "Peel Mental Health Service",
     rawTags: ["pmhs"],
     kind: "program",
     evidence: [/\bpeel mental health service\b/i, /\bpmhs\b/i],
   },
-  // Mental Health Commission
   {
-    canonical: "MHC",
+    canonical: "Mental Health Commission",
     rawTags: ["mhc"],
     kind: "program",
     evidence: [/\bmental health commission\b/i, /\bmhc\b/i],
