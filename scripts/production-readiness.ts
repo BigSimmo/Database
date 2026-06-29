@@ -81,6 +81,15 @@ function recordNoAuthProductionCheck() {
   }
 }
 
+function recordDemoModeProductionCheck() {
+  if (
+    (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") &&
+    process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+  ) {
+    result.failures.push("Demo mode (NEXT_PUBLIC_DEMO_MODE=true) is enabled in a production-like environment.");
+  }
+}
+
 async function checkFileForServiceRoleExposure() {
   const envFiles = [".env", ".env.local", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
@@ -103,6 +112,7 @@ async function checkFileForServiceRoleExposure() {
 async function main() {
   checkNodeRuntime();
   recordNoAuthProductionCheck();
+  recordDemoModeProductionCheck();
   await checkFileForServiceRoleExposure();
 
   if (!(await checkRequiredFile(path.join(process.cwd(), "package-lock.json"), "package-lock.json is required"))) {

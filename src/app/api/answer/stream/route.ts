@@ -16,6 +16,7 @@ import {
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -78,7 +79,7 @@ function streamErrorPayload(error: unknown) {
 }
 
 function logStreamError(error: unknown) {
-  console.error("Search stream failed", {
+  logger.error("Search stream failed", {
     name: error instanceof Error ? error.name : typeof error,
     message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
