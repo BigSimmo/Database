@@ -30,7 +30,7 @@ type SiteDefinition = {
 
 type SecondaryFacet = {
   label: string;
-  label_type: Extract<DocumentLabelType, "population" | "setting" | "service" | "topic" | "workflow" | "medication">;
+  label_type: Extract<DocumentLabelType, "population" | "setting" | "service" | "topic" | "workflow" | "medication" | "risk">;
 };
 
 const organizationProfileVersion = "document-organization-v1";
@@ -484,7 +484,7 @@ function classifyDocumentType(input: OrganizationDocumentInput): DocumentOrganiz
 }
 
 function emptySecondaryFacets(): DocumentOrganizationProfile["secondary_facets"] {
-  return { population: [], setting: [], service: [], topic: [], workflow: [], medication: [] };
+  return { population: [], setting: [], service: [], topic: [], workflow: [], medication: [], risk: [] };
 }
 
 function secondaryFacets(rawTags: string[], titleText: string, contentText: string) {
@@ -556,6 +556,48 @@ function secondaryFacets(rawTags: string[], titleText: string, contentText: stri
   if (/\b(?:chemotherapy|cytotoxic|antineoplastic|anticancer|immunosuppressant)\b/.test(fullText)) facets.medication.push("chemotherapy");
   if (/\b(?:lithium|mood stabiliser|mood stabilizer|valproate|carbamazepine|lamotrigine)\b/.test(fullText)) facets.medication.push("mood-stabilisers");
 
+  // ── Clinical Audience / Roles (mapped to workflow) ───────────────────────
+  if (/\b(?:nurs(?:ing|e)|midwif(?:e|ery)|nursing care|nurse practitioner|clinical nurse|cns\b|cnc\b)\b/.test(fullText)) facets.workflow.push("nursing-midwifery");
+  if (/\b(?:medical officer|doctor|prescrib(?:er|ing)|registrar|consultant|junior medical|jmo\b|clinician)\b/.test(fullText)) facets.workflow.push("medical-officer");
+  if (/\b(?:dietetic|nutrition|social work|physiotherap|occupational therap|speech pathol|allied health)\b/.test(fullText)) facets.workflow.push("allied-health");
+  if (/\b(?:patient information|leaflet|booklet|fact ?sheet|consent form|patient-facing|for patients|patient education)\b/.test(fullText)) facets.workflow.push("patient-facing");
+  if (/\b(?:all staff|hospital-wide|global guideline|general policy|code black|code blue|evacuation)\b/.test(fullText)) facets.workflow.push("all-staff");
+  if (/\b(?:pharmac(?:y|ist)|dispensing|medication storage|formulary checklist)\b/.test(fullText)) facets.workflow.push("pharmacy-staff");
+  if (/\b(?:psycholog(?:ist|y)|mental health clinician|case manager|camhs staff|psychiatric nurse)\b/.test(fullText)) facets.workflow.push("mental-health-practitioners");
+  if (/\b(?:clerical|ward clerk|medical records|scanning work|webpas user|receptionist|billing clerk)\b/.test(fullText)) facets.workflow.push("clerical-admin");
+  if (/\b(?:security guard|orderly|patient transport|escort duty|facilities staff|orderlies)\b/.test(fullText)) facets.workflow.push("security-orderlies");
+  if (/\b(?:student|intern|resident|placement guide|supervised practice|supervision protocol)\b/.test(fullText)) facets.workflow.push("students-supervisors");
+
+  // ── Clinical Risk & Alerts (mapped to risk) ──────────────────────────────
+  if (/\b(?:high risk medication|potassium|lithium|clozapine|insulin|high alert med|apheresis|heparin)\b/.test(fullText)) facets.risk.push("high-risk-medication");
+  if (/\b(?:clinical alert|sepsis alert|deteriorating patient|resuscitation|cpr\b|cardiac arrest|met call|medical emergency)\b/.test(fullText)) facets.risk.push("clinical-alert");
+  if (/\b(?:open disclosure|incident report|sentinel event|clinical governance|audit checklist|root cause)\b/.test(fullText)) facets.risk.push("open-disclosure");
+  if (/\b(?:infection prevention|infection control|ipc\b|ppe\b|sterile procedure|isolation precaution|decontamination)\b/.test(fullText)) facets.risk.push("infection-prevention");
+  if (/\b(?:clinical handover|handover|isbar\b|patient transfer|escalation protocol|deteriorat)\b/.test(fullText)) facets.risk.push("clinical-handover-escalation");
+  if (/\b(?:falls prevention|fall risk|post fall|bed alarm|falls assessment)\b/.test(fullText)) facets.risk.push("falls-prevention");
+  if (/\b(?:restrictive practice|restraint|chemical restraint|physical restraint|seclusion)\b/.test(fullText)) facets.risk.push("restrictive-practices");
+  if (/\b(?:blood safety|blood product|transfusion|massive transfusion|mtp\b|packed red cell|plasma transfusion)\b/.test(fullText)) facets.risk.push("blood-safety-transfusion");
+  if (/\b(?:pressure injury|pressure ulcer|waterlow|skin integrity|skin assessment|wound classification)\b/.test(fullText)) facets.risk.push("pressure-injury-skin");
+  if (/\b(?:resuscitation|code blue|cpr\b|basic life support|bls\b|advanced life support|als\b|pals\b|defibrillat)\b/.test(fullText)) facets.risk.push("resuscitation-code-blue");
+
+  // ── Clinical Systems & Software (mapped to workflow) ────────────────────
+  if (/\b(?:webpas|patient administration system|pas downtime)\b/.test(fullText)) facets.workflow.push("webpas");
+  if (/\b(?:dmr\b|digital medical record|scanning process|medical chart scan)\b/.test(fullText)) facets.workflow.push("dmr");
+  if (/\b(?:bossnet|clinical portal|electronic medical chart)\b/.test(fullText)) facets.workflow.push("bossnet");
+  if (/\b(?:epma\b|electronic prescribing|medication prescribing|medications-prescribing)\b/.test(fullText)) facets.workflow.push("epma");
+  if (/\b(?:datix|riskman|incident logging|incident report system)\b/.test(fullText)) facets.workflow.push("datix-riskman");
+  if (/\b(?:hss\b|health support services|lattice\b|payroll system|timesheet online|rostering online|ros\b)\b/.test(fullText)) facets.workflow.push("hss-payroll-rostering");
+  if (/\b(?:pats online|pats registration|patient assisted travel scheme online)\b/.test(fullText)) facets.workflow.push("pats-online");
+  if (/\b(?:etg\b|therapeutic guidelines|drug formulary|medication formulary lookup)\b/.test(fullText)) facets.workflow.push("etg-formulary");
+
+  // ── Cultural & Access Equity (mapped to workflow) ───────────────────────
+  if (/\b(?:voluntary assisted dying|vad\b|vad substance|vad protocol)\b/.test(fullText)) facets.workflow.push("voluntary-assisted-dying");
+  if (/\b(?:advance care planning|advance health directive|ahd\b|enduring power|epg\b|goals of care)\b/.test(fullText)) facets.workflow.push("advance-care-planning");
+  if (/\b(?:child protection|mandatory reporting|child abuse|domestic violence screening|fdv screening)\b/.test(fullText)) facets.workflow.push("child-protection-safety");
+  if (/\b(?:disability access|cognitive disability|dementia support|sensory impairment|physical access)\b/.test(fullText)) facets.workflow.push("disability-access");
+  if (/\b(?:aboriginal health|cultural safety|indigenous health|liaison officer|kara maar)\b/.test(fullText)) facets.workflow.push("aboriginal-health");
+  if (/\b(?:language interpreter|translator|multicultural access|deaf access|hearing impaired|cald\b)\b/.test(fullText)) facets.workflow.push("language-interpreter");
+
   return {
     population: uniqueStrings(facets.population),
     setting: uniqueStrings(facets.setting),
@@ -563,6 +605,7 @@ function secondaryFacets(rawTags: string[], titleText: string, contentText: stri
     topic: uniqueStrings(facets.topic),
     workflow: uniqueStrings(facets.workflow),
     medication: uniqueStrings(facets.medication),
+    risk: uniqueStrings(facets.risk),
   };
 }
 
