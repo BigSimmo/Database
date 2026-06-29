@@ -3520,7 +3520,7 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
     case "monitoring_schedule":
       return /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|fbc|anc|ecg|lft|renal|review)\b/i;
     case "red_result_action":
-      return /\b(?:red|amber|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|review|anc|fbc|wbc|neutrophil|patholog\w*|haematolog\w*|hematolog\w*)\b/i;
+      return /\b(?:red|amber|green|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|review|anc|fbc|wbc|neutrophil|toxic\w*|action|patholog\w*|haematolog\w*|hematolog\w*)\b/i;
     case "pathway_referral":
       return /\b(?:pathway|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*)\b/i;
     case "document_lookup":
@@ -3616,8 +3616,9 @@ function hasBadExtractiveQuality(text: string) {
   if (extractiveProductCataloguePattern.test(normalized)) return true;
   if (extractiveStructuralArtifactPattern.test(normalized)) return true;
   if (/\b[A-Za-z]{4,}[A-Z]{2,}[A-Za-z]{2,}\b/.test(normalized)) return true;
-  if ((normalized.match(/>/g) ?? []).length >= 2) return true;
-  if (/^\s*(?:references?|bibliography)\b/i.test(normalized)) return true;
+  if (/>\s*>/g.test(normalized)) return true; // consecutive >> arrows
+  if (/\w+\s*>\s*\w+\s*>\s*\w+/g.test(normalized)) return true; // breadcrumb trails like A > B > C
+  if (/^\s*(?:references?(?!\s+(?:range|interval|value|level|limit|coordinate|check|system|dosing|monitoring|guideline))|bibliography)\b/i.test(normalized)) return true;
   if (hasClinicalAnswerQualityIssue(normalized)) return true;
   if (/\btable\s+\d+\b/i.test(normalized) && normalized.length > 180) return true;
   return false;
@@ -3657,7 +3658,7 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
   }
   if (/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return "renal_limit";
   if (
-    /\b(?:red|amber|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|anc|fbc|wbc|neutrophil)\b/i.test(
+    /\b(?:red|amber|green|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|anc|fbc|wbc|neutrophil|toxic\w*|action)\b/i.test(
       text,
     )
   ) {
@@ -3709,8 +3710,8 @@ function factSupportsAnswerIntent(
         )
       );
     case "monitoring_schedule":
-      if (kind !== "monitoring") return false;
-      return /\b(?:monitor|monitoring|follow[-\s]?up|baseline|weekly|monthly|annual|every|several\s+times\s+a\s+year|level|levels|blood test|fbc|anc|wbc|ecg|lft|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi)\b/i.test(
+      if (kind !== "monitoring" && kind !== "dose") return false;
+      return /\b(?:monitor|monitoring|follow[-\s]?up|baseline|weekly|monthly|annual|every|several\s+times\s+a\s+year|level|levels|blood test|fbc|anc|wbc|ecg|lft|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi|mmol\/l|range)\b/i.test(
         text,
       );
     case "red_result_action":
@@ -3719,7 +3720,7 @@ function factSupportsAnswerIntent(
         /\b(?:withhold|cease|stop|discontinue|discontinued|contact|urgent|repeat|review|call for help|escalat\w*|monitor|toxicity|rash)\b/i.test(
           text,
         ) &&
-        /\b(?:red|amber|threshold|result|results|anc|fbc|wbc|toxicity|rash|reaction|blood|patholog\w*|haematolog\w*|hematolog\w*)\b/i.test(
+        /\b(?:red|amber|green|threshold|result|results|anc|fbc|wbc|neutrophil|toxicity|rash|reaction|blood|patholog\w*|haematolog\w*|hematolog\w*)\b/i.test(
           text,
         )
       );
@@ -4143,6 +4144,8 @@ function finalQualityGapAnswer(
     return "No current source with monitoring timing or schedule guidance was found.";
   if (intent === "red_result_action") {
     if (/\bqtc\b/i.test(query)) return "No current source with QTc threshold or ECG action guidance was found.";
+    if (/\btoxicity\b/i.test(query)) return "No current source with toxicity action guidance was found.";
+    if (/\brash\b/i.test(query)) return "No current source with rash action guidance was found.";
     return "No current source with threshold-specific action guidance was found.";
   }
   if (intent === "dose") {
@@ -4155,6 +4158,14 @@ function finalQualityGapAnswer(
 function isFragmentLikeClinicalAnswer(text: string, query: string) {
   const normalized = normalizeSectionText(text);
   const lower = normalized.toLowerCase();
+  if (
+    /^what\s+is\b/i.test(query) &&
+    !/\b(?:is|are)\s+(?:a|an|the)\b|\b(?:defined\s+as|characteri[sz]ed\s+by|involves|refers\s+to|is\s+an?\s+eating\s+disorder)\b/i.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
   if (/\bbaby\s+whilst\b.*\bpost\s+anaesthetic\b/i.test(normalized)) return true;
   if (/^(\*{0,2}[a-z][a-z0-9 -]{2,}\*{0,2})\s*:\s*\1\b/i.test(normalized)) return true;
   if (/\?\s+(?:monitoring|adverse effects|when prescribed|prescribed for)\b/i.test(normalized)) return true;
@@ -4181,6 +4192,19 @@ function isMissingCriticalQueryIntent(query: string, text: string) {
   }
   if (/\b(?:referral|refer|pathway)\b/.test(normalizedQuery) && /\bect\b/.test(normalizedQuery)) {
     return !/\b(?:ect|electroconvulsive|refer|referral|criteria|indicat\w*|psychiat\w*)\b/.test(normalizedText);
+  }
+  if (/\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up)\b/.test(normalizedQuery)) {
+    if (/\bfbc\b/.test(normalizedQuery) && !/\bfbc\b/.test(normalizedText)) return true;
+    if (/\banc\b/.test(normalizedQuery) && !/\banc\b/.test(normalizedText)) return true;
+    if (
+      /\bschedule\b/.test(normalizedQuery) &&
+      !/\b(?:schedule|baseline|weekly|monthly|annual|every|first\s+\d+\s+weeks|then|ongoing)\b/.test(normalizedText)
+    ) {
+      return true;
+    }
+    return !/\b(?:monitor|monitoring|follow[-\s]?up|baseline|weekly|monthly|annual|every|level|levels|blood test|fbc|anc|wbc|ecg|lft|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi)\b/.test(
+      normalizedText,
+    );
   }
   return false;
 }
@@ -4243,6 +4267,7 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
   const answerIsBad =
     !cleanedAnswer ||
     cleanedAnswer.length < 18 ||
+    hasBadExtractiveQuality(cleanedAnswer) ||
     hasClinicalAnswerQualityIssue(cleanedAnswer) ||
     isLowYieldClinicalText(cleanedAnswer) ||
     isFragmentLikeClinicalAnswer(cleanedAnswer, query) ||
