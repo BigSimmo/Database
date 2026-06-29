@@ -38,6 +38,10 @@ const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const abandonedReindexRecoveryMigration = readFileSync(
+  new URL("../supabase/migrations/20260629000000_abandoned_reindex_generation_recovery.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -152,6 +156,25 @@ describe("Supabase schema Data API grants", () => {
     );
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_chunks_hybrid");
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_index_units_hybrid");
+  });
+
+  it("can identify and clean abandoned staged reindex generations", () => {
+    for (const sql of [schema, abandonedReindexRecoveryMigration]) {
+      expect(sql).toContain("create or replace function public.cleanup_abandoned_document_index_generations");
+      expect(sql).toContain("p_dry_run boolean default true");
+      expect(sql).toContain("j.status in ('pending', 'processing')");
+      expect(sql).toContain("c.index_generation_id is not null");
+      expect(sql).toContain("metadata, '{}'::jsonb)->>'index_generation_id'");
+      expect(sql).toContain("if not coalesce(p_dry_run, true) then");
+      expect(sql).toContain("'document_chunks', chunk_count");
+      expect(sql).toContain("'document_index_units', index_unit_count");
+      expect(sql).toContain(
+        "revoke execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) to service_role",
+      );
+    }
   });
 
   it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {

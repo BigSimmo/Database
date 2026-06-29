@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  abandonedReindexGenerationTotal,
   committedIndexGeneration,
+  hasAbandonedReindexGenerations,
+  isAbandonedStagedGeneration,
   hasIncompleteDocumentsWithoutOpenJobs,
   isAtomicReindexCandidate,
   isCommittedGenerationMetadata,
@@ -73,5 +76,38 @@ describe("reindex pipeline queue state", () => {
         committedGeneration: "generation-a",
       }),
     ).toBe(true);
+  });
+
+  it("identifies abandoned staged generation rows without flagging legacy generationless rows", () => {
+    expect(
+      isAbandonedStagedGeneration({
+        rowGenerationId: "generation-b",
+        committedGeneration: "generation-a",
+      }),
+    ).toBe(true);
+    expect(
+      isAbandonedStagedGeneration({
+        rowMetadata: { index_generation_id: "generation-a" },
+        committedGeneration: "generation-a",
+      }),
+    ).toBe(false);
+    expect(
+      isAbandonedStagedGeneration({
+        rowMetadata: {},
+        committedGeneration: "generation-a",
+      }),
+    ).toBe(false);
+  });
+
+  it("summarizes abandoned staged generation cleanup counts", () => {
+    expect(
+      abandonedReindexGenerationTotal({
+        document_chunks: 2,
+        document_images: 1,
+        document_table_facts: 0,
+      }),
+    ).toBe(3);
+    expect(hasAbandonedReindexGenerations({ document_chunks: 0, document_images: 0 })).toBe(false);
+    expect(hasAbandonedReindexGenerations({ document_chunks: 0, document_images: 1 })).toBe(true);
   });
 });

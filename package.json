@@ -47,6 +47,7 @@
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
     "reindex": "tsx scripts/reindex.ts",
     "reindex:health": "tsx scripts/reindex-health.ts",
+    "reindex:cleanup-staged": "tsx scripts/cleanup-abandoned-reindex-generations.ts",
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
     "eval:rag": "tsx scripts/eval-rag.ts",
