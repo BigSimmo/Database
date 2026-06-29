@@ -84,7 +84,7 @@
     "next": "16.2.9",
     "openai": "^6.45.0",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "^6.0.227",
+    "pdfjs-dist": "^6.1.200",
     "pdfkit": "^0.19.1",
     "postcss": "^8.5.15",
     "postgres": "3.4.9",
