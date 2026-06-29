@@ -150,10 +150,10 @@ export function Sheet({
           placement === "left"
             ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
             : cn(
-                "motion-safe:animate-sheet-up sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+                "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
                 defaultSheetIsTopAligned
-                  ? "max-h-[calc(100dvh-1.5rem)] rounded-2xl"
-                  : "max-h-[88dvh] rounded-t-2xl",
+                  ? "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in"
+                  : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up",
               ),
           "motion-reduce:animate-none",
           contentClassName,
