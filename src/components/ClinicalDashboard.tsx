@@ -1234,19 +1234,79 @@ function compactClinicalNoteText(value: string) {
     .trim();
 }
 
+function stripClinicalNoteLeadIn(value: string) {
+  let text = compactClinicalNoteText(value);
+  let previous = "";
+  while (text !== previous) {
+    previous = text;
+    text = text
+      .replace(/^(the\s+same\s+)?synthetic\s+source\s+says\s+/i, "")
+      .replace(/^the\s+(indexed\s+)?source\s+says\s+/i, "")
+      .replace(/^source\s+text\s+says\s+/i, "")
+      .replace(/^according\s+to\s+[^,]+,\s*/i, "")
+      .trim();
+  }
+  return text;
+}
+
+function titleCaseClinicalNote(value: string) {
+  return value
+    .replace(/\b\w[\w/-]*/g, (word) => {
+      if (/[A-Z]{2,}|\/|\d/.test(word)) return word;
+      return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
+    })
+    .replace(/\bAnd\b/g, "and")
+    .replace(/\bOr\b/g, "or")
+    .replace(/\bTo\b/g, "to");
+}
+
+function clinicalNoteHeuristicTitle(value: string) {
+  const text = stripClinicalNoteLeadIn(value);
+  const lower = text.toLowerCase();
+
+  if (/\b(vomiting|diarrhoea|diarrhea|dehydration|acute kidney injury|tremor|confusion|ataxia)\b/.test(lower)) {
+    return "Toxicity review triggers";
+  }
+  if (/\b(escalate|urgent review|urgent|red flag|seizures?|severe constipation|chest pain|dyspnoea|tachycardia)\b/.test(lower)) {
+    return "Escalation triggers";
+  }
+  if (/\blithium levels?\b/.test(lower) && /\b(5\s*(?:to|-|–)\s*7|dose change|stable|days?)\b/.test(lower)) {
+    return "Lithium level timing";
+  }
+  if (/\b(lithium level|serum lithium|trough level)\b/.test(lower)) return "Lithium level check";
+  if (/\b(fbc|anc)\b/.test(lower)) return "FBC/ANC monitoring";
+  if (/\bmyocarditis\b/.test(lower)) return "Myocarditis screening";
+  if (/\b(metabolic|weight|lipids?|glucose|hba1c|waist)\b/.test(lower)) return "Metabolic monitoring";
+  if (/\b(constipation|bowel)\b/.test(lower)) return "Constipation prevention";
+  if (/\b(shared-care|shared care|communication|handover)\b/.test(lower)) return "Shared-care communication";
+  if (/\b(renal|kidney|creatinine|egfr)\b/.test(lower)) return "Renal function";
+  if (/\b(thyroid|tsh)\b/.test(lower)) return "Thyroid monitoring";
+  if (/\bcalcium\b/.test(lower)) return "Calcium monitoring";
+  if (/\b(nsaid|ace inhibitor|diuretic|interacting medicine|medicine reconciliation)\b/.test(lower)) {
+    return "Interacting medicines";
+  }
+
+  return null;
+}
+
 function clinicalNoteTitleFromItem(item: string, section: ClinicalDetailSection, index: number) {
-  const text = compactClinicalNoteText(item);
+  const text = stripClinicalNoteLeadIn(item);
+  const heuristicTitle = clinicalNoteHeuristicTitle(text);
+  if (heuristicTitle) return heuristicTitle;
   const colonIndex = text.indexOf(":");
   if (colonIndex > 8 && colonIndex < 54) return text.slice(0, colonIndex).trim();
   const dashIndex = text.search(/\s[-–]\s/);
   if (dashIndex > 8 && dashIndex < 54) return text.slice(0, dashIndex).trim();
   if (section.items.length === 1 && section.title.length <= 42) return section.title;
-  const words = text.split(" ").filter(Boolean);
+  const words = text
+    .replace(/^(confirm|check|review|record|document)\s+/i, "")
+    .split(" ")
+    .filter(Boolean);
   return words.slice(0, Math.min(words.length, index === 0 ? 5 : 4)).join(" ") || section.title;
 }
 
 function clinicalNoteDetailFromItem(item: string, title: string) {
-  const text = compactClinicalNoteText(item);
+  const text = stripClinicalNoteLeadIn(item);
   const normalizedTitle = title.toLowerCase();
   const lowerText = text.toLowerCase();
   if (lowerText.startsWith(`${normalizedTitle}:`)) return text.slice(title.length + 1).trim();
@@ -1257,11 +1317,12 @@ function clinicalNoteDetailFromItem(item: string, title: string) {
 }
 
 function clinicalNoteTitleFromFragment(fragment: string) {
-  const text = compactClinicalNoteText(fragment)
+  const text = stripClinicalNoteLeadIn(fragment)
     .replace(/^(and|or)\s+/i, "")
+    .replace(/^(confirm|check|review|record|document)\s+/i, "")
     .replace(/[.;:,]+$/g, "");
   if (!text) return "Clinical note";
-  return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return clinicalNoteHeuristicTitle(text) ?? titleCaseClinicalNote(text);
 }
 
 function splitClinicalNoteFragments(item: string, section: ClinicalDetailSection, title: string) {
@@ -1289,6 +1350,28 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   const title = compactClinicalNoteText(row.title).toLowerCase();
   const detail = compactClinicalNoteText(row.detail).toLowerCase();
   return Boolean(detail) && detail !== title;
+}
+
+function clinicalNoteDetailLabel(row: ClinicalNotesRow) {
+  const text = `${row.title} ${row.detail}`.toLowerCase();
+  if (/\b(timing|level|schedule|dose change|stable|days?)\b/.test(text)) return "Timing";
+  if (/\b(escalation|escalate|urgent|toxicity|trigger|vomiting|confusion|ataxia|tremor)\b/.test(text)) {
+    return "Escalate";
+  }
+  if (/\b(baseline|confirm|record|document|check|review)\b/.test(text)) return "Action";
+  return "Note";
+}
+
+function ClinicalNoteDetailCard({ row }: { row: ClinicalNotesRow }) {
+  const detail = stripClinicalNoteLeadIn(row.detail);
+  return (
+    <div className="ml-10 mt-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 shadow-[var(--shadow-inset)]">
+      <dl className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-xs leading-5">
+        <dt className="font-semibold text-[color:var(--text-muted)]">{clinicalNoteDetailLabel(row)}</dt>
+        <dd className="font-medium text-[color:var(--text)]">{detail}</dd>
+      </dl>
+    </div>
+  );
 }
 
 function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
@@ -1513,11 +1596,11 @@ function ClinicalNotesChecklistPanel({
                   <RowIcon className="h-3.5 w-3.5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                  <span className="line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {row.title}
                   </span>
                   {hasDistinctDetail ? (
-                    <span className={cn("mt-0.5 block text-[13px] leading-5", textMuted)}>{row.detail}</span>
+                    <span className={cn("mt-0.5 line-clamp-2 text-[13px] leading-5", textMuted)}>{row.detail}</span>
                   ) : null}
                 </span>
                 <span className="nums mt-0.5 grid h-7 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
@@ -1535,9 +1618,7 @@ function ClinicalNotesChecklistPanel({
                 )}
               </button>
               {expanded && hasDistinctDetail ? (
-                <div className="ml-11 mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-                  <p className="text-xs font-medium leading-5 text-[color:var(--text)]">{row.detail}</p>
-                </div>
+                <ClinicalNoteDetailCard row={row} />
               ) : null}
             </article>
           );

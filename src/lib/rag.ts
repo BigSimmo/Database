@@ -3394,6 +3394,8 @@ const extractiveQueryStopwords = new Set([
   "referral",
   "patient",
   "patients",
+  "required",
+  "requires",
   "clinical",
   "advice",
   "contraindication",
@@ -3434,6 +3436,8 @@ const answerIntentTerms = new Set([
   "renal",
   "result",
   "results",
+  "required",
+  "requires",
   "schedule",
   "threshold",
   "thresholds",
@@ -3454,17 +3458,21 @@ export function classifyAnswerIntent(query: string, queryClass: RagQueryClass): 
   if (/\b(?:contraindicat\w*|avoid|do not use|must not|should not|not use|opioid[-\s]?free)\b/.test(normalized)) {
     return "contraindication";
   }
-  if (
+  const hasResultActionSignal =
     /\b(?:red|amber|green|anc|fbc|wbc|result|results|threshold|withhold|cease|stop|stopped|toxicity)\b/.test(
       normalized,
     ) ||
-    /\b(?:what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(normalized)
-  ) {
+    /\b(?:what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(normalized);
+  const hasScheduleSignal = /\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up|level|levels|test|tests)\b/.test(
+    normalized,
+  );
+  if (hasResultActionSignal && !/\b(?:schedule|baseline|follow[-\s]?up)\b/.test(normalized)) {
     return "red_result_action";
   }
-  if (/\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up|level|levels|test|tests)\b/.test(normalized)) {
+  if (hasScheduleSignal) {
     return "monitoring_schedule";
   }
+  if (hasResultActionSignal) return "red_result_action";
   if (/\b(?:dose|dosing|dosage|max(?:imum)?|mg|mcg|renal|eGFR|creatinine)\b/i.test(query)) return "dose";
   if (/\b(?:pathway|refer|referral|criteria|ect|electroconvulsive)\b/.test(normalized)) return "pathway_referral";
   if (

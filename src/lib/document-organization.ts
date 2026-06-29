@@ -172,6 +172,34 @@ const siteDefinitions: SiteDefinition[] = [
     kind: "health_service",
     evidence: [/\bwa country health service\b/i, /\bwachs\b/i],
   },
+  // Bunbury Hospital / Bunbury Health Campus
+  {
+    canonical: "Bunbury Hospital",
+    rawTags: ["bunbury", "bhc"],
+    kind: "hospital",
+    evidence: [/\bbunbury\b/i, /\bbhc\b/i],
+  },
+  // Geraldton Hospital / Geraldton Health Campus
+  {
+    canonical: "Geraldton Hospital",
+    rawTags: ["geraldton", "ghc"],
+    kind: "hospital",
+    evidence: [/\bgeraldton\b/i, /\bghc\b/i],
+  },
+  // Albany Hospital / Albany Health Campus
+  {
+    canonical: "Albany Hospital",
+    rawTags: ["albany", "ahc"],
+    kind: "hospital",
+    evidence: [/\balbany\b/i, /\bahc\b/i],
+  },
+  // Kalgoorlie Hospital / Kalgoorlie Health Campus
+  {
+    canonical: "Kalgoorlie Hospital",
+    rawTags: ["kalgoorlie", "khc"],
+    kind: "hospital",
+    evidence: [/\bkalgoorlie\b/i, /\bkhc\b/i],
+  },
   // WA Health / Department of Health
   {
     canonical: "WA Health",
@@ -212,8 +240,35 @@ const siteDefinitions: SiteDefinition[] = [
 ];
 
 const secondaryTagMap = new Map<string, SecondaryFacet>([
+  // Populations (Ages)
   ["adult", { label: "adult", label_type: "population" }],
-  ["child", { label: "child", label_type: "population" }],
+  ["adults", { label: "adult", label_type: "population" }],
+  ["child", { label: "paediatric", label_type: "population" }],
+  ["children", { label: "paediatric", label_type: "population" }],
+  ["paediatric", { label: "paediatric", label_type: "population" }],
+  ["pediatric", { label: "paediatric", label_type: "population" }],
+  ["neonatal", { label: "neonatal", label_type: "population" }],
+  ["neonate", { label: "neonatal", label_type: "population" }],
+  ["newborn", { label: "neonatal", label_type: "population" }],
+  ["youth", { label: "youth", label_type: "population" }],
+  ["adolescent", { label: "youth", label_type: "population" }],
+  ["teen", { label: "youth", label_type: "population" }],
+  ["geriatric", { label: "geriatric", label_type: "population" }],
+  ["older adult", { label: "geriatric", label_type: "population" }],
+  ["elderly", { label: "geriatric", label_type: "population" }],
+
+  // Clinical / Administrative Split
+  ["clinical", { label: "clinical", label_type: "workflow" }],
+  ["non-clinical", { label: "non-clinical", label_type: "workflow" }],
+  ["non clinical", { label: "non-clinical", label_type: "workflow" }],
+  ["admin", { label: "admin", label_type: "workflow" }],
+  ["clerical", { label: "admin", label_type: "workflow" }],
+  ["finance", { label: "finance", label_type: "workflow" }],
+  ["financial", { label: "finance", label_type: "workflow" }],
+  ["hr", { label: "hr", label_type: "workflow" }],
+  ["human resources", { label: "hr", label_type: "workflow" }],
+
+  // Topics / Services
   ["ect", { label: "electroconvulsive therapy", label_type: "topic" }],
   ["pats", { label: "patient assisted travel scheme", label_type: "workflow" }],
   ["ppm", { label: "permanent pacemaker", label_type: "topic" }],
@@ -432,13 +487,46 @@ function emptySecondaryFacets(): DocumentOrganizationProfile["secondary_facets"]
   return { population: [], setting: [], service: [], topic: [], workflow: [] };
 }
 
-function secondaryFacets(rawTags: string[]) {
+function secondaryFacets(rawTags: string[], titleText: string, contentText: string) {
   const facets = emptySecondaryFacets();
   for (const rawTag of rawTags) {
     const facet = secondaryTagMap.get(normalizeText(rawTag));
     if (!facet) continue;
     facets[facet.label_type].push(facet.label);
   }
+
+  // Scan title and content for age-cohorts (population)
+  const fullText = `${titleText} ${contentText}`.toLowerCase();
+  if (/\b(?:neonatal|neonate|newborn|baby|born|nicu)\b/.test(fullText)) {
+    facets.population.push("neonatal");
+  }
+  if (/\b(?:paediatric|pediatric|child|children|pmh|pch)\b/.test(fullText)) {
+    facets.population.push("paediatric");
+  }
+  if (/\b(?:youth|adolescent|teen|young person|young adult)\b/.test(fullText)) {
+    facets.population.push("youth");
+  }
+  if (/\b(?:adult|adults)\b/.test(fullText)) {
+    facets.population.push("adult");
+  }
+  if (/\b(?:geriatric|older adult|elderly|aged|65 years)\b/.test(fullText)) {
+    facets.population.push("geriatric");
+  }
+
+  // Scan title and content for Admin vs. Clinical split (workflow)
+  if (/\b(?:clinical|medical|nursing|ward|midwife|physio|ot|treatment|prescrib|drug)\b/.test(fullText)) {
+    facets.workflow.push("clinical");
+  }
+  if (/\b(?:admin|clerical|finance|billing|payroll|human resources|hr|roster|audit|governance|non-clinical|non clinical)\b/.test(fullText)) {
+    facets.workflow.push("non-clinical");
+  }
+  if (/\b(?:finance|financial|billing|funding|invoice|payment|cost|budget)\b/.test(fullText)) {
+    facets.workflow.push("finance");
+  }
+  if (/\b(?:human resources|hr|personnel|staffing|hiring|recruitment)\b/.test(fullText)) {
+    facets.workflow.push("hr");
+  }
+
   return {
     population: uniqueStrings(facets.population),
     setting: uniqueStrings(facets.setting),
@@ -507,7 +595,7 @@ export function classifyDocumentOrganization(input: OrganizationDocumentInput) {
     raw_bracket_tags,
     site,
     document_type,
-    secondary_facets: secondaryFacets(raw_bracket_tags),
+    secondary_facets: secondaryFacets(raw_bracket_tags, input.title, `${input.contentText ?? ""} ${input.summaryText ?? ""}`),
     review_status,
   };
 

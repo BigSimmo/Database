@@ -73,36 +73,47 @@ const navItems: Array<{ label: string; icon: LucideIcon }> = [
 const concepts: Record<SettingsSearchMockupVariant, Concept> = {
   general: {
     eyebrow: "Concept 01",
-    title: "Account hub",
+    title: "Account & app hub",
     subtitle:
-      "The refined default direction: profile, app behaviour, and clinical preferences in one calm settings surface.",
+      "The best default landing page: profile, clinical defaults, app preferences, and privacy in one calm settings surface.",
     activeNav: "Account",
     summary: [
-      { label: "Profile", value: "Clinical", icon: UserRound },
-      { label: "Default mode", value: "Ask", icon: MessageSquare },
-      { label: "Clinical setup", value: "WA", icon: Stethoscope },
+      { label: "Profile", value: "Dr Simpson", icon: UserRound },
+      { label: "Clinical defaults", value: "WA, adults", icon: Stethoscope },
+      { label: "Privacy", value: "No identifiers", icon: ShieldCheck },
     ],
     sections: [
       {
         title: "Account",
         rows: [
           { label: "Profile", value: "Dr Simpson", icon: UserRound },
+          { label: "Email", value: "Private", icon: MessageSquare },
           { label: "Clinical role", value: "Consultant psychiatrist", icon: Stethoscope },
+          { label: "Organisation", value: "Not shown", icon: Building2 },
         ],
       },
       {
-        title: "App",
+        title: "Clinical defaults",
+        rows: [
+          { label: "Jurisdiction", value: "Western Australia", icon: Globe2 },
+          { label: "Default population", value: "Adults", icon: CircleUserRound },
+          { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
+          { label: "Citation display", value: "Inline", icon: FileText },
+        ],
+      },
+      {
+        title: "App preferences",
         rows: [
           { label: "Appearance", value: "System", icon: Palette },
           { label: "Interface density", value: "Comfortable", icon: Settings },
-          { label: "Default landing view", value: "Ask", icon: MessageSquare },
+          { label: "Default landing view", value: "Ask", icon: PanelTop },
         ],
       },
       {
-        title: "Clinical KB",
+        title: "Privacy & security",
         rows: [
-          { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
-          { label: "Citation display", value: "Inline", icon: FileText },
+          { label: "No patient identifiers reminder", value: "On", icon: ShieldCheck },
+          { label: "App lock", value: "5 minutes", icon: LockKeyhole },
         ],
       },
     ],
@@ -115,154 +126,194 @@ const concepts: Record<SettingsSearchMockupVariant, Concept> = {
         ],
       },
       {
-        title: "App",
+        title: "Clinical defaults",
         rows: [
-          { label: "Appearance", value: "System", icon: Palette },
-          { label: "Interface density", value: "Comfort", icon: Settings },
-          { label: "Default mode", value: "Ask", icon: MessageSquare },
+          { label: "Jurisdiction", value: "WA", icon: Globe2 },
+          { label: "Population", value: "Adults", icon: CircleUserRound },
+          { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
         ],
       },
       {
-        title: "Clinical KB",
+        title: "App & privacy",
         rows: [
-          { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
-          { label: "Citation display", value: "Inline", icon: FileText },
+          { label: "Landing view", value: "Ask", icon: PanelTop },
+          { label: "No identifiers", value: "On", icon: ShieldCheck },
         ],
       },
     ],
   },
   clinical: {
     eyebrow: "Concept 02",
-    title: "Clinical-ready account hub",
+    title: "Clinical defaults",
     subtitle:
-      "A stronger account hub for clinicians who want role, region, evidence, and app defaults visible together.",
-    activeNav: "Account",
+      "A focused settings view for how clinical answers should behave before the user asks anything.",
+    activeNav: "Clinical defaults",
     summary: [
-      { label: "Role", value: "Psychiatry", icon: Stethoscope },
-      { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
-      { label: "Evidence", value: "Current first", icon: FileText },
+      { label: "Jurisdiction", value: "WA", icon: Globe2 },
+      { label: "Population", value: "Adults", icon: CircleUserRound },
+      { label: "Evidence", value: "Current first", icon: BookOpenCheck },
     ],
     sections: [
       {
-        title: "Account",
+        title: "Clinical context",
         rows: [
-          { label: "Profile", value: "Dr Simpson", icon: UserRound },
-          { label: "Clinical role", value: "Consultant psychiatrist", icon: Stethoscope },
           { label: "Jurisdiction", value: "Western Australia", icon: Globe2 },
+          { label: "Default population", value: "Adults", icon: CircleUserRound },
+          { label: "Clinical role", value: "Consultant psychiatrist", icon: Stethoscope },
+          { label: "Specialty focus", value: "Psychiatry", icon: Sparkles },
         ],
       },
       {
-        title: "Clinical defaults",
+        title: "Answer behaviour",
         rows: [
           { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
-          { label: "Citation detail", value: "Inline and expandable", icon: FileText },
-          { label: "Source preference", value: "Current guidance first" },
+          { label: "Default answer length", value: "Standard", icon: TextCursorInput },
+          { label: "Evidence preference", value: "Current guidance first", icon: BookOpenCheck },
+          { label: "Citation display", value: "Inline and expandable", icon: FileText },
+        ],
+      },
+      {
+        title: "Clinical safeguards",
+        rows: [
           {
-            label: "Safety and monitoring prompts",
-            description: "Surface contraindication, baseline test, and follow-up monitoring prompts.",
+            label: "Medication safety prompts",
+            description: "Surface contraindications, interactions, and baseline checks when relevant.",
             enabled: true,
+            icon: ShieldCheck,
+          },
+          {
+            label: "Monitoring reminders",
+            description: "Include baseline tests and follow-up monitoring prompts in medicine answers.",
+            enabled: true,
+            icon: Clock3,
+          },
+          {
+            label: "Clarify vague prompts",
+            description: "Ask a short follow-up question before answering unsafe or underspecified requests.",
+            enabled: true,
+            icon: MessageSquare,
           },
         ],
       },
     ],
     phoneSections: [
       {
-        title: "Account",
+        title: "Clinical context",
         rows: [
-          { label: "Profile", value: "Dr Simpson", icon: UserRound },
-          { label: "Clinical role", value: "Psychiatry", icon: Stethoscope },
           { label: "Jurisdiction", value: "WA", icon: Globe2 },
+          { label: "Population", value: "Adults", icon: CircleUserRound },
+          { label: "Clinical role", value: "Psychiatry", icon: Stethoscope },
         ],
       },
       {
-        title: "Clinical KB",
+        title: "Answers",
         rows: [
           { label: "Answer style", value: "Conservative", icon: SlidersHorizontal },
-          { label: "Evidence", value: "Current first", icon: FileText },
-          { label: "Safety prompts", value: "On", icon: ShieldCheck },
+          { label: "Evidence", value: "Current first", icon: BookOpenCheck },
+          { label: "Citations", value: "Inline", icon: FileText },
         ],
       },
       {
-        title: "App",
-        rows: [{ label: "Default mode", value: "Ask", icon: MessageSquare }],
+        title: "Safeguards",
+        rows: [
+          { label: "Safety prompts", value: "On", icon: ShieldCheck },
+          { label: "Clarify first", value: "On", icon: MessageSquare },
+        ],
       },
     ],
   },
   privacy: {
     eyebrow: "Concept 03",
-    title: "Private account hub",
+    title: "Privacy & security",
     subtitle:
-      "A privacy-led account hub with PHI-safe defaults, app lock, hidden previews, and clinical personalisation.",
-    activeNav: "Account",
+      "A privacy-led settings view for patient-identifier reminders, history behaviour, device protection, and sessions.",
+    activeNav: "Privacy",
     summary: [
-      { label: "Privacy", value: "No PHI", icon: ShieldCheck },
+      { label: "Identifiers", value: "Warn first", icon: ShieldCheck },
       { label: "App lock", value: "On", icon: LockKeyhole },
-      { label: "Previews", value: "Hidden", icon: Bell },
+      { label: "Sessions", value: "This device", icon: MonitorSmartphone },
     ],
     sections: [
-      {
-        title: "Account",
-        rows: [
-          { label: "Profile", value: "Dr Simpson", icon: UserRound },
-          { label: "Clinical role", value: "Consultant psychiatrist", icon: Stethoscope },
-          { label: "Jurisdiction", value: "Western Australia", icon: Globe2 },
-        ],
-      },
       {
         title: "Privacy",
         rows: [
           {
-            label: "No PHI reminders",
-            description: "Warn before storing patient identifiers in saved prompts or notes.",
+            label: "No patient identifiers reminder",
+            description: "Warn before prompts or saved notes include identifiable patient details.",
             enabled: true,
             icon: ShieldCheck,
+          },
+          {
+            label: "Private mode by default",
+            description: "Start new clinical sessions without saving detailed prompt content.",
+            enabled: false,
+            icon: LockKeyhole,
           },
           {
             label: "Topic-only history",
             description: "Show recent work by topic and guideline, not patient details.",
             enabled: true,
+            icon: History,
           },
           {
-            label: "Citation privacy",
-            description: "Keep source trails visible without recording patient-identifying details.",
-            enabled: true,
+            label: "Save detailed prompts",
+            description: "Keep full prompt text in history when private mode is off.",
+            enabled: false,
+            icon: FileText,
           },
-          {
-            label: "Hide notification previews",
-            description: "Keep clinical content hidden on the lock screen and notification tray.",
-            enabled: true,
-          },
+        ],
+      },
+      {
+        title: "Data controls",
+        rows: [
+          { label: "Clear recent activity", value: "Available", icon: Trash2 },
+          { label: "Export my data", value: "Available", icon: Download },
+          { label: "Delete my data", value: "Request", icon: Trash2 },
         ],
       },
       {
         title: "Security",
         rows: [
-          { label: "Require app lock", value: "After 5 minutes", icon: LockKeyhole },
-          { label: "Active sessions", value: "This device", icon: LockKeyhole },
+          { label: "App lock", value: "After 5 minutes", icon: LockKeyhole },
+          { label: "Biometric unlock", value: "On", icon: Fingerprint },
+          { label: "Active sessions", value: "This device", icon: MonitorSmartphone },
+          { label: "Trusted devices", value: "1 device", icon: ShieldCheck },
+        ],
+      },
+      {
+        title: "Notifications",
+        rows: [
+          {
+            label: "Hide notification previews",
+            description: "Keep clinical content hidden on the lock screen and notification tray.",
+            enabled: true,
+            icon: Bell,
+          },
         ],
       },
     ],
     phoneSections: [
       {
-        title: "Account",
-        rows: [
-          { label: "Profile", value: "Dr Simpson", icon: UserRound },
-          { label: "Clinical role", value: "Psychiatry", icon: Stethoscope },
-        ],
-      },
-      {
         title: "Privacy",
         rows: [
-          { label: "No PHI reminders", value: "On", icon: ShieldCheck },
-          { label: "Topic-only history", value: "On", icon: MessageSquare },
-          { label: "Previews", value: "Hidden", icon: Bell },
+          { label: "Identifier warning", value: "On", icon: ShieldCheck },
+          { label: "Private mode", value: "Off", icon: LockKeyhole },
+          { label: "Topic-only history", value: "On", icon: History },
         ],
       },
       {
         title: "Security",
         rows: [
           { label: "App lock", value: "5 min", icon: LockKeyhole },
-          { label: "Security", value: "Protected", icon: LockKeyhole },
+          { label: "Biometric unlock", value: "On", icon: Fingerprint },
+          { label: "Sessions", value: "1", icon: MonitorSmartphone },
+        ],
+      },
+      {
+        title: "Notifications",
+        rows: [
+          { label: "Previews", value: "Hidden", icon: Bell },
+          { label: "Quiet hours", value: "Off", icon: Clock3 },
         ],
       },
     ],
@@ -551,7 +602,13 @@ function PhoneSettingsSection({ section }: { section: SettingsSection }) {
               type="button"
               className="grid min-h-[52px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 text-left last:border-b-0"
             >
-              <IconFrame icon={Icon} active={index === 0 && section.title === "Clinical KB"} />
+              <IconFrame
+                icon={Icon}
+                active={
+                  index === 0 &&
+                  ["Clinical defaults", "Answers", "Safeguards", "Privacy", "Security"].includes(section.title)
+                }
+              />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium text-[color:var(--text-heading)]">{row.label}</span>
               </span>
