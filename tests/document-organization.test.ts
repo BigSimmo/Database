@@ -157,4 +157,38 @@ describe("document organization classifier", () => {
     expect(classification.profile.document_type.label).toBe("unknown");
     expect(classification.profile.review_status).toBe("needs_review");
   });
+
+  it("classifies finance and hr workflows correctly and avoids bare hr false positives", () => {
+    // 1. Bracket tag [HR] should map to hr
+    const classificationBracket = classifyDocumentOrganization({
+      title: "Staff Code of Conduct (HR)",
+      file_name: "conduct.pdf",
+      contentText: "Staff policy document.",
+    });
+    expect(classificationBracket.profile.secondary_facets.workflow).toContain("hr");
+
+    // 2. Explicit 'human resources' in text should map to hr
+    const classificationExplicit = classifyDocumentOrganization({
+      title: "Staff Recruitment Policy",
+      file_name: "recruitment.pdf",
+      contentText: "Managed by the human resources department.",
+    });
+    expect(classificationExplicit.profile.secondary_facets.workflow).toContain("hr");
+
+    // 3. Bare 'hr' as time unit in text should NOT map to hr workflow
+    const classificationTime = classifyDocumentOrganization({
+      title: "Infusion Guide",
+      file_name: "infusion.pdf",
+      contentText: "Administer the drug over 1 hr.",
+    });
+    expect(classificationTime.profile.secondary_facets.workflow).not.toContain("hr");
+
+    // 4. Finance workflow should match financial terms
+    const classificationFinance = classifyDocumentOrganization({
+      title: "Annual Budget",
+      file_name: "budget.pdf",
+      contentText: "Department billing and cost allocation.",
+    });
+    expect(classificationFinance.profile.secondary_facets.workflow).toContain("finance");
+  });
 });

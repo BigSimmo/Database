@@ -11,6 +11,7 @@ import type {
 } from "@/lib/types";
 
 type RetrievalStrategy = SmartRagApiPlan["retrievalStrategy"];
+type SmartRagAnswerPlan = SmartRagApiPlan["answerPlan"];
 
 type BuildSmartRagApiPlanArgs = {
   query: string;
@@ -47,6 +48,29 @@ function uniqueDocumentCount(results: SearchResult[]) {
 
 function resultScore(result: SearchResult) {
   return result.hybrid_score ?? result.similarity ?? 0;
+}
+
+function strongestResultScore(results: SearchResult[]) {
+  return results.reduce((max, result) => Math.max(max, resultScore(result)), 0);
+}
+
+function retrievalQuality(results: SearchResult[]): SmartRagAnswerPlan["retrievalQuality"] {
+  if (results.length === 0) return "none";
+  const strongestScore = strongestResultScore(results);
+  if (strongestScore >= 0.76) return "strong";
+  if (strongestScore >= 0.5) return "adequate";
+  return "weak";
+}
+
+function routeModeFromPlanMode(
+  mode: SmartRagApiPlan["responseMode"],
+  routeMode?: RagAnswer["routingMode"],
+): SmartRagAnswerPlan["routeMode"] {
+  if (routeMode) return routeMode;
+  if (mode === "unsupported") return "unsupported";
+  if (mode === "strong_synthesis") return "strong";
+  if (mode === "extractive_answer" || mode === "document_lookup") return "extractive";
+  return "fast";
 }
 
 function linkReason(result: SearchResult, queryClass: RagQueryClass) {
@@ -164,6 +188,59 @@ function answerFocus(args: {
   return "Answer directly using the highest-ranked source links.";
 }
 
+function modelStrategy(routeMode: SmartRagAnswerPlan["routeMode"]): SmartRagAnswerPlan["modelStrategy"] {
+  if (routeMode === "unsupported") return "no_generation";
+  if (routeMode === "extractive") return "narrow_extractive_lookup";
+  if (routeMode === "strong") return "strong_model_then_quality_gate";
+  return "fast_model_then_quality_gate";
+}
+
+function qualityCriteria(args: {
+  queryClass: RagQueryClass;
+  mode: SmartRagApiPlan["responseMode"];
+}): string[] {
+  const criteria = [
+    "first_sentence_answers_query",
+    "no_source_headings_or_fragments",
+    "citations_match_retrieved_chunks",
+    "no_unsupported_numbers_or_doses",
+    "query_intent_covered",
+  ];
+  if (args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold") {
+    criteria.push("no_cross_medication_leakage");
+  }
+  if (args.queryClass === "comparison" || args.mode === "multi_document_synthesis") {
+    criteria.push("conflicts_or_gaps_handled_when_supported");
+  }
+  if (args.mode === "unsupported") {
+    return ["no_answer_without_source_support", "nearby_sources_are_not_promoted_to_answer"];
+  }
+  return criteria;
+}
+
+function fallbackBehavior(routeMode: SmartRagAnswerPlan["routeMode"]): SmartRagAnswerPlan["fallbackBehavior"] {
+  if (routeMode === "unsupported") return "return_source_gap";
+  if (routeMode === "extractive") return "return_narrow_extractive_lookup";
+  return "retry_strong_then_source_gap";
+}
+
+function answerPlan(args: {
+  queryClass: RagQueryClass;
+  mode: SmartRagApiPlan["responseMode"];
+  routeMode?: RagAnswer["routingMode"];
+  results: SearchResult[];
+}): SmartRagAnswerPlan {
+  const plannedRouteMode = routeModeFromPlanMode(args.mode, args.routeMode);
+  return {
+    retrievalQuality: retrievalQuality(args.results),
+    routeMode: plannedRouteMode,
+    modelStrategy: modelStrategy(plannedRouteMode),
+    qualityCriteria: qualityCriteria({ queryClass: args.queryClass, mode: args.mode }),
+    fallbackBehavior: fallbackBehavior(plannedRouteMode),
+    sourcePolicy: "no_answer_without_retrieved_support",
+  };
+}
+
 function streamPlan(mode: SmartRagApiPlan["responseMode"], retrievalStrategy: SmartRagApiPlan["retrievalStrategy"]) {
   if (mode === "unsupported")
     return ["Search indexed sources", "Report unsupported evidence", "Show nearby source links if available"];
@@ -203,6 +280,7 @@ export function buildSmartRagApiPlan(args: BuildSmartRagApiPlanArgs): SmartRagAp
       documentCount,
       linkCount: coreSourceLinks.length,
     }),
+    answerPlan: answerPlan({ queryClass: args.queryClass, mode, routeMode: args.routeMode, results: args.results }),
     sourceLinkCount: coreSourceLinks.length,
     coreSourceLinks,
     streamPlan: streamPlan(mode, retrievalStrategy),

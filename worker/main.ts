@@ -883,7 +883,7 @@ async function uploadAndCaptionImages(
     });
   }
 
-  const captionConcurrency = 4;
+  const captionConcurrency = env.WORKER_VISION_CONCURRENCY;
   const resolvedTasks: Array<{
     task: CaptionTask;
     classification: ImageClassification;

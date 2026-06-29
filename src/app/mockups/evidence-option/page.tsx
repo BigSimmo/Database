@@ -530,7 +530,7 @@ function EvidenceSearchPhone() {
 function EvidenceDetailDesktop() {
   return (
     <DesktopChrome>
-      <div className="grid h-[calc(100%-5rem)] grid-cols-[minmax(0,1fr)_19rem] gap-4 pb-16">
+      <div className="h-[calc(100%-5rem)] pb-16">
         <section className="min-w-0 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
           <header className="border-b border-[color:var(--border)] p-4">
             <div className="flex items-start justify-between gap-3">
@@ -553,60 +553,42 @@ function EvidenceDetailDesktop() {
               <Pill>Document context</Pill>
             </div>
           </header>
-          <div className="grid grid-cols-[minmax(0,1fr)_17rem] gap-4 p-4">
-            <div className="space-y-3">
+          <div className="space-y-3 p-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_15rem] gap-3">
               <figure className="rounded-xl border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--clinical-chat-teal)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-                <blockquote className="text-base font-semibold leading-7 text-[color:var(--text-heading)]">
+                <blockquote className="text-sm font-semibold leading-6 text-[color:var(--text-heading)]">
                   &quot;Patients reporting severe constipation, abdominal pain, vomiting, or reduced bowel motions require same-day clinical review.&quot;
                 </blockquote>
-                <figcaption className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">Direct wording used in answer support.</figcaption>
+                <figcaption className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">Direct wording used in answer support.</figcaption>
               </figure>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                  <Image src="/demo-documents/clozapine-table.png" alt="Clozapine monitoring table evidence crop" width={560} height={320} className="h-36 w-full object-cover object-top" />
-                </div>
-                <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                  <Image src="/demo-documents/risk-flow.png" alt="Risk flow evidence image crop" width={560} height={320} className="h-36 w-full object-cover object-center" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {["Previous paragraph", "Selected quote", "Next paragraph"].map((label, index) => (
-                  <div key={label} className={cn("rounded-lg border p-3", index === 1 ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)]" : "border-[color:var(--border)] bg-[color:var(--surface)]")}>
-                    <p className="text-xs font-bold text-[color:var(--text-heading)]">{label}</p>
-                    <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">Neighbouring safety wording retained for context.</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <aside className="space-y-3">
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
                 <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Citation packet</p>
-                <div className="mt-3 space-y-2">
-                  {["Document", "Page", "Section", "Quote span", "Review status"].map((item) => (
-                    <div key={item} className="flex items-center justify-between rounded-md bg-[color:var(--surface-raised)] px-2 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                <div className="mt-2 space-y-1.5">
+                  {["Document", "Page", "Section", "Quote span", "Reviewed"].map((item) => (
+                    <div key={item} className="flex items-center justify-between rounded-md bg-[color:var(--surface-raised)] px-2 py-1.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
                       {item}
-                      <Check className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                      <Check className="h-3.5 w-3.5 text-[color:var(--clinical-chat-teal)]" />
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="grid gap-2">
-                <ActionButton icon={ExternalLink} primary>Open source PDF</ActionButton>
-                <ActionButton icon={Copy}>Copy quote</ActionButton>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
+                <Image src="/demo-documents/clozapine-table.png" alt="Clozapine monitoring table evidence crop" width={560} height={320} className="h-24 w-full object-cover object-top" />
+                <p className="px-2 py-1.5 text-xs font-bold text-[color:var(--text-heading)]">Linked table</p>
               </div>
-            </aside>
-          </div>
-        </section>
-        <aside className="space-y-3">
-          <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Related objects</p>
-            <div className="mt-3 space-y-2">
-              {objects.filter((item) => item.type !== "Quote").map((item) => (
-                <EvidenceObjectRow key={item.title} item={item} />
-              ))}
+              <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
+                <Image src="/demo-documents/risk-flow.png" alt="Risk flow evidence image crop" width={560} height={320} className="h-24 w-full object-cover object-center" />
+                <p className="px-2 py-1.5 text-xs font-bold text-[color:var(--text-heading)]">Linked image</p>
+              </div>
+              <div className="rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] p-3">
+                <p className="text-xs font-bold text-[color:var(--text-heading)]">Document context</p>
+                <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">Previous and next paragraphs retained with page coordinates.</p>
+              </div>
             </div>
           </div>
-        </aside>
+        </section>
       </div>
     </DesktopChrome>
   );

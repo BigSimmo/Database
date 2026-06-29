@@ -16,6 +16,8 @@ const strongRetrievalThreshold = 0.64;
 const extractiveRetrievalThreshold = 0.76;
 const complexClinicalQueryPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|suicid\w*|toxicity|myocarditis|neutropenia|anc|fbc|urgent|escalat\w*|withhold|cease|stop|dose|dosing|prescrib\w*)\b/i;
+const strongClinicalEscalationPattern =
+  /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|suicid\w*|toxicity|myocarditis|neutropenia|anc|fbc|red range|amber range|urgent|escalat\w*|withhold|cease|stop|discontinue|recommend\w*|decide|decision|pregnan\w*|renal impairment)\b/i;
 const comparisonQueryPattern = /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b/i;
 const routineCrossDocumentPattern =
   /\b(?:across|combine|combined|synthesi[sz]e|together|overall|all documents|these documents|different documents|multiple documents|several documents|from the documents)\b/i;
@@ -25,6 +27,7 @@ const extractiveBlockPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|risk\w*|suicid\w*|toxicity|myocarditis|neutropenia|urgent|escalat\w*|withhold|cease|stop|dose|dosing|prescrib\w*|recommend\w*|decide|decision)\b/i;
 const broadManagementSynthesisPattern =
   /\b(?:management|manage|managed|treatment|treat|therapy|care|approach|pathway)\s+(?:of|for|in)\b|\bhow\s+(?:is|are|should)\b.{0,80}\b(?:managed|treated)\b/i;
+const clinicalPathwaySynthesisPattern = /\b(?:referral criteria|referral pathway|refer\b|pathway|what to do)\b/i;
 const queryStopWords = new Set([
   "what",
   "when",
@@ -76,6 +79,15 @@ function hasExplicitDocumentLookupIntent(query: string) {
   );
 }
 
+function hasSourceSupportLookupIntent(query: string) {
+  return (
+    /\b(?:what|which)\s+(?:documents?|sources?|files?|guidelines?)\b.{0,120}\b(?:support|supports|supporting|cover|covers|contain|contains|mention|mentions)\b/i.test(
+      query,
+    ) ||
+    /\b(?:documents?|sources?|files?|guidelines?)\s+(?:supporting|for)\b/i.test(query)
+  );
+}
+
 function normalizeLookupText(text: string) {
   return text
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -105,6 +117,30 @@ export function isComplexClinicalQuery(query: string) {
   return complexClinicalQueryPattern.test(query);
 }
 
+function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
+  return (
+    queryClass === "medication_dose_risk" ||
+    queryClass === "table_threshold" ||
+    queryClass === "comparison" ||
+    clinicalPathwaySynthesisPattern.test(query)
+  );
+}
+
+function shouldUseStrongClinicalRoute(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  strongestScore: number;
+  topTextRank: number;
+  directTitleSupport: boolean;
+  actionableConflictOrGap: boolean;
+}) {
+  if (args.actionableConflictOrGap && !args.directTitleSupport) return true;
+  if (strongClinicalEscalationPattern.test(args.query)) return true;
+  if (args.strongestScore < strongRetrievalThreshold && !args.directTitleSupport) return true;
+  if (args.queryClass === "table_threshold" && args.topTextRank < 0.035 && !args.directTitleSupport) return true;
+  return false;
+}
+
 export function shouldUseExtractiveAnswer(args: {
   query: string;
   results: SearchResult[];
@@ -120,6 +156,7 @@ export function shouldUseExtractiveAnswer(args: {
   const singleDocumentStrongMatch =
     documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
 
+  if (shouldPreferModelSynthesis(args.query, queryClass)) return false;
   if (queryClass === "broad_summary" || broadManagementSynthesisPattern.test(args.query)) return false;
   if (documents > 1 && comparisonQueryPattern.test(args.query)) return false;
   if (queryClass === "comparison") return false;
@@ -128,19 +165,7 @@ export function shouldUseExtractiveAnswer(args: {
 
   if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport && strongestScore < 0.82) return false;
 
-  if (
-    queryClass === "table_threshold" &&
-    strongestScore >= 0.68 &&
-    (topTextRank >= 0.035 || singleDocumentStrongMatch)
-  ) {
-    return true;
-  }
-
   if (queryClass === "document_lookup" && (directTitleSupport || strongestScore >= 0.72)) {
-    return true;
-  }
-
-  if (queryClass === "medication_dose_risk" && singleDocumentStrongMatch && !comparisonQueryPattern.test(args.query)) {
     return true;
   }
 
@@ -235,6 +260,16 @@ export function chooseAnswerRoute(args: {
   const crossDocumentIntent = routineCrossDocumentPattern.test(args.query) || queryClass === "broad_summary";
   const actionableConflictOrGap = hasActionableConflictOrGap(args.conflictsOrGaps);
 
+  if (hasSourceSupportLookupIntent(args.query) && (directTitleSupport || strongestScore >= 0.4 || topTextRank >= 0.04)) {
+    return {
+      mode: "extractive",
+      model: null,
+      reason: "source_support_document_lookup",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
   if (queryClass === "broad_summary" && broadManagementSynthesisPattern.test(args.query)) {
     return {
       mode: "strong",
@@ -286,6 +321,70 @@ export function chooseAnswerRoute(args: {
       mode: "strong",
       model: args.strongModel,
       reason: "multi_document_comparison_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (queryClass === "medication_dose_risk" || queryClass === "table_threshold") {
+    if (
+      shouldUseStrongClinicalRoute({
+        query: args.query,
+        queryClass,
+        strongestScore,
+        topTextRank,
+        directTitleSupport,
+        actionableConflictOrGap,
+      })
+    ) {
+      return {
+        mode: "strong",
+        model: args.strongModel,
+        reason:
+          actionableConflictOrGap && !directTitleSupport
+            ? "retrieval_gap_or_conflict"
+            : "clinical_risk_or_complex_query",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
+    return {
+      mode: "fast",
+      model: args.fastModel,
+      reason: "clinical_fast_grounded_synthesis",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (clinicalPathwaySynthesisPattern.test(args.query) && queryClass !== "document_lookup") {
+    if (
+      shouldUseStrongClinicalRoute({
+        query: args.query,
+        queryClass,
+        strongestScore,
+        topTextRank,
+        directTitleSupport,
+        actionableConflictOrGap,
+      })
+    ) {
+      return {
+        mode: "strong",
+        model: args.strongModel,
+        reason:
+          actionableConflictOrGap && !directTitleSupport
+            ? "retrieval_gap_or_conflict"
+            : "clinical_risk_or_complex_query",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
+    return {
+      mode: "fast",
+      model: args.fastModel,
+      reason: "clinical_fast_grounded_synthesis",
       strongestScore,
       documentCount: documents,
     };
@@ -353,15 +452,12 @@ export function shouldRetryWithStrongAfterFast(args: {
   results: SearchResult[];
 }) {
   if (args.route.mode !== "fast") return false;
-  // A structured-parse failure is a generation/format problem, not a weak-
-  // retrieval signal. Since B5 made that fallback fail closed (ungrounded, no
-  // citations), retrying with the strong model would re-run generation (often
-  // re-truncating) instead of letting extractive recovery use the retrieved
-  // sources. Skip the strong retry here; extractive recovery handles it.
-  if (args.answer.routingReason === "structured_parse_fallback") return false;
   if (args.answer.grounded && args.answer.confidence !== "unsupported" && args.answer.citations.length > 0) {
     return false;
   }
 
-  return strongestRetrievalScore(args.results) >= strongRetrievalThreshold && args.results.length >= 2;
+  const solidSourceSupport = strongestRetrievalScore(args.results) >= strongRetrievalThreshold && args.results.length > 0;
+  if (args.answer.routingReason === "structured_parse_fallback") return solidSourceSupport;
+  if (args.route.reason === "clinical_fast_grounded_synthesis") return solidSourceSupport;
+  return solidSourceSupport && args.results.length >= 2;
 }

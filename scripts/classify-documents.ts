@@ -165,7 +165,7 @@ async function writeClassification(
     .delete()
     .eq("document_id", document.id)
     .eq("source", "generated")
-    .in("label_type", ["site", "document_type", "population", "topic", "setting", "service", "workflow"]);
+    .in("label_type", ["site", "document_type", "population", "topic", "setting", "service", "workflow", "medication"]);
   if (deleteError) throw new Error(deleteError.message);
 
   // Write site labels (confident only, >= 0.75)
@@ -176,10 +176,10 @@ async function writeClassification(
     (label) => label.label_type === "document_type" && label.confidence >= 0.5,
   );
 
-  // Write all secondary facet labels (population, topic, setting, service, workflow)
+  // Write all secondary facet labels (population, topic, setting, service, workflow, medication)
   const secondaryLabels = classification.labels.filter(
     (label) =>
-      ["population", "topic", "setting", "service", "workflow"].includes(label.label_type) && label.confidence >= 0.5,
+      ["population", "topic", "setting", "service", "workflow", "medication"].includes(label.label_type) && label.confidence >= 0.5,
   );
 
   const generatedLabels = [...siteLabels, ...typeLabels, ...secondaryLabels];

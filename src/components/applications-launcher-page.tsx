@@ -180,6 +180,69 @@ const recentActivity = [
   { id: "favourites", label: "Favourites reviewed", date: "Today, 8:45 AM", icon: Star },
 ] as const;
 
+export const applicationsLauncherItemCount = launcherApps.length;
+
+type LauncherVariant = "standalone" | "dashboard-tools";
+
+type LauncherCopy = {
+  heading: string;
+  description: string;
+  searchAriaLabel: string;
+  searchPlaceholder: string;
+  actionsAriaLabel: string;
+  openSelectedAriaLabel: string;
+  selectedLabel: string;
+  closeSelectedLabel: string;
+  optionsAriaLabel: string;
+  pinnedAriaLabel: string;
+  allSectionLabel: string;
+  allColumnLabel: string;
+  countNoun: string;
+  relatedHeading: string;
+  emptyTitle: string;
+  emptyBody: string;
+};
+
+const standaloneLauncherCopy: LauncherCopy = {
+  heading: "Applications",
+  description:
+    "Open the clinical applications and connected workflows you use for assessment, formulation, prescribing, documents, and saved workflows.",
+  searchAriaLabel: "Search applications",
+  searchPlaceholder: "Search applications...",
+  actionsAriaLabel: "Open application actions",
+  openSelectedAriaLabel: "Open selected application",
+  selectedLabel: "Selected application",
+  closeSelectedLabel: "Close selected application",
+  optionsAriaLabel: "Open application options",
+  pinnedAriaLabel: "Pinned applications",
+  allSectionLabel: "All applications",
+  allColumnLabel: "Application",
+  countNoun: "applications",
+  relatedHeading: "Related apps",
+  emptyTitle: "No applications match",
+  emptyBody: "Clear the search or try another clinical workflow, app name, or category.",
+};
+
+const dashboardToolsLauncherCopy: LauncherCopy = {
+  heading: "Tools",
+  description:
+    "Open the clinical tools and connected workflows you use for assessment, prescribing, documents, and saved work.",
+  searchAriaLabel: "Search tools",
+  searchPlaceholder: "Search tools...",
+  actionsAriaLabel: "Open tool actions",
+  openSelectedAriaLabel: "Open selected tool",
+  selectedLabel: "Selected tool",
+  closeSelectedLabel: "Close selected tool",
+  optionsAriaLabel: "Open tool options",
+  pinnedAriaLabel: "Pinned tools",
+  allSectionLabel: "All tools",
+  allColumnLabel: "Tool",
+  countNoun: "tools",
+  relatedHeading: "Related tools",
+  emptyTitle: "No tools match",
+  emptyBody: "Clear the search or try another clinical workflow, tool name, or category.",
+};
+
 function appById(id: string) {
   return launcherApps.find((app) => app.id === id) ?? launcherApps[0];
 }
@@ -273,15 +336,17 @@ function PinnedSection({
   selectedId,
   onSelect,
   onTogglePin,
+  copy,
 }: {
   pinnedApps: LauncherApp[];
   selectedId: string;
   onSelect: (id: string) => void;
   onTogglePin: (id: string) => void;
+  copy: LauncherCopy;
 }) {
   return (
     <section
-      aria-label="Pinned applications"
+      aria-label={copy.pinnedAriaLabel}
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
     >
       <div className="flex min-h-10 items-center justify-between border-b border-[color:var(--border)] px-3">
@@ -420,6 +485,7 @@ function DetailPanel({
   onTogglePin,
   onClose,
   headingId,
+  copy,
   testId = "selected-application-panel",
   variant = "inline",
 }: {
@@ -428,6 +494,7 @@ function DetailPanel({
   onTogglePin: (id: string) => void;
   onClose?: () => void;
   headingId?: string;
+  copy: LauncherCopy;
   testId?: string;
   variant?: "inline" | "sheet";
 }) {
@@ -441,11 +508,11 @@ function DetailPanel({
           ? "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:sticky lg:top-4"
           : "bg-transparent p-0",
       )}
-      aria-label="Selected application"
+      aria-label={copy.selectedLabel}
     >
       <div className="flex items-start justify-between gap-3">
         <p id={headingId} className="text-sm font-semibold text-[color:var(--text-heading)]">
-          Selected application
+          {copy.selectedLabel}
         </p>
         <div className="flex items-center gap-1">
           <button
@@ -460,7 +527,7 @@ function DetailPanel({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close selected application"
+              aria-label={copy.closeSelectedLabel}
               className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
             >
               <X className="h-4 w-4" />
@@ -468,7 +535,7 @@ function DetailPanel({
           ) : (
             <button
               type="button"
-              aria-label="Open application options"
+              aria-label={copy.optionsAriaLabel}
               className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
             >
               <MoreVertical className="h-4 w-4" />
@@ -551,7 +618,7 @@ function DetailPanel({
       </section>
 
       <section className="mt-5">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Related apps</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">{copy.relatedHeading}</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {related.map((relatedApp) => {
             const Icon = relatedApp.icon;
@@ -825,14 +892,29 @@ function ApplicationsHeader({
   );
 }
 
-export function ApplicationsLauncherPage() {
-  const [query, setQuery] = useState("");
+type ApplicationsLauncherWorkspaceProps = {
+  variant?: LauncherVariant;
+  query?: string;
+  onQueryChange?: (query: string) => void;
+  className?: string;
+};
+
+export function ApplicationsLauncherWorkspace({
+  variant = "standalone",
+  query: controlledQuery,
+  onQueryChange,
+  className,
+}: ApplicationsLauncherWorkspaceProps) {
+  const [uncontrolledQuery, setUncontrolledQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<(typeof filterOptions)[number]["id"]>("all");
   const [selectedId, setSelectedId] = useState("clinical-kb-search");
   const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const isDashboardTools = variant === "dashboard-tools";
+  const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
+  const query = controlledQuery ?? uncontrolledQuery;
 
   const normalizedQuery = query.trim().toLowerCase();
   const pinnedApps = pinnedIds.map(appById);
@@ -865,33 +947,61 @@ export function ApplicationsLauncherPage() {
     }
   }
 
+  function updateQuery(nextQuery: string) {
+    if (controlledQuery === undefined) {
+      setUncontrolledQuery(nextQuery);
+    }
+    onQueryChange?.(nextQuery);
+  }
+
   function submitFooterSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const firstMatch = filteredApps[0];
     if (firstMatch) selectApplication(firstMatch.id);
   }
 
-  return (
-    <div className="min-h-screen bg-[color:var(--surface)] text-[color:var(--text)]">
-      <ApplicationsHeader
-        mobileMenuOpen={mobileMenuOpen}
-        modeMenuOpen={modeMenuOpen}
-        onMobileMenuOpenChange={setMobileMenuOpen}
-        onModeMenuOpenChange={setModeMenuOpen}
-      />
-      <ApplicationsMobileMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
+  const workspace = (
+    <>
+      {isDashboardTools ? (
+        <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-left">
+            <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
+              <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
+            </span>
+            <div className="max-w-2xl space-y-2">
+              <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
+                {copy.heading}
+              </h2>
+              <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">
+                {copy.description}
+              </p>
+            </div>
+          </div>
 
-      <main id="main-content" className="min-w-0 pb-8 lg:pb-10">
+          <div className="flex flex-col items-center gap-3 lg:items-end">
+            <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+            {normalizedQuery ? (
+              <button
+                type="button"
+                onClick={() => updateQuery("")}
+                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                Clear search
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : (
         <section className="mx-auto flex min-h-[14rem] max-w-3xl flex-col items-center justify-center px-5 py-7 text-center sm:min-h-[16rem] sm:py-8 lg:min-h-[17rem]">
           <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
           </span>
           <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:mt-5 sm:text-4xl">
-            Applications
+            {copy.heading}
           </h1>
           <p className="mt-3 max-w-xl text-[15px] leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-            Open the clinical applications and connected workflows you use for assessment, formulation, prescribing,
-            documents, and saved workflows.
+            {copy.description}
           </p>
           <div className="mt-6">
             <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
@@ -900,17 +1010,17 @@ export function ApplicationsLauncherPage() {
             <button
               type="button"
               className={chatComposerIconButton}
-              aria-label="Open application actions"
-              title="Open application actions"
+              aria-label={copy.actionsAriaLabel}
+              title={copy.actionsAriaLabel}
             >
               <Plus className="h-5 w-5" />
             </button>
             <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Search applications"
-                placeholder="Search applications..."
+                onChange={(event) => updateQuery(event.target.value)}
+                aria-label={copy.searchAriaLabel}
+                placeholder={copy.searchPlaceholder}
                 className={cn(chatComposerInput, "w-full min-w-0")}
               />
             </label>
@@ -921,112 +1031,129 @@ export function ApplicationsLauncherPage() {
               type="submit"
               disabled={filteredApps.length === 0}
               className={chatSendButton}
-              aria-label="Open selected application"
+              aria-label={copy.openSelectedAriaLabel}
             >
               <Send className="h-4 w-4" />
               <span className="sr-only">Open</span>
             </button>
           </form>
         </section>
+      )}
 
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 pb-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-          <div className="min-w-0 space-y-4">
-            <PinnedSection
-              pinnedApps={pinnedApps}
-              selectedId={selectedId}
-              onSelect={selectApplication}
-              onTogglePin={togglePin}
-            />
+      <div
+        className={cn(
+          "mx-auto grid gap-4 pb-6 lg:items-start",
+          isDashboardTools
+            ? "w-full max-w-6xl lg:grid-cols-[minmax(0,1fr)_23rem]"
+            : "max-w-7xl px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem]",
+        )}
+      >
+        <div className="min-w-0 space-y-4">
+          <PinnedSection
+            pinnedApps={pinnedApps}
+            selectedId={selectedId}
+            onSelect={selectApplication}
+            onTogglePin={togglePin}
+            copy={copy}
+          />
 
-            <section
-              aria-label="All applications"
-              className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
-            >
-              <div className="flex min-h-12 items-center gap-2 border-b border-[color:var(--border)] px-3">
-                <BookOpen className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
-                <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">All applications</h2>
+          <section
+            aria-label={copy.allSectionLabel}
+            className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
+          >
+            <div className="flex min-h-12 items-center gap-2 border-b border-[color:var(--border)] px-3">
+              <BookOpen className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+              <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
+            </div>
+
+            <div className="hidden grid-cols-[auto_minmax(0,1fr)_7rem_6rem_5.5rem_auto] gap-3 px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] lg:grid">
+              <span className="col-span-2">{copy.allColumnLabel}</span>
+              <span>Last used</span>
+              <span>Status</span>
+              <span>Action</span>
+              <span />
+            </div>
+
+            {filteredApps.length === 0 ? (
+              <div className="border-t border-[color:var(--border)] px-3 py-8 text-center">
+                <p className="text-sm font-semibold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
+                <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>{copy.emptyBody}</p>
               </div>
+            ) : (
+              <>
+                <div className="hidden lg:block">
+                  {filteredApps.map((app) => (
+                    <ApplicationRow
+                      key={app.id}
+                      app={app}
+                      selected={selectedId === app.id}
+                      pinned={pinnedIds.includes(app.id)}
+                      onSelect={selectApplication}
+                      onTogglePin={togglePin}
+                    />
+                  ))}
+                </div>
 
-              <div className="hidden grid-cols-[auto_minmax(0,1fr)_7rem_6rem_5.5rem_auto] gap-3 px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] lg:grid">
-                <span className="col-span-2">Application</span>
-                <span>Last used</span>
-                <span>Status</span>
-                <span>Action</span>
-                <span />
-              </div>
+                <div className="lg:hidden">
+                  {filteredApps.map((app) => (
+                    <MobileApplicationRow
+                      key={app.id}
+                      app={app}
+                      selected={selectedId === app.id}
+                      onSelect={selectApplication}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
 
-              <div className="hidden lg:block">
-                {filteredApps.map((app) => (
-                  <ApplicationRow
-                    key={app.id}
-                    app={app}
-                    selected={selectedId === app.id}
-                    pinned={pinnedIds.includes(app.id)}
-                    onSelect={selectApplication}
-                    onTogglePin={togglePin}
-                  />
-                ))}
-              </div>
+            <p className="border-t border-[color:var(--border)] px-3 py-3 text-xs font-medium text-[color:var(--text-muted)]">
+              Showing {filteredApps.length > 0 ? "1" : "0"} to {filteredApps.length} of {launcherApps.length}{" "}
+              {copy.countNoun}
+            </p>
+          </section>
 
-              <div className="lg:hidden">
-                {filteredApps.map((app) => (
-                  <MobileApplicationRow
-                    key={app.id}
-                    app={app}
-                    selected={selectedId === app.id}
-                    onSelect={selectApplication}
-                  />
-                ))}
-              </div>
-
-              <p className="border-t border-[color:var(--border)] px-3 py-3 text-xs font-medium text-[color:var(--text-muted)]">
-                Showing {filteredApps.length > 0 ? "1" : "0"} to {filteredApps.length} of {launcherApps.length}{" "}
-                applications
-              </p>
-            </section>
-
-            <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Recent activity</h2>
-                <button type="button" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
-                  View all
-                </button>
-              </div>
-              <div className="grid gap-2 md:grid-cols-3">
-                {recentActivity.slice(0, 3).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => selectApplication(item.id)}
-                      className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
-                    >
-                      <Icon className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" aria-hidden />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                          {item.label}
-                        </span>
-                        <span className="nums block truncate text-xs text-[color:var(--text-soft)]">{item.date}</span>
+          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Recent activity</h2>
+              <button type="button" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
+                View all
+              </button>
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {recentActivity.slice(0, 3).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => selectApplication(item.id)}
+                    className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
+                  >
+                    <Icon className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                        {item.label}
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-
-          <div className="hidden lg:block">
-            <DetailPanel app={selectedApp} pinned={pinnedIds.includes(selectedId)} onTogglePin={togglePin} />
-          </div>
+                      <span className="nums block truncate text-xs text-[color:var(--text-soft)]">{item.date}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </div>
-      </main>
+
+        <div className="hidden lg:block">
+          <DetailPanel app={selectedApp} pinned={pinnedIds.includes(selectedId)} onTogglePin={togglePin} copy={copy} />
+        </div>
+      </div>
 
       <Sheet
         open={mobileDetailOpen}
         onClose={() => setMobileDetailOpen(false)}
         labelledBy="selected-application-sheet-heading"
-        closeLabel="Close selected application"
+        closeLabel={copy.closeSelectedLabel}
         contentClassName="lg:hidden rounded-t-[1.75rem] bg-[color:var(--surface-lux)]"
         bodyClassName="px-5 pb-6 pt-4 sm:px-5"
         portal
@@ -1037,11 +1164,42 @@ export function ApplicationsLauncherPage() {
           onTogglePin={togglePin}
           onClose={() => setMobileDetailOpen(false)}
           headingId="selected-application-sheet-heading"
+          copy={copy}
           testId="selected-application-sheet-panel"
           variant="sheet"
         />
       </Sheet>
+    </>
+  );
 
+  if (isDashboardTools) {
+    return (
+      <div
+        data-testid="tools-hub"
+        className={cn("mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5", className)}
+      >
+        {workspace}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("min-h-screen bg-[color:var(--surface)] text-[color:var(--text)]", className)}>
+      <ApplicationsHeader
+        mobileMenuOpen={mobileMenuOpen}
+        modeMenuOpen={modeMenuOpen}
+        onMobileMenuOpenChange={setMobileMenuOpen}
+        onModeMenuOpenChange={setModeMenuOpen}
+      />
+      <ApplicationsMobileMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
+
+      <main id="main-content" className="min-w-0 pb-8 lg:pb-10">
+        {workspace}
+      </main>
     </div>
   );
+}
+
+export function ApplicationsLauncherPage() {
+  return <ApplicationsLauncherWorkspace variant="standalone" />;
 }

@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUp, ClipboardCopy, ExternalLink, Plus, Search, X } from "lucide-react";
+import { ArrowUp, ClipboardCopy, Plus, Search, Wrench, X } from "lucide-react";
 import { cn, floatingControl } from "@/components/ui-primitives";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
 
 export function DashboardFloatingFab() {
   const [open, setOpen] = useState(false);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const clearNotice = useCallback(() => {
     if (timeoutRef.current) {
@@ -56,8 +59,17 @@ export function DashboardFloatingFab() {
   // component is gone (leaked timer / stray setState).
   useEffect(() => clearNotice, [clearNotice]);
 
+  const dismissQuickActions = useCallback(() => setOpen(false), []);
+
+  useDismissableLayer({
+    enabled: open,
+    refs: [rootRef],
+    restoreFocusRef: triggerRef,
+    onDismiss: dismissQuickActions,
+  });
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-6">
+    <div ref={rootRef} className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-6">
       <div className="mx-auto flex w-full max-w-7xl justify-end">
         <div
           id="dashboard-fab-panel"
@@ -92,12 +104,12 @@ export function DashboardFloatingFab() {
             Copy link
           </button>
           <Link
-            href="/applications"
+            href="/?mode=tools"
             onClick={() => setOpen(false)}
             className={cn(floatingControl, "h-9 min-h-9 px-3 text-xs", !open && "hidden")}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Applications
+            <Wrench className="h-3.5 w-3.5" />
+            Tools
           </Link>
           {copyNotice && (
             <p className="rounded-md border border-white/20 bg-[color:var(--surface-raised)] px-3 py-2 text-xs text-[color:var(--text-muted)] shadow-[var(--shadow-soft)]">
@@ -106,6 +118,7 @@ export function DashboardFloatingFab() {
           )}
         </div>
         <button
+          ref={triggerRef}
           type="button"
           aria-expanded={open}
           aria-controls="dashboard-fab-panel"

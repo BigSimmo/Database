@@ -30,7 +30,7 @@ type SiteDefinition = {
 
 type SecondaryFacet = {
   label: string;
-  label_type: Extract<DocumentLabelType, "population" | "setting" | "service" | "topic" | "workflow">;
+  label_type: Extract<DocumentLabelType, "population" | "setting" | "service" | "topic" | "workflow" | "medication">;
 };
 
 const organizationProfileVersion = "document-organization-v1";
@@ -484,7 +484,7 @@ function classifyDocumentType(input: OrganizationDocumentInput): DocumentOrganiz
 }
 
 function emptySecondaryFacets(): DocumentOrganizationProfile["secondary_facets"] {
-  return { population: [], setting: [], service: [], topic: [], workflow: [] };
+  return { population: [], setting: [], service: [], topic: [], workflow: [], medication: [] };
 }
 
 function secondaryFacets(rawTags: string[], titleText: string, contentText: string) {
@@ -495,37 +495,66 @@ function secondaryFacets(rawTags: string[], titleText: string, contentText: stri
     facets[facet.label_type].push(facet.label);
   }
 
-  // Scan title and content for age-cohorts (population)
   const fullText = `${titleText} ${contentText}`.toLowerCase();
-  if (/\b(?:neonatal|neonate|newborn|baby|born|nicu)\b/.test(fullText)) {
-    facets.population.push("neonatal");
-  }
-  if (/\b(?:paediatric|pediatric|child|children|pmh|pch)\b/.test(fullText)) {
-    facets.population.push("paediatric");
-  }
-  if (/\b(?:youth|adolescent|teen|young person|young adult)\b/.test(fullText)) {
-    facets.population.push("youth");
-  }
-  if (/\b(?:adult|adults)\b/.test(fullText)) {
-    facets.population.push("adult");
-  }
-  if (/\b(?:geriatric|older adult|elderly|aged|65 years)\b/.test(fullText)) {
-    facets.population.push("geriatric");
-  }
 
-  // Scan title and content for Admin vs. Clinical split (workflow)
-  if (/\b(?:clinical|medical|nursing|ward|midwife|physio|ot|treatment|prescrib|drug)\b/.test(fullText)) {
-    facets.workflow.push("clinical");
-  }
-  if (/\b(?:admin|clerical|finance|billing|payroll|human resources|hr|roster|audit|governance|non-clinical|non clinical)\b/.test(fullText)) {
-    facets.workflow.push("non-clinical");
-  }
-  if (/\b(?:finance|financial|billing|funding|invoice|payment|cost|budget)\b/.test(fullText)) {
-    facets.workflow.push("finance");
-  }
-  if (/\b(?:human resources|hr|personnel|staffing|hiring|recruitment)\b/.test(fullText)) {
-    facets.workflow.push("hr");
-  }
+  // ── Population / Age cohorts ─────────────────────────────────────────────
+  if (/\b(?:neonatal|neonate|newborn|baby|born|nicu)\b/.test(fullText)) facets.population.push("neonatal");
+  if (/\b(?:paediatric|pediatric|child|children|pmh|pch)\b/.test(fullText)) facets.population.push("paediatric");
+  if (/\b(?:youth|adolescent|teen|young person|young adult)\b/.test(fullText)) facets.population.push("youth");
+  if (/\b(?:adult|adults)\b/.test(fullText)) facets.population.push("adult");
+  if (/\b(?:geriatric|older adult|elderly|aged|65 years)\b/.test(fullText)) facets.population.push("geriatric");
+
+  // ── Workflow / Admin split ───────────────────────────────────────────────
+  if (/\b(?:clinical|medical|nursing|ward|midwife|physio|ot|treatment|prescrib|drug)\b/.test(fullText)) facets.workflow.push("clinical");
+  if (/\b(?:admin|clerical|finance|billing|payroll|human resources|roster|audit|governance|non-clinical|non clinical)\b/.test(fullText)) facets.workflow.push("non-clinical");
+  if (/\b(?:finance|financial|billing|funding|invoice|payment|cost|budget)\b/.test(fullText)) facets.workflow.push("finance");
+  if (/\b(?:human resources|personnel|staffing|hiring|recruitment)\b/.test(fullText)) facets.workflow.push("hr");
+
+  // ── Clinical Specialty (mapped to service) ────────────────────────────────
+  if (/\b(?:emergency|ed\b|emergency department|trauma|resus|triage|mbcp|racpc)\b/.test(fullText)) facets.service.push("emergency-medicine");
+  if (/\b(?:mental health|psychiatr|psychosis|schizophrenia|bipolar|ect\b|seclusion|detention|camhs|inpatient mental|community mental)\b/.test(fullText)) facets.service.push("mental-health");
+  if (/\b(?:obstetric|maternity|labour|birth|antenatal|postnatal|perinatal|midwif|kemh|mbc\b|pregnancy|pregnant)\b/.test(fullText)) facets.service.push("obstetrics-maternity");
+  if (/\b(?:neonatal|nicu|neonate|newborn|neonatal intensive)\b/.test(fullText)) facets.service.push("neonatology");
+  if (/\b(?:icu\b|intensive care|critical care|hdu\b|high dependency|ventilat|vasoactive|inotrope|vasopressor)\b/.test(fullText)) facets.service.push("intensive-care");
+  if (/\b(?:perioperative|anaesth|anaesthes|anesthes|theatre|operating|preoperative|post-?operative|surgical|intraoperative)\b/.test(fullText)) facets.service.push("perioperative-anaesthesia");
+  if (/\b(?:pharmacy|pharmacist|drug guideline|iv drug|medication management|medicine management|pharmacol)\b/.test(fullText)) facets.service.push("pharmacy-medications");
+  if (/\b(?:infection control|antimicrobial|antibiotic|cdiff|c. diff|mrsa|ipc\b|sterilisation|decontamination|isolation|sepsis|infectious disease)\b/.test(fullText)) facets.service.push("infectious-disease");
+  if (/\b(?:oncolog|haematolog|hematolog|chemotherapy|transfusion|apheresis|hit\b|thrombocytopenia|blood product|leukaemia)\b/.test(fullText)) facets.service.push("oncology-haematology");
+  if (/\b(?:cardiol|cardiac|heart failure|arrhythmia|ecg\b|pacemaker|vte\b|venous thromboembolism|atrial fibrillation|chest pain|coronary)\b/.test(fullText)) facets.service.push("cardiology");
+  if (/\b(?:orthopaed|orthoped|fracture|bone|joint|spine|spinal|musculoskeletal|limb|ankle|hip replacement)\b/.test(fullText)) facets.service.push("orthopaedics");
+  if (/\b(?:renal|nephrol|dialysis|haemodialysis|hemodialysis|kidney|glomerular|renal colic|renal failure)\b/.test(fullText)) facets.service.push("renal-nephrology");
+  if (/\b(?:gastroenterol|endoscopy|colonoscopy|gastroscopy|bowel|liver|hepat|variceal|terlipressin|inflammatory bowel|ibd\b)\b/.test(fullText)) facets.service.push("gastroenterology");
+  if (/\b(?:respiratory|pulmonol|lung|sleep apnoea|cpap\b|spirometry|bronch|asthma|copd\b|pleural|thoracic)\b/.test(fullText)) facets.service.push("respiratory");
+  if (/\b(?:neurol|seizure|epilepsy|stroke|tia\b|ect\b|neuropsychol|parkinson|dementia|delirium)\b/.test(fullText)) facets.service.push("neurology");
+  if (/\b(?:palliative|end of life|dying|comfort care|hospice|eol\b)\b/.test(fullText)) facets.service.push("palliative-care");
+  if (/\b(?:dietetic|nutrition|nutritional|dietitian|enteral|parenteral|tube feed)\b/.test(fullText)) facets.service.push("allied-health");
+  if (/\b(?:physiotherap|occupational therap|speech pathol|social work|allied health)\b/.test(fullText)) facets.service.push("allied-health");
+  if (/\b(?:diabetes|endocrin|insulin|hypoglycaem|dka\b|diabetic ketoacidosis|hhs\b|hyperosmolar|thyroid|adrenal)\b/.test(fullText)) facets.service.push("diabetes-endocrinology");
+  if (/\b(?:urology|urolog|catheter|urethral|bladder|prostate|renal calculus)\b/.test(fullText)) facets.service.push("urology");
+  if (/\b(?:wound|wound care|wound management|pressure injury|ulcer|debridement|dressing)\b/.test(fullText)) facets.service.push("wound-management");
+  if (/\b(?:pain management|pain relief|analges|analgesia|acute pain|chronic pain|opioid)\b/.test(fullText)) facets.service.push("pain-management");
+
+  // ── Care Setting (mapped to setting) ─────────────────────────────────────
+  if (/\b(?:emergency department|ed\b|emergency room|er\b|triage|trauma bay)\b/.test(fullText)) facets.setting.push("emergency-department");
+  if (/\b(?:inpatient|ward|admitted|admission|bed management|inpatient unit)\b/.test(fullText)) facets.setting.push("inpatient");
+  if (/\b(?:outpatient|ambulatory|clinic\b|day procedure|day surgery|day unit)\b/.test(fullText)) facets.setting.push("outpatient");
+  if (/\b(?:icu\b|intensive care unit|critical care unit|hdu\b|high dependency)\b/.test(fullText)) facets.setting.push("icu-hdu");
+  if (/\b(?:operating theatre|operating room|theatre suite|perioperative|post-?anaesth|pacu\b|recovery room)\b/.test(fullText)) facets.setting.push("operating-theatre");
+  if (/\b(?:community|home visit|community health|outreach|community-based|cpop\b|community program)\b/.test(fullText)) facets.setting.push("community");
+  if (/\b(?:maternity unit|birth suite|labour ward|antenatal ward|postnatal ward|birthing)\b/.test(fullText)) facets.setting.push("maternity-unit");
+  if (/\b(?:mental health unit|psychiatric unit|mhu\b|acute mental health|psychiatric inpatient|seclusion)\b/.test(fullText)) facets.setting.push("mental-health-unit");
+
+  // ── Medication Category (mapped to medication) ───────────────────────────
+  if (/\b(?:anticoagul|heparin|warfarin|enoxaparin|dabigatran|rivaroxaban|apixaban|vte prophylaxis)\b/.test(fullText)) facets.medication.push("anticoagulants");
+  if (/\b(?:opioid|morphine|fentanyl|oxycodone|hydromorphone|pethidine|codeine|naloxone|buprenorphine|methadone)\b/.test(fullText)) facets.medication.push("opioids");
+  if (/\b(?:insulin|subcutaneous insulin|basal|bolus|sliding scale|dka|hyperglycaem)\b/.test(fullText)) facets.medication.push("insulin");
+  if (/\b(?:antibiotic|antimicrobial|penicillin|cephalosporin|vancomycin|gentamicin|meropenem|flucloxacillin|minocycline|benzylpenicillin)\b/.test(fullText)) facets.medication.push("antimicrobials");
+  if (/\b(?:antipsychotic|clozapine|olanzapine|quetiapine|risperidone|haloperidol|droperidol|lai\b|long-acting injectable|depot)\b/.test(fullText)) facets.medication.push("antipsychotics");
+  if (/\b(?:blood product|packed red cells|ffp\b|fresh frozen plasma|platelet|transfusion|massive transfusion|blood bank)\b/.test(fullText)) facets.medication.push("blood-products");
+  if (/\b(?:iv drug guideline|intravenous drug|iv administration|iv infusion|intravenous medication)\b/.test(fullText)) facets.medication.push("iv-medications");
+  if (/\b(?:controlled drug|schedule 8|schedule 4|restricted medication|s8\b|s4\b|dangerous drug)\b/.test(fullText)) facets.medication.push("controlled-drugs");
+  if (/\b(?:chemotherapy|cytotoxic|antineoplastic|anticancer|immunosuppressant)\b/.test(fullText)) facets.medication.push("chemotherapy");
+  if (/\b(?:lithium|mood stabiliser|mood stabilizer|valproate|carbamazepine|lamotrigine)\b/.test(fullText)) facets.medication.push("mood-stabilisers");
 
   return {
     population: uniqueStrings(facets.population),
@@ -533,6 +562,7 @@ function secondaryFacets(rawTags: string[], titleText: string, contentText: stri
     service: uniqueStrings(facets.service),
     topic: uniqueStrings(facets.topic),
     workflow: uniqueStrings(facets.workflow),
+    medication: uniqueStrings(facets.medication),
   };
 }
 
@@ -548,7 +578,7 @@ function profileLabels(profile: DocumentOrganizationProfile): OrganizationGenera
     });
   }
   for (const [label_type, values] of Object.entries(profile.secondary_facets) as Array<
-    [Exclude<DocumentLabelType, "site" | "document_type" | "medication" | "risk" | "custom">, string[]]
+    [Exclude<DocumentLabelType, "site" | "document_type" | "risk" | "custom">, string[]]
   >) {
     for (const label of values) labels.push({ label, label_type, confidence: 0.78 });
   }

@@ -16,27 +16,29 @@ const envSchema = z.object({
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
-  OPENAI_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
-  OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.4-mini"),
-  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.4"),
+  OPENAI_ANSWER_MODEL: z.string().default("gpt-5.5"),
+  OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.5"),
+  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5-pro"),
   // Reasoning models (gpt-5*) draw reasoning tokens from this same budget, so a
   // low cap can starve the JSON answer payload and silently truncate clinical
   // content (doses/thresholds cut mid-sentence). Raised default to 4000 for headroom;
   // if output is still cut off, createTextResult now flags it as truncated (GEN-C1).
   OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(4000),
   OPENAI_QUERY_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
-  OPENAI_VISION_MODEL: z.string().default("gpt-5.4-mini"),
+  OPENAI_VISION_MODEL: z.string().default("gpt-5.5"),
+  OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
   OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
-  OPENAI_PROMPT_CACHE_RETENTION: z.enum(["off", "in_memory", "24h"]).default("in_memory"),
+  OPENAI_GENERATION_MAX_RETRIES: z.coerce.number().int().nonnegative().default(0),
+  OPENAI_PROMPT_CACHE_RETENTION: z.enum(["off", "in_memory", "24h"]).default("24h"),
   OPENAI_STORE_RESPONSES: z
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  OPENAI_FAST_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("low"),
-  OPENAI_STRONG_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("medium"),
-  OPENAI_SUMMARY_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("low"),
-  OPENAI_VISION_REASONING_EFFORT: z.enum(["none", "minimal", "low", "medium", "high"]).default("low"),
+  OPENAI_FAST_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("low"),
+  OPENAI_STRONG_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("high"),
+  OPENAI_SUMMARY_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("medium"),
+  OPENAI_VISION_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("low"),
   OPENAI_TEXT_VERBOSITY: z.enum(["low", "medium", "high"]).default("low"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
@@ -71,6 +73,7 @@ const envSchema = z.object({
   WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS: z.coerce.number().int().positive().default(60000),
   WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT: z.coerce.number().int().nonnegative().default(15),
   WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE: z.coerce.number().int().nonnegative().default(2),
+  WORKER_VISION_CONCURRENCY: z.coerce.number().int().positive().default(4),
   WORKER_INLINE_ENRICHMENT: z
     .enum(["true", "false"])
     .default("false")

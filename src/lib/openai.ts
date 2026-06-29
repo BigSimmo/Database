@@ -12,7 +12,7 @@ import type { ImageEvidenceCategory, OpenAITokenUsage } from "@/lib/types";
 type OpenAIOperation =
   "embedding" | "answer" | "summary" | "vision_caption" | "vision_classification" | "text_generation";
 
-type OpenAIReasoningEffort = "none" | "minimal" | "low" | "medium" | "high";
+type OpenAIReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 type OpenAITextVerbosity = "low" | "medium" | "high";
 type OpenAIResponseInput = string | Array<Record<string, unknown>>;
 
@@ -27,6 +27,7 @@ type TextGenerationOptions = {
   textVerbosity?: OpenAITextVerbosity;
   timeoutMs?: number;
   maxRetries?: number;
+  signal?: AbortSignal;
 };
 
 type ResolvedTextGenerationOptions = Required<Pick<TextGenerationOptions, "model" | "maxOutputTokens">> &
@@ -124,10 +125,15 @@ function resolveTextGenerationOptions(
   };
 }
 
-function requestOptions(options?: Pick<TextGenerationOptions, "timeoutMs" | "maxRetries">) {
+function defaultMaxRetries(operation?: OpenAIOperation) {
+  return operation === "embedding" ? env.OPENAI_MAX_RETRIES : env.OPENAI_GENERATION_MAX_RETRIES;
+}
+
+function requestOptions(options?: Pick<TextGenerationOptions, "operation" | "timeoutMs" | "maxRetries" | "signal">) {
   return {
     timeout: options?.timeoutMs ?? env.OPENAI_REQUEST_TIMEOUT_MS,
-    maxRetries: options?.maxRetries ?? env.OPENAI_MAX_RETRIES,
+    maxRetries: options?.maxRetries ?? defaultMaxRetries(options?.operation),
+    ...(options?.signal ? { signal: options.signal } : {}),
   };
 }
 
@@ -148,8 +154,23 @@ function promptCacheKeyFor(operation: OpenAIOperation) {
   }
 }
 
+const reasoningEfforts = new Set<OpenAIReasoningEffort>(["low", "medium", "high", "xhigh"]);
+
+function openAIModelCapabilities(model: string) {
+  const normalized = model.toLowerCase();
+  const isGpt5 = /^gpt-5(?:[.-]|$)/.test(normalized);
+  const isReasoningModel = isGpt5 || /^o\d(?:[.-]|$)/.test(normalized);
+
+  return {
+    supportsReasoning: isReasoningModel,
+    supportsTextVerbosity: isGpt5,
+    requiredPromptCacheRetention: /^gpt-5\.5(?:[.-]|$)/.test(normalized) ? "24h" : undefined,
+    allowedReasoningEfforts: isReasoningModel ? reasoningEfforts : new Set<OpenAIReasoningEffort>(),
+  };
+}
+
 function defaultReasoningEffort(operation: OpenAIOperation, model: string): OpenAIReasoningEffort {
-  if (!model.startsWith("gpt-5")) return "none";
+  if (!openAIModelCapabilities(model).supportsReasoning) return "none";
   switch (operation) {
     case "answer":
       return model === env.OPENAI_STRONG_ANSWER_MODEL
@@ -165,12 +186,10 @@ function defaultReasoningEffort(operation: OpenAIOperation, model: string): Open
   }
 }
 
-function supportsReasoning(model: string) {
-  return model.startsWith("gpt-5") || /^o\d/.test(model);
-}
-
-function supportsTextVerbosity(model: string) {
-  return model.startsWith("gpt-5");
+function resolveReasoningEffort(model: string, effort: OpenAIReasoningEffort) {
+  const capabilities = openAIModelCapabilities(model);
+  if (!capabilities.supportsReasoning || effort === "none") return "none";
+  return capabilities.allowedReasoningEfforts.has(effort) ? effort : "low";
 }
 
 function responseBody(
@@ -180,27 +199,29 @@ function responseBody(
 ) {
   const operation = resolved.operation ?? "text_generation";
   const reasoningEffort = resolved.reasoningEffort ?? defaultReasoningEffort(operation, resolved.model);
+  const resolvedReasoningEffort = resolveReasoningEffort(resolved.model, reasoningEffort);
+  const capabilities = openAIModelCapabilities(resolved.model);
   const textConfig: Record<string, unknown> = {};
-  const promptCacheRetention =
+  const configuredPromptCacheRetention =
     env.OPENAI_PROMPT_CACHE_RETENTION === "off" ? undefined : env.OPENAI_PROMPT_CACHE_RETENTION;
+  const promptCacheRetention = capabilities.requiredPromptCacheRetention ?? configuredPromptCacheRetention;
 
   if (format) textConfig.format = format;
-  if (supportsTextVerbosity(resolved.model)) {
+  if (capabilities.supportsTextVerbosity) {
     textConfig.verbosity = resolved.textVerbosity ?? env.OPENAI_TEXT_VERBOSITY;
   }
 
   return {
     model: resolved.model,
     input,
-    instructions: resolved.instructions,
+    ...(resolved.instructions ? { instructions: resolved.instructions } : {}),
     max_output_tokens: resolved.maxOutputTokens,
     store: env.OPENAI_STORE_RESPONSES,
     prompt_cache_key: resolved.promptCacheKey ?? promptCacheKeyFor(operation),
-    prompt_cache_retention: promptCacheRetention,
+    ...(promptCacheRetention ? { prompt_cache_retention: promptCacheRetention } : {}),
     metadata: { operation },
-    reasoning:
-      supportsReasoning(resolved.model) && reasoningEffort !== "none" ? { effort: reasoningEffort } : undefined,
-    text: Object.keys(textConfig).length > 0 ? textConfig : undefined,
+    ...(resolvedReasoningEffort !== "none" ? { reasoning: { effort: resolvedReasoningEffort } } : {}),
+    ...(Object.keys(textConfig).length > 0 ? { text: textConfig } : {}),
   };
 }
 
@@ -396,7 +417,7 @@ export async function embedTexts(texts: string[]) {
         // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
         dimensions: env.EMBEDDING_DIMENSIONS,
       },
-      requestOptions(),
+      requestOptions({ operation: "embedding" }),
     );
 
     // IDX-C2: a short response means some inputs silently produced no embedding.
@@ -528,7 +549,7 @@ export async function captionImageFromBase64(args: { base64: string; mimeType: s
         {
           type: "input_image",
           image_url: `data:${args.mimeType};base64,${args.base64}`,
-          detail: "auto",
+          detail: env.OPENAI_VISION_IMAGE_DETAIL,
         },
       ],
     },
@@ -817,7 +838,7 @@ export async function classifyAndCaptionImageFromBase64(args: {
         {
           type: "input_image",
           image_url: `data:${args.mimeType};base64,${args.base64}`,
-          detail: "auto",
+          detail: env.OPENAI_VISION_IMAGE_DETAIL,
         },
       ],
     },
