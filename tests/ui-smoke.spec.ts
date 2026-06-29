@@ -1107,8 +1107,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("desktop-chunk-indexed-text-panel");
     await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
-    await expect(desktopTextPanel.getByRole("button", { name: "Next document search hit" })).toBeVisible();
-    await desktopTextPanel.getByRole("button", { name: "Next document search hit" }).click();
+    const previousHit = desktopTextPanel.getByRole("button", { name: "Previous document search hit" });
+    const nextHit = desktopTextPanel.getByRole("button", { name: "Next document search hit" });
+    await expect(previousHit).toHaveAttribute("title", "Previous document search hit");
+    await expect(previousHit).toHaveText("");
+    await expect(nextHit).toHaveAttribute("title", "Next document search hit");
+    await expect(nextHit).toHaveText("");
+    await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
     await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
