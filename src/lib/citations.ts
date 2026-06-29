@@ -15,23 +15,50 @@ export function citationFromResult(result: SearchResult): Citation {
 
 export function formatCitationLabel(citation: Citation) {
   const page = citation.page_number ? `p. ${citation.page_number}` : "source";
-  return `${citation.title || citation.file_name}, ${page}`;
+  const title = (citation.title || citation.file_name || "Source").trim();
+  return `${title}, ${page}`;
+}
+
+// Generic filler words dropped from compact citation labels so the label keeps
+// the distinguishing words of the actual document title (e.g. drug/topic names)
+// rather than collapsing to boilerplate.
+const COMPACT_LABEL_STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "of",
+  "for",
+  "to",
+  "in",
+  "on",
+  "with",
+  "guideline",
+  "guidelines",
+  "policy",
+  "procedure",
+  "document",
+]);
+
+function compactTitleWords(rawTitle: string) {
+  const cleaned = rawTitle
+    .replace(/\.(pdf|docx|xlsx|txt)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  const significant = words.filter((word) => !COMPACT_LABEL_STOPWORDS.has(word.toLowerCase()));
+  return (significant.length ? significant : words).slice(0, 3).join(" ") || "Source";
 }
 
 export function formatCompactCitationLabel(citation: Pick<Citation, "title" | "file_name" | "page_number">) {
-  const rawTitle = (citation.title || citation.file_name || "Source").replace(/^Synthetic\s+/i, "");
-  // Derive the compact label from the actual document title (first 1–2
-  // significant words). Do NOT special-case drug/keyword names: this chip is the
-  // affordance that tells a clinician which source they are opening, so
-  // collapsing every "...Risk..." title to "Risk", or dropping "lithium" when
-  // "clozapine" also appears, mislabels the cited source.
-  const shortTitle =
-    rawTitle
-      .replace(/\.(pdf|docx|xlsx|txt)$/i, "")
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .join(" ") || "Source";
+  // Derive the short label from the actual title (not a hardcoded drug whitelist)
+  // so real-corpus documents are labelled correctly instead of being mislabeled
+  // as one of a few demo drug names. Dropping filler words and keeping up to
+  // three significant words preserves both drugs in a multi-drug title (e.g.
+  // "Clozapine and lithium co-prescribing") rather than collapsing to "Clozapine and".
+  const rawTitle = (citation.title || citation.file_name || "Source").replace(/^Synthetic\s+/i, "").trim();
+  const shortTitle = compactTitleWords(rawTitle);
   const page = citation.page_number ? `p.${citation.page_number}` : "source";
   return `${shortTitle} ${page}`;
 }

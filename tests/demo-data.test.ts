@@ -66,6 +66,14 @@ describe("demo data mode", () => {
     expect(answer.bestSource).toBeTruthy();
   });
 
+  it("does not give a confident acute-risk answer when 'risk' is only mentioned incidentally", () => {
+    const answer = demoAnswer("Is there a bleeding risk with aspirin in elderly patients?");
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.answer).not.toContain("acute risk document");
+  });
+
   it("returns document viewer payload with chunks and image captions", () => {
     const clozapine = demoDocuments.find((document) => document.title.includes("clozapine"));
     expect(clozapine).toBeTruthy();
