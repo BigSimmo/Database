@@ -861,19 +861,19 @@ function IndexedTextPanel({
               <button
                 type="button"
                 onClick={() => moveHit(-1)}
-                className={cn(secondaryButton, "min-h-8 px-2 text-xs")}
+                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
                 aria-label="Previous document search hit"
+                title="Previous document search hit"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Prev
               </button>
               <button
                 type="button"
                 onClick={() => moveHit(1)}
-                className={cn(secondaryButton, "min-h-8 px-2 text-xs")}
+                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
                 aria-label="Next document search hit"
+                title="Next document search hit"
               >
-                Next
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
