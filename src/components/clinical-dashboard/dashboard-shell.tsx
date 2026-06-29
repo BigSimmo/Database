@@ -80,10 +80,6 @@ export function UtilityDrawer({
   sheetTitleAccessory,
   sheetDescriptionContent,
   sheetHeaderActions,
-  sheetHeaderClassName,
-  sheetTitleClassName,
-  sheetCloseButtonClassName,
-  sheetChildrenClassName,
   sheetContentClassName,
   sheetContentStyle,
   sheetBodyClassName,
@@ -104,10 +100,6 @@ export function UtilityDrawer({
   sheetTitleAccessory?: ReactNode;
   sheetDescriptionContent?: ReactNode;
   sheetHeaderActions?: ReactNode;
-  sheetHeaderClassName?: string;
-  sheetTitleClassName?: string;
-  sheetCloseButtonClassName?: string;
-  sheetChildrenClassName?: string;
   sheetContentClassName?: string;
   sheetContentStyle?: CSSProperties;
   sheetBodyClassName?: string;
@@ -211,16 +203,13 @@ export function UtilityDrawer({
         titleAccessory={sheetTitleAccessory}
         descriptionContent={sheetDescriptionContent}
         headerActions={sheetHeaderActions}
-        headerClassName={sheetHeaderClassName}
-        titleClassName={sheetTitleClassName}
-        closeButtonClassName={sheetCloseButtonClassName}
         contentClassName={sheetContentClassName}
         contentStyle={sheetContentStyle}
         bodyClassName={sheetBodyClassName}
         returnFocusRef={mobileTriggerRef}
         portal
       >
-        <div className={cn("space-y-3", sheetChildrenClassName)}>{children}</div>
+        <div className="space-y-3">{children}</div>
       </Sheet>
     </>
   );
