@@ -110,7 +110,7 @@ async function loadDocuments(supabase: SupabaseAdmin, args: ClassifyArgs) {
     .from("documents")
     .select("id,owner_id,title,file_name,source_path,status,metadata")
     .eq("status", "indexed")
-    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
     .range(args.documentId ? 0 : args.offset, args.documentId ? 0 : args.offset + args.limit - 1);
 
   if (args.documentId) query = query.eq("id", args.documentId);

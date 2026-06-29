@@ -111,7 +111,6 @@ import {
   tableCardHeader,
   tableMicroActionRow,
   textMuted,
-  toolbarButton,
   toneDanger,
   toneInfo,
   toneNeutral,
@@ -1418,12 +1417,12 @@ function ClinicalNotesChecklistPanel({
   const ActiveIcon = clinicalNotesTabMeta[activeTab].icon;
 
   return (
-    <section data-testid="clinical-notes-checklist" className="min-w-0">
-      <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-5 pt-3 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
+    <section data-testid="clinical-notes-checklist" className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="sticky top-0 z-10 -mx-4 -mt-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-4 pt-2 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
         <div
           role="tablist"
           aria-label="Clinical notes categories"
-          className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,1fr))] gap-1"
+          className="grid grid-cols-[repeat(auto-fit,minmax(4.75rem,1fr))] gap-0.5"
         >
           {toggles.map((tab) => {
             const Icon = tab.icon;
@@ -1445,16 +1444,16 @@ function ClinicalNotesChecklistPanel({
                   setExpandedRowId(null);
                 }}
                 className={cn(
-                  "relative inline-flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-none px-1 text-[15px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  "relative inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-none px-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                   selected
                     ? "text-[color:var(--warning)]"
                     : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                 )}
               >
-                <Icon className="h-5 w-5 shrink-0" />
+                <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span>{tab.label}</span>
                 {selected ? (
-                  <span className="absolute inset-x-0 -bottom-px h-[3px] rounded-full bg-[color:var(--warning)]" />
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[color:var(--warning)]" />
                 ) : null}
               </button>
             );
@@ -1462,21 +1461,21 @@ function ClinicalNotesChecklistPanel({
         </div>
       </div>
 
-      <div className="mt-6 flex min-w-0 items-start gap-4">
+      <div className="mt-4 flex min-w-0 items-start gap-3">
         <span
           className={cn(
-            "grid h-12 w-12 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)]",
+            "grid h-9 w-9 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
             activeTab === "safety" ? toneWarning : toneSuccess,
           )}
           aria-hidden="true"
         >
-          <ActiveIcon className="h-5 w-5" />
+          <ActiveIcon className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-xl font-semibold leading-7 text-[color:var(--text-heading)]">
+          <h3 className="text-[15px] font-semibold leading-6 text-[color:var(--text-heading)]">
             {activeTab === "safety" ? "Safety checklist" : "Monitoring checklist"}
           </h3>
-          <p className={cn("mt-1 text-base leading-6", textMuted)}>
+          <p className={cn("mt-0.5 text-[13px] leading-5", textMuted)}>
             {activeTab === "safety"
               ? "Key actions to start and continue safely."
               : "Monitoring and medication follow-up items."}
@@ -1484,60 +1483,60 @@ function ClinicalNotesChecklistPanel({
         </div>
       </div>
 
-      <div className="mt-5 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+      <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {rows.map((row) => {
           const expanded = row.id === activeRow?.id;
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
           const RowIcon = row.tone === "warn" ? AlertCircle : CheckCircle2;
           return (
-            <article key={row.id} data-testid="clinical-note-row" className={cn("relative py-4", expanded && "pl-4")}>
+            <article key={row.id} data-testid="clinical-note-row" className={cn("relative py-2.5", expanded && "pl-3")}>
               {expanded ? (
-                <span className="absolute bottom-4 left-0 top-4 w-1 rounded-full bg-[color:var(--primary)]" />
+                <span className="absolute bottom-2.5 left-0 top-2.5 w-0.5 rounded-full bg-[color:var(--primary)]" />
               ) : null}
               <button
                 type="button"
                 onClick={() => {
                   if (hasDistinctDetail) setExpandedRowId(expanded ? null : row.id);
                 }}
-                className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-start gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-start gap-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={hasDistinctDetail ? expanded : undefined}
               >
                 <span
                   className={cn(
-                    "mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 bg-[color:var(--surface)]",
+                    "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border bg-[color:var(--surface)]",
                     row.tone === "warn"
                       ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
                       : "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
                   )}
                   aria-hidden="true"
                 >
-                  <RowIcon className="h-5 w-5" />
+                  <RowIcon className="h-3.5 w-3.5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[18px] font-semibold leading-6 text-[color:var(--text-heading)]">
+                  <span className="block text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {row.title}
                   </span>
                   {hasDistinctDetail ? (
-                    <span className={cn("mt-1 block text-base leading-6", textMuted)}>{row.detail}</span>
+                    <span className={cn("mt-0.5 block text-[13px] leading-5", textMuted)}>{row.detail}</span>
                   ) : null}
                 </span>
-                <span className="nums mt-0.5 grid h-9 min-w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-sm font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                <span className="nums mt-0.5 grid h-7 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
                   {row.sourceIndex}
                 </span>
                 {hasDistinctDetail ? (
                   <ChevronDown
                     className={cn(
-                      "mt-2.5 h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition",
+                      "mt-2 h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition",
                       expanded && "rotate-180",
                     )}
                   />
                 ) : (
-                  <span className="mt-2.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                  <span className="mt-2 h-4 w-4 shrink-0" aria-hidden="true" />
                 )}
               </button>
               {expanded && hasDistinctDetail ? (
-                <div className="ml-14 mt-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-                  <p className="text-base font-medium leading-7 text-[color:var(--text)]">{row.detail}</p>
+                <div className="ml-11 mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+                  <p className="text-xs font-medium leading-5 text-[color:var(--text)]">{row.detail}</p>
                 </div>
               ) : null}
             </article>
@@ -1545,36 +1544,36 @@ function ClinicalNotesChecklistPanel({
         })}
       </div>
 
-      <div className="sticky bottom-0 -mx-5 mt-5 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
+      <div className="sticky bottom-0 -mx-4 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-2 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
         <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--primary)]"
             >
-              <ExternalLink className="h-5 w-5" />
+              <ExternalLink className="h-4 w-4" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink className="h-5 w-5" />
+            <span className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+              <ExternalLink className="h-4 w-4" />
               Source
             </span>
           )}
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
           >
-            <Copy className="h-5 w-5" />
+            <Copy className="h-4 w-4" />
             {copied ? "Copied" : "Copy"}
           </button>
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--primary)]"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="h-4 w-4" />
             {added ? "Added" : "Add"}
           </button>
         </div>
@@ -3749,18 +3748,18 @@ function StagedAnswerResultSurface({
             open={clinicalNotesOpen}
             onOpenChange={setClinicalNotesOpen}
             sheetHeaderLeading={
-              <span className={cn(iconTilePremium, "h-11 w-11 text-[color:var(--primary)]")}>
-                <ClipboardCheck className="h-5 w-5" />
+              <span className={cn(iconTilePremium, "h-9 w-9 text-[color:var(--primary)]")}>
+                <ClipboardCheck className="h-4 w-4" />
               </span>
             }
             sheetTitleAccessory={
-              <span className="nums grid h-8 min-w-8 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-2 text-base font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-6 min-w-6 place-items-center rounded-md border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
             sheetDescriptionContent={
-              <span className="inline-flex min-h-6 items-center gap-1.5 text-sm font-semibold text-[color:var(--primary)]">
-                <ShieldCheck className="h-4 w-4" />
+              <span className="inline-flex min-h-5 items-center gap-1.5 text-xs font-semibold text-[color:var(--primary)]">
+                <ShieldCheck className="h-3.5 w-3.5" />
                 Source-backed
               </span>
             }
@@ -3768,7 +3767,7 @@ function StagedAnswerResultSurface({
               bestSource ? (
                 <Link
                   href={bestSource.viewer_href}
-                  className={cn(toolbarButton, "text-[color:var(--text-muted)]")}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open clinical notes source"
                 >
                   <ExternalLink className="h-4.5 w-4.5" />
@@ -3776,9 +3775,13 @@ function StagedAnswerResultSurface({
               ) : null
             }
             sheetDescription={null}
+            sheetHeaderClassName="gap-2 p-3 sm:p-4"
+            sheetTitleClassName="text-[16px] leading-6"
+            sheetCloseButtonClassName="inline-flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            sheetChildrenClassName="flex min-h-0 flex-1 flex-col"
             sheetContentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
             sheetContentStyle={{ height: "80dvh" }}
-            sheetBodyClassName="bg-[color:var(--surface-raised)] px-5 pb-0 pt-5 sm:p-5"
+            sheetBodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-4 pb-0 pt-3 sm:p-4"
           >
             <ClinicalNotesChecklistPanel
               answer={answer}
