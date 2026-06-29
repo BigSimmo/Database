@@ -12,8 +12,10 @@ type ClassifyArgs = {
   ownerId?: string;
   documentId?: string;
   limit: number;
+  offset: number;
   write: boolean;
   confirm: boolean;
+  help: boolean;
 };
 
 type SupabaseAdmin = Awaited<ReturnType<typeof loadAdminClient>>;
@@ -37,8 +39,10 @@ function parseArgs(argv: string[]): ClassifyArgs {
     allOwners: false,
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     limit: 100,
+    offset: 0,
     write: false,
     confirm: false,
+    help: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -55,21 +59,46 @@ function parseArgs(argv: string[]): ClassifyArgs {
       args.confirm = true;
       continue;
     }
+    if (token === "--help" || token === "-h") {
+      args.help = true;
+      continue;
+    }
 
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
     index += 1;
     if (token === "--owner-id") args.ownerId = value;
-    if (token === "--document-id") args.documentId = value;
-    if (token === "--limit") args.limit = Number.parseInt(value, 10);
+    else if (token === "--document-id") args.documentId = value;
+    else if (token === "--limit") args.limit = Number(value);
+    else if (token === "--offset") args.offset = Number(value);
+    else throw new Error(`Unknown option: ${token}`);
   }
 
+  if (args.help) return args;
   if (!Number.isInteger(args.limit) || args.limit <= 0) throw new Error("--limit must be a positive integer.");
+  if (!Number.isInteger(args.offset) || args.offset < 0) throw new Error("--offset must be a non-negative integer.");
   if (!args.allOwners && !args.ownerId && !args.documentId) {
     throw new Error("Pass --owner-id, --document-id, or --all-owners. Dry-run is still the default.");
   }
   if (args.write && !args.confirm) throw new Error("Writing requires --write --confirm after reviewing a dry-run.");
   return args;
+}
+
+function usage() {
+  return [
+    "Usage: npm run classify:documents -- [scope] [options]",
+    "",
+    "Scopes:",
+    "  --owner-id <uuid>       Classify indexed documents for one owner.",
+    "  --document-id <uuid>    Classify one indexed document.",
+    "  --all-owners           Classify across all owners.",
+    "",
+    "Options:",
+    "  --limit <count>        Batch size for scoped runs. Default: 100.",
+    "  --offset <count>       Skip this many indexed documents before the batch. Default: 0.",
+    "  --write --confirm      Persist reviewed classifications. Dry-run is the default.",
+    "  --help, -h             Show this help.",
+  ].join("\n");
 }
 
 function metadataRecord(value: unknown) {
@@ -82,7 +111,7 @@ async function loadDocuments(supabase: SupabaseAdmin, args: ClassifyArgs) {
     .select("id,owner_id,title,file_name,source_path,status,metadata")
     .eq("status", "indexed")
     .order("created_at", { ascending: true })
-    .limit(args.documentId ? 1 : args.limit);
+    .range(args.documentId ? 0 : args.offset, args.documentId ? 0 : args.offset + args.limit - 1);
 
   if (args.documentId) query = query.eq("id", args.documentId);
   if (!args.allOwners && args.ownerId) query = query.eq("owner_id", args.ownerId);
@@ -219,6 +248,10 @@ function printPlan(
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    console.log(usage());
+    return;
+  }
   const supabase = await loadAdminClient();
   const documents = await loadDocuments(supabase, args);
   const plans = [];

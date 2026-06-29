@@ -474,16 +474,19 @@ function TableReviewPanel({
 
 function DocumentViewerAnchors({
   evidenceHref,
+  textHref,
   className,
 }: {
   evidenceHref: "#source-evidence" | "#source-evidence-rail";
+  textHref: "#source-text-mobile" | "#source-text-desktop";
   className?: string;
 }) {
   const anchors = [
-    { label: "Evidence", href: evidenceHref },
-    { label: "PDF", href: "#pdf-preview-section" },
-    { label: "Summary", href: "#source-summary" },
-    { label: "Images", href: "#source-images" },
+    { label: "Evidence", href: evidenceHref, icon: Quote },
+    { label: "PDF", href: "#pdf-preview-section", icon: FileText },
+    { label: "Text", href: textHref, icon: Search },
+    { label: "Summary", href: "#source-summary", icon: Sparkles },
+    { label: "Images", href: "#source-images", icon: FileImage },
   ];
 
   return (
@@ -491,15 +494,19 @@ function DocumentViewerAnchors({
       aria-label="Document viewer sections"
       className={cn("flex gap-2 overflow-x-auto pb-1 polished-scroll", className)}
     >
-      {anchors.map((anchor) => (
-        <a
-          key={anchor.href}
-          href={anchor.href}
-          className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--primary)] shadow-[var(--shadow-tight)]"
-        >
-          {anchor.label}
-        </a>
-      ))}
+      {anchors.map((anchor) => {
+        const Icon = anchor.icon;
+        return (
+          <a
+            key={anchor.href}
+            href={anchor.href}
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--primary)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--surface-subtle)]"
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {anchor.label}
+          </a>
+        );
+      })}
     </nav>
   );
 }
@@ -744,6 +751,7 @@ function IndexedTextPanel({
   searchingDocument,
   documentSearchError,
   idPrefix,
+  sectionId,
   selectedChunkId,
   onSearchChange,
 }: {
@@ -755,6 +763,7 @@ function IndexedTextPanel({
   searchingDocument: boolean;
   documentSearchError: string | null;
   idPrefix: string;
+  sectionId?: "source-text-mobile" | "source-text-desktop";
   selectedChunkId?: string;
   onSearchChange: (value: string) => void;
 }) {
@@ -804,7 +813,11 @@ function IndexedTextPanel({
   }
 
   return (
-    <section data-testid={`${idPrefix}-indexed-text-panel`} className={cn(panel, "p-5 source-print")}>
+    <section
+      id={sectionId}
+      data-testid={`${idPrefix}-indexed-text-panel`}
+      className={cn(panel, "scroll-mt-24 p-5 source-print")}
+    >
       <PanelHeading
         icon={FileText}
         title="Indexed source text"
@@ -861,19 +874,19 @@ function IndexedTextPanel({
               <button
                 type="button"
                 onClick={() => moveHit(-1)}
-                className={cn(secondaryButton, "min-h-8 px-2 text-xs")}
+                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
                 aria-label="Previous document search hit"
+                title="Previous document search hit"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Prev
               </button>
               <button
                 type="button"
                 onClick={() => moveHit(1)}
-                className={cn(secondaryButton, "min-h-8 px-2 text-xs")}
+                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
                 aria-label="Next document search hit"
+                title="Next document search hit"
               >
-                Next
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -2366,7 +2379,7 @@ export function DocumentViewer({
 
         <div className="min-w-0 space-y-4 sm:space-y-5">
           <div className="lg:hidden">
-            <DocumentViewerAnchors evidenceHref="#source-evidence" className="mb-3" />
+            <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text-mobile" className="mb-3" />
             <PinnedSourceEvidence
               loading={effectiveLoadingDocument}
               chunk={selectedChunk}
@@ -2375,7 +2388,7 @@ export function DocumentViewer({
             />
           </div>
 
-          <details className={cn("group lg:hidden", panel)}>
+          <details id="source-text-mobile" className={cn("group scroll-mt-24 lg:hidden", panel)}>
             <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
               <span className="inline-flex min-w-0 items-center gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
@@ -2475,6 +2488,7 @@ export function DocumentViewer({
               searchingDocument={searchingDocument}
               documentSearchError={documentSearchError}
               idPrefix="desktop-chunk"
+              sectionId="source-text-desktop"
               selectedChunkId={chunkId}
               onSearchChange={setSourceSearch}
             />
@@ -2483,7 +2497,11 @@ export function DocumentViewer({
 
         <aside className="min-w-0 space-y-4 sm:space-y-5">
           <div className="hidden lg:block">
-            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" className="mb-3" />
+            <DocumentViewerAnchors
+              evidenceHref="#source-evidence-rail"
+              textHref="#source-text-desktop"
+              className="mb-3"
+            />
             <PinnedSourceEvidence
               loading={effectiveLoadingDocument}
               chunk={selectedChunk}

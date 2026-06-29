@@ -1107,8 +1107,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("desktop-chunk-indexed-text-panel");
     await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
-    await expect(desktopTextPanel.getByRole("button", { name: "Next document search hit" })).toBeVisible();
-    await desktopTextPanel.getByRole("button", { name: "Next document search hit" }).click();
+    const previousHit = desktopTextPanel.getByRole("button", { name: "Previous document search hit" });
+    const nextHit = desktopTextPanel.getByRole("button", { name: "Next document search hit" });
+    await expect(previousHit).toHaveAttribute("title", "Previous document search hit");
+    await expect(previousHit).toHaveText("");
+    await expect(nextHit).toHaveAttribute("title", "Next document search hit");
+    await expect(nextHit).toHaveText("");
+    await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
     await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
@@ -1132,6 +1137,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
+    await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     await expect(preview).toBeVisible();
     await expect(toolbar).toBeVisible({ timeout: 30000 });
@@ -1157,6 +1163,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(passageToggle).toHaveText("Show passage preview");
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
+    await viewerNav.getByRole("link", { name: "PDF" }).click();
+    await expect(preview).toBeInViewport();
+    await viewerNav.getByRole("link", { name: "Text" }).click();
+    await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
     await viewerNav.getByRole("link", { name: "PDF" }).click();
     await expect(preview).toBeInViewport();
 
