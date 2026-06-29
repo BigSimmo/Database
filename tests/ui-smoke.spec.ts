@@ -449,6 +449,11 @@ async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
 
+async function tapOutsideActiveSurface(page: Page) {
+  const viewport = page.viewportSize() ?? { width: 390, height: 820 };
+  await page.mouse.click(Math.max(1, viewport.width - 8), 8);
+}
+
 async function openMobileClinicalGuideMenu(page: Page) {
   const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
   await expect(trigger).toBeVisible();
@@ -462,9 +467,9 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
   await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
   await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
-  await expect(menu.getByRole("link", { name: "Applications", exact: true })).toBeVisible();
+  await expect(menu.getByRole("link", { name: "Tools", exact: true })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Guide & help" })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Settings" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
@@ -506,6 +511,22 @@ async function openGuide(page: Page) {
   return dialog;
 }
 
+function accountSettingsDialog(page: Page) {
+  return page.getByRole("dialog", { name: "Account & app" });
+}
+
+async function expectAccountSettingsSurface(settings: Locator) {
+  await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
+  await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
+  await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
+  await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
+  await expect(settings.getByTestId("settings-row-profile")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+  await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
+}
+
 async function openUploadDrawer(page: Page) {
   const uploadButton = page.getByRole("button", { name: /Upload document/i });
   const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
@@ -521,19 +542,18 @@ async function openUploadDrawer(page: Page) {
 }
 
 async function openDailyActions(page: Page) {
-  const trigger = page.getByRole("button", { name: "Open daily actions" });
-  const dialog = page.getByRole("dialog", { name: "Daily actions" });
+  const trigger = page.getByRole("button", { name: /^Open .+ options$/ });
   const menu = page.getByTestId("daily-actions-menu");
 
   await expect(trigger).toBeVisible();
   await expect(trigger).toBeEnabled();
   await expect(async () => {
-    if ((await dialog.isVisible().catch(() => false)) || (await menu.isVisible().catch(() => false))) return;
+    if (await menu.isVisible().catch(() => false)) return;
     await trigger.click();
-    await expect(dialog.or(menu)).toBeVisible({ timeout: 1_500 });
-  }).toPass({ timeout: 10_000 });
+    await expect(menu).toBeVisible({ timeout: 2_500 });
+  }).toPass({ timeout: 20_000 });
 
-  return (await dialog.isVisible().catch(() => false)) ? dialog : menu;
+  return menu;
 }
 
 test.describe("Clinical KB UI smoke coverage", () => {
@@ -563,12 +583,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
       }
       if (viewport.width < 640) {
-        const dailyActionsTrigger = page.getByRole("button", { name: "Open daily actions" });
+        const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
         const dailyActions = await openDailyActions(page);
-        const addDocument = dailyActions.getByRole("button", { name: "Add document" });
-        await expect(addDocument).toBeVisible();
-        await expect(dailyActions.getByRole("button", { name: "Tools" })).toBeVisible();
-        await expectMinTouchTarget(addDocument);
+        const documentsAction = dailyActions.getByRole("menuitem", { name: "Docs" });
+        await expect(documentsAction).toBeVisible();
+        await expect(dailyActions.getByRole("menuitem", { name: "Evidence" })).toBeVisible();
+        await expectMinTouchTarget(documentsAction);
         await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();
@@ -577,6 +597,68 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("account settings opens from desktop sidebar, header avatar, and collapsed avatar", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const settings = accountSettingsDialog(page);
+    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await settings.getByRole("button", { name: "Close settings" }).click();
+    await expect(settings).toBeHidden();
+
+    await page.getByTestId("header-account-settings").click();
+    await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings);
+
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
+
+    await page.getByRole("button", { name: "Collapse sidebar" }).click();
+    await page.getByTestId("collapsed-account-settings").click();
+    await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings);
+  });
+
+  test("account settings uses a top mobile popup and closes from X, Escape, and backdrop", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const settings = accountSettingsDialog(page);
+    const menu = await openMobileClinicalGuideMenu(page);
+    await menu.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings);
+    const settingsBox = await settings.boundingBox();
+    expect(settingsBox).not.toBeNull();
+    expect(settingsBox!.x).toBeGreaterThanOrEqual(0);
+    expect(settingsBox!.y).toBeLessThanOrEqual(24);
+    await expectNoPageHorizontalOverflow(page);
+
+    await settings.getByRole("button", { name: "Close settings" }).click();
+    await expect(settings).toBeHidden();
+
+    const escapeMenu = await openMobileClinicalGuideMenu(page);
+    await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
+
+    const backdropMenu = await openMobileClinicalGuideMenu(page);
+    await backdropMenu.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+    await page.mouse.click(2, 2);
+    await expect(settings).toBeHidden();
+  });
 
   test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -617,14 +699,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("desktop daily actions close when clicking outside or opening scope", async ({ page }) => {
+  test("desktop mode options close when clicking outside or opening scope", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    const dailyActionsTrigger = page.getByRole("button", { name: "Open daily actions" });
+    const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
     const dailyActionsMenu = page.getByTestId("daily-actions-menu");
+    const appModeTrigger = page.getByRole("button", { name: "Current app mode: Answer" });
+    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+
+    await appModeTrigger.click();
+    await expect(appModeMenu).toBeVisible();
+    await visibleQuestionInput(page).click();
+    await expect(appModeMenu).toBeHidden();
+
+    await appModeTrigger.click();
+    await expect(appModeMenu).toBeVisible();
+    await dailyActionsTrigger.click();
+    await expect(appModeMenu).toBeHidden();
+    await expect(dailyActionsMenu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dailyActionsMenu).toHaveCount(0);
 
     // First open — use robust retry helper to handle async state update timing.
     await openDailyActions(page);
@@ -639,7 +736,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(dailyActionsMenu).toHaveCount(0);
     const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
     await expect(scopePopover).toBeVisible();
-    await page.keyboard.press("Escape");
+    await visibleQuestionInput(page).click();
     await expect(scopePopover).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
   });
@@ -765,6 +862,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalNotesSheet.getByTestId("clinical-notes-checklist")).toBeVisible();
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Safety/ })).toBeVisible();
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Monitor/ })).toBeVisible();
+    await tapOutsideActiveSurface(page);
+    await expect(clinicalNotesSheet).toHaveCount(0);
+    await clinicalNotesTrigger.click();
+    await expect(clinicalNotesSheet).toBeVisible();
     const clinicalNotesTableToggle = clinicalNotesSheet.getByRole("tab", { name: /Table/i });
     await expect(clinicalNotesTableToggle).toBeVisible();
     await expect(clinicalNotesSheet.getByText("Table details")).toHaveCount(0);
@@ -832,7 +933,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByText("Top source detail")).toHaveCount(0);
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
-    await page.keyboard.press("Escape");
+    await tapOutsideActiveSurface(page);
     await expect(evidenceSheet).toHaveCount(0);
     await expect(evidenceDrawer).toBeFocused();
 
@@ -985,6 +1086,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const favouritesTypeList = page.getByRole("listbox", { name: "Favourite type" });
     await expect(favouritesTypeList).toBeVisible();
     await expect(favouritesTypeList.getByRole("option", { name: /^All\b/ })).toBeFocused();
+    await page.locator("body").click({ position: { x: 8, y: 8 } });
+    await expect(favouritesTypeList).toBeHidden();
+    await favouritesTypeButton.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(favouritesTypeList).toBeVisible();
     await page.keyboard.press("End");
     await expect(favouritesTypeList.getByRole("option", { name: /^Sets\b/ })).toBeFocused();
     await page.keyboard.press("Enter");
@@ -1071,10 +1177,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
 
     await expect(page.getByRole("button", { name: "Current app mode: Tools" })).toBeVisible();
-    await expect(page.getByPlaceholder("Search tools...")).toHaveValue("medications");
+    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
     await expect(page.getByTestId("tools-hub")).toBeVisible();
-    await expect(page.getByTestId("tool-mode-result-medications")).toContainText("Medications");
-    await expect(page.getByLabel("Launch Medications")).toHaveAttribute("href", "/?mode=prescribing");
+    await expect(page.getByTestId("tools-hub").getByRole("heading", { name: "All tools" })).toBeVisible();
+    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
+      "Medication Prescribing",
+    );
+    await expect(page.getByTestId("tools-hub").getByTestId("selected-application-panel")).toContainText(
+      "Selected tool",
+    );
+    await expect(
+      page
+        .getByTestId("tools-hub")
+        .getByTestId("application-row-medication-prescribing")
+        .getByLabel("Launch Medication Prescribing"),
+    ).toHaveAttribute("href", "/?mode=prescribing");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1139,6 +1256,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
+    await page.getByRole("button", { name: "Open document actions" }).first().click();
+    const documentActions = page.getByRole("dialog", { name: "This document" });
+    await expect(documentActions).toBeVisible();
+    await tapOutsideActiveSurface(page);
+    await expect(documentActions).toHaveCount(0);
     await expect(preview).toBeVisible();
     await expect(toolbar).toBeVisible({ timeout: 30000 });
     await expectDomIntegrity(page);
@@ -1369,7 +1491,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(dialog).toBeHidden();
 
       const reopenedDialog = await openGuide(page);
-      await page.keyboard.press("Escape");
+      await tapOutsideActiveSurface(page);
       await expect(reopenedDialog).toBeHidden();
       await expectNoPageHorizontalOverflow(page);
     });

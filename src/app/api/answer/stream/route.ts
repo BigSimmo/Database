@@ -16,6 +16,7 @@ import {
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -78,14 +79,14 @@ function streamErrorPayload(error: unknown) {
 }
 
 function logStreamError(error: unknown) {
-  console.error("Search stream failed", {
+  logger.error("Search stream failed", {
     name: error instanceof Error ? error.name : typeof error,
     message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
   });
 }
 
-function streamAnswer(body: AnswerBody, ownerId?: string) {
+function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) {
   const encoder = new TextEncoder();
 
   return new Response(
@@ -155,12 +156,15 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
                 queryMode: body.queryMode,
                 skipCache: body.skipCache,
                 onProgress,
+                signal,
               });
           const warnings = sourceGovernanceWarnings({
             results: answer.sources ?? [],
             relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
           });
-          if (hasDangerSourceGovernanceWarning(warnings)) {
+          const shouldUseSourceGovernanceRefusal =
+            answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
+          if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
             // Explicit refusal payload — do not spread ...answer (see /api/answer):
             // the refused sources/smartPanel/smartApiPlan must not reach the client.
             send("final", {
@@ -202,7 +206,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string) {
 export async function POST(request: Request) {
   try {
     const body = answerSchema.parse(await request.json());
-    if (isDemoMode()) return streamAnswer(body);
+    if (isDemoMode()) return streamAnswer(body, undefined, request.signal);
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
@@ -215,7 +219,7 @@ export async function POST(request: Request) {
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-    return streamAnswer(body, user.id);
+    return streamAnswer(body, user.id, request.signal);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

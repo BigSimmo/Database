@@ -211,19 +211,18 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 }
 
 async function openDailyActions(page: Page) {
-  const trigger = page.getByRole("button", { name: "Open daily actions" });
-  const dialog = page.getByRole("dialog", { name: "Daily actions" });
+  const trigger = page.getByRole("button", { name: /^Open .+ options$/ });
   const menu = page.getByTestId("daily-actions-menu");
 
   await expect(trigger).toBeVisible();
   await expect(trigger).toBeEnabled();
   await expect(async () => {
-    if ((await dialog.isVisible().catch(() => false)) || (await menu.isVisible().catch(() => false))) return;
+    if (await menu.isVisible().catch(() => false)) return;
     await trigger.click();
-    await expect(dialog.or(menu)).toBeVisible({ timeout: 1_500 });
-  }).toPass({ timeout: 10_000 });
+    await expect(menu).toBeVisible({ timeout: 2_500 });
+  }).toPass({ timeout: 20_000 });
 
-  return (await dialog.isVisible().catch(() => false)) ? dialog : menu;
+  return menu;
 }
 
 test.describe("Clinical KB long-content stress coverage", () => {
@@ -234,11 +233,11 @@ test.describe("Clinical KB long-content stress coverage", () => {
     test(`many documents and citations do not overflow at ${viewport.name}`, async ({ page }) => {
       await mockStressData(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
       const dailyActions = await openDailyActions(page);
-      await dailyActions.getByRole("button", { name: "Add document" }).click();
+      await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
       const uploadSurface =
         viewport.name === "mobile"
           ? page.getByRole("dialog", { name: "Upload and indexing" })

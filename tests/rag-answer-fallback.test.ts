@@ -68,6 +68,70 @@ class EmptyQuery implements PromiseLike<{ data: unknown[]; error: null }> {
   }
 }
 
+type GeneratedAnswerPayload = {
+  answer: string;
+  grounded: boolean;
+  confidence: "high" | "medium" | "low" | "unsupported";
+  answerSections?: unknown[];
+  citations?: Array<{ chunk_id: string }>;
+  quoteCards?: unknown[];
+  conflictsOrGaps?: unknown[];
+};
+
+async function answerFromTextSources(
+  query: string,
+  sources: SearchResult[],
+  generatedAnswer?: GeneratedAnswerPayload,
+) {
+  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+  vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+  const rpc = vi.fn(async (name: string) => {
+    if (name === "match_document_chunks_text") return { data: sources, error: null };
+    if (name === "get_related_document_metadata") return { data: [], error: null };
+    return { data: [], error: null };
+  });
+
+  vi.doMock("@/lib/supabase/admin", () => ({
+    createAdminClient: () => ({
+      rpc,
+      from: vi.fn(() => new EmptyQuery()),
+    }),
+  }));
+  const generateStructuredTextResult = vi.fn(async () => ({
+    text: JSON.stringify(
+      generatedAnswer ?? {
+        answer: "No current source with specific guidance for this query was found.",
+        grounded: false,
+        confidence: "unsupported",
+        answerSections: [],
+        citations: [],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    ),
+    model: "gpt-4.1-mini",
+    operation: "answer",
+    latencyMs: 12,
+    requestId: "req_answer_from_text_sources",
+    usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+  }));
+
+  vi.doMock("@/lib/openai", () => ({
+    embedTextWithTelemetry: vi.fn(),
+    generateStructuredTextResult,
+  }));
+
+  const { answerQuestionWithScope } = await import("../src/lib/rag");
+  return answerQuestionWithScope({
+    query,
+    ownerId: undefined,
+    logQuery: false,
+    skipCache: true,
+  });
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
@@ -167,12 +231,13 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).not.toHaveBeenCalled();
-    expect(answer.routingMode).toBe("extractive");
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingReason).toContain("clinical_fast_grounded_synthesis");
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/clozapine Monitoring Form/i);
     expect(answer.answer).not.toContain("- Medication point");
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
-    expect(answer.answerSections ?? []).toEqual([]);
+    expect(answer.answerSections?.[0]?.heading).toBe("Monitoring documents");
   });
 
   it("retries template-like fast answers with the strong model before returning", async () => {
@@ -283,16 +348,16 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).not.toHaveBeenCalled();
-    expect(answer.routingMode).toBe("extractive");
-    expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
-    expect(answer.openAIRequestIds ?? []).toEqual([]);
-    expect(answer.grounded).toBe(false);
-    expect(answer.confidence).toBe("unsupported");
-    expect(answer.responseMode).toBe("evidence_gap");
-    expect(answer.answer).toMatch(/No current source with monitoring timing or schedule guidance/i);
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("fast_template_retry_strong");
+    expect(answer.openAIRequestIds ?? []).toEqual(["req_fast_template", "req_strong_natural"]);
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).toBe("medium");
+    expect(answer.responseMode).toBe("clinical_pathway");
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/Clozapine initiation requires/i);
     expect(answer.answer).not.toMatch(/retrieved source|source-backed|based on the provided excerpts/i);
-    expect(answer.answerSections ?? []).toEqual([]);
+    expect(answer.answerSections?.[0]?.heading).toBe("Documentation");
   });
 
   it("retries over-expanded fast answers for simple direct questions", async () => {
@@ -514,7 +579,7 @@ describe("RAG structured-output fallback", () => {
           ],
           conflictsOrGaps: [],
         }),
-        model: "gpt-5.4",
+        model: "gpt-5.5",
         operation: "answer",
         latencyMs: 18,
         requestId: "req_strong_template",
@@ -546,7 +611,7 @@ describe("RAG structured-output fallback", () => {
           ],
           conflictsOrGaps: [],
         }),
-        model: "gpt-5.4",
+        model: "gpt-5.5",
         operation: "answer",
         latencyMs: 14,
         requestId: "req_strong_quality",
@@ -683,15 +748,15 @@ describe("RAG structured-output fallback", () => {
     });
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
-    expect(generateStructuredTextResult).not.toHaveBeenCalled();
-    expect(answer.routingMode).toBe("extractive");
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(answer.routingMode).toBe("strong");
     expect(plainAnswer).toContain("must be discontinued immediately");
     expect(plainAnswer).not.toContain("Table detailing roles and responsibilities");
     expect(plainAnswer).not.toContain("clinical_table");
     expect(plainAnswer).not.toContain("table_crop");
   });
 
-  it("retries malformed fast output and fails safely through extractive recovery", async () => {
+  it("retries malformed fast output and fails closed after strong generation also fails", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_MAX_OUTPUT_TOKENS", "650");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -745,17 +810,21 @@ describe("RAG structured-output fallback", () => {
     });
 
     expect(answer.answer).not.toBe(machineReadableFallbackAnswer);
-    expect(answer.routingMode).toBe("extractive");
-    expect(answer.grounded).toBe(true);
-    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.citations).toEqual([]);
     expect(answer.quoteCards?.length).toBeGreaterThan(0);
-    expect(answer.routingReason).toContain("structured_output_fallback");
+    expect(answer.routingReason).toContain("final_quality_gate");
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
     expect(answer.openAIRequestIds).toEqual(["req_truncated", "req_truncated", "req_truncated"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1950 });
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
-    expect(answer.latencyTimings?.answer_retry_reasons).toEqual(["fast_unusable_retry_strong", "strong_quality_retry"]);
-    expect(answer.citations[0]?.source_metadata?.document_status).toBe("current");
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_unsupported_retry_strong",
+      "strong_quality_retry",
+    ]);
   });
 
   it("keeps valid structured model answers on the generated-answer path", async () => {
@@ -828,6 +897,177 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).not.toContain("structured_output_fallback");
     expect(answer.openAIRequestIds).toEqual(["req_valid"]);
     expect(answer.quoteCards?.length).toBe(1);
+  });
+
+  it("coalesces identical scoped answer requests before OpenAI generation", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+
+    const sources = [
+      source({
+        content:
+          "Inpatient approach details for agitation and arousal management include a stepwise approach based on rating severity, route, oral options, and intramuscular options.",
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: sources, error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    let releaseGeneration!: () => void;
+    let markGenerationStarted!: () => void;
+    const generationStarted = new Promise<void>((resolve) => {
+      markGenerationStarted = resolve;
+    });
+    const generationGate = new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+    const generateStructuredTextResult = vi.fn(async () => {
+      markGenerationStarted();
+      await generationGate;
+      return {
+        text: JSON.stringify({
+          answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "agitation-chunk-1" }],
+          quoteCards: [
+            {
+              chunk_id: "agitation-chunk-1",
+              quote: "Agitation and arousal pharmacological management for adult mental health inpatients.",
+              section_heading: "Appendix 1",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_coalesced",
+        usage: { input_tokens: 100, output_tokens: 120, total_tokens: 220 },
+      };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const first = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+    });
+    const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+    });
+
+    await generationStarted;
+    releaseGeneration();
+    const [firstAnswer, secondAnswer] = await Promise.all([first, second]);
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    const generateCalls = generateStructuredTextResult.mock.calls as unknown as Array<
+      [
+        unknown,
+        {
+          properties: {
+            citations: { items: { properties: { chunk_id: { enum: string[] } } } };
+            answerSections: { items: { properties: { citation_chunk_ids: { items: { enum: string[] } } } } };
+          };
+        },
+      ]
+    >;
+    const schema = generateCalls[0]?.[1];
+    if (!schema) throw new Error("Expected generated answer schema");
+    expect(schema).toMatchObject({
+      properties: {
+        citations: { items: { properties: { chunk_id: { enum: ["agitation-chunk-1"] } } } },
+        answerSections: { items: { properties: { citation_chunk_ids: { items: { enum: ["agitation-chunk-1"] } } } } },
+      },
+    });
+    expect(schema.properties.citations.items.properties.chunk_id.enum).toEqual(["agitation-chunk-1"]);
+    expect(schema.properties.answerSections.items.properties.citation_chunk_ids.items.enum).toEqual([
+      "agitation-chunk-1",
+    ]);
+    expect(rpc).toHaveBeenCalledWith("match_document_chunks_text", expect.any(Object));
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text")).toHaveLength(1);
+    expect(firstAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
+    expect(secondAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
+    expect(secondAnswer.routingReason).toContain("answer_inflight_coalesced");
+  });
+
+  it("treats max-output truncation as a distinct retry and fallback reason", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        content:
+          "Inpatient approach details for agitation and arousal management include a stepwise approach based on rating severity, route, oral options, and intramuscular options.",
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: sources, error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    let requestIndex = 0;
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: '{"answer":"Use a stepwise approach',
+      model: "gpt-5.4-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: `req_truncated_${++requestIndex}`,
+      usage: { input_tokens: 100, output_tokens: 650, total_tokens: 750 },
+      status: "incomplete",
+      truncated: true,
+      incompleteReason: "max_output_tokens",
+    }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const answer = await answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
+    expect(answer.routingMode).toBe("unsupported");
+    expect(answer.routingReason).toContain("generation_fallback:OpenAI generation incomplete: max_output_tokens");
+    expect(answer.latencyTimings?.answer_retry_count).toBe(2);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_max_output_tokens_retry_strong",
+      "strong_max_output_tokens",
+    ]);
+    expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
+    expect(answer.openAIUsage).toMatchObject({ output_tokens: 1300, total_tokens: 1500 });
   });
 
   it("keeps the confidence gate active for weak ambiguous retrieval", async () => {
@@ -985,6 +1225,254 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/level checks|renal review|baseline tests/i);
   });
 
+  it("does not promote lithium dosage headings or continuation fragments as the primary answer", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const lithiumSource = source({
+      id: "lithium-dose-1",
+      document_id: "lithium-doc",
+      title: "Lithium Therapy - Initiation And Continuation Guideline",
+      file_name: "lithium-therapy.pdf",
+      page_number: 6,
+      section_heading: "Dosage and monitoring",
+      content:
+        "Dosage (as lithium carbonate). alternative agent where possible and adjust the dose of lithium when necessary. Reduce doses in the elderly and in patients with renal impairment. Target serum lithium ranges are as follows: acute mania 0.8-1.2 mmol/L; prophylaxis uses a lower maintenance range. Therapy with lithium should always begin with conventional tablets (lithium carbonate 250 mg).",
+      similarity: 0.95,
+      hybrid_score: 0.95,
+      text_rank: 1.3,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [lithiumSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer:
+          "For lithium dosing, the retrieved guidance supports starting with **lithium carbonate 250 mg conventional tablets**, reducing doses in elderly patients or renal impairment, and using serum lithium targets to titrate.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [
+          {
+            heading: "Dose and monitoring",
+            kind: "medication_dose",
+            supportLevel: "direct",
+            body: "The source gives acute mania and prophylaxis serum lithium target ranges and says dose adjustment is needed when clinically indicated.",
+            citation_chunk_ids: ["lithium-dose-1"],
+          },
+        ],
+        citations: [{ chunk_id: "lithium-dose-1" }],
+        quoteCards: [
+          {
+            chunk_id: "lithium-dose-1",
+            quote: "Reduce doses in the elderly and in patients with renal impairment.",
+            section_heading: "Dosage and monitoring",
+          },
+        ],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_lithium_fast",
+      usage: { input_tokens: 140, output_tokens: 90, total_tokens: 230 },
+    }));
+
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "lithium dosing for patients",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.grounded).toBe(true);
+    expect(plainAnswer).not.toMatch(/^Dosage\b/i);
+    expect(plainAnswer).not.toContain("alternative agent where possible");
+    expect(plainAnswer).toMatch(/target serum lithium|reduce doses|conventional tablets/i);
+  });
+
+  it("uses the same model-first guard for non-lithium dose searches", async () => {
+    const answer = await answerFromTextSources(
+      "olanzapine maximum dose",
+      [
+        source({
+          id: "olanzapine-dose-1",
+          document_id: "olanzapine-doc",
+          title: "Olanzapine Dose Chart",
+          file_name: "olanzapine-dose-chart.pdf",
+          section_heading: "Dose table",
+          content:
+            "Dosage (adult). chart reference only. Maximum olanzapine dose is 20 mg in 24 hours. Repeat doses require sedation and blood pressure monitoring.",
+          similarity: 0.95,
+          hybrid_score: 0.95,
+          text_rank: 1.3,
+        }),
+      ],
+      {
+        answer:
+          "The retrieved guidance gives a maximum **olanzapine** dose of **20 mg in 24 hours**, with repeat doses requiring sedation and blood pressure monitoring.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "olanzapine-dose-1" }],
+        quoteCards: [
+          {
+            chunk_id: "olanzapine-dose-1",
+            quote: "Maximum olanzapine dose is 20 mg in 24 hours.",
+            section_heading: "Dose table",
+          },
+        ],
+        conflictsOrGaps: [],
+      },
+    );
+
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.grounded).toBe(true);
+    expect(plainAnswer).not.toMatch(/^Dosage\b/i);
+    expect(plainAnswer).not.toContain("chart reference only");
+    expect(plainAnswer).toContain("20 mg");
+  });
+
+  it("uses the same model-first guard for threshold-action searches", async () => {
+    const answer = await answerFromTextSources(
+      "what clozapine monitoring action is needed for red range blood results",
+      [
+        source({
+          id: "clozapine-red-action-1",
+          document_id: "clozapine-doc",
+          title: "Clozapine Monitoring Action Table",
+          file_name: "clozapine-monitoring.pdf",
+          section_heading: "Monitoring",
+          content:
+            "Monitoring. and reported to the patient monitoring system. If blood results return in the red range, clozapine therapy must be discontinued immediately and reported to the patient monitoring system.",
+          similarity: 0.95,
+          hybrid_score: 0.95,
+          text_rank: 1.3,
+        }),
+      ],
+      {
+        answer:
+          "For red-range blood results, the source-supported action is to **discontinue clozapine immediately** and report the result to the patient monitoring system.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "clozapine-red-action-1" }],
+        quoteCards: [
+          {
+            chunk_id: "clozapine-red-action-1",
+            quote: "clozapine therapy must be discontinued immediately",
+            section_heading: "Monitoring",
+          },
+        ],
+        conflictsOrGaps: [],
+      },
+    );
+
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.grounded).toBe(true);
+    expect(plainAnswer).not.toMatch(/^Monitoring\b/i);
+    expect(plainAnswer).not.toMatch(/^and reported/i);
+    expect(plainAnswer).toMatch(/discontinue.*immediately|discontinued immediately/i);
+  });
+
+  it("uses the same model-first guard for pathway and referral searches", async () => {
+    const answer = await answerFromTextSources(
+      "what are ECT referral criteria",
+      [
+        source({
+          id: "ect-referral-1",
+          document_id: "ect-doc",
+          title: "ECT Referral Pathway",
+          file_name: "ect-referral-pathway.pdf",
+          section_heading: "Referral criteria",
+          content:
+            "Referral criteria. and document the referral form. ECT referral criteria include severe depression requiring specialist psychiatric review, consent assessment, and referral through the ECT pathway.",
+          similarity: 0.95,
+          hybrid_score: 0.95,
+          text_rank: 1.3,
+        }),
+      ],
+      {
+        answer:
+          "The ECT referral criteria include **severe depression requiring specialist psychiatric review**, consent assessment, and referral through the ECT pathway.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "ect-referral-1" }],
+        quoteCards: [
+          {
+            chunk_id: "ect-referral-1",
+            quote: "ECT referral criteria include severe depression requiring specialist psychiatric review",
+            section_heading: "Referral criteria",
+          },
+        ],
+        conflictsOrGaps: [],
+      },
+    );
+
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.grounded).toBe(true);
+    expect(plainAnswer).not.toMatch(/^Referral criteria\b/i);
+    expect(plainAnswer).not.toMatch(/^and document/i);
+    expect(plainAnswer).toMatch(/severe depression|specialist psychiatric review|ECT pathway/i);
+  });
+
+  it("blocks same-sentence cross-medication dose leakage", async () => {
+    const answer = await answerFromTextSources(
+      "What is the maximum sertraline dose?",
+      [
+        source({
+          id: "sertraline-cross-medication-1",
+          document_id: "sertraline-doc",
+          title: "Sertraline Dose Appendix",
+          file_name: "sertraline-dose-appendix.pdf",
+          section_heading: "Maximum doses",
+          content:
+            "Sertraline dosing appendix lists fluoxetine maximum dose 60 mg and citalopram 40 mg for comparison, but does not state a maximum sertraline dose.",
+          similarity: 0.95,
+          hybrid_score: 0.95,
+          text_rank: 1.3,
+        }),
+      ],
+      {
+        answer: "No current source with dose guidance for this query was found.",
+        grounded: false,
+        confidence: "unsupported",
+        answerSections: [],
+        citations: [],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.answer).toBe("No current source with dose guidance for this query was found.");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
+  });
+
   it("fails closed for classified dose intent when no accepted fact covers entity and intent together", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -1016,7 +1504,22 @@ describe("RAG structured-output fallback", () => {
     }));
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(),
-      generateStructuredTextResult: vi.fn(),
+      generateStructuredTextResult: vi.fn(async () => ({
+        text: JSON.stringify({
+          answer: "No current source with dose guidance for this query was found.",
+          grounded: false,
+          confidence: "unsupported",
+          answerSections: [],
+          citations: [],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_sertraline_source_gap",
+        usage: { input_tokens: 130, output_tokens: 40, total_tokens: 170 },
+      })),
     }));
 
     const { answerQuestionWithScope } = await import("../src/lib/rag");

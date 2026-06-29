@@ -321,6 +321,16 @@ function applyBoldPatternOutsideExisting(text: string, pattern: RegExp, maxMatch
     .join("");
 }
 
+function capBoldSegments(text: string, originalText: string, maxSegments = 4) {
+  const existingBold = new Set(Array.from(originalText.matchAll(/\*\*([^*]+)\*\*/g), (match) => match[1]));
+  let kept = 0;
+  return text.replace(/\*\*([^*]+)\*\*/g, (match, content: string) => {
+    if (existingBold.has(content)) return match;
+    kept += 1;
+    return kept <= maxSegments ? match : content;
+  });
+}
+
 export function boldHighYieldClinicalText(text: string, query?: string) {
   if (!text.trim()) return text;
   if (query === undefined) return text;
@@ -332,7 +342,7 @@ export function boldHighYieldClinicalText(text: string, query?: string) {
   for (const pattern of fixedHighYieldPatterns) {
     output = applyBoldPatternOutsideExisting(output, pattern, 1);
   }
-  return output;
+  return capBoldSegments(output, text);
 }
 
 export function boldRagAnswerHighYieldText(answer: RagAnswer, query: string): RagAnswer {

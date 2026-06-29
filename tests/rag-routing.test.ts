@@ -46,12 +46,12 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("strong_routine_retrieval");
   });
 
-  it("uses extractive answers for routine medication questions with strong single-source support", () => {
+  it("uses fast model synthesis for routine medication questions with strong single-source support", () => {
     const selected = route("What clozapine monitoring is required?", [source()]);
 
-    expect(selected.mode).toBe("extractive");
-    expect(selected.model).toBeNull();
-    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+    expect(selected.mode).toBe("fast");
+    expect(selected.model).toBe("fast-model");
+    expect(selected.reason).toBe("clinical_fast_grounded_synthesis");
   });
 
   it("uses the strong model for medication or risk-heavy decision questions", () => {
@@ -106,7 +106,7 @@ describe("RAG answer routing", () => {
     expect(selected.model).toBeNull();
   });
 
-  it("uses extractive answers for direct table or threshold lookups with strong source support", () => {
+  it("uses strong synthesis for safety-critical threshold lookups with strong source support", () => {
     const selected = route("What ANC threshold should stop clozapine?", [
       source({
         title: "Clozapine Prescribing and Monitoring",
@@ -115,9 +115,9 @@ describe("RAG answer routing", () => {
       }),
     ]);
 
-    expect(selected.mode).toBe("extractive");
-    expect(selected.model).toBeNull();
-    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+    expect(selected.mode).toBe("strong");
+    expect(selected.model).toBe("strong-model");
+    expect(selected.reason).toBe("clinical_risk_or_complex_query");
   });
 
   it("keeps broad summaries on the fast synthesis path", () => {
@@ -214,6 +214,23 @@ describe("RAG answer routing", () => {
         route: selected,
         answer: { grounded: false, confidence: "unsupported", citations: [] },
         results: [source(), source({ id: "chunk-2", document_id: "doc-2" })],
+      }),
+    ).toBe(true);
+  });
+
+  it("retries a single-source clinical fast failure with the strong model when retrieval is strong", () => {
+    const selected = route("What clozapine monitoring is required?", [source()]);
+
+    expect(
+      shouldRetryWithStrongAfterFast({
+        route: selected,
+        answer: {
+          grounded: false,
+          confidence: "unsupported",
+          citations: [],
+          routingReason: "structured_parse_fallback",
+        },
+        results: [source()],
       }),
     ).toBe(true);
   });

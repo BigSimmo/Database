@@ -7,6 +7,7 @@ import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { writeAuditLog } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -460,6 +461,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (updateError) throw new Error(updateError.message);
     invalidateRagCachesForDocumentMutation(user.id);
+    await writeAuditLog(supabase, {
+      ownerId: user.id,
+      action: "document_rename",
+      resourceType: "document",
+      resourceId: id,
+      metadata: { previousTitle: document.title, newTitle: parsed.data.title },
+    });
     return NextResponse.json({ document: updated });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -568,6 +576,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (ledgerWarning) cleanup.storageWarnings.push(ledgerWarning);
 
     invalidateRagCachesForDocumentMutation(user.id);
+    await writeAuditLog(supabase, {
+      ownerId: user.id,
+      action: "document_delete",
+      resourceType: "document",
+      resourceId: id,
+      metadata: { title: document.title, storageRemoved: cleanup.storageRemoved },
+    });
     return NextResponse.json({
       deleted: true,
       documentId: id,

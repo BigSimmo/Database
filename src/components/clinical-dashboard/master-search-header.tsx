@@ -18,7 +18,6 @@ import {
   CheckCircle2,
   ChevronDown,
   FileText,
-  Filter,
   Globe2,
   Heart,
   ListChecks,
@@ -39,6 +38,14 @@ import {
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import {
+  ModeActionPopup,
+  modeActionItemsFor,
+  type ModeActionId,
+  type ModeActionItem,
+  type ModeActionSetId,
+} from "@/components/clinical-dashboard/mode-action-popup";
 import {
   cn,
   chatComposerIconButton,
@@ -75,6 +82,25 @@ const appModeIcons: Record<AppModeId, typeof Search> = {
   tools: Wrench,
 };
 
+const medicationModeActionItems: readonly ModeActionItem[] = [
+  {
+    id: "medication-dose",
+    label: "Dose",
+    description: "Check dosing and thresholds",
+    icon: CalendarDays,
+    primary: true,
+  },
+  { id: "medication-safety", label: "Safety", description: "Contraindications and cautions", icon: ShieldCheck },
+  {
+    id: "medication-monitoring",
+    label: "Monitoring",
+    shortLabel: "Monitor",
+    description: "Baseline and ongoing checks",
+    icon: Activity,
+  },
+  { id: "medication-access", label: "Access", description: "Documentation and eligibility", icon: Lock },
+];
+
 function splitFilterText(value: string) {
   return value
     .split(",")
@@ -98,6 +124,13 @@ function documentScopeMeta(document: ClinicalDocument) {
   return `${fileName} · ${document.page_count ?? "?"} pages`;
 }
 
+type HeaderIdentity = {
+  displayName: string;
+  initials: string;
+  detail: string;
+  signedIn: boolean;
+};
+
 export function MasterSearchHeader({
   documents,
   documentTotal,
@@ -120,8 +153,13 @@ export function MasterSearchHeader({
   onScopeOpenChange,
   onOpenUpload,
   onOpenEvidence,
+  onOpenRecentDocuments,
+  onOpenLibrary,
+  onOpenSourcePdf,
   onNewChat,
   onOpenMobileSidebar,
+  onOpenSettings,
+  identity,
   onToggleTheme,
   queryModeOptions,
   scopeVariant = "full",
@@ -150,8 +188,13 @@ export function MasterSearchHeader({
   onScopeOpenChange?: (open: boolean) => void;
   onOpenUpload?: () => void;
   onOpenEvidence?: () => void;
+  onOpenRecentDocuments?: () => void;
+  onOpenLibrary?: () => void;
+  onOpenSourcePdf?: () => void;
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
+  onOpenSettings: () => void;
+  identity: HeaderIdentity;
   onToggleTheme: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
   scopeVariant?: "full" | "placeholder";
@@ -174,12 +217,9 @@ export function MasterSearchHeader({
   const [scopeFilter, setScopeFilter] = useState("");
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
-  const [dailyActionsOpen, setDailyActionsOpen] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
-  const dailyActionButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dailyActionsMenuRef = useRef<HTMLDivElement | null>(null);
-  const firstDailyActionRef = useRef<HTMLButtonElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -220,81 +260,105 @@ export function MasterSearchHeader({
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
   const queryPlaceholder = selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
-  const dailyActions =
-    searchMode === "prescribing"
-      ? ([
-          { label: "Dose", icon: CalendarDays },
-          { label: "Safety", icon: ShieldCheck },
-          { label: "Monitoring", icon: Activity },
-          { label: "Access", icon: Lock },
-        ] as const)
-      : ([
-          { label: "Search library", icon: Search },
-          { label: "Add document", icon: FileText },
-          { label: "Scope", icon: Filter },
-          { label: "Evidence", icon: ListChecks },
-          { label: "Tools", icon: Wrench },
-        ] as const);
-  const dailyActionsTitle = searchMode === "prescribing" ? "Medication checks" : "Daily actions";
-  const dailyActionsButtonLabel = searchMode === "prescribing" ? "Open medication checks" : "Open daily actions";
-  const dailyActionsDescription =
-    searchMode === "prescribing"
-      ? "Choose a dose, safety, monitoring, or access focus."
-      : "Search, add, scope, evidence, or tools.";
+  const actionMenuSetId: ModeActionSetId =
+    searchMode === "documents" || searchMode === "evidence" ? "documents" : searchMode === "tools" ? "tools" : "answer";
+  const actionMenuItems =
+    searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
+  const actionMenuTitle = selectedAppMode.label;
+  const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
   function currentUsesScopeSheet() {
     return window.matchMedia(mobileSheetMediaQuery).matches;
   }
 
-  function runDailyAction(label: (typeof dailyActions)[number]["label"]) {
-    if (searchMode === "prescribing") {
-      const medicationQuery = trimmedQuery || "acamprosate renal dose";
-      if (label === "Dose") {
-        onQueryModeChange("dose_threshold_lookup");
-        onQueryChange(medicationQuery);
-        return;
-      }
-      if (label === "Safety") {
-        onQueryModeChange("contraindications_cautions");
-        onQueryChange(trimmedQuery || "acamprosate contraindications");
-        return;
-      }
-      if (label === "Monitoring") {
-        onQueryModeChange("monitoring_schedule");
-        onQueryChange(trimmedQuery || "acamprosate monitoring");
-        return;
-      }
-      if (label === "Access") {
-        onQueryModeChange("required_documentation");
-        onQueryChange(trimmedQuery || "acamprosate PBS access");
-        return;
-      }
+  function openScopePicker() {
+    setActionMenuOpen(false);
+    setModeMenuOpen(false);
+    const nextUsesScopeSheet = currentUsesScopeSheet();
+    setUsesScopeSheet(nextUsesScopeSheet);
+    if (nextUsesScopeSheet) {
+      setScopeSheetOpen(true);
+    } else {
+      setScopeOpen(true);
+      onScopeOpenChange?.(true);
+      window.requestAnimationFrame(() => scopeFilterInputRef.current?.focus());
     }
-    if (label === "Search library") {
+  }
+
+  function runModeAction(actionId: ModeActionId) {
+    if (actionId === "medication-dose") {
+      const medicationQuery = trimmedQuery || "acamprosate renal dose";
+      onQueryModeChange("dose_threshold_lookup");
+      onQueryChange(medicationQuery);
+      return;
+    }
+    if (actionId === "medication-safety") {
+      onQueryModeChange("contraindications_cautions");
+      onQueryChange(trimmedQuery || "acamprosate contraindications");
+      return;
+    }
+    if (actionId === "medication-monitoring") {
+      onQueryModeChange("monitoring_schedule");
+      onQueryChange(trimmedQuery || "acamprosate monitoring");
+      return;
+    }
+    if (actionId === "medication-access") {
+      onQueryModeChange("required_documentation");
+      onQueryChange(trimmedQuery || "acamprosate PBS access");
+      return;
+    }
+
+    if (actionId === "documents-search" || actionId === "answer-documents") {
       onSearchModeChange("documents");
       return;
     }
-    if (label === "Add document") {
+    if (actionId === "documents-upload") {
       onOpenUpload?.();
       return;
     }
-    if (label === "Scope") {
-      const nextUsesScopeSheet = currentUsesScopeSheet();
-      setUsesScopeSheet(nextUsesScopeSheet);
-      if (nextUsesScopeSheet) {
-        setScopeSheetOpen(true);
-      } else {
-        setScopeOpen(true);
-        onScopeOpenChange?.(true);
-        window.requestAnimationFrame(() => scopeFilterInputRef.current?.focus());
-      }
+    if (actionId === "documents-scope") {
+      openScopePicker();
       return;
     }
-    if (label === "Evidence") {
+    if (actionId === "answer-evidence") {
       onOpenEvidence?.();
       return;
     }
-    onSearchModeChange("tools");
+    if (actionId === "documents-tables") {
+      onSearchModeChange("documents");
+      onQueryChange(trimmedQuery || "table evidence");
+      return;
+    }
+    if (actionId === "documents-recent") {
+      onSearchModeChange("documents");
+      onOpenRecentDocuments?.();
+      return;
+    }
+    if (actionId === "documents-status" || actionId === "documents-collections") {
+      onSearchModeChange("documents");
+      onOpenLibrary?.();
+      return;
+    }
+    if (actionId === "documents-viewer") {
+      onSearchModeChange("documents");
+      onOpenSourcePdf?.();
+      return;
+    }
+    if (actionId === "answer-new" || actionId === "tools-new") {
+      onNewChat?.();
+      return;
+    }
+    if (actionId === "answer-clinical" || actionId === "favourites-answer") {
+      onSearchModeChange("answer");
+      return;
+    }
+    if (actionId === "tools-browse" || actionId === "favourites-tools") {
+      onSearchModeChange("tools");
+      return;
+    }
+    if (actionId === "tools-favourites" || actionId === "favourites-browse") {
+      onSearchModeChange("favourites");
+    }
   }
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
@@ -317,6 +381,8 @@ export function MasterSearchHeader({
   }
 
   function openModeMenuWithFocus(index: number) {
+    setActionMenuOpen(false);
+    closeScope(false);
     setModeMenuOpen(true);
     window.requestAnimationFrame(() => focusModeOption(index));
   }
@@ -350,6 +416,7 @@ export function MasterSearchHeader({
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     }
   }
+
   const collectionOptions = useMemo(() => {
     const values = new Set<string>();
     for (const document of documents) {
@@ -388,84 +455,28 @@ export function MasterSearchHeader({
     onScopeOpenChange?.(scopeOpen || scopeSheetOpen);
   }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
 
-  useEffect(() => {
-    if (!dailyActionsOpen || usesScopeSheet) return undefined;
+  const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
+  function dismissScope(reason: "outside" | "escape") {
+    closeScope(reason === "escape");
+  }
 
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!dailyActionsMenuRef.current?.contains(target)) setDailyActionsOpen(false);
-    }
+  useDismissableLayer({
+    enabled: modeMenuOpen,
+    refs: [modeMenuRef],
+    restoreFocusRef: modeButtonRef,
+    onDismiss: dismissModeMenu,
+  });
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setDailyActionsOpen(false);
-        window.requestAnimationFrame(() => dailyActionButtonRef.current?.focus());
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [dailyActionsOpen, usesScopeSheet]);
-
-  useEffect(() => {
-    if (!modeMenuOpen) return undefined;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!modeMenuRef.current?.contains(target)) setModeMenuOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setModeMenuOpen(false);
-        window.requestAnimationFrame(() => modeButtonRef.current?.focus());
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [modeMenuOpen]);
-
-  useEffect(() => {
-    const details = scopeDetailsRef.current;
-    if (!scopeOpen || !details?.open) return undefined;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!scopeDetailsRef.current?.contains(target)) closeScope(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeScope(true);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [closeScope, scopeOpen]);
+  useDismissableLayer({
+    enabled: scopeOpen,
+    refs: [scopeDetailsRef],
+    restoreFocusRef: scopeSummaryRef,
+    onDismiss: dismissScope,
+  });
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setDailyActionsOpen(false);
+    setActionMenuOpen(false);
     onAsk();
   }
 
@@ -702,7 +713,11 @@ export function MasterSearchHeader({
             <button
               ref={modeButtonRef}
               type="button"
-              onClick={() => setModeMenuOpen((open) => !open)}
+              onClick={() => {
+                setActionMenuOpen(false);
+                closeScope(false);
+                setModeMenuOpen((open) => !open);
+              }}
               onKeyDown={handleModeTriggerKeyDown}
               className="inline-grid h-11 min-w-[10rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-[14rem]"
               aria-haspopup="menu"
@@ -805,7 +820,11 @@ export function MasterSearchHeader({
                   scopeSummaryRef.current = element;
                 }}
                 data-testid="scope-trigger"
-                onClick={() => setScopeSheetOpen(true)}
+                onClick={() => {
+                  setActionMenuOpen(false);
+                  setModeMenuOpen(false);
+                  setScopeSheetOpen(true);
+                }}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label="Open document scope"
                 aria-expanded={scopeSheetOpen}
@@ -824,6 +843,10 @@ export function MasterSearchHeader({
                 open={scopeOpen}
                 onToggle={(event) => {
                   const open = event.currentTarget.open;
+                  if (open) {
+                    setActionMenuOpen(false);
+                    setModeMenuOpen(false);
+                  }
                   setScopeOpen(open);
                   if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
                 }}
@@ -881,10 +904,19 @@ export function MasterSearchHeader({
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <span className="relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] sm:grid">
-              AK
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
-            </span>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              data-testid="header-account-settings"
+              className="relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
+              aria-label={identity.signedIn ? `Open settings for ${identity.detail}` : "Open account settings"}
+              title={identity.detail}
+            >
+              {identity.initials}
+              {identity.signedIn ? (
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
+              ) : null}
+            </button>
           </div>
         </div>
       </header>
@@ -896,49 +928,20 @@ export function MasterSearchHeader({
           "fixed inset-x-3 bottom-3 z-40 mx-auto max-w-3xl sm:bottom-4 lg:left-[calc(var(--clinical-sidebar-width,20rem)+2rem)] lg:right-8 lg:max-w-4xl",
         )}
       >
-        <div ref={dailyActionsMenuRef} className="relative shrink-0">
-          <button
-            type="button"
-            ref={dailyActionButtonRef}
-            className={chatComposerIconButton}
-            aria-label={dailyActionsButtonLabel}
-            aria-controls={dailyActionsOpen ? "daily-actions-sheet" : undefined}
-            aria-expanded={dailyActionsOpen}
-            title={dailyActionsButtonLabel}
-            onClick={() => {
-              setUsesScopeSheet(currentUsesScopeSheet());
-              setDailyActionsOpen((open) => !open);
-            }}
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-          {dailyActionsOpen && !usesScopeSheet ? (
-            <div
-              id="daily-actions-sheet"
-              data-testid="daily-actions-menu"
-              aria-label={dailyActionsTitle}
-              className="absolute bottom-[calc(100%+0.75rem)] left-0 z-50 hidden max-h-none w-64 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-elevated)] sm:block"
-            >
-              {dailyActions.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => {
-                      setDailyActionsOpen(false);
-                      runDailyAction(item.label);
-                    }}
-                    className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  >
-                    <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
+        <ModeActionPopup
+          open={actionMenuOpen}
+          title={actionMenuTitle}
+          titleIcon={SelectedAppModeIcon}
+          buttonLabel={actionMenuButtonLabel}
+          items={actionMenuItems}
+          onOpenChange={setActionMenuOpen}
+          onBeforeOpen={() => {
+            setUsesScopeSheet(currentUsesScopeSheet());
+            setModeMenuOpen(false);
+            closeScope(false);
+          }}
+          onAction={runModeAction}
+        />
 
         <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
           <input
@@ -1008,41 +1011,6 @@ export function MasterSearchHeader({
           </div>
         </Sheet>
       </form>
-      <Sheet
-        open={usesScopeSheet && dailyActionsOpen}
-        onClose={() => setDailyActionsOpen(false)}
-        title={dailyActionsTitle}
-        description={dailyActionsDescription}
-        closeLabel="Close daily actions"
-        initialFocusRef={firstDailyActionRef}
-        returnFocusRef={dailyActionButtonRef}
-        contentClassName="sm:max-w-sm"
-      >
-        <div id="daily-actions-sheet" data-testid="daily-actions-sheet" className="grid grid-cols-2 gap-2">
-          {dailyActions.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.label}
-                type="button"
-                ref={index === 0 ? firstDailyActionRef : undefined}
-                onClick={() => {
-                  setDailyActionsOpen(false);
-                  runDailyAction(item.label);
-                }}
-                className={cn(
-                  "grid min-h-[72px] place-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-3 text-center text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]",
-                  "hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  dailyActions.length % 2 === 1 && index === dailyActions.length - 1 && "col-span-2",
-                )}
-              >
-                <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-chat-teal)]" />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </Sheet>
     </>
   );
 }

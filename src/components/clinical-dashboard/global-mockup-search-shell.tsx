@@ -116,6 +116,8 @@ export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
         onOpenEvidence={() => navigateToMode("evidence", { focus: true })}
         onNewChat={startNewChat}
         onOpenMobileSidebar={() => setMobileMenuOpen(true)}
+        onOpenSettings={() => setMobileMenuOpen(true)}
+        identity={{ displayName: "Guest", initials: "G", detail: "Not signed in", signedIn: false }}
         onToggleTheme={toggleTheme}
         queryModeOptions={mockupQueryModeOptions}
         scopeVariant="placeholder"

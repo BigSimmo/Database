@@ -27,10 +27,14 @@ export function Sheet({
   titleAccessory,
   descriptionContent,
   headerActions,
+  headerClassName,
+  titleClassName,
+  closeButtonClassName,
   contentClassName,
   contentStyle,
   bodyClassName,
   placement = "default",
+  mobilePlacement = "bottom",
   portal = false,
 }: {
   open: boolean;
@@ -47,10 +51,14 @@ export function Sheet({
   titleAccessory?: ReactNode;
   descriptionContent?: ReactNode;
   headerActions?: ReactNode;
+  headerClassName?: string;
+  titleClassName?: string;
+  closeButtonClassName?: string;
   contentClassName?: string;
   contentStyle?: CSSProperties;
   bodyClassName?: string;
   placement?: "default" | "left";
+  mobilePlacement?: "bottom" | "top";
   portal?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -111,13 +119,18 @@ export function Sheet({
   if (!open) return null;
 
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
+  const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
 
   const sheet = (
     <div
       className={cn(
         "fixed inset-0 z-[100] flex bg-black/45 backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         placement !== "left" && "motion-safe:animate-overlay-in",
-        placement === "left" ? "items-stretch justify-start" : "items-end justify-center sm:items-center sm:p-6",
+        placement === "left"
+          ? "items-stretch justify-start"
+          : defaultSheetIsTopAligned
+            ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
+            : "items-end justify-center sm:items-center sm:p-6",
       )}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -136,7 +149,12 @@ export function Sheet({
           "transition duration-200 motion-reduce:transition-none sm:duration-150",
           placement === "left"
             ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
-            : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+            : cn(
+                "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+                defaultSheetIsTopAligned
+                  ? "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in"
+                  : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up",
+              ),
           "motion-reduce:animate-none",
           contentClassName,
         )}
@@ -145,16 +163,25 @@ export function Sheet({
           className={cn(
             "mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden",
             placement === "left" && "hidden",
+            defaultSheetIsTopAligned && "hidden",
           )}
           aria-hidden
         />
         {title ? (
-          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5">
+          <div
+            className={cn(
+              "flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              headerClassName,
+            )}
+          >
             <div className="flex min-w-0 flex-1 items-center gap-3">
               {headerLeading ? <div className="shrink-0">{headerLeading}</div> : null}
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
-                  <h2 id={titleId} className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
+                  <h2
+                    id={titleId}
+                    className={cn("truncate text-lg font-semibold text-[color:var(--text-heading)]", titleClassName)}
+                  >
                     {title}
                   </h2>
                   {titleAccessory}
@@ -172,7 +199,13 @@ export function Sheet({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {headerActions}
-              <button ref={closeRef} type="button" onClick={onClose} aria-label={closeLabel} className={toolbarButton}>
+              <button
+                ref={closeRef}
+                type="button"
+                onClick={onClose}
+                aria-label={closeLabel}
+                className={closeButtonClassName ?? toolbarButton}
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>

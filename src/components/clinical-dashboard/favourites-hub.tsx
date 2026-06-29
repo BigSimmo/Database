@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowUpDown, ChevronDown, Filter, Folder, FolderInput, Heart, Plus, Search, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
 import {
   favouriteItems,
@@ -103,30 +104,12 @@ export function FavouritesHub({
     }
   }
 
-  useEffect(() => {
-    if (!tabMenuOpen) return undefined;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!tabMenuRef.current?.contains(target)) setTabMenuOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setTabMenuOpen(false);
-        window.requestAnimationFrame(() => tabButtonRef.current?.focus());
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [tabMenuOpen]);
+  useDismissableLayer({
+    enabled: tabMenuOpen,
+    refs: [tabMenuRef],
+    restoreFocusRef: tabButtonRef,
+    onDismiss: () => setTabMenuOpen(false),
+  });
 
   return (
     <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">

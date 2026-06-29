@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { logger } from "@/lib/logger";
 
 export class PublicApiError extends Error {
   constructor(
@@ -28,21 +29,17 @@ function publicErrorMessage(error: unknown, status: number) {
 }
 
 function logSafeError(error: unknown, status: number) {
-  if (process.env.NODE_ENV === "test") return;
-  const name = error instanceof Error ? error.name : typeof error;
-  const message = error instanceof Error ? error.message : String(error);
-  const stack = error instanceof Error ? error.stack : undefined;
   const details = error instanceof PublicApiError ? error.details : undefined;
-  console.error("API request failed", {
+  logger.error("API request failed", {
     status,
-    name,
-    message,
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
     code: details?.code,
     requestId: details?.requestId,
     causeName: details?.causeName,
     causeMessage: details?.causeMessage,
     sqlState: details?.sqlState,
-    stack,
+    stack: error instanceof Error ? error.stack : undefined,
   });
 }
 
@@ -67,5 +64,38 @@ export function assertAllowedFile(file: File, maxUploadMb: number) {
   const maxBytes = maxUploadMb * 1024 * 1024;
   if (file.size > maxBytes) {
     throw new PublicApiError(`File exceeds ${maxUploadMb} MB upload limit.`);
+  }
+}
+
+// OOXML documents (DOCX/XLSX) are ZIP archives; a local-file-header begins "PK\x03\x04",
+// and the empty/spanned variants begin "PK\x05\x06" / "PK\x07\x08".
+function hasZipSignature(head: Uint8Array) {
+  return (
+    head[0] === 0x50 &&
+    head[1] === 0x4b &&
+    (head[2] === 0x03 || head[2] === 0x05 || head[2] === 0x07) &&
+    (head[3] === 0x04 || head[3] === 0x06 || head[3] === 0x08)
+  );
+}
+
+const fileContentSignatures: Record<string, (head: Uint8Array) => boolean> = {
+  // PDFs start with "%PDF-".
+  "application/pdf": (head) => head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46,
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": hasZipSignature,
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": hasZipSignature,
+  // text/plain has no reliable magic number and is intentionally not signature-checked.
+};
+
+// The browser-supplied MIME type (file.type) is trivially spoofable, so for the binary
+// formats we accept we also verify the actual byte signature before persisting the file.
+// This rejects polyglot/mislabeled uploads (e.g. an executable renamed to .pdf) at the
+// ingestion boundary of a clinical document store.
+export function assertFileContentSignature(fileType: string, content: Uint8Array) {
+  const check = fileContentSignatures[fileType];
+  if (!check) return;
+  if (!check(content.subarray(0, 8))) {
+    throw new PublicApiError(
+      `File content does not match its declared type (${fileType}). The file may be corrupt or mislabeled.`,
+    );
   }
 }

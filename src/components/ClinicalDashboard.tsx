@@ -7,31 +7,34 @@ import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertCircle,
+  Bell,
   BookOpen,
-  Brain,
   CheckCircle2,
   ChevronDown,
+  CircleUserRound,
   ClipboardCheck,
-  ClipboardList,
   Copy,
   ExternalLink,
   FileImage,
   FileText,
   Filter,
+  Globe2,
   Heart,
-  HeartHandshake,
+  HelpCircle,
+  Keyboard,
   Layers,
-  LayoutList,
   ListChecks,
   Loader2,
   LogIn,
   LogOut,
+  LockKeyhole,
   Mail,
   MessageSquare,
   MoreHorizontal,
-  Network,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelTop,
   Pill,
   Plus,
   Quote,
@@ -42,10 +45,12 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Stethoscope,
   Table2,
   Tag,
   Target,
   UploadCloud,
+  UserRound,
   WifiOff,
   Wrench,
   X,
@@ -68,6 +73,7 @@ import {
 } from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
@@ -111,7 +117,6 @@ import {
   tableCardHeader,
   tableMicroActionRow,
   textMuted,
-  toolbarButton,
   toneDanger,
   toneInfo,
   toneNeutral,
@@ -142,6 +147,7 @@ import { MasterSearchHeader } from "@/components/clinical-dashboard/master-searc
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
 import { favouritePrototypeCount } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
+import { ApplicationsLauncherWorkspace, applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DocumentSearchResultsPanel,
   MatchExplanationChips,
@@ -181,7 +187,6 @@ import { logSourceOpen, SourceActionRow, sourceResultHref } from "@/components/c
 import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
-import { toolCatalog, type ToolItem } from "@/lib/tools";
 import {
   reviewDocumentTagQuality,
   tagSearchText,
@@ -1235,40 +1240,135 @@ function compactClinicalNoteText(value: string) {
     .trim();
 }
 
+function stripClinicalNoteLeadIn(value: string) {
+  let text = compactClinicalNoteText(value);
+  let previous = "";
+  while (text !== previous) {
+    previous = text;
+    text = text
+      .replace(/^(the\s+same\s+)?synthetic\s+source\s+says\s+/i, "")
+      .replace(/^the\s+(indexed\s+)?source\s+says\s+/i, "")
+      .replace(/^source\s+text\s+says\s+/i, "")
+      .replace(/^according\s+to\s+[^,]+,\s*/i, "")
+      .trim();
+  }
+  return text;
+}
+
+function titleCaseClinicalNote(value: string) {
+  return value
+    .replace(/\b\w[\w/-]*/g, (word) => {
+      if (/[A-Z]{2,}|\/|\d/.test(word)) return word;
+      return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
+    })
+    .replace(/\bAnd\b/g, "and")
+    .replace(/\bOr\b/g, "or")
+    .replace(/\bTo\b/g, "to");
+}
+
+function sentenceCaseClinicalNoteDetail(value: string) {
+  const text = stripClinicalNoteLeadIn(value);
+  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : text;
+}
+
+function clinicalNoteHeuristicTitle(value: string) {
+  const text = stripClinicalNoteLeadIn(value);
+  const lower = text.toLowerCase();
+
+  if (/\bbaseline checklist\b/.test(lower) && /\bconfirm indication\b/.test(lower)) return "Indication";
+  if (/\b(vomiting|diarrhoea|diarrhea|dehydration|acute kidney injury|tremor|confusion|ataxia)\b/.test(lower)) {
+    return "Toxicity review triggers";
+  }
+  if (
+    /\b(escalate|urgent review|urgent|red flag|seizures?|severe constipation|chest pain|dyspnoea|tachycardia)\b/.test(
+      lower,
+    )
+  ) {
+    return "Escalation triggers";
+  }
+  if (/\blithium levels?\b/.test(lower) && /\b(5\s*(?:to|-|–)\s*7|dose change|stable|days?)\b/.test(lower)) {
+    return "Lithium level timing";
+  }
+  if (/\b(lithium level|serum lithium|trough level)\b/.test(lower)) return "Lithium level check";
+  if (/\b(fbc|anc)\b/.test(lower)) return "FBC/ANC monitoring";
+  if (/\bmyocarditis\b/.test(lower)) return "Myocarditis screening";
+  if (/\b(metabolic|weight|lipids?|glucose|hba1c|waist)\b/.test(lower)) return "Metabolic monitoring";
+  if (/\b(constipation|bowel)\b/.test(lower)) return "Constipation prevention";
+  if (/\b(shared-care|shared care|communication|handover)\b/.test(lower)) return "Shared-care communication";
+  if (/\b(renal|kidney|creatinine|egfr)\b/.test(lower)) return "Renal function";
+  if (/\b(thyroid|tsh)\b/.test(lower)) return "Thyroid monitoring";
+  if (/\bcalcium\b/.test(lower)) return "Calcium monitoring";
+  if (/\b(nsaid|ace inhibitor|diuretic|interacting medicine|medicine reconciliation)\b/.test(lower)) {
+    return "Interacting medicines";
+  }
+
+  return null;
+}
+
 function clinicalNoteTitleFromItem(item: string, section: ClinicalDetailSection, index: number) {
-  const text = compactClinicalNoteText(item);
+  const text = stripClinicalNoteLeadIn(item);
+  const heuristicTitle = clinicalNoteHeuristicTitle(text);
+  if (heuristicTitle) return heuristicTitle;
   const colonIndex = text.indexOf(":");
-  if (colonIndex > 8 && colonIndex < 54) return text.slice(0, colonIndex).trim();
+  if (colonIndex > 8 && colonIndex < 54) {
+    const title = text.slice(0, colonIndex).trim();
+    const detailStart = text
+      .slice(colonIndex + 1)
+      .split(/[,;]/)[0]
+      ?.trim();
+    if (/\b(checklist|checkpoint|points?)\b/i.test(title) && detailStart) {
+      return clinicalNoteTitleFromFragment(detailStart);
+    }
+    return title;
+  }
   const dashIndex = text.search(/\s[-–]\s/);
   if (dashIndex > 8 && dashIndex < 54) return text.slice(0, dashIndex).trim();
   if (section.items.length === 1 && section.title.length <= 42) return section.title;
-  const words = text.split(" ").filter(Boolean);
+  const words = text
+    .replace(/^(confirm|check|review|record|document)\s+/i, "")
+    .split(" ")
+    .filter(Boolean);
   return words.slice(0, Math.min(words.length, index === 0 ? 5 : 4)).join(" ") || section.title;
 }
 
 function clinicalNoteDetailFromItem(item: string, title: string) {
-  const text = compactClinicalNoteText(item);
+  const text = stripClinicalNoteLeadIn(item);
   const normalizedTitle = title.toLowerCase();
   const lowerText = text.toLowerCase();
-  if (lowerText.startsWith(`${normalizedTitle}:`)) return text.slice(title.length + 1).trim();
-  if (lowerText.startsWith(`${normalizedTitle} -`) || lowerText.startsWith(`${normalizedTitle} –`)) {
-    return text.slice(title.length + 2).trim();
+  const colonIndex = text.indexOf(":");
+  if (colonIndex > 8 && colonIndex < 64) {
+    const beforeColon = text.slice(0, colonIndex);
+    const afterColon = text.slice(colonIndex + 1).trim();
+    if (/\b(checklist|checkpoint|points?)\b/i.test(beforeColon) && afterColon) {
+      return sentenceCaseClinicalNoteDetail(afterColon);
+    }
   }
-  return text === title ? "Review linked source context before using this note." : text;
+  if (lowerText.startsWith(`${normalizedTitle}:`)) {
+    return sentenceCaseClinicalNoteDetail(text.slice(title.length + 1).trim());
+  }
+  if (lowerText.startsWith(`${normalizedTitle} -`) || lowerText.startsWith(`${normalizedTitle} –`)) {
+    return sentenceCaseClinicalNoteDetail(text.slice(title.length + 2).trim());
+  }
+  if (text === title) return "Review linked source context before using this note.";
+  return sentenceCaseClinicalNoteDetail(text);
 }
 
 function clinicalNoteTitleFromFragment(fragment: string) {
-  const text = compactClinicalNoteText(fragment)
+  const text = stripClinicalNoteLeadIn(fragment)
     .replace(/^(and|or)\s+/i, "")
+    .replace(/^(confirm|check|review|record|document)\s+/i, "")
     .replace(/[.;:,]+$/g, "");
   if (!text) return "Clinical note";
-  return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return clinicalNoteHeuristicTitle(text) ?? titleCaseClinicalNote(text);
 }
 
 function splitClinicalNoteFragments(item: string, section: ClinicalDetailSection, title: string) {
   const detail = clinicalNoteDetailFromItem(item, title);
   const titleLooksGeneric = /\b(checkpoint|checklist|item|point|monitoring|safety)\b/i.test(title);
-  if (!titleLooksGeneric && section.items.length > 1) return null;
+  const itemLooksGeneric = /\b(checkpoint|checklist|item|point|monitoring|safety)\b/i.test(
+    stripClinicalNoteLeadIn(item),
+  );
+  if (!titleLooksGeneric && !itemLooksGeneric && section.items.length > 1) return null;
 
   const fragments = detail
     .replace(/\band\s+/gi, "")
@@ -1290,6 +1390,28 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   const title = compactClinicalNoteText(row.title).toLowerCase();
   const detail = compactClinicalNoteText(row.detail).toLowerCase();
   return Boolean(detail) && detail !== title;
+}
+
+function clinicalNoteDetailLabel(row: ClinicalNotesRow) {
+  const text = `${row.title} ${row.detail}`.toLowerCase();
+  if (/\b(timing|level|schedule|dose change|stable|days?)\b/.test(text)) return "Timing";
+  if (/\b(escalation|escalate|urgent|toxicity|trigger|vomiting|confusion|ataxia|tremor)\b/.test(text)) {
+    return "Escalate";
+  }
+  if (/\b(baseline|confirm|record|document|check|review)\b/.test(text)) return "Action";
+  return "Note";
+}
+
+function ClinicalNoteDetailCard({ row }: { row: ClinicalNotesRow }) {
+  const detail = sentenceCaseClinicalNoteDetail(row.detail);
+  return (
+    <div className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 shadow-[var(--shadow-inset)]">
+      <p className="text-[12px] leading-[1.5] text-[color:var(--text)]">
+        <span className="mr-1.5 font-semibold text-[color:var(--text-muted)]">{clinicalNoteDetailLabel(row)}:</span>
+        {detail}
+      </p>
+    </div>
+  );
 }
 
 function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
@@ -1396,6 +1518,7 @@ function ClinicalNotesChecklistPanel({
   const firstExpandableRow = rows.find(clinicalNoteHasDistinctDetail) ?? null;
   const activeRow = rows.find((row) => row.id === expandedRowId) ?? firstExpandableRow;
   const [added, setAdded] = useState(false);
+  const warningCount = rows.filter((row) => row.tone === "warn").length;
   const toggles: Array<{
     id: ClinicalNotesTabId | "table";
     label: string;
@@ -1416,165 +1539,165 @@ function ClinicalNotesChecklistPanel({
   }
 
   const ActiveIcon = clinicalNotesTabMeta[activeTab].icon;
+  const showToggleBar = toggles.length > 1;
 
   return (
-    <section data-testid="clinical-notes-checklist" className="min-w-0">
-      <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-5 pt-3 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
-        <div
-          role="tablist"
-          aria-label="Clinical notes categories"
-          className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,1fr))] gap-1"
-        >
-          {toggles.map((tab) => {
-            const Icon = tab.icon;
-            const selected = !tab.popout && tab.id === activeTab;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-label={`${tab.label} (${tab.count})`}
-                data-testid={tab.popout ? "clinical-notes-table-popout-toggle" : undefined}
-                onClick={() => {
-                  if (tab.popout) {
-                    onOpenTables?.();
-                    return;
-                  }
-                  setRequestedTab(tab.id as ClinicalNotesTabId);
-                  setExpandedRowId(null);
-                }}
-                className={cn(
-                  "relative inline-flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-none px-1 text-[15px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  selected
-                    ? "text-[color:var(--warning)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span>{tab.label}</span>
-                {selected ? (
-                  <span className="absolute inset-x-0 -bottom-px h-[3px] rounded-full bg-[color:var(--warning)]" />
-                ) : null}
-              </button>
-            );
-          })}
+    <section data-testid="clinical-notes-checklist" className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {showToggleBar ? (
+        <div className="sticky top-0 z-10 -mx-3 -mt-2 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-1.5 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
+          <div
+            role="tablist"
+            aria-label="Clinical notes categories"
+            className="flex min-w-0 items-center gap-1 overflow-x-auto"
+          >
+            {toggles.map((tab) => {
+              const Icon = tab.icon;
+              const selected = !tab.popout && tab.id === activeTab;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-label={`${tab.label} (${tab.count})`}
+                  data-testid={tab.popout ? "clinical-notes-table-popout-toggle" : undefined}
+                  onClick={() => {
+                    if (tab.popout) {
+                      onOpenTables?.();
+                      return;
+                    }
+                    setRequestedTab(tab.id as ClinicalNotesTabId);
+                    setExpandedRowId(null);
+                  }}
+                  className={cn(
+                    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    selected
+                      ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                      : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{tab.label}</span>
+                  {tab.count ? <span className="nums text-[10px] opacity-70">{tab.count}</span> : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="mt-6 flex min-w-0 items-start gap-4">
+      <div className="mt-3 flex min-w-0 items-start gap-2.5 border-b border-[color:var(--border)] pb-3">
         <span
           className={cn(
-            "grid h-12 w-12 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)]",
+            "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md border shadow-[var(--shadow-inset)]",
             activeTab === "safety" ? toneWarning : toneSuccess,
           )}
           aria-hidden="true"
         >
-          <ActiveIcon className="h-5 w-5" />
+          <ActiveIcon className="h-3.5 w-3.5" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-xl font-semibold leading-7 text-[color:var(--text-heading)]">
+          <h3 className="text-[14px] font-semibold leading-[1.35] text-[color:var(--text-heading)]">
             {activeTab === "safety" ? "Safety checklist" : "Monitoring checklist"}
           </h3>
-          <p className={cn("mt-1 text-base leading-6", textMuted)}>
+          <p className={cn("mt-0.5 text-[12px] leading-[1.45]", textMuted)}>
             {activeTab === "safety"
-              ? "Key actions to start and continue safely."
+              ? warningCount > 0
+                ? `${warningCount} caution ${warningCount === 1 ? "item" : "items"} prioritised from the answer.`
+                : "Key actions to start and continue safely."
               : "Monitoring and medication follow-up items."}
           </p>
         </div>
       </div>
 
-      <div className="mt-5 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+      <div className="divide-y divide-[color:var(--border)]">
         {rows.map((row) => {
           const expanded = row.id === activeRow?.id;
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
           const RowIcon = row.tone === "warn" ? AlertCircle : CheckCircle2;
           return (
-            <article key={row.id} data-testid="clinical-note-row" className={cn("relative py-4", expanded && "pl-4")}>
-              {expanded ? (
-                <span className="absolute bottom-4 left-0 top-4 w-1 rounded-full bg-[color:var(--primary)]" />
-              ) : null}
+            <article key={row.id} data-testid="clinical-note-row" className="relative py-2">
               <button
                 type="button"
                 onClick={() => {
                   if (hasDistinctDetail) setExpandedRowId(expanded ? null : row.id);
                 }}
-                className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-start gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={hasDistinctDetail ? expanded : undefined}
               >
-                <span
-                  className={cn(
-                    "mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 bg-[color:var(--surface)]",
-                    row.tone === "warn"
-                      ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                      : "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
-                  )}
-                  aria-hidden="true"
-                >
-                  <RowIcon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[18px] font-semibold leading-6 text-[color:var(--text-heading)]">
-                    {row.title}
-                  </span>
-                  {hasDistinctDetail ? (
-                    <span className={cn("mt-1 block text-base leading-6", textMuted)}>{row.detail}</span>
-                  ) : null}
-                </span>
-                <span className="nums mt-0.5 grid h-9 min-w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-sm font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-                  {row.sourceIndex}
-                </span>
-                {hasDistinctDetail ? (
-                  <ChevronDown
+                <span className="flex min-w-0 items-start gap-2">
+                  <span
                     className={cn(
-                      "mt-2.5 h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition",
-                      expanded && "rotate-180",
+                      "mt-0.5 inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border bg-[color:var(--surface)]",
+                      row.tone === "warn"
+                        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                        : "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
                     )}
-                  />
-                ) : (
-                  <span className="mt-2.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                )}
+                    aria-hidden="true"
+                  >
+                    <RowIcon className="h-3 w-3" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex min-w-0 items-start gap-1.5">
+                      <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-[1.35] text-[color:var(--text-heading)]">
+                        {row.title}
+                      </span>
+                      <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-[10px] font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                        {row.sourceIndex}
+                      </span>
+                      {hasDistinctDetail ? (
+                        <ChevronDown
+                          className={cn(
+                            "mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition",
+                            expanded && "rotate-180",
+                          )}
+                        />
+                      ) : null}
+                    </span>
+                    {hasDistinctDetail ? (
+                      <span className={cn("mt-0.5 line-clamp-1 text-[12px] leading-[1.45]", textMuted)}>
+                        {row.detail}
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
               </button>
-              {expanded && hasDistinctDetail ? (
-                <div className="ml-14 mt-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-                  <p className="text-base font-medium leading-7 text-[color:var(--text)]">{row.detail}</p>
-                </div>
-              ) : null}
+              {expanded && hasDistinctDetail ? <ClinicalNoteDetailCard row={row} /> : null}
             </article>
           );
         })}
       </div>
 
-      <div className="sticky bottom-0 -mx-5 mt-5 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
+      <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
         <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
             >
-              <ExternalLink className="h-5 w-5" />
+              <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink className="h-5 w-5" />
+            <span className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+              <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
           )}
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
           >
-            <Copy className="h-5 w-5" />
+            <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
           </button>
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-12 items-center justify-center gap-2 px-2 text-base font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
           </button>
         </div>
@@ -3747,20 +3870,23 @@ function StagedAnswerResultSurface({
             mobileSummary={`${clinicalNoteDisplayCount} note${clinicalNoteDisplayCount === 1 ? "" : "s"} · Source-backed`}
             className={clinicalNotesRow}
             open={clinicalNotesOpen}
-            onOpenChange={setClinicalNotesOpen}
+            onOpenChange={(open) => {
+              if (open) setEvidenceOpen(false);
+              setClinicalNotesOpen(open);
+            }}
             sheetHeaderLeading={
-              <span className={cn(iconTilePremium, "h-11 w-11 text-[color:var(--primary)]")}>
-                <ClipboardCheck className="h-5 w-5" />
+              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
+                <ClipboardCheck className="h-3.5 w-3.5" />
               </span>
             }
             sheetTitleAccessory={
-              <span className="nums grid h-8 min-w-8 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-2 text-base font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
             sheetDescriptionContent={
-              <span className="inline-flex min-h-6 items-center gap-1.5 text-sm font-semibold text-[color:var(--primary)]">
-                <ShieldCheck className="h-4 w-4" />
+              <span className="inline-flex min-h-5 items-center gap-1.5 text-[11px] font-semibold text-[color:var(--primary)]">
+                <ShieldCheck className="h-3 w-3" />
                 Source-backed
               </span>
             }
@@ -3768,17 +3894,21 @@ function StagedAnswerResultSurface({
               bestSource ? (
                 <Link
                   href={bestSource.viewer_href}
-                  className={cn(toolbarButton, "text-[color:var(--text-muted)]")}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open clinical notes source"
                 >
-                  <ExternalLink className="h-4.5 w-4.5" />
+                  <ExternalLink className="h-4 w-4" />
                 </Link>
               ) : null
             }
             sheetDescription={null}
+            sheetHeaderClassName="gap-2 p-2.5 sm:p-3"
+            sheetTitleClassName="text-[15px] leading-5"
+            sheetCloseButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            sheetChildrenClassName="flex min-h-0 flex-1 flex-col"
             sheetContentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
             sheetContentStyle={{ height: "80dvh" }}
-            sheetBodyClassName="bg-[color:var(--surface-raised)] px-5 pb-0 pt-5 sm:p-5"
+            sheetBodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
           >
             <ClinicalNotesChecklistPanel
               answer={answer}
@@ -3801,6 +3931,7 @@ function StagedAnswerResultSurface({
           className={evidenceRow}
           open={evidenceOpen}
           onOpenChange={(open) => {
+            if (open) setClinicalNotesOpen(false);
             setEvidenceOpen(open);
             if (!open) setEvidenceInitialTab(null);
           }}
@@ -5330,11 +5461,18 @@ function DrawerGroupLabel({ title }: { title: string }) {
 }
 
 const sidebarToolItems = [
-  { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  { label: "Documents", icon: FileText, href: "/?mode=documents" },
-  { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
-  { label: "Applications", icon: ListChecks, href: "/applications" },
+  { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
+  { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
+  { id: "prescribing", label: "Meds", icon: Pill, href: "/?mode=prescribing" },
+  { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
+
+const collapsedSidebarButton =
+  "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const collapsedSidebarActiveButton =
+  "border-[color:var(--clinical-chat-teal)]/22 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]";
+const collapsedSidebarPrimaryButton =
+  "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--clinical-chat-teal)]";
 
 type SidebarIdentity = {
   displayName: string;
@@ -5359,6 +5497,7 @@ function deriveSidebarIdentity(email: string | null | undefined): SidebarIdentit
 function ClinicalSidebarContent({
   recentQueries,
   identity,
+  activeMode,
   onNewChat,
   onPickRecent,
   onOpenGuide,
@@ -5370,6 +5509,7 @@ function ClinicalSidebarContent({
 }: {
   recentQueries: string[];
   identity: SidebarIdentity;
+  activeMode: AppModeId;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
@@ -5477,22 +5617,26 @@ function ClinicalSidebarContent({
 
       <section>
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Applications
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {sidebarToolItems.map((item) => {
             const Icon = item.icon;
+            const active = activeMode === item.id;
             return (
               <Link
                 key={item.label}
                 href={item.href}
-                prefetch={item.href === "/applications" ? true : undefined}
-                onFocus={onPrefetchApplications}
-                onPointerEnter={onPrefetchApplications}
+                prefetch={item.href === "/?mode=tools" ? true : undefined}
+                onFocus={item.href === "/?mode=tools" ? onPrefetchApplications : undefined}
+                onPointerEnter={item.href === "/?mode=tools" ? onPrefetchApplications : undefined}
                 onClick={onNavigate}
-                className={sidebarToolTile}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  sidebarToolTile,
+                  active &&
+                    "border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-tight)]",
+                )}
               >
                 <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
                 <span>{item.label}</span>
@@ -5501,14 +5645,14 @@ function ClinicalSidebarContent({
           })}
         </div>
         <Link
-          href="/applications"
+          href="/?mode=tools"
           prefetch
           onFocus={onPrefetchApplications}
           onPointerEnter={onPrefetchApplications}
           onClick={onNavigate}
           className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
         >
-          View applications
+          View tools
           <ChevronDown className="-rotate-90 h-4 w-4" />
         </Link>
       </section>
@@ -5536,7 +5680,16 @@ function ClinicalSidebarContent({
           <SettingsIcon className="h-4 w-4 shrink-0" />
           <span>Settings</span>
         </button>
-        <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            window.requestAnimationFrame(onOpenSettings);
+          }}
+          data-testid="sidebar-account-settings"
+          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/24 hover:bg-[color:var(--clinical-chat-teal-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
+        >
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
             {identity.initials}
           </span>
@@ -5549,7 +5702,7 @@ function ClinicalSidebarContent({
               <span className="truncate">{identity.detail}</span>
             </span>
           </span>
-        </div>
+        </button>
       </div>
     </div>
   );
@@ -5559,6 +5712,7 @@ function ClinicalDesktopSidebar({
   collapsed,
   recentQueries,
   identity,
+  activeMode,
   onCollapsedChange,
   onNewChat,
   onPickRecent,
@@ -5569,6 +5723,7 @@ function ClinicalDesktopSidebar({
   collapsed: boolean;
   recentQueries: string[];
   identity: SidebarIdentity;
+  activeMode: AppModeId;
   onCollapsedChange: (collapsed: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
@@ -5580,53 +5735,81 @@ function ClinicalDesktopSidebar({
     return (
       <aside
         aria-label="Clinical Guide collapsed sidebar"
-        className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col lg:items-center lg:gap-3"
+        className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] lg:flex lg:w-[5.25rem] lg:flex-col lg:items-center"
       >
+        <div className="grid w-full justify-items-center gap-2 px-3">
+          <button
+            type="button"
+            onClick={() => onCollapsedChange(false)}
+            className={cn(collapsedSidebarButton, collapsedSidebarPrimaryButton)}
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen className="h-4.5 w-4.5" />
+          </button>
+        </div>
+
+        <div className="mt-4 grid w-full justify-items-center gap-2 px-3">
+          <button
+            type="button"
+            onClick={onNewChat}
+            className={collapsedSidebarButton}
+            aria-label="New chat"
+            title="New chat"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onCollapsedChange(false)}
+            className={cn(collapsedSidebarButton, activeMode === "answer" && collapsedSidebarActiveButton)}
+            aria-label="Search chats"
+            title="Search chats"
+            aria-current={activeMode === "answer" ? "page" : undefined}
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <Link
+            href="/?mode=tools"
+            prefetch
+            onFocus={onPrefetchApplications}
+            onPointerEnter={onPrefetchApplications}
+            className={cn(collapsedSidebarButton, activeMode === "tools" && collapsedSidebarActiveButton)}
+            aria-label="Tools"
+            title="Tools"
+            aria-current={activeMode === "tools" ? "page" : undefined}
+          >
+            <Wrench className="h-4 w-4" />
+          </Link>
+          <button
+            type="button"
+            onClick={onOpenGuide}
+            className={collapsedSidebarButton}
+            aria-label="Guide and help"
+            title="Guide"
+          >
+            <BookOpen className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className={collapsedSidebarButton}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </button>
+        </div>
         <button
           type="button"
-          onClick={() => onCollapsedChange(false)}
-          className="grid h-11 w-11 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
-          aria-label="Expand sidebar"
-          title="Expand sidebar"
-        >
-          <PanelLeftOpen className="h-4.5 w-4.5" />
-        </button>
-        <button type="button" onClick={onNewChat} className={sidebarItem} aria-label="New chat" title="New chat">
-          <Plus className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onCollapsedChange(false)}
-          className={sidebarItem}
-          aria-label="Search chats"
-          title="Search chats"
-        >
-          <Search className="h-4 w-4" />
-        </button>
-        <Link
-          href="/applications"
-          prefetch
-          onFocus={onPrefetchApplications}
-          onPointerEnter={onPrefetchApplications}
-          className={sidebarItem}
-          aria-label="Applications"
-          title="Applications"
-        >
-          <ListChecks className="h-4 w-4" />
-        </Link>
-        <button type="button" onClick={onOpenGuide} className={sidebarItem} aria-label="Guide and help" title="Guide">
-          <BookOpen className="h-4 w-4" />
-        </button>
-        <button type="button" onClick={onOpenSettings} className={sidebarItem} aria-label="Settings" title="Settings">
-          <SettingsIcon className="h-4 w-4" />
-        </button>
-        <div
-          className="mt-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]"
+          onClick={onOpenSettings}
+          data-testid="collapsed-account-settings"
+          className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/14 bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--clinical-chat-teal-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           title={identity.detail}
-          aria-label={identity.signedIn ? `Signed in as ${identity.detail}` : "Not signed in"}
+          aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
         >
           {identity.initials}
-        </div>
+        </button>
       </aside>
     );
   }
@@ -5640,6 +5823,7 @@ function ClinicalDesktopSidebar({
       <ClinicalSidebarContent
         recentQueries={recentQueries}
         identity={identity}
+        activeMode={activeMode}
         onCollapsedChange={onCollapsedChange}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
@@ -5655,6 +5839,7 @@ function ClinicalMobileSidebar({
   open,
   recentQueries,
   identity,
+  activeMode,
   onOpenChange,
   onNewChat,
   onPickRecent,
@@ -5665,6 +5850,7 @@ function ClinicalMobileSidebar({
   open: boolean;
   recentQueries: string[];
   identity: SidebarIdentity;
+  activeMode: AppModeId;
   onOpenChange: (open: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
@@ -5686,6 +5872,7 @@ function ClinicalMobileSidebar({
         showHeader={false}
         recentQueries={recentQueries}
         identity={identity}
+        activeMode={activeMode}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
@@ -5714,316 +5901,322 @@ function SettingsDialog({
   onSignOut: () => void;
   onOpenGuide: () => void;
 }) {
-  const themeOptions: Array<{ value: "light" | "dark"; label: string }> = [
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const currentThemeLabel = theme === "dark" ? "Dark" : "Light";
+  const settingSections = [
+    {
+      title: "Account",
+      rows: [
+        { icon: UserRound, label: "Profile", value: identity.displayName },
+        { icon: Stethoscope, label: "Clinical role", value: "Consultant psychiatrist" },
+      ],
+    },
+    {
+      title: "Clinical defaults",
+      rows: [
+        { icon: Globe2, label: "Jurisdiction", value: "Western Australia", active: true },
+        { icon: CircleUserRound, label: "Default population", value: "Adults" },
+        { icon: SlidersHorizontal, label: "Answer style", value: "Conservative" },
+      ],
+    },
+    {
+      title: "App preferences",
+      rows: [
+        {
+          icon: Palette,
+          label: "Appearance",
+          value: currentThemeLabel,
+          onClick: onToggleTheme,
+          actionLabel: `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
+        },
+        { icon: SettingsIcon, label: "Interface density", value: "Comfortable" },
+      ],
+    },
   ];
+  const navItems = [
+    { icon: SettingsIcon, label: "General" },
+    { icon: Stethoscope, label: "Clinical defaults" },
+    { icon: Sparkles, label: "Personalisation" },
+    { icon: Bell, label: "Notifications" },
+    { icon: LockKeyhole, label: "Security" },
+    { icon: CircleUserRound, label: "Account", active: true },
+    { icon: Keyboard, label: "Keyboard" },
+    {
+      icon: HelpCircle,
+      label: "Help & About",
+      onClick: () => {
+        onClose();
+        onOpenGuide();
+      },
+    },
+  ];
+
+  const closeButton = (
+    <button
+      ref={closeButtonRef}
+      type="button"
+      onClick={onClose}
+      aria-label="Close settings"
+      className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:left-4 sm:right-auto sm:top-4"
+    >
+      <X className="h-4.5 w-4.5" />
+    </button>
+  );
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Settings"
-      description="Appearance, account, and help for the Clinical KB workspace."
       closeLabel="Close settings"
-      contentClassName="sm:max-w-lg"
+      labelledBy="account-settings-title"
+      initialFocusRef={closeButtonRef}
+      mobilePlacement="top"
+      contentClassName="w-full max-w-[calc(100vw-1.5rem)] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] sm:max-w-[880px]"
+      bodyClassName="p-0 sm:p-0"
     >
-      <div className="grid gap-4">
-        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Appearance</h3>
-          </div>
-          <p className={cn("mt-1 text-xs", textMuted)}>Choose the workspace theme. Saved to this browser.</p>
-          <div
-            role="group"
-            aria-label="Theme"
-            className="mt-3 inline-grid grid-cols-2 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1"
-          >
-            {themeOptions.map((option) => {
-              const active = option.value === theme;
+      <div className="relative grid max-h-[calc(100dvh-1.5rem)] min-h-0 overflow-hidden sm:max-h-[min(82dvh,720px)] sm:grid-cols-[248px_minmax(0,1fr)]">
+        {closeButton}
+        <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/62 px-4 pb-5 pt-16 sm:flex sm:flex-col">
+          <nav aria-label="Settings sections" className="grid gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = item.active;
               return (
                 <button
-                  key={option.value}
+                  key={item.label}
                   type="button"
-                  aria-pressed={active}
-                  onClick={() => {
-                    if (!active) onToggleTheme();
-                  }}
+                  onClick={item.onClick}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "min-h-9 rounded-md px-4 text-sm font-semibold transition",
+                    "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                     active
-                      ? "bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                      ? "bg-[color:var(--surface-lux)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-lux)]/80 hover:text-[color:var(--text-heading)]",
                   )}
                 >
-                  {option.label}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
                 </button>
               );
             })}
-          </div>
-        </section>
+          </nav>
+        </aside>
 
-        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
-            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Account</h3>
-          </div>
-          <div className="mt-2 flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
-              {identity.initials}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
-                {identity.displayName}
-              </span>
-              <span className={cn("flex items-center gap-1.5 truncate text-xs", textMuted)}>
-                <Mail className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{identity.detail}</span>
-              </span>
+        <div className="min-h-0 overflow-y-auto px-4 pb-5 pt-14 polished-scroll sm:px-6 sm:pb-6 sm:pt-5">
+          <div className="mb-4 flex items-center justify-between gap-4 sm:mb-5">
+            <div className="min-w-0">
+              <p className="hidden text-[11px] font-bold uppercase tracking-[0.11em] text-[color:var(--clinical-chat-teal)] sm:block">
+                Refined settings
+              </p>
+              <h2
+                id="account-settings-title"
+                className="truncate text-xl font-semibold tracking-[-0.01em] text-[color:var(--text-heading)] sm:text-2xl"
+              >
+                Account &amp; app
+              </h2>
+            </div>
+            <span className="hidden shrink-0 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 py-1 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:inline-flex">
+              Clinician account
             </span>
           </div>
-          {identity.signedIn ? (
+
+          <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+            <div className="flex items-center gap-3">
+              <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-sm font-bold text-[color:var(--clinical-chat-teal)] sm:h-14 sm:w-14">
+                {identity.initials}
+                {identity.signedIn ? (
+                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
+                ) : null}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-semibold text-[color:var(--text-heading)]">
+                  {identity.displayName}
+                </p>
+                <p className="truncate text-sm text-[color:var(--text-muted)]">
+                  Consultant psychiatrist, Western Australia
+                </p>
+              </div>
+              <div className="hidden shrink-0 items-center gap-2 sm:flex">
+                <SettingsChip label="Private" />
+                <SettingsChip label="No PHI" />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 sm:hidden">
+              <SettingsChip label="Private" />
+              <SettingsChip label="WA" />
+              <SettingsChip label="No PHI" />
+            </div>
+          </section>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
+            <SettingsSummaryTile icon={Stethoscope} label="Clinical setup" value="WA, adults" emphasized />
+            <SettingsSummaryTile icon={PanelTop} label="Default view" value="Ask" />
+          </div>
+
+          <section className="mt-4 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+            <div className="grid gap-5">
+              {settingSections.map((section) => (
+                <div key={section.title} className="min-w-0">
+                  <h3 className="mb-2 px-1 text-sm font-semibold text-[color:var(--text-heading)]">{section.title}</h3>
+                  <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] sm:rounded-none sm:border-0 sm:bg-transparent">
+                    {section.rows.map((row) => (
+                      <SettingsRow key={`${section.title}-${row.label}`} {...row} />
+                    ))}
+                    {section.title === "Account" && identity.signedIn ? (
+                      <SettingsRow
+                        icon={LogOut}
+                        label="Sign out"
+                        value=""
+                        onClick={() => {
+                          onSignOut();
+                          onClose();
+                        }}
+                        actionLabel="Sign out"
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
             <button
               type="button"
               onClick={() => {
-                onSignOut();
                 onClose();
+                onOpenGuide();
               }}
-              className={cn(floatingControl, "mt-3 w-full")}
+              className="mt-5 flex min-h-11 w-full items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/24 hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
             >
-              <LogOut className="h-4 w-4" />
-              Sign out
+              <span className="flex items-center gap-3">
+                <BookOpen className="h-4 w-4 text-[color:var(--text-muted)]" />
+                Guide &amp; help
+              </span>
+              <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-muted)]" />
             </button>
-          ) : (
-            <p className={cn("mt-3 text-xs", textMuted)}>
-              Sign in from the search header to access private documents and saved reviews.
-            </p>
-          )}
-        </section>
-
-        <button
-          type="button"
-          onClick={() => {
-            onClose();
-            onOpenGuide();
-          }}
-          className={cn(floatingControl, "w-full justify-between")}
-        >
-          <span className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Guide &amp; help
-          </span>
-          <ChevronDown className="-rotate-90 h-4 w-4" />
-        </button>
+          </section>
+        </div>
       </div>
     </Sheet>
   );
 }
 
-function toolMatchesQuery(tool: ToolItem, query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  return [tool.title, tool.description, tool.category, tool.status, tool.id]
-    .join(" ")
-    .toLowerCase()
-    .includes(normalized);
-}
-
-function toolStatusLabel(tool: ToolItem) {
-  if (tool.status === "coming-soon") return "Soon";
-  if (tool.status === "offline") return "Paused";
-  if (tool.status === "beta") return "Preview";
-  return "Ready";
-}
-
-const TOOL_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Brain,
-  ClipboardList,
-  Search,
-  FileImage,
-  FileText,
-  HeartHandshake,
-  Network,
-  Pill,
-  UploadCloud,
-  BookOpen,
-  Quote,
-  ShieldAlert,
-  Target,
-  ClipboardCheck,
-  ListChecks,
-  Sparkles,
-  Clipboard: ClipboardCheck,
-  ExternalLink,
-};
-
-function getToolIcon(iconName: string) {
-  return TOOL_ICON_MAP[iconName] || Wrench;
-}
-
-function cleanToolHrefLabel(href: string) {
-  try {
-    if (href.startsWith("/")) return href;
-    const url = new URL(href);
-    return url.host;
-  } catch {
-    return href;
-  }
-}
-
-function ToolsHub({ query, onClearQuery }: { query: string; onClearQuery: () => void }) {
-  const normalizedQuery = query.trim();
-  const visibleTools = toolCatalog.filter((tool) => toolMatchesQuery(tool, normalizedQuery));
-  const onlineTools = toolCatalog.filter((tool) => tool.status === "online" || tool.status === "beta").length;
-  const internalTools = toolCatalog.filter((tool) => tool.target === "internal").length;
-  const activeFilterCount = normalizedQuery ? 1 : 0;
-
+function SettingsChip({ label }: { label: string }) {
   return (
-    <div data-testid="tools-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
-      <div className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div className="grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-left">
-          <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-            <Wrench className="h-6 w-6 sm:h-7 sm:w-7" />
-          </span>
-          <div className="max-w-2xl space-y-2">
-            <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">Tools</h2>
-            <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">
-              Search the existing clinical applications registry and launch the right workflow without leaving the
-              dashboard shell.
-            </p>
-          </div>
-        </div>
+    <span className="inline-flex min-h-7 items-center rounded-full border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
+      {label}
+    </span>
+  );
+}
 
-        <div className="grid grid-cols-3 gap-2 text-left sm:mx-auto sm:w-full sm:max-w-md lg:mx-0 lg:w-[24rem]">
-          {[
-            { label: "Tools", value: toolCatalog.length, icon: Wrench },
-            { label: "Ready", value: onlineTools, icon: CheckCircle2 },
-            { label: "In-app", value: internalTools, icon: LayoutList },
-          ].map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={stat.label}
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-chat-teal)]" />
-                  <span className="truncate">{stat.label}</span>
-                </div>
-                <p className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]">
-                  {stat.value}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
-        <span>
-          Showing {visibleTools.length} of {toolCatalog.length} tools
-        </span>
-        <div className="flex flex-wrap items-center gap-2">
-          {activeFilterCount > 0 && (
-            <button type="button" onClick={onClearQuery} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
-              <X className="h-3.5 w-3.5" />
-              Clear search
-            </button>
-          )}
-          <Link href="/applications" className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
-            <LayoutList className="h-3.5 w-3.5" />
-            Full launcher
-          </Link>
-        </div>
-      </div>
-
-      {visibleTools.length === 0 ? (
-        <EmptyState
-          icon={Wrench}
-          title="No tools match"
-          body="Clear the search or try a clinical workflow, app name, category, or status."
-        />
-      ) : (
-        <div className="mx-auto grid w-full max-w-5xl gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleTools.map((tool) => {
-            const disabled = tool.status === "offline" || tool.status === "coming-soon";
-            const launchLabel = `Launch ${tool.title}`;
-            const launchClassName = cn(
-              "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              disabled
-                ? "border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]"
-                : "bg-[color:var(--clinical-chat-teal)] text-white hover:bg-[color:var(--clinical-chat-teal-strong)]",
-            );
-            const ToolIcon = getToolIcon(tool.icon);
-            const isOnline = tool.status === "online" || tool.status === "beta";
-            const statusColorClass =
-              tool.status === "online"
-                ? "bg-emerald-500 shadow-[0_0_8px_#10b981]"
-                : tool.status === "beta"
-                  ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]"
-                  : "bg-slate-400";
-
-            return (
-              <article
-                key={tool.id}
-                data-testid={`tool-mode-result-${tool.id}`}
-                className="group grid min-h-48 grid-rows-[auto_1fr_auto] gap-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-tight)] transition-all duration-200 hover:border-[color:var(--primary)]/40 hover:shadow-[var(--shadow-hover)]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className={cn(iconTilePremium, "group-hover:scale-105 transition-transform duration-200")}>
-                    <ToolIcon className="h-4 w-4" />
-                  </span>
-                  <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[11px] font-bold text-[color:var(--text-muted)]">
-                    {toolStatusLabel(tool)}
-                  </span>
-                </div>
-
-                <div className="min-w-0">
-                  <h3 className="truncate text-base font-bold text-[color:var(--text-heading)]">{tool.title}</h3>
-                  <p className="mt-1 line-clamp-3 text-sm leading-6 text-[color:var(--text-muted)]">
-                    {tool.description}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold text-[color:var(--text-soft)]">
-                    <span className="rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5">{tool.category}</span>
-                    <span className="rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5">
-                      {tool.target === "internal" ? "In-app" : "Connected"}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-center gap-1.5 rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-medium text-[color:var(--text-muted)] border border-[color:var(--border)] w-fit group-hover:border-[color:var(--primary)]/20 transition-colors">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", statusColorClass, isOnline && "animate-pulse")} />
-                    <span className="font-mono text-[10px] text-[color:var(--text-soft)]">
-                      {cleanToolHrefLabel(tool.href)}
-                    </span>
-                  </div>
-                </div>
-
-                {disabled ? (
-                  <span className={launchClassName}>{tool.disabledHint ?? "Unavailable"}</span>
-                ) : tool.target === "internal" ? (
-                  <Link href={tool.href} aria-label={launchLabel} className={launchClassName}>
-                    Launch
-                    <ChevronDown className="-rotate-90 h-4 w-4" />
-                  </Link>
-                ) : (
-                  <a
-                    href={tool.href}
-                    target={tool.openInNewTab ? "_blank" : undefined}
-                    rel="noopener noreferrer"
-                    aria-label={launchLabel}
-                    className={launchClassName}
-                  >
-                    Launch
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                )}
-              </article>
-            );
-          })}
-        </div>
+function SettingsSummaryTile({
+  icon: Icon,
+  label,
+  value,
+  emphasized = false,
+}: {
+  icon: typeof UserRound;
+  label: string;
+  value: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-xl border p-3 shadow-[var(--shadow-inset)] sm:p-4",
+        emphasized
+          ? "border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--clinical-chat-teal-soft)]"
+          : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
       )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className={cn(
+            "grid h-9 w-9 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+            emphasized
+              ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-white"
+              : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
+          )}
+        >
+          <Icon className="h-4.5 w-4.5" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">{label}</span>
+          <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{value}</span>
+        </span>
+      </div>
     </div>
   );
+}
+
+function SettingsRow({
+  icon: Icon,
+  label,
+  value,
+  active = false,
+  onClick,
+  actionLabel,
+}: {
+  icon: typeof UserRound;
+  label: string;
+  value: string;
+  active?: boolean;
+  onClick?: () => void;
+  actionLabel?: string;
+}) {
+  const content = (
+    <>
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+          active
+            ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-white"
+            : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
+        )}
+      >
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <span className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between sm:gap-3">
+        <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{label}</span>
+        {value ? (
+          <span className="mt-0.5 block truncate text-sm font-medium text-[color:var(--text)] sm:mt-0 sm:max-w-[50%] sm:text-right">
+            {value}
+          </span>
+        ) : null}
+      </span>
+      <ChevronDown className="-rotate-90 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+    </>
+  );
+
+  const className =
+    "flex min-h-12 w-full items-center gap-3 border-b border-[color:var(--border)] px-3 text-left last:border-b-0 transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:px-0 sm:hover:bg-transparent";
+  const testId = `settings-row-${label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")}`;
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={actionLabel ?? label}
+        className={className}
+        data-testid={testId}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className} data-testid={testId}>
+      {content}
+    </div>
+  );
+}
+
+function ToolsHub({ query, onQueryChange }: { query: string; onQueryChange: (nextQuery: string) => void }) {
+  return <ApplicationsLauncherWorkspace variant="dashboard-tools" query={query} onQueryChange={onQueryChange} />;
 }
 
 type MobileSectionFabItem = {
@@ -6172,6 +6365,7 @@ function MobileSectionFab({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
   const panelId = "mobile-section-fab-menu";
   const labelId = "mobile-section-fab-label";
   const activeItem = items.find((item) => item.href === activeHash) ?? items[0];
@@ -6184,20 +6378,14 @@ function MobileSectionFab({
       window.requestAnimationFrame(() => buttonRef.current?.focus());
     }
   }, []);
+  const dismissMobileSectionMenu = useCallback(() => closeMenu(), [closeMenu]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeMenu();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeMenu, open]);
+  useDismissableLayer({
+    enabled: open,
+    refs: [buttonRef, panelRef],
+    restoreFocusRef: buttonRef,
+    onDismiss: dismissMobileSectionMenu,
+  });
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(mobileSectionFabMediaQuery);
@@ -6274,6 +6462,7 @@ function MobileSectionFab({
       </button>
 
       <section
+        ref={panelRef}
         id={panelId}
         data-testid="mobile-section-fab-menu"
         role="region"
@@ -6561,45 +6750,67 @@ export function ClinicalDashboard({
       authStatus === "authenticated" ||
       (supabaseEnvStatus === "ready" && storedSessionExists));
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
-  const openGuide = useCallback(() => setGuideOpen(true), []);
+  const closeDashboardTransientSurfaces = useCallback(
+    (except?: "guide" | "settings" | "mobileSidebar" | "documents" | "upload") => {
+      if (except !== "guide") setGuideOpen(false);
+      if (except !== "settings") setSettingsOpen(false);
+      if (except !== "mobileSidebar") setMobileSidebarOpen(false);
+      if (except !== "documents") setDocumentsDrawerOpen(false);
+      if (except !== "upload") setUploadDrawerOpen(false);
+    },
+    [],
+  );
+  const openGuide = useCallback(() => {
+    closeDashboardTransientSurfaces("guide");
+    setGuideOpen(true);
+  }, [closeDashboardTransientSurfaces]);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openSettings = useCallback(() => {
+    closeDashboardTransientSurfaces("settings");
+    setSettingsOpen(true);
+  }, [closeDashboardTransientSurfaces]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const prefetchApplications = useCallback(() => {
-    router.prefetch("/applications");
-    void import("@/components/applications-launcher-page");
+    router.prefetch("/?mode=tools");
   }, [router]);
-  const openLibraryHealthTarget = useCallback((target: LibraryHealthTarget) => {
-    const targetId =
-      target === "documents"
-        ? "dashboard-documents-drawer"
-        : target === "setup"
-          ? "dashboard-setup-section"
-          : "dashboard-indexing-section";
+  const openLibraryHealthTarget = useCallback(
+    (target: LibraryHealthTarget) => {
+      const targetId =
+        target === "documents"
+          ? "dashboard-documents-drawer"
+          : target === "setup"
+            ? "dashboard-setup-section"
+            : "dashboard-indexing-section";
 
-    if (target === "documents") {
-      setDocumentDrawerStatusFilter("indexed");
-      setDocumentsDrawerMode("admin");
-      setDocumentsDrawerOpen(true);
-    } else if (target === "indexing") {
-      setUploadMobileTab("jobs");
-      setIndexingMonitorFilter("active");
-      setUploadDrawerOpen(true);
-    } else if (target === "failures") {
-      setUploadMobileTab("jobs");
-      setIndexingMonitorFilter("failed");
-      setUploadDrawerOpen(true);
-    } else {
-      setUploadMobileTab("setup");
-      setIndexingMonitorFilter("all");
-      setUploadDrawerOpen(true);
-    }
+      if (target === "documents") {
+        closeDashboardTransientSurfaces("documents");
+        setDocumentDrawerStatusFilter("indexed");
+        setDocumentsDrawerMode("admin");
+        setDocumentsDrawerOpen(true);
+      } else if (target === "indexing") {
+        closeDashboardTransientSurfaces("upload");
+        setUploadMobileTab("jobs");
+        setIndexingMonitorFilter("active");
+        setUploadDrawerOpen(true);
+      } else if (target === "failures") {
+        closeDashboardTransientSurfaces("upload");
+        setUploadMobileTab("jobs");
+        setIndexingMonitorFilter("failed");
+        setUploadDrawerOpen(true);
+      } else {
+        closeDashboardTransientSurfaces("upload");
+        setUploadMobileTab("setup");
+        setIndexingMonitorFilter("all");
+        setUploadDrawerOpen(true);
+      }
 
-    window.setTimeout(() => {
-      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  }, []);
+      window.setTimeout(() => {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    },
+    [closeDashboardTransientSurfaces],
+  );
 
   useEffect(() => {
     const timeoutId = window.setTimeout(prefetchApplications, 250);
@@ -7644,6 +7855,7 @@ export function ClinicalDashboard({
   }
 
   function openDocumentsDrawer(mode: DocumentDrawerMode) {
+    closeDashboardTransientSurfaces("documents");
     setSearchMode("documents");
     setDocumentDrawerStatusFilter("indexed");
     setDocumentsDrawerMode(mode);
@@ -7674,6 +7886,7 @@ export function ClinicalDashboard({
       });
       return;
     }
+    closeDashboardTransientSurfaces("upload");
     setSearchMode("documents");
     setDocumentsDrawerMode("admin");
     setUploadDrawerOpen(true);
@@ -7687,6 +7900,7 @@ export function ClinicalDashboard({
   }
 
   function openEvidenceDrawer() {
+    closeDashboardTransientSurfaces();
     const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
     if (!drawer) {
       setActionNotice({
@@ -7895,7 +8109,7 @@ export function ClinicalDashboard({
         activeModeResultKind === "favourites"
           ? favouritePrototypeCount
           : activeModeResultKind === "tools"
-            ? toolCatalog.length
+            ? applicationsLauncherItemCount
             : activeModeResultKind === "documents"
               ? documentMatches.length
               : null,
@@ -8066,6 +8280,7 @@ export function ClinicalDashboard({
         collapsed={sidebarCollapsed}
         recentQueries={recentQueries}
         identity={sidebarIdentity}
+        activeMode={searchMode}
         onCollapsedChange={setSidebarCollapsed}
         onNewChat={startNewChat}
         onPickRecent={pickRecentQuery}
@@ -8096,8 +8311,16 @@ export function ClinicalDashboard({
           onToggleScope={toggleDocumentScope}
           onOpenUpload={openUploadDrawer}
           onOpenEvidence={openEvidenceDrawer}
+          onOpenRecentDocuments={openRecentDocuments}
+          onOpenLibrary={openSourceLibrary}
+          onOpenSourcePdf={openSourcePdfBrowser}
           onNewChat={startNewChat}
-          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+          onOpenMobileSidebar={() => {
+            closeDashboardTransientSurfaces("mobileSidebar");
+            setMobileSidebarOpen(true);
+          }}
+          onOpenSettings={openSettings}
+          identity={sidebarIdentity}
           onToggleTheme={toggleTheme}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
@@ -8185,7 +8408,7 @@ export function ClinicalDashboard({
                   }
                 />
               ) : activeModeResultKind === "tools" ? (
-                <ToolsHub query={query} onClearQuery={() => setQuery("")} />
+                <ToolsHub query={query} onQueryChange={setQuery} />
               ) : activeModeResultKind === "documents" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace
@@ -8473,6 +8696,7 @@ export function ClinicalDashboard({
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
           identity={sidebarIdentity}
+          activeMode={searchMode}
           onOpenChange={setMobileSidebarOpen}
           onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}

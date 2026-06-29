@@ -86,4 +86,49 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByText("Showing 1 to 2 of 4 applications")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
+
+  test("tools mode embeds the launcher content inside the dashboard", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/?mode=tools&q=medication&focus=1&run=1");
+
+    await expect(page.getByRole("button", { name: "Current app mode: Tools" })).toBeVisible();
+    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medication");
+
+    const toolsHub = page.getByTestId("tools-hub");
+    await expect(toolsHub).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
+    await expect(toolsHub.getByRole("region", { name: "Pinned tools" })).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
+    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
+    await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
+    await expect(toolsHub.getByText("Showing 1 to 2 of 4 tools")).toBeVisible();
+    await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
+    await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
+
+    const launchLink = toolsHub
+      .getByTestId("application-row-medication-prescribing")
+      .getByLabel("Launch Medication Prescribing");
+    await expect(launchLink).toHaveAttribute("href", "/?mode=prescribing");
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("tools mode opens the selected tool slide-up on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await gotoLauncher(page, "/?mode=tools");
+
+    const toolsHub = page.getByTestId("tools-hub");
+    await expect(toolsHub.getByTestId("selected-application-panel")).toBeHidden();
+    await toolsHub.getByTestId("mobile-application-row-medication-prescribing").click();
+
+    const selectedSheet = page.getByRole("dialog", { name: "Selected tool" });
+    await expect(selectedSheet).toBeVisible();
+    await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Medication Prescribing");
+    const mobileLaunchLink = page
+      .getByTestId("selected-application-sheet-panel")
+      .getByLabel("Launch Medication Prescribing");
+    await expect(mobileLaunchLink).toHaveAttribute("href", "/?mode=prescribing");
+    await page.getByLabel("Close selected tool").click();
+    await expect(selectedSheet).toBeHidden();
+    await expectNoPageHorizontalOverflow(page);
+  });
 });

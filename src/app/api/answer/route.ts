@@ -91,12 +91,15 @@ export async function POST(request: Request) {
       ownerId: user.id,
       queryMode: body.queryMode,
       skipCache: body.skipCache,
+      signal: request.signal,
     });
     const warnings = sourceGovernanceWarnings({
       results: answer.sources ?? [],
       relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
     });
-    if (hasDangerSourceGovernanceWarning(warnings)) {
+    const shouldUseSourceGovernanceRefusal =
+      answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
+    if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
       // Build the refusal explicitly — never spread ...answer here, or the original
       // (refused) sources/smartPanel/smartApiPlan would still reach the client and
       // defeat the refusal. Keep only the safe "unsupported" contract fields, matching

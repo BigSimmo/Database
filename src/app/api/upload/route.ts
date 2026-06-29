@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { assertAllowedFile, jsonError } from "@/lib/http";
+import { assertAllowedFile, assertFileContentSignature, jsonError } from "@/lib/http";
+import { logger } from "@/lib/logger";
+import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type SupabaseLike } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -29,6 +31,9 @@ export async function POST(request: Request) {
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
     const storagePath = `${user.id}/documents/${documentId}/${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    // The declared MIME type is client-supplied; verify the real byte signature
+    // before persisting a clinical document.
+    assertFileContentSignature(file.type, buffer);
     const contentHash = createHash("sha256").update(buffer).digest("hex");
 
     const { data: duplicate, error: duplicateError } = await supabase
@@ -128,13 +133,26 @@ export async function POST(request: Request) {
 
     if (jobError) throw new Error(jobError.message);
 
+    await writeAuditLog(supabase, {
+      ownerId: user.id,
+      action: "document_upload",
+      resourceType: "document",
+      resourceId: documentId,
+      metadata: { fileName: file.name, fileType: file.type, fileSize: file.size, contentHash },
+    });
+
     return NextResponse.json({ document, job }, { status: 201 });
   } catch (error) {
     if (uploadedPath && supabase) {
       try {
         await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([uploadedPath]);
-      } catch {
-        // Preserve the original upload error response; cleanup is best-effort.
+      } catch (cleanupError) {
+        // Cleanup is best-effort, but a silent failure leaves an orphaned storage
+        // object. Record the path so it can be reconciled instead of dropping it.
+        logger.error("Upload cleanup failed; storage object may be orphaned", {
+          storagePath: uploadedPath,
+          message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+        });
       }
     }
 

@@ -76,6 +76,7 @@ export type DocumentOrganizationProfile = {
     service: string[];
     topic: string[];
     workflow: string[];
+    medication: string[];
   };
   review_status: DocumentOrganizationReviewStatus;
 };
@@ -731,6 +732,19 @@ export type SmartRagSourceLink = {
   snippet: string;
 };
 
+export type SmartRagAnswerPlan = {
+  retrievalQuality: "none" | "weak" | "adequate" | "strong";
+  routeMode: "unsupported" | "extractive" | "fast" | "strong";
+  modelStrategy:
+    | "no_generation"
+    | "narrow_extractive_lookup"
+    | "fast_model_then_quality_gate"
+    | "strong_model_then_quality_gate";
+  qualityCriteria: string[];
+  fallbackBehavior: "return_source_gap" | "return_narrow_extractive_lookup" | "retry_strong_then_source_gap";
+  sourcePolicy: "no_answer_without_retrieved_support";
+};
+
 export type SmartRagApiPlan = {
   query: string;
   queryClass: RagQueryClass;
@@ -758,6 +772,7 @@ export type SmartRagApiPlan = {
     | "unknown";
   latencyPlan: "cache_or_text_first" | "balanced_hybrid" | "strong_generation" | "no_supported_answer";
   answerFocus: string;
+  answerPlan: SmartRagAnswerPlan;
   displayMode: AnswerResponseMode;
   sourceLinkCount: number;
   coreSourceLinks: SmartRagSourceLink[];
