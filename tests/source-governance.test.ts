@@ -129,7 +129,7 @@ describe("source governance warnings", () => {
   });
 
   it("keeps the refusal message free of backend and source-backed wording", () => {
-    expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin/i);
-    expect(sourceGovernanceRefusalAnswer).toContain("matched documents need review");
+    expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin|need review/i);
+    expect(sourceGovernanceRefusalAnswer).toContain("matched documents are not suitable for clinical use yet");
   });
 });

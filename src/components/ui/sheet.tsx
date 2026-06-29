@@ -27,6 +27,9 @@ export function Sheet({
   titleAccessory,
   descriptionContent,
   headerActions,
+  headerClassName,
+  titleClassName,
+  closeButtonClassName,
   contentClassName,
   contentStyle,
   bodyClassName,
@@ -47,6 +50,9 @@ export function Sheet({
   titleAccessory?: ReactNode;
   descriptionContent?: ReactNode;
   headerActions?: ReactNode;
+  headerClassName?: string;
+  titleClassName?: string;
+  closeButtonClassName?: string;
   contentClassName?: string;
   contentStyle?: CSSProperties;
   bodyClassName?: string;
@@ -149,12 +155,20 @@ export function Sheet({
           aria-hidden
         />
         {title ? (
-          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5">
+          <div
+            className={cn(
+              "flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              headerClassName,
+            )}
+          >
             <div className="flex min-w-0 flex-1 items-center gap-3">
               {headerLeading ? <div className="shrink-0">{headerLeading}</div> : null}
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
-                  <h2 id={titleId} className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
+                  <h2
+                    id={titleId}
+                    className={cn("truncate text-lg font-semibold text-[color:var(--text-heading)]", titleClassName)}
+                  >
                     {title}
                   </h2>
                   {titleAccessory}
@@ -172,7 +186,13 @@ export function Sheet({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {headerActions}
-              <button ref={closeRef} type="button" onClick={onClose} aria-label={closeLabel} className={toolbarButton}>
+              <button
+                ref={closeRef}
+                type="button"
+                onClick={onClose}
+                aria-label={closeLabel}
+                className={closeButtonClassName ?? toolbarButton}
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>

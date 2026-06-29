@@ -3292,13 +3292,6 @@ function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: string, qu
     .map((item) => item.card);
 }
 
-type ExtractiveAnswerPoint = {
-  label: string;
-  text: string;
-  citationChunkIds: string[];
-  source: "dose" | "memory" | "quote";
-};
-
 type AnswerIntent =
   | "dose"
   | "contraindication"
@@ -3325,14 +3318,6 @@ type ExtractedClinicalFact = {
   citationChunkIds: string[];
   priority: number;
 };
-
-function cleanExtractiveLine(line: string) {
-  return sourceTextForClinicalProse(line)
-    .replace(/^[-•]\s*/, "")
-    .replace(/^Agitation and Arousal:?\s+Pharmacological Management Guideline\s*/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 const extractiveLabelPattern =
   /\b(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Dose detail|Monitoring)\s*:\s*/gi;
@@ -3469,7 +3454,12 @@ export function classifyAnswerIntent(query: string, queryClass: RagQueryClass): 
   if (/\b(?:contraindicat\w*|avoid|do not use|must not|should not|not use|opioid[-\s]?free)\b/.test(normalized)) {
     return "contraindication";
   }
-  if (/\b(?:red|amber|green|anc|fbc|wbc|result|results|threshold|withhold|cease|stop|stopped)\b/.test(normalized)) {
+  if (
+    /\b(?:red|amber|green|anc|fbc|wbc|result|results|threshold|withhold|cease|stop|stopped|toxicity)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(normalized)
+  ) {
     return "red_result_action";
   }
   if (/\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up|level|levels|test|tests)\b/.test(normalized)) {
@@ -3556,6 +3546,8 @@ const extractiveTruncationPattern =
   /\b(?:stabili[sz]e\s+the\s+do|the\s+do\b|liver\s+functi\b|respiratio\b|if\s+a\s+60%\s+decrease\s+in\s+b\b)\b/i;
 const extractiveProductCataloguePattern =
   /\b(?:Lithicarb|Quilonum\s+SR|Campral|imprest\s+location|formulary\s+one)\b|[®™]/i;
+const extractiveStructuralArtifactPattern =
+  /\b(?:for\s+required,|monitoringup|prnselection|druguse|anddoses|reviewresponse|maximumrecommendeddoses|recommendeddoses|information:\s*review|links\s+to\s+relevant\s+documents\/resources|pharmacy\s+services\s+and\s+dispensing\s+protocol|role\s+responsibilities|document\s+control|straight\s+to\s+the\s+point\s+of\s+care|full\s+text|pubmed|randomi[sz]ed\s+clinical\s+trial|j\s+psychiatry|ann\s+emerg\s+med|site\s+map|gpo,\s+perth|tel:\s*\(|fax:\s*\()\b/i;
 
 function extractiveQueryTokens(query: string) {
   return splitBalancedWords(query).filter((token) => token.length > 2 && !extractiveQueryStopwords.has(token));
@@ -3614,6 +3606,10 @@ function hasBadExtractiveQuality(text: string) {
   if (!normalized) return true;
   if (extractiveTruncationPattern.test(normalized)) return true;
   if (extractiveProductCataloguePattern.test(normalized)) return true;
+  if (extractiveStructuralArtifactPattern.test(normalized)) return true;
+  if (/\b[A-Za-z]{4,}[A-Z]{2,}[A-Za-z]{2,}\b/.test(normalized)) return true;
+  if ((normalized.match(/>/g) ?? []).length >= 2) return true;
+  if (/^\s*(?:references?|bibliography)\b/i.test(normalized)) return true;
   if (hasClinicalAnswerQualityIssue(normalized)) return true;
   if (/\btable\s+\d+\b/i.test(normalized) && normalized.length > 180) return true;
   return false;
@@ -3626,55 +3622,6 @@ function isLowValueExtractiveCaption(clause: string) {
     ) || /\btable\s+(?:showing|detailing|listing|outlining|describing)\b/i.test(clause);
   if (!descriptor) return false;
   return !extractiveClinicalDirectivePattern.test(clause);
-}
-
-function sourcePointClauses(value: string, query: string) {
-  const tokens = extractiveQueryTokens(query);
-  const clauses = cleanExtractivePointText(value)
-    .split(/(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
-    .map((clause) => cleanExtractivePointText(clause))
-    .filter(
-      (clause) =>
-        clause.length >= 18 &&
-        !looksLikeJsonArtifact(clause) &&
-        !isLowValueExtractiveCaption(clause) &&
-        !hasBadExtractiveQuality(clause) &&
-        hasRelevantQueryOverlap(clause, query),
-    );
-
-  return clauses
-    .map((clause, index) => {
-      const lower = clause.toLowerCase();
-      const tokenHits = tokens.filter((token) => lower.includes(token)).length;
-      const clinicalSignal =
-        /\b(?:monitor|blood test|fbc|anc|level|baseline|review|urgent|escalat|dose|mg|withhold|cease|form|consent|commence|annual)\b/i.test(
-          clause,
-        )
-          ? 1
-          : 0;
-      const lengthPenalty = clause.length > 260 ? 0.8 : clause.length > 190 ? 0.25 : 0;
-      return { clause, score: tokenHits + clinicalSignal - lengthPenalty, index };
-    })
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map((item) => (item.clause.length <= 240 ? item.clause : `${item.clause.slice(0, 237).trim()}...`));
-}
-
-function bestNaturalSourcePoint(value: string, query: string) {
-  return sourcePointClauses(value, query)[0] ?? "";
-}
-
-function uniqueExtractivePoints(points: ExtractiveAnswerPoint[], limit: number) {
-  const seen = new Set<string>();
-  const selected: ExtractiveAnswerPoint[] = [];
-  for (const point of points) {
-    const normalized = cleanExtractivePointText(point.text).toLowerCase();
-    const key = normalized.slice(0, 140);
-    if (!normalized || seen.has(key)) continue;
-    seen.add(key);
-    selected.push({ ...point, text: cleanExtractivePointText(point.text) });
-    if (selected.length >= limit) break;
-  }
-  return selected;
 }
 
 function splitClinicalEvidenceSentences(value: string) {
@@ -3726,6 +3673,75 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
   return null;
 }
 
+function factSupportsAnswerIntent(
+  kind: ExtractedClinicalFactKind,
+  sentence: string,
+  query: string,
+  intent: AnswerIntent,
+) {
+  const text = normalizeSectionText(sentence);
+  const normalizedQuery = normalizeSectionText(query).toLowerCase();
+  if (!text || hasBadExtractiveQuality(text)) return false;
+
+  switch (intent) {
+    case "dose":
+      if (kind !== "dose" && kind !== "renal_limit") return false;
+      if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return false;
+      if (/\bmax(?:imum)?\b/i.test(query) && !/\b(?:max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg))\b/i.test(text)) {
+        return false;
+      }
+      return /\b(?:dose|dosing|dosage|max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg)|daily|bd|tds|mane|nocte|renal|eGFR|CrCl)\b/i.test(
+        text,
+      );
+    case "contraindication":
+      return (
+        kind === "contraindication" &&
+        /\b(?:contraindicat\w*|avoid|must not|do not|should not|not use|opioid[-\s]?free|withdrawal|precipitat\w*)\b/i.test(
+          text,
+        )
+      );
+    case "monitoring_schedule":
+      if (kind !== "monitoring") return false;
+      return /\b(?:monitor|monitoring|follow[-\s]?up|baseline|weekly|monthly|annual|every|several\s+times\s+a\s+year|level|levels|blood test|fbc|anc|wbc|ecg|lft|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi)\b/i.test(
+        text,
+      );
+    case "red_result_action":
+      if (kind !== "threshold_action" && kind !== "caveat") return false;
+      return (
+        /\b(?:withhold|cease|stop|discontinue|discontinued|contact|urgent|repeat|review|call for help|escalat\w*|monitor|toxicity|rash)\b/i.test(
+          text,
+        ) &&
+        /\b(?:red|amber|threshold|result|results|anc|fbc|wbc|toxicity|rash|reaction|blood|patholog\w*|haematolog\w*|hematolog\w*)\b/i.test(
+          text,
+        )
+      );
+    case "pathway_referral":
+      if (kind !== "pathway_referral") return false;
+      if (/\breferr?al|refer\b/i.test(query) && !/\b(?:refer|referral|form\s*1a)\b/i.test(text)) return false;
+      if (/\bdischarge\s+criteria\b/i.test(text) && !/\bdischarge\b/.test(normalizedQuery)) return false;
+      return /\b(?:pathway|procedure|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*|step)\b/i.test(
+        text,
+      );
+    case "document_lookup":
+      return /\b(?:document|guideline|procedure|policy|protocol|form|source|file|support|supports|covers|contains)\b/i.test(
+        text,
+      );
+    case "unsupported":
+      return false;
+    case "general":
+    default:
+      if (/\b(?:references?|bibliography|full\s+text|pubmed|randomi[sz]ed\s+clinical\s+trial)\b/i.test(text)) {
+        return false;
+      }
+      if (/^what\s+is\b/i.test(query)) {
+        return /\b(?:is|are|means|defined|characteri[sz]ed|involves|refers\s+to)\b/i.test(text);
+      }
+      return /\b(?:assess|arrange|check|continue|review|treat|manage|monitor|refer|dose|risk|therapy|diagnos\w*)\b/i.test(
+        text,
+      );
+  }
+}
+
 function factPriority(kind: ExtractedClinicalFactKind, intent: AnswerIntent) {
   if (intent === "contraindication" && kind === "contraindication") return 9;
   if (intent === "red_result_action" && kind === "threshold_action") return 9;
@@ -3746,6 +3762,7 @@ function tableFactsToClinicalFacts(result: SearchResult, query: string, intent: 
       );
       const kind = factKindForSentence(text, query, intent);
       if (!text || !kind || !hasRelevantQueryOverlap(text, query, intent)) return null;
+      if (!factSupportsAnswerIntent(kind, text, query, intent)) return null;
       return {
         kind,
         text,
@@ -3782,6 +3799,7 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
       if (!hasRelevantQueryOverlap(sentence, query, intent)) continue;
       const kind = factKindForSentence(sentence, query, intent);
       if (!kind) continue;
+      if (!factSupportsAnswerIntent(kind, sentence, query, intent)) continue;
       const cleaned = sentence.length <= 280 ? sentence : `${sentence.slice(0, 277).trim()}...`;
       const key = `${kind}:${normalizeSectionText(cleaned).toLowerCase().slice(0, 160)}`;
       if (seen.has(key)) continue;
@@ -3941,140 +3959,6 @@ function buildDocumentSupportListAnswer(args: { query: string; results: SearchRe
   };
 }
 
-function extractMedicationDosePoints(results: SearchResult[], query: string, limit = 4): ExtractiveAnswerPoint[] {
-  const seen = new Set<string>();
-  const points: ExtractiveAnswerPoint[] = [];
-  const coreQueryTokens = splitBalancedWords(query).filter(
-    (token) =>
-      token.length > 3 &&
-      !["dose", "dosing", "dosage", "medication", "medicine", "patient", "patients", "please"].includes(token),
-  );
-
-  for (const result of results) {
-    const resultText = `${result.title} ${result.content}`.toLowerCase();
-    if (coreQueryTokens.length && !coreQueryTokens.some((token) => resultText.includes(token))) continue;
-    const lines = sourceTextForClinicalProse(result.content)
-      .split(/\r?\n+|(?<=[.!?])\s+/)
-      .map(cleanExtractiveLine)
-      .filter((line) => line.length >= 24);
-    const candidates = lines.flatMap((line) => {
-      if (
-        /\b(?:supporting information|relevant standards|references|document owner|authorisation|published date|amendment)\b/i.test(
-          line,
-        )
-      )
-        return [];
-      if (/\b(?:warnings? on the use|black box warning|food and drug administration|ann emerg med)\b/i.test(line))
-        return [];
-      const isMonitoring = /\b(?:monitor(?:ing)?|observations?|ecg|respiratory|every \d+|minutes?|hours?)\b/i.test(
-        line,
-      );
-      const doseAnchor = line.search(
-        /\b(?:lorazepam|clonazepam|midazolam|risperidone|haloperidol|olanzapine|quetiapine|chlorpromazine|droperidol|promethazine|diazepam|\d+(?:\.\d+)?\s?mg|maximum\s+\d)/i,
-      );
-      const hasDoseAction =
-        /\b(?:repeat(?:ing)? doses?|first dose|second dose|oral medication|im medication|maximum doses?|post im dose)\b/i.test(
-          line,
-        );
-      if (doseAnchor < 0 && !isMonitoring && !hasDoseAction) return [];
-      const headingMatch = [
-        ...line.matchAll(
-          /\b(?:Recommended pharmacological treatment options|Repeating doses|Reviewing response|Monitoring|Oral Intramuscular)\s*:/gi,
-        ),
-      ]
-        .filter((match) => (match.index ?? 0) < Math.max(doseAnchor, 0))
-        .at(-1);
-      const focused =
-        headingMatch?.index !== undefined
-          ? line.slice(headingMatch.index)
-          : doseAnchor > 80
-            ? line.slice(Math.max(0, doseAnchor - 60))
-            : line;
-      return [focused.replace(/^[^A-Za-z0-9]*(?:Appendix|Step)\s*\d*:?[^A-Za-z0-9]*/i, "").trim()];
-    });
-
-    for (const candidate of candidates) {
-      for (const clause of sourcePointClauses(candidate, query).slice(0, 3)) {
-        const text = clause.length <= 280 ? clause : `${clause.slice(0, 277).trim()}...`;
-        const key = text.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const hasDrugDose =
-          /\b(?:lorazepam|clonazepam|midazolam|risperidone|haloperidol|olanzapine|quetiapine|chlorpromazine|droperidol|promethazine|diazepam|\d+(?:\.\d+)?\s?mg|maximum\s+\d)\b/i.test(
-            text,
-          );
-        const label =
-          !hasDrugDose && /\b(?:monitor|observe|ecg|physiological|respiratory|minutes?|hours?)\b/i.test(text)
-            ? "Monitoring"
-            : "Dose detail";
-        points.push({ label, text, citationChunkIds: [result.id], source: "dose" });
-        if (points.length >= limit) return points;
-      }
-    }
-  }
-
-  return points;
-}
-
-function memoryCardToExtractivePoint(card: DocumentMemoryCard, query: string): ExtractiveAnswerPoint | null {
-  const text = bestNaturalSourcePoint(card.content, query);
-  if (!text) return null;
-  return {
-    label: memoryCardAnswerLabel(card),
-    text,
-    citationChunkIds: card.source_chunk_ids ?? [],
-    source: "memory",
-  };
-}
-
-function quoteToExtractivePoint(quote: QuoteCard, query: string): ExtractiveAnswerPoint | null {
-  const text = bestNaturalSourcePoint(
-    `${quote.section_heading ? `${quote.section_heading}: ` : ""}${quote.quote}`,
-    query,
-  );
-  if (!text) return null;
-  return {
-    label: quote.section_heading ?? "Source quote",
-    text,
-    citationChunkIds: [quote.chunk_id],
-    source: "quote",
-  };
-}
-
-function formatNaturalPoint(point: ExtractiveAnswerPoint) {
-  const text = sanitizeAnswerText(cleanExtractivePointText(point.text)).replace(/[.;,\s]+$/, "");
-  if (!text) return "";
-  return `${text}.`;
-}
-
-function buildNaturalExtractiveAnswer(args: {
-  query: string;
-  queryClass: RagQueryClass;
-  points: ExtractiveAnswerPoint[];
-  sourceCount: number;
-}) {
-  const points = uniqueExtractivePoints(args.points, 3);
-  if (!points.length) {
-    const gapAnswer = finalQualityGapAnswer(args.query, args.queryClass);
-    return {
-      answer: gapAnswer,
-      body: gapAnswer,
-      citationChunkIds: [] as string[],
-      answerSections: [] as AnswerSection[],
-    };
-  }
-
-  const pointSentences = points.map(formatNaturalPoint).filter(Boolean);
-  const answer = sanitizeAnswerText(pointSentences.join(" "));
-
-  return {
-    answer: boldHighYieldClinicalText(answer, args.query),
-    body: boldHighYieldClinicalText(answer, args.query),
-    citationChunkIds: answer ? Array.from(new Set(points.flatMap((point) => point.citationChunkIds))) : [],
-    answerSections: [] as AnswerSection[],
-  };
-}
-
 function buildExtractiveAnswer(args: {
   query: string;
   queryClass: RagQueryClass;
@@ -4120,17 +4004,6 @@ function buildExtractiveAnswer(args: {
     citationIds.add(quote.chunk_id);
   }
 
-  const dosePoints =
-    args.queryClass === "medication_dose_risk" ? extractMedicationDosePoints(args.results, args.query, 4) : [];
-  const remainingPointSlots = Math.max(0, 5 - dosePoints.length);
-  const memoryPointLimit = Math.min(remainingPointSlots, memoryCards.length >= 4 ? 3 : 2);
-  const memoryPoints = selectDiverseMemoryCards(memoryCards, memoryPointLimit)
-    .map((card) => memoryCardToExtractivePoint(card, args.query))
-    .filter((point): point is ExtractiveAnswerPoint => Boolean(point));
-  const quotePoints = quoteCards
-    .slice(0, Math.max(0, 5 - dosePoints.length - memoryPoints.length))
-    .map((quote) => quoteToExtractivePoint(quote, args.query))
-    .filter((point): point is ExtractiveAnswerPoint => Boolean(point));
   const answerIntent = classifyAnswerIntent(args.query, args.queryClass);
   const naturalAnswer = documentSupportListIntent(args.query, args.queryClass)
     ? buildDocumentSupportListAnswer({ query: args.query, results: args.results })
@@ -4140,23 +4013,13 @@ function buildExtractiveAnswer(args: {
         intent: answerIntent,
         results: args.results,
       });
-  const fallbackNaturalAnswer =
-    answerIntent === "general" && naturalAnswer.citationChunkIds.length === 0
-      ? buildNaturalExtractiveAnswer({
-          query: args.query,
-          queryClass: args.queryClass,
-          points: [...dosePoints, ...memoryPoints, ...quotePoints],
-          sourceCount: args.results.length,
-        })
-      : naturalAnswer;
 
-  // When no concise source sentence could be extracted, buildNaturalExtractiveAnswer
-  // returns a sentinel non-answer with no citationChunkIds. Do not present that as a
-  // grounded, confidence-rated answer just because compactCitations seeded a citation.
-  const hasExtractedAnswer = fallbackNaturalAnswer.citationChunkIds.length > 0;
+  // Fact synthesis is the production extractive path. If no clean fact survives
+  // coverage and artifact gates, fail closed instead of stitching snippets.
+  const hasExtractedAnswer = naturalAnswer.citationChunkIds.length > 0;
 
   return {
-    answer: fallbackNaturalAnswer.answer,
+    answer: naturalAnswer.answer,
     grounded: hasExtractedAnswer && citations.length > 0,
     confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "unsupported",
     citations: citations.slice(0, 5),
@@ -4166,7 +4029,7 @@ function buildExtractiveAnswer(args: {
     routingReason: args.routeReason,
     queryClass: args.queryClass,
     latencyTimings: args.timings,
-    answerSections: fallbackNaturalAnswer.answerSections ?? [],
+    answerSections: naturalAnswer.answerSections ?? [],
     quoteCards,
     visualEvidence: args.visualEvidence,
     bestSource: args.bestSource,
@@ -4356,7 +4219,7 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   const existingGapAnswer =
     !answer.grounded &&
-    /could not find enough clean|no relevant clinical source|no current source|cannot provide a clinical answer|cannot provide a source-backed clinical answer/i.test(
+    /could not find enough clean|no relevant clinical source|no current source|cannot provide a clinical answer|cannot provide a source-backed clinical answer|nearby indexed passages|not strong enough to support a reliable answer/i.test(
       cleanedAnswer,
     );
   if (existingGapAnswer) {

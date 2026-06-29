@@ -28,7 +28,7 @@ export type GroupedSourceGovernanceWarning = {
 };
 
 export const sourceGovernanceRefusalAnswer =
-  "I cannot provide a clinical answer because one or more matched documents need review before use. Try a narrower clinical term or scope the search to a current approved document.";
+  "I cannot provide a clinical answer because one or more matched documents are not suitable for clinical use yet. Try a narrower clinical term or scope the search to a current approved document.";
 
 function isLocalMetadataText(value: string) {
   return /\b(?:wa|western australia|perth|north metropolitan|east metropolitan|south metropolitan|health service)\b/i.test(
