@@ -27,6 +27,7 @@ This is the runbook to make the app publishable in one focused pass.
 
 - [ ] Run the readiness preflight with fully populated `.env.local`.
 - [ ] Run `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
+- [ ] Run `npm run eval:quality -- --fail-on-threshold` for strict clinical search/answer/source-governance confidence, or `npm run eval:quality:release` only when the active release metadata debt file is accepted.
 - [ ] Run browser smoke verification for auth + search + answer formatting after final changes.
 - [ ] Confirm no production-only WIP flags (e.g., local no-auth modes) are enabled in deployment
       environment variables.
@@ -42,15 +43,16 @@ This is the runbook to make the app publishable in one focused pass.
 6. `npm run typecheck`.
 7. `npm run test`.
 8. `npm run build`.
-9. `npm run check:production-readiness:ci` (CI context only).
-10. Frontend browser smoke:
+9. `npm run eval:quality -- --fail-on-threshold` after cheaper local gates pass, or `npm run eval:quality:release` when the active release metadata debt file is intentionally accepted.
+10. `npm run check:production-readiness:ci` (CI context only).
+11. Frontend browser smoke:
 
 - auth flow
 - protected endpoint behavior
 - search + answer render path
 - mobile viewport
 
-11. Staging deployment smoke + rollback rehearsal.
+12. Staging deployment smoke + rollback rehearsal.
 
 ## Command outputs to record
 
@@ -60,4 +62,6 @@ This is the runbook to make the app publishable in one focused pass.
 - `npm run typecheck` output.
 - `npm run test` output.
 - `npm run build` output.
+- `npm run eval:quality -- --fail-on-threshold` or `npm run eval:quality:release` output, including source-governance warning baseline if warnings remain.
+- Active source metadata debt file path and expiry, if `eval:quality:release` was used.
 - Any blocking warnings from readiness preflight should be cleared before publishing.

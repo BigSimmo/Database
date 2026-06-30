@@ -60,14 +60,13 @@ describe("ward output helpers", () => {
       "bottom-line",
       "monitoring",
       "escalation",
-      "thresholds",
       "verify-source",
     ]);
     expect(sections[0].items[0]).toContain("Monitor renal function");
     expect(sections[1].items[0]).toContain("renal function");
-    expect(sections[3].items[0]).toContain("lithium level");
+    expect(sections[1].items[0]).toContain("lithium level");
     expect(sections[2].items[0]).toContain("vomiting");
-    expect(sections[4].items[0]).toContain("1 linked citation");
+    expect(sections[3].items[0]).toContain("1 linked citation");
   });
 
   it("derives high-yield sections and evidence-map rows below the concise answer", () => {
@@ -124,7 +123,7 @@ describe("ward output helpers", () => {
     const highYieldSections = buildHighYieldClinicalOutputSections(enrichedAnswer);
     const evidenceRows = buildAnswerEvidenceMap(enrichedAnswer);
 
-    expect(highYieldSections.map((section) => section.id)).toEqual(["monitoring", "thresholds", "verify-source"]);
+    expect(highYieldSections.map((section) => section.id)).toEqual(["monitoring", "verify-source"]);
     expect(highYieldSections.some((section) => section.id === "documentation")).toBe(false);
     expect(evidenceRows[0]).toMatchObject({
       section: "Monitoring/timing",
@@ -414,6 +413,47 @@ describe("ward output helpers", () => {
     expect(sections.find((section) => section.id === "thresholds")).toBeUndefined();
   });
 
+  it("does not promote generic level monitoring as threshold support without target or numeric context", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      answer: "Lithium level monitoring should be checked alongside renal function.",
+      smartPanel: { query: "lithium level monitoring" } as RagAnswer["smartPanel"],
+      answerSections: [
+        {
+          heading: "Monitoring",
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+          body: "Check lithium level and renal function after clinically relevant medicine changes.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      quoteCards: [],
+    });
+
+    expect(sections.find((section) => section.id === "monitoring")?.items.join(" ")).toContain("lithium level");
+    expect(sections.find((section) => section.id === "thresholds")).toBeUndefined();
+  });
+
+  it("promotes therapeutic target level ranges as threshold support", () => {
+    const sections = buildClinicalOutputSections({
+      ...answer,
+      answer: "For acute mania, target serum lithium level is 0.8-1.2 mmol/L.",
+      smartPanel: { query: "lithium therapeutic target level" } as RagAnswer["smartPanel"],
+      answerSections: [
+        {
+          heading: "Thresholds",
+          kind: "thresholds",
+          supportLevel: "direct",
+          body: "Target serum lithium level for acute mania is 0.8-1.2 mmol/L.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      quoteCards: [],
+    });
+
+    expect(sections.find((section) => section.id === "thresholds")?.items.join(" ")).toContain("0.8-1.2 mmol/L");
+  });
+
   it("promotes direct query-matched tables for weak answers", () => {
     const weakButMatchedAnswer: RagAnswer = {
       ...answer,
@@ -559,7 +599,7 @@ describe("ward output helpers", () => {
     expect(copy).toContain("Bottom line");
     expect(copy).toContain("- Monitor renal function");
     expect(copy).toContain("Monitoring");
-    expect(copy).toContain("Thresholds");
+    expect(copy).not.toContain("\nThresholds");
     expect(copy).toContain("Citations");
     expect(copy).toContain("Lithium source, p. 1");
     expect(copy).toContain("Source status");

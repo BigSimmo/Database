@@ -14,7 +14,7 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 export const textMuted = "text-[color:var(--text-muted)]";
 export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
 export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
-export const appBackdrop = "bg-[color:var(--background)]";
+export const appBackdrop = "app-edge-backdrop";
 export const glassPanel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] dark:border-white/10";
 export const quietPanel =

@@ -56,6 +56,14 @@ Optional cost fields:
 - `RAG_EVAL_CACHED_INPUT_USD_PER_MILLION`
 - `RAG_EVAL_OUTPUT_USD_PER_MILLION`
 
+Optional provider retry fields:
+
+- `RAG_EVAL_PROVIDER_RETRY_ATTEMPTS` defaults to `4`
+- `RAG_EVAL_PROVIDER_RETRY_INITIAL_MS` defaults to `5000`
+- `RAG_EVAL_PROVIDER_RETRY_MAX_MS` defaults to `45000`
+
+Provider-backed evals run case-by-case and retry transient `429`/rate-limit failures. If rate limits persist after retries, stop and rerun later rather than launching parallel evals.
+
 ## Metrics reported
 
 Retrieval:
@@ -75,8 +83,20 @@ Source governance:
 - review-due top-result count
 - unknown-status top-result count
 - unverified top-result count
+- unknown-extraction top-result count
 - poor-extraction top-result count
 - combined stale/review/unknown top-result rate
+- review-required top-result count and rate
+
+Metadata policy:
+
+- `unknown`, `unverified`, `review_due`, `outdated`, unknown extraction, and poor extraction are treated as review-required.
+- Do not silently default missing corpus metadata to `current` or `approved`.
+- Reduce the warning rate by backfilling source metadata through ingestion/enrichment or by explicitly accepting the review-required baseline in a versioned release metadata debt file.
+- Danger-class source governance warnings are blocking.
+- Warning-class retrieval source metadata notes may be accepted only by passing `--source-metadata-debt <path>` to `npm run eval:quality -- --fail-on-threshold`.
+- Source metadata debt acceptance does not mark sources current or approved. It only removes the accepted retrieval metadata threshold failures from the blocking failure list.
+- Outdated top results, poor-extraction top results, and RAG danger-class source governance failures remain blocking.
 
 Answer quality:
 
@@ -86,6 +106,8 @@ Answer quality:
 - citation failure rate
 - numeric grounding failure rate
 - source governance warning count
+- source governance warning rate
+- source governance danger failure rate
 - p95 latency
 - estimated cost when cost env vars are set
 
@@ -97,13 +119,16 @@ Answer quality:
 - document recall@5 is below `0.8`
 - content recall@5 is below `0.8`
 - stale/review/unknown top-result rate is above `0.25`
+- review-required top-result rate is above `0.25`
 - grounded supported answer rate is below `0.9`
 - unsupported-answer correctness is below `1.0`
 - citation failure rate is above `0`
 - numeric grounding failure rate is above `0`
+- source-governance danger failure rate is above `0`
 - RAG p95 latency is above `25000ms`
 
 These thresholds are intended as a quality tripwire, not a substitute for clinical review.
+Warning-class source governance notes remain visible in reports and should be backfilled or explicitly baselined before release.
 
 ## Promoting misses
 
@@ -127,3 +152,5 @@ Run full quality evals after:
 - citation/source rendering changes
 - clinical output changes
 - release or handoff confidence checks
+
+`npm run verify:release` includes `npm run eval:quality:release` after cheaper local gates. `eval:quality:release` passes `docs/release-source-metadata-debt-2026-06-30.json` while that temporary release debt is active. Use focused variants such as `--retrieval-only`, `--rag-only`, `--limit`, `--query`, or `--question` during development to avoid unnecessary provider-backed cost.

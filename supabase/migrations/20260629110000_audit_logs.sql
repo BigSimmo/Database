@@ -17,8 +17,16 @@ create index if not exists audit_logs_owner_created_idx on public.audit_logs(own
 create index if not exists audit_logs_action_created_idx on public.audit_logs(action, created_at desc);
 
 -- audit_logs is written and read only via the service role (server-side). RLS is
--- enabled with no policies and no authenticated/anon grants, so the table is not
--- client-readable and not discoverable in the GraphQL schema; the service role
--- bypasses RLS. This keeps the trail internal and tamper-resistant from clients.
+-- enabled with an explicit service-role-only policy and no authenticated/anon
+-- grants, so the table is not client-readable and not discoverable in the
+-- GraphQL schema. This keeps the trail internal and tamper-resistant from
+-- clients while keeping Supabase advisor checks explicit.
 alter table public.audit_logs enable row level security;
 revoke all on public.audit_logs from anon, authenticated;
+grant select, insert, update, delete on table public.audit_logs to service_role;
+
+drop policy if exists "audit logs service role all" on public.audit_logs;
+create policy "audit logs service role all" on public.audit_logs
+  for all to service_role
+  using (true)
+  with check (true);

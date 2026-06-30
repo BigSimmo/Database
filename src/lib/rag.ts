@@ -12,7 +12,7 @@ import {
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "@/lib/clinical-search";
-import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
@@ -224,9 +224,9 @@ const answerJsonOutputSchema = {
   required: ["answer", "grounded", "confidence", "answerSections", "citations", "quoteCards", "conflictsOrGaps"],
 };
 
-function answerJsonOutputSchemaForResults(results: SearchResult[]) {
+export function answerJsonOutputSchemaForResults(results: SearchResult[]) {
   const chunkIds = Array.from(new Set(results.map((result) => result.id).filter(Boolean)));
-  if (chunkIds.length === 0 || chunkIds.length > 80) return answerJsonOutputSchema;
+  if (chunkIds.length === 0) return answerJsonOutputSchema;
 
   const schema = structuredClone(answerJsonOutputSchema) as Record<string, unknown>;
   const chunkIdSchema = { type: "string", enum: chunkIds };
@@ -858,6 +858,49 @@ function sanitizeAnswerSections(
     });
 }
 
+function normalizeQuoteVerificationText(text: string) {
+  return sourceTextForClinicalProse(text)
+    .normalize("NFKC")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function tableFactQuoteText(fact: NonNullable<SearchResult["table_facts"]>[number]) {
+  return [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function sourceTextForQuoteVerification(source: SearchResult) {
+  const parts = [
+    source.content,
+    source.adjacent_context,
+    source.section_heading,
+    source.retrieval_synopsis,
+    source.table_facts?.map(tableFactQuoteText).join(" "),
+    source.memory_cards?.map((card) => card.content).join(" "),
+    source.index_unit ? [source.index_unit.title, source.index_unit.content].filter(Boolean).join(" ") : "",
+    source.images
+      ?.map((image) =>
+        [image.tableLabel, image.tableTitle, image.caption, image.tableTextSnippet, image.accessibleTableMarkdown]
+          .filter(Boolean)
+          .join(" "),
+      )
+      .join(" "),
+  ];
+  return parts.filter(Boolean).join(" ");
+}
+
+function isExactSourceQuote(quote: string, source: SearchResult) {
+  const normalizedQuote = normalizeQuoteVerificationText(quote);
+  if (normalizedQuote.length < 8) return false;
+  const normalizedSource = normalizeQuoteVerificationText(sourceTextForQuoteVerification(source));
+  return normalizedSource.includes(normalizedQuote);
+}
+
 function sanitizeQuoteCards(
   cards: Array<{ chunk_id: string; quote: string; section_heading?: string | null }> | undefined,
   results: SearchResult[],
@@ -869,6 +912,7 @@ function sanitizeQuoteCards(
       if (!source) return null;
       const quote = sanitizeStructuredText(card.quote, { minLength: 8, minTokens: 2 });
       if (!quote) return null;
+      if (!isExactSourceQuote(quote, source)) return null;
       return {
         ...resultCitation(source),
         quote,
@@ -887,6 +931,24 @@ function sanitizeConflictsOrGaps(items: ConflictOrGap[] | undefined, results: Se
       source_chunk_ids: item.source_chunk_ids?.filter((id) => allowed.has(id)),
     }))
     .filter((item) => !item.source_chunk_ids || item.source_chunk_ids.length > 0);
+}
+
+function enrichGroundedReviewCitations(answer: RagAnswer, results: SearchResult[], minCitations = 2): RagAnswer {
+  if (!answer.grounded || answer.confidence === "unsupported") return answer;
+  if (answer.citations.length >= minCitations) return answer;
+  if ((answer.unverifiedNumericTokens?.length ?? 0) > 0 || answer.faithfulnessWarning) return answer;
+
+  const existing = new Set(answer.citations.map((citation) => citation.chunk_id));
+  const additional = compactCitations(results)
+    .filter((citation) => !existing.has(citation.chunk_id))
+    .slice(0, minCitations - answer.citations.length);
+  if (additional.length === 0) return answer;
+
+  return {
+    ...answer,
+    citations: [...answer.citations, ...additional],
+    routingReason: appendRoutingReason(answer.routingReason, "review_citations_enriched"),
+  };
 }
 
 function normalizeSearchResults(results: SearchResult[]) {
@@ -4198,6 +4260,9 @@ function buildFactSynthesizedAnswer(args: {
 }) {
   const facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
   if (!facts.length) {
+    if (sourceBackedDocumentFallbackIntent(args.query, args.queryClass, args.intent, args.results)) {
+      return buildDocumentSupportListAnswer({ query: args.query, results: args.results });
+    }
     const gapAnswer = finalQualityGapAnswer(args.query, args.queryClass, args.intent);
     return {
       answer: gapAnswer,
@@ -4223,11 +4288,98 @@ function buildFactSynthesizedAnswer(args: {
   };
 }
 
+function sourceBackedDocumentFallbackIntent(
+  query: string,
+  queryClass: RagQueryClass,
+  intent: AnswerIntent,
+  results: SearchResult[],
+) {
+  if (results.length === 0) return false;
+  const strongestScore = Math.max(...results.map(scoreValue));
+  if (strongestScore < 0.45) return false;
+  const normalized = normalizeSectionText(query).toLowerCase();
+  const sourceBackedProcedureQuery =
+    /\b(?:process|procedure|protocol|pathway|workflow|steps?|requirements?|criteria|guidance|document)\b/.test(
+      normalized,
+    );
+  if (!sourceBackedProcedureQuery) return false;
+  return (
+    intent === "document_lookup" ||
+    intent === "pathway_referral" ||
+    queryClass === "document_lookup" ||
+    queryClass === "broad_summary"
+  );
+}
+
 function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
   return (
     classifyAnswerIntent(query, queryClass) === "document_lookup" &&
     /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query)
   );
+}
+
+function tableOrVisualSourceLookupIntent(query: string) {
+  return (
+    /\b(?:which|what|show|find|open|where)\b.{0,120}\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
+      query,
+    ) ||
+    /\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b.{0,80}\b(?:cover|covers|contain|contains|list|lists|show|shows|guidance)\b/i.test(
+      query,
+    )
+  );
+}
+
+function sourceLookupLabel(result: SearchResult) {
+  const tableTitle = (result.table_facts ?? [])
+    .map((fact) => fact.table_title || fact.row_label)
+    .find((value): value is string => Boolean(value?.trim()));
+  const imageTitle = (result.images ?? [])
+    .map((image) => image.tableTitle || image.caption)
+    .find((value): value is string => Boolean(value?.trim()));
+  const rawLabel = tableTitle || imageTitle || result.section_heading || result.title || result.file_name;
+  return normalizeSectionText(rawLabel)
+    .replace(/([a-zA-Z])\(/g, "$1 (")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function hasTableOrVisualLookupEvidence(result: SearchResult) {
+  return (
+    (result.table_facts?.length ?? 0) > 0 ||
+    (result.images ?? []).some((image) =>
+      /\b(?:clinical_table|flowchart_algorithm|medication_chart|risk_matrix|table_crop|diagram_crop|page_region|embedded)\b/i.test(
+        `${image.image_type ?? ""} ${image.sourceKind ?? ""} ${image.source_kind ?? ""}`,
+      ),
+    ) ||
+    /\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
+      `${result.section_heading ?? ""} ${result.title ?? ""} ${result.file_name ?? ""}`,
+    )
+  );
+}
+
+function buildTableOrVisualSourceLookupAnswer(args: { query: string; results: SearchResult[] }) {
+  const source = args.results.find(hasTableOrVisualLookupEvidence) ?? args.results[0];
+  if (!source) {
+    const gapAnswer = finalQualityGapAnswer(args.query, "document_lookup", "document_lookup");
+    return { answer: gapAnswer, citationChunkIds: [] as string[], answerSections: [] as AnswerSection[] };
+  }
+
+  const label = sourceLookupLabel(source) || "the top matched source";
+  const answer = `The relevant source is ${label}, which covers the requested table or visual guidance.`;
+
+  return {
+    answer,
+    citationChunkIds: [source.id],
+    answerSections: [
+      {
+        heading: "Source match",
+        kind: "documentation",
+        supportLevel: "direct",
+        body: `The source match is ${label}.`,
+        citation_chunk_ids: [source.id],
+      },
+    ] satisfies AnswerSection[],
+  };
 }
 
 function buildDocumentSupportListAnswer(args: { query: string; results: SearchResult[] }) {
@@ -4329,12 +4481,14 @@ function buildExtractiveAnswer(args: {
   const answerIntent = classifyAnswerIntent(args.query, args.queryClass);
   const naturalAnswer = documentSupportListIntent(args.query, args.queryClass)
     ? buildDocumentSupportListAnswer({ query: args.query, results: args.results })
-    : buildFactSynthesizedAnswer({
-        query: args.query,
-        queryClass: args.queryClass,
-        intent: answerIntent,
-        results: args.results,
-      });
+    : tableOrVisualSourceLookupIntent(args.query)
+      ? buildTableOrVisualSourceLookupAnswer({ query: args.query, results: args.results })
+      : buildFactSynthesizedAnswer({
+          query: args.query,
+          queryClass: args.queryClass,
+          intent: answerIntent,
+          results: args.results,
+        });
 
   // Fact synthesis is the production extractive path. If no clean fact survives
   // coverage and artifact gates, fail closed instead of stitching snippets.
@@ -4401,7 +4555,7 @@ function sourceBackedFallbackSubject(query: string) {
 
 function sourceBackedGenerationTimeoutAnswer(query: string) {
   const subject = sourceBackedFallbackSubject(query);
-  return `This is the source status: indexed documents include directly relevant guidance for ${subject}, but answer generation timed out before a full synthesis was completed. Review the cited source passages for the local process.`;
+  return `Source support was found for ${subject}, but model synthesis did not complete in time. Treat this as source status only and review the cited passages before using the information clinically.`;
 }
 
 function isUnusableGeneratedAnswer(answer: Pick<RagAnswer, "answer" | "citations" | "routingReason">) {
@@ -4532,7 +4686,7 @@ function isFragmentLikeClinicalAnswer(text: string, query: string) {
     // Only apply this fragment gate for general/definition questions, not for clinical intent
     // queries like "What is the maximum dose?" or "What is the QTc threshold?" which produce
     // valid concise fact answers that don't contain definition-style phrasing.
-    !/\b(?:dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor|renal|contraindicat|referral|pathway|qtc|fbc|anc|wbc|level|levels)\b/i.test(
+    !/\b(?:required|requirements?|dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor|renal|contraindicat|referral|pathway|procedure|process|protocol|workflow|steps?|ect|electroconvulsive|qtc|fbc|anc|wbc|level|levels)\b/i.test(
       query,
     ) &&
     !/\b(?:is|are)\s+(?:a|an|the)\b|\b(?:defined\s+as|characteri[sz]ed\s+by|involves|refers\s+to|is\s+an?\s+eating\s+disorder)\b/i.test(
@@ -5365,7 +5519,7 @@ function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResul
     metadataText(factMetadata, "accessible_table_markdown") ??
     metadataText(factMetadata, "table_text_snippet") ??
     metadataCells;
-  return compactContextText(snippet, 420);
+  return compactContextText(neutralizeInstructions(snippet), 420);
 }
 
 function formatTableFactForSourceBlock(
@@ -5375,26 +5529,30 @@ function formatTableFactForSourceBlock(
 ) {
   if (!rich) {
     return compactContextText(
-      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
-        .filter(Boolean)
-        .join(" | "),
+      neutralizeInstructions(
+        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+          .filter(Boolean)
+          .join(" | "),
+      ),
       360,
     );
   }
 
   const snippet = tableSnippetForFact(result, fact);
   return compactContextText(
-    [
-      fact.table_title ? `table title: ${fact.table_title}` : "",
-      fact.row_label ? `row label: ${fact.row_label}` : "",
-      fact.clinical_parameter ? `clinical parameter: ${fact.clinical_parameter}` : "",
-      fact.threshold_value ? `threshold_value: ${fact.threshold_value}` : "",
-      fact.action ? `action: ${fact.action}` : "",
-      fact.source_image_id ? `source_image_id: ${fact.source_image_id}` : "",
-      snippet ? `table snippet: ${snippet}` : "",
-    ]
-      .filter(Boolean)
-      .join(" | "),
+    neutralizeInstructions(
+      [
+        fact.table_title ? `table title: ${fact.table_title}` : "",
+        fact.row_label ? `row label: ${fact.row_label}` : "",
+        fact.clinical_parameter ? `clinical parameter: ${fact.clinical_parameter}` : "",
+        fact.threshold_value ? `threshold_value: ${fact.threshold_value}` : "",
+        fact.action ? `action: ${fact.action}` : "",
+        fact.source_image_id ? `source_image_id: ${fact.source_image_id}` : "",
+        snippet ? `table snippet: ${snippet}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    ),
     760,
   );
 }
@@ -5402,13 +5560,26 @@ function formatTableFactForSourceBlock(
 function neutralizeInstructions(text: string): string {
   let cleaned = text;
   cleaned = cleaned.replace(
-    /\bignore\s+(?:all\s+)?(?:previous\s+)?instructions(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
-    "[neutralized-instruction: ignore instructions]",
+    /\b(?:ignore|disregard|override|forget)\s+(?:all\s+)?(?:(?:previous|prior|above)\s+)?instructions?(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
+    "[neutralized-instruction: source instruction removed]",
   );
   cleaned = cleaned.replace(
     /\byou\s+are\s+now\s+an?\s+(?:unrestricted|jailbroken|assistant)(?:\s+\w+){0,3}/gi,
-    "[neutralized-instruction: unrestricted assistant]",
+    "[neutralized-instruction: source role-change removed]",
   );
+  cleaned = cleaned.replace(
+    /\b(?:system|developer)\s+(?:prompt|message|instruction)s?\b/gi,
+    "[neutralized-instruction: privileged instruction reference removed]",
+  );
+  cleaned = cleaned.replace(
+    /\b(?:reveal|print|expose|show|leak|return)\s+(?:the\s+)?(?:api\s+key|secret|token|system\s+prompt|developer\s+message|developer\s+instructions?)\b/gi,
+    "[neutralized-instruction: secret-exfiltration request removed]",
+  );
+  cleaned = cleaned.replace(
+    /\bfollow\s+(?:these|the|this)\s+instructions?\b/gi,
+    "[neutralized-instruction: source instruction removed]",
+  );
+  cleaned = cleaned.replace(/\bdo\s+not\s+answer\b/gi, "[neutralized-instruction: answer-suppression request removed]");
   return cleaned;
 }
 
@@ -5425,7 +5596,9 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
                 image.tableLabel,
                 image.tableTitle,
                 image.caption,
-                image.tableTextSnippet ? `Table text: ${compactContextText(image.tableTextSnippet, 320)}` : "",
+                image.tableTextSnippet
+                  ? `Table text: ${compactContextText(neutralizeInstructions(image.tableTextSnippet), 320)}`
+                  : "",
               ]
                 .filter(Boolean)
                 .join(" - "),
@@ -5433,12 +5606,12 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
             .join(" | ")}`
         : "";
       const adjacentContext = result.adjacent_context
-        ? `\nNearby context from the same source: ${compactContextText(result.adjacent_context, 900)}`
+        ? `\nNearby context from the same source: ${compactContextText(neutralizeInstructions(result.adjacent_context), 900)}`
         : "";
       const sectionPath = result.section_path?.length
-        ? `\nSection path: ${result.section_path.join(" > ")}`
+        ? `\nSection path: ${neutralizeInstructions(result.section_path.join(" > "))}`
         : result.section_heading
-          ? `\nSection: ${result.section_heading}`
+          ? `\nSection: ${neutralizeInstructions(result.section_heading)}`
           : "";
       const tableFacts = result.table_facts?.length
         ? `\nStructured table facts: ${result.table_facts
@@ -5453,11 +5626,11 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
       const memoryCards = result.memory_cards?.length
         ? `\nStructured memory: ${result.memory_cards
             .slice(0, 3)
-            .map((card) => `${card.card_type}: ${compactContextText(card.content, 300)}`)
+            .map((card) => `${card.card_type}: ${compactContextText(neutralizeInstructions(card.content), 300)}`)
             .join(" | ")}`
         : "";
       const retrievalSynopsis = result.retrieval_synopsis
-        ? `\nRetrieval synopsis: ${compactContextText(result.retrieval_synopsis, 700)}`
+        ? `\nRetrieval synopsis: ${compactContextText(neutralizeInstructions(result.retrieval_synopsis), 700)}`
         : "";
       const neutralizedContent = neutralizeInstructions(result.content);
       const fencedContent = `<<<SOURCE_EXCERPT>>>\n${compactContextText(neutralizedContent, 1800)}\n<<<END_SOURCE_EXCERPT>>>`;
@@ -5517,7 +5690,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       answer.routingReason = undefined;
     }
     // GEN-C2 / GEN-H2: numeric faithfulness gate.
-    return applyNumericVerification(answer);
+    return enrichGroundedReviewCitations(applyNumericVerification(answer), results);
   } catch (error) {
     console.warn("Failed to parse answer payload, falling back to safe text:", error);
     return safeFallbackAnswer(raw, results, query);
@@ -5544,6 +5717,39 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
 // answer against the text of its cited chunks. Unsupported figures are recorded
 // on the answer and an explicit "verify against source" caveat is appended so a
 // paraphrased/mis-transcribed dose can never read as authoritative.
+const actionableNumericAnswerPattern =
+  /\b(?:dose|dosage|dosing|mg|mcg|microgram|micrograms|route|oral|intramuscular|\bim\b|\bpo\b|frequency|daily|twice|weekly|monthly|hourly|threshold|cutoff|cut-off|anc|fbc|wbc|withhold|cease|stop|discontinue|red\s+(?:result|range|zone)|amber\s+(?:result|range|zone)|green\s+(?:result|range|zone)|monitor|monitoring|interval|repeat|review|risk\s+score|risk|score|escalat|urgent)\b/i;
+
+const actionableNumericSectionKinds = new Set<AnswerSectionKind>([
+  "medication_dose",
+  "thresholds",
+  "monitoring_timing",
+  "escalation_risk",
+  "required_actions",
+]);
+
+function hasActionableNumericContext(answer: RagAnswer) {
+  if (!answer.grounded || answer.confidence === "unsupported") return false;
+  if (answer.queryClass === "medication_dose_risk" || answer.queryClass === "table_threshold") return true;
+  if (
+    (answer.answerSections ?? []).some((section) => section.kind && actionableNumericSectionKinds.has(section.kind))
+  ) {
+    return true;
+  }
+  const text = [
+    answer.answer,
+    answer.routingReason,
+    ...(answer.answerSections ?? []).flatMap((section) => [section.heading, section.body]),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return actionableNumericAnswerPattern.test(text);
+}
+
+function appendRoutingReason(reason: string | undefined, addition: string) {
+  return reason ? `${reason}; ${addition}` : addition;
+}
+
 function applyNumericVerification(answer: RagAnswer): RagAnswer {
   const sources = answer.sources ?? [];
   const unverified = new Set<string>();
@@ -5578,6 +5784,18 @@ function applyNumericVerification(answer: RagAnswer): RagAnswer {
     message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${unverifiedTokens.join(", ")}.`,
   };
   answer.conflictsOrGaps = [...(answer.conflictsOrGaps ?? []), caveat];
+  if (hasActionableNumericContext(answer)) {
+    answer.answer =
+      "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the source passages directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.";
+    answer.grounded = false;
+    answer.confidence = "unsupported";
+    answer.responseMode = "evidence_gap";
+    answer.answerSections = [];
+    answer.citations = [];
+    answer.quoteCards = [];
+    answer.routingReason = appendRoutingReason(answer.routingReason, "numeric_faithfulness_gate_source_gap");
+    return answer;
+  }
   if (answer.confidence === "high") answer.confidence = "medium";
   return answer;
 }
@@ -6204,6 +6422,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
 
   let generationLatencyMs = 0;
   let modelUsed = route.model;
+  let modelTierUsed: "fast" | "strong" = route.mode === "strong" ? "strong" : "fast";
   let routingReason = route.reason;
   let retriedWithStrong = false;
   let openAIUsage: OpenAITokenUsage = {};
@@ -6237,6 +6456,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     model: string,
     contextResults: SearchResult[],
     qualityRetryInstruction?: string,
+    reasoningTier: "fast" | "strong" = "fast",
   ): Promise<OpenAITextResult> {
     const input = qualityRetryInstruction
       ? `${buildAnswerInput(contextResults)}
@@ -6255,9 +6475,7 @@ ${qualityRetryInstruction}`
         promptCacheKey: "clinical-rag-answer-v13",
         timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
         reasoningEffort:
-          model === env.OPENAI_STRONG_ANSWER_MODEL
-            ? env.OPENAI_STRONG_REASONING_EFFORT
-            : env.OPENAI_FAST_REASONING_EFFORT,
+          reasoningTier === "strong" ? env.OPENAI_STRONG_REASONING_EFFORT : env.OPENAI_FAST_REASONING_EFFORT,
         signal: args.signal,
       });
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
@@ -6384,12 +6602,20 @@ ${qualityRetryInstruction}`
       reason: route.reason,
     });
     let packedContextResults = await packContextForGeneration(modelContextResults);
-    let generated = await generateWithModel(route.model!, packedContextResults);
-    if (generated.truncated && route.mode === "fast" && route.model !== env.OPENAI_STRONG_ANSWER_MODEL) {
-      const retryReason = `${generationRetryReason("fast", generated)}_retry_strong`;
+    let generated = await generateWithModel(
+      route.model!,
+      packedContextResults,
+      undefined,
+      route.mode === "strong" ? "strong" : "fast",
+    );
+    if (generated.truncated && !retriedWithStrong) {
+      const retryPrefix =
+        route.mode === "fast" ? "fast" : modelUsed === env.OPENAI_STRONG_ANSWER_MODEL ? "strong" : "generation";
+      const retryReason = `${generationRetryReason(retryPrefix, generated)}_retry_strong`;
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
+      modelTierUsed = "strong";
       routingReason = `${route.reason}; ${retryReason}`;
       retriedWithStrong = true;
       await args.onProgress?.({
@@ -6400,7 +6626,7 @@ ${qualityRetryInstruction}`
         reason: routingReason,
       });
       packedContextResults = await packContextForGeneration(answerInputResults);
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults);
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, undefined, "strong");
       retrievalDiagnostics.routeMode = "strong";
     }
     if (generated.truncated) {
@@ -6449,6 +6675,7 @@ ${qualityRetryInstruction}`
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
+      modelTierUsed = "strong";
       routingReason = `${route.reason}; ${retryReason}`;
       retriedWithStrong = true;
       await args.onProgress?.({
@@ -6470,7 +6697,7 @@ ${qualityRetryInstruction}`
         reason: routingReason,
       });
       packedContextResults = await packContextForGeneration(answerInputResults);
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults);
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, undefined, "strong");
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
         const truncatedReason = generationRetryReason("strong", generated);
@@ -6484,11 +6711,8 @@ ${qualityRetryInstruction}`
       );
     }
     const strongQualityFailureReason =
-      modelUsed === env.OPENAI_STRONG_ANSWER_MODEL
-        ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
-        : null;
-    const answerNeedsStrongQualityRepair =
-      modelUsed === env.OPENAI_STRONG_ANSWER_MODEL && Boolean(strongQualityFailureReason);
+      modelTierUsed === "strong" ? generatedAnswerQualityFailureReason(answer, args.query, queryClass) : null;
+    const answerNeedsStrongQualityRepair = modelTierUsed === "strong" && Boolean(strongQualityFailureReason);
     if (answerNeedsStrongQualityRepair) {
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
@@ -6504,6 +6728,7 @@ ${qualityRetryInstruction}`
         env.OPENAI_STRONG_ANSWER_MODEL,
         packedContextResults,
         `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
+        "strong",
       );
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
@@ -6552,7 +6777,7 @@ ${qualityRetryInstruction}`
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
     const canRecoverExtractively =
-      modelUsed !== env.OPENAI_STRONG_ANSWER_MODEL && (answer.citations.length > 0 || answerInputResults.length > 0);
+      modelTierUsed !== "strong" && (answer.citations.length > 0 || answerInputResults.length > 0);
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
@@ -6624,6 +6849,12 @@ ${qualityRetryInstruction}`
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(answer.routingReason),
           model_used: modelUsed,
+          requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
+          requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,
+          answer_model_demoted:
+            requestedOpenAIAnswerModels.answer !== env.OPENAI_ANSWER_MODEL ||
+            requestedOpenAIAnswerModels.fastAnswer !== env.OPENAI_FAST_ANSWER_MODEL ||
+            requestedOpenAIAnswerModels.strongAnswer !== env.OPENAI_STRONG_ANSWER_MODEL,
           fast_model: env.OPENAI_FAST_ANSWER_MODEL,
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,
@@ -6769,6 +7000,12 @@ ${qualityRetryInstruction}`
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(fallbackAnswer.routingReason),
           model_used: null,
+          requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
+          requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,
+          answer_model_demoted:
+            requestedOpenAIAnswerModels.answer !== env.OPENAI_ANSWER_MODEL ||
+            requestedOpenAIAnswerModels.fastAnswer !== env.OPENAI_FAST_ANSWER_MODEL ||
+            requestedOpenAIAnswerModels.strongAnswer !== env.OPENAI_STRONG_ANSWER_MODEL,
           fast_model: env.OPENAI_FAST_ANSWER_MODEL,
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,

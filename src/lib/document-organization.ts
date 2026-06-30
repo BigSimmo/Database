@@ -28,6 +28,15 @@ type SiteDefinition = {
   evidence: RegExp[];
 };
 
+type SiteCandidate = {
+  label: string;
+  short_label: string;
+  raw_tag: string;
+  kind: DocumentOrganizationSiteKind;
+  confidence: number;
+  evidence_sources: string[];
+};
+
 type SecondaryFacet = {
   label: string;
   label_type: Extract<
@@ -1248,8 +1257,31 @@ function referenceCollectionFromEvidence(input: OrganizationDocumentInput) {
   });
 }
 
-function hasGeneralReferenceEvidence(input: OrganizationDocumentInput) {
-  return /\b(?:clinical reference|reference material|best practice|guideline|guidance)\b/i.test(evidenceText(input));
+function siteCandidateSpecificity(candidate: SiteCandidate) {
+  switch (candidate.kind) {
+    case "hospital":
+      return 5;
+    case "health_service":
+      return 4;
+    case "program":
+      return 3;
+    case "unit":
+      return 2;
+    case "reference_collection":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function selectSiteCandidate(candidates: SiteCandidate[]) {
+  return [...candidates].sort(
+    (left, right) =>
+      right.confidence - left.confidence ||
+      Number(right.evidence_sources.some((source) => source.startsWith("bracket:"))) -
+        Number(left.evidence_sources.some((source) => source.startsWith("bracket:"))) ||
+      siteCandidateSpecificity(right) - siteCandidateSpecificity(left),
+  )[0];
 }
 
 function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
@@ -1284,7 +1316,7 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
   const candidates = [...taggedCandidates, ...sourceCandidates];
 
   const confirmedCandidates = candidates.filter((candidate) => candidate.confidence >= 0.75);
-  const selected = confirmedCandidates.length === 1 ? confirmedCandidates[0] : null;
+  const selected = selectSiteCandidate(confirmedCandidates) ?? null;
 
   const referenceCollection = !selected && candidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
   if (referenceCollection) {
@@ -1299,9 +1331,7 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
     };
   }
 
-  if (!selected && candidates.length === 0 && rawTags.length === 0 && hasGeneralReferenceEvidence(input)) {
-    return generalClinicalReferenceSite;
-  }
+  if (!selected && candidates.length === 0) return generalClinicalReferenceSite;
 
   return {
     label: selected?.label ?? null,

@@ -287,6 +287,9 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   let boost = 0;
 
   if (args.intent.needsMedicationChart && args.candidate.chunkType === "medication_chart") boost += 0.18;
+  if (args.intent.needsMedicationChart && args.intent.requiredTermSignals.includes("agitation")) {
+    boost += signals.has("agitation") ? 0.22 : -0.22;
+  }
   if (
     args.intent.needsTable &&
     (args.candidate.chunkType === "table" || args.candidate.chunkType === "medication_chart")
@@ -294,11 +297,21 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
     boost += 0.1;
   }
   if (args.intent.needsFlowchartStep && args.candidate.chunkType === "flowchart") boost += 0.18;
+  if (args.intent.needsFlowchartStep) {
+    boost += signals.has("flowchart_or_pathway") ? 0.1 : -0.1;
+    boost += signals.has("next_step_or_action") ? 0.08 : -0.06;
+  }
   if (args.intent.needsRiskFlowchart && args.candidate.chunkType === "flowchart") boost += 0.08;
   if (args.intent.needsRiskFlowchart && signals.has("risk")) boost += 0.1;
   if (args.intent.needsRiskFlowchart && signals.has("red_zone")) boost += 0.1;
+  if (args.intent.needsRiskFlowchart && !signals.has("risk")) boost -= 0.12;
+  if (args.intent.needsRiskFlowchart && !signals.has("red_zone")) boost -= 0.06;
   if (args.intent.needsRiskFlowchart && args.candidate.chunkType === "flowchart" && !signals.has("risk")) boost -= 0.06;
   if (args.intent.needsPatientEducation && args.candidate.chunkType === "patient_education") boost += 0.18;
+  if (args.intent.needsPatientEducation) {
+    boost += signals.has("active_community") ? 0.16 : -0.16;
+    boost += signals.has("ed") ? 0.08 : -0.08;
+  }
   if (args.intent.needsSourceImage && signals.has("source_image")) boost += 0.22;
   if (args.intent.needsSourceImage && !signals.has("source_image")) boost -= 0.14;
   if (args.intent.needsExactVisualTable && signals.has("visual_table")) boost += 0.16;

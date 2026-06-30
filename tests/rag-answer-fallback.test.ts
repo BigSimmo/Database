@@ -327,6 +327,32 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
   });
 
+  it("returns a grounded document-support fallback for procedure queries when no clean fact can be synthesized", async () => {
+    const answer = await answerFromTextSources(
+      "What is the process for ECT procedure?",
+      [
+        source({
+          id: "ect-procedure-1",
+          document_id: "ect-doc",
+          title: "ECT Procedure",
+          file_name: "ECT Procedure (AKG).pdf",
+          section_heading: "Procedure flowchart",
+          content: "Procedure flowchart records and rostered ECT team coordination.",
+          similarity: 0.9,
+          hybrid_score: 0.9,
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["document_title"] },
+        }),
+      ],
+      new Error("OpenAI timed out. Trying source-only fallback response."),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toMatch(/source_backed_(?:extractive|review)_fallback/);
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.answer).toMatch(/source support|indexed document|supports this query|ECT Procedure/i);
+  });
+
   it("retries template-like fast answers with the strong model before returning", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");

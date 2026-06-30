@@ -29,6 +29,7 @@ import { type FormEvent, useMemo, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import {
+  appBackdrop,
   chatComposerIconButton,
   chatComposerInput,
   chatComposerShell,
@@ -652,7 +653,7 @@ function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenC
       description="Recent chats, applications, help, and settings."
       closeLabel="Close Clinical Guide menu"
       placement="left"
-      contentClassName="lg:hidden"
+      contentClassName="font-sans lg:hidden"
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
         <Link
@@ -826,7 +827,7 @@ function ApplicationsHeader({
   return (
     <header
       id="search"
-      className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4 lg:px-6"
+      className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
     >
       <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
         <button
@@ -1182,7 +1183,7 @@ export function ApplicationsLauncherWorkspace({
   }
 
   return (
-    <div className={cn("min-h-screen bg-[color:var(--surface)] text-[color:var(--text)]", className)}>
+    <div className={cn(appBackdrop, "min-h-[100dvh] text-[color:var(--text)]", className)}>
       <ApplicationsHeader
         mobileMenuOpen={mobileMenuOpen}
         modeMenuOpen={modeMenuOpen}

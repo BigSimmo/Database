@@ -1,0 +1,22 @@
+{
+  "accepted": true,
+  "accepted_by": "repository owner",
+  "accepted_at": "2026-06-30T00:00:00.000+08:00",
+  "expires_at": "2026-07-31T23:59:59.000+08:00",
+  "reason": "Temporary release metadata debt acceptance for the existing eval corpus while document-level source status and local validation metadata are backfilled. This does not mark any source current, locally reviewed, or approved.",
+  "scope": "eval-quality retrieval source metadata thresholds only",
+  "source_report": "output/evals/eval-quality-final.json",
+  "required_follow_up": [
+    "Review high-frequency golden top-result documents first.",
+    "Backfill documents.metadata.document_status only after confirming source currentness.",
+    "Backfill documents.metadata.clinical_validation_status only after local clinical review.",
+    "Replace this debt file with stricter ceilings or remove it before expiry."
+  ],
+  "ceilings": {
+    "max_stale_rate": 1,
+    "max_review_required_rate": 1,
+    "max_outdated_top_results": 0,
+    "max_poor_extraction_top_results": 0,
+    "max_source_governance_danger_failure_rate": 0
+  }
+}

@@ -626,7 +626,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSettingsSurface(settings);
   });
 
-  test("account settings uses a top mobile popup and closes from X, Escape, and backdrop", async ({ page }) => {
+  test("account settings uses a fullscreen settings page below desktop and closes from X, Escape, and backdrop", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -641,7 +641,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const settingsBox = await settings.boundingBox();
     expect(settingsBox).not.toBeNull();
     expect(settingsBox!.x).toBeGreaterThanOrEqual(0);
-    expect(settingsBox!.y).toBeLessThanOrEqual(24);
+    expect(settingsBox!.y).toBeLessThanOrEqual(1);
+    expect(settingsBox!.width).toBeGreaterThanOrEqual(389);
+    expect(settingsBox!.height).toBeGreaterThanOrEqual(819);
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();

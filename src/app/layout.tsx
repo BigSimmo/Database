@@ -14,14 +14,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
+  appleWebApp: {
+    capable: true,
+    title: "Clinical KB",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f6f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d1318" },
+  ],
 };
 
 export default function RootLayout({
@@ -38,7 +49,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-lux)] focus:bg-[color:var(--surface-raised)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-elevated)]"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-[max(0.75rem,env(safe-area-inset-left))] focus:top-[max(0.75rem,env(safe-area-inset-top))] focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-lux)] focus:bg-[color:var(--surface-raised)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-elevated)]"
         >
           Skip to main content
         </a>

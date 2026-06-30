@@ -18,7 +18,7 @@ const envSchema = z.object({
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
   OPENAI_ANSWER_MODEL: z.string().default("gpt-5.5"),
   OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.5"),
-  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5-pro"),
+  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5"),
   // Reasoning models (gpt-5*) draw reasoning tokens from this same budget, so a
   // low cap can starve the JSON answer payload and silently truncate clinical
   // content (doses/thresholds cut mid-sentence). Raised default to 4000 for headroom;
@@ -85,7 +85,29 @@ const envSchema = z.object({
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });
 
-export const env = envSchema.parse(process.env);
+const parsedEnv = envSchema.parse(process.env);
+const nonProAnswerModelFallback = "gpt-5.5";
+
+function isProAnswerModel(model: string) {
+  return /(?:^|[-_])pro(?:$|[-_])/i.test(model);
+}
+
+function runtimeAnswerModel(model: string) {
+  return isProAnswerModel(model) ? nonProAnswerModelFallback : model;
+}
+
+export const requestedOpenAIAnswerModels = {
+  answer: parsedEnv.OPENAI_ANSWER_MODEL,
+  fastAnswer: parsedEnv.OPENAI_FAST_ANSWER_MODEL,
+  strongAnswer: parsedEnv.OPENAI_STRONG_ANSWER_MODEL,
+} as const;
+
+export const env = {
+  ...parsedEnv,
+  OPENAI_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_ANSWER_MODEL),
+  OPENAI_FAST_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_FAST_ANSWER_MODEL),
+  OPENAI_STRONG_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_STRONG_ANSWER_MODEL),
+} satisfies typeof parsedEnv;
 
 export function requireServerEnv() {
   const missing = [

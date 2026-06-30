@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
@@ -10,7 +10,14 @@ import {
   summarizeGoldenRetrievalResults,
   type GoldenRetrievalResult,
 } from "./eval-retrieval";
-import { estimateCostUsd, findOwnerIdByEmail, loadAdminClient, percentile, validateRagAnswer } from "./eval-utils";
+import {
+  estimateCostUsd,
+  findOwnerIdByEmail,
+  loadAdminClient,
+  percentile,
+  validateRagAnswer,
+  withProviderBackoff,
+} from "./eval-utils";
 import {
   loadCapturedRagEvalCases,
   mergeRagEvalCases,
@@ -30,6 +37,7 @@ type EvalQualityArgs = {
   query?: string;
   question?: string;
   outputDir: string;
+  sourceMetadataDebt?: string;
   json: boolean;
   failOnThreshold: boolean;
   retrievalOnly: boolean;
@@ -42,6 +50,10 @@ export type RagQualityResult = {
   question: string;
   category: RagEvalCase["category"];
   supported: boolean;
+  expectedFiles: string[];
+  matchedFiles: string[];
+  missingFiles: string[];
+  topFiles: string[];
   expectedHit: boolean;
   grounded: boolean;
   latencyMs: number;
@@ -51,8 +63,10 @@ export type RagQualityResult = {
   visualEvidence: number;
   failures: string[];
   sourceWarningCount: number;
+  sourceDangerWarningCount: number;
   unverifiedNumericTokenCount: number;
   hasFaithfulnessWarning: boolean;
+  routingReason?: string;
   estimatedCostUsd: number | null;
 };
 
@@ -72,6 +86,19 @@ export type QualityFailureCategory =
 
 export type EvalQualityReport = ReturnType<typeof buildEvalQualityReport>;
 
+export type SourceMetadataDebtAcceptance = {
+  path?: string;
+  accepted_by: string;
+  accepted_at: string;
+  expires_at?: string;
+  reason: string;
+  max_stale_rate: number;
+  max_review_required_rate: number;
+  max_outdated_top_results: number;
+  max_poor_extraction_top_results: number;
+  max_source_governance_danger_failure_rate: number;
+};
+
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
@@ -81,6 +108,7 @@ const qualityThresholds = {
   ragCitationFailureRate: 0,
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
+  reviewRequiredTopResultRate: 0.25,
   ragP95LatencyMs: 25_000,
 };
 
@@ -133,6 +161,7 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     if (token === "--query") args.query = value;
     if (token === "--question") args.question = value;
     if (token === "--output-dir") args.outputDir = value;
+    if (token === "--source-metadata-debt") args.sourceMetadataDebt = value;
   }
 
   if (args.retrievalOnly && args.ragOnly) throw new Error("Use only one of --retrieval-only or --rag-only.");
@@ -186,22 +215,110 @@ function failureCategoryCounts(results: Array<{ failures: string[] }>) {
   );
 }
 
+function isSourceMetadataDebtThresholdFailure(failure: string) {
+  return (
+    failure.startsWith("top-result stale/review/unknown rate") ||
+    failure.startsWith("top-result review_required_rate")
+  );
+}
+
+function isIsoDateString(value: string) {
+  return !Number.isNaN(Date.parse(value));
+}
+
+function evaluateSourceMetadataDebtAcceptance(args: {
+  acceptance?: SourceMetadataDebtAcceptance;
+  thresholdFailures: string[];
+  governance: ReturnType<typeof topResultGovernanceCounts>;
+  ragSummary: ReturnType<typeof summarizeRagQualityResults>;
+}) {
+  const metadataFailures = args.thresholdFailures.filter(isSourceMetadataDebtThresholdFailure);
+  const rejectionReasons: string[] = [];
+
+  if (!args.acceptance) {
+    return {
+      status: "not_requested" as const,
+      accepted_failures: [] as string[],
+      rejection_reasons: rejectionReasons,
+    };
+  }
+
+  const acceptance = args.acceptance;
+  if (!acceptance.accepted_by.trim()) rejectionReasons.push("accepted_by is required");
+  if (!acceptance.reason.trim()) rejectionReasons.push("reason is required");
+  if (!isIsoDateString(acceptance.accepted_at)) rejectionReasons.push("accepted_at must be an ISO-compatible date");
+  if (acceptance.expires_at) {
+    if (!isIsoDateString(acceptance.expires_at)) {
+      rejectionReasons.push("expires_at must be an ISO-compatible date");
+    } else if (Date.parse(acceptance.expires_at) < Date.now()) {
+      rejectionReasons.push(`acceptance expired at ${acceptance.expires_at}`);
+    }
+  }
+  if (args.governance.stale_rate > acceptance.max_stale_rate) {
+    rejectionReasons.push(
+      `stale/review/unknown rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`,
+    );
+  }
+  if (args.governance.review_required_rate > acceptance.max_review_required_rate) {
+    rejectionReasons.push(
+      `review-required rate ${args.governance.review_required_rate} exceeds accepted ceiling ${acceptance.max_review_required_rate}`,
+    );
+  }
+  if (args.governance.stale_top_results > acceptance.max_outdated_top_results) {
+    rejectionReasons.push(
+      `outdated top results ${args.governance.stale_top_results} exceeds accepted ceiling ${acceptance.max_outdated_top_results}`,
+    );
+  }
+  if (args.governance.poor_extraction_top_results > acceptance.max_poor_extraction_top_results) {
+    rejectionReasons.push(
+      `poor-extraction top results ${args.governance.poor_extraction_top_results} exceeds accepted ceiling ${acceptance.max_poor_extraction_top_results}`,
+    );
+  }
+  const acceptedFailures = rejectionReasons.length === 0 ? metadataFailures : [];
+  return {
+    status: acceptedFailures.length > 0 ? ("accepted" as const) : ("rejected" as const),
+    path: acceptance.path,
+    accepted_by: acceptance.accepted_by,
+    accepted_at: acceptance.accepted_at,
+    expires_at: acceptance.expires_at,
+    reason: acceptance.reason,
+    accepted_failures: acceptedFailures,
+    rejection_reasons: rejectionReasons,
+  };
+}
+
 function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
   let total = 0;
   let stale = 0;
   let reviewDue = 0;
   let unknown = 0;
   let unverified = 0;
+  let unknownExtraction = 0;
   let poorExtraction = 0;
+  let reviewRequired = 0;
 
   for (const result of results) {
     for (const topResult of result.topResults) {
       total += 1;
-      if (topResult.document_status === "outdated") stale += 1;
-      if (topResult.document_status === "review_due") reviewDue += 1;
-      if (!topResult.document_status || topResult.document_status === "unknown") unknown += 1;
-      if (topResult.clinical_validation_status === "unverified") unverified += 1;
-      if (topResult.extraction_quality === "poor") poorExtraction += 1;
+      const status = topResult.document_status ?? "unknown";
+      const validation = topResult.clinical_validation_status ?? "unverified";
+      const extraction = topResult.extraction_quality ?? "unknown";
+      if (status === "outdated") stale += 1;
+      if (status === "review_due") reviewDue += 1;
+      if (status === "unknown") unknown += 1;
+      if (validation === "unverified") unverified += 1;
+      if (extraction === "unknown") unknownExtraction += 1;
+      if (extraction === "poor") poorExtraction += 1;
+      if (
+        status === "outdated" ||
+        status === "review_due" ||
+        status === "unknown" ||
+        validation === "unverified" ||
+        extraction === "unknown" ||
+        extraction === "poor"
+      ) {
+        reviewRequired += 1;
+      }
     }
   }
 
@@ -211,8 +328,13 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
     review_due_top_results: reviewDue,
     unknown_status_top_results: unknown,
     unverified_top_results: unverified,
+    unknown_extraction_top_results: unknownExtraction,
     poor_extraction_top_results: poorExtraction,
     stale_rate: rate(stale + reviewDue + unknown, total),
+    review_required_top_results: reviewRequired,
+    review_required_rate: rate(reviewRequired, total),
+    metadata_policy:
+      "unknown, unverified, review_due, outdated, unknown extraction, and poor extraction metadata are treated as review-required; do not silently default them to current or approved.",
   };
 }
 
@@ -230,6 +352,8 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
       result.hasFaithfulnessWarning ||
       result.failures.some((failure) => qualityFailureCategory(failure) === "numeric_grounding"),
   );
+  const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
+  const sourceGovernanceDangerFailures = results.filter((result) => result.sourceDangerWarningCount > 0);
   const latencies = results.map((result) => result.latencyMs);
   const estimatedCostUsd = results.some((result) => result.estimatedCostUsd === null)
     ? null
@@ -245,6 +369,8 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     citation_failure_rate: rate(citationFailures.length, results.length),
     numeric_grounding_failure_rate: rate(numericFailures.length, results.length),
     source_warning_count: results.reduce((sum, result) => sum + result.sourceWarningCount, 0),
+    source_governance_warning_rate: rate(sourceGovernanceWarnings.length, results.length),
+    source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     estimated_cost_usd: estimatedCostUsd === null ? null : Number(estimatedCostUsd.toFixed(6)),
@@ -257,6 +383,7 @@ export function buildEvalQualityReport(args: {
   generatedAt?: string;
   retrievalResults: GoldenRetrievalResult[];
   ragResults: RagQualityResult[];
+  sourceMetadataDebtAcceptance?: SourceMetadataDebtAcceptance;
 }) {
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
   const ragSummary = summarizeRagQualityResults(args.ragResults);
@@ -284,6 +411,11 @@ export function buildEvalQualityReport(args: {
         `top-result stale/review/unknown rate ${governance.stale_rate} above ${qualityThresholds.staleTopResultRate}`,
       );
     }
+    if (governance.review_required_rate > qualityThresholds.reviewRequiredTopResultRate) {
+      thresholdFailures.push(
+        `top-result review_required_rate ${governance.review_required_rate} above ${qualityThresholds.reviewRequiredTopResultRate}`,
+      );
+    }
   }
 
   if (args.ragResults.length > 0) {
@@ -306,12 +438,26 @@ export function buildEvalQualityReport(args: {
     if (ragSummary.numeric_grounding_failure_rate > qualityThresholds.numericGroundingFailureRate) {
       thresholdFailures.push(`RAG numeric_grounding_failure_rate ${ragSummary.numeric_grounding_failure_rate} above 0`);
     }
+    if (ragSummary.source_governance_danger_failure_rate > 0) {
+      thresholdFailures.push(
+        `RAG source_governance_danger_failure_rate ${ragSummary.source_governance_danger_failure_rate} above 0`,
+      );
+    }
     if (ragSummary.p95_latency_ms > qualityThresholds.ragP95LatencyMs) {
       thresholdFailures.push(
         `RAG p95_latency_ms ${ragSummary.p95_latency_ms} above ${qualityThresholds.ragP95LatencyMs}`,
       );
     }
   }
+
+  const sourceMetadataDebtAcceptance = evaluateSourceMetadataDebtAcceptance({
+    acceptance: args.sourceMetadataDebtAcceptance,
+    thresholdFailures,
+    governance,
+    ragSummary,
+  });
+  const acceptedThresholdFailures = new Set(sourceMetadataDebtAcceptance.accepted_failures);
+  const blockingThresholdFailures = thresholdFailures.filter((failure) => !acceptedThresholdFailures.has(failure));
 
   return {
     generated_at: args.generatedAt ?? new Date().toISOString(),
@@ -327,6 +473,9 @@ export function buildEvalQualityReport(args: {
       results: args.ragResults,
     },
     threshold_failures: thresholdFailures,
+    accepted_threshold_failures: sourceMetadataDebtAcceptance.accepted_failures,
+    blocking_threshold_failures: blockingThresholdFailures,
+    source_metadata_debt_acceptance: sourceMetadataDebtAcceptance,
   };
 }
 
@@ -345,13 +494,55 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
   const failures = report.threshold_failures.length
     ? report.threshold_failures.map((item) => `- ${item}`).join("\n")
     : "- None";
+  const blockingFailures = report.blocking_threshold_failures.length
+    ? report.blocking_threshold_failures.map((item) => `- ${item}`).join("\n")
+    : "- None";
+  const acceptedFailures = report.accepted_threshold_failures.length
+    ? report.accepted_threshold_failures.map((item) => `- ${item}`).join("\n")
+    : "- None";
+  const debtAcceptance = report.source_metadata_debt_acceptance;
+  const debtAcceptanceRows =
+    debtAcceptance.status === "not_requested"
+      ? markdownTable([["Status", "not_requested"]])
+      : markdownTable([
+          ["Status", debtAcceptance.status],
+          ["Accepted by", debtAcceptance.accepted_by ?? "n/a"],
+          ["Accepted at", debtAcceptance.accepted_at ?? "n/a"],
+          ["Expires at", debtAcceptance.expires_at ?? "n/a"],
+          ["Path", debtAcceptance.path ?? "n/a"],
+          ["Reason", debtAcceptance.reason ?? "n/a"],
+          ["Rejection reasons", debtAcceptance.rejection_reasons.join("; ") || "none"],
+        ]);
   const failedRetrieval = report.retrieval.summary.failed_cases
     .slice(0, 10)
-    .map((item) => `- ${item.id}: ${item.failures.join("; ")}`)
+    .map(
+      (item) =>
+        `- ${item.id}: ${item.failures.join("; ")}\n  Expected documents: ${
+          item.expectedDocumentSubstrings.join(", ") || "none"
+        }; missing: ${item.missingDocumentSubstrings.join(", ") || "none"}\n  Expected content: ${
+          item.expectedContentTerms.join(", ") || "none"
+        }; missing content: ${item.missingContentTerms.join(", ") || "none"}\n  Actual top files: ${
+          item.topResults
+            .slice(0, 5)
+            .map((source) => `${source.rank}:${source.file_name}`)
+            .join(" | ") || "none"
+        }`,
+    )
     .join("\n");
   const failedRag = report.rag.summary.failed_cases
     .slice(0, 10)
-    .map((item) => `- ${item.id}: ${item.failures.join("; ")}`)
+    .map(
+      (item) =>
+        `- ${item.id}: ${item.failures.join("; ")}\n  Expected files: ${
+          item.expectedFiles.join(", ") || "none"
+        }; missing: ${item.missingFiles.join(", ") || "none"}\n  Actual top files: ${
+          item.topFiles.join(" | ") || "none"
+        }\n  route=${item.route} grounded=${item.grounded} citations=${item.citations} numericWarnings=${
+          item.unverifiedNumericTokenCount
+        } faithfulnessWarning=${item.hasFaithfulnessWarning ? "yes" : "no"} sourceWarnings=${
+          item.sourceWarningCount
+        }`,
+    )
     .join("\n");
 
   return `# Retrieval Quality Report
@@ -360,7 +551,21 @@ Generated: ${report.generated_at}
 
 ## Threshold Status
 
+Blocking failures:
+
+${blockingFailures}
+
+Accepted metadata-debt failures:
+
+${acceptedFailures}
+
+All threshold failures:
+
 ${failures}
+
+## Source Metadata Debt Acceptance
+
+${debtAcceptanceRows}
 
 ## Retrieval Metrics
 
@@ -393,9 +598,14 @@ ${markdownTable([
   ["Review-due top results", governance.review_due_top_results],
   ["Unknown-status top results", governance.unknown_status_top_results],
   ["Unverified top results", governance.unverified_top_results],
+  ["Unknown-extraction top results", governance.unknown_extraction_top_results],
   ["Poor-extraction top results", governance.poor_extraction_top_results],
   ["Stale/review/unknown rate", governance.stale_rate],
+  ["Review-required top results", governance.review_required_top_results],
+  ["Review-required rate", governance.review_required_rate],
 ])}
+
+Policy: ${governance.metadata_policy}
 
 ## Answer Metrics
 
@@ -406,6 +616,8 @@ ${markdownTable([
   ["Expected source hit rate", rag.expected_hit_rate],
   ["Citation failure rate", rag.citation_failure_rate],
   ["Numeric grounding failure rate", rag.numeric_grounding_failure_rate],
+  ["Source governance warning rate", rag.source_governance_warning_rate],
+  ["Source governance danger failure rate", rag.source_governance_danger_failure_rate],
   ["P95 latency ms", rag.p95_latency_ms],
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}
@@ -452,13 +664,15 @@ async function runRetrievalQualityCases(args: {
 
   for (const testCase of cases) {
     const startedAt = Date.now();
-    const search = await searchChunksWithTelemetry({
-      query: testCase.query,
-      ownerId: args.ownerId,
-      topK: testCase.topK,
-      minSimilarity: 0.12,
-      skipCache: true,
-    });
+    const search = await withProviderBackoff(`quality-retrieval:${testCase.id}`, () =>
+      searchChunksWithTelemetry({
+        query: testCase.query,
+        ownerId: args.ownerId,
+        topK: testCase.topK,
+        minSimilarity: 0.12,
+        skipCache: true,
+      }),
+    );
     const latencyMs =
       (search.telemetry.supabase_rpc_latency_ms ?? 0) +
         (search.telemetry.embedding_latency_ms ?? 0) +
@@ -496,26 +710,29 @@ async function runRagQualityCases(args: {
   const results: RagQualityResult[] = [];
 
   for (const testCase of cases) {
-    const answer = (await answerQuestionWithScope({
-      query: testCase.question,
-      ownerId: args.ownerId,
-      logQuery: false,
-      skipCache: true,
-    })) as RagAnswer;
+    const answer = (await withProviderBackoff(`quality-rag:${testCase.id}`, () =>
+      answerQuestionWithScope({
+        query: testCase.question,
+        ownerId: args.ownerId,
+        logQuery: false,
+        skipCache: true,
+      }),
+    )) as RagAnswer;
     const validation = validateRagAnswer(testCase, answer);
     const failures = [...validation.failures];
-    if ((answer.unverifiedNumericTokens?.length ?? 0) > 0 || answer.faithfulnessWarning) {
-      failures.push("numeric faithfulness warning present");
-    }
-    if ((answer.sourceGovernanceWarnings?.length ?? 0) > 0) {
-      failures.push("source governance warning present");
-    }
+    const sourceWarnings = answer.sourceGovernanceWarnings ?? [];
+    const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
+    if (sourceDangerWarningCount > 0) failures.push("danger source governance warning present");
 
     results.push({
       id: testCase.id,
       question: testCase.question,
       category: testCase.category,
       supported: testCase.supported,
+      expectedFiles: validation.expectedCoverage.expectedFiles,
+      matchedFiles: validation.expectedCoverage.matchedFiles,
+      missingFiles: validation.expectedCoverage.missingFiles,
+      topFiles: answer.sources.slice(0, 5).map((source) => source.file_name),
       expectedHit: validation.expectedHit,
       grounded: answer.grounded,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
@@ -524,9 +741,11 @@ async function runRagQualityCases(args: {
       citations: answer.citations.length,
       visualEvidence: answer.visualEvidence?.length ?? 0,
       failures,
-      sourceWarningCount: answer.sourceGovernanceWarnings?.length ?? 0,
+      sourceWarningCount: sourceWarnings.length,
+      sourceDangerWarningCount,
       unverifiedNumericTokenCount: answer.unverifiedNumericTokens?.length ?? 0,
       hasFaithfulnessWarning: Boolean(answer.faithfulnessWarning),
+      routingReason: answer.routingReason,
       estimatedCostUsd: estimateCostUsd({
         inputTokens: answer.openAIUsage?.input_tokens ?? 0,
         cachedInputTokens: answer.openAIUsage?.cached_input_tokens ?? 0,
@@ -550,6 +769,60 @@ async function writeReports(report: EvalQualityReport, outputDir: string) {
   return { jsonPath, markdownPath };
 }
 
+function asRecord(value: unknown, label: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function requiredString(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (typeof value !== "string" || !value.trim()) throw new Error(`source metadata debt ${key} is required.`);
+  return value;
+}
+
+function optionalString(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim()) throw new Error(`source metadata debt ${key} must be a string.`);
+  return value;
+}
+
+function requiredNumber(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`source metadata debt ${key} must be a finite number.`);
+  }
+  return value;
+}
+
+async function loadSourceMetadataDebtAcceptance(path: string): Promise<SourceMetadataDebtAcceptance> {
+  const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+  const record = asRecord(parsed, "source metadata debt acceptance");
+  const ceilings = asRecord(record.ceilings, "source metadata debt acceptance ceilings");
+
+  if (record.accepted !== true) {
+    throw new Error("source metadata debt acceptance must set accepted to true.");
+  }
+
+  return {
+    path,
+    accepted_by: requiredString(record, "accepted_by"),
+    accepted_at: requiredString(record, "accepted_at"),
+    expires_at: optionalString(record, "expires_at"),
+    reason: requiredString(record, "reason"),
+    max_stale_rate: requiredNumber(ceilings, "max_stale_rate"),
+    max_review_required_rate: requiredNumber(ceilings, "max_review_required_rate"),
+    max_outdated_top_results: requiredNumber(ceilings, "max_outdated_top_results"),
+    max_poor_extraction_top_results: requiredNumber(ceilings, "max_poor_extraction_top_results"),
+    max_source_governance_danger_failure_rate: requiredNumber(
+      ceilings,
+      "max_source_governance_danger_failure_rate",
+    ),
+  };
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [{ requireOpenAIEnv, requireServerEnv }, supabase] = await Promise.all([
@@ -560,13 +833,14 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
   if (!args.skipPreflight) await assertSafeToRunEvals(supabase);
+  const sourceMetadataDebtAcceptance = args.sourceMetadataDebt
+    ? await loadSourceMetadataDebtAcceptance(args.sourceMetadataDebt)
+    : undefined;
 
   const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
-  const [retrievalResults, ragResults] = await Promise.all([
-    args.ragOnly ? Promise.resolve([]) : runRetrievalQualityCases({ ...args, ownerId, supabase }),
-    args.retrievalOnly ? Promise.resolve([]) : runRagQualityCases({ ...args, ownerId, supabase }),
-  ]);
-  const report = buildEvalQualityReport({ retrievalResults, ragResults });
+  const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
+  const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
+  const report = buildEvalQualityReport({ retrievalResults, ragResults, sourceMetadataDebtAcceptance });
   const paths = await writeReports(report, args.outputDir);
 
   if (args.json) {
@@ -576,7 +850,7 @@ async function main() {
     console.log(`Reports written:\n  JSON: ${paths.jsonPath}\n  Markdown: ${paths.markdownPath}`);
   }
 
-  if (args.failOnThreshold && report.threshold_failures.length > 0) process.exitCode = 1;
+  if (args.failOnThreshold && report.blocking_threshold_failures.length > 0) process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

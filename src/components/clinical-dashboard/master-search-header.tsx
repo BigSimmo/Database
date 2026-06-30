@@ -691,7 +691,7 @@ export function MasterSearchHeader({
     <>
       <header
         id="search"
-        className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4 lg:px-6"
+        className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
       >
         <div className="relative mx-auto flex h-12 max-w-7xl items-center gap-2">
           <button
@@ -925,7 +925,7 @@ export function MasterSearchHeader({
         onSubmit={submit}
         className={cn(
           chatComposerShell,
-          "fixed inset-x-3 bottom-3 z-40 mx-auto max-w-3xl sm:bottom-4 lg:left-[calc(var(--clinical-sidebar-width,20rem)+2rem)] lg:right-8 lg:max-w-4xl",
+          "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl",
         )}
       >
         <ModeActionPopup

@@ -10,7 +10,6 @@ import {
   iconTilePremium,
   navPill,
   panelSubtle,
-  sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
 
@@ -261,13 +260,23 @@ export function GuideDialog({ open, onClose }: { open: boolean; onClose: () => v
       title="Clinical KB guide"
       description="Practical use notes for source-backed guideline search."
       closeLabel="Close guide"
-      contentClassName="sm:max-w-2xl"
+      contentClassName="font-sans sm:max-w-2xl"
+      titleClassName="text-[17px] font-semibold tracking-normal sm:text-lg"
+      bodyClassName="p-4 sm:p-5"
+      closeButtonClassName="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
       <div className="grid gap-3 sm:grid-cols-2">
         {guideSections.map((section) => (
-          <article key={section.title} className={cn(sourceCard, "p-3")}>
-            <h3 className="text-sm font-semibold text-[color:var(--text)]">{section.title}</h3>
-            <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{section.body}</p>
+          <article
+            key={section.title}
+            className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]"
+          >
+            <h3 className="text-[13px] font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
+              {section.title}
+            </h3>
+            <p className={cn("mt-1 text-[13px] font-normal leading-5 sm:text-sm sm:leading-6", textMuted)}>
+              {section.body}
+            </p>
           </article>
         ))}
       </div>

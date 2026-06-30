@@ -28,6 +28,7 @@ describe("document organization classifier", () => {
       review_status: "confident",
       site: {
         label: "Fiona Stanley Hospital",
+        short_label: "FSH",
         raw_tag: "FSH",
         kind: "hospital",
       },
@@ -77,14 +78,36 @@ describe("document organization classifier", () => {
     ).toMatchObject({ label: "Child and Adolescent Mental Health Service", kind: "program" });
   });
 
-  it("keeps non-site acronym tags out of site assignment", () => {
+  it("selects the strongest site when source text mentions multiple organizations", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Mental Health Handover Procedure (AKG)",
+      file_name: "Mental Health Handover Procedure (AKG).pdf",
+      contentText:
+        "Armadale Kalamunda Group procedure with WA Health and East Metropolitan Health Service governance references.",
+    });
+
+    expect(classification.profile.site).toMatchObject({
+      label: "Armadale Kalamunda Group",
+      short_label: "AKG",
+      kind: "hospital",
+    });
+    expect(classification.labels).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "Armadale Kalamunda Group", label_type: "site" })]),
+    );
+  });
+
+  it("keeps non-site acronym tags out of false hospital assignment", () => {
     const classification = classifyDocumentOrganization({
       title: "Patient Assisted Travel Scheme (PATS)",
       file_name: "Patient Assisted Travel Scheme (PATS).pdf",
       contentText: "Patient assisted travel workflow.",
     });
 
-    expect(classification.profile.site.label).toBeNull();
+    expect(classification.profile.site).toMatchObject({
+      label: "General clinical reference",
+      short_label: "GEN",
+      kind: "reference_collection",
+    });
     expect(classification.profile.site.candidates).toEqual([]);
     expect(classification.profile.secondary_facets.workflow).toEqual(["patient assisted travel scheme"]);
   });
@@ -146,6 +169,68 @@ describe("document organization classifier", () => {
         contentText: "Standard operating procedure.",
       }).profile.document_type.label,
     ).toBe("procedure");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Heart UK Junior Booklet 2021",
+        file_name: "Heart UK Junior Booklet 2021 (RPBG).pdf",
+        contentText: "Patient education booklet.",
+      }).profile.document_type.label,
+    ).toBe("factsheet");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Tracheostomy Suctioning Poster",
+        file_name: "Tracheostomy Suctioning Poster (RPBG).pdf",
+        contentText: "Poster for ward display.",
+      }).profile.document_type.label,
+    ).toBe("factsheet");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Use of Shower Trolley Ward Routine",
+        file_name: "Use of Shower Trolley Ward Routine (RPBG).pdf",
+        contentText: "Ward routine for staff.",
+      }).profile.document_type.label,
+    ).toBe("procedure");
+
+    expect(
+      classifyDocumentOrganization({
+        title: "Contingency Plan to Manage Workloads When Staffing Is Not Available",
+        file_name: "Contingency Plan to Manage Workloads When Staffing Is Not Available (RPBG).pdf",
+        contentText: "Escalation plan for staffing demand.",
+      }).profile.document_type.label,
+    ).toBe("protocol");
+  });
+
+  it("uses source-scope site labels for non-site-specific reference material", () => {
+    const bmj = classifyDocumentOrganization({
+      title: "Alcohol Use Disorder",
+      file_name: "Alcohol use disorder.pdf",
+      source_path: "C:/Users/joshs/OneDrive/Medicine/Guidelines/BMJ/Alcohol use disorder.pdf",
+      contentText: "Clinical reference material.",
+    });
+
+    expect(bmj.profile.site).toMatchObject({
+      label: "BMJ Best Practice",
+      short_label: "BMJ",
+      kind: "reference_collection",
+    });
+    expect(bmj.labels).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "BMJ Best Practice", label_type: "site" })]),
+    );
+
+    const general = classifyDocumentOrganization({
+      title: "Alcohol Withdrawal",
+      file_name: "Alcohol withdrawal.pdf",
+      contentText: "Clinical reference material with no site-specific source.",
+    });
+
+    expect(general.profile.site).toMatchObject({
+      label: "General clinical reference",
+      short_label: "GEN",
+      kind: "reference_collection",
+    });
   });
 
   it("flags low-confidence document type classifications as needs_review", () => {
@@ -190,5 +275,35 @@ describe("document organization classifier", () => {
       contentText: "Department billing and cost allocation.",
     });
     expect(classificationFinance.profile.secondary_facets.workflow).toContain("finance");
+  });
+
+  it("attaches high-yield smart labels for medication monitoring and shared care documents", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Lithium GP Shared Care Monitoring Guideline (FSH)",
+      file_name: "Lithium GP Shared Care Monitoring Guideline (FSH).pdf",
+      contentText:
+        "Fiona Stanley Hospital lithium shared care guideline. Baseline tests, blood test monitoring, renal function, metabolic monitoring, ECG, toxicity, GP liaison, and ongoing monitoring are required for mood stabiliser treatment.",
+    });
+
+    expect(classification.profile.secondary_facets.medication).toEqual(
+      expect.arrayContaining(["lithium", "mood-stabilisers"]),
+    );
+    expect(classification.profile.secondary_facets.topic).toEqual(
+      expect.arrayContaining(["shared-care-gp-liaison", "physical-health-care"]),
+    );
+    expect(classification.profile.secondary_facets.workflow).toEqual(expect.arrayContaining(["monitoring"]));
+    expect(classification.profile.secondary_facets.risk).toEqual(expect.arrayContaining(["high-risk-medication"]));
+  });
+
+  it("does not turn incidental body mentions into broad service labels", () => {
+    const classification = classifyDocumentOrganization({
+      title: "General Staff Orientation Manual",
+      file_name: "General Staff Orientation Manual.pdf",
+      contentText:
+        "This orientation mentions emergency medicine, cardiology, orthopaedics, infectious disease, respiratory, and renal teams once as examples of hospital services.",
+    });
+
+    expect(classification.profile.secondary_facets.service).toEqual([]);
+    expect(classification.profile.secondary_facets.workflow).toContain("staff-guidance");
   });
 });
