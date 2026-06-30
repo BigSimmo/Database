@@ -82,6 +82,12 @@ async function bootSmoke() {
         PORT: String(port),
         NEXT_PUBLIC_SUPABASE_URL:
           process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://sjrfecxgysukkwxsowpy.supabase.co",
+        // instrumentation.ts register() requires these in production mode; provide
+        // placeholder values so the boot-smoke can verify server identity without
+        // needing real secrets. Routes that actually use Supabase/OpenAI will still
+        // fail with real errors, but /api/local-project-id does not.
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-ci-service-role",
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-ci-openai",
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -150,19 +156,24 @@ async function bootSmoke() {
     throw lastError ?? new Error("Deployment boot smoke timed out.");
   } finally {
     await stopServer(child, logStream);
-    try {
-      rmSync(logRoot, { force: true, recursive: true });
-    } catch {
-      // best-effort cleanup
-    }
+  }
+}
+
+function cleanupLogRoot() {
+  try {
+    rmSync(logRoot, { force: true, recursive: true });
+  } catch {
+    // best-effort cleanup
   }
 }
 
 try {
   await bootSmoke();
+  cleanupLogRoot();
   process.exit(0);
 } catch (error) {
   console.error(formatFailureMessage(error));
-  dumpLogTail();
+  dumpLogTail(); // log still exists here — cleanup happens after the dump
+  cleanupLogRoot();
   process.exit(1);
 }
