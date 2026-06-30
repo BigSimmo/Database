@@ -6074,10 +6074,14 @@ function SettingsDialog({
       labelledBy="account-settings-title"
       initialFocusRef={closeButtonRef}
       mobilePlacement="top"
+      contentStyle={{
+        width: "min(880px, calc(100vw - 1.5rem))",
+        maxWidth: "min(880px, calc(100vw - 1.5rem))",
+      }}
       contentClassName="w-full max-w-[calc(100vw-1.5rem)] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] sm:max-w-[880px]"
       bodyClassName="p-0 sm:p-0"
     >
-      <div className="relative grid max-h-[calc(100dvh-1.5rem)] min-h-0 overflow-hidden sm:max-h-[min(82dvh,720px)] sm:grid-cols-[248px_minmax(0,1fr)]">
+      <div className="relative grid max-h-[calc(100dvh-1.5rem)] min-h-0 overflow-hidden sm:max-h-[min(86dvh,820px)] sm:grid-cols-[248px_minmax(0,1fr)]">
         {closeButton}
         <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/62 px-4 pb-5 pt-16 sm:flex sm:flex-col">
           <nav aria-label="Settings sections" className="grid gap-1">

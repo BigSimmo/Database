@@ -346,6 +346,19 @@ export function demoSearch(query: string, topK = 8, documentId?: string, documen
 
 export function demoAnswer(query: string, documentId?: string, documentIds?: string[]): RagAnswer {
   const lowered = query.toLowerCase();
+  const mentionsLithium = lowered.includes("lithium") || lowered.includes("toxicity");
+  const mentionsClozapine =
+    lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image");
+  // The bare word "risk" is far too common to anchor a confident acute-risk
+  // answer (e.g. "bleeding risk with aspirin"); require genuine escalation/triage
+  // context so an incidental mention doesn't trigger a wrong-topic answer.
+  const mentionsAcuteRisk =
+    lowered.includes("escalat") ||
+    lowered.includes("senior") ||
+    lowered.includes("triage") ||
+    /\bacute risk\b/.test(lowered) ||
+    lowered.includes("means restriction") ||
+    lowered.includes("safety plan");
   const broadMultiDocumentQuery =
     lowered.includes("across") ||
     lowered.includes("multiple") ||
@@ -355,11 +368,11 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
     broadMultiDocumentQuery || documentIds?.length
       ? undefined
       : (documentId ??
-        (lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image")
+        (mentionsClozapine
           ? demoDocuments[1].id
-          : lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")
+          : mentionsAcuteRisk
             ? demoDocuments[2].id
-            : lowered.includes("lithium") || lowered.includes("toxicity")
+            : mentionsLithium
               ? demoDocuments[0].id
               : undefined));
   const sources = demoSearch(query, 6, inferredDocumentId, documentIds);
@@ -371,29 +384,20 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
   const conflictsOrGaps = detectConflictsOrGaps(sources);
   const visualEvidence = buildVisualEvidence(sources);
   const bestSource = selectBestSourceRecommendation(sources, quoteCards);
-  const supportedQuestion =
-    broadMultiDocumentQuery ||
-    lowered.includes("lithium") ||
-    lowered.includes("toxicity") ||
-    lowered.includes("clozapine") ||
-    lowered.includes("table") ||
-    lowered.includes("image") ||
-    lowered.includes("risk") ||
-    lowered.includes("escalat") ||
-    lowered.includes("senior");
+  const supportedQuestion = broadMultiDocumentQuery || mentionsLithium || mentionsClozapine || mentionsAcuteRisk;
   let answer =
     "These synthetic demo documents do not contain enough matching evidence to answer that question. Try one of the sample lithium, clozapine, or acute risk questions.";
 
   if (broadMultiDocumentQuery) {
     answer =
       "Across the synthetic indexed documents, the high-yield clinical themes are medication monitoring and escalation triggers across Lithium, Clozapine, and acute risk workflows.";
-  } else if (lowered.includes("lithium") || lowered.includes("toxicity")) {
+  } else if (mentionsLithium) {
     answer =
       "In the synthetic lithium document, toxicity safety-net review should cover vomiting, diarrhoea, dehydration, acute kidney injury, new interacting medicines such as NSAIDs/ACE inhibitors/diuretics, tremor, confusion, and ataxia.";
-  } else if (lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image")) {
+  } else if (mentionsClozapine) {
     answer =
       "The synthetic clozapine table image highlights FBC/ANC, myocarditis, metabolic review, and constipation planning as the core monitoring domains.";
-  } else if (lowered.includes("risk") || lowered.includes("escalat") || lowered.includes("senior")) {
+  } else if (mentionsAcuteRisk) {
     answer =
       "The synthetic acute risk document highlights immediate safety, current intent, means restriction, protective factors, and senior review as the core escalation focus.";
   }

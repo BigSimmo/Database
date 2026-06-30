@@ -120,7 +120,7 @@ const answerJsonOutputSchema = {
       type: "string",
       description:
         "The first-layer response: a complete, direct clinical answer that can stand alone before structured supporting sections. The first sentence must directly answer the question in full prose.",
-      maxLength: 1200,
+      maxLength: 1600,
     },
     grounded: {
       type: "boolean",
@@ -156,7 +156,7 @@ const answerJsonOutputSchema = {
             type: "string",
             description:
               "Clinically useful section body grounded in the cited excerpts. Keep it concise, decision-oriented, and non-redundant with the answer. Do not include document codes, page labels, chunk IDs, or source metadata.",
-            maxLength: 420,
+            maxLength: 600,
           },
           citation_chunk_ids: {
             type: "array",

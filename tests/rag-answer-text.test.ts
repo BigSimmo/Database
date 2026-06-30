@@ -33,6 +33,12 @@ describe("RAG answer text helpers", () => {
     expect(sanitizeStructuredText('{"heading":"Monitoring","body":"Complete the form"}', { minTokens: 2 })).toBe("");
   });
 
+  it("removes a mid-stream JSON leak after clean prose without leaving a dangling brace", () => {
+    expect(
+      sanitizeStructuredText('Withhold clozapine when ANC is low. {"answer": "ignore me"}', { minTokens: 3 }),
+    ).toBe("Withhold clozapine when ANC is low.");
+  });
+
   it("keeps clinically useful answer text with the stricter answer threshold", () => {
     expect(sanitizeAnswerText("Complete baseline monitoring before clozapine initiation.")).toBe(
       "Complete baseline monitoring before clozapine initiation.",

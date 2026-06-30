@@ -41,7 +41,7 @@ const retrievalLogWriteMetrics: RetrievalLogWriteMetrics = {
 };
 
 const searchSchema = z.object({
-  query: z.string().trim().min(1),
+  query: z.string().trim().min(1).max(2000),
   topK: z.number().int().min(1).max(20).optional(),
   documentId: z.string().uuid().optional(),
   documentIds: z.array(z.string().uuid()).max(25).optional(),

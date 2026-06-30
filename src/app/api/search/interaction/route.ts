@@ -14,7 +14,7 @@ import * as serverAuth from "@/lib/supabase/auth";
 export const runtime = "nodejs";
 
 const interactionSchema = z.object({
-  query: z.string().trim().min(1),
+  query: z.string().trim().min(1).max(2000),
   documentId: z.string().uuid(),
   chunkId: z.string().uuid().optional(),
   fileName: z.string().trim().max(240).optional(),
