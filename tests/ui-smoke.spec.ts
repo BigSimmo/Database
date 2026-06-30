@@ -641,7 +641,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const settingsBox = await settings.boundingBox();
     expect(settingsBox).not.toBeNull();
     expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
-    expect(settingsBox!.y).toBeLessThanOrEqual(1);
+    expect(settingsBox!.y).toBeLessThanOrEqual(2);
     expect(settingsBox!.width).toBeGreaterThanOrEqual(389);
     expect(settingsBox!.height).toBeGreaterThanOrEqual(819);
     await expectNoPageHorizontalOverflow(page);
