@@ -639,11 +639,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(settings).toBeVisible();
     await expectAccountSettingsSurface(settings);
     const settingsBox = await settings.boundingBox();
+    const viewport = page.viewportSize() ?? { width: 390, height: 820 };
+    const fullscreenTolerance = 2;
     expect(settingsBox).not.toBeNull();
     expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
     expect(settingsBox!.y).toBeLessThanOrEqual(2);
-    expect(settingsBox!.width).toBeGreaterThanOrEqual(389);
-    expect(settingsBox!.height).toBeGreaterThanOrEqual(819);
+    expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
+    expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
