@@ -30,7 +30,16 @@ type SiteDefinition = {
 
 type SecondaryFacet = {
   label: string;
-  label_type: Extract<DocumentLabelType, "population" | "setting" | "service" | "topic" | "workflow" | "medication" | "risk">;
+  label_type: Extract<
+    DocumentLabelType,
+    "population" | "setting" | "service" | "topic" | "workflow" | "medication" | "risk"
+  >;
+};
+
+type SmartFacetRule = SecondaryFacet & {
+  strong: RegExp[];
+  body?: RegExp[];
+  minBodyMatches?: number;
 };
 
 const organizationProfileVersion = "document-organization-v1";
@@ -237,7 +246,23 @@ const siteDefinitions: SiteDefinition[] = [
     kind: "program",
     evidence: [/\bmental health commission\b/i, /\bmhc\b/i],
   },
+  {
+    canonical: "BMJ Best Practice",
+    rawTags: ["bmj"],
+    kind: "reference_collection",
+    evidence: [/\bbmj\b/i, /\bbest practice\b/i],
+  },
 ];
+
+const generalClinicalReferenceSite = {
+  label: "General clinical reference",
+  short_label: "GEN",
+  raw_tag: "general-reference",
+  kind: "reference_collection" as const,
+  confidence: 0.76,
+  evidence_sources: ["fallback:non_site_specific_reference"],
+  candidates: [],
+};
 
 const secondaryTagMap = new Map<string, SecondaryFacet>([
   // Populations (Ages)
@@ -286,8 +311,9 @@ const documentTypePatterns: Array<{
 }> = [
   { label: "policy", confidence: 0.9, patterns: [/\bpolicy\b/i] },
   { label: "procedure", confidence: 0.88, patterns: [/\bprocedure\b/i, /\bprocedural\b/i, /\bsop\b/i] },
+  { label: "procedure", confidence: 0.84, patterns: [/\bward routine\b/i, /\broutine\b/i] },
   { label: "guideline", confidence: 0.84, patterns: [/\bguideline\b/i, /\bguidance\b/i] },
-  { label: "protocol", confidence: 0.84, patterns: [/\bprotocol\b/i] },
+  { label: "protocol", confidence: 0.84, patterns: [/\bprotocol\b/i, /\bcontingency plan\b/i, /\bcardiac arrest\b/i] },
   { label: "form", confidence: 0.82, patterns: [/\bform\b/i, /\brequest\b/i, /\breferral\b/i] },
   { label: "checklist", confidence: 0.82, patterns: [/\bchecklist\b/i] },
   { label: "pathway", confidence: 0.82, patterns: [/\bpathway\b/i] },
@@ -300,7 +326,15 @@ const documentTypePatterns: Array<{
       /\bfact\s*sheet\b/i,
       /\bpatient information\b/i,
       /\bpatient info\b/i,
+      /\bprint ready pi\b/i,
       /\bconsumer info\b/i,
+      /\bbooklet\b/i,
+      /\bflyer\b/i,
+      /\bposter\b/i,
+      /\btips?\s+for\b/i,
+      /\bcaring for your\b/i,
+      /\bhuffers and puffers\b/i,
+      /\bfood and nutrition\b/i,
     ],
   },
   { label: "manual", confidence: 0.82, patterns: [/\bmanual\b/i, /\bhandbook\b/i, /\borientation\b/i] },
@@ -315,6 +349,791 @@ const documentTypePatterns: Array<{
     patterns: [/\bprescrib\b/i, /\baid\b/i, /\bcalculator\b/i, /\bdosing\b/i, /\bnomogram\b/i],
   },
   { label: "reference", confidence: 0.72, patterns: [/\breference\b/i, /\binformation sheet\b/i, /\bplacecard\b/i] },
+];
+
+const secondaryFacetLimits: Record<keyof DocumentOrganizationProfile["secondary_facets"], number> = {
+  population: 2,
+  setting: 2,
+  service: 2,
+  topic: 4,
+  workflow: 2,
+  medication: 3,
+  risk: 2,
+};
+
+const smartFacetRules: SmartFacetRule[] = [
+  // Population
+  {
+    label: "neonatal",
+    label_type: "population",
+    strong: [/\b(?:neonatal|neonate|newborn|nicu)\b/i],
+    body: [/\b(?:neonatal|neonate|newborn|nicu)\b/i],
+  },
+  {
+    label: "paediatric",
+    label_type: "population",
+    strong: [/\b(?:paediatric|pediatric|child|children|perth children'?s hospital|pch)\b/i],
+    body: [/\b(?:paediatric|pediatric|child|children)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "youth",
+    label_type: "population",
+    strong: [/\b(?:youth|adolescent|teen|young person|young people|camhs)\b/i],
+    body: [/\b(?:youth|adolescent|young person|young people)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "geriatric",
+    label_type: "population",
+    strong: [/\b(?:older adult|geriatric|aged care|elderly|mhoa)\b/i],
+    body: [/\b(?:older adult|geriatric|elderly|65 years)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "adult",
+    label_type: "population",
+    strong: [/\b(?:adult|adults)\b/i],
+    body: [/\b(?:adult|adults)\b/i],
+    minBodyMatches: 4,
+  },
+
+  // Settings
+  {
+    label: "inpatient",
+    label_type: "setting",
+    strong: [/\b(?:inpatient|ward|admitted|admission|bed management|inpatient unit)\b/i],
+    body: [/\b(?:inpatient|ward|admitted|admission)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "outpatient",
+    label_type: "setting",
+    strong: [/\b(?:outpatient|ambulatory|clinic|day procedure|day surgery|day unit)\b/i],
+    body: [/\b(?:outpatient|ambulatory|clinic)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "community",
+    label_type: "setting",
+    strong: [/\b(?:community|home visit|outreach|hospital in the home|cpop)\b/i],
+    body: [/\b(?:community|home visit|outreach|hospital in the home)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "emergency-department",
+    label_type: "setting",
+    strong: [/\b(?:emergency department|ed\b|triage|resus|trauma bay)\b/i],
+    body: [/\b(?:emergency department|triage|resus)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "mental-health-unit",
+    label_type: "setting",
+    strong: [/\b(?:mental health unit|psychiatric unit|mhu\b|acute mental health|mimidi|seclusion)\b/i],
+    body: [/\b(?:mental health unit|psychiatric unit|seclusion)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "icu-hdu",
+    label_type: "setting",
+    strong: [/\b(?:icu\b|intensive care|hdu\b|high dependency|critical care)\b/i],
+    body: [/\b(?:icu\b|intensive care|hdu\b|critical care)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "operating-theatre",
+    label_type: "setting",
+    strong: [/\b(?:operating theatre|operating room|theatre suite|perioperative|pacu\b|recovery room)\b/i],
+    body: [/\b(?:operating theatre|operating room|theatre suite|pacu\b)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "maternity-unit",
+    label_type: "setting",
+    strong: [/\b(?:maternity unit|birth suite|labour ward|antenatal ward|postnatal ward|birthing)\b/i],
+    body: [/\b(?:maternity unit|birth suite|labour ward|antenatal|postnatal)\b/i],
+    minBodyMatches: 2,
+  },
+
+  // Services / clinical areas
+  {
+    label: "mental-health",
+    label_type: "service",
+    strong: [/\b(?:mental health|psychiatr|psychosis|schizophrenia|bipolar|ect\b|seclusion|camhs|mhoa)\b/i],
+    body: [/\b(?:mental health|psychiatr|psychosis|schizophrenia|bipolar|seclusion)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "emergency-medicine",
+    label_type: "service",
+    strong: [/\b(?:emergency medicine|emergency department|ed\b|trauma|resus|triage)\b/i],
+    body: [/\b(?:emergency department|triage|resus|trauma)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "pharmacy-medications",
+    label_type: "service",
+    strong: [/\b(?:pharmacy|pharmacist|drug guideline|medication management|medicine management|formulary)\b/i],
+    body: [/\b(?:pharmacy|pharmacist|medication management|formulary)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "obstetrics-maternity",
+    label_type: "service",
+    strong: [/\b(?:obstetric|maternity|labour|birth|antenatal|postnatal|perinatal|midwif|kemh|pregnan)\b/i],
+    body: [/\b(?:obstetric|maternity|antenatal|postnatal|perinatal|pregnan)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "neonatology",
+    label_type: "service",
+    strong: [/\b(?:neonatal|nicu|neonate|newborn)\b/i],
+    body: [/\b(?:neonatal|nicu|neonate|newborn)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "intensive-care",
+    label_type: "service",
+    strong: [/\b(?:intensive care|icu\b|critical care|hdu\b|high dependency|ventilat|vasopressor)\b/i],
+    body: [/\b(?:intensive care|icu\b|critical care|hdu\b|ventilat)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "perioperative-anaesthesia",
+    label_type: "service",
+    strong: [/\b(?:perioperative|anaesth|anesthes|theatre|operating|preoperative|post-?operative|surgical)\b/i],
+    body: [/\b(?:perioperative|anaesth|anesthes|operating theatre|preoperative|post-?operative)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "infectious-disease",
+    label_type: "service",
+    strong: [/\b(?:infection control|infectious disease|antimicrobial|antibiotic|isolation|sepsis)\b/i],
+    body: [/\b(?:infection control|infectious disease|antimicrobial|antibiotic|isolation|sepsis)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "oncology-haematology",
+    label_type: "service",
+    strong: [/\b(?:oncolog|haematolog|hematolog|chemotherapy|transfusion|apheresis|leukaemia)\b/i],
+    body: [/\b(?:oncolog|haematolog|hematolog|chemotherapy|transfusion|apheresis)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "cardiology",
+    label_type: "service",
+    strong: [/\b(?:cardiol|cardiac|heart failure|arrhythmia|ecg\b|pacemaker|atrial fibrillation|coronary)\b/i],
+    body: [/\b(?:cardiol|cardiac|heart failure|arrhythmia|ecg\b|pacemaker)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "orthopaedics",
+    label_type: "service",
+    strong: [/\b(?:orthopaed|orthoped|fracture|bone|joint|spine|musculoskeletal|hip replacement)\b/i],
+    body: [/\b(?:orthopaed|orthoped|fracture|joint|spine|musculoskeletal)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "renal-nephrology",
+    label_type: "service",
+    strong: [/\b(?:renal|nephrol|dialysis|haemodialysis|hemodialysis|kidney)\b/i],
+    body: [/\b(?:renal|nephrol|dialysis|kidney)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "gastroenterology",
+    label_type: "service",
+    strong: [/\b(?:gastroenterol|endoscopy|colonoscopy|gastroscopy|bowel|liver|hepat|ibd\b)\b/i],
+    body: [/\b(?:gastroenterol|endoscopy|colonoscopy|gastroscopy|bowel|liver)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "respiratory",
+    label_type: "service",
+    strong: [/\b(?:respiratory|pulmonol|lung|sleep apnoea|cpap\b|spirometry|asthma|copd\b)\b/i],
+    body: [/\b(?:respiratory|lung|sleep apnoea|cpap\b|spirometry|asthma|copd\b)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "neurology",
+    label_type: "service",
+    strong: [/\b(?:neurol|seizure|epilepsy|stroke|tia\b|neuropsychol|parkinson|dementia|delirium)\b/i],
+    body: [/\b(?:neurol|seizure|epilepsy|stroke|dementia|delirium)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "palliative-care",
+    label_type: "service",
+    strong: [/\b(?:palliative|end of life|dying|comfort care|hospice)\b/i],
+    body: [/\b(?:palliative|end of life|comfort care|hospice)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "allied-health",
+    label_type: "service",
+    strong: [
+      /\b(?:allied health|physiotherap|occupational therap|speech pathol|social work|dietetic|rehabilitation)\b/i,
+    ],
+    body: [/\b(?:allied health|physiotherap|occupational therap|speech pathol|social work|dietetic)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "diabetes-endocrinology",
+    label_type: "service",
+    strong: [/\b(?:diabetes|endocrin|insulin|hypoglycaem|dka\b|diabetic ketoacidosis|thyroid|adrenal)\b/i],
+    body: [/\b(?:diabetes|endocrin|insulin|hypoglycaem|diabetic ketoacidosis)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "urology",
+    label_type: "service",
+    strong: [/\b(?:urology|urolog|catheter|urethral|bladder|prostate)\b/i],
+    body: [/\b(?:urology|urolog|catheter|urethral|bladder|prostate)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "wound-management",
+    label_type: "service",
+    strong: [/\b(?:wound|pressure injury|pressure ulcer|skin integrity|dressing)\b/i],
+    body: [/\b(?:wound|pressure injury|pressure ulcer|skin integrity|dressing)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "pain-management",
+    label_type: "service",
+    strong: [/\b(?:pain management|analgesia|acute pain|chronic pain)\b/i],
+    body: [/\b(?:pain management|analgesia|acute pain|chronic pain)\b/i],
+    minBodyMatches: 2,
+  },
+
+  // Medication labels
+  { label: "lithium", label_type: "medication", strong: [/\blithium\b/i], body: [/\blithium\b/i] },
+  { label: "clozapine", label_type: "medication", strong: [/\bclozapine\b/i], body: [/\bclozapine\b/i] },
+  {
+    label: "mood-stabilisers",
+    label_type: "medication",
+    strong: [/\b(?:mood stabiliser|mood stabilizer|valproate|carbamazepine|lamotrigine|lithium)\b/i],
+    body: [/\b(?:mood stabiliser|mood stabilizer|valproate|carbamazepine|lamotrigine|lithium)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "antipsychotics",
+    label_type: "medication",
+    strong: [/\b(?:antipsychotic|olanzapine|quetiapine|risperidone|haloperidol|droperidol|clozapine)\b/i],
+    body: [/\b(?:antipsychotic|olanzapine|quetiapine|risperidone|haloperidol|droperidol|clozapine)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "long-acting-injectable",
+    label_type: "medication",
+    strong: [/\b(?:long acting injectable|long-acting injectable|depot|lai\b)\b/i],
+    body: [/\b(?:long acting injectable|long-acting injectable|depot|lai\b)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "opioids",
+    label_type: "medication",
+    strong: [/\b(?:opioid|morphine|fentanyl|oxycodone|methadone|buprenorphine|naloxone)\b/i],
+    body: [/\b(?:opioid|morphine|fentanyl|oxycodone|methadone|buprenorphine|naloxone)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "insulin",
+    label_type: "medication",
+    strong: [/\b(?:insulin|dka\b|diabetic ketoacidosis|hypoglycaem|hyperglycaem)\b/i],
+    body: [/\b(?:insulin|diabetic ketoacidosis|hypoglycaem|hyperglycaem)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "antimicrobials",
+    label_type: "medication",
+    strong: [/\b(?:antimicrobial|antibiotic|vancomycin|gentamicin|penicillin|meropenem)\b/i],
+    body: [/\b(?:antimicrobial|antibiotic|vancomycin|gentamicin|penicillin|meropenem)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "anticoagulants",
+    label_type: "medication",
+    strong: [/\b(?:anticoagul|warfarin|heparin|enoxaparin|apixaban|rivaroxaban|dabigatran)\b/i],
+    body: [/\b(?:anticoagul|warfarin|heparin|enoxaparin|apixaban|rivaroxaban|dabigatran)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "blood-products",
+    label_type: "medication",
+    strong: [/\b(?:blood product|transfusion|packed red|platelet|fresh frozen plasma|ffp\b)\b/i],
+    body: [/\b(?:blood product|transfusion|packed red|platelet|fresh frozen plasma|ffp\b)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "iv-medications",
+    label_type: "medication",
+    strong: [/\b(?:iv medication|iv drug|intravenous medication|intravenous drug|iv infusion)\b/i],
+    body: [/\b(?:iv medication|iv drug|intravenous medication|intravenous drug|iv infusion)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "controlled-drugs",
+    label_type: "medication",
+    strong: [/\b(?:controlled drug|schedule 8|schedule 4|restricted medication|s8\b|s4\b)\b/i],
+    body: [/\b(?:controlled drug|schedule 8|schedule 4|restricted medication|s8\b|s4\b)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "chemotherapy",
+    label_type: "medication",
+    strong: [/\b(?:chemotherapy|cytotoxic|antineoplastic|anticancer)\b/i],
+    body: [/\b(?:chemotherapy|cytotoxic|antineoplastic|anticancer)\b/i],
+    minBodyMatches: 2,
+  },
+
+  // Topics
+  { label: "electroconvulsive-therapy", label_type: "topic", strong: [/\b(?:ect|electroconvulsive)\b/i] },
+  { label: "suicide-self-harm", label_type: "topic", strong: [/\b(?:suicide|suicidal|self harm|self-harm)\b/i] },
+  {
+    label: "substance-use-alcohol-and-drugs",
+    label_type: "topic",
+    strong: [
+      /\b(?:substance use|alcohol|drug and alcohol|withdrawal|intoxication|methamphetamine|opioid pharmacotherapy)\b/i,
+    ],
+    body: [/\b(?:substance use|alcohol|withdrawal|intoxication|methamphetamine)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "aggression-violence-code-black",
+    label_type: "topic",
+    strong: [/\b(?:aggression|violence|violent|code black|duress|behavioural disturbance|behavioral disturbance)\b/i],
+    body: [/\b(?:aggression|violence|code black|duress|behavioural disturbance|behavioral disturbance)\b/i],
+    minBodyMatches: 2,
+  },
+  { label: "seclusion-restraint", label_type: "topic", strong: [/\b(?:seclusion|restraint|restrictive practice)\b/i] },
+  { label: "missing-person-awol", label_type: "topic", strong: [/\b(?:missing person|absent without leave|awol)\b/i] },
+  {
+    label: "discharge-follow-up",
+    label_type: "topic",
+    strong: [/\b(?:discharge|follow up|follow-up|post discharge)\b/i],
+  },
+  {
+    label: "admission-waitlist-bed-access",
+    label_type: "topic",
+    strong: [/\b(?:admission|admit|waitlist|bed access|bed management|entry protocol)\b/i],
+    body: [/\b(?:admission|waitlist|bed access|bed management)\b/i],
+    minBodyMatches: 4,
+  },
+  { label: "transport-transfer-escort", label_type: "topic", strong: [/\b(?:transport|transfer|escort)\b/i] },
+  {
+    label: "rights-carers-advocates",
+    label_type: "topic",
+    strong: [/\b(?:rights|carer|support person|advocate|charter)\b/i],
+  },
+  {
+    label: "consent-capacity-confidentiality",
+    label_type: "topic",
+    strong: [/\b(?:consent|capacity|confidentiality|privacy|information sharing)\b/i],
+  },
+  {
+    label: "physical-health-care",
+    label_type: "topic",
+    strong: [/\b(?:physical health|metabolic|weight|blood pressure|ecg|medical clearance)\b/i],
+    body: [/\b(?:physical health|metabolic|blood pressure|ecg|medical clearance)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "observation-safety-planning",
+    label_type: "topic",
+    strong: [/\b(?:observation|safety plan|safety planning|risk assessment|clinical alert)\b/i],
+    body: [/\b(?:observation|safety plan|risk assessment|clinical alert)\b/i],
+    minBodyMatches: 4,
+  },
+  {
+    label: "incident-notification-open-disclosure",
+    label_type: "topic",
+    strong: [/\b(?:incident|notification|notify|open disclosure|riskman|datix)\b/i],
+    body: [/\b(?:incident|notification|open disclosure|riskman|datix)\b/i],
+    minBodyMatches: 4,
+  },
+  {
+    label: "clinical-supervision-staff-support",
+    label_type: "topic",
+    strong: [/\b(?:clinical supervision|staff support|vicarious trauma|supervision)\b/i],
+  },
+  { label: "psychosis-schizophrenia", label_type: "topic", strong: [/\b(?:psychosis|psychotic|schizophrenia)\b/i] },
+  { label: "depression-mood-disorders", label_type: "topic", strong: [/\b(?:depression|depressive|mood disorder)\b/i] },
+  { label: "bipolar-mood-episode", label_type: "topic", strong: [/\b(?:bipolar|mania|manic|mood episode)\b/i] },
+  { label: "eating-disorders", label_type: "topic", strong: [/\b(?:eating disorder|anorexia|bulimia)\b/i] },
+  { label: "dementia-delirium", label_type: "topic", strong: [/\b(?:dementia|delirium|cognitive impairment)\b/i] },
+  { label: "anxiety-trauma", label_type: "topic", strong: [/\b(?:anxiety|trauma|ptsd|panic)\b/i] },
+  {
+    label: "personality-disorder",
+    label_type: "topic",
+    strong: [/\b(?:personality disorder|borderline personality)\b/i],
+  },
+  {
+    label: "perinatal-mental-health",
+    label_type: "topic",
+    strong: [/\b(?:perinatal mental health|mother baby|postnatal depression)\b/i],
+  },
+  {
+    label: "child-protection-safeguarding",
+    label_type: "topic",
+    strong: [/\b(?:child protection|safeguard|family violence|mandatory reporting|child abuse)\b/i],
+  },
+  {
+    label: "cognitive-impairment-learning-disability",
+    label_type: "topic",
+    strong: [/\b(?:cognitive impairment|learning disability|intellectual disability|cognitive delay)\b/i],
+  },
+  {
+    label: "medical-clearance",
+    label_type: "topic",
+    strong: [/\b(?:medical clearance|medically cleared|medical assessment)\b/i],
+  },
+  {
+    label: "shared-care-gp-liaison",
+    label_type: "topic",
+    strong: [/\b(?:shared care|gp liaison|general practitioner)\b/i],
+  },
+  {
+    label: "care-coordination-case-management",
+    label_type: "topic",
+    strong: [/\b(?:care coordination|case management|care plan|case manager)\b/i],
+  },
+  { label: "mental-state-examination", label_type: "topic", strong: [/\b(?:mental state examination|mse\b)\b/i] },
+  { label: "risk-formulation", label_type: "topic", strong: [/\b(?:risk formulation|risk management plan)\b/i] },
+  { label: "crisis-plan", label_type: "topic", strong: [/\b(?:crisis plan|crisis response)\b/i] },
+  { label: "mental-health-act", label_type: "topic", strong: [/\b(?:mental health act|mha\b)\b/i] },
+  {
+    label: "cto-involuntary-care",
+    label_type: "topic",
+    strong: [/\b(?:community treatment order|cto\b|involuntary|detention)\b/i],
+  },
+
+  // Workflow, document intent, care phase, and audience
+  {
+    label: "assessment",
+    label_type: "workflow",
+    strong: [/\b(?:assess|assessment|screening)\b/i],
+    body: [/\b(?:assess|assessment|screening)\b/i],
+    minBodyMatches: 6,
+  },
+  {
+    label: "prescribing",
+    label_type: "workflow",
+    strong: [/\b(?:prescrib|dose|dosing|medication instruction)\b/i],
+    body: [/\b(?:prescrib|dose|dosing)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "monitoring",
+    label_type: "workflow",
+    strong: [/\b(?:monitor|monitoring|baseline test|ongoing test|blood test)\b/i],
+    body: [/\b(?:monitor|monitoring|baseline test|ongoing test|blood test)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "escalation",
+    label_type: "workflow",
+    strong: [/\b(?:escalat|urgent review|notify consultant|senior review)\b/i],
+    body: [/\b(?:escalat|urgent review|senior review)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "referral-pathway",
+    label_type: "workflow",
+    strong: [/\b(?:refer|referral pathway|referral criteria)\b/i],
+    body: [/\b(?:refer|referral)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "admission",
+    label_type: "workflow",
+    strong: [/\b(?:admission|admit|pre-admission)\b/i],
+    body: [/\b(?:admission|admit)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "discharge-planning",
+    label_type: "workflow",
+    strong: [/\b(?:discharge planning|discharge|post-discharge)\b/i],
+    body: [/\b(?:discharge planning|post-discharge)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "clinical-handover",
+    label_type: "workflow",
+    strong: [/\b(?:handover|isbar)\b/i],
+    body: [/\b(?:handover|isbar)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "documentation-requirement",
+    label_type: "workflow",
+    strong: [/\b(?:document|documentation|record in|form required)\b/i],
+    body: [/\b(?:documentation|record in|form required)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "notification-reporting",
+    label_type: "workflow",
+    strong: [/\b(?:notify|notification|reporting|report to)\b/i],
+    body: [/\b(?:notify|notification|reporting)\b/i],
+    minBodyMatches: 3,
+  },
+  { label: "de-escalation", label_type: "workflow", strong: [/\b(?:de-escalat|deescalat)\b/i] },
+  {
+    label: "follow-up",
+    label_type: "workflow",
+    strong: [/\b(?:follow up|follow-up|review appointment)\b/i],
+    body: [/\b(?:follow up|follow-up)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "decision-support",
+    label_type: "workflow",
+    strong: [/\b(?:algorithm|flowchart|decision tree|criteria|threshold)\b/i],
+  },
+  {
+    label: "patient-information",
+    label_type: "workflow",
+    strong: [/\b(?:patient information|consumer information|factsheet|leaflet|for patients)\b/i],
+  },
+  {
+    label: "staff-guidance",
+    label_type: "workflow",
+    strong: [/\b(?:staff guidance|staff guide|orientation|training|education)\b/i],
+  },
+  {
+    label: "legal-governance",
+    label_type: "workflow",
+    strong: [/\b(?:legal|governance|rights|mental health act)\b/i],
+    body: [/\b(?:legal|governance|rights|mental health act)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "audit-compliance",
+    label_type: "workflow",
+    strong: [/\b(?:audit|compliance|quality improvement|review criteria)\b/i],
+    body: [/\b(?:audit|compliance)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "training-education",
+    label_type: "workflow",
+    strong: [/\b(?:training|education|orientation|competenc)\b/i],
+    body: [/\b(?:training|education|orientation|competenc)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "nursing-midwifery",
+    label_type: "workflow",
+    strong: [/\b(?:nursing|nurse|midwif|clinical nurse)\b/i],
+    body: [/\b(?:nursing|nurse|midwif)\b/i],
+    minBodyMatches: 4,
+  },
+  {
+    label: "medical-officer",
+    label_type: "workflow",
+    strong: [/\b(?:medical officer|doctor|registrar|consultant|prescriber|jmo\b)\b/i],
+    body: [/\b(?:medical officer|registrar|consultant|prescriber)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "allied-health",
+    label_type: "workflow",
+    strong: [/\b(?:allied health|physiotherap|occupational therap|social work|speech pathol)\b/i],
+    body: [/\b(?:allied health|physiotherap|occupational therap|social work|speech pathol)\b/i],
+    minBodyMatches: 3,
+  },
+  {
+    label: "pharmacy-staff",
+    label_type: "workflow",
+    strong: [/\b(?:pharmacy staff|pharmacist|dispensing|formulary)\b/i],
+    body: [/\b(?:pharmacist|dispensing|formulary)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "mental-health-practitioners",
+    label_type: "workflow",
+    strong: [/\b(?:mental health clinician|mental health practitioner|case manager|psychiatric nurse|camhs staff)\b/i],
+  },
+  {
+    label: "clerical-admin",
+    label_type: "workflow",
+    strong: [/\b(?:clerical|ward clerk|medical records|receptionist|admin)\b/i],
+    body: [/\b(?:clerical|ward clerk|medical records|receptionist)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "security-orderlies",
+    label_type: "workflow",
+    strong: [/\b(?:security|orderly|orderlies|escort duty)\b/i],
+    body: [/\b(?:security|orderly|orderlies)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "aboriginal-health",
+    label_type: "workflow",
+    strong: [/\b(?:aboriginal health|cultural safety|indigenous health|kara maar)\b/i],
+  },
+  {
+    label: "language-interpreter",
+    label_type: "workflow",
+    strong: [/\b(?:language interpreter|interpreter|translator|cald\b)\b/i],
+  },
+  {
+    label: "child-protection-safety",
+    label_type: "workflow",
+    strong: [/\b(?:child protection|mandatory reporting|child abuse|family violence)\b/i],
+  },
+  {
+    label: "advance-care-planning",
+    label_type: "workflow",
+    strong: [/\b(?:advance care planning|advance health directive|goals of care)\b/i],
+  },
+  { label: "voluntary-assisted-dying", label_type: "workflow", strong: [/\b(?:voluntary assisted dying|vad\b)\b/i] },
+  {
+    label: "disability-access",
+    label_type: "workflow",
+    strong: [/\b(?:disability access|sensory impairment|physical access)\b/i],
+  },
+  { label: "webpas", label_type: "workflow", strong: [/\b(?:webpas|patient administration system|pas downtime)\b/i] },
+  { label: "dmr", label_type: "workflow", strong: [/\b(?:dmr\b|digital medical record|medical chart scan)\b/i] },
+  { label: "bossnet", label_type: "workflow", strong: [/\b(?:bossnet|clinical portal|electronic medical chart)\b/i] },
+  { label: "epma", label_type: "workflow", strong: [/\b(?:epma\b|electronic prescribing)\b/i] },
+  { label: "datix-riskman", label_type: "workflow", strong: [/\b(?:datix|riskman|incident logging)\b/i] },
+  {
+    label: "etg-formulary",
+    label_type: "workflow",
+    strong: [/\b(?:etg\b|therapeutic guidelines|formulary lookup)\b/i],
+  },
+  {
+    label: "finance",
+    label_type: "workflow",
+    strong: [/\b(?:finance|financial|billing|funding|invoice|payment|cost|budget)\b/i],
+  },
+  { label: "hr", label_type: "workflow", strong: [/\b(?:human resources|personnel|staffing|recruitment)\b/i] },
+  {
+    label: "patient assisted travel scheme",
+    label_type: "workflow",
+    strong: [/\b(?:patient assisted travel scheme|pats\b)\b/i],
+  },
+  {
+    label: "community-program-for-opioid-pharmacotherapy",
+    label_type: "workflow",
+    strong: [/\b(?:community program for opioid pharmacotherapy|cpop\b)\b/i],
+  },
+
+  // Risk and governance
+  {
+    label: "clinical-risk",
+    label_type: "risk",
+    strong: [/\b(?:clinical risk|risk assessment|risk management)\b/i],
+    body: [/\b(?:clinical risk|risk assessment|risk management)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "medication-risk",
+    label_type: "risk",
+    strong: [/\b(?:medication risk|high risk medication|high alert medication)\b/i],
+    body: [/\b(?:medication risk|high risk medication|high alert medication)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "legal-risk",
+    label_type: "risk",
+    strong: [/\b(?:legal risk|legal requirement|mental health act)\b/i],
+    body: [/\b(?:legal requirement|mental health act)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "safety-incident",
+    label_type: "risk",
+    strong: [/\b(?:safety incident|incident report|sentinel event|riskman|datix)\b/i],
+    body: [/\b(?:safety incident|incident report|sentinel event|riskman|datix)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "mandatory-reporting",
+    label_type: "risk",
+    strong: [/\b(?:mandatory reporting|reportable incident|notifiable)\b/i],
+  },
+  {
+    label: "infection-prevention",
+    label_type: "risk",
+    strong: [/\b(?:infection prevention|infection control|ipc\b|isolation precaution|ppe\b)\b/i],
+    body: [/\b(?:infection prevention|infection control|isolation precaution)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "deterioration-risk",
+    label_type: "risk",
+    strong: [/\b(?:deteriorating patient|clinical deterioration|met call|medical emergency)\b/i],
+  },
+  {
+    label: "behavioural-risk",
+    label_type: "risk",
+    strong: [/\b(?:behavioural risk|behavioral risk|behavioural disturbance|aggression|violence)\b/i],
+  },
+  { label: "self-harm-risk", label_type: "risk", strong: [/\b(?:self harm|self-harm|suicide|suicidal)\b/i] },
+  { label: "violence-risk", label_type: "risk", strong: [/\b(?:violence risk|aggression|code black|duress)\b/i] },
+  {
+    label: "absconding-risk",
+    label_type: "risk",
+    strong: [/\b(?:abscond|missing person|awol|absent without leave)\b/i],
+  },
+  {
+    label: "falls-prevention",
+    label_type: "risk",
+    strong: [/\b(?:falls prevention|fall risk|post fall|falls assessment)\b/i],
+  },
+  {
+    label: "pressure-injury-skin",
+    label_type: "risk",
+    strong: [/\b(?:pressure injury|pressure ulcer|skin integrity|wound classification)\b/i],
+  },
+  {
+    label: "confidentiality-risk",
+    label_type: "risk",
+    strong: [/\b(?:confidentiality|privacy breach|information sharing)\b/i],
+  },
+  {
+    label: "capacity-risk",
+    label_type: "risk",
+    strong: [/\b(?:capacity assessment|impaired capacity|decision making capacity)\b/i],
+  },
+  {
+    label: "high-risk-medication",
+    label_type: "risk",
+    strong: [/\b(?:high risk medication|lithium|clozapine|insulin|heparin|potassium)\b/i],
+    body: [/\b(?:high risk medication|lithium|clozapine|insulin|heparin|potassium)\b/i],
+    minBodyMatches: 2,
+  },
+  {
+    label: "blood-safety-transfusion",
+    label_type: "risk",
+    strong: [/\b(?:blood safety|blood product|transfusion|massive transfusion)\b/i],
+  },
+  {
+    label: "restrictive-practices",
+    label_type: "risk",
+    strong: [/\b(?:restrictive practice|restraint|chemical restraint|physical restraint|seclusion)\b/i],
+  },
+  {
+    label: "resuscitation-code-blue",
+    label_type: "risk",
+    strong: [/\b(?:resuscitation|code blue|cpr\b|basic life support|advanced life support|defibrillat)\b/i],
+  },
+  {
+    label: "clinical-handover-escalation",
+    label_type: "risk",
+    strong: [/\b(?:clinical handover|handover|isbar|escalation protocol|deteriorat)\b/i],
+  },
+  {
+    label: "open-disclosure",
+    label_type: "risk",
+    strong: [/\b(?:open disclosure|clinical governance|root cause analysis)\b/i],
+  },
 ];
 
 function normalizeText(value: string) {
@@ -365,6 +1184,14 @@ function siteDefinitionForTag(tag: string) {
   );
 }
 
+function siteShortLabel(definition: SiteDefinition) {
+  const preferred = definition.rawTags.find((rawTag) => /^[a-z0-9]{2,8}$/i.test(rawTag)) ?? definition.rawTags[0];
+  const normalized = normalizeText(preferred);
+  if (normalized === "wa health") return "WA Health";
+  if (normalized === "graylands") return "Graylands";
+  return preferred.toUpperCase();
+}
+
 function bracketTagsForRemoval(tags: string[]) {
   return new Set(
     tags.filter((tag) => siteDefinitionForTag(tag) || secondaryTagMap.has(normalizeText(tag))).map(normalizeText),
@@ -402,7 +1229,7 @@ function evidenceText(input: OrganizationDocumentInput) {
 }
 
 function siteEvidence(definition: SiteDefinition, input: OrganizationDocumentInput) {
-  const evidence = [`bracket:${definition.rawTags[0].toUpperCase()}`];
+  const evidence: string[] = [];
   const haystack = evidenceText(input);
   for (const pattern of definition.evidence) {
     if (pattern.test(haystack)) {
@@ -413,27 +1240,72 @@ function siteEvidence(definition: SiteDefinition, input: OrganizationDocumentInp
   return evidence;
 }
 
+function referenceCollectionFromEvidence(input: OrganizationDocumentInput) {
+  const haystack = evidenceText(input);
+  return siteDefinitions.find((definition) => {
+    if (definition.kind !== "reference_collection") return false;
+    return definition.evidence.some((pattern) => pattern.test(haystack));
+  });
+}
+
+function hasGeneralReferenceEvidence(input: OrganizationDocumentInput) {
+  return /\b(?:clinical reference|reference material|best practice|guideline|guidance)\b/i.test(evidenceText(input));
+}
+
 function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
-  const candidates = rawTags
+  const taggedCandidates = rawTags
     .map((tag) => ({ tag, definition: siteDefinitionForTag(tag) }))
     .filter((item): item is { tag: string; definition: SiteDefinition } => Boolean(item.definition))
     .map(({ tag, definition }) => {
       const evidence_sources = siteEvidence(definition, input);
-      const confirmed = evidence_sources.some((source) => source.startsWith("source:"));
+      const confirmed = evidence_sources.length > 0;
       return {
         label: definition.canonical,
+        short_label: siteShortLabel(definition),
         raw_tag: tag,
         kind: definition.kind,
         confidence: confirmed ? 0.92 : 0.58,
-        evidence_sources: [`bracket:${tag}`, ...evidence_sources.filter((source) => source.startsWith("source:"))],
+        evidence_sources: [`bracket:${tag}`, ...evidence_sources],
       };
     });
+  const taggedLabels = new Set(taggedCandidates.map((candidate) => candidate.label));
+  const sourceCandidates = siteDefinitions
+    .filter((definition) => !taggedLabels.has(definition.canonical))
+    .map((definition) => ({ definition, evidence_sources: siteEvidence(definition, input) }))
+    .filter((item) => item.evidence_sources.length > 0)
+    .map(({ definition, evidence_sources }) => ({
+      label: definition.canonical,
+      short_label: siteShortLabel(definition),
+      raw_tag: definition.rawTags[0],
+      kind: definition.kind,
+      confidence: 0.92,
+      evidence_sources,
+    }));
+  const candidates = [...taggedCandidates, ...sourceCandidates];
 
   const confirmedCandidates = candidates.filter((candidate) => candidate.confidence >= 0.75);
   const selected = confirmedCandidates.length === 1 ? confirmedCandidates[0] : null;
 
+  const referenceCollection = !selected && candidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
+  if (referenceCollection) {
+    return {
+      label: referenceCollection.canonical,
+      short_label: siteShortLabel(referenceCollection),
+      raw_tag: referenceCollection.rawTags[0],
+      kind: referenceCollection.kind,
+      confidence: 0.86,
+      evidence_sources: [`source:${referenceCollection.rawTags[0]}`],
+      candidates: [],
+    };
+  }
+
+  if (!selected && candidates.length === 0 && rawTags.length === 0 && hasGeneralReferenceEvidence(input)) {
+    return generalClinicalReferenceSite;
+  }
+
   return {
     label: selected?.label ?? null,
+    short_label: selected?.short_label ?? null,
     raw_tag: selected?.raw_tag ?? null,
     kind: selected?.kind ?? ("unknown" as const),
     confidence:
@@ -487,116 +1359,43 @@ function emptySecondaryFacets(): DocumentOrganizationProfile["secondary_facets"]
   return { population: [], setting: [], service: [], topic: [], workflow: [], medication: [], risk: [] };
 }
 
-function secondaryFacets(rawTags: string[], titleText: string, contentText: string) {
+function countPatternMatches(text: string, pattern: RegExp) {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  return [...text.matchAll(new RegExp(pattern.source, flags))].length;
+}
+
+function hasRuleEvidence(rule: SmartFacetRule, strongText: string, bodyText: string) {
+  if (rule.strong.some((pattern) => pattern.test(strongText))) return true;
+  if (!rule.body?.length) return false;
+  const bodyMatches = rule.body.reduce((count, pattern) => count + countPatternMatches(bodyText, pattern), 0);
+  return bodyMatches >= (rule.minBodyMatches ?? 2);
+}
+
+function addFacet(
+  facets: DocumentOrganizationProfile["secondary_facets"],
+  labelType: keyof DocumentOrganizationProfile["secondary_facets"],
+  label: string,
+) {
+  if (facets[labelType].includes(label)) return;
+  if (facets[labelType].length >= secondaryFacetLimits[labelType]) return;
+  facets[labelType].push(label);
+}
+
+function secondaryFacets(rawTags: string[], titleText: string, sourceText: string, contentText: string) {
   const facets = emptySecondaryFacets();
   for (const rawTag of rawTags) {
     const facet = secondaryTagMap.get(normalizeText(rawTag));
     if (!facet) continue;
-    facets[facet.label_type].push(facet.label);
+    addFacet(facets, facet.label_type, facet.label);
   }
 
-  const fullText = `${titleText} ${contentText}`.toLowerCase();
+  const strongText = `${titleText} ${sourceText} ${rawTags.join(" ")}`.slice(0, 25_000);
+  const bodyText = contentText.slice(0, 80_000);
 
-  // ── Population / Age cohorts ─────────────────────────────────────────────
-  if (/\b(?:neonatal|neonate|newborn|baby|born|nicu)\b/.test(fullText)) facets.population.push("neonatal");
-  if (/\b(?:paediatric|pediatric|child|children|pmh|pch)\b/.test(fullText)) facets.population.push("paediatric");
-  if (/\b(?:youth|adolescent|teen|young person|young adult)\b/.test(fullText)) facets.population.push("youth");
-  if (/\b(?:adult|adults)\b/.test(fullText)) facets.population.push("adult");
-  if (/\b(?:geriatric|older adult|elderly|aged|65 years)\b/.test(fullText)) facets.population.push("geriatric");
-
-  // ── Workflow / Admin split ───────────────────────────────────────────────
-  if (/\b(?:clinical|medical|nursing|ward|midwife|physio|ot|treatment|prescrib|drug)\b/.test(fullText)) facets.workflow.push("clinical");
-  if (/\b(?:admin|clerical|finance|billing|payroll|human resources|roster|audit|governance|non-clinical|non clinical)\b/.test(fullText)) facets.workflow.push("non-clinical");
-  if (/\b(?:finance|financial|billing|funding|invoice|payment|cost|budget)\b/.test(fullText)) facets.workflow.push("finance");
-  if (/\b(?:human resources|personnel|staffing|hiring|recruitment)\b/.test(fullText)) facets.workflow.push("hr");
-
-  // ── Clinical Specialty (mapped to service) ────────────────────────────────
-  if (/\b(?:emergency|ed\b|emergency department|trauma|resus|triage|mbcp|racpc)\b/.test(fullText)) facets.service.push("emergency-medicine");
-  if (/\b(?:mental health|psychiatr|psychosis|schizophrenia|bipolar|ect\b|seclusion|detention|camhs|inpatient mental|community mental)\b/.test(fullText)) facets.service.push("mental-health");
-  if (/\b(?:obstetric|maternity|labour|birth|antenatal|postnatal|perinatal|midwif|kemh|mbc\b|pregnancy|pregnant)\b/.test(fullText)) facets.service.push("obstetrics-maternity");
-  if (/\b(?:neonatal|nicu|neonate|newborn|neonatal intensive)\b/.test(fullText)) facets.service.push("neonatology");
-  if (/\b(?:icu\b|intensive care|critical care|hdu\b|high dependency|ventilat|vasoactive|inotrope|vasopressor)\b/.test(fullText)) facets.service.push("intensive-care");
-  if (/\b(?:perioperative|anaesth|anaesthes|anesthes|theatre|operating|preoperative|post-?operative|surgical|intraoperative)\b/.test(fullText)) facets.service.push("perioperative-anaesthesia");
-  if (/\b(?:pharmacy|pharmacist|drug guideline|iv drug|medication management|medicine management|pharmacol)\b/.test(fullText)) facets.service.push("pharmacy-medications");
-  if (/\b(?:infection control|antimicrobial|antibiotic|cdiff|c. diff|mrsa|ipc\b|sterilisation|decontamination|isolation|sepsis|infectious disease)\b/.test(fullText)) facets.service.push("infectious-disease");
-  if (/\b(?:oncolog|haematolog|hematolog|chemotherapy|transfusion|apheresis|hit\b|thrombocytopenia|blood product|leukaemia)\b/.test(fullText)) facets.service.push("oncology-haematology");
-  if (/\b(?:cardiol|cardiac|heart failure|arrhythmia|ecg\b|pacemaker|vte\b|venous thromboembolism|atrial fibrillation|chest pain|coronary)\b/.test(fullText)) facets.service.push("cardiology");
-  if (/\b(?:orthopaed|orthoped|fracture|bone|joint|spine|spinal|musculoskeletal|limb|ankle|hip replacement)\b/.test(fullText)) facets.service.push("orthopaedics");
-  if (/\b(?:renal|nephrol|dialysis|haemodialysis|hemodialysis|kidney|glomerular|renal colic|renal failure)\b/.test(fullText)) facets.service.push("renal-nephrology");
-  if (/\b(?:gastroenterol|endoscopy|colonoscopy|gastroscopy|bowel|liver|hepat|variceal|terlipressin|inflammatory bowel|ibd\b)\b/.test(fullText)) facets.service.push("gastroenterology");
-  if (/\b(?:respiratory|pulmonol|lung|sleep apnoea|cpap\b|spirometry|bronch|asthma|copd\b|pleural|thoracic)\b/.test(fullText)) facets.service.push("respiratory");
-  if (/\b(?:neurol|seizure|epilepsy|stroke|tia\b|ect\b|neuropsychol|parkinson|dementia|delirium)\b/.test(fullText)) facets.service.push("neurology");
-  if (/\b(?:palliative|end of life|dying|comfort care|hospice|eol\b)\b/.test(fullText)) facets.service.push("palliative-care");
-  if (/\b(?:dietetic|nutrition|nutritional|dietitian|enteral|parenteral|tube feed)\b/.test(fullText)) facets.service.push("allied-health");
-  if (/\b(?:physiotherap|occupational therap|speech pathol|social work|allied health)\b/.test(fullText)) facets.service.push("allied-health");
-  if (/\b(?:diabetes|endocrin|insulin|hypoglycaem|dka\b|diabetic ketoacidosis|hhs\b|hyperosmolar|thyroid|adrenal)\b/.test(fullText)) facets.service.push("diabetes-endocrinology");
-  if (/\b(?:urology|urolog|catheter|urethral|bladder|prostate|renal calculus)\b/.test(fullText)) facets.service.push("urology");
-  if (/\b(?:wound|wound care|wound management|pressure injury|ulcer|debridement|dressing)\b/.test(fullText)) facets.service.push("wound-management");
-  if (/\b(?:pain management|pain relief|analges|analgesia|acute pain|chronic pain|opioid)\b/.test(fullText)) facets.service.push("pain-management");
-
-  // ── Care Setting (mapped to setting) ─────────────────────────────────────
-  if (/\b(?:emergency department|ed\b|emergency room|er\b|triage|trauma bay)\b/.test(fullText)) facets.setting.push("emergency-department");
-  if (/\b(?:inpatient|ward|admitted|admission|bed management|inpatient unit)\b/.test(fullText)) facets.setting.push("inpatient");
-  if (/\b(?:outpatient|ambulatory|clinic\b|day procedure|day surgery|day unit)\b/.test(fullText)) facets.setting.push("outpatient");
-  if (/\b(?:icu\b|intensive care unit|critical care unit|hdu\b|high dependency)\b/.test(fullText)) facets.setting.push("icu-hdu");
-  if (/\b(?:operating theatre|operating room|theatre suite|perioperative|post-?anaesth|pacu\b|recovery room)\b/.test(fullText)) facets.setting.push("operating-theatre");
-  if (/\b(?:community|home visit|community health|outreach|community-based|cpop\b|community program)\b/.test(fullText)) facets.setting.push("community");
-  if (/\b(?:maternity unit|birth suite|labour ward|antenatal ward|postnatal ward|birthing)\b/.test(fullText)) facets.setting.push("maternity-unit");
-  if (/\b(?:mental health unit|psychiatric unit|mhu\b|acute mental health|psychiatric inpatient|seclusion)\b/.test(fullText)) facets.setting.push("mental-health-unit");
-
-  // ── Medication Category (mapped to medication) ───────────────────────────
-  if (/\b(?:anticoagul|heparin|warfarin|enoxaparin|dabigatran|rivaroxaban|apixaban|vte prophylaxis)\b/.test(fullText)) facets.medication.push("anticoagulants");
-  if (/\b(?:opioid|morphine|fentanyl|oxycodone|hydromorphone|pethidine|codeine|naloxone|buprenorphine|methadone)\b/.test(fullText)) facets.medication.push("opioids");
-  if (/\b(?:insulin|subcutaneous insulin|basal|bolus|sliding scale|dka|hyperglycaem)\b/.test(fullText)) facets.medication.push("insulin");
-  if (/\b(?:antibiotic|antimicrobial|penicillin|cephalosporin|vancomycin|gentamicin|meropenem|flucloxacillin|minocycline|benzylpenicillin)\b/.test(fullText)) facets.medication.push("antimicrobials");
-  if (/\b(?:antipsychotic|clozapine|olanzapine|quetiapine|risperidone|haloperidol|droperidol|lai\b|long-acting injectable|depot)\b/.test(fullText)) facets.medication.push("antipsychotics");
-  if (/\b(?:blood product|packed red cells|ffp\b|fresh frozen plasma|platelet|transfusion|massive transfusion|blood bank)\b/.test(fullText)) facets.medication.push("blood-products");
-  if (/\b(?:iv drug guideline|intravenous drug|iv administration|iv infusion|intravenous medication)\b/.test(fullText)) facets.medication.push("iv-medications");
-  if (/\b(?:controlled drug|schedule 8|schedule 4|restricted medication|s8\b|s4\b|dangerous drug)\b/.test(fullText)) facets.medication.push("controlled-drugs");
-  if (/\b(?:chemotherapy|cytotoxic|antineoplastic|anticancer|immunosuppressant)\b/.test(fullText)) facets.medication.push("chemotherapy");
-  if (/\b(?:lithium|mood stabiliser|mood stabilizer|valproate|carbamazepine|lamotrigine)\b/.test(fullText)) facets.medication.push("mood-stabilisers");
-
-  // ── Clinical Audience / Roles (mapped to workflow) ───────────────────────
-  if (/\b(?:nurs(?:ing|e)|midwif(?:e|ery)|nursing care|nurse practitioner|clinical nurse|cns\b|cnc\b)\b/.test(fullText)) facets.workflow.push("nursing-midwifery");
-  if (/\b(?:medical officer|doctor|prescrib(?:er|ing)|registrar|consultant|junior medical|jmo\b|clinician)\b/.test(fullText)) facets.workflow.push("medical-officer");
-  if (/\b(?:dietetic|nutrition|social work|physiotherap|occupational therap|speech pathol|allied health)\b/.test(fullText)) facets.workflow.push("allied-health");
-  if (/\b(?:patient information|leaflet|booklet|fact ?sheet|consent form|patient-facing|for patients|patient education)\b/.test(fullText)) facets.workflow.push("patient-facing");
-  if (/\b(?:all staff|hospital-wide|global guideline|general policy|code black|code blue|evacuation)\b/.test(fullText)) facets.workflow.push("all-staff");
-  if (/\b(?:pharmac(?:y|ist)|dispensing|medication storage|formulary checklist)\b/.test(fullText)) facets.workflow.push("pharmacy-staff");
-  if (/\b(?:psycholog(?:ist|y)|mental health clinician|case manager|camhs staff|psychiatric nurse)\b/.test(fullText)) facets.workflow.push("mental-health-practitioners");
-  if (/\b(?:clerical|ward clerk|medical records|scanning work|webpas user|receptionist|billing clerk)\b/.test(fullText)) facets.workflow.push("clerical-admin");
-  if (/\b(?:security guard|orderly|patient transport|escort duty|facilities staff|orderlies)\b/.test(fullText)) facets.workflow.push("security-orderlies");
-  if (/\b(?:student|intern|resident|placement guide|supervised practice|supervision protocol)\b/.test(fullText)) facets.workflow.push("students-supervisors");
-
-  // ── Clinical Risk & Alerts (mapped to risk) ──────────────────────────────
-  if (/\b(?:high risk medication|potassium|lithium|clozapine|insulin|high alert med|apheresis|heparin)\b/.test(fullText)) facets.risk.push("high-risk-medication");
-  if (/\b(?:clinical alert|sepsis alert|deteriorating patient|resuscitation|cpr\b|cardiac arrest|met call|medical emergency)\b/.test(fullText)) facets.risk.push("clinical-alert");
-  if (/\b(?:open disclosure|incident report|sentinel event|clinical governance|audit checklist|root cause)\b/.test(fullText)) facets.risk.push("open-disclosure");
-  if (/\b(?:infection prevention|infection control|ipc\b|ppe\b|sterile procedure|isolation precaution|decontamination)\b/.test(fullText)) facets.risk.push("infection-prevention");
-  if (/\b(?:clinical handover|handover|isbar\b|patient transfer|escalation protocol|deteriorat)\b/.test(fullText)) facets.risk.push("clinical-handover-escalation");
-  if (/\b(?:falls prevention|fall risk|post fall|bed alarm|falls assessment)\b/.test(fullText)) facets.risk.push("falls-prevention");
-  if (/\b(?:restrictive practice|restraint|chemical restraint|physical restraint|seclusion)\b/.test(fullText)) facets.risk.push("restrictive-practices");
-  if (/\b(?:blood safety|blood product|transfusion|massive transfusion|mtp\b|packed red cell|plasma transfusion)\b/.test(fullText)) facets.risk.push("blood-safety-transfusion");
-  if (/\b(?:pressure injury|pressure ulcer|waterlow|skin integrity|skin assessment|wound classification)\b/.test(fullText)) facets.risk.push("pressure-injury-skin");
-  if (/\b(?:resuscitation|code blue|cpr\b|basic life support|bls\b|advanced life support|als\b|pals\b|defibrillat)\b/.test(fullText)) facets.risk.push("resuscitation-code-blue");
-
-  // ── Clinical Systems & Software (mapped to workflow) ────────────────────
-  if (/\b(?:webpas|patient administration system|pas downtime)\b/.test(fullText)) facets.workflow.push("webpas");
-  if (/\b(?:dmr\b|digital medical record|scanning process|medical chart scan)\b/.test(fullText)) facets.workflow.push("dmr");
-  if (/\b(?:bossnet|clinical portal|electronic medical chart)\b/.test(fullText)) facets.workflow.push("bossnet");
-  if (/\b(?:epma\b|electronic prescribing|medication prescribing|medications-prescribing)\b/.test(fullText)) facets.workflow.push("epma");
-  if (/\b(?:datix|riskman|incident logging|incident report system)\b/.test(fullText)) facets.workflow.push("datix-riskman");
-  if (/\b(?:hss\b|health support services|lattice\b|payroll system|timesheet online|rostering online|ros\b)\b/.test(fullText)) facets.workflow.push("hss-payroll-rostering");
-  if (/\b(?:pats online|pats registration|patient assisted travel scheme online)\b/.test(fullText)) facets.workflow.push("pats-online");
-  if (/\b(?:etg\b|therapeutic guidelines|drug formulary|medication formulary lookup)\b/.test(fullText)) facets.workflow.push("etg-formulary");
-
-  // ── Cultural & Access Equity (mapped to workflow) ───────────────────────
-  if (/\b(?:voluntary assisted dying|vad\b|vad substance|vad protocol)\b/.test(fullText)) facets.workflow.push("voluntary-assisted-dying");
-  if (/\b(?:advance care planning|advance health directive|ahd\b|enduring power|epg\b|goals of care)\b/.test(fullText)) facets.workflow.push("advance-care-planning");
-  if (/\b(?:child protection|mandatory reporting|child abuse|domestic violence screening|fdv screening)\b/.test(fullText)) facets.workflow.push("child-protection-safety");
-  if (/\b(?:disability access|cognitive disability|dementia support|sensory impairment|physical access)\b/.test(fullText)) facets.workflow.push("disability-access");
-  if (/\b(?:aboriginal health|cultural safety|indigenous health|liaison officer|kara maar)\b/.test(fullText)) facets.workflow.push("aboriginal-health");
-  if (/\b(?:language interpreter|translator|multicultural access|deaf access|hearing impaired|cald\b)\b/.test(fullText)) facets.workflow.push("language-interpreter");
+  for (const rule of smartFacetRules) {
+    if (!hasRuleEvidence(rule, strongText, bodyText)) continue;
+    addFacet(facets, rule.label_type, rule.label);
+  }
 
   return {
     population: uniqueStrings(facets.population),
@@ -621,7 +1420,7 @@ function profileLabels(profile: DocumentOrganizationProfile): OrganizationGenera
     });
   }
   for (const [label_type, values] of Object.entries(profile.secondary_facets) as Array<
-    [Exclude<DocumentLabelType, "site" | "document_type" | "risk" | "custom">, string[]]
+    [Exclude<DocumentLabelType, "site" | "document_type" | "custom">, string[]]
   >) {
     for (const label of values) labels.push({ label, label_type, confidence: 0.78 });
   }
@@ -668,7 +1467,12 @@ export function classifyDocumentOrganization(input: OrganizationDocumentInput) {
     raw_bracket_tags,
     site,
     document_type,
-    secondary_facets: secondaryFacets(raw_bracket_tags, input.title, `${input.contentText ?? ""} ${input.summaryText ?? ""}`),
+    secondary_facets: secondaryFacets(
+      raw_bracket_tags,
+      `${input.title} ${input.file_name}`,
+      input.source_path ?? "",
+      `${input.contentText ?? ""} ${input.summaryText ?? ""}`,
+    ),
     review_status,
   };
 

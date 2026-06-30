@@ -19,6 +19,9 @@ type EvalResult = {
   question: string;
   category: RagEvalCase["category"];
   supported: boolean;
+  expectedFiles: string[];
+  matchedFiles: string[];
+  missingFiles: string[];
   expectedHit: boolean;
   grounded: boolean;
   latencyMs: number;
@@ -27,6 +30,20 @@ type EvalResult = {
   citations: number;
   visualEvidence: number;
   failures: string[];
+  retrievedSources: Array<{
+    rank: number;
+    chunkId: string;
+    documentId: string;
+    title: string;
+    fileName: string;
+    pageNumber: number | null;
+    chunkIndex: number;
+    sectionHeading: string | null;
+    retrievalSignals: string[];
+  }>;
+  retrievalIntent?: unknown;
+  sourceSelection?: unknown;
+  routingReason?: string;
   latencyTimings: RagAnswer["latencyTimings"];
   inputTokens: number;
   outputTokens: number;
@@ -35,6 +52,22 @@ type EvalResult = {
   totalTokens: number;
   estimatedCostUsd: number | null;
 };
+
+function evalSourceDiagnostics(answer: RagAnswer): EvalResult["retrievedSources"] {
+  return answer.sources.slice(0, 8).map((source, index) => ({
+    rank: index + 1,
+    chunkId: source.id,
+    documentId: source.document_id,
+    title: source.title,
+    fileName: source.file_name,
+    pageNumber: source.page_number,
+    chunkIndex: source.chunk_index,
+    sectionHeading: source.section_heading,
+    retrievalSignals: (source.match_explanation?.reasons ?? [])
+      .filter((reason) => reason.startsWith("retrieval_signal:"))
+      .map((reason) => reason.replace(/^retrieval_signal:/, "")),
+  }));
+}
 
 function parseArgs(argv: string[]): EvalArgs {
   const args: EvalArgs = {
@@ -81,7 +114,12 @@ function summarizeFailures(results: EvalResult[]) {
   const unsupportedCorrect = unsupported.filter((result) => !result.grounded).length;
   const invalidCitations = results.filter((result) => result.grounded && result.citations === 0).length;
   const routineExtractiveLatencies = results
-    .filter((result) => result.category === "routine" && result.route === "extractive")
+    .filter(
+      (result) =>
+        result.category === "routine" &&
+        result.route === "extractive" &&
+        !/\bgeneration_fallback\b/.test(result.routingReason ?? ""),
+    )
     .map((result) => result.latencyMs);
   const complexSlow = results.filter((result) => result.category === "complex" && result.latencyMs > 20000).length;
   const failedCases = results.filter((result) => result.failures.length > 0);
@@ -185,6 +223,9 @@ async function main() {
       question: testCase.question,
       category: testCase.category,
       supported: testCase.supported,
+      expectedFiles: validation.expectedCoverage.expectedFiles,
+      matchedFiles: validation.expectedCoverage.matchedFiles,
+      missingFiles: validation.expectedCoverage.missingFiles,
       expectedHit: validation.expectedHit,
       grounded: answer.grounded,
       latencyMs,
@@ -193,6 +234,10 @@ async function main() {
       citations: answer.citations.length,
       visualEvidence: answer.visualEvidence?.length ?? 0,
       failures: validation.failures,
+      retrievedSources: evalSourceDiagnostics(answer),
+      retrievalIntent: answer.smartApiPlan?.answerPlan.retrievalIntent,
+      sourceSelection: answer.smartApiPlan?.answerPlan.sourceSelection,
+      routingReason: answer.routingReason,
       latencyTimings: answer.latencyTimings,
       inputTokens: answer.openAIUsage?.input_tokens ?? 0,
       outputTokens: answer.openAIUsage?.output_tokens ?? 0,
@@ -219,6 +264,19 @@ async function main() {
       );
       console.log(`  Q: ${testCase.question}`);
       if (citationSummary) console.log(`  Sources: ${citationSummary}`);
+      if (result.failures.length > 0) {
+        console.log(
+          `  Expected files: ${result.expectedFiles.join(", ") || "none"}; missing: ${
+            result.missingFiles.join(", ") || "none"
+          }`,
+        );
+        const retrieved = result.retrievedSources
+          .slice(0, 5)
+          .map((source) => `${source.rank}:${source.fileName}#${source.chunkIndex}`)
+          .join("; ");
+        if (retrieved) console.log(`  Retrieved files: ${retrieved}`);
+        if (result.routingReason) console.log(`  Routing: ${result.routingReason}`);
+      }
     }
   }
 

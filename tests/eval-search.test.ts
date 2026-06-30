@@ -36,20 +36,88 @@ function result(overrides: Partial<SearchEvalResult> = {}): SearchEvalResult {
 
 describe("search eval thresholds", () => {
   it("does not count unsupported cases with no expected files as expected hits", () => {
-    expect(expectedFileHit([], [{ file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf" }])).toBe(false);
-    expect(expectedFileCoverage([], [{ file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf" }]).allHit).toBe(false);
+    expect(
+      expectedFileHit(
+        [],
+        [
+          {
+            title: "Clozapine Prescribing Administration Monitoring",
+            file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+          },
+        ],
+      ),
+    ).toBe(false);
+    expect(
+      expectedFileCoverage(
+        [],
+        [
+          {
+            title: "Clozapine Prescribing Administration Monitoring",
+            file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+          },
+        ],
+      ).allHit,
+    ).toBe(false);
   });
 
   it("requires all expected files for multi-document coverage", () => {
     const partial = expectedFileCoverage(
       ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
-      [{ file_name: "MHSP.Discharge.pdf" }],
+      [{ title: "Discharge", file_name: "MHSP.Discharge.pdf" }],
       5,
     );
 
     expect(partial.anyHit).toBe(true);
     expect(partial.allHit).toBe(false);
     expect(partial.missingFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf"]);
+  });
+
+  it("matches legacy eval expectations to current clinical source filenames", () => {
+    expect(
+      expectedFileHit(
+        ["MHSP.NeurolepticSideEffect.pdf"],
+        [{ title: "Neuroleptic Side Effects(AKG)", file_name: "Neuroleptic Side Effects (AKG).pdf" }],
+      ),
+    ).toBe(true);
+
+    expect(
+      expectedFileHit(
+        ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
+        [{ title: "Clozapine GP Shared Care(FSH)", file_name: "Clozapine GP Shared Care (FSH).pdf" }],
+      ),
+    ).toBe(true);
+
+    expect(
+      expectedFileHit(
+        ["MHSP.Discharge.pdf"],
+        [
+          {
+            title: "Admission to Discharge for Mental Health Inpatients",
+            file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+          },
+        ],
+      ),
+    ).toBe(true);
+
+    expect(
+      expectedFileHit(
+        ["MHSP.Discharge.pdf"],
+        [
+          {
+            title: "Referral, Admission and Discharge - Mental Health Hospital in the Home Policy and Procedure",
+            file_name:
+              "Referral, Admission and Discharge - Mental Health Hospital in the Home (MHHITH) Policy and Procedure (RKPG).pdf",
+          },
+        ],
+      ),
+    ).toBe(true);
+
+    expect(
+      expectedFileHit(
+        ["MHSP.Discharge.pdf"],
+        [{ title: "Criteria-Led Discharge", file_name: "Criteria-Led Discharge (NMHS).pdf" }],
+      ),
+    ).toBe(false);
   });
 
   it("does not apply full-suite aggregate hit thresholds to a targeted question run", () => {

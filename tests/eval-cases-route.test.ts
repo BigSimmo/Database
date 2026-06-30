@@ -26,10 +26,12 @@ function createSelectMock<T>(resolver: (filters: Record<string, unknown>) => T |
   return builder;
 }
 
-function createInsertMock(options: {
-  ownedDocumentIds?: string[];
-  ownedChunks?: Record<string, string>;
-} = {}) {
+function createInsertMock(
+  options: {
+    ownedDocumentIds?: string[];
+    ownedChunks?: Record<string, string>;
+  } = {},
+) {
   const insert = vi.fn((payload: unknown) => ({
     select: vi.fn(() => ({
       single: vi.fn(async () => ({ data: { id: "capture-1" }, error: null })),
@@ -43,7 +45,9 @@ function createInsertMock(options: {
         if (table === "documents") {
           return createSelectMock((filters) => {
             const id = String(filters.id ?? "");
-            return filters.owner_id === userId && (options.ownedDocumentIds ?? [documentId]).includes(id) ? { id } : null;
+            return filters.owner_id === userId && (options.ownedDocumentIds ?? [documentId]).includes(id)
+              ? { id }
+              : null;
           });
         }
         if (table === "document_chunks") {
@@ -263,7 +267,10 @@ describe("/api/eval-cases", () => {
   });
 
   it("nulls unowned expected document and chunk references", async () => {
-    const { client, insert } = createInsertMock({ ownedDocumentIds: [], ownedChunks: { [unownedChunkId]: documentId } });
+    const { client, insert } = createInsertMock({
+      ownedDocumentIds: [],
+      ownedChunks: { [unownedChunkId]: documentId },
+    });
     vi.doMock("@/lib/env", () => mockEnv());
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({

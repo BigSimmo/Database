@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { demoChunks, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseRouteParams } from "@/lib/validation/params";
+import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
@@ -24,6 +27,13 @@ type DocumentChunkSearchRow = {
 const maxSearchTerms = 8;
 const defaultSearchLimit = 20;
 const maxSearchLimit = 60;
+const documentSearchQuerySchema = z.object({
+  q: z.string().optional().default("").transform(normalizeSearchQuery),
+  limit: queryInteger({ fallback: defaultSearchLimit, min: 1, max: maxSearchLimit }),
+});
+const documentSearchParamsSchema = z.object({
+  id: z.string().uuid(),
+});
 const softStopTerms = new Set([
   "the",
   "and",
@@ -58,12 +68,6 @@ function searchTermsFor(query: string) {
         .filter((term) => term.length >= 2),
     ),
   ).slice(0, maxSearchTerms);
-}
-
-function boundedLimit(value: string | null) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isFinite(parsed)) return defaultSearchLimit;
-  return Math.min(maxSearchLimit, Math.max(1, parsed));
 }
 
 function ilikeSafeTerm(value: string) {
@@ -148,21 +152,19 @@ function generationMetadataForRow(row: DocumentChunkSearchRow) {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
-    const url = new URL(request.url);
-    const query = normalizeSearchQuery(url.searchParams.get("q"));
+    const { id: rawId } = await params;
+    const { q: query, limit } = parseRequestQuery(request, documentSearchQuerySchema, "Invalid document search query.");
     const terms = searchTermsFor(query);
-    const limit = boundedLimit(url.searchParams.get("limit"));
 
     if (!query || !terms.length) {
       return NextResponse.json({ query, results: [], pageHits: [], hitCount: 0 });
     }
 
     if (isDemoMode()) {
-      const document = getDemoDocument(id);
+      const document = getDemoDocument(rawId);
       if (!document) return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
       const results = demoChunks
-        .filter((chunk) => chunk.document_id === id)
+        .filter((chunk) => chunk.document_id === rawId)
         .map((chunk) => resultFromChunk(chunk, query, terms))
         .filter((result) => result.matched_terms.length > 0)
         .sort((a, b) => b.score - a.score || a.chunk_index - b.chunk_index)
@@ -177,6 +179,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       });
     }
 
+    const { id } = parseRouteParams({ id: rawId }, documentSearchParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const { data: document, error: documentError } = await supabase

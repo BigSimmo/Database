@@ -30,7 +30,13 @@ export type DocumentLabelType =
   | "service"
   | "custom";
 
-export type DocumentOrganizationSiteKind = "hospital" | "health_service" | "program" | "unit" | "unknown";
+export type DocumentOrganizationSiteKind =
+  | "hospital"
+  | "health_service"
+  | "program"
+  | "unit"
+  | "reference_collection"
+  | "unknown";
 export type DocumentOrganizationReviewStatus = "confident" | "needs_review" | "manual_override";
 export type DocumentOrganizationType =
   | "policy"
@@ -53,12 +59,14 @@ export type DocumentOrganizationProfile = {
   raw_bracket_tags: string[];
   site: {
     label: string | null;
+    short_label: string | null;
     raw_tag: string | null;
     kind: DocumentOrganizationSiteKind;
     confidence: number;
     evidence_sources: string[];
     candidates: Array<{
       label: string;
+      short_label: string;
       raw_tag: string;
       kind: DocumentOrganizationSiteKind;
       confidence: number;
@@ -132,6 +140,47 @@ export type SourceGovernanceWarning = {
 };
 
 export type RetrievalConfidenceGateStatus = "passed" | "blocked";
+
+export type RetrievalChunkType = "text" | "table" | "flowchart" | "medication_chart" | "patient_education";
+
+export type RetrievalIntent = {
+  needsTable: boolean;
+  needsMedicationChart: boolean;
+  needsFlowchartStep: boolean;
+  needsPatientEducation: boolean;
+  needsSourceImage: boolean;
+  needsRiskFlowchart: boolean;
+  needsExactVisualTable: boolean;
+  needsDoseRouteFrequency: boolean;
+  needsComparison: boolean;
+  preferredDocumentSignals: string[];
+  requiredTermSignals: string[];
+};
+
+export type RetrievalCandidate = {
+  chunkId: string;
+  documentId: string;
+  title: string;
+  section?: string;
+  page?: number | null;
+  chunkType: RetrievalChunkType;
+  score: number;
+  lexicalScore?: number;
+  semanticScore?: number;
+  rerankScore?: number;
+  matchedSignals: string[];
+  sourceHref?: string;
+};
+
+export type RetrievalSelectionSummary = {
+  candidateCount: number;
+  selectedCount: number;
+  requiredSignalsSatisfied: boolean;
+  matchedSignals: string[];
+  missingRequiredSignals: string[];
+  rescueApplied: boolean;
+  topChunkTypes: Record<RetrievalChunkType, number>;
+};
 
 export type RetrievalDiagnostics = {
   candidateCount: number;
@@ -734,16 +783,16 @@ export type SmartRagSourceLink = {
 };
 
 export type SmartRagAnswerPlan = {
-  retrievalQuality: "none" | "weak" | "adequate" | "strong";
+  intent: "clinical_synthesis" | "source_lookup" | "document_lookup" | "unsupported";
+  queryClass: RagQueryClass;
   routeMode: "unsupported" | "extractive" | "fast" | "strong";
-  modelStrategy:
-    | "no_generation"
-    | "narrow_extractive_lookup"
-    | "fast_model_then_quality_gate"
-    | "strong_model_then_quality_gate";
+  modelStrategy: "fast_model_then_quality_gate" | "strong_model_then_quality_gate" | "extractive_lookup" | "source_gap";
+  retrievalQuality: "strong" | "partial" | "weak" | "conflicting";
+  retrievalIntent: RetrievalIntent;
+  sourceSelection: RetrievalSelectionSummary;
   qualityCriteria: string[];
-  fallbackBehavior: "return_source_gap" | "return_narrow_extractive_lookup" | "retry_strong_then_source_gap";
-  sourcePolicy: "no_answer_without_retrieved_support";
+  fallbackBehavior: "retry_strong_then_source_gap" | "source_gap" | "extractive_lookup_only";
+  sourcePolicy: "required_citations" | "nearby_sources_allowed" | "exact_source_links";
 };
 
 export type SmartRagApiPlan = {

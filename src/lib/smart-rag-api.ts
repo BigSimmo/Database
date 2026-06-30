@@ -1,10 +1,13 @@
 import { citationFromResult, documentCitationHref, formatCompactCitationLabel } from "@/lib/citations";
 import { sourceStrengthForSimilarity } from "@/lib/evidence";
+import { buildRetrievalIntent, summarizeRetrievalSelection } from "@/lib/retrieval-selection";
 import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import type {
   AnswerResponseMode,
+  ConflictOrGap,
   RagAnswer,
   RagQueryClass,
+  RetrievalSelectionSummary,
   SearchResult,
   SmartRagApiPlan,
   SmartRagSourceLink,
@@ -19,6 +22,7 @@ type BuildSmartRagApiPlanArgs = {
   results: SearchResult[];
   routeMode?: RagAnswer["routingMode"];
   routeReason?: string;
+  conflictsOrGaps?: ConflictOrGap[];
   retrievalStrategy?: RetrievalStrategy;
   maxLinks?: number;
   preferredResponseMode?: SmartRagApiPlan["responseMode"];
@@ -54,11 +58,21 @@ function strongestResultScore(results: SearchResult[]) {
   return results.reduce((max, result) => Math.max(max, resultScore(result)), 0);
 }
 
-function retrievalQuality(results: SearchResult[]): SmartRagAnswerPlan["retrievalQuality"] {
-  if (results.length === 0) return "none";
+function retrievalQuality(
+  results: SearchResult[],
+  conflictsOrGaps: ConflictOrGap[] = [],
+  selection?: RetrievalSelectionSummary,
+): SmartRagAnswerPlan["retrievalQuality"] {
+  if (conflictsOrGaps.some((item) => item.type === "conflict")) return "conflicting";
+  if (results.length === 0) return "weak";
+  if (selection && !selection.requiredSignalsSatisfied) {
+    return selection.matchedSignals.length ? "partial" : "weak";
+  }
   const strongestScore = strongestResultScore(results);
+  if (selection?.requiredSignalsSatisfied && selection.matchedSignals.length >= 2 && strongestScore >= 0.5)
+    return "strong";
   if (strongestScore >= 0.76) return "strong";
-  if (strongestScore >= 0.5) return "adequate";
+  if (strongestScore >= 0.5) return "partial";
   return "weak";
 }
 
@@ -123,7 +137,7 @@ function responseMode(
 ) {
   if (args.results.length === 0 || args.routeMode === "unsupported") return "unsupported";
   if (args.preferredResponseMode) return args.preferredResponseMode;
-  if (args.queryClass === "document_lookup") return "document_lookup";
+  if (args.queryClass === "document_lookup" && args.routeMode === "extractive") return "document_lookup";
   if (args.routeMode === "extractive") return "extractive_answer";
   if (args.routeMode === "strong") return "strong_synthesis";
   if (
@@ -158,7 +172,7 @@ function displayMode(args: {
   routeMode?: RagAnswer["routingMode"];
 }): AnswerResponseMode {
   if (args.mode === "unsupported") return "evidence_gap";
-  if (args.mode === "document_lookup" || args.queryClass === "document_lookup") return "document_lookup";
+  if (args.mode === "document_lookup") return "document_lookup";
   if (args.queryClass === "comparison" || args.mode === "multi_document_synthesis") return "comparison_matrix";
   if (args.queryClass === "table_threshold") return "threshold_table";
   if (args.queryClass === "medication_dose_risk") return "clinical_pathway";
@@ -188,24 +202,35 @@ function answerFocus(args: {
   return "Answer directly using the highest-ranked source links.";
 }
 
+function answerPlanIntent(args: {
+  mode: SmartRagApiPlan["responseMode"];
+  routeMode: SmartRagAnswerPlan["routeMode"];
+}): SmartRagAnswerPlan["intent"] {
+  if (args.routeMode === "unsupported" || args.mode === "unsupported") return "unsupported";
+  if (args.mode === "document_lookup") return "document_lookup";
+  if (args.routeMode === "extractive") return "source_lookup";
+  return "clinical_synthesis";
+}
+
 function modelStrategy(routeMode: SmartRagAnswerPlan["routeMode"]): SmartRagAnswerPlan["modelStrategy"] {
-  if (routeMode === "unsupported") return "no_generation";
-  if (routeMode === "extractive") return "narrow_extractive_lookup";
+  if (routeMode === "unsupported") return "source_gap";
+  if (routeMode === "extractive") return "extractive_lookup";
   if (routeMode === "strong") return "strong_model_then_quality_gate";
   return "fast_model_then_quality_gate";
 }
 
-function qualityCriteria(args: {
-  queryClass: RagQueryClass;
-  mode: SmartRagApiPlan["responseMode"];
-}): string[] {
+function qualityCriteria(args: { queryClass: RagQueryClass; mode: SmartRagApiPlan["responseMode"] }): string[] {
   const criteria = [
     "first_sentence_answers_query",
+    "natural_clinical_synthesis",
     "no_source_headings_or_fragments",
     "citations_match_retrieved_chunks",
     "no_unsupported_numbers_or_doses",
     "query_intent_covered",
   ];
+  if (args.mode === "document_lookup" || args.mode === "extractive_answer") {
+    return ["return_source_identity_or_location", "do_not_generate_clinical_advice", "preserve_exact_source_links"];
+  }
   if (args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold") {
     criteria.push("no_cross_medication_leakage");
   }
@@ -219,25 +244,47 @@ function qualityCriteria(args: {
 }
 
 function fallbackBehavior(routeMode: SmartRagAnswerPlan["routeMode"]): SmartRagAnswerPlan["fallbackBehavior"] {
-  if (routeMode === "unsupported") return "return_source_gap";
-  if (routeMode === "extractive") return "return_narrow_extractive_lookup";
+  if (routeMode === "unsupported") return "source_gap";
+  if (routeMode === "extractive") return "extractive_lookup_only";
   return "retry_strong_then_source_gap";
+}
+
+function sourcePolicy(args: {
+  intent: SmartRagAnswerPlan["intent"];
+  results: SearchResult[];
+}): SmartRagAnswerPlan["sourcePolicy"] {
+  if (args.intent === "unsupported") return args.results.length ? "nearby_sources_allowed" : "required_citations";
+  if (args.intent === "source_lookup" || args.intent === "document_lookup") return "exact_source_links";
+  return "required_citations";
 }
 
 function answerPlan(args: {
   queryClass: RagQueryClass;
   mode: SmartRagApiPlan["responseMode"];
   routeMode?: RagAnswer["routingMode"];
+  query: string;
   results: SearchResult[];
+  conflictsOrGaps?: ConflictOrGap[];
 }): SmartRagAnswerPlan {
   const plannedRouteMode = routeModeFromPlanMode(args.mode, args.routeMode);
+  const intent = answerPlanIntent({ mode: args.mode, routeMode: plannedRouteMode });
+  const retrievalIntent = buildRetrievalIntent(args.query, args.queryClass);
+  const sourceSelection = summarizeRetrievalSelection({
+    query: args.query,
+    queryClass: args.queryClass,
+    results: args.results,
+  }).summary;
   return {
-    retrievalQuality: retrievalQuality(args.results),
+    intent,
+    queryClass: args.queryClass,
     routeMode: plannedRouteMode,
     modelStrategy: modelStrategy(plannedRouteMode),
+    retrievalQuality: retrievalQuality(args.results, args.conflictsOrGaps, sourceSelection),
+    retrievalIntent,
+    sourceSelection,
     qualityCriteria: qualityCriteria({ queryClass: args.queryClass, mode: args.mode }),
     fallbackBehavior: fallbackBehavior(plannedRouteMode),
-    sourcePolicy: "no_answer_without_retrieved_support",
+    sourcePolicy: sourcePolicy({ intent, results: args.results }),
   };
 }
 
@@ -280,7 +327,14 @@ export function buildSmartRagApiPlan(args: BuildSmartRagApiPlanArgs): SmartRagAp
       documentCount,
       linkCount: coreSourceLinks.length,
     }),
-    answerPlan: answerPlan({ queryClass: args.queryClass, mode, routeMode: args.routeMode, results: args.results }),
+    answerPlan: answerPlan({
+      queryClass: args.queryClass,
+      mode,
+      routeMode: args.routeMode,
+      query: args.query,
+      results: args.results,
+      conflictsOrGaps: args.conflictsOrGaps,
+    }),
     sourceLinkCount: coreSourceLinks.length,
     coreSourceLinks,
     streamPlan: streamPlan(mode, retrievalStrategy),

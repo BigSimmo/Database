@@ -44,7 +44,9 @@ test.describe("Clinical KB applications launcher", () => {
         await expect(selectedSheet).toBeHidden();
       } else {
         await expect(page.getByTestId("selected-application-panel")).toContainText("Clinical KB Search");
-        const desktopLaunchLink = page.getByTestId("selected-application-panel").getByLabel("Launch Clinical KB Search");
+        const desktopLaunchLink = page
+          .getByTestId("selected-application-panel")
+          .getByLabel("Launch Clinical KB Search");
         await expect(desktopLaunchLink).toBeVisible();
         await expect(desktopLaunchLink).toHaveAttribute("href", "/?mode=answer");
       }

@@ -775,7 +775,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sourcePreview).toBeVisible();
     await expect(sourcePreview).toContainText("Sources behind this answer");
     await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
-    await expect(sourcePreview.getByRole("link", { name: /Open PDF drawer/i })).toBeVisible();
+    const firstPreviewSource = sourcePreview.getByTestId("source-capsule-preview-row").first();
+    await expect(firstPreviewSource).toHaveAttribute("href", /\/documents\/.+chunk=/);
+    await expectMinTouchTarget(firstPreviewSource);
+    await expect(sourcePreview.getByRole("link", { name: /Open source page/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
     const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy quote" });
     await expect(copyQuoteButton).toBeVisible();
@@ -791,6 +794,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(sourceSheet).toHaveCount(0);
     await expect(sourceCapsule).toBeFocused();
+    if (browserName === "chromium") {
+      const copyWithSources = plainAnswer.getByRole("button", { name: "Copy answer with source status" });
+      await expect(copyWithSources).toBeVisible();
+      await expectMinTouchTarget(copyWithSources);
+      await copyWithSources.click();
+      const copiedText = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copiedText).toContain("Clinical answer draft");
+      expect(copiedText).toContain("Sources for review");
+      expect(copiedText).toContain("/documents/");
+    }
     await expectMinTouchTarget(plainAnswer.getByRole("button", { name: "More answer actions" }));
 
     const keyItems = page.getByLabel("Key monitoring items");
@@ -926,6 +939,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
     await evidenceSheet.getByTestId("mobile-evidence-tab-sources").click();
     await expect(evidenceSheet.getByTestId("mobile-evidence-panel-sources")).toBeVisible();
+    const sourcePanelLink = evidenceSheet
+      .getByTestId("mobile-evidence-panel-sources")
+      .locator('a[href*="chunk="]')
+      .first();
+    await expect(sourcePanelLink).toBeVisible();
+    await expect(sourcePanelLink).toHaveAttribute("href", /\/documents\/.+chunk=/);
+    await evidenceSheet.getByTestId("mobile-evidence-tab-map").click();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-map")).toBeVisible();
+    const evidenceMapOpenSource = evidenceSheet.getByTestId("evidence-map-open-source").first();
+    await expect(evidenceMapOpenSource).toBeVisible();
+    await expect(evidenceMapOpenSource).toHaveAttribute("href", /\/documents\/.+chunk=/);
+    await expectMinTouchTarget(evidenceMapOpenSource);
     await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");

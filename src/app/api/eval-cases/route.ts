@@ -140,7 +140,9 @@ export async function POST(request: Request) {
       chunkId: expectedChunkCandidate,
     });
     const expectedChunkId =
-      expectedChunk && (!expectedDocumentId || expectedChunk.documentId === expectedDocumentId) ? expectedChunk.id : null;
+      expectedChunk && (!expectedDocumentId || expectedChunk.documentId === expectedDocumentId)
+        ? expectedChunk.id
+        : null;
     const { data, error } = await supabase
       .from("rag_query_misses")
       .insert({

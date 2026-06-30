@@ -932,16 +932,7 @@ async function uploadAndCaptionImages(
 
   for (const resolved of resolvedTasks) {
     const { task, classificationCacheHit } = resolved;
-    const {
-      candidate,
-      index,
-      image,
-      perceptualHash,
-      imageHash,
-      nearbyText,
-      tableMetadata,
-      contextHash,
-    } = task;
+    const { candidate, index, image, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } = task;
     let classification = resolved.classification;
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,

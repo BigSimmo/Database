@@ -12,26 +12,26 @@ Default to no badge. Add a badge only when removing it would make the screen les
 
 Badges should answer one of these questions:
 
-| Question | Badge role |
-| --- | --- |
-| What is this? | Metadata or type |
-| What should I do? | Clinical action |
-| Can I trust or use this? | Trust, currentness, availability, or source support |
-| Should I pause and check? | Caution, adjustment, uncertainty, or review needed |
-| Should I stop or avoid? | Contraindication, failure, unsafe state |
-| Is the system doing something? | Process or system state |
+| Question                       | Badge role                                          |
+| ------------------------------ | --------------------------------------------------- |
+| What is this?                  | Metadata or type                                    |
+| What should I do?              | Clinical action                                     |
+| Can I trust or use this?       | Trust, currentness, availability, or source support |
+| Should I pause and check?      | Caution, adjustment, uncertainty, or review needed  |
+| Should I stop or avoid?        | Contraindication, failure, unsafe state             |
+| Is the system doing something? | Process or system state                             |
 
 ## Badge Versus Label Versus Chip
 
 Use these terms consistently.
 
-| Term | Meaning | Interaction |
-| --- | --- | --- |
-| Badge | Compact, static visual marker for state or metadata | Not clickable |
-| Chip | Interactive filter, selected token, query token, or mode selector | Clickable/removable/selectable |
-| Label | Data classification attached to content, documents, concepts, or rows | May be rendered as text or badge, but is not automatically a UI badge |
-| Tag | User-facing classification label, especially for document/manual tagging | May be interactive when used for search/filtering |
-| Status | Operational state such as current, processing, failed, reviewed | Usually rendered as a badge |
+| Term   | Meaning                                                                  | Interaction                                                           |
+| ------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Badge  | Compact, static visual marker for state or metadata                      | Not clickable                                                         |
+| Chip   | Interactive filter, selected token, query token, or mode selector        | Clickable/removable/selectable                                        |
+| Label  | Data classification attached to content, documents, concepts, or rows    | May be rendered as text or badge, but is not automatically a UI badge |
+| Tag    | User-facing classification label, especially for document/manual tagging | May be interactive when used for search/filtering                     |
+| Status | Operational state such as current, processing, failed, reviewed          | Usually rendered as a badge                                           |
 
 Static badges must not look clickable. Interactive chips must use proper button or link semantics.
 
@@ -39,14 +39,14 @@ Static badges must not look clickable. Interactive chips must use proper button 
 
 Use six top-level tones only. Do not add more badge colours.
 
-| Tone | Meaning | Examples | Do not use for |
-| --- | --- | --- | --- |
-| Neutral / slate | Reference metadata and passive facts | `333 mg EC tablet`, `Item 8357W`, `Campral`, `p.4`, `PDF`, `Max 1,998 mg/day` | Urgent risks, actions, or trust state |
-| Clinical / teal | Action to take | `666 mg TID`, `Monitor renal`, `Take with food`, `Check baseline` | Verified/current/source-backed state |
-| Success / green | Confirmed, current, available, source-backed | `Reviewed`, `Current`, `Source-backed`, `PBS streamlined`, `Completed` | Clinical safety decisions |
-| Warning / amber | Pause, check, adjust, uncertain, limited | `Reduce <60 kg`, `Review due`, `Partial support`, `Limited evidence`, `Avoid >65` | Hard stops or contraindications |
-| Danger / red | Stop, avoid, failed, unsafe | `Cr >120 avoid`, `Contraindicated`, `Outdated`, `Failed`, `Do not use` | Routine adverse effects or mild cautions |
-| Info / blue | System or process information | `Processing`, `Syncing`, `Pending`, `Importing` | Core clinical meaning |
+| Tone            | Meaning                                      | Examples                                                                          | Do not use for                           |
+| --------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------- |
+| Neutral / slate | Reference metadata and passive facts         | `333 mg EC tablet`, `Item 8357W`, `Campral`, `p.4`, `PDF`, `Max 1,998 mg/day`     | Urgent risks, actions, or trust state    |
+| Clinical / teal | Action to take                               | `666 mg TID`, `Monitor renal`, `Take with food`, `Check baseline`                 | Verified/current/source-backed state     |
+| Success / green | Confirmed, current, available, source-backed | `Reviewed`, `Current`, `Source-backed`, `PBS streamlined`, `Completed`            | Clinical safety decisions                |
+| Warning / amber | Pause, check, adjust, uncertain, limited     | `Reduce <60 kg`, `Review due`, `Partial support`, `Limited evidence`, `Avoid >65` | Hard stops or contraindications          |
+| Danger / red    | Stop, avoid, failed, unsafe                  | `Cr >120 avoid`, `Contraindicated`, `Outdated`, `Failed`, `Do not use`            | Routine adverse effects or mild cautions |
+| Info / blue     | System or process information                | `Processing`, `Syncing`, `Pending`, `Importing`                                   | Core clinical meaning                    |
 
 Do not add purple, pink, orange, cyan, or extra medication-specific badge colours. Orange collapses into amber. Purple should not be used for clinical badges because it reads as product or AI styling rather than clinical meaning.
 
@@ -68,13 +68,13 @@ Neutral is the default for facts that do not require action, caution, trust sign
 
 Use variants within the six tones instead of adding new colours.
 
-| Variant | Use | Visual weight |
-| --- | --- | --- |
-| Quiet | Default static badge | Lowest |
-| Standard | Normal clinical/status badge | Low-medium |
-| Strong | Major warning, hard stop, selected interactive chip | High, rare |
-| Count | `4 matches`, `12 sources`, `+2` | Compact |
-| Dot + label | Very dense status rows | Minimal |
+| Variant     | Use                                                 | Visual weight |
+| ----------- | --------------------------------------------------- | ------------- |
+| Quiet       | Default static badge                                | Lowest        |
+| Standard    | Normal clinical/status badge                        | Low-medium    |
+| Strong      | Major warning, hard stop, selected interactive chip | High, rare    |
+| Count       | `4 matches`, `12 sources`, `+2`                     | Compact       |
+| Dot + label | Very dense status rows                              | Minimal       |
 
 Default badge styling should be quiet.
 
@@ -128,15 +128,15 @@ Do not use the same component for static badges and interactive chips unless it 
 
 Badges are easy to overuse. Apply hard limits.
 
-| Context | Limit |
-| --- | --- |
-| Desktop detail row | 3 visible badges |
-| Mobile detail row | 2 visible badges |
-| Search result row/card | 2-3 visible badges |
-| Top summary tile | 0 badges |
-| Hard-stop safety row | Up to 4 red badges if each is a separate contraindication |
-| Source/evidence row | 2-3 badges |
-| Document tag cloud | Use tag limits and show-more behaviour |
+| Context                | Limit                                                     |
+| ---------------------- | --------------------------------------------------------- |
+| Desktop detail row     | 3 visible badges                                          |
+| Mobile detail row      | 2 visible badges                                          |
+| Search result row/card | 2-3 visible badges                                        |
+| Top summary tile       | 0 badges                                                  |
+| Hard-stop safety row   | Up to 4 red badges if each is a separate contraindication |
+| Source/evidence row    | 2-3 badges                                                |
+| Document tag cloud     | Use tag limits and show-more behaviour                    |
 
 When there are too many badges, show the highest-priority badges first and move the rest into expanded detail or a quiet count such as `+2`.
 
@@ -217,40 +217,40 @@ Use red only for true stop or failure states. Routine side effects are not red u
 
 Medication pages may use badges only where they improve scanning.
 
-| Medication content | Tone |
-| --- | --- |
-| Formulation | Neutral |
-| Brand | Neutral |
-| PBS item | Neutral |
-| PBS availability/streamlined | Success |
-| Reviewed/source-backed medication state | Success |
-| Usual dose as an instruction | Clinical |
-| Administration instruction | Clinical |
-| Monitoring action | Clinical |
-| Dose ceiling/reference max dose | Neutral |
-| Dose adjustment | Warning |
-| Renal/hepatic caution | Warning |
-| Population not established | Warning |
-| Contraindication/do not use | Danger |
-| Routine adverse effect | Neutral |
-| High/common adverse effect needing attention | Warning |
-| Serious adverse effect/stop state | Danger |
+| Medication content                           | Tone     |
+| -------------------------------------------- | -------- |
+| Formulation                                  | Neutral  |
+| Brand                                        | Neutral  |
+| PBS item                                     | Neutral  |
+| PBS availability/streamlined                 | Success  |
+| Reviewed/source-backed medication state      | Success  |
+| Usual dose as an instruction                 | Clinical |
+| Administration instruction                   | Clinical |
+| Monitoring action                            | Clinical |
+| Dose ceiling/reference max dose              | Neutral  |
+| Dose adjustment                              | Warning  |
+| Renal/hepatic caution                        | Warning  |
+| Population not established                   | Warning  |
+| Contraindication/do not use                  | Danger   |
+| Routine adverse effect                       | Neutral  |
+| High/common adverse effect needing attention | Warning  |
+| Serious adverse effect/stop state            | Danger   |
 
 Acamprosate examples:
 
-| Label | Tone | Reason |
-| --- | --- | --- |
-| `333 mg EC tablet` | Neutral | Formulation |
-| `PBS streamlined` | Success | Access/status |
-| `Reviewed` | Success | Trust/status |
-| `666 mg TID` | Clinical | Dosing instruction |
-| `2 x 333 mg` | Neutral | Dose detail |
-| `Max 1,998 mg/day` | Neutral | Reference ceiling |
-| `Reduce <60 kg` | Warning | Dose adjustment |
-| `Take with food` | Clinical | Administration instruction |
-| `Do not crush` | Warning | Administration caution |
-| `Cr >120 avoid` | Danger | Contraindication |
-| `Child-Pugh C` | Danger | Contraindication |
+| Label              | Tone     | Reason                     |
+| ------------------ | -------- | -------------------------- |
+| `333 mg EC tablet` | Neutral  | Formulation                |
+| `PBS streamlined`  | Success  | Access/status              |
+| `Reviewed`         | Success  | Trust/status               |
+| `666 mg TID`       | Clinical | Dosing instruction         |
+| `2 x 333 mg`       | Neutral  | Dose detail                |
+| `Max 1,998 mg/day` | Neutral  | Reference ceiling          |
+| `Reduce <60 kg`    | Warning  | Dose adjustment            |
+| `Take with food`   | Clinical | Administration instruction |
+| `Do not crush`     | Warning  | Administration caution     |
+| `Cr >120 avoid`    | Danger   | Contraindication           |
+| `Child-Pugh C`     | Danger   | Contraindication           |
 
 ## Search Result Rules
 
@@ -266,30 +266,30 @@ Do not show a large badge cluster in a result row. If every result has many badg
 
 Search match examples:
 
-| Label | Tone |
-| --- | --- |
-| `Exact match` | Success |
-| `Source-backed` | Success |
-| `Partial support` | Warning |
-| `Nearby only` | Warning |
-| `No direct support` | Warning or danger depending on context |
-| `Dose match` | Clinical or success depending on whether it is an action or evidence state |
+| Label               | Tone                                                                       |
+| ------------------- | -------------------------------------------------------------------------- |
+| `Exact match`       | Success                                                                    |
+| `Source-backed`     | Success                                                                    |
+| `Partial support`   | Warning                                                                    |
+| `Nearby only`       | Warning                                                                    |
+| `No direct support` | Warning or danger depending on context                                     |
+| `Dose match`        | Clinical or success depending on whether it is an action or evidence state |
 
 ## Answer And Evidence Rules
 
 Answer badges should clarify grounding and evidence strength.
 
-| Evidence state | Tone |
-| --- | --- |
-| Direct source-backed support | Success |
-| Strong source | Success |
-| Partial support | Warning |
-| Nearby only | Warning |
-| No direct support where direct support is required | Danger |
-| Source current | Success |
-| Source review due | Warning |
-| Source outdated | Danger |
-| Page/source metadata | Neutral |
+| Evidence state                                     | Tone    |
+| -------------------------------------------------- | ------- |
+| Direct source-backed support                       | Success |
+| Strong source                                      | Success |
+| Partial support                                    | Warning |
+| Nearby only                                        | Warning |
+| No direct support where direct support is required | Danger  |
+| Source current                                     | Success |
+| Source review due                                  | Warning |
+| Source outdated                                    | Danger  |
+| Page/source metadata                               | Neutral |
 
 Do not use badges to decorate answer prose. Use them at the answer header, source rows, evidence panels, and compact provenance areas.
 
@@ -299,19 +299,19 @@ Document labels and document badges are related but not the same.
 
 Document labels classify the document. UI badges render only selected labels or states that help the user scan.
 
-| Source/document item | Tone |
-| --- | --- |
+| Source/document item       | Tone                                     |
+| -------------------------- | ---------------------------------------- |
 | Site/organisation metadata | Neutral or info if operationally helpful |
-| Document type | Neutral |
-| Manual override | Info |
-| Needs review | Warning |
-| Ambiguous site | Warning |
-| Current source | Success |
-| Review due | Warning |
-| Outdated source | Danger |
-| Processing/indexing | Info |
-| Failed ingestion | Danger |
-| Indexed/completed | Success |
+| Document type              | Neutral                                  |
+| Manual override            | Info                                     |
+| Needs review               | Warning                                  |
+| Ambiguous site             | Warning                                  |
+| Current source             | Success                                  |
+| Review due                 | Warning                                  |
+| Outdated source            | Danger                                   |
+| Processing/indexing        | Info                                     |
+| Failed ingestion           | Danger                                   |
+| Indexed/completed          | Success                                  |
 
 Limit visible tags. Use show-more behaviour for document tag clouds.
 
@@ -319,15 +319,15 @@ Limit visible tags. Use show-more behaviour for document tag clouds.
 
 Operational status badges should be simple and consistent.
 
-| State | Tone |
-| --- | --- |
-| Queued | Neutral |
-| Processing | Info |
-| Completed/indexed | Success |
-| Needs review | Warning |
-| Low confidence | Warning or info depending on severity |
-| Duplicate/noisy | Warning |
-| Failed | Danger |
+| State             | Tone                                  |
+| ----------------- | ------------------------------------- |
+| Queued            | Neutral                               |
+| Processing        | Info                                  |
+| Completed/indexed | Success                               |
+| Needs review      | Warning                               |
+| Low confidence    | Warning or info depending on severity |
+| Duplicate/noisy   | Warning                               |
+| Failed            | Danger                                |
 
 Do not make operational process badges look like clinical safety badges. Keep copy explicit.
 
@@ -402,14 +402,14 @@ Avoid code-facing colour names such as `green`, `red`, `amber`, or `slate` for n
 
 Map semantic tones to existing tokens:
 
-| Semantic tone | Existing style direction |
-| --- | --- |
-| `neutral` | `toneNeutral` / metadata pill |
-| `clinical` | clinical teal token |
-| `success` | `toneSuccess` |
-| `warning` | `toneWarning` or `toneWarningQuiet` |
-| `danger` | `toneDanger` |
-| `info` | `toneInfo` |
+| Semantic tone | Existing style direction            |
+| ------------- | ----------------------------------- |
+| `neutral`     | `toneNeutral` / metadata pill       |
+| `clinical`    | clinical teal token                 |
+| `success`     | `toneSuccess`                       |
+| `warning`     | `toneWarning` or `toneWarningQuiet` |
+| `danger`      | `toneDanger`                        |
+| `info`        | `toneInfo`                          |
 
 ## Accessibility Requirements
 
@@ -490,13 +490,13 @@ Avoid:
 
 Use this mapping by default:
 
-| If the label means... | Use tone |
-| --- | --- |
-| Passive fact | Neutral |
-| Clinical instruction | Clinical |
-| Current/reviewed/source-backed/available | Success |
-| Adjustment/caution/review/partial | Warning |
-| Avoid/contraindicated/failed/unsafe | Danger |
-| Processing/pending/system | Info |
+| If the label means...                    | Use tone |
+| ---------------------------------------- | -------- |
+| Passive fact                             | Neutral  |
+| Clinical instruction                     | Clinical |
+| Current/reviewed/source-backed/available | Success  |
+| Adjustment/caution/review/partial        | Warning  |
+| Avoid/contraindicated/failed/unsafe      | Danger   |
+| Processing/pending/system                | Info     |
 
 Use fewer badges than feels tempting. The goal is clinical scanning, not visual decoration.

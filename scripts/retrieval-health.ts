@@ -1,6 +1,4 @@
 import { loadEnvConfig } from "@next/env";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireServerEnv } from "@/lib/env";
 
 loadEnvConfig(process.cwd());
 
@@ -40,6 +38,11 @@ function countBy<T extends string>(values: T[]) {
 }
 
 async function main() {
+  const [{ requireServerEnv }, { createAdminClient }] = await Promise.all([
+    import("@/lib/env"),
+    import("@/lib/supabase/admin"),
+  ]);
+
   requireServerEnv();
   const supabase = createAdminClient();
   const limit = numberArg("--limit", 200);

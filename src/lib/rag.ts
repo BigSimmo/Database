@@ -46,6 +46,7 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
+import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import {
@@ -55,7 +56,6 @@ import {
   buildSourceCoverage,
   buildVisualEvidence,
   detectConflictsOrGaps,
-  diversifySearchResults,
   extractQuoteCards,
   reconcileQuoteCards,
   selectBestSourceRecommendation,
@@ -78,6 +78,8 @@ import type {
   QuoteCard,
   RetrievalConfidenceGateStatus,
   RetrievalDiagnostics,
+  RetrievalIntent,
+  RetrievalSelectionSummary,
   RagQueryClass,
   RagAnswer,
   SearchResult,
@@ -110,13 +112,14 @@ const answerSectionSupportLevels = [
 
 const answerJsonOutputSchema = {
   type: "object",
-  description: "A source-grounded clinical answer generated only from retrieved document excerpts.",
+  description:
+    "A source-grounded clinical answer generated only from retrieved document excerpts, with claims tied to retrieved evidence IDs.",
   additionalProperties: false,
   properties: {
     answer: {
       type: "string",
       description:
-        "The first-layer response: a concise direct answer that can stand alone before structured supporting sections.",
+        "The first-layer response: a complete, direct clinical answer that can stand alone before structured supporting sections. The first sentence must directly answer the question in full prose.",
       maxLength: 1600,
     },
     grounded: {
@@ -157,7 +160,8 @@ const answerJsonOutputSchema = {
           },
           citation_chunk_ids: {
             type: "array",
-            description: "Retrieved chunk IDs that directly support this section.",
+            description:
+              "Required retrieved evidence IDs that directly support this section. Use only citation_chunk_id values supplied in the source block.",
             items: { type: "string" },
           },
         },
@@ -166,13 +170,14 @@ const answerJsonOutputSchema = {
     },
     citations: {
       type: "array",
-      description: "The strongest retrieved chunk IDs that directly support the answer.",
+      description:
+        "The strongest retrieved evidence IDs that directly support the answer. Use only citation_chunk_id values supplied in the source block.",
       maxItems: 5,
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
-          chunk_id: { type: "string", description: "A citation_chunk_id from the supplied source block." },
+          chunk_id: { type: "string", description: "A valid citation_chunk_id from the supplied source block." },
         },
         required: ["chunk_id"],
       },
@@ -185,7 +190,7 @@ const answerJsonOutputSchema = {
         type: "object",
         additionalProperties: false,
         properties: {
-          chunk_id: { type: "string", description: "A citation_chunk_id from the supplied source block." },
+          chunk_id: { type: "string", description: "A valid citation_chunk_id from the supplied source block." },
           quote: { type: "string", description: "A short exact quote from the cited source excerpt.", maxLength: 260 },
           section_heading: { type: ["string", "null"], description: "Source section heading when visible." },
         },
@@ -323,6 +328,8 @@ export type SearchTelemetry = {
   retrieval_layer_latencies_ms?: Record<string, number>;
   retrieval_provenance_counts?: Record<string, number>;
   retrieval_plan?: string;
+  retrieval_intent?: RetrievalIntent;
+  retrieval_selection?: RetrievalSelectionSummary;
   coverage_gate_decision?: "accepted" | "rejected" | "not_applicable";
   coverage_gate_reason?: string | null;
   vector_skipped_reason?: string | null;
@@ -724,6 +731,8 @@ type SanitizedCitations = {
   citations: Citation[];
   /** True only when the model-provided citations include at least one valid chunk. */
   modelCited: boolean;
+  proposedCount: number;
+  invalidCount: number;
 };
 
 function sanitizeCitations(
@@ -733,16 +742,23 @@ function sanitizeCitations(
   const chunks = allowedChunkMap(results);
   const citations: Citation[] = [];
   const seen = new Set<string>();
+  let proposedCount = 0;
+  let invalidCount = 0;
 
   for (const citation of proposed ?? []) {
+    proposedCount += 1;
     const source = chunks.get(citation.chunk_id);
-    if (!source || seen.has(source.id)) continue;
+    if (!source) {
+      invalidCount += 1;
+      continue;
+    }
+    if (seen.has(source.id)) continue;
     seen.add(source.id);
     citations.push(resultCitation(source));
   }
 
-  if (citations.length > 0) return { citations, modelCited: true };
-  return { citations: [], modelCited: false };
+  if (citations.length > 0) return { citations, modelCited: true, proposedCount, invalidCount };
+  return { citations: [], modelCited: false, proposedCount, invalidCount };
 }
 
 function inferAnswerSectionKind(
@@ -932,7 +948,7 @@ function fallbackReasonFromRouting(reason?: string | null) {
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer }>();
 const answerInflight = new Map<string, Promise<RagAnswer>>();
 const searchCache = new Map<string, { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry }>();
-const ragCacheDependencyVersion = "rag-cache-v10";
+const ragCacheDependencyVersion = "rag-cache-v12";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 
@@ -1265,7 +1281,11 @@ function cloneSearchResults(results: SearchResult[]) {
   return structuredClone(results);
 }
 
-function getCachedSearch(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
+function getCachedSearch(
+  args: SearchChunksArgs,
+  queryClass?: RagQueryClass,
+  queryVariants: string[] = [],
+): { results: SearchResult[]; telemetry: SearchTelemetry } | null {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
@@ -1374,7 +1394,11 @@ async function cacheIndexingVersion(args: Pick<SearchChunksArgs, "documentId" | 
   return value;
 }
 
-async function getSharedCachedSearch(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
+async function getSharedCachedSearch(
+  args: SearchChunksArgs,
+  queryClass?: RagQueryClass,
+  queryVariants: string[] = [],
+): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   try {
     const indexingVersion = await cacheIndexingVersion(args);
@@ -1412,6 +1436,8 @@ async function getSharedCachedSearch(args: SearchChunksArgs, queryClass?: RagQue
         index_unit_count: payload.telemetry?.index_unit_count ?? 0,
         index_unit_top_score: payload.telemetry?.index_unit_top_score ?? 0,
         retrieval_plan: payload.telemetry?.retrieval_plan ?? retrievalPlanForQueryClass(payload.telemetry?.query_class),
+        retrieval_intent: payload.telemetry?.retrieval_intent,
+        retrieval_selection: payload.telemetry?.retrieval_selection,
         retrieval_layer_counts: payload.telemetry?.retrieval_layer_counts ?? {},
         retrieval_layer_top_scores: payload.telemetry?.retrieval_layer_top_scores ?? {},
         retrieval_layer_latencies_ms: payload.telemetry?.retrieval_layer_latencies_ms ?? {},
@@ -1799,6 +1825,14 @@ export function buildRetrievalQueryVariants(
     addVariant("discharge community patients");
     addVariant("admission discharge");
   }
+  if (
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
+    /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
+  ) {
+    addVariant("risk flow");
+    addVariant("red zone risk flow");
+    addVariant("risk flow review urgent escalation");
+  }
   addVariant(analysis.queryRewrite.searchQuery);
 
   addVariant(
@@ -2037,6 +2071,37 @@ async function fetchBestDocumentLookupChunks(args: {
   return { chunks: fallbackChunks as DocumentLookupChunkRow[], terms };
 }
 
+async function fetchDocumentTitleAliasRows(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  ownerId?: string;
+  documentIds?: string[];
+}) {
+  const terms = analyzeClinicalQuery(args.query)
+    .documentTitleTerms.map((term) => term.replace(/[%_,]/g, " ").replace(/\s+/g, " ").trim())
+    .filter((term) => term.length >= 4)
+    .slice(0, 8);
+  if (!terms.length) return [] as DocumentLookupRow[];
+
+  const filters = terms.flatMap((term) => [`title.ilike.%${term}%`, `file_name.ilike.%${term}%`]).join(",");
+  let query = args.supabase
+    .from("documents")
+    .select("id,owner_id,title,file_name,status,page_count,chunk_count,image_count,metadata");
+  if (typeof (query as { or?: unknown }).or !== "function") return [] as DocumentLookupRow[];
+  query = query.or(filters).eq("status", "indexed").limit(12);
+  if (args.ownerId) query = query.eq("owner_id", args.ownerId);
+  if (args.documentIds?.length) query = query.in("id", args.documentIds);
+
+  const { data, error } = await query;
+  if (error || !data?.length) return [] as DocumentLookupRow[];
+
+  return (data as DocumentLookupRow[]).map((document) => ({
+    ...document,
+    text_rank: Math.max(Number(document.text_rank ?? 0), 0.34),
+    match_reason: document.match_reason ?? "title_alias",
+  }));
+}
+
 async function searchDocumentLookupFastPath(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2060,8 +2125,14 @@ async function searchDocumentLookupFastPath(args: {
       return data as DocumentLookupRow[];
     }),
   );
+  const titleAliasDocuments = await fetchDocumentTitleAliasRows({
+    supabase: args.supabase,
+    query: args.query,
+    ownerId: args.ownerId,
+    documentIds: args.documentIds,
+  });
   const documentsById = new Map<string, DocumentLookupRow>();
-  for (const document of documentSets.flat()) {
+  for (const document of [...titleAliasDocuments, ...documentSets.flat()]) {
     const existing = documentsById.get(document.id);
     if (!existing || Number(document.text_rank ?? 0) > Number(existing.text_rank ?? 0)) {
       documentsById.set(document.id, document);
@@ -2871,6 +2942,12 @@ export function decideTextFastPath(
   const strongestScore = results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
   const topTextRank = Math.max(...results.map((result) => result.text_rank ?? 0));
   const directTitleSupport = hasDirectTitleSupport(query, results);
+  if (
+    (queryClass === "document_lookup" || queryClass === "broad_summary") &&
+    hasDocumentAliasWithoutTopTitleSupport(query, results)
+  ) {
+    return { returnFastPath: false, reason: "document_alias_requires_title_rescue" };
+  }
   if (queryClass === "comparison") {
     const distinctDocuments = new Set(results.slice(0, 8).map((result) => result.document_id)).size;
     if (distinctDocuments >= 2 && (strongestScore >= 0.68 || topTextRank >= 0.08)) {
@@ -2914,10 +2991,37 @@ export function decideTextFastPath(
     return { returnFastPath: false, reason: "weak_document_text_match" };
   }
 
+  if (queryClass === "broad_summary") {
+    if (directTitleSupport && strongestScore >= 0.4) return { returnFastPath: true, reason: "direct_title_text_match" };
+    return { returnFastPath: false, reason: "broad_summary_requires_synthesis_or_title_rescue" };
+  }
+
   if (directTitleSupport && strongestScore >= 0.4) return { returnFastPath: true, reason: "direct_title_text_match" };
   if (strongestScore >= 0.64) return { returnFastPath: true, reason: "strong_text_score" };
   if (topTextRank >= 0.08) return { returnFastPath: true, reason: "strong_text_rank" };
   return { returnFastPath: false, reason: "weak_text_match" };
+}
+
+function normalizeDocumentAliasText(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasDocumentAliasWithoutTopTitleSupport(query: string, results: SearchResult[]) {
+  const aliases = analyzeClinicalQuery(query)
+    .documentTitleTerms.map(normalizeDocumentAliasText)
+    .filter((term) => term.length > 3);
+  if (!aliases.length) return false;
+
+  return !results.slice(0, 5).some((result) => {
+    if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) return true;
+    const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
+    return aliases.some((alias) => title.includes(alias));
+  });
 }
 
 function shouldReturnBeforeMemory(
@@ -3006,6 +3110,36 @@ function directTitleOrAliasSupport(query: string, results: SearchResult[]) {
     hasDirectTitleSupport(query, results) ||
     results.slice(0, 5).some((result) => result.match_explanation?.titleHit || result.match_explanation?.labelHit)
   );
+}
+
+function recordRetrievalSelectionTelemetry(
+  telemetry: SearchTelemetry,
+  intent: RetrievalIntent,
+  summary: RetrievalSelectionSummary,
+) {
+  telemetry.retrieval_intent = intent;
+  telemetry.retrieval_selection = summary;
+}
+
+function selectRankedRetrievalResults(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  candidates: SearchResult[];
+  topK: number;
+  maxResultsPerDocument: number;
+  telemetry?: SearchTelemetry;
+}) {
+  const selection = selectRetrievalEvidence({
+    query: args.query,
+    queryClass: args.queryClass,
+    results: rankClinicalResults(args.query, args.candidates),
+    topK: args.topK,
+    maxResultsPerDocument: args.maxResultsPerDocument,
+  });
+  if (args.telemetry) {
+    recordRetrievalSelectionTelemetry(args.telemetry, selection.intent, selection.summary);
+  }
+  return selection.results;
 }
 
 export function evaluateEvidenceCoverageGate(
@@ -3189,7 +3323,14 @@ async function prepareCoverageGateResults(args: {
   const candidates = await attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId);
   let results = await attachPageVisualEvidence(
     args.supabase,
-    diversifySearchResults(rankClinicalResults(args.query, candidates), args.topK, args.maxResultsPerDocument, true),
+    selectRankedRetrievalResults({
+      query: args.query,
+      queryClass: args.queryClass,
+      candidates,
+      topK: args.topK,
+      maxResultsPerDocument: args.maxResultsPerDocument,
+      telemetry: args.telemetry,
+    }),
   );
   results = applySecondStageRerankIfNeeded({
     queryClass: args.queryClass,
@@ -3225,7 +3366,12 @@ function markEmbeddingSkippedByTextFastPath(telemetry: SearchTelemetry, reason: 
 }
 
 function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
-  return queryClass === "document_lookup" || queryClass === "table_threshold" || queryClass === "comparison";
+  return (
+    queryClass === "document_lookup" ||
+    queryClass === "broad_summary" ||
+    queryClass === "table_threshold" ||
+    queryClass === "comparison"
+  );
 }
 
 function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
@@ -3240,16 +3386,6 @@ function shouldPreloadEmbedding(queryAnalysis: ReturnType<typeof analyzeClinical
     (queryAnalysis.queryClass === "medication_dose_risk" && queryAnalysis.needsSynthesis) ||
     queryAnalysis.needsClassifierFallback
   );
-}
-
-function memoryCardAnswerLabel(card: DocumentMemoryCard) {
-  if (card.card_type === "table_row") return "Table evidence";
-  if (card.card_type === "threshold") return "Threshold/action";
-  if (card.card_type === "medication") return "Medication point";
-  if (card.card_type === "risk") return "Risk/escalation";
-  if (card.card_type === "workflow") return "Workflow step";
-  if (card.card_type === "section_summary") return "Section summary";
-  return "Source point";
 }
 
 function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryClass: RagQueryClass) {
@@ -3293,24 +3429,6 @@ function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryCla
       : 0;
 
   return tokenHits * 0.08 + typeBoost + doseBoost + (card.confidence ?? 0) * 0.08 + lowValueTitlePenalty;
-}
-
-function selectDiverseMemoryCards(cards: DocumentMemoryCard[], limit: number) {
-  const selected: Array<{ card: DocumentMemoryCard; tokens: Set<string> }> = [];
-  for (const card of cards) {
-    const tokens = new Set(
-      splitBalancedWords(card.content).filter((token) => token.length > 3 && !/^\d+$/.test(token)),
-    );
-    const duplicate = selected.some((item) => {
-      if (tokens.size === 0 || item.tokens.size === 0) return false;
-      const overlap = Array.from(tokens).filter((token) => item.tokens.has(token)).length;
-      return overlap / Math.min(tokens.size, item.tokens.size) >= 0.72;
-    });
-    if (duplicate) continue;
-    selected.push({ card, tokens });
-    if (selected.length >= limit) break;
-  }
-  return selected.map((item) => item.card);
 }
 
 function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: string, queryClass: RagQueryClass) {
@@ -3498,8 +3616,7 @@ export function classifyAnswerIntent(query: string, queryClass: RagQueryClass): 
   const hasResultActionSignal =
     /\b(?:red|amber|green|anc|fbc|wbc|result|results|threshold|withhold|cease|stop|stopped|toxicity)\b/.test(
       normalized,
-    ) ||
-    /\b(?:what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(normalized);
+    ) || /\b(?:what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(normalized);
   const hasScheduleSignal = /\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up|level|levels|test|tests)\b/.test(
     normalized,
   );
@@ -3508,7 +3625,10 @@ export function classifyAnswerIntent(query: string, queryClass: RagQueryClass): 
     /\b(?:toxicity|what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(
       normalized,
     );
-  if (hasResultActionSignal && (!/\b(?:schedule|baseline|follow[-\s]?up)\b/.test(normalized) || hasStrongResultSignal)) {
+  if (
+    hasResultActionSignal &&
+    (!/\b(?:schedule|baseline|follow[-\s]?up)\b/.test(normalized) || hasStrongResultSignal)
+  ) {
     return "red_result_action";
   }
   if (hasScheduleSignal) {
@@ -3691,7 +3811,12 @@ function hasBadExtractiveQuality(text: string) {
   // Two adjacent > with only whitespace between them (not digits/letters) signals markup artifacts.
   if (/>[\s]*>/.test(normalized) && !/\w\s*>\s*\d/.test(normalized)) return true; // consecutive >> arrows
   if (/\w+\s*>\s*\w+\s*>\s*\w+/g.test(normalized) && !/\d\s*>\s*\d/.test(normalized)) return true; // breadcrumb trails like A > B > C (not numeric ranges)
-  if (/^\s*(?:references?(?!\s+(?:range|interval|value|level|limit|coordinate|check|system|dosing|monitoring|guideline))|bibliography)\b/i.test(normalized)) return true;
+  if (
+    /^\s*(?:references?(?!\s+(?:range|interval|value|level|limit|coordinate|check|system|dosing|monitoring|guideline))|bibliography)\b/i.test(
+      normalized,
+    )
+  )
+    return true;
   if (hasClinicalAnswerQualityIssue(normalized)) return true;
   if (/\btable\s+\d+\b/i.test(normalized) && normalized.length > 180) return true;
   return false;
@@ -3725,12 +3850,16 @@ function hasBadFinalAnswerQuality(text: string) {
   if (/\b[A-Za-z]{4,}[A-Z]{2,}[A-Za-z]{2,}\b/.test(normalized)) return true;
   if (/>[\s]*>/.test(normalized) && !/\w\s*>\s*\d/.test(normalized)) return true;
   if (/\w+\s*>\s*\w+\s*>\s*\w+/g.test(normalized) && !/\d\s*>\s*\d/.test(normalized)) return true;
-  if (/^\s*(?:references?(?!\s+(?:range|interval|value|level|limit|coordinate|check|system|dosing|monitoring|guideline))|bibliography)\b/i.test(normalized)) return true;
+  if (
+    /^\s*(?:references?(?!\s+(?:range|interval|value|level|limit|coordinate|check|system|dosing|monitoring|guideline))|bibliography)\b/i.test(
+      normalized,
+    )
+  )
+    return true;
   if (hasClinicalAnswerQualityIssue(normalized)) return true;
   if (/\btable\s+\d+\b/i.test(normalized) && normalized.length > 180) return true;
   return false;
 }
-
 
 function isLowValueExtractiveCaption(clause: string) {
   const descriptor =
@@ -3806,7 +3935,11 @@ function factSupportsAnswerIntent(
         // Allow contraindication facts when the query explicitly asks for renal information,
         // since renal contraindications (e.g. creatinine >120 micromol/L: contraindicated) are
         // essential dose safety facts for renal-dose queries.
-        if (kind === "contraindication" && /\brenal\b/i.test(query) && /\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) {
+        if (
+          kind === "contraindication" &&
+          /\brenal\b/i.test(query) &&
+          /\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)
+        ) {
           // fall through to dose text check below
         } else {
           return false;
@@ -3981,7 +4114,36 @@ function sentenceFromFact(fact: ExtractedClinicalFact, query: string) {
     !queryTokenMatchesText(entity, text) &&
     !/^(?:for|in|when|if|avoid|do not|must not|withhold|cease|stop|monitor|check|refer|arrange)\b/i.test(text);
   const sentence = needsEntityPrefix ? `For ${entity}, ${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
-  return `${sentence}.`;
+  return completeExtractiveSentence(sentence, query);
+}
+
+function lowerFirst(value: string) {
+  if (!value) return value;
+  return `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
+}
+
+function completeExtractiveSentence(value: string, query: string) {
+  const cleaned = sanitizeAnswerText(value)
+    .replace(/[.;,\s]+$/, "")
+    .trim();
+  if (!cleaned) return "";
+
+  const sentence = `${cleaned}.`;
+  if (hasCompleteOpeningSentence(sentence) && !isFragmentLikeClinicalAnswer(sentence, query)) return sentence;
+
+  if (/^(?:when|if|where|after|before|during)\b/i.test(cleaned)) {
+    return `The guidance is that ${lowerFirst(cleaned)}.`;
+  }
+
+  const withoutLeadingFragment = cleaned.replace(/^(?:and|or|but|with|without|including|such as|then)\s+/i, "");
+  if (/^to\b/i.test(cleaned)) {
+    return `The guidance is ${lowerFirst(cleaned)}.`;
+  }
+  if (withoutLeadingFragment !== cleaned) {
+    return `The guidance includes ${lowerFirst(withoutLeadingFragment)}.`;
+  }
+
+  return `The guidance is that ${lowerFirst(cleaned)}.`;
 }
 
 function sectionForFactKind(kind: ExtractedClinicalFactKind): Pick<AnswerSection, "heading" | "kind"> {
@@ -4218,6 +4380,30 @@ function buildExtractiveAnswer(args: {
   } satisfies RagAnswer;
 }
 
+function sourceBackedFallbackSubject(query: string) {
+  const normalized = normalizeSectionText(query)
+    .replace(/[?!.]+$/, "")
+    .trim();
+  const subject = normalized
+    .replace(/^summari[sz]e\s+(?:the\s+)?/i, "")
+    .replace(/^what\s+(?:is|are)\s+(?:the\s+)?(?:process|requirements?)\s+for\s+/i, "")
+    .replace(/^what\s+(?:is|are)\s+required\s+(?:for|when)\s+/i, "")
+    .replace(/^what\s+(.+?)\s+is\s+required$/i, "$1")
+    .replace(/^what\s+does\s+(?:the\s+)?/i, "")
+    .replace(/\s+(?:document|procedure|guideline)\s+require$/i, "")
+    .replace(/^how\s+(?:is|are)\s+/i, "")
+    .replace(/\s+managed$/i, " management")
+    .trim();
+
+  if (subject.length < 4) return "this clinical question";
+  return subject.length > 90 ? `${subject.slice(0, 87).trim()}...` : lowerFirst(subject);
+}
+
+function sourceBackedGenerationTimeoutAnswer(query: string) {
+  const subject = sourceBackedFallbackSubject(query);
+  return `This is the source status: indexed documents include directly relevant guidance for ${subject}, but answer generation timed out before a full synthesis was completed. Review the cited source passages for the local process.`;
+}
+
 function isUnusableGeneratedAnswer(answer: Pick<RagAnswer, "answer" | "citations" | "routingReason">) {
   const normalized = normalizeSectionText(answer.answer ?? "");
   if (!normalized) return true;
@@ -4346,7 +4532,9 @@ function isFragmentLikeClinicalAnswer(text: string, query: string) {
     // Only apply this fragment gate for general/definition questions, not for clinical intent
     // queries like "What is the maximum dose?" or "What is the QTc threshold?" which produce
     // valid concise fact answers that don't contain definition-style phrasing.
-    !/\b(?:dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor|renal|contraindicat|referral|pathway|qtc|fbc|anc|wbc|level|levels)\b/i.test(query) &&
+    !/\b(?:dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor|renal|contraindicat|referral|pathway|qtc|fbc|anc|wbc|level|levels)\b/i.test(
+      query,
+    ) &&
     !/\b(?:is|are)\s+(?:a|an|the)\b|\b(?:defined\s+as|characteri[sz]ed\s+by|involves|refers\s+to|is\s+an?\s+eating\s+disorder)\b/i.test(
       normalized,
     )
@@ -4396,6 +4584,59 @@ function isMissingCriticalQueryIntent(query: string, text: string) {
   return false;
 }
 
+const openingSentenceTerminatorPattern = /[.!?]["')\]]*(?:\s|$)/;
+const incompleteOpeningSentencePattern =
+  /^(?:and|or|but|because|although|while|when|where|after|before|during|with|without|including|such as|then|to|recommended\s+over|alternative\s+agent|chart\s+reference|table\s+summari[sz]ing)\b/i;
+const sourceHeadingOpeningPattern =
+  /^(?:appendix\s+\d+|dosage|dose|dosing|dosage and monitoring|dose table|monitoring|referral criteria|contraindications?|adverse effects?|required actions?|thresholds?|summary|overview|formulations?|available products?|product information|table|figure)\.?$/i;
+const openingSentenceActionPattern =
+  /\b(?:avoid|arrange|be|can|cannot|cease|check|continue|could|discontinue|document|give|include|includes|included|increase|involves|is|list|lists|may|might|monitor|must|need|needed|needs|provide|provides|recommend|recommends|reduce|refer|repeat|report|required|requires|review|should|start|starts|stop|support|supports|use|uses|was|were|will|withhold|would)\b/i;
+
+function firstSentence(value: string) {
+  const normalized = normalizeSectionText(value);
+  const terminatorMatch = normalized.match(openingSentenceTerminatorPattern);
+  if (!terminatorMatch || terminatorMatch.index === undefined) return normalized;
+  return normalized.slice(0, terminatorMatch.index + terminatorMatch[0].trimEnd().length).trim();
+}
+
+function hasCompleteOpeningSentence(value: string) {
+  const normalized = normalizeSectionText(value);
+  if (!normalized || !openingSentenceTerminatorPattern.test(normalized)) return false;
+  const opening = firstSentence(normalized).replace(/\*\*/g, "").trim();
+  const openingWithoutTerminal = opening.replace(/[.!?]["')\]]*$/, "").trim();
+  if (opening.length < 18 || openingWithoutTerminal.length < 12) return false;
+  if (templateLikeGeneratedPrefixPattern.test(opening)) return false;
+  if (incompleteOpeningSentencePattern.test(opening)) return false;
+  if (sourceHeadingOpeningPattern.test(openingWithoutTerminal)) return false;
+  return openingSentenceActionPattern.test(opening);
+}
+
+function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReason">) {
+  return /\binvalid_model_citation_ids\b/.test(answer.routingReason ?? "");
+}
+
+function generatedAnswerQualityFailureReason(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
+  const cleanedAnswer = sanitizeAnswerText(answer.answer);
+  if (!cleanedAnswer) return "empty_after_sanitize";
+  if (!hasCompleteOpeningSentence(cleanedAnswer)) return "incomplete_opening_sentence";
+  if (hasBadFinalAnswerQuality(cleanedAnswer)) return "bad_final_answer_quality";
+  if (hasClinicalAnswerQualityIssue(cleanedAnswer)) return "clinical_answer_quality_issue";
+  if (isLowYieldClinicalText(cleanedAnswer)) return "low_yield_answer";
+  if (isFragmentLikeClinicalAnswer(cleanedAnswer, query)) return "fragment_like_answer";
+  if (isMissingCriticalQueryIntent(query, cleanedAnswer)) return "missing_query_intent";
+  if (
+    (answer.routingMode === "extractive" || answer.confidence === "low") &&
+    !hasRelevantQueryOverlap(cleanedAnswer, query)
+  ) {
+    return "missing_query_overlap";
+  }
+  if (hasInvalidModelEvidenceIds(answer)) return "invalid_model_evidence_ids";
+  if (isUnusableGeneratedAnswer(answer)) return "unusable_generated_answer";
+  if (isTemplateLikeGeneratedAnswer(answer)) return "template_like_answer";
+  if (isOverExpandedSimpleGeneratedAnswer(query, queryClass, answer)) return "overexpanded_simple_answer";
+  return null;
+}
+
 function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQueryClass, reason: string): RagAnswer {
   return {
     ...answer,
@@ -4406,6 +4647,43 @@ function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQu
     responseMode: "evidence_gap",
     routingReason: [answer.routingReason, `final_quality_gate:${reason}`].filter(Boolean).join("; "),
   };
+}
+
+function shouldPreserveSourceBackedGeneratedAnswer(answer: RagAnswer, reason: string) {
+  if (reason !== "missing_query_intent" && reason !== "missing_query_overlap") return false;
+  if (!answer.grounded || answer.confidence === "unsupported" || answer.citations.length === 0) return false;
+  if (hasInvalidModelEvidenceIds(answer)) return false;
+
+  const sourceSelection = answer.smartApiPlan?.answerPlan.sourceSelection;
+  if (!sourceSelection?.selectedCount || !sourceSelection.requiredSignalsSatisfied) return false;
+  if (sourceSelection.missingRequiredSignals.length > 0) return false;
+
+  const matchedSignals = sourceSelection.matchedSignals;
+  const hasSpecificSourceSignal = matchedSignals.some(
+    (signal) =>
+      signal.startsWith("index_unit:") ||
+      [
+        "document_title",
+        "document_label",
+        "table_fact",
+        "source_image",
+        "visual_table",
+        "direct_relevance",
+        "active_community",
+        "ed",
+        "agitation",
+        "dose_amount",
+        "route",
+        "flowchart_or_pathway",
+      ].includes(signal),
+  );
+  const hasStructuredChunk =
+    sourceSelection.topChunkTypes.table > 0 ||
+    sourceSelection.topChunkTypes.flowchart > 0 ||
+    sourceSelection.topChunkTypes.medication_chart > 0 ||
+    sourceSelection.topChunkTypes.patient_education > 0;
+
+  return hasSpecificSourceSignal || hasStructuredChunk;
 }
 
 function sectionHeadingKind(heading: string): AnswerSectionKind {
@@ -4440,7 +4718,8 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
     /could not find enough clean|no relevant clinical source|no current source|cannot provide a clinical answer|cannot provide a source-backed clinical answer|nearby indexed passages|not strong enough to support a reliable answer|no specific\b.*\bcan be confirmed|do not contain indexed guidance|do not contain (?:specific\s+)?information|do not provide specific|no\b.*\bguidance\b.*\bincluded|defer to other sources/i.test(
       cleanedAnswer,
     );
-  const existingGapAnswer = gapLikeAnswer && (!answer.grounded || answer.routingMode === "strong" || answer.confidence === "low");
+  const existingGapAnswer =
+    gapLikeAnswer && (!answer.grounded || answer.routingMode === "strong" || answer.confidence === "low");
   if (existingGapAnswer) {
     const gapAnswer = finalQualityGapAnswer(query, queryClass);
     return {
@@ -4457,27 +4736,25 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
     return finalQualityFailure(answer, query, queryClass, "ungrounded_unsupported_answer");
   }
 
-  const answerIsBad =
-    !cleanedAnswer ||
-    cleanedAnswer.length < 18 ||
-    // Use hasBadFinalAnswerQuality (not hasBadExtractiveQuality) so that legitimate brand/PBS
-    // medication answers containing product names like Campral, Lithicarb, or ®/™ symbols
-    // are not incorrectly replaced with source-gap responses.
-    hasBadFinalAnswerQuality(cleanedAnswer) ||
-    hasClinicalAnswerQualityIssue(cleanedAnswer) ||
-    isLowYieldClinicalText(cleanedAnswer) ||
-    isFragmentLikeClinicalAnswer(cleanedAnswer, query) ||
-    isMissingCriticalQueryIntent(query, cleanedAnswer) ||
-    ((answer.routingMode === "extractive" || answer.confidence === "low") &&
-      !hasRelevantQueryOverlap(cleanedAnswer, query));
+  let qualityFailureReason = !cleanedAnswer
+    ? "empty_after_sanitize"
+    : cleanedAnswer.length < 18
+      ? "answer_too_short"
+      : generatedAnswerQualityFailureReason(answer, query, queryClass);
 
-  if (answerIsBad) {
-    return finalQualityFailure(
-      answer,
-      query,
-      queryClass,
-      !cleanedAnswer ? "empty_after_sanitize" : "low_quality_answer",
-    );
+  if (qualityFailureReason) {
+    if (shouldPreserveSourceBackedGeneratedAnswer(answer, qualityFailureReason)) {
+      answer = {
+        ...answer,
+        confidence: answer.confidence === "low" ? "medium" : answer.confidence,
+        routingReason: [answer.routingReason, `final_quality_gate_source_backed_recovery:${qualityFailureReason}`]
+          .filter(Boolean)
+          .join("; "),
+      };
+      qualityFailureReason = null;
+    } else {
+      return finalQualityFailure(answer, query, queryClass, qualityFailureReason);
+    }
   }
 
   const answerKey = normalizeSectionText(cleanedAnswer).toLowerCase();
@@ -4554,6 +4831,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     index_unit_count: 0,
     index_unit_top_score: 0,
     retrieval_plan: retrievalPlanForQueryClass(queryClassification.queryClass),
+    retrieval_intent: buildRetrievalIntent(retrievalQuery, queryClassification.queryClass),
     retrieval_layer_counts: {},
     retrieval_layer_top_scores: {},
     retrieval_layer_latencies_ms: {},
@@ -4634,12 +4912,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!preloadedEmbedding) {
       expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, textCandidates);
     }
-    const baseTextResults = diversifySearchResults(
-      rankClinicalResults(retrievalQuery, textCandidates),
-      args.topK ?? 8,
+    const baseTextResults = selectRankedRetrievalResults({
+      query: retrievalQuery,
+      queryClass: queryClassification.queryClass,
+      candidates: textCandidates,
+      topK: args.topK ?? 8,
       maxResultsPerDocument,
-      true,
-    );
+      telemetry,
+    });
 
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
     if (shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
@@ -4675,12 +4955,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     recordRetrievalLayer(telemetry, "memory_cards", memoryBoost.cards.length, {
       topScore: Math.max(0, ...memoryBoost.cards.map(memoryCardChunkScore)),
     });
-    textFastResults = diversifySearchResults(
-      rankClinicalResults(retrievalQuery, memoryBoost.results),
-      args.topK ?? 8,
+    textFastResults = selectRankedRetrievalResults({
+      query: retrievalQuery,
+      queryClass: queryClassification.queryClass,
+      candidates: memoryBoost.results,
+      topK: args.topK ?? 8,
       maxResultsPerDocument,
-      true,
-    );
+      telemetry,
+    });
     textFastResults = await attachPageVisualEvidence(supabase, textFastResults);
     textFastResults = applySecondStageRerankIfNeeded({
       queryClass: queryClassification.queryClass,
@@ -4775,12 +5057,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       );
       let documentLookupResults = await attachPageVisualEvidence(
         supabase,
-        diversifySearchResults(
-          rankClinicalResults(retrievalQuery, memoryBoost.results),
-          args.topK ?? 8,
+        selectRankedRetrievalResults({
+          query: retrievalQuery,
+          queryClass: queryClassification.queryClass,
+          candidates: memoryBoost.results,
+          topK: args.topK ?? 8,
           maxResultsPerDocument,
-          true,
-        ),
+          telemetry,
+        }),
       );
       documentLookupResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
@@ -4941,12 +5225,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     );
     let results = await attachPageVisualEvidence(
       supabase,
-      diversifySearchResults(
-        rankClinicalResults(retrievalQuery, memoryBoost.results),
-        args.topK ?? 8,
+      selectRankedRetrievalResults({
+        query: retrievalQuery,
+        queryClass: queryClassification.queryClass,
+        candidates: memoryBoost.results,
+        topK: args.topK ?? 8,
         maxResultsPerDocument,
-        true,
-      ),
+        telemetry,
+      }),
     );
     results = applySecondStageRerankIfNeeded({
       queryClass: queryClassification.queryClass,
@@ -5012,12 +5298,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   );
   let results = await attachPageVisualEvidence(
     supabase,
-    diversifySearchResults(
-      rankClinicalResults(retrievalQuery, memoryBoost.results),
-      args.topK ?? 8,
+    selectRankedRetrievalResults({
+      query: retrievalQuery,
+      queryClass: queryClassification.queryClass,
+      candidates: memoryBoost.results,
+      topK: args.topK ?? 8,
       maxResultsPerDocument,
-      true,
-    ),
+      telemetry,
+    }),
   );
   results = applySecondStageRerankIfNeeded({
     queryClass: queryClassification.queryClass,
@@ -5195,7 +5483,7 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
 export function parseAnswerJson(raw: string, results: SearchResult[], query?: string): RagAnswer {
   try {
     const parsed = answerJsonSchema.parse(JSON.parse(raw));
-    const { citations, modelCited } = sanitizeCitations(parsed.citations, results);
+    const { citations, modelCited, proposedCount, invalidCount } = sanitizeCitations(parsed.citations, results);
     const derivedConfidence = modelCited ? deriveConfidence(results, citations.length) : "unsupported";
     const confidence = modelCited ? clampConfidence(parsed.confidence, derivedConfidence) : "unsupported";
     const parsedAnswer = parsed.answer ?? "";
@@ -5221,8 +5509,12 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       documentBreakdown: [],
       routingReason: undefined,
     };
-    if (!modelCited) {
+    if (invalidCount > 0) {
+      answer.routingReason = modelCited ? "partial_invalid_model_citation_ids" : "invalid_model_citation_ids";
+    } else if (!modelCited) {
       answer.routingReason = "ungrounded_no_model_citation";
+    } else if (proposedCount === 0 && grounded) {
+      answer.routingReason = undefined;
     }
     // GEN-C2 / GEN-H2: numeric faithfulness gate.
     return applyNumericVerification(answer);
@@ -5517,6 +5809,8 @@ async function answerQuestionWithScopeUncoalesced(
   });
   const searchTelemetryDecisionMetadata = () => ({
     retrieval_plan: search.telemetry.retrieval_plan ?? null,
+    retrieval_intent: search.telemetry.retrieval_intent ?? null,
+    retrieval_selection: search.telemetry.retrieval_selection ?? null,
     retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count ?? null,
     text_candidate_budget: search.telemetry.text_candidate_budget ?? null,
     text_candidate_count: search.telemetry.text_candidate_count ?? null,
@@ -5540,6 +5834,7 @@ async function answerQuestionWithScopeUncoalesced(
       results: planResults,
       routeMode: mode,
       routeReason: reason,
+      conflictsOrGaps,
       retrievalStrategy: search.telemetry.retrieval_strategy,
     });
   const smartApiPlan = buildCurrentSmartApiPlan();
@@ -5549,11 +5844,16 @@ async function answerQuestionWithScopeUncoalesced(
     smart_api_display_mode: plan.displayMode,
     smart_api_latency_plan: plan.latencyPlan,
     smart_api_source_link_count: plan.sourceLinkCount,
+    smart_api_answer_plan_intent: plan.answerPlan.intent,
+    smart_api_answer_plan_query_class: plan.answerPlan.queryClass,
     smart_api_retrieval_quality: plan.answerPlan.retrievalQuality,
     smart_api_answer_route: plan.answerPlan.routeMode,
     smart_api_model_strategy: plan.answerPlan.modelStrategy,
     smart_api_fallback_behavior: plan.answerPlan.fallbackBehavior,
     smart_api_quality_criteria: plan.answerPlan.qualityCriteria,
+    smart_api_source_policy: plan.answerPlan.sourcePolicy,
+    smart_api_retrieval_intent: plan.answerPlan.retrievalIntent,
+    smart_api_source_selection: plan.answerPlan.sourceSelection,
   });
   await args.onProgress?.({
     stage: "retrieved",
@@ -5793,8 +6093,9 @@ async function answerQuestionWithScopeUncoalesced(
 
 Rules:
 - Answer directly from the provided excerpts only.
+- Compose a complete clinical answer. Do not summarize snippets, stitch fragments, or describe the retrieval results.
 - Use a layered response. The answer field is the first layer: write a short, high-yield clinical paragraph that can stand alone before any structured sections.
-- The answer field must be plain prose, usually 1-3 short sentences and 35-75 words. Do not use bullets, numbered lists, labels, icons, headings, or prefixes such as "Answer", "Summary", "Bottom line", "Required actions", or "Direct answer" inside the answer field.
+- The answer field must be plain prose, usually 1-3 short sentences and 35-75 words. The first sentence must be complete and must directly answer the user's question. Do not use bullets, numbered lists, labels, icons, headings, or prefixes such as "Answer", "Summary", "Bottom line", "Required actions", or "Direct answer" inside the answer field.
 - Start the answer field with the direct clinical answer in the first sentence. Keep only the vital and most relevant information there.
 - First, silently interpret what the clinician is really asking: clinical task, population/scope, likely decision point, urgency/risk, and whether they need a pathway, threshold, comparison, or document lookup. Use that interpretation to shape the answer.
 - Write like a clinician who has read the source material and is explaining the logical clinical approach. Avoid template language, source-inventory wording, and generic phrases such as "the strongest retrieved sources support", "source-backed", "the source states", or "based on the provided excerpts".
@@ -5810,6 +6111,7 @@ Rules:
 - For simple questions, return zero or one answerSections item unless a safety or source-gap section is needed. For complex clinical, medication, threshold, comparison, or multi-document questions, return two to five distinct sections when supported.
 - Keep answerSections non-redundant with the answer field. Do not add a "Direct answer", "Bottom line", or "High-yield summary" section that merely repeats the top answer. Each section should contain one concise practical point or one compact synthesis of closely related points.
 - For each answerSections item, choose the most specific kind and supportLevel. A section is direct only when the cited chunks directly answer that section.
+- Every clinical claim in answerSections must include citation_chunk_ids for the retrieved chunks that support it. Omit unsupported section claims.
 - Use thresholds for numeric cutoffs, ranges, score boundaries, withhold/stop criteria, or table-like criteria. Use comparison for source differences, conflicting guidance, or when the query asks "compare", "versus", or "difference".
 - Omit sections that are not supported by the retrieved excerpts.
 - Do not include low-yield provenance in answer or answerSections: no document IDs, procedure codes, page labels, file names, chunk numbers, similarity scores, source metadata, headers, footers, review tables, or document-control text.
@@ -5819,11 +6121,14 @@ Rules:
 - Prefer Australian or WA-specific guidance when present in the sources.
 - Do not provide patient-specific medical advice.
 - If the excerpts do not support a direct answer, say that the uploaded documents do not contain enough information.
-- Use practical clinical wording, but keep every claim tied to retrieved source content.
+- Use practical clinical wording, but keep every claim tied to retrieved source content and valid evidence IDs.
 - Put the grounded synthesis first in the answer field. Then include supported detail sections only when they add clinically useful detail and do not merely repeat the answer.
-- Compare sources when several documents are relevant. Mention gaps or weak support when the evidence is narrow.
-- Include clinically practical details and caveats only when supported.
+- Compare sources when several documents are relevant, and reconcile conflicts explicitly rather than choosing one silently.
+- Mention gaps, uncertainty, weak support, or nearby-only evidence when answer_plan.retrieval_quality is partial, weak, or conflicting.
+- Include clinically practical details and caveats only when supported by retrieved chunk IDs.
 - Use only the strongest 3-5 citations, not every source.
+- Use only citation_chunk_id values from the supplied source block. Do not invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence.
+- Do not include unsupported numbers, doses, frequencies, thresholds, routes, or medication names. If a number or dose is not clearly supported by the retrieved evidence, omit it or state the source gap.
 - Do not copy source headings as clinical content unless the heading itself answers the question.
 - Sources are ordered by answer relevance. Prioritize earlier sources unless a later source directly resolves a conflict or gap.
 - When sources come from multiple documents, synthesize by clinical theme/action. Do not list each document separately unless the question asks for a comparison.
@@ -5845,6 +6150,9 @@ Rules:
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentFusionBrief?.text ?? "";
     const crossDocumentContext = [sourceGuide, fusedBrief].filter(Boolean).join("\n\n");
+    const validEvidenceChunkIds = Array.from(new Set(contextResults.map((result) => result.id).filter(Boolean))).join(
+      ", ",
+    );
     const interpretedTask = [
       `intent: ${smartApiPlan.intent}`,
       `query_class: ${queryClass}`,
@@ -5856,9 +6164,29 @@ Rules:
       }`,
       `display_mode: ${smartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
-      `answer_plan: ${smartApiPlan.answerPlan.modelStrategy}`,
+      `answer_plan.intent: ${smartApiPlan.answerPlan.intent}`,
+      `answer_plan.route_mode: ${smartApiPlan.answerPlan.routeMode}`,
+      `answer_plan.model_strategy: ${smartApiPlan.answerPlan.modelStrategy}`,
+      `answer_plan.retrieval_quality: ${smartApiPlan.answerPlan.retrievalQuality}`,
+      `answer_plan.retrieval_intent: ${
+        Object.entries(smartApiPlan.answerPlan.retrievalIntent)
+          .filter(([, value]) => value === true)
+          .map(([key]) => key)
+          .join(", ") || "none"
+      }`,
+      `answer_plan.required_retrieval_signals: ${
+        smartApiPlan.answerPlan.retrievalIntent.requiredTermSignals.join(", ") || "none"
+      }`,
+      `answer_plan.source_selection: required_signals_satisfied=${
+        smartApiPlan.answerPlan.sourceSelection.requiredSignalsSatisfied
+      }; matched=${smartApiPlan.answerPlan.sourceSelection.matchedSignals.join(", ") || "none"}; missing=${
+        smartApiPlan.answerPlan.sourceSelection.missingRequiredSignals.join(", ") || "none"
+      }`,
+      `answer_plan.source_policy: ${smartApiPlan.answerPlan.sourcePolicy}`,
       `quality_gate: ${smartApiPlan.answerPlan.qualityCriteria.join(", ")}`,
       `fallback_behavior: ${smartApiPlan.answerPlan.fallbackBehavior}`,
+      `valid_evidence_chunk_ids: ${validEvidenceChunkIds || "none"}`,
+      `evidence_contract: every clinical claim must be supported by one or more valid_evidence_chunk_ids; unsupported clinical claims must be omitted or converted to a source-gap statement`,
       `source_count: ${contextResults.length}`,
       `source_relevance: ${relevance.label}`,
     ].join("\n");
@@ -5924,7 +6252,8 @@ ${qualityRetryInstruction}`
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
-        promptCacheKey: "clinical-rag-answer-v12",
+        promptCacheKey: "clinical-rag-answer-v13",
+        timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
         reasoningEffort:
           model === env.OPENAI_STRONG_ANSWER_MODEL
             ? env.OPENAI_STRONG_REASONING_EFFORT
@@ -5949,9 +6278,18 @@ ${qualityRetryInstruction}`
   }
 
   function summarizeGenerationFailureReason(error: unknown) {
-    if (error instanceof Error && error.message.trim()) return error.message.trim();
-    if (typeof error === "string" && error.trim()) return error.trim();
-    return "generation encountered an error";
+    const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
+    const normalized = message.toLowerCase();
+
+    if (!normalized) return "generation_failed";
+    if (/\bmax_output_tokens\b/.test(normalized)) return "provider_incomplete_max_output_tokens";
+    if (/\bincomplete\b/.test(normalized)) return "provider_incomplete";
+    if (/\brate limit|rate_limited|429\b/.test(normalized)) return "provider_rate_limited";
+    if (/\btimeout|timed out|aborted|etimedout\b/.test(normalized)) return "provider_timeout";
+    if (/\bauthentication|api key|unauthori[sz]ed|401|403\b/.test(normalized)) return "provider_auth_failed";
+    if (/\bvalidation|quality gate|schema|parse|json\b/.test(normalized)) return "generation_quality_failed";
+    if (/\bopenai|provider|model\b/.test(normalized)) return "provider_generation_failed";
+    return "generation_failed";
   }
 
   async function buildGenerationFallbackAnswer(
@@ -6075,19 +6413,39 @@ ${qualityRetryInstruction}`
       parseAnswerJson(generated.text, packedContextResults, args.query),
       retrievalDiagnostics,
     );
-    const fastAnswerWasUnsupported = shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
+    const fastAnswerHadInvalidEvidenceIds = route.mode === "fast" && hasInvalidModelEvidenceIds(answer);
+    const fastAnswerWasUnsupported =
+      !fastAnswerHadInvalidEvidenceIds &&
+      shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
     const fastAnswerWasUnusable = route.mode === "fast" && isUnusableGeneratedAnswer(answer);
     const fastAnswerWasTemplateLike = route.mode === "fast" && isTemplateLikeGeneratedAnswer(answer);
     const fastAnswerWasOverExpanded =
       route.mode === "fast" && isOverExpandedSimpleGeneratedAnswer(args.query, queryClass, answer);
-    if (fastAnswerWasUnsupported || fastAnswerWasUnusable || fastAnswerWasTemplateLike || fastAnswerWasOverExpanded) {
-      const retryReason = fastAnswerWasUnsupported
-        ? "fast_unsupported_retry_strong"
-        : fastAnswerWasUnusable
-          ? "fast_unusable_retry_strong"
-          : fastAnswerWasTemplateLike
-            ? "fast_template_retry_strong"
-            : "fast_overexpanded_simple_retry_strong";
+    const fastAnswerFailedQualityGate =
+      route.mode === "fast" &&
+      !fastAnswerWasUnusable &&
+      !fastAnswerWasTemplateLike &&
+      !fastAnswerWasOverExpanded &&
+      Boolean(generatedAnswerQualityFailureReason(answer, args.query, queryClass));
+    if (
+      fastAnswerHadInvalidEvidenceIds ||
+      fastAnswerWasUnsupported ||
+      fastAnswerWasUnusable ||
+      fastAnswerWasTemplateLike ||
+      fastAnswerWasOverExpanded ||
+      fastAnswerFailedQualityGate
+    ) {
+      const retryReason = fastAnswerHadInvalidEvidenceIds
+        ? "fast_invalid_evidence_retry_strong"
+        : fastAnswerWasUnsupported
+          ? "fast_unsupported_retry_strong"
+          : fastAnswerWasUnusable
+            ? "fast_unusable_retry_strong"
+            : fastAnswerWasTemplateLike
+              ? "fast_template_retry_strong"
+              : fastAnswerWasOverExpanded
+                ? "fast_overexpanded_simple_retry_strong"
+                : "fast_quality_retry_strong";
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
@@ -6096,13 +6454,17 @@ ${qualityRetryInstruction}`
       await args.onProgress?.({
         stage: "retrying",
         message:
-          retryReason === "fast_unsupported_retry_strong"
-            ? "Fast answer was unsupported, retrying with the strong model."
-            : retryReason === "fast_unusable_retry_strong"
-              ? "Fast answer was not usable, retrying with the strong model."
-              : retryReason === "fast_template_retry_strong"
-                ? "Fast answer was too template-like, retrying with the strong model."
-                : "Fast answer over-expanded a simple question, retrying with the strong model.",
+          retryReason === "fast_invalid_evidence_retry_strong"
+            ? "Fast answer cited invalid evidence IDs, retrying with the strong model."
+            : retryReason === "fast_unsupported_retry_strong"
+              ? "Fast answer was unsupported, retrying with the strong model."
+              : retryReason === "fast_unusable_retry_strong"
+                ? "Fast answer was not usable, retrying with the strong model."
+                : retryReason === "fast_template_retry_strong"
+                  ? "Fast answer was too template-like, retrying with the strong model."
+                  : retryReason === "fast_overexpanded_simple_retry_strong"
+                    ? "Fast answer over-expanded a simple question, retrying with the strong model."
+                    : "Fast answer failed quality checks, retrying with the strong model.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -6121,11 +6483,12 @@ ${qualityRetryInstruction}`
         retrievalDiagnostics,
       );
     }
+    const strongQualityFailureReason =
+      modelUsed === env.OPENAI_STRONG_ANSWER_MODEL
+        ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
+        : null;
     const answerNeedsStrongQualityRepair =
-      modelUsed === env.OPENAI_STRONG_ANSWER_MODEL &&
-      (isUnusableGeneratedAnswer(answer) ||
-        isTemplateLikeGeneratedAnswer(answer) ||
-        isOverExpandedSimpleGeneratedAnswer(args.query, queryClass, answer));
+      modelUsed === env.OPENAI_STRONG_ANSWER_MODEL && Boolean(strongQualityFailureReason);
     if (answerNeedsStrongQualityRepair) {
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
@@ -6140,7 +6503,7 @@ ${qualityRetryInstruction}`
       generated = await generateWithModel(
         env.OPENAI_STRONG_ANSWER_MODEL,
         packedContextResults,
-        "The previous answer failed validation. Return schema-valid output only, with a natural clinical synthesis in the answer field. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.",
+        `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
       );
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
@@ -6308,8 +6671,84 @@ ${qualityRetryInstruction}`
       mode: "unsupported",
       reason: "generation_fallback",
     });
+    const baseFallbackAnswer = await buildGenerationFallbackAnswer(error, relatedDocuments);
+    const sanitizedReason = summarizeGenerationFailureReason(error);
+    const canRecoverGenerationErrorExtractively =
+      answerInputResults.length > 0 &&
+      baseFallbackAnswer.citations.length > 0 &&
+      !/(?:max_output_tokens|incomplete)/i.test(sanitizedReason);
+    const extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
+      ? {
+          ...buildExtractiveAnswer({
+            query: args.query,
+            queryClass,
+            results: answerInputResults,
+            quoteCards,
+            documentBreakdown,
+            evidenceSummary,
+            sourceCoverage,
+            conflictsOrGaps,
+            visualEvidence,
+            bestSource,
+            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+            relatedDocuments,
+            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
+            timings: baseFallbackAnswer.latencyTimings,
+          }),
+          openAIRequestIds,
+          openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
+          queryAnalysis,
+          memoryCardsUsed,
+          indexingVersion: ragDeepMemoryVersion,
+          indexingQuality,
+          smartApiPlan: buildCurrentSmartApiPlan(
+            "extractive",
+            `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
+          ),
+          responseMode: buildCurrentSmartApiPlan(
+            "extractive",
+            `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
+          ).displayMode,
+          relevance,
+          scoreExplanations: answerScoreExplanations,
+        }
+      : null;
+    const extractiveFallbackQualityReason = extractiveFallbackAnswer
+      ? generatedAnswerQualityFailureReason(extractiveFallbackAnswer, args.query, queryClass)
+      : null;
+    const sourceBackedReviewReason = extractiveFallbackAnswer
+      ? !extractiveFallbackAnswer.grounded || extractiveFallbackAnswer.confidence === "unsupported"
+        ? "ungrounded_extractive_fallback"
+        : extractiveFallbackQualityReason
+      : null;
+    const generationFallbackAnswer =
+      extractiveFallbackAnswer && sourceBackedReviewReason
+        ? (() => {
+            const reviewRouteReason = [
+              route.reason,
+              `generation_fallback:${sanitizedReason}`,
+              "source_backed_review_fallback",
+              `extractive_quality_gate:${sourceBackedReviewReason}`,
+            ].join("; ");
+            const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+            return {
+              ...baseFallbackAnswer,
+              answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
+              grounded: true,
+              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations.length),
+              routingMode: "extractive",
+              routingReason: reviewRouteReason,
+              queryAnalysis,
+              responseMode: reviewPlan.displayMode,
+              smartApiPlan: reviewPlan,
+              answerSections: [],
+              relevance,
+              scoreExplanations: answerScoreExplanations,
+            } satisfies RagAnswer;
+          })()
+        : (extractiveFallbackAnswer ?? baseFallbackAnswer);
     const fallbackAnswer = finalizeRagAnswerQuality(
-      annotateAnswerWithDiagnostics(await buildGenerationFallbackAnswer(error, relatedDocuments), retrievalDiagnostics),
+      annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics),
       args.query,
       queryClass,
     );

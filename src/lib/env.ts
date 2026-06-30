@@ -28,6 +28,9 @@ const envSchema = z.object({
   OPENAI_VISION_MODEL: z.string().default("gpt-5.5"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
+  // Answer generation has a source-backed fallback path, so it should fail fast
+  // instead of inheriting the longer provider timeout used by embeddings/vision.
+  OPENAI_ANSWER_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
   OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
   OPENAI_GENERATION_MAX_RETRIES: z.coerce.number().int().nonnegative().default(0),
   OPENAI_PROMPT_CACHE_RETENTION: z.enum(["off", "in_memory", "24h"]).default("24h"),
@@ -118,11 +121,7 @@ export function isDemoMode() {
     return false;
   }
   const projectCheck = checkSupabaseProjectConfig(env);
-  return (
-    !env.NEXT_PUBLIC_SUPABASE_URL ||
-    !env.SUPABASE_SERVICE_ROLE_KEY ||
-    projectCheck.status === "mismatch"
-  );
+  return !env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || projectCheck.status === "mismatch";
 }
 
 export function isLocalNoAuthMode() {

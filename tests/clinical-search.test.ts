@@ -168,6 +168,24 @@ describe("clinical search query normalization", () => {
     );
   });
 
+  it("keeps typo-heavy agitation dosing queries anchored to the local pharmacological chart", () => {
+    expect(
+      buildClinicalTextSearchQuery("What agitaton and arousl dosing guidance applies to psychiatric inpatients?"),
+    ).toBe("agitation arousal dosing");
+  });
+
+  it("anchors clozapine blood-monitoring paraphrases to clozapine FBC evidence", () => {
+    expect(
+      buildClinicalTextSearchQuery(
+        "Which observations and blood monitoring are needed while a patient is taking clozapine?",
+      ),
+    ).toBe("clozapine monitoring");
+  });
+
+  it("anchors generic discharge summaries to mental health discharge sources", () => {
+    expect(buildClinicalTextSearchQuery("Summarize the discharge guidance")).toBe("mental health discharge");
+  });
+
   it("boosts exact treatment team process title matches above broader treatment-process hits", () => {
     const ranked = rankClinicalResults("What is the mental health treatment team process?", [
       result({
@@ -419,6 +437,27 @@ describe("clinical search query normalization", () => {
     expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(ranked[1].score_explanation?.metadataBoost ?? 0);
   });
 
+  it("prefers mental health discharge guidance over generic discharge policies", () => {
+    const ranked = rankClinicalResults("Summarize the discharge guidance", [
+      result({
+        id: "generic-discharge",
+        title: "Criteria-Led Discharge",
+        file_name: "Criteria-Led Discharge (NMHS).pdf",
+        content: "Generic discharge process and criteria-led discharge notes.",
+        hybrid_score: 0.7,
+      }),
+      result({
+        id: "mental-health-discharge",
+        title: "Admission to Discharge for Mental Health Inpatients",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        content: "Mental health inpatient admission to discharge guidance and requirements.",
+        hybrid_score: 0.62,
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("mental-health-discharge");
+  });
+
   it("boosts direct current validated table evidence above stale nearby evidence", () => {
     const ranked = rankClinicalResults("ANC threshold stop clozapine", [
       result({
@@ -517,6 +556,31 @@ describe("clinical search query normalization", () => {
 
     expect(ranked[0].id).toBe("current-direct-table");
     expect(ranked[0].score_explanation?.metadataBoost).toBeGreaterThan(ranked[1].score_explanation?.metadataBoost ?? 0);
+  });
+
+  it("penalizes non-clozapine blood/table hits for clozapine-specific monitoring queries", () => {
+    const ranked = rankClinicalResults(
+      "Which observations and blood monitoring are needed while a patient is taking clozapine?",
+      [
+        result({
+          id: "generic-blood-monitoring",
+          title: "Blood Glucose Level",
+          file_name: "Blood Glucose Level (BGL) (AKG).pdf",
+          content: "Patient status and frequency of BGL monitoring observations.",
+          hybrid_score: 0.74,
+        }),
+        result({
+          id: "clozapine-monitoring",
+          title: "Clozapine Prescribing, Administration and Monitoring",
+          file_name: "Clozapine Prescribing, Administration and Monitoring (AKG).pdf",
+          content: "Clozapine requires observations and FBC blood monitoring according to the monitoring schedule.",
+          hybrid_score: 0.6,
+        }),
+      ],
+    );
+
+    expect(ranked[0].id).toBe("clozapine-monitoring");
+    expect(ranked[1].score_explanation?.penalty).toBeLessThan(0);
   });
 
   it("treats structured table facts as dose and threshold evidence", () => {

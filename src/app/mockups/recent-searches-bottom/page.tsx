@@ -1,10 +1,4 @@
-import {
-  Clock3,
-  FileText,
-  Filter,
-  Search,
-  X,
-} from "lucide-react";
+import { Clock3, FileText, Filter, Search, X } from "lucide-react";
 
 const recentSearches = [
   "lithium renal monitoring",

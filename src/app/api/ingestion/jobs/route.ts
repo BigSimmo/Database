@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { optionalUuidQuery, parseRequestQuery } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
 const ACTIVE_JOB_STATUSES = new Set(["pending", "processing"]);
 const ACTIVE_INDEXING_POLL_MS = 5_000;
+
+const ingestionJobsQuerySchema = z.object({
+  batchId: optionalUuidQuery(),
+});
 
 type JobRow = Record<string, unknown> & { status?: string | null };
 
@@ -44,7 +50,7 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const batchId = new URL(request.url).searchParams.get("batchId");
+    const { batchId } = parseRequestQuery(request, ingestionJobsQuerySchema, "Invalid ingestion jobs query.");
 
     let query = supabase
       .from("ingestion_jobs")

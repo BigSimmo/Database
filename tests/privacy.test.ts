@@ -68,7 +68,10 @@ describe("query privacy storage helpers", () => {
     expect(storedNormalizedQuery).toBe(storedQuery);
     expect(storedCacheKey).toMatch(/^redacted-cache:[a-f0-9]{64}$/);
     expect(queryDerivedTokensForStorage(["jane", "123456", "clozapine"])).toEqual([]);
-    expect(metadata).toMatchObject({ query_hash: storedQuery.replace("redacted-query:", ""), raw_query_retained: false });
+    expect(metadata).toMatchObject({
+      query_hash: storedQuery.replace("redacted-query:", ""),
+      raw_query_retained: false,
+    });
     for (const value of [storedQuery, storedNormalizedQuery, storedCacheKey, JSON.stringify(metadata)]) {
       expect(value).not.toContain("Jane");
       expect(value).not.toContain("123456");
@@ -79,8 +82,12 @@ describe("query privacy storage helpers", () => {
 
   it("retains raw and normalized text only when raw retention is explicitly enabled", async () => {
     vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: true } }));
-    const { normalizedQueryTextForStorage, queryCacheKeyForStorage, queryDerivedTokensForStorage, queryTextForStorage } =
-      await import("../src/lib/query-privacy");
+    const {
+      normalizedQueryTextForStorage,
+      queryCacheKeyForStorage,
+      queryDerivedTokensForStorage,
+      queryTextForStorage,
+    } = await import("../src/lib/query-privacy");
 
     expect(queryTextForStorage("  Clozapine Monitoring  ")).toBe("  Clozapine Monitoring  ");
     expect(normalizedQueryTextForStorage("  Clozapine Monitoring  ")).toBe("clozapine monitoring");

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { env } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError } from "@/lib/http";
 import { logger } from "@/lib/logger";
@@ -9,8 +10,16 @@ import { planDocumentName, type SupabaseLike } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
+import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
 
 export const runtime = "nodejs";
+
+const uploadMetadataSchema = z
+  .object({
+    title: optionalFormText(180),
+    description: optionalFormText(1_000),
+  })
+  .strict();
 
 export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
@@ -26,6 +35,12 @@ export async function POST(request: Request) {
     }
 
     assertAllowedFile(file, env.MAX_UPLOAD_MB);
+    const uploadMetadata = parseFormDataFields(
+      formData,
+      uploadMetadataSchema,
+      ["title", "description"],
+      "Upload metadata is invalid.",
+    );
 
     const documentId = randomUUID();
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
@@ -69,11 +84,11 @@ export async function POST(request: Request) {
       supabase: namingSupabase,
       ownerId: user.id,
       fileName: file.name,
-      requestedTitle: formData.get("title") ? String(formData.get("title")) : null,
+      requestedTitle: uploadMetadata.title,
       contentHash,
     });
     const title = namePlan.title;
-    const description = formData.get("description") ? String(formData.get("description")) : null;
+    const description = uploadMetadata.description;
     const uploadedAt = new Date().toISOString();
 
     const { data: document, error: documentError } = await supabase

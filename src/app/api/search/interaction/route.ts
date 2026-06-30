@@ -23,7 +23,10 @@ const interactionSchema = z.object({
 });
 
 function safeTelemetryText(value: string | undefined) {
-  const cleaned = value?.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  const cleaned = value
+    ?.replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return cleaned || null;
 }
 

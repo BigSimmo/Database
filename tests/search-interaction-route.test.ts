@@ -69,14 +69,14 @@ describe("/api/search/interaction", () => {
     const { POST } = await import("../src/app/api/search/interaction/route");
 
     const response = await POST(
-        request({
-          query: "clozapine monitoring",
-          documentId,
-          chunkId,
-          fileName: " Clozapine\u0000 guideline.pdf ",
-          title: clozapineTitle,
-        }),
-      );
+      request({
+        query: "clozapine monitoring",
+        documentId,
+        chunkId,
+        fileName: " Clozapine\u0000 guideline.pdf ",
+        title: clozapineTitle,
+      }),
+    );
     const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
 
     expect(response.status).toBe(200);

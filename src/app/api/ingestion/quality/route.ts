@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
@@ -86,6 +88,10 @@ type ReviewItem = {
   metrics: Record<string, unknown>;
   updatedAt: string | null;
 };
+
+const ingestionQualityQuerySchema = z.object({
+  limit: queryInteger({ fallback: 120, min: 1, max: 200 }),
+});
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -310,7 +316,7 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const limit = Math.min(Math.max(Number(new URL(request.url).searchParams.get("limit") ?? 120), 1), 200);
+    const { limit } = parseRequestQuery(request, ingestionQualityQuerySchema, "Invalid ingestion quality query.");
 
     const { data: documentsData, error: documentsError } = await supabase
       .from("documents")

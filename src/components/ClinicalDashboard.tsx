@@ -183,6 +183,7 @@ import {
   isAppModeVisible,
   type AppModeId,
 } from "@/lib/app-modes";
+import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { logSourceOpen, SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
@@ -713,6 +714,7 @@ type CapsulePreviewSource = {
   pageNumber: number | null;
   metadata: ReturnType<typeof normalizeSourceMetadata>;
   score: number;
+  href: string;
 };
 
 function capsulePreviewSources(bestSource: BestSourceRecommendation | null, sources: SearchResult[]) {
@@ -732,6 +734,7 @@ function capsulePreviewSources(bestSource: BestSourceRecommendation | null, sour
       pageNumber: bestSource.page_number,
       metadata: normalizeSourceMetadata(bestSource.source_metadata),
       score: bestSource.score,
+      href: bestSource.viewer_href,
     });
   }
 
@@ -742,6 +745,7 @@ function capsulePreviewSources(bestSource: BestSourceRecommendation | null, sour
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.source_metadata),
       score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
+      href: sourceResultHref(source),
     });
   });
 
@@ -755,7 +759,7 @@ function SourcePreviewContent({
   copiedQuote,
   onCopyQuote,
 }: {
-  bestSource: BestSourceRecommendation;
+  bestSource: BestSourceRecommendation | null;
   previewSources: CapsulePreviewSource[];
   quoteText?: string | null;
   copiedQuote: boolean;
@@ -776,11 +780,13 @@ function SourcePreviewContent({
       </div>
       <div className="mt-3 grid gap-1.5" role="list" aria-label="Sources behind this answer">
         {previewSources.map((source, index) => (
-          <div
+          <Link
             key={`${source.id}:${index}`}
+            href={source.href}
             data-testid="source-capsule-preview-row"
-            className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
+            className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             role="listitem"
+            aria-label={`Open source ${source.title}, page ${source.pageNumber ?? "not available"}`}
           >
             <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
             <span className="min-w-0">
@@ -794,7 +800,7 @@ function SourcePreviewContent({
             <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
               {Math.round(Math.max(0, Math.min(1, source.score)) * 100)}%
             </span>
-          </div>
+          </Link>
         ))}
       </div>
       {quoteText ? (
@@ -803,19 +809,27 @@ function SourcePreviewContent({
         </blockquote>
       ) : null}
       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        <Link href={bestSource.viewer_href} className={chatMicroAction}>
-          <ExternalLink className="h-3.5 w-3.5" />
-          Open PDF drawer
-        </Link>
+        {bestSource ? (
+          <Link
+            href={bestSource.viewer_href}
+            className={chatMicroAction}
+            aria-label={`Open source page for ${bestSource.title}`}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open source page
+          </Link>
+        ) : null}
         {quoteText ? (
           <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
             <Copy className="h-3.5 w-3.5" />
             {copiedQuote ? "Copied quote" : "Copy quote"}
           </button>
         ) : null}
-        <Link href={bestSource.viewer_href} className={cn(chatMicroAction, "col-span-2 sm:col-span-1")}>
-          View section
-        </Link>
+        {bestSource ? (
+          <Link href={bestSource.viewer_href} className={cn(chatMicroAction, "col-span-2 sm:col-span-1")}>
+            View section
+          </Link>
+        ) : null}
       </div>
     </>
   );
@@ -855,6 +869,7 @@ function NaturalLanguageAnswer({
   const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
   const previewSources = capsulePreviewSources(bestSource, sources);
   const quoteText = bestSource?.quote || bestSource?.snippet;
+  const canOpenSourcePreview = sourceCount > 0 && previewSources.length > 0;
   async function copySourceQuote() {
     if (!quoteText) return;
     try {
@@ -874,10 +889,10 @@ function NaturalLanguageAnswer({
       aria-label="Open answer sources"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
-        if (bestSource && sourceCount > 0 && grounded) setSourcePreviewOpen((current) => !current);
+        if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
       }}
     >
-      {sourceCount > 0 && grounded ? (
+      {sourceCount > 0 ? (
         <>
           <span className="sm:hidden">
             {sourceCount} source{sourceCount === 1 ? "" : "s"}
@@ -887,7 +902,7 @@ function NaturalLanguageAnswer({
       ) : (
         capsuleText
       )}
-      {sourceCount > 0 && grounded ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+      {canOpenSourcePreview ? <ChevronDown className="h-3.5 w-3.5" /> : null}
     </button>
   );
 
@@ -911,7 +926,7 @@ function NaturalLanguageAnswer({
           </span>
         </p>
         {sourceCapsuleButton}
-        {sourcePreviewOpen && bestSource && !usePreviewSheet ? (
+        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
           <div
             data-testid="source-capsule-preview"
             className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
@@ -926,7 +941,7 @@ function NaturalLanguageAnswer({
           </div>
         ) : null}
         <Sheet
-          open={sourcePreviewOpen && Boolean(bestSource) && usePreviewSheet}
+          open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
           onClose={() => setSourcePreviewOpen(false)}
           title="Sources behind this answer"
           description="Preview sources first, then open the source document when needed."
@@ -934,22 +949,25 @@ function NaturalLanguageAnswer({
           contentClassName="sm:max-w-xl"
           returnFocusRef={sourceCapsuleRef}
         >
-          {bestSource ? (
-            <div data-testid="source-capsule-preview">
-              <SourcePreviewContent
-                bestSource={bestSource}
-                previewSources={previewSources}
-                quoteText={quoteText}
-                copiedQuote={copiedSourceQuote}
-                onCopyQuote={copySourceQuote}
-              />
-            </div>
-          ) : null}
+          <div data-testid="source-capsule-preview">
+            <SourcePreviewContent
+              bestSource={bestSource}
+              previewSources={previewSources}
+              quoteText={quoteText}
+              copiedQuote={copiedSourceQuote}
+              onCopyQuote={copySourceQuote}
+            />
+          </div>
         </Sheet>
         <div className={chatActionRow} aria-label="Answer actions">
-          <button type="button" onClick={onCopy} className={chatMicroAction}>
+          <button
+            type="button"
+            onClick={onCopy}
+            className={chatMicroAction}
+            aria-label="Copy answer with source status"
+          >
             <Copy className="h-3.5 w-3.5" />
-            {copied ? "Copied" : "Copy"}
+            {copied ? "Copied with sources" : "Copy with sources"}
           </button>
           <button type="button" className={chatMicroAction} aria-label="More answer actions">
             <MoreHorizontal className="h-4 w-4" />
@@ -2047,10 +2065,19 @@ function EvidenceSummaryCard({
   );
 }
 
-function compactEvidenceSummary(answer: RagAnswer, sources: SearchResult[], sourceSummary?: EvidenceSummary) {
+function compactEvidenceSummary(
+  answer: RagAnswer,
+  sources: SearchResult[],
+  sourceSummary?: EvidenceSummary,
+  renderModel?: AnswerRenderModel,
+) {
   const sourceCount =
-    sourceSummary?.total_sources ?? sources.length ?? answer.sources?.length ?? answer.citations.length;
-  const quoteCount = answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0;
+    renderModel?.primarySources.length ??
+    sourceSummary?.total_sources ??
+    sources.length ??
+    answer.sources?.length ??
+    answer.citations.length;
+  const quoteCount = renderModel?.quoteCards.length ?? answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0;
   const parts = [
     `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
     `${quoteCount} quote${quoteCount === 1 ? "" : "s"}`,
@@ -2061,41 +2088,54 @@ function compactEvidenceSummary(answer: RagAnswer, sources: SearchResult[], sour
 
 type EvidenceTabName = "Tables" | "Sources" | "Images" | "Quotes" | "PDFs" | "Map";
 
-function evidenceTabOrder(answer: RagAnswer): EvidenceTabName[] {
+function renderModelAllows(renderModel: AnswerRenderModel, block: AnswerRenderModel["allowedBlocks"][number]) {
+  return renderModel.allowedBlocks.includes(block);
+}
+
+function evidenceTabOrder(answer: RagAnswer, renderModel: AnswerRenderModel): EvidenceTabName[] {
   const tableFirst =
     answer.queryClass === "table_threshold" ||
     answer.responseMode === "threshold_table" ||
-    Boolean(
-      (answer.visualEvidence ?? answer.smartPanel?.visualEvidence)?.some(
-        (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-      ),
-    );
-  return tableFirst
+    Boolean(renderModel.visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length));
+  const order: EvidenceTabName[] = tableFirst
     ? ["Tables", "Sources", "Images", "Quotes", "PDFs", "Map"]
     : ["Sources", "Quotes", "Tables", "Images", "PDFs", "Map"];
+  return order.filter((tab) => {
+    if (tab === "Tables") {
+      return (
+        renderModelAllows(renderModel, "visualEvidence") &&
+        renderModel.visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length)
+      );
+    }
+    if (tab === "Sources") return renderModelAllows(renderModel, "reviewSources");
+    if (tab === "Images") return renderModelAllows(renderModel, "visualEvidence");
+    if (tab === "Quotes") return renderModelAllows(renderModel, "quoteCards");
+    if (tab === "PDFs") return renderModelAllows(renderModel, "reviewSources");
+    return renderModelAllows(renderModel, "evidenceMap");
+  });
 }
 
 function evidenceTabCount({
   tab,
-  answer,
   sources,
   visualEvidence,
   answerEvidenceMapRows,
   pdfSources,
+  renderModel,
 }: {
   tab: EvidenceTabName;
-  answer: RagAnswer;
   sources: SearchResult[];
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pdfSources: ReturnType<typeof uniquePdfSources>;
+  pdfSources: RenderModelPdfSource[];
+  renderModel: AnswerRenderModel;
 }) {
   if (tab === "Tables") {
     return visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
   }
-  if (tab === "Sources") return sources.length || answer.citations.length;
+  if (tab === "Sources") return sources.length || renderModel.primarySources.length;
   if (tab === "Images") return visualEvidence.length;
-  if (tab === "Quotes") return answer.quoteCards?.length ?? 0;
+  if (tab === "Quotes") return renderModel.quoteCards.length;
   if (tab === "PDFs") return pdfSources.length;
   return answerEvidenceMapRows.length;
 }
@@ -2118,25 +2158,22 @@ function primaryVisualTable(answer: RagAnswer) {
   return answer.visualEvidence?.find((item) => item.accessibleTableMarkdown || item.tableRows?.length) ?? null;
 }
 
-function uniquePdfSources(answer: RagAnswer) {
-  const seen = new Set<string>();
-  const candidates = [
-    ...(answer.sources ?? []),
-    ...(answer.citations ?? []).map((citation) => ({
-      document_id: citation.document_id,
-      title: citation.title,
-      file_name: citation.file_name,
-      page_number: citation.page_number,
-      chunk_id: citation.chunk_id,
-    })),
-  ];
+type RenderModelPdfSource = {
+  document_id: string;
+  title: string;
+  file_name: string;
+  page_number: number | null;
+  chunk_id: string | null;
+};
 
-  return candidates.filter((source) => {
-    const key = source.document_id || source.file_name || source.title;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+function uniquePdfSourcesForRenderModel(renderModel: AnswerRenderModel): RenderModelPdfSource[] {
+  return renderModel.primarySources.map((source) => ({
+    document_id: source.document_id,
+    title: source.title,
+    file_name: source.file_name,
+    page_number: source.page_number,
+    chunk_id: source.chunk_id,
+  }));
 }
 
 function queryModeLabel(mode: ClinicalQueryMode) {
@@ -2389,6 +2426,7 @@ function sourceVerificationRows(sources: SearchResult[], answer: RagAnswer) {
 function VerificationWorkspace({
   answer,
   sources,
+  renderModel,
   query,
   answerEvidenceMapRows,
   pendingFeedback,
@@ -2397,13 +2435,17 @@ function VerificationWorkspace({
 }: {
   answer: RagAnswer;
   sources: SearchResult[];
+  renderModel: AnswerRenderModel;
   query: string;
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   pendingFeedback: AnswerFeedbackType | null;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
-  const verificationSources = sourceVerificationRows(sources, answer);
+  const verificationSources = sourceVerificationRows(sources, answer).slice(
+    0,
+    renderModel.trust === "unsupported" ? 3 : 6,
+  );
   return (
     <section
       data-testid="answer-verification-workspace"
@@ -2519,9 +2561,10 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
     compactEvidenceCell(row.bestSourceLabel, 72),
     row.bestLinkedPassage || "Open source passage.",
   ]);
+  const linkedRows = rows.filter((row) => row.href);
 
   return (
-    <div data-testid="answer-evidence-map">
+    <div data-testid="answer-evidence-map" className="space-y-3">
       <AccessibleTable
         caption="Source support by answer section"
         columns={["Section", "Support level", "Citations", "Evidence status", "Top source", "Passage sample"]}
@@ -2529,6 +2572,31 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
         dialogTitle="Source support by answer section"
         {...simpleClinicalTableProps}
       />
+      {linkedRows.length ? (
+        <div className="grid gap-2" aria-label="Evidence map source actions">
+          {linkedRows.map((row) => (
+            <Link
+              key={`${row.id}:${row.href}`}
+              href={row.href!}
+              data-testid="evidence-map-open-source"
+              className={cn(
+                sourceCard,
+                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              )}
+              aria-label={`Open source for ${row.section}: ${row.bestSourceLabel}`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-[color:var(--text-heading)]">{row.section}</span>
+                <span className={cn("block truncate text-xs", textMuted)}>{row.bestSourceLabel}</span>
+              </span>
+              <span className={cn(chatMicroAction, "pointer-events-none min-h-9 px-2 text-xs")}>
+                Open source
+                <ExternalLink className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3150,6 +3218,7 @@ const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
 function MobileEvidenceSheetContent({
   answer,
   sources,
+  renderModel,
   query,
   visualEvidence,
   answerEvidenceMapRows,
@@ -3163,6 +3232,7 @@ function MobileEvidenceSheetContent({
 }: {
   answer: RagAnswer;
   sources: SearchResult[];
+  renderModel: AnswerRenderModel;
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
@@ -3174,8 +3244,8 @@ function MobileEvidenceSheetContent({
   onFollowUpQuote: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
-  const order = evidenceTabOrder(answer);
-  const pdfSources = uniquePdfSources(answer).slice(0, 6);
+  const order = evidenceTabOrder(answer, renderModel);
+  const pdfSources = uniquePdfSourcesForRenderModel(renderModel).slice(0, 6);
   const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
   const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
   const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
@@ -3192,7 +3262,14 @@ function MobileEvidenceSheetContent({
           {order.map((tab) => {
             const selected = tab === activeTab;
             const Icon = evidenceTabIconMap[tab];
-            const count = evidenceTabCount({ tab, answer, sources, visualEvidence, answerEvidenceMapRows, pdfSources });
+            const count = evidenceTabCount({
+              tab,
+              sources,
+              visualEvidence,
+              answerEvidenceMapRows,
+              pdfSources,
+              renderModel,
+            });
             return (
               <button
                 key={tab}
@@ -3235,8 +3312,8 @@ function MobileEvidenceSheetContent({
               {selected ? (
                 <MobileEvidenceTabPanel
                   tab={tab}
-                  answer={answer}
                   sources={sources}
+                  renderModel={renderModel}
                   query={query}
                   visualEvidence={visualEvidence}
                   answerEvidenceMapRows={answerEvidenceMapRows}
@@ -3258,8 +3335,8 @@ function MobileEvidenceSheetContent({
 
 function MobileEvidenceTabPanel({
   tab,
-  answer,
   sources,
+  renderModel,
   query,
   visualEvidence,
   answerEvidenceMapRows,
@@ -3270,12 +3347,12 @@ function MobileEvidenceTabPanel({
   onScopeDocument,
 }: {
   tab: EvidenceTabName;
-  answer: RagAnswer;
   sources: SearchResult[];
+  renderModel: AnswerRenderModel;
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pdfSources: ReturnType<typeof uniquePdfSources>;
+  pdfSources: RenderModelPdfSource[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onFollowUpQuote: (quote: QuoteCard) => void;
@@ -3369,7 +3446,7 @@ function MobileEvidenceTabPanel({
   if (tab === "Quotes") {
     return (
       <QuoteCards
-        quotes={answer.quoteCards ?? []}
+        quotes={renderModel.quoteCards}
         copiedQuotes={copiedQuotes}
         onCopyQuotes={onCopyQuotes}
         onFollowUp={onFollowUpQuote}
@@ -3408,6 +3485,7 @@ function MobileEvidenceTabPanel({
 function UnifiedEvidenceDrawerContent({
   answer,
   sources,
+  renderModel,
   query,
   visualEvidence,
   answerEvidenceMapRows,
@@ -3420,6 +3498,7 @@ function UnifiedEvidenceDrawerContent({
 }: {
   answer: RagAnswer;
   sources: SearchResult[];
+  renderModel: AnswerRenderModel;
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
@@ -3430,14 +3509,15 @@ function UnifiedEvidenceDrawerContent({
   onFollowUpQuote: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
-  const order = evidenceTabOrder(answer);
-  const pdfSources = uniquePdfSources(answer).slice(0, 6);
+  const order = evidenceTabOrder(answer, renderModel);
+  const pdfSources = uniquePdfSourcesForRenderModel(renderModel).slice(0, 6);
 
   return (
     <div className="space-y-4">
       <VerificationWorkspace
         answer={answer}
         sources={sources}
+        renderModel={renderModel}
         query={query}
         answerEvidenceMapRows={answerEvidenceMapRows}
         pendingFeedback={pendingFeedback}
@@ -3525,7 +3605,7 @@ function UnifiedEvidenceDrawerContent({
           return (
             <section key={section} className="space-y-2">
               <QuoteCards
-                quotes={answer.quoteCards ?? []}
+                quotes={renderModel.quoteCards}
                 copiedQuotes={copiedQuotes}
                 onCopyQuotes={onCopyQuotes}
                 onFollowUp={onFollowUpQuote}
@@ -3764,6 +3844,7 @@ function StagedAnswerResultSurface({
   queryMode,
   sourceGovernanceWarnings,
   sourceSummary,
+  renderModel,
   weakEvidence,
   groupedGovernanceWarningCount,
   answerViewMode,
@@ -3789,6 +3870,7 @@ function StagedAnswerResultSurface({
   queryMode: ClinicalQueryMode;
   sourceGovernanceWarnings: SourceGovernanceWarning[];
   sourceSummary?: EvidenceSummary;
+  renderModel: AnswerRenderModel;
   weakEvidence: boolean;
   groupedGovernanceWarningCount: number;
   answerViewMode: AnswerViewMode;
@@ -3814,8 +3896,15 @@ function StagedAnswerResultSurface({
     noteCount || safetyFindings.length,
   );
   const sourceCount =
-    sourceSummary?.total_sources ?? sources.length ?? answer.sources?.length ?? answer.citations.length;
+    renderModel.primarySources.length ||
+    sourceSummary?.total_sources ||
+    sources.length ||
+    answer.sources?.length ||
+    answer.citations.length;
   const centralTable = answerHasCentralTable(answer) ? primaryVisualTable(answer) : null;
+  const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
+    ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
+  );
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
@@ -3922,86 +4011,100 @@ function StagedAnswerResultSurface({
           </UtilityDrawer>
         ) : null}
 
-        <UtilityDrawer
-          id="answer-evidence-drawer"
-          icon={Layers}
-          title="Evidence"
-          summary={compactEvidenceSummary(answer, sources, sourceSummary)}
-          mobileSummary={compactEvidenceSummary(answer, sources, sourceSummary)}
-          className={evidenceRow}
-          open={evidenceOpen}
-          onOpenChange={(open) => {
-            if (open) setClinicalNotesOpen(false);
-            setEvidenceOpen(open);
-            if (!open) setEvidenceInitialTab(null);
-          }}
-        >
-          <div className="sm:hidden">
-            <MobileEvidenceSheetContent
-              answer={answer}
-              sources={sources}
-              query={query}
-              visualEvidence={answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []}
-              answerEvidenceMapRows={answerEvidenceMapRows}
-              initialTab={evidenceInitialTab}
-              pendingFeedback={pendingFeedback}
-              copiedQuotes={false}
-              onCopyQuotes={() => undefined}
-              onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={() => undefined}
-              onScopeDocument={onScopeDocument}
-            />
-          </div>
-          <div className="hidden space-y-3 sm:block">
-            <AnswerInsightBar
-              answer={answer}
-              bestSource={bestSource}
-              relevance={currentRelevance}
-              queryMode={queryMode}
-              sourceGovernanceWarnings={sourceGovernanceWarnings}
-            />
-            <EvidenceVerificationStrip
-              answer={answer}
-              bestSource={bestSource}
-              sourceSummary={sourceSummary}
-              weakEvidence={weakEvidence}
-              governanceWarningCount={groupedGovernanceWarningCount}
-            />
-            <EvidenceSummaryCard
-              answer={answer}
-              bestSource={bestSource}
-              grounded={answerGrounded}
-              relevance={currentRelevance}
-              sourceSummary={sourceSummary}
-              weakEvidence={weakEvidence}
-              sources={sources}
-              gaps={gaps}
-              onScopeDocument={onScopeDocument}
-              supporting
-            />
-            <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-            <AnswerSafetyNotice
-              demoMode={demoMode}
-              weakEvidence={weakEvidence}
-              retrievalDiagnostics={answer.retrievalDiagnostics}
-            />
-            <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
-            <WhyThisMatchedPanel sources={sources} />
-            <UnifiedEvidenceDrawerContent
-              answer={answer}
-              sources={sources}
-              query={query}
-              visualEvidence={answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []}
-              answerEvidenceMapRows={answerEvidenceMapRows}
-              pendingFeedback={pendingFeedback}
-              copiedQuotes={false}
-              onCopyQuotes={() => undefined}
-              onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={() => undefined}
-              onScopeDocument={onScopeDocument}
-            />
-          </div>
-        </UtilityDrawer>
+        {showEvidenceDrawer ? (
+          <UtilityDrawer
+            id="answer-evidence-drawer"
+            icon={Layers}
+            title="Evidence"
+            summary={compactEvidenceSummary(answer, sources, sourceSummary, renderModel)}
+            mobileSummary={compactEvidenceSummary(answer, sources, sourceSummary, renderModel)}
+            className={evidenceRow}
+            open={evidenceOpen}
+            onOpenChange={(open) => {
+              if (open) setClinicalNotesOpen(false);
+              setEvidenceOpen(open);
+              if (!open) setEvidenceInitialTab(null);
+            }}
+          >
+            <div className="sm:hidden">
+              <MobileEvidenceSheetContent
+                answer={answer}
+                sources={sources}
+                renderModel={renderModel}
+                query={query}
+                visualEvidence={renderModel.visualEvidence}
+                answerEvidenceMapRows={answerEvidenceMapRows}
+                initialTab={evidenceInitialTab}
+                pendingFeedback={pendingFeedback}
+                copiedQuotes={false}
+                onCopyQuotes={() => undefined}
+                onSubmitFeedback={onSubmitFeedback}
+                onFollowUpQuote={() => undefined}
+                onScopeDocument={onScopeDocument}
+              />
+            </div>
+            <div className="hidden space-y-3 sm:block">
+              {renderModelAllows(renderModel, "sourceStatus") ? (
+                <>
+                  <AnswerInsightBar
+                    answer={answer}
+                    bestSource={bestSource}
+                    relevance={currentRelevance}
+                    queryMode={queryMode}
+                    sourceGovernanceWarnings={sourceGovernanceWarnings}
+                  />
+                  <EvidenceVerificationStrip
+                    answer={answer}
+                    bestSource={bestSource}
+                    sourceSummary={sourceSummary}
+                    weakEvidence={weakEvidence}
+                    governanceWarningCount={groupedGovernanceWarningCount}
+                  />
+                </>
+              ) : null}
+              {renderModelAllows(renderModel, "reviewSources") ? (
+                <EvidenceSummaryCard
+                  answer={answer}
+                  bestSource={bestSource}
+                  grounded={answerGrounded}
+                  relevance={currentRelevance}
+                  sourceSummary={sourceSummary}
+                  weakEvidence={weakEvidence}
+                  sources={sources}
+                  gaps={gaps}
+                  onScopeDocument={onScopeDocument}
+                  supporting
+                />
+              ) : null}
+              {renderModelAllows(renderModel, "warnings") ? (
+                <>
+                  <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                  <AnswerSafetyNotice
+                    demoMode={demoMode}
+                    weakEvidence={weakEvidence}
+                    retrievalDiagnostics={answer.retrievalDiagnostics}
+                  />
+                  <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
+                </>
+              ) : null}
+              {renderModelAllows(renderModel, "diagnostics") ? <WhyThisMatchedPanel sources={sources} /> : null}
+              <UnifiedEvidenceDrawerContent
+                answer={answer}
+                sources={sources}
+                renderModel={renderModel}
+                query={query}
+                visualEvidence={renderModel.visualEvidence}
+                answerEvidenceMapRows={answerEvidenceMapRows}
+                pendingFeedback={pendingFeedback}
+                copiedQuotes={false}
+                onCopyQuotes={() => undefined}
+                onSubmitFeedback={onSubmitFeedback}
+                onFollowUpQuote={() => undefined}
+                onScopeDocument={onScopeDocument}
+              />
+            </div>
+          </UtilityDrawer>
+        ) : null}
       </div>
 
       <SafetyFindingsPanel findings={safetyFindings} />
@@ -8017,21 +8120,26 @@ export function ClinicalDashboard({
     window.setTimeout(() => setCopiedAction((current) => (current === action ? null : current)), 1800);
   }
 
-  const visualEvidence = useMemo(() => answer?.visualEvidence ?? answer?.smartPanel?.visualEvidence ?? [], [answer]);
-  const relatedDocuments = useMemo(
-    () => answer?.relatedDocuments ?? answer?.smartPanel?.relatedDocuments ?? [],
-    [answer],
+  const answerRenderModel = useMemo(
+    () => (answer ? buildAnswerRenderModel(answer, { sources, includeDebugReasons: true }) : null),
+    [answer, sources],
   );
+  const visualEvidence = useMemo(() => answerRenderModel?.visualEvidence ?? [], [answerRenderModel]);
+  const relatedDocuments = useMemo(() => answerRenderModel?.relatedDocuments ?? [], [answerRenderModel]);
   const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
-  const weakEvidence =
-    (currentRelevance ? isWeakRelevance(currentRelevance) : answer?.grounded !== true) ||
-    answer?.retrievalDiagnostics?.gateStatus === "blocked";
+  const weakEvidence = answerRenderModel
+    ? answerRenderModel.trust === "unsupported" || answerRenderModel.trust === "low"
+    : (currentRelevance ? isWeakRelevance(currentRelevance) : answer?.grounded !== true) ||
+      answer?.retrievalDiagnostics?.gateStatus === "blocked";
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
-  const bestSource = answer?.bestSource ?? answer?.smartPanel?.bestSource ?? null;
+  const bestSource = answerRenderModel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
   const gaps = answer?.conflictsOrGaps ?? answer?.smartPanel?.conflictsOrGaps ?? [];
   const answerGrounded =
-    answer?.grounded === true && answer.confidence !== "unsupported" && currentRelevance?.isSourceBacked !== false;
+    answer?.grounded === true &&
+    answer.confidence !== "unsupported" &&
+    currentRelevance?.isSourceBacked !== false &&
+    answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
   const safeAnswerSections = useMemo(() => {
@@ -8060,7 +8168,11 @@ export function ClinicalDashboard({
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
   }, [answer?.answerSections, sourceLookup]);
-  const answerEvidenceMapRows = useMemo(() => buildAnswerEvidenceMap(answer), [answer]);
+  const rawAnswerEvidenceMapRows = useMemo(() => buildAnswerEvidenceMap(answer), [answer]);
+  const answerEvidenceMapRows = useMemo(() => {
+    if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
+    return rawAnswerEvidenceMapRows.slice(0, answerRenderModel.trust === "high" ? 8 : 6);
+  }, [answerRenderModel, rawAnswerEvidenceMapRows]);
 
   const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
@@ -8073,11 +8185,11 @@ export function ClinicalDashboard({
         hasAnswer: Boolean(answer),
         searchMode,
         sourceCount: sources.length,
-        quoteCount: answer ? (answer.quoteCards ?? []).length : 0,
+        quoteCount: answerRenderModel?.quoteCards.length ?? 0,
         weakEvidence,
         governanceWarningCount: groupedGovernanceWarningCount,
       }),
-    [answer, groupedGovernanceWarningCount, searchMode, sources.length, weakEvidence],
+    [answer, answerRenderModel, groupedGovernanceWarningCount, searchMode, sources.length, weakEvidence],
   );
   const bottomNavItems = [
     {
@@ -8122,14 +8234,14 @@ export function ClinicalDashboard({
     {
       label: "Quotes",
       description: answer
-        ? (answer.quoteCards ?? []).length
+        ? answerRenderModel?.quoteCards.length
           ? "Exact source excerpts"
           : "No quotes yet"
         : "No quotes yet",
       icon: Quote,
       href: "#quotes",
-      count: answer ? (answer.quoteCards ?? []).length : null,
-      empty: !answer || (answer.quoteCards ?? []).length === 0,
+      count: answer ? (answerRenderModel?.quoteCards.length ?? 0) : null,
+      empty: !answer || (answerRenderModel?.quoteCards.length ?? 0) === 0,
     },
     {
       label: "Images",
@@ -8141,11 +8253,15 @@ export function ClinicalDashboard({
     },
     {
       label: "Sources",
-      description: answer ? (sources.length ? "Passages and documents" : "No sources yet") : "No sources yet",
+      description: answer
+        ? answerRenderModel?.reviewSources.length
+          ? "Passages and documents"
+          : "No sources yet"
+        : "No sources yet",
       icon: FileText,
       href: "#sources",
-      count: answer ? sources.length : null,
-      empty: !answer || sources.length === 0,
+      count: answer ? (answerRenderModel?.reviewSources.length ?? 0) : null,
+      empty: !answer || (answerRenderModel?.reviewSources.length ?? 0) === 0,
     },
   ] as const;
   const renderSystemNotice = (className?: string) => (
@@ -8448,7 +8564,7 @@ export function ClinicalDashboard({
                 )
               ) : loading && !answer ? (
                 <AnswerSkeleton />
-              ) : answer ? (
+              ) : answer && answerRenderModel ? (
                 stagedDashboardExtraction.answerSurface ? (
                   <StagedAnswerResultSurface
                     answer={answer}
@@ -8459,13 +8575,14 @@ export function ClinicalDashboard({
                     queryMode={queryMode}
                     sourceGovernanceWarnings={sourceGovernanceWarnings}
                     sourceSummary={sourceSummary}
+                    renderModel={answerRenderModel}
                     weakEvidence={weakEvidence}
                     groupedGovernanceWarningCount={groupedGovernanceWarningCount}
                     answerViewMode={answerViewMode}
                     answerEvidenceMapRows={answerEvidenceMapRows}
                     onScopeDocument={scopeOnlyDocument}
                     answerGrounded={answerGrounded}
-                    sources={sources}
+                    sources={answerRenderModel.reviewSources}
                     gaps={gaps}
                     searchScope={searchScope}
                     demoMode={demoMode}
@@ -8473,7 +8590,9 @@ export function ClinicalDashboard({
                     safetyFindings={safetyFindings}
                     copiedAnswer={copiedAction === "answer"}
                     pendingFeedback={pendingFeedback}
-                    onCopyAnswer={() => copyText("answer", safeAnswerText || answer.answer)}
+                    onCopyAnswer={() =>
+                      copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
+                    }
                     onSubmitFeedback={submitAnswerFeedback}
                   />
                 ) : null

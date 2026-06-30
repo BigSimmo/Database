@@ -1,0 +1,565 @@
+import { citationFromResult, documentCitationHref } from "@/lib/citations";
+import type {
+  RagQueryClass,
+  RetrievalCandidate,
+  RetrievalChunkType,
+  RetrievalIntent,
+  RetrievalSelectionSummary,
+  SearchResult,
+} from "@/lib/types";
+
+const emptyChunkTypeCounts = (): Record<RetrievalChunkType, number> => ({
+  text: 0,
+  table: 0,
+  flowchart: 0,
+  medication_chart: 0,
+  patient_education: 0,
+});
+
+function clamp(value: number) {
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+}
+
+function unique(values: string[], limit = 40) {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    output.push(normalized);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
+function normalize(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[^a-z0-9%/.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function evidenceText(result: SearchResult) {
+  const tableText = (result.table_facts ?? [])
+    .map((fact) =>
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "),
+    )
+    .join(" ");
+  const imageText = (result.images ?? [])
+    .map((image) =>
+      [
+        image.caption,
+        image.tableLabel,
+        image.tableTitle,
+        image.tableRole,
+        image.tableTextSnippet,
+        image.clinicalUseReason,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(" ");
+  const memoryText = (result.memory_cards ?? []).map((card) => `${card.title} ${card.content}`).join(" ");
+  const indexUnitText = result.index_unit
+    ? [
+        result.index_unit.unit_type,
+        result.index_unit.title,
+        result.index_unit.content,
+        ...(result.index_unit.heading_path ?? []),
+        ...(result.index_unit.normalized_terms ?? []),
+      ].join(" ")
+    : "";
+
+  return normalize(
+    [
+      result.title,
+      result.file_name,
+      result.section_heading,
+      result.section_path?.join(" "),
+      result.retrieval_synopsis,
+      result.content,
+      tableText,
+      imageText,
+      memoryText,
+      indexUnitText,
+      result.document_summary,
+      ...(result.document_labels ?? []).map((label) => label.label),
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+}
+
+function baseScore(result: SearchResult) {
+  return clamp(result.hybrid_score ?? result.similarity ?? 0);
+}
+
+function chunkTypeForResult(result: SearchResult): RetrievalChunkType {
+  const text = evidenceText(result);
+  const unitType = result.index_unit?.unit_type ?? result.match_explanation?.indexUnitType ?? "";
+  const hasClinicalImage = (result.images ?? []).some((image) =>
+    ["clinical_table", "flowchart_algorithm", "medication_chart", "risk_matrix"].includes(image.image_type ?? ""),
+  );
+  const hasTableImage = (result.images ?? []).some((image) =>
+    /table|chart|row|dose|threshold|matrix/i.test(
+      `${image.image_type ?? ""} ${image.sourceKind ?? ""} ${image.tableTitle ?? ""} ${image.tableTextSnippet ?? ""}`,
+    ),
+  );
+
+  if (
+    unitType === "medication_chart_row" ||
+    (result.images ?? []).some((image) => image.image_type === "medication_chart") ||
+    /\b(?:medication chart|dose chart|dosing chart|dose table|lorazepam|olanzapine|haloperidol|droperidol|promethazine)\b/.test(
+      text,
+    )
+  ) {
+    return "medication_chart";
+  }
+
+  if (
+    unitType === "flowchart_step" ||
+    unitType === "diagram_decision" ||
+    (result.images ?? []).some((image) => image.image_type === "flowchart_algorithm") ||
+    /\b(?:flowchart|flow chart|algorithm|next step|step after|red zone|risk matrix|pathway step)\b/.test(text)
+  ) {
+    return "flowchart";
+  }
+
+  if (
+    unitType === "table_fact" ||
+    unitType === "table_threshold" ||
+    unitType === "risk_matrix_cell" ||
+    (result.table_facts?.length ?? 0) > 0 ||
+    hasClinicalImage ||
+    hasTableImage ||
+    /\b(?:table|threshold|matrix|chart row|row label|clinical parameter)\b/.test(text)
+  ) {
+    return "table";
+  }
+
+  if (
+    /\b(?:active community|community patient|community pt|patient education|patient information|emergency department| ed )\b/.test(
+      ` ${text} `,
+    )
+  ) {
+    return "patient_education";
+  }
+
+  return "text";
+}
+
+function hasDoseAmount(text: string) {
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/.test(text);
+}
+
+function hasRoute(text: string) {
+  return /\b(?:oral|orally|intramuscular|intramuscularly|im|po)\b/.test(text);
+}
+
+function hasSourceImageEvidence(result: SearchResult) {
+  return (
+    (result.image_ids?.length ?? 0) > 0 ||
+    (result.table_facts ?? []).some((fact) => Boolean(fact.source_image_id)) ||
+    (result.images ?? []).some(
+      (image) =>
+        Boolean(image.id || image.storage_path) &&
+        /\b(?:clinical_table|flowchart_algorithm|medication_chart|risk_matrix|table_crop|diagram_crop|page_region|embedded)\b/i.test(
+          `${image.image_type ?? ""} ${image.sourceKind ?? ""} ${image.source_kind ?? ""}`,
+        ),
+    )
+  );
+}
+
+function hasExactVisualTableEvidence(result: SearchResult) {
+  return (
+    (result.table_facts ?? []).some((fact) => Boolean(fact.source_image_id)) ||
+    (result.images ?? []).some(
+      (image) =>
+        /\b(?:clinical_table|medication_chart|risk_matrix)\b/i.test(image.image_type ?? "") ||
+        /\btable_crop\b/i.test(`${image.sourceKind ?? ""} ${image.source_kind ?? ""}`) ||
+        Boolean(image.accessibleTableMarkdown || image.tableRows?.length || image.tableColumns?.length),
+    )
+  );
+}
+
+function hasRiskSignal(text: string) {
+  return /\b(?:risk|red zone|red|amber|high risk|matrix|urgent|escalat)\b/.test(text);
+}
+
+function signalMatchesText(signal: string, text: string) {
+  switch (signal) {
+    case "active_community":
+      return /\bactive\b/.test(text) && /\bcommunity\b/.test(text);
+    case "ed":
+      return /\b(?:ed|emergency department)\b/.test(text);
+    case "agitation":
+      return /\b(?:agitation|arousal|disturbance)\b/.test(text);
+    case "dose_amount":
+      return hasDoseAmount(text);
+    case "route":
+      return hasRoute(text);
+    case "flowchart_or_pathway":
+      return /\b(?:flowchart|flow chart|algorithm|pathway|matrix)\b/.test(text);
+    case "next_step_or_action":
+      return /\b(?:next step|step after|action|urgent|escalat|senior|review|red zone)\b/.test(text);
+    case "risk":
+      return hasRiskSignal(text);
+    case "red_zone":
+      return /\b(?:red zone|red)\b/.test(text);
+    case "medication_chart":
+      return /\b(?:medication chart|dose chart|dosing chart|dose table|pharmacological management)\b/.test(text);
+    case "table":
+      return /\b(?:table|chart|matrix|row)\b/.test(text);
+    case "visual_table":
+      return /\b(?:source image|table image|visual table|table crop|clinical table|chart image|matrix image)\b/.test(
+        text,
+      );
+    case "clozapine":
+      return /\bclozapine\b/.test(text);
+    case "anc":
+      return /\b(?:anc|neutrophil|neutrophils)\b/.test(text);
+    case "fbc":
+      return /\b(?:fbc|full blood count|blood count)\b/.test(text);
+    default:
+      return text.includes(signal);
+  }
+}
+
+function matchedSignalsForResult(args: {
+  intent: RetrievalIntent;
+  result: SearchResult;
+  chunkType: RetrievalChunkType;
+}) {
+  const text = evidenceText(args.result);
+  const signals: string[] = [];
+  const titleText = normalize(`${args.result.title} ${args.result.file_name}`);
+
+  if (
+    args.result.match_explanation?.titleHit ||
+    args.intent.preferredDocumentSignals.some((signal) => titleText.includes(signal))
+  ) {
+    signals.push("document_title");
+  }
+  if (args.result.match_explanation?.labelHit) signals.push("document_label");
+  if (args.result.match_explanation?.tableHit || (args.result.table_facts?.length ?? 0) > 0) signals.push("table_fact");
+  if (args.result.index_unit?.unit_type) signals.push(`index_unit:${args.result.index_unit.unit_type}`);
+  if ((args.result.images ?? []).some((image) => image.image_type === "flowchart_algorithm"))
+    signals.push("flowchart_image");
+  if ((args.result.images ?? []).some((image) => image.image_type === "medication_chart"))
+    signals.push("medication_chart_image");
+  if ((args.result.images ?? []).some((image) => image.image_type === "risk_matrix")) signals.push("risk_matrix_image");
+  if (hasSourceImageEvidence(args.result)) signals.push("source_image");
+  if (hasExactVisualTableEvidence(args.result)) signals.push("visual_table");
+  if (args.chunkType !== "text") signals.push(args.chunkType);
+  if (args.intent.needsDoseRouteFrequency && hasDoseAmount(text)) signals.push("dose_amount");
+  if (args.intent.needsDoseRouteFrequency && hasRoute(text)) signals.push("route");
+  if (args.intent.needsPatientEducation && signalMatchesText("active_community", text))
+    signals.push("active_community");
+  if (args.intent.needsPatientEducation && signalMatchesText("ed", text)) signals.push("ed");
+  if (/\b(?:agitation|arousal)\b/.test(text)) signals.push("agitation");
+  if (args.intent.needsFlowchartStep && signalMatchesText("flowchart_or_pathway", text))
+    signals.push("flowchart_or_pathway");
+  if (args.intent.needsFlowchartStep && signalMatchesText("next_step_or_action", text))
+    signals.push("next_step_or_action");
+  if (args.intent.needsRiskFlowchart && signalMatchesText("risk", text)) signals.push("risk");
+  if (args.intent.needsRiskFlowchart && signalMatchesText("red_zone", text)) signals.push("red_zone");
+  if (args.result.relevance?.verdict === "direct") signals.push("direct_relevance");
+
+  for (const signal of args.intent.requiredTermSignals) {
+    if (signalMatchesText(signal, text)) signals.push(signal);
+  }
+
+  return unique(signals, 32);
+}
+
+function lexicalScoreForSignals(requiredSignals: string[], matchedSignals: string[]) {
+  if (requiredSignals.length === 0) return 0;
+  const matched = requiredSignals.filter((signal) => matchedSignals.includes(signal)).length;
+  return Number((matched / requiredSignals.length).toFixed(4));
+}
+
+function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandidate; result: SearchResult }) {
+  const signals = new Set(args.candidate.matchedSignals);
+  let boost = 0;
+
+  if (args.intent.needsMedicationChart && args.candidate.chunkType === "medication_chart") boost += 0.18;
+  if (
+    args.intent.needsTable &&
+    (args.candidate.chunkType === "table" || args.candidate.chunkType === "medication_chart")
+  ) {
+    boost += 0.1;
+  }
+  if (args.intent.needsFlowchartStep && args.candidate.chunkType === "flowchart") boost += 0.18;
+  if (args.intent.needsRiskFlowchart && args.candidate.chunkType === "flowchart") boost += 0.08;
+  if (args.intent.needsRiskFlowchart && signals.has("risk")) boost += 0.1;
+  if (args.intent.needsRiskFlowchart && signals.has("red_zone")) boost += 0.1;
+  if (args.intent.needsRiskFlowchart && args.candidate.chunkType === "flowchart" && !signals.has("risk")) boost -= 0.06;
+  if (args.intent.needsPatientEducation && args.candidate.chunkType === "patient_education") boost += 0.18;
+  if (args.intent.needsSourceImage && signals.has("source_image")) boost += 0.22;
+  if (args.intent.needsSourceImage && !signals.has("source_image")) boost -= 0.14;
+  if (args.intent.needsExactVisualTable && signals.has("visual_table")) boost += 0.16;
+  if (args.intent.needsExactVisualTable && (signals.has("table") || signals.has("table_fact"))) boost += 0.08;
+  if (args.intent.needsDoseRouteFrequency && signals.has("dose_amount")) boost += 0.08;
+  if (args.intent.needsDoseRouteFrequency && signals.has("route")) boost += 0.08;
+  if (args.intent.needsComparison && args.result.document_summary) boost += 0.03;
+  if (signals.has("document_title")) boost += 0.05;
+  if (signals.has("direct_relevance")) boost += 0.06;
+  if (args.intent.requiredTermSignals.length > 0 && args.candidate.lexicalScore === 1) boost += 0.1;
+  if (args.intent.requiredTermSignals.length > 0 && (args.candidate.lexicalScore ?? 0) === 0) boost -= 0.08;
+
+  return boost;
+}
+
+export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): RetrievalIntent {
+  const normalizedQuery = normalize(query);
+  const asksDoseRoute = /\b(?:dose|dosage|dosing|route|oral|intramuscular|im|po|frequency|mg|mcg|prn)\b/.test(
+    normalizedQuery,
+  );
+  const asksDoseAmount = /\b(?:dose|dosage|dosing|mg|mcg|microgram|maximum|minimum)\b/.test(normalizedQuery);
+  const asksTable = /\b(?:table|chart|matrix|threshold|cutoff|cut off|range|criteria|row)\b/.test(normalizedQuery);
+  const asksSourceImage =
+    /\b(?:source|show|open|view|display|see)\b.*\b(?:image|figure|visual|table|chart|matrix)\b/.test(normalizedQuery) ||
+    /\b(?:image|figure|visual)\b.*\b(?:source|table|chart|matrix)\b/.test(normalizedQuery);
+  const asksExactVisualTable =
+    asksSourceImage && /\b(?:table|chart|matrix|anc|fbc|monitoring|threshold|row)\b/.test(normalizedQuery);
+  const asksMedicationChart =
+    queryClass === "medication_dose_risk" ||
+    /\b(?:medication chart|dose chart|dosing chart|pharmacological management|agitation|arousal)\b/.test(
+      normalizedQuery,
+    );
+  const asksFlowchart = /\b(?:flowchart|flow chart|algorithm|next step|step after|pathway|red zone|risk matrix)\b/.test(
+    normalizedQuery,
+  );
+  const asksRiskFlowchart =
+    asksFlowchart && /\b(?:risk|red zone|red|amber|high|urgent|escalat|matrix)\b/.test(normalizedQuery);
+  const asksPatientEducation =
+    /\b(?:active community|community patients?|community pts?|patient education|patient information)\b/.test(
+      normalizedQuery,
+    ) && /\b(?:ed|emergency department|community)\b/.test(normalizedQuery);
+  const needsComparison = queryClass === "comparison";
+
+  const preferredDocumentSignals: string[] = [];
+  const requiredTermSignals: string[] = [];
+
+  if (asksPatientEducation) {
+    preferredDocumentSignals.push("active community", "active community pt ed", "emergency department");
+    requiredTermSignals.push("active_community", "ed");
+  }
+  if (/\b(?:agitation|arousal)\b/.test(normalizedQuery)) {
+    preferredDocumentSignals.push("agitation arousal pharmacological management");
+    requiredTermSignals.push("agitation");
+  }
+  if (/\badmission\b/.test(normalizedQuery) && /\bcommunity\b/.test(normalizedQuery)) {
+    preferredDocumentSignals.push("admission of community patients", "admission community pts", "community admission");
+  }
+  if (/\bdischarge\b/.test(normalizedQuery)) {
+    preferredDocumentSignals.push("discharge", "discharge documentation");
+  }
+  if (asksDoseRoute) {
+    if (asksDoseAmount) requiredTermSignals.push("dose_amount");
+    if (/\b(?:route|oral|intramuscular|im|po)\b/.test(normalizedQuery)) requiredTermSignals.push("route");
+  }
+  if (asksFlowchart) {
+    preferredDocumentSignals.push("flowchart", "pathway", "risk matrix");
+    requiredTermSignals.push("flowchart_or_pathway");
+    if (/\b(?:next step|step after|red zone|action)\b/.test(normalizedQuery)) {
+      requiredTermSignals.push("next_step_or_action");
+    }
+    if (asksRiskFlowchart) {
+      requiredTermSignals.push("risk", "red_zone");
+    }
+  }
+  if (asksSourceImage) {
+    preferredDocumentSignals.push("source image", "clinical table", "table crop", "visual evidence");
+    requiredTermSignals.push("source_image");
+  }
+  if (asksExactVisualTable) {
+    requiredTermSignals.push("visual_table", "table");
+  }
+  if (/\bclozapine\b/.test(normalizedQuery)) {
+    preferredDocumentSignals.push("clozapine prescribing administration monitoring");
+    requiredTermSignals.push("clozapine");
+  }
+  if (/\b(?:anc|neutrophil)\b/.test(normalizedQuery)) requiredTermSignals.push("anc");
+  if (/\b(?:fbc|full blood count)\b/.test(normalizedQuery)) requiredTermSignals.push("fbc");
+  if (asksMedicationChart)
+    preferredDocumentSignals.push("medication chart", "dose table", "pharmacological management");
+  if (asksTable) preferredDocumentSignals.push("table", "chart", "matrix");
+
+  return {
+    needsTable: asksTable || queryClass === "table_threshold",
+    needsMedicationChart: asksMedicationChart,
+    needsFlowchartStep: asksFlowchart,
+    needsPatientEducation: asksPatientEducation,
+    needsSourceImage: asksSourceImage,
+    needsRiskFlowchart: asksRiskFlowchart,
+    needsExactVisualTable: asksExactVisualTable,
+    needsDoseRouteFrequency: asksDoseRoute,
+    needsComparison,
+    preferredDocumentSignals: unique(preferredDocumentSignals, 16),
+    requiredTermSignals: unique(requiredTermSignals, 16),
+  };
+}
+
+export function buildRetrievalCandidates(
+  query: string,
+  results: SearchResult[],
+  queryClass: RagQueryClass,
+): RetrievalCandidate[] {
+  const intent = buildRetrievalIntent(query, queryClass);
+  return results.map((result) => {
+    const chunkType = chunkTypeForResult(result);
+    const initial: RetrievalCandidate = {
+      chunkId: result.id,
+      documentId: result.document_id,
+      title: result.title,
+      section: result.section_heading ?? undefined,
+      page: result.page_number,
+      chunkType,
+      score: baseScore(result),
+      lexicalScore: 0,
+      semanticScore: result.similarity,
+      rerankScore: result.score_explanation?.finalScore ?? result.hybrid_score,
+      matchedSignals: [],
+      sourceHref: documentCitationHref(citationFromResult(result)),
+    };
+    const matchedSignals = matchedSignalsForResult({ intent, result, chunkType });
+    const lexicalScore = lexicalScoreForSignals(intent.requiredTermSignals, matchedSignals);
+    const candidate = { ...initial, lexicalScore, matchedSignals };
+    return {
+      ...candidate,
+      score: clamp(candidate.score + resultBoost({ intent, candidate, result })),
+    };
+  });
+}
+
+function annotateResultWithSelection(
+  result: SearchResult,
+  candidate: RetrievalCandidate,
+  originalScore: number,
+): SearchResult {
+  const score = Number(Math.max(originalScore, candidate.score).toFixed(4));
+  const selectionReasons = candidate.matchedSignals.map((signal) => `retrieval_signal:${signal}`);
+  if (candidate.score > originalScore + 0.04) selectionReasons.push("retrieval_intent_rescue");
+
+  return {
+    ...result,
+    hybrid_score: score,
+    match_explanation: {
+      ...result.match_explanation,
+      indexUnitType: result.match_explanation?.indexUnitType ?? result.index_unit?.unit_type ?? undefined,
+      reasons: unique([...(result.match_explanation?.reasons ?? []), ...selectionReasons], 48),
+    },
+  };
+}
+
+function summarizeSelection(args: {
+  intent: RetrievalIntent;
+  selectedCandidates: RetrievalCandidate[];
+  candidateCount: number;
+  rescueApplied: boolean;
+}): RetrievalSelectionSummary {
+  const matchedSignals = unique(
+    args.selectedCandidates.flatMap((candidate) => candidate.matchedSignals),
+    48,
+  );
+  const missingRequiredSignals = args.intent.requiredTermSignals.filter((signal) => !matchedSignals.includes(signal));
+  const topChunkTypes = emptyChunkTypeCounts();
+  for (const candidate of args.selectedCandidates) {
+    topChunkTypes[candidate.chunkType] += 1;
+  }
+
+  return {
+    candidateCount: args.candidateCount,
+    selectedCount: args.selectedCandidates.length,
+    requiredSignalsSatisfied: missingRequiredSignals.length === 0,
+    matchedSignals,
+    missingRequiredSignals,
+    rescueApplied: args.rescueApplied,
+    topChunkTypes,
+  };
+}
+
+export function summarizeRetrievalSelection(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+}): { intent: RetrievalIntent; summary: RetrievalSelectionSummary; candidates: RetrievalCandidate[] } {
+  const intent = buildRetrievalIntent(args.query, args.queryClass);
+  const candidates = buildRetrievalCandidates(args.query, args.results, args.queryClass);
+  const rescueApplied = candidates.some(
+    (candidate) => candidate.score > (candidate.rerankScore ?? candidate.semanticScore ?? 0) + 0.04,
+  );
+  return {
+    intent,
+    candidates,
+    summary: summarizeSelection({
+      intent,
+      selectedCandidates: candidates,
+      candidateCount: candidates.length,
+      rescueApplied,
+    }),
+  };
+}
+
+export function selectRetrievalEvidence(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  topK: number;
+  maxResultsPerDocument: number;
+}): {
+  results: SearchResult[];
+  intent: RetrievalIntent;
+  summary: RetrievalSelectionSummary;
+  candidates: RetrievalCandidate[];
+} {
+  const intent = buildRetrievalIntent(args.query, args.queryClass);
+  const candidates = buildRetrievalCandidates(args.query, args.results, args.queryClass);
+  const byId = new Map(args.results.map((result) => [result.id, result]));
+  const originalScoreById = new Map(args.results.map((result) => [result.id, baseScore(result)]));
+  const sortedCandidates = [...candidates].sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    if ((right.lexicalScore ?? 0) !== (left.lexicalScore ?? 0))
+      return (right.lexicalScore ?? 0) - (left.lexicalScore ?? 0);
+    if ((right.rerankScore ?? 0) !== (left.rerankScore ?? 0)) return (right.rerankScore ?? 0) - (left.rerankScore ?? 0);
+    return left.chunkId.localeCompare(right.chunkId);
+  });
+  const selectedCandidates: RetrievalCandidate[] = [];
+  const perDocument = new Map<string, number>();
+
+  for (const candidate of sortedCandidates) {
+    const currentDocumentCount = perDocument.get(candidate.documentId) ?? 0;
+    if (currentDocumentCount >= args.maxResultsPerDocument) continue;
+    selectedCandidates.push(candidate);
+    perDocument.set(candidate.documentId, currentDocumentCount + 1);
+    if (selectedCandidates.length >= args.topK) break;
+  }
+
+  const selectedResults = selectedCandidates
+    .map((candidate) => {
+      const result = byId.get(candidate.chunkId);
+      if (!result) return null;
+      return annotateResultWithSelection(result, candidate, originalScoreById.get(candidate.chunkId) ?? 0);
+    })
+    .filter((result): result is SearchResult => Boolean(result));
+  const rescueApplied = selectedCandidates.some(
+    (candidate) => candidate.score > (originalScoreById.get(candidate.chunkId) ?? 0) + 0.04,
+  );
+
+  return {
+    results: selectedResults,
+    intent,
+    candidates,
+    summary: summarizeSelection({
+      intent,
+      selectedCandidates,
+      candidateCount: candidates.length,
+      rescueApplied,
+    }),
+  };
+}

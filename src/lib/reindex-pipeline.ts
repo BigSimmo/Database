@@ -47,10 +47,7 @@ export function isAtomicReindexCandidate(document: { status?: string | null; met
   return document.status === "indexed";
 }
 
-export function isCommittedGenerationMetadata(args: {
-  rowMetadata?: unknown;
-  committedGeneration?: string | null;
-}) {
+export function isCommittedGenerationMetadata(args: { rowMetadata?: unknown; committedGeneration?: string | null }) {
   const rowGeneration = committedIndexGeneration(args.rowMetadata);
   if (!rowGeneration) return true;
   return Boolean(args.committedGeneration) && rowGeneration === args.committedGeneration;

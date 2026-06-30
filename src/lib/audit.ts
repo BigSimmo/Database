@@ -5,11 +5,7 @@ import { logger } from "@/lib/logger";
 // failing to record an audit row must never break or roll back the operation it
 // describes, so failures are logged, not thrown.
 
-export type AuditAction =
-  | "document_upload"
-  | "document_delete"
-  | "document_rename"
-  | "document_label_change";
+export type AuditAction = "document_upload" | "document_delete" | "document_rename" | "document_label_change";
 
 export type AuditLogEntry = {
   ownerId: string;
