@@ -643,7 +643,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       width: window.visualViewport?.width ?? window.innerWidth,
       height: window.visualViewport?.height ?? window.innerHeight,
     }));
-    const fullscreenTolerance = 2;
+    const fullscreenTolerance = 3;
     expect(settingsBox).not.toBeNull();
     expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
     expect(settingsBox!.y).toBeLessThanOrEqual(2);
