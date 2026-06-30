@@ -1053,25 +1053,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("favourites live route uses dashboard chrome, filtering, and new chat reset", async ({ page }) => {
+  test("legacy favourites route falls back to answer mode and keeps new chat reset", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=favourites");
 
     const globalSearchInput = visibleQuestionInput(page);
-    const searchFavourites = page.getByRole("button", { name: "Search favourites" });
-    await expect(page.getByRole("button", { name: "Current app mode: Favourites" })).toBeVisible();
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    await expect(globalSearchInput).toHaveAttribute("placeholder", "Search or ask from favourites...");
-
-    await globalSearchInput.click();
-    await page.keyboard.type("lithium");
-    await expect(searchFavourites).toBeEnabled();
-    await searchFavourites.click();
-
-    await expect(page.getByTestId("favourites-hub")).toContainText("Filter: lithium");
-    await expect(page.getByTestId("favourites-hub")).toContainText("Lithium monitoring guideline");
-    await expect(page.locator("body")).not.toContainText("Clinical KB favourites mockup");
+    await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
+    await expect(page.getByTestId("favourites-hub")).toHaveCount(0);
+    await expect(globalSearchInput).toHaveAttribute("placeholder", "Ask Clinical Guide");
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
@@ -1080,42 +1070,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 
-  test("app mode and favourites menus support keyboard navigation", async ({ page }) => {
+  test("app mode menu supports keyboard navigation when legacy modes are absent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=favourites");
 
-    const appModeButton = page.getByRole("button", { name: "Current app mode: Favourites" });
+    const appModeButton = page.getByRole("button", { name: "Current app mode: Answer" });
     await appModeButton.focus();
     await page.keyboard.press("ArrowDown");
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
     await expect(appModeMenu).toBeVisible();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toHaveCount(0);
     await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeFocused();
     await page.keyboard.press("Home");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(appModeMenu).toBeHidden();
     await expect(appModeButton).toBeFocused();
-
-    const favouritesTypeButton = page.getByRole("button", { name: "Choose favourite type" });
-    await favouritesTypeButton.focus();
-    await page.keyboard.press("ArrowDown");
-    const favouritesTypeList = page.getByRole("listbox", { name: "Favourite type" });
-    await expect(favouritesTypeList).toBeVisible();
-    await expect(favouritesTypeList.getByRole("option", { name: /^All\b/ })).toBeFocused();
-    await page.locator("body").click({ position: { x: 8, y: 8 } });
-    await expect(favouritesTypeList).toBeHidden();
-    await favouritesTypeButton.focus();
-    await page.keyboard.press("ArrowDown");
-    await expect(favouritesTypeList).toBeVisible();
-    await page.keyboard.press("End");
-    await expect(favouritesTypeList.getByRole("option", { name: /^Sets\b/ })).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(favouritesTypeList).toBeHidden();
-    await expect(favouritesTypeButton).toBeFocused();
-    await expect(page.getByTestId("favourites-hub")).toContainText("Saved sets");
   });
 
   test("prescribing workflow uses in-app medication routes", async ({ page }) => {
@@ -1281,6 +1254,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await tapOutsideActiveSurface(page);
     await expect(documentActions).toHaveCount(0);
     await expect(preview).toBeVisible();
+    await page.getByRole("button", { name: "Switch to canvas zoom mode" }).click();
     await expect(toolbar).toBeVisible({ timeout: 30000 });
     await expectDomIntegrity(page);
 
@@ -1468,8 +1442,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
-    await expect(uploadDrawer.getByText("Document title optional")).toBeVisible();
-    await expect(uploadDrawer.getByText("Guideline files required")).toBeVisible();
+    await expect(uploadDrawer.getByText("Clinical upload")).toBeVisible();
+    await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeDisabled();
+    await expect(uploadDrawer.getByRole("button", { name: "Upload guidelines" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1483,12 +1458,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
     await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
-    await expect(
-      uploadDrawer.getByText(
-        "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files.",
-      ),
-    ).toBeVisible();
-    await expect(uploadDrawer.locator('input[name="file"]')).toBeDisabled();
+    await expect(uploadDrawer.getByText("Read-only status")).toBeVisible();
+    await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeDisabled();
+    await expect(uploadDrawer.getByRole("button", { name: "Upload guidelines" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
