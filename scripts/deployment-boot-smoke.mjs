@@ -53,20 +53,34 @@ function formatFailureMessage(error) {
 }
 
 async function stopServer(child, logStream) {
+  if (child.exitCode === null) {
+    if (process.platform === "win32" && child.pid) {
+      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+      await Promise.race([
+        once(killer, "exit").then(() => true).catch(() => true),
+        delay(5000).then(() => false),
+      ]);
+    } else {
+      child.kill("SIGTERM");
+    }
+
+    const terminated = await Promise.race([
+      once(child, "exit").then(() => true).catch(() => true),
+      delay(5000).then(() => false),
+    ]);
+    if (!terminated && child.exitCode === null && process.platform !== "win32") {
+      child.kill("SIGKILL");
+      await once(child, "exit").catch(() => {});
+    }
+  }
+
+  child.stdout?.removeAllListeners("data");
+  child.stderr?.removeAllListeners("data");
   logStream.end();
   await once(logStream, "finish").catch(() => {});
-
-  if (child.exitCode !== null) return;
-
-  child.kill("SIGTERM");
-  const terminated = await Promise.race([
-    once(child, "exit").then(() => true).catch(() => true),
-    delay(5000).then(() => false),
-  ]);
-  if (!terminated && child.exitCode === null) {
-    child.kill("SIGKILL");
-    await once(child, "exit").catch(() => {});
-  }
 }
 
 async function bootSmoke() {

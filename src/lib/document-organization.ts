@@ -273,6 +273,22 @@ const generalClinicalReferenceSite = {
   candidates: [],
 };
 
+function hasGeneralClinicalReferenceEvidence(input: OrganizationDocumentInput) {
+  const text = [
+    input.title,
+    input.file_name,
+    input.source_path,
+    input.contentText,
+    metadataString(input.metadata, "source_type"),
+    metadataString(input.metadata, "category"),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return /\b(?:clinical reference|reference material|clinical guideline|practice guideline|guidelines?|best practice|formulary|therapeutic guideline|clinical handbook)\b/i.test(
+    text,
+  );
+}
+
 const secondaryTagMap = new Map<string, SecondaryFacet>([
   // Populations (Ages)
   ["adult", { label: "adult", label_type: "population" }],
@@ -1331,7 +1347,9 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
     };
   }
 
-  if (!selected && candidates.length === 0) return generalClinicalReferenceSite;
+  if (!selected && candidates.length === 0 && hasGeneralClinicalReferenceEvidence(input)) {
+    return generalClinicalReferenceSite;
+  }
 
   return {
     label: selected?.label ?? null,
@@ -1489,7 +1507,7 @@ export function classifyDocumentOrganization(input: OrganizationDocumentInput) {
   const document_type = classifyDocumentType(input);
 
   const type_confident = document_type.label !== "unknown" && document_type.confidence >= 0.7;
-  const site_confident = site.label || site.candidates.length === 0;
+  const site_confident = Boolean(site.label);
   const review_status = type_confident && site_confident ? "confident" : "needs_review";
 
   const profile: DocumentOrganizationProfile = {

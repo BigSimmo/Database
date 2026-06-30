@@ -4,6 +4,7 @@ import {
   buildEvalQualityReport,
   qualityFailureCategory,
   renderEvalQualityMarkdown,
+  sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
 } from "../scripts/eval-quality";
 import type { GoldenRetrievalResult } from "../scripts/eval-retrieval";
@@ -172,6 +173,34 @@ describe("eval quality reporting", () => {
         expect.stringContaining("RAG unsupported_correct_rate"),
         expect.stringContaining("RAG numeric_grounding_failure_rate"),
         expect.stringContaining("RAG source_governance_danger_failure_rate"),
+      ]),
+    );
+  });
+
+  it("derives source governance warnings for direct RAG answers without precomputed warnings", () => {
+    const warnings = sourceWarningsForRagQualityAnswer({
+      sourceGovernanceWarnings: undefined,
+      relevance: undefined,
+      sources: [
+        {
+          document_id: "doc-outdated",
+          title: "Outdated policy",
+          source_metadata: {
+            document_status: "outdated",
+            clinical_validation_status: "approved",
+            extraction_quality: "good",
+          },
+        },
+      ],
+    } as never);
+
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "outdated_source",
+          severity: "danger",
+          document_id: "doc-outdated",
+        }),
       ]),
     );
   });

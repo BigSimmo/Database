@@ -142,6 +142,38 @@ afterEach(() => {
 });
 
 describe("RAG structured-output fallback", () => {
+  it("keeps table-threshold questions on fact synthesis instead of source lookup", async () => {
+    const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
+      source({
+        id: "clozapine-threshold-chunk",
+        document_id: "clozapine-doc",
+        title: "Clozapine Monitoring",
+        file_name: "Clozapine Monitoring.pdf",
+        page_number: 4,
+        section_heading: "ANC thresholds",
+        content: "Clozapine ANC threshold table: below 1.5 x 10^9/L, withhold clozapine and repeat FBC.",
+        table_facts: [
+          {
+            id: "fact-anc-threshold",
+            document_id: "clozapine-doc",
+            source_chunk_id: "clozapine-threshold-chunk",
+            source_image_id: null,
+            page_number: 4,
+            table_title: "Clozapine ANC thresholds",
+            row_label: "ANC below 1.5",
+            clinical_parameter: "ANC",
+            threshold_value: "below 1.5 x 10^9/L",
+            action: "Withhold clozapine and repeat FBC.",
+          },
+        ],
+      }),
+    ]);
+
+    expect(answer.answer).toContain("1.5 x 10^9/L");
+    expect(answer.answer).toMatch(/withhold clozapine/i);
+    expect(answer.answer).not.toContain("The relevant source is");
+  });
+
   it("uses model synthesis for strong source answers instead of packed source-card labels", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_ANSWER_TIMEOUT_MS", "4321");

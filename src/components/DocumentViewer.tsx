@@ -1407,12 +1407,17 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
   );
 }
 
-function NativePdfEmbed({ url, title }: { url: string; title: string }) {
+function nativePdfEmbedUrl(url: string, initialPage: number) {
+  const page = Math.max(1, Math.trunc(initialPage || 1));
+  return `${url.split("#")[0]}#page=${page}`;
+}
+
+function NativePdfEmbed({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
   return (
     <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]">
       <iframe
         title={title}
-        src={url}
+        src={nativePdfEmbedUrl(url, initialPage)}
         className="h-[min(76vh,64rem)] w-full border-0 bg-[color:var(--surface-raised)]"
         loading="lazy"
         referrerPolicy="no-referrer"
@@ -2630,17 +2635,17 @@ export function DocumentViewer({
                         Source PDF
                       </a>
                     )}
-                     {downloadSignedUrl && (
-                       <a
-                         href={downloadSignedUrl}
-                         target="_blank"
-                         rel="noreferrer"
-                         download={document?.file_name || "clinical-source.pdf"}
-                         className={cn(secondaryButton, "mt-3")}
-                       >
-                         <Download className="h-4 w-4" />
-                         Download PDF
-                       </a>
+                    {downloadSignedUrl && (
+                      <a
+                        href={downloadSignedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={document?.file_name || "clinical-source.pdf"}
+                        className={cn(secondaryButton, "mt-3")}
+                      >
+                        <Download className="h-4 w-4" />
+                        Download PDF
+                      </a>
                     )}
                   </div>
                 </div>
@@ -2660,15 +2665,15 @@ export function DocumentViewer({
                           Source PDF
                         </a>
                       )}
-                     {downloadSignedUrl && (
-                       <a
-                         href={downloadSignedUrl}
-                         target="_blank"
-                         rel="noreferrer"
-                         download={document?.file_name || "clinical-source.pdf"}
-                         className={secondaryButton}
-                       >
-                         <Download className="h-4 w-4" />
+                      {downloadSignedUrl && (
+                        <a
+                          href={downloadSignedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={document?.file_name || "clinical-source.pdf"}
+                          className={secondaryButton}
+                        >
+                          <Download className="h-4 w-4" />
                           Download PDF
                         </a>
                       )}
@@ -2677,7 +2682,7 @@ export function DocumentViewer({
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
                 <>
-                <div className="mb-2 flex flex-wrap justify-center gap-2">
+                  <div className="mb-2 flex flex-wrap justify-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -2689,12 +2694,7 @@ export function DocumentViewer({
                     >
                       {useNativePdfViewer ? "Use canvas zoom mode" : "Use browser PDF mode"}
                     </button>
-                    <a
-                      href={signedUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={cn(secondaryButton, "text-xs")}
-                    >
+                    <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "text-xs")}>
                       <ExternalLink className="h-4 w-4" />
                       Open original PDF
                     </a>
@@ -2715,7 +2715,7 @@ export function DocumentViewer({
                     Browser PDF mode keeps heavy-zoom pages crisp and is recommended when zoom quality looks soft.
                   </p>
                   {useNativePdfViewer ? (
-                    <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} />
+                    <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={initialPage} />
                   ) : (
                     <PdfCanvasViewer
                       key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}

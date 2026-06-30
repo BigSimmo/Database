@@ -4321,12 +4321,20 @@ function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
   );
 }
 
-function tableOrVisualSourceLookupIntent(query: string) {
+function tableOrVisualSourceLookupIntent(query: string, queryClass: RagQueryClass, answerIntent: AnswerIntent) {
+  if (queryClass === "table_threshold" || answerIntent === "dose" || answerIntent === "monitoring_schedule")
+    return false;
   return (
-    /\b(?:which|what|show|find|open|where)\b.{0,120}\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
+    /\b(?:which|where|find|open|locate)\b.{0,120}\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
       query,
     ) ||
-    /\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b.{0,80}\b(?:cover|covers|contain|contains|list|lists|show|shows|guidance)\b/i.test(
+    /\b(?:show|display)\s+(?:me\s+)?(?:the\s+)?(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
+      query,
+    ) ||
+    /\b(?:which|what)\b.{0,80}\b(?:source|document|guideline|file|pdf)\b.{0,80}\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
+      query,
+    ) ||
+    /\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b.{0,80}\b(?:cover|covers|contain|contains|list|lists|guidance)\b/i.test(
       query,
     )
   );
@@ -4484,7 +4492,7 @@ function buildExtractiveAnswer(args: {
   const answerIntent = classifyAnswerIntent(args.query, args.queryClass);
   const naturalAnswer = documentSupportListIntent(args.query, args.queryClass)
     ? buildDocumentSupportListAnswer({ query: args.query, results: args.results })
-    : tableOrVisualSourceLookupIntent(args.query)
+    : tableOrVisualSourceLookupIntent(args.query, args.queryClass, answerIntent)
       ? buildTableOrVisualSourceLookupAnswer({ query: args.query, results: args.results })
       : buildFactSynthesizedAnswer({
           query: args.query,

@@ -25,6 +25,7 @@ import {
   type RagEvalCase,
   type SupabaseEvalCaseClient,
 } from "@/lib/rag-eval-cases";
+import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import type { RagAnswer } from "@/lib/types";
 
 loadEnvConfig(process.cwd());
@@ -98,6 +99,15 @@ export type SourceMetadataDebtAcceptance = {
   max_poor_extraction_top_results: number;
   max_source_governance_danger_failure_rate: number;
 };
+
+export function sourceWarningsForRagQualityAnswer(
+  answer: Pick<RagAnswer, "sourceGovernanceWarnings" | "sources" | "relevance">,
+) {
+  return (
+    answer.sourceGovernanceWarnings ??
+    sourceGovernanceWarnings({ results: answer.sources, relevance: answer.relevance })
+  );
+}
 
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
@@ -217,8 +227,7 @@ function failureCategoryCounts(results: Array<{ failures: string[] }>) {
 
 function isSourceMetadataDebtThresholdFailure(failure: string) {
   return (
-    failure.startsWith("top-result stale/review/unknown rate") ||
-    failure.startsWith("top-result review_required_rate")
+    failure.startsWith("top-result stale/review/unknown rate") || failure.startsWith("top-result review_required_rate")
   );
 }
 
@@ -539,9 +548,7 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           item.topFiles.join(" | ") || "none"
         }\n  route=${item.route} grounded=${item.grounded} citations=${item.citations} numericWarnings=${
           item.unverifiedNumericTokenCount
-        } faithfulnessWarning=${item.hasFaithfulnessWarning ? "yes" : "no"} sourceWarnings=${
-          item.sourceWarningCount
-        }`,
+        } faithfulnessWarning=${item.hasFaithfulnessWarning ? "yes" : "no"} sourceWarnings=${item.sourceWarningCount}`,
     )
     .join("\n");
 
@@ -720,7 +727,7 @@ async function runRagQualityCases(args: {
     )) as RagAnswer;
     const validation = validateRagAnswer(testCase, answer);
     const failures = [...validation.failures];
-    const sourceWarnings = answer.sourceGovernanceWarnings ?? [];
+    const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
     const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
     if (sourceDangerWarningCount > 0) failures.push("danger source governance warning present");
 
@@ -816,10 +823,7 @@ async function loadSourceMetadataDebtAcceptance(path: string): Promise<SourceMet
     max_review_required_rate: requiredNumber(ceilings, "max_review_required_rate"),
     max_outdated_top_results: requiredNumber(ceilings, "max_outdated_top_results"),
     max_poor_extraction_top_results: requiredNumber(ceilings, "max_poor_extraction_top_results"),
-    max_source_governance_danger_failure_rate: requiredNumber(
-      ceilings,
-      "max_source_governance_danger_failure_rate",
-    ),
+    max_source_governance_danger_failure_rate: requiredNumber(ceilings, "max_source_governance_danger_failure_rate"),
   };
 }
 

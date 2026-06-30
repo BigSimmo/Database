@@ -96,7 +96,7 @@ describe("document organization classifier", () => {
     );
   });
 
-  it("keeps non-site acronym tags out of false hospital assignment", () => {
+  it("keeps non-site acronym tags out of confident site assignment", () => {
     const classification = classifyDocumentOrganization({
       title: "Patient Assisted Travel Scheme (PATS)",
       file_name: "Patient Assisted Travel Scheme (PATS).pdf",
@@ -104,11 +104,12 @@ describe("document organization classifier", () => {
     });
 
     expect(classification.profile.site).toMatchObject({
-      label: "General clinical reference",
-      short_label: "GEN",
-      kind: "reference_collection",
+      label: null,
+      short_label: null,
+      kind: "unknown",
     });
     expect(classification.profile.site.candidates).toEqual([]);
+    expect(classification.profile.review_status).toBe("needs_review");
     expect(classification.profile.secondary_facets.workflow).toEqual(["patient assisted travel scheme"]);
   });
 
@@ -231,6 +232,25 @@ describe("document organization classifier", () => {
       short_label: "GEN",
       kind: "reference_collection",
     });
+  });
+
+  it("does not use the general reference fallback without reference or guideline evidence", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Local Administrative Procedure",
+      file_name: "local_admin_procedure.pdf",
+      contentText: "This administrative procedure describes office access and document-control responsibilities.",
+    });
+
+    expect(classification.profile.site).toMatchObject({
+      label: null,
+      short_label: null,
+      kind: "unknown",
+      evidence_sources: [],
+    });
+    expect(classification.profile.review_status).toBe("needs_review");
+    expect(classification.labels).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "General clinical reference", label_type: "site" })]),
+    );
   });
 
   it("flags low-confidence document type classifications as needs_review", () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { isDemoMode } from "@/lib/env";
+import { PublicApiError } from "@/lib/http";
 import {
   normalizedQueryTextForStorage,
   queryDerivedTokensForStorage,
@@ -115,6 +116,9 @@ export async function POST(request: Request) {
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ ok: false }, { status: 400 });
+    }
+    if (error instanceof PublicApiError) {
+      return NextResponse.json({ ok: false }, { status: error.status });
     }
     return NextResponse.json({ ok: false }, { status: 500 });
   }

@@ -23,6 +23,7 @@ type DocumentRow = {
 };
 
 type LabelRow = {
+  id: string;
   document_id: string;
   label_type: string;
 };
@@ -173,7 +174,7 @@ async function main() {
   const allowedSiteMissing = await loadAllowlist(args.allowedSiteMissingPath);
   const allowedDocumentTypeMissing = await loadAllowlist(args.allowedDocumentTypeMissingPath);
   const documents = await fetchAll<DocumentRow>(supabase, "documents", "id", (query) => query.eq("status", "indexed"));
-  const labels = await fetchAll<LabelRow>(supabase, "document_labels", "document_id,label_type", (query) =>
+  const labels = await fetchAll<LabelRow>(supabase, "document_labels", "id,document_id,label_type", (query) =>
     query.eq("source", "generated"),
   );
 
