@@ -58,7 +58,7 @@ export function Sheet({
   contentStyle?: CSSProperties;
   bodyClassName?: string;
   placement?: "default" | "left";
-  mobilePlacement?: "bottom" | "top";
+  mobilePlacement?: "bottom" | "top" | "fullscreen";
   portal?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -119,6 +119,7 @@ export function Sheet({
   if (!open) return null;
 
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
+  const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
 
   const sheet = (
@@ -128,9 +129,11 @@ export function Sheet({
         placement !== "left" && "motion-safe:animate-overlay-in",
         placement === "left"
           ? "items-stretch justify-start"
-          : defaultSheetIsTopAligned
-            ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
-            : "items-end justify-center sm:items-center sm:p-6",
+          : defaultSheetIsFullscreen
+            ? "items-stretch justify-center p-0 lg:items-center lg:p-6"
+            : defaultSheetIsTopAligned
+              ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
+              : "items-end justify-center sm:items-center sm:p-6",
       )}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -148,12 +151,16 @@ export function Sheet({
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
           "transition duration-200 motion-reduce:transition-none sm:duration-150",
           placement === "left"
-            ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
+            ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
             : cn(
-                "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
-                defaultSheetIsTopAligned
-                  ? "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in"
-                  : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up",
+                defaultSheetIsFullscreen
+                  ? "h-dvh max-h-dvh rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0"
+                  : cn(
+                      "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+                      defaultSheetIsTopAligned
+                        ? "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in"
+                        : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up",
+                    ),
               ),
           "motion-reduce:animate-none",
           contentClassName,
@@ -163,6 +170,7 @@ export function Sheet({
           className={cn(
             "mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden",
             placement === "left" && "hidden",
+            defaultSheetIsFullscreen && "hidden",
             defaultSheetIsTopAligned && "hidden",
           )}
           aria-hidden

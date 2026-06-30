@@ -7,6 +7,7 @@ import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/r
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { tableReviewMetadata, tableReviewSchema } from "@/lib/table-review";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -69,8 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     if (isDemoMode()) return NextResponse.json({ error: "Table review is unavailable in demo mode." }, { status: 400 });
 
-    const parsed = updateSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) throw new PublicApiError("Table review payload is invalid.");
+    const parsed = await parseJsonBody(request, updateSchema, "Table review payload is invalid.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: fact, error: factError } = await supabase
       .from("document_table_facts")
       .select("*")
-      .eq("id", parsed.data.factId)
+      .eq("id", parsed.factId)
       .eq("document_id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
@@ -94,16 +94,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const reviewMetadata = tableReviewMetadata({
-      reviewClass: parsed.data.reviewClass,
-      notes: parsed.data.notes,
-      confidence: parsed.data.confidence,
+      reviewClass: parsed.reviewClass,
+      notes: parsed.notes,
+      confidence: parsed.confidence,
       reviewerId: user.id,
     });
     const nextMetadata = { ...metadataRecord(fact.metadata), ...reviewMetadata };
     const { data: updatedFact, error: updateError } = await supabase
       .from("document_table_facts")
       .update({ metadata: nextMetadata })
-      .eq("id", parsed.data.factId)
+      .eq("id", parsed.factId)
       .eq("owner_id", user.id)
       .select("*")
       .single();
@@ -120,13 +120,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         if (!isCommittedGenerationMetadata({ rowMetadata: image.metadata, committedGeneration })) {
           return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
         }
-        await supabase
+        const { error: imageUpdateError } = await supabase
           .from("document_images")
           .update({
             metadata: { ...metadataRecord(image.metadata), ...reviewMetadata },
-            searchable: parsed.data.reviewClass === "clinical_useful" || parsed.data.reviewClass === "reference",
+            searchable: parsed.reviewClass === "clinical_useful" || parsed.reviewClass === "reference",
           })
           .eq("id", fact.source_image_id);
+        if (imageUpdateError) throw new Error(imageUpdateError.message);
       }
     }
 
@@ -134,6 +135,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ tableFact: updatedFact });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    if (error instanceof PublicApiError) return jsonError(error, error.status);
+    return jsonError(error, 500);
   }
 }

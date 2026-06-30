@@ -28,6 +28,15 @@ type SiteDefinition = {
   evidence: RegExp[];
 };
 
+type SiteCandidate = {
+  label: string;
+  short_label: string;
+  raw_tag: string;
+  kind: DocumentOrganizationSiteKind;
+  confidence: number;
+  evidence_sources: string[];
+};
+
 type SecondaryFacet = {
   label: string;
   label_type: Extract<
@@ -263,6 +272,22 @@ const generalClinicalReferenceSite = {
   evidence_sources: ["fallback:non_site_specific_reference"],
   candidates: [],
 };
+
+function hasGeneralClinicalReferenceEvidence(input: OrganizationDocumentInput) {
+  const text = [
+    input.title,
+    input.file_name,
+    input.source_path,
+    input.contentText,
+    metadataString(input.metadata, "source_type"),
+    metadataString(input.metadata, "category"),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return /\b(?:clinical reference|reference material|clinical guideline|practice guideline|guidelines?|best practice|formulary|therapeutic guideline|clinical handbook)\b/i.test(
+    text,
+  );
+}
 
 const secondaryTagMap = new Map<string, SecondaryFacet>([
   // Populations (Ages)
@@ -1248,8 +1273,31 @@ function referenceCollectionFromEvidence(input: OrganizationDocumentInput) {
   });
 }
 
-function hasGeneralReferenceEvidence(input: OrganizationDocumentInput) {
-  return /\b(?:clinical reference|reference material|best practice|guideline|guidance)\b/i.test(evidenceText(input));
+function siteCandidateSpecificity(candidate: SiteCandidate) {
+  switch (candidate.kind) {
+    case "hospital":
+      return 5;
+    case "health_service":
+      return 4;
+    case "program":
+      return 3;
+    case "unit":
+      return 2;
+    case "reference_collection":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function selectSiteCandidate(candidates: SiteCandidate[]) {
+  return [...candidates].sort(
+    (left, right) =>
+      right.confidence - left.confidence ||
+      Number(right.evidence_sources.some((source) => source.startsWith("bracket:"))) -
+        Number(left.evidence_sources.some((source) => source.startsWith("bracket:"))) ||
+      siteCandidateSpecificity(right) - siteCandidateSpecificity(left),
+  )[0];
 }
 
 function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
@@ -1284,7 +1332,7 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
   const candidates = [...taggedCandidates, ...sourceCandidates];
 
   const confirmedCandidates = candidates.filter((candidate) => candidate.confidence >= 0.75);
-  const selected = confirmedCandidates.length === 1 ? confirmedCandidates[0] : null;
+  const selected = selectSiteCandidate(confirmedCandidates) ?? null;
 
   const referenceCollection = !selected && candidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
   if (referenceCollection) {
@@ -1299,7 +1347,7 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
     };
   }
 
-  if (!selected && candidates.length === 0 && rawTags.length === 0 && hasGeneralReferenceEvidence(input)) {
+  if (!selected && candidates.length === 0 && hasGeneralClinicalReferenceEvidence(input)) {
     return generalClinicalReferenceSite;
   }
 
@@ -1459,7 +1507,7 @@ export function classifyDocumentOrganization(input: OrganizationDocumentInput) {
   const document_type = classifyDocumentType(input);
 
   const type_confident = document_type.label !== "unknown" && document_type.confidence >= 0.7;
-  const site_confident = site.label || site.candidates.length === 0;
+  const site_confident = Boolean(site.label);
   const review_status = type_confident && site_confident ? "confident" : "needs_review";
 
   const profile: DocumentOrganizationProfile = {

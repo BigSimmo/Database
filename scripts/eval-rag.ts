@@ -1,7 +1,14 @@
 import { loadEnvConfig } from "@next/env";
 import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
-import { estimateCostUsd, findOwnerIdByEmail, loadAdminClient, percentile, validateRagAnswer } from "./eval-utils";
+import {
+  estimateCostUsd,
+  findOwnerIdByEmail,
+  loadAdminClient,
+  percentile,
+  validateRagAnswer,
+  withProviderBackoff,
+} from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -44,6 +51,9 @@ type EvalResult = {
   retrievalIntent?: unknown;
   sourceSelection?: unknown;
   routingReason?: string;
+  unverifiedNumericTokenCount: number;
+  hasFaithfulnessWarning: boolean;
+  sourceWarningCount: number;
   latencyTimings: RagAnswer["latencyTimings"];
   inputTokens: number;
   outputTokens: number;
@@ -210,12 +220,14 @@ async function main() {
   if (!args.json) console.log(`Running ${cases.length} RAG eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
-    const answer = (await answerQuestionWithScope({
-      query: testCase.question,
-      ownerId,
-      logQuery: false,
-      skipCache: true,
-    })) as RagAnswer;
+    const answer = (await withProviderBackoff(`rag:${testCase.id}`, () =>
+      answerQuestionWithScope({
+        query: testCase.question,
+        ownerId,
+        logQuery: false,
+        skipCache: true,
+      }),
+    )) as RagAnswer;
     const latencyMs = answer.latencyTimings?.total_latency_ms ?? 0;
     const validation = validateRagAnswer(testCase, answer);
     const result: EvalResult = {
@@ -238,6 +250,9 @@ async function main() {
       retrievalIntent: answer.smartApiPlan?.answerPlan.retrievalIntent,
       sourceSelection: answer.smartApiPlan?.answerPlan.sourceSelection,
       routingReason: answer.routingReason,
+      unverifiedNumericTokenCount: answer.unverifiedNumericTokens?.length ?? 0,
+      hasFaithfulnessWarning: Boolean(answer.faithfulnessWarning),
+      sourceWarningCount: answer.sourceGovernanceWarnings?.length ?? 0,
       latencyTimings: answer.latencyTimings,
       inputTokens: answer.openAIUsage?.input_tokens ?? 0,
       outputTokens: answer.openAIUsage?.output_tokens ?? 0,
@@ -266,15 +281,21 @@ async function main() {
       if (citationSummary) console.log(`  Sources: ${citationSummary}`);
       if (result.failures.length > 0) {
         console.log(
-          `  Expected files: ${result.expectedFiles.join(", ") || "none"}; missing: ${
-            result.missingFiles.join(", ") || "none"
-          }`,
+          [
+            `  Diagnostics: expected=${result.expectedFiles.join(", ") || "none"}`,
+            `missing=${result.missingFiles.join(", ") || "none"}`,
+            `topFiles=${result.retrievedSources
+              .slice(0, 5)
+              .map((source) => `${source.rank}:${source.fileName}`)
+              .join(" | ") || "none"}`,
+            `route=${result.route}`,
+            `grounded=${result.grounded}`,
+            `citations=${result.citations}`,
+            `numericWarnings=${result.unverifiedNumericTokenCount}`,
+            `faithfulnessWarning=${result.hasFaithfulnessWarning ? "yes" : "no"}`,
+            `sourceWarnings=${result.sourceWarningCount}`,
+          ].join(" "),
         );
-        const retrieved = result.retrievedSources
-          .slice(0, 5)
-          .map((source) => `${source.rank}:${source.fileName}#${source.chunkIndex}`)
-          .join("; ");
-        if (retrieved) console.log(`  Retrieved files: ${retrieved}`);
         if (result.routingReason) console.log(`  Routing: ${result.routingReason}`);
       }
     }

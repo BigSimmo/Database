@@ -57,6 +57,15 @@ afterEach(() => {
 });
 
 describe("/api/search/interaction", () => {
+  it("returns a client error for invalid interaction payloads", async () => {
+    const { POST } = await import("../src/app/api/search/interaction/route");
+
+    const response = await POST(request({ query: "", documentId: "not-a-document-id" }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ ok: false });
+  });
+
   it("stores owned clicked document and chunk ids with sanitized labels", async () => {
     const { client, insert } = createClient({ ownsDocument: true, ownsChunk: true });
     vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false }, isDemoMode: () => false }));

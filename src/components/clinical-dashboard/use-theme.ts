@@ -2,20 +2,20 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
+import { DEFAULT_THEME, nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
 
 const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
 
 function getThemeSnapshot(): ResolvedTheme {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return DEFAULT_THEME;
   const storedTheme = window.localStorage.getItem(themeStorageKey);
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   return resolveThemePreference(storedTheme, prefersDark);
 }
 
 function getServerThemeSnapshot(): ResolvedTheme {
-  return "light";
+  return DEFAULT_THEME;
 }
 
 function subscribeTheme(onStoreChange: () => void) {

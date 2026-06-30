@@ -9,6 +9,7 @@
 - [ ] `npm run verify:release` before release or handoff confidence claims
 - [ ] `npm run format:check`
 - [ ] `npm run check:production-readiness` when clinical workflow, privacy, environment, Supabase, source governance, or deployment behavior changed
+- [ ] `npm run check:deployment-readiness` when deployment startup, hosting, or rollout behavior changed
 
 ## Clinical Governance Preflight
 

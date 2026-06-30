@@ -13,6 +13,7 @@ import {
 import { searchScopeFiltersSchema } from "@/lib/search-scope";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -117,23 +118,22 @@ export async function POST(request: Request) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Eval capture is unavailable in demo mode." }, { status: 400 });
 
-    const parsed = evalCaptureSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) throw new PublicApiError("Eval capture payload is invalid.");
+    const parsed = await parseJsonBody(request, evalCaptureSchema, "Eval capture payload is invalid.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const normalizedQuery = normalizedQueryTextForStorage(parsed.data.query);
-    const sourceChunkIds = uniqueUuidValues(parsed.data.sourceChunkIds);
-    const citedChunkIds = uniqueUuidValues(parsed.data.citedChunkIds);
-    const sourceFiles = uniqueValues(parsed.data.sourceFiles);
-    const rating = feedbackRating(parsed.data);
-    const missReason = missReasonFor(parsed.data, rating);
+    const normalizedQuery = normalizedQueryTextForStorage(parsed.query);
+    const sourceChunkIds = uniqueUuidValues(parsed.sourceChunkIds);
+    const citedChunkIds = uniqueUuidValues(parsed.citedChunkIds);
+    const sourceFiles = uniqueValues(parsed.sourceFiles);
+    const rating = feedbackRating(parsed);
+    const missReason = missReasonFor(parsed, rating);
     const expectedDocumentId = await ownedDocumentId({
       supabase,
       ownerId: user.id,
-      documentId: parsed.data.expectedDocumentId,
+      documentId: parsed.expectedDocumentId,
     });
-    const expectedChunkCandidate = parsed.data.expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null;
+    const expectedChunkCandidate = parsed.expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null;
     const expectedChunk = await ownedChunkReference({
       supabase,
       ownerId: user.id,
@@ -147,33 +147,33 @@ export async function POST(request: Request) {
       .from("rag_query_misses")
       .insert({
         owner_id: user.id,
-        query: queryTextForStorage(parsed.data.query),
+        query: queryTextForStorage(parsed.query),
         normalized_query: normalizedQuery,
-        query_class: parsed.data.queryClass ?? parsed.data.queryMode,
+        query_class: parsed.queryClass ?? parsed.queryMode,
         top_files: sourceFiles,
         top_chunk_ids: sourceChunkIds,
         cited_chunk_ids: citedChunkIds,
         miss_reason: missReason,
         expected_document_id: expectedDocumentId,
         expected_chunk_id: expectedChunkId,
-        candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(parsed.data.query).slice(0, 12)),
+        candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(parsed.query).slice(0, 12)),
         promoted_eval_case: true,
         promoted_at: new Date().toISOString(),
         metadata: {
           interaction: "answer_eval_capture",
           rating,
-          feedback_type: parsed.data.feedbackType ?? null,
-          note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.note : null,
-          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.data.answer : null,
-          query_class: parsed.data.queryClass ?? null,
-          query_mode: parsed.data.queryMode,
-          filters: parsed.data.filters ?? {},
-          source_governance_warnings: parsed.data.sourceGovernanceWarnings,
-          unverified_numeric_tokens: parsed.data.unverifiedNumericTokens,
-          source_chunk_ids_rejected: parsed.data.sourceChunkIds.length - sourceChunkIds.length,
-          cited_chunk_ids_rejected: parsed.data.citedChunkIds.length - citedChunkIds.length,
+          feedback_type: parsed.feedbackType ?? null,
+          note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.note : null,
+          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.answer : null,
+          query_class: parsed.queryClass ?? null,
+          query_mode: parsed.queryMode,
+          filters: parsed.filters ?? {},
+          source_governance_warnings: parsed.sourceGovernanceWarnings,
+          unverified_numeric_tokens: parsed.unverifiedNumericTokens,
+          source_chunk_ids_rejected: parsed.sourceChunkIds.length - sourceChunkIds.length,
+          cited_chunk_ids_rejected: parsed.citedChunkIds.length - citedChunkIds.length,
           captured_at: new Date().toISOString(),
-          ...queryPrivacyMetadata(parsed.data.query),
+          ...queryPrivacyMetadata(parsed.query),
         },
       })
       .select("id")
@@ -182,6 +182,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, id: data.id }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    if (error instanceof PublicApiError) return jsonError(error, error.status);
+    return jsonError(error, 500);
   }
 }

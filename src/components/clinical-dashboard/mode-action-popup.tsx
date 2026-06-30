@@ -10,7 +10,6 @@ import {
   Filter,
   FolderOpen,
   GitBranch,
-  Heart,
   ListChecks,
   Plus,
   Search,
@@ -46,11 +45,7 @@ export type ModeActionId =
   | "medication-monitoring"
   | "medication-access"
   | "tools-browse"
-  | "tools-favourites"
   | "tools-new"
-  | "favourites-browse"
-  | "favourites-answer"
-  | "favourites-tools"
   | "differentials-build"
   | "differentials-criteria"
   | "differentials-documents"
@@ -118,13 +113,6 @@ const modeActionSets = {
       primary: true,
     },
     {
-      id: "tools-favourites",
-      label: "Favourites",
-      shortLabel: "Saved",
-      description: "Saved clinical tools",
-      icon: Heart,
-    },
-    {
       id: "tools-new",
       label: "New answer",
       shortLabel: "New",
@@ -177,6 +165,7 @@ export function ModeActionPopup({
   onOpenChange,
   onBeforeOpen,
   onAction,
+  triggerClassName,
 }: {
   open: boolean;
   title: string;
@@ -186,6 +175,7 @@ export function ModeActionPopup({
   onOpenChange: (open: boolean) => void;
   onBeforeOpen?: () => void;
   onAction: (actionId: ModeActionId) => void;
+  triggerClassName?: string;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -245,9 +235,15 @@ export function ModeActionPopup({
     onAction(actionId);
   }
 
-  const prominentActionCount = items.length > 4 ? 3 : items.length;
-  const prominentActions = items.slice(0, prominentActionCount);
-  const compactActions = items.slice(prominentActionCount);
+  const primaryAction = items[0];
+  const PrimaryActionIcon = primaryAction?.icon;
+  const secondaryActions = items.slice(1);
+  const secondaryGridClass =
+    secondaryActions.length >= 6
+      ? "grid-cols-4 max-[360px]:grid-cols-3"
+      : secondaryActions.length >= 3
+        ? "grid-cols-3"
+        : "grid-cols-2";
 
   function assignActionRef(element: HTMLButtonElement | null, index: number) {
     itemRefs.current[index] = element;
@@ -259,18 +255,21 @@ export function ModeActionPopup({
         <div
           ref={surfaceRef}
           className={cn(
-            "absolute inset-x-0 bottom-[calc(100%+0.55rem)] z-50 text-[color:var(--text)] motion-safe:animate-action-tray-in sm:inset-x-auto sm:left-0",
-            items.length <= 4 ? "sm:w-[min(28rem,100%)]" : "sm:w-[min(31rem,100%)]",
+            "absolute inset-x-0 bottom-[calc(100%+0.7rem)] z-50 text-[color:var(--text)] motion-safe:animate-action-tray-in sm:inset-x-auto sm:left-0",
+            items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]",
           )}
         >
-          <div className="overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[0_16px_38px_rgb(15_37_48_/_14%)] ring-1 ring-white/40 backdrop-blur-xl dark:ring-white/10">
-            <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--border)]/80 px-3 py-2">
+          <div className="overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10">
+            <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3 py-2">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
                   <TitleIcon className="h-3.5 w-3.5" />
                 </span>
-                <span className="block min-w-0 truncate text-[13px] font-bold text-[color:var(--text-heading)]">
-                  {title}
+                <span className="min-w-0">
+                  <span className="block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    Options
+                  </span>
+                  <span className="block truncate text-[13px] font-bold text-[color:var(--text-heading)]">{title}</span>
                 </span>
               </div>
               <button
@@ -289,56 +288,43 @@ export function ModeActionPopup({
               aria-label={title}
               className="p-2.5"
             >
-              <div className="grid gap-1.5">
-                {prominentActions.map((item, index) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      ref={(element) => assignActionRef(element, index)}
-                      type="button"
-                      role="menuitem"
-                      onKeyDown={(event) => handleItemKeyDown(event, index)}
-                      onClick={() => runActionAndClose(item.id)}
-                      className={cn(
-                        "group grid min-h-[44px] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left shadow-[var(--shadow-inset)] transition motion-safe:duration-150 sm:min-h-[48px] sm:py-2",
-                        "hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] active:scale-[0.995]",
-                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        item.primary
-                          ? "border-[color:var(--clinical-chat-teal)]/24 bg-[color:var(--surface)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-8 w-8 shrink-0 place-items-center rounded-md border shadow-[var(--shadow-inset)] transition",
-                          item.primary
-                            ? "border-[color:var(--clinical-chat-teal)]/24 bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] group-hover:text-[color:var(--text)]",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
+              {primaryAction && PrimaryActionIcon ? (
+                <button
+                  key={primaryAction.id}
+                  ref={(element) => assignActionRef(element, 0)}
+                  type="button"
+                  role="menuitem"
+                  onKeyDown={(event) => handleItemKeyDown(event, 0)}
+                  onClick={() => runActionAndClose(primaryAction.id)}
+                  className={cn(
+                    "group grid min-h-[4.25rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition motion-safe:duration-150",
+                    "hover:border-[color:var(--clinical-chat-teal)]/45 hover:bg-[color:var(--clinical-chat-teal-soft)]/35 active:scale-[0.995]",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  )}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition group-hover:bg-[color:var(--surface)]">
+                    <PrimaryActionIcon className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-bold leading-5 text-[color:var(--text-heading)]">
+                      <span className="sm:hidden">{primaryAction.shortLabel ?? primaryAction.label}</span>
+                      <span className="hidden sm:inline">{primaryAction.label}</span>
+                    </span>
+                    {primaryAction.description ? (
+                      <span className="mt-0.5 block truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)]">
+                        {primaryAction.description}
                       </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-bold leading-4 text-[color:var(--text-heading)] sm:text-[13px]">
-                          <span className="sm:hidden">{item.shortLabel ?? item.label}</span>
-                          <span className="hidden sm:inline">{item.label}</span>
-                        </span>
-                        {item.description ? (
-                          <span className="mt-0.5 hidden truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)] sm:block">
-                            {item.description}
-                          </span>
-                        ) : null}
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--text-muted)] motion-reduce:transition-none" />
-                    </button>
-                  );
-                })}
-              </div>
-              {compactActions.length ? (
-                <div className="mt-2 grid grid-cols-5 gap-1.5 border-t border-[color:var(--border)]/80 pt-2 max-[360px]:grid-cols-3">
-                  {compactActions.map((item, compactIndex) => {
-                    const index = prominentActionCount + compactIndex;
+                    ) : null}
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                </button>
+              ) : null}
+              {secondaryActions.length ? (
+                <div
+                  className={cn("mt-2 grid gap-1.5 border-t border-[color:var(--border)]/75 pt-2", secondaryGridClass)}
+                >
+                  {secondaryActions.map((item, secondaryIndex) => {
+                    const index = secondaryIndex + 1;
                     const Icon = item.icon;
                     return (
                       <button
@@ -349,15 +335,15 @@ export function ModeActionPopup({
                         onKeyDown={(event) => handleItemKeyDown(event, index)}
                         onClick={() => runActionAndClose(item.id)}
                         className={cn(
-                          "group grid min-h-[48px] place-items-center gap-1 rounded-lg border border-transparent px-1.5 py-1.5 text-center transition motion-safe:duration-150 sm:min-h-[52px]",
-                          "hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] active:scale-[0.985]",
+                          "group grid min-h-[4.15rem] place-items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-2 text-center shadow-[var(--shadow-inset)] transition motion-safe:duration-150",
+                          "hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] active:scale-[0.985]",
                           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                         )}
                       >
-                        <span className="grid h-7 w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition group-hover:border-[color:var(--border-strong)] group-hover:text-[color:var(--text)]">
-                          <Icon className="h-3.5 w-3.5" />
+                        <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition group-hover:border-[color:var(--clinical-chat-teal)]/25 group-hover:text-[color:var(--clinical-chat-teal)]">
+                          <Icon className="h-4 w-4" />
                         </span>
-                        <span className="max-w-full truncate text-[10px] font-bold leading-3 text-[color:var(--text-muted)] group-hover:text-[color:var(--text)]">
+                        <span className="max-w-full truncate text-[11px] font-bold leading-3 text-[color:var(--text-muted)] group-hover:text-[color:var(--text)]">
                           {item.shortLabel ?? item.label}
                         </span>
                       </button>
@@ -378,7 +364,11 @@ export function ModeActionPopup({
         <button
           type="button"
           ref={buttonRef}
-          className={cn(chatComposerIconButton, open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)]")}
+          className={cn(
+            chatComposerIconButton,
+            triggerClassName,
+            open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)]",
+          )}
           aria-label={buttonLabel}
           aria-controls={open ? "daily-actions-sheet" : undefined}
           aria-expanded={open}

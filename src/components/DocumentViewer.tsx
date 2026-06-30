@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Download,
   ExternalLink,
   FileImage,
   FileText,
@@ -174,6 +175,52 @@ const profileSectionLabels: Array<{
 const iconButton = toolbarButton;
 const primaryButton = primaryControl;
 const secondaryButton = floatingControl;
+const pdfViewerModeStorageKey = "clinical-kb:pdf-viewer-mode";
+const pdfViewerNativeModeBreakpoint = 820;
+const pdfViewerLowMemoryThreshold = 4;
+const pdfViewerModeValue = {
+  native: "native",
+  canvas: "canvas",
+} as const;
+const pdfViewerModeNativeValue = pdfViewerModeValue.native;
+
+function getDefaultPdfViewerMode(): boolean {
+  if (typeof window === "undefined") return false;
+
+  const isSmallScreen = window.matchMedia(`(max-width: ${pdfViewerNativeModeBreakpoint}px)`).matches;
+  const isSmallDevice = window.matchMedia(`(max-device-width: ${pdfViewerNativeModeBreakpoint}px)`).matches;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const isLowMemory = typeof memory === "number" && Number.isFinite(memory) && memory <= pdfViewerLowMemoryThreshold;
+
+  return isSmallScreen || isSmallDevice || isLowMemory;
+}
+
+function getInitialPdfViewerMode() {
+  if (typeof window === "undefined") {
+    return {
+      useNativePdfViewer: getDefaultPdfViewerMode(),
+      hasExplicitPdfViewerMode: false,
+    };
+  }
+
+  try {
+    const savedMode = window.localStorage.getItem(pdfViewerModeStorageKey);
+    if (savedMode === pdfViewerModeNativeValue) {
+      return { useNativePdfViewer: true, hasExplicitPdfViewerMode: true };
+    }
+
+    if (savedMode === pdfViewerModeValue.canvas) {
+      return { useNativePdfViewer: false, hasExplicitPdfViewerMode: true };
+    }
+  } catch {
+    // window.localStorage may be unavailable in strict or private-browser contexts.
+  }
+
+  return {
+    useNativePdfViewer: getDefaultPdfViewerMode(),
+    hasExplicitPdfViewerMode: false,
+  };
+}
 
 function hasProfileItems(items: unknown): items is DocumentSummaryProfileItem[] {
   return Array.isArray(items) && items.some((item) => item && typeof item === "object" && "text" in item);
@@ -990,6 +1037,11 @@ function IndexedTextPanel({
 }
 
 function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
+  const maxFitScale = 2.8;
+  const maxZoomScale = 4;
+  const minZoomScale = 0.55;
+  const maxRenderScale = 2.5;
+
   const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1106,20 +1158,30 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         if (cancelled || !canvasRef.current || !holderRef.current) return;
         const baseViewport = pdfPage.getViewport({ scale: 1 });
         const availableWidth = Math.max(220, holderRef.current.clientWidth - 16);
-        const scale = fitWidth ? Math.min(2.8, Math.max(0.55, availableWidth / baseViewport.width)) : zoom;
-        const viewport = pdfPage.getViewport({ scale });
-        const outputScale = window.devicePixelRatio || 1;
+        const requestedScale = fitWidth
+          ? Math.min(maxFitScale, Math.max(minZoomScale, availableWidth / baseViewport.width))
+          : zoom;
+        const viewportScale = Math.min(maxZoomScale, Math.max(minZoomScale, requestedScale));
+        const outputScale = Math.min(maxRenderScale, window.devicePixelRatio || 1);
+        const viewport = pdfPage.getViewport({ scale: viewportScale * outputScale });
         const canvas = canvasRef.current;
-        canvas.width = Math.floor(viewport.width * outputScale);
-        canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = "auto";
-        canvas.style.maxWidth = "100%";
+        const context = canvas.getContext("2d");
+        if (!context) {
+          setError("Could not initialize the PDF canvas.");
+          return;
+        }
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.imageSmoothingEnabled = true;
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        canvas.style.width = `${Math.floor(baseViewport.width * viewportScale)}px`;
+        canvas.style.height = `${Math.floor(baseViewport.height * viewportScale)}px`;
+        canvas.style.maxWidth = fitWidth ? "100%" : "none";
 
         renderTask = pdfPage.render({
+          canvasContext: context,
           canvas,
           viewport,
-          transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
         });
         await renderTask.promise;
       } catch (renderError) {
@@ -1337,10 +1399,29 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           <canvas
             ref={canvasRef}
             aria-label={`${title} page ${page}`}
-            className="mx-auto max-w-full rounded-lg bg-white shadow-[var(--shadow-tight)] dark:bg-slate-900"
+            className="mx-auto max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function nativePdfEmbedUrl(url: string, initialPage: number) {
+  const page = Math.max(1, Math.trunc(initialPage || 1));
+  return `${url.split("#")[0]}#page=${page}`;
+}
+
+function NativePdfEmbed({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]">
+      <iframe
+        title={title}
+        src={nativePdfEmbedUrl(url, initialPage)}
+        className="h-[min(76vh,64rem)] w-full border-0 bg-[color:var(--surface-raised)]"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
     </div>
   );
 }
@@ -1643,6 +1724,7 @@ function DocumentOverviewLanding({
   document,
   initialPage,
   signedUrl,
+  downloadUrl,
   pages,
   onAskFromDocument,
   onAddToScope,
@@ -1651,6 +1733,7 @@ function DocumentOverviewLanding({
   document: ClinicalDocument;
   initialPage: number;
   signedUrl: string | null;
+  downloadUrl: string | null;
   pages: PageRow[];
   onAskFromDocument: () => void;
   onAddToScope: () => void;
@@ -1703,13 +1786,25 @@ function DocumentOverviewLanding({
               rel="noreferrer"
               className={cn(primaryButton, "w-full min-h-12 text-sm")}
             >
-              Open original PDF
+              Open PDF (new tab)
             </DocumentActionAnchor>
           ) : (
             <DocumentActionAnchor href="#pdf-preview-section" className={cn(primaryButton, "w-full min-h-12 text-sm")}>
-              Open original PDF
+              Open PDF preview
             </DocumentActionAnchor>
           )}
+          {downloadUrl ? (
+            <DocumentActionAnchor
+              href={downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              icon={Download}
+              download={document.file_name || "clinical-source.pdf"}
+              className={cn(secondaryButton, "w-full min-h-12 text-sm")}
+            >
+              Download PDF
+            </DocumentActionAnchor>
+          ) : null}
           <div className="grid grid-cols-2 gap-2 sm:contents">
             <DocumentActionButton
               onClick={onAddToScope}
@@ -1802,6 +1897,7 @@ export function DocumentViewer({
   const [tableFacts, setTableFacts] = useState<TableFactRow[]>([]);
   const [chunks, setChunks] = useState<ChunkRow[]>([]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [downloadSignedUrl, setDownloadSignedUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<RagAnswer | null>(null);
   const [loadingDocument, setLoadingDocument] = useState(true);
   const [viewerError, setViewerError] = useState<string | null>(null);
@@ -1819,12 +1915,67 @@ export function DocumentViewer({
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [useNativePdfViewer, setUseNativePdfViewer] = useState(() => getInitialPdfViewerMode().useNativePdfViewer);
+  const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(
+    () => getInitialPdfViewerMode().hasExplicitPdfViewerMode,
+  );
+  const [viewerModeInitialized] = useState(true);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !viewerModeInitialized || hasExplicitPdfViewerMode) return;
+
+    const syncDefaultViewerMode = () => {
+      setUseNativePdfViewer(getDefaultPdfViewerMode());
+    };
+
+    const smallScreen = window.matchMedia(`(max-width: ${pdfViewerNativeModeBreakpoint}px)`);
+    const smallDevice = window.matchMedia(`(max-device-width: ${pdfViewerNativeModeBreakpoint}px)`);
+
+    syncDefaultViewerMode();
+    smallScreen.addEventListener("change", syncDefaultViewerMode);
+    smallDevice.addEventListener("change", syncDefaultViewerMode);
+
+    return () => {
+      smallScreen.removeEventListener("change", syncDefaultViewerMode);
+      smallDevice.removeEventListener("change", syncDefaultViewerMode);
+    };
+  }, [viewerModeInitialized, hasExplicitPdfViewerMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onStorageChange = (event: StorageEvent) => {
+      if (event.key !== pdfViewerModeStorageKey || !event.newValue) return;
+      if (event.newValue === pdfViewerModeValue.native) {
+        setHasExplicitPdfViewerMode(true);
+        setUseNativePdfViewer(true);
+      } else if (event.newValue === pdfViewerModeValue.canvas) {
+        setHasExplicitPdfViewerMode(true);
+        setUseNativePdfViewer(false);
+      }
+    };
+
+    window.addEventListener("storage", onStorageChange);
+    return () => window.removeEventListener("storage", onStorageChange);
+  }, []);
+
+  useEffect(() => {
+    if (!viewerModeInitialized || !hasExplicitPdfViewerMode) return;
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        pdfViewerModeStorageKey,
+        useNativePdfViewer ? pdfViewerModeNativeValue : pdfViewerModeValue.canvas,
+      );
+    } catch {
+      // localStorage can be unavailable in hardened browsers/private mode.
+    }
+  }, [useNativePdfViewer, viewerModeInitialized, hasExplicitPdfViewerMode]);
 
   useEffect(() => {
     let active = true;
@@ -1865,6 +2016,7 @@ export function DocumentViewer({
         setViewerError(null);
         setPreviewError(null);
         setSignedUrl(null);
+        setDownloadSignedUrl(null);
       }
     }, 0);
     const detailParams = new URLSearchParams({
@@ -1875,6 +2027,7 @@ export function DocumentViewer({
     if (chunkId) detailParams.set("chunk", chunkId);
     const detailUrl = `/api/documents/${documentId}?${detailParams.toString()}`;
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
+    const downloadSignedUrlEndpoint = `${signedUrlEndpoint}?download=true`;
     readLocalProjectIdentity()
       .then((identity) => {
         if (!identity?.localServer?.safeLocalOrigin) {
@@ -1893,6 +2046,7 @@ export function DocumentViewer({
           return payload;
         });
         const cachedSignedUrl = getCachedSignedUrl(signedUrlEndpoint);
+        const cachedDownloadSignedUrl = getCachedSignedUrl(downloadSignedUrlEndpoint);
         const signedUrlRequest = cachedSignedUrl
           ? Promise.resolve(cachedSignedUrl)
           : fetch(signedUrlEndpoint, {
@@ -1904,10 +2058,21 @@ export function DocumentViewer({
               if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
               return payload;
             });
+        const signedDownloadUrlRequest = cachedDownloadSignedUrl
+          ? Promise.resolve(cachedDownloadSignedUrl)
+          : fetch(downloadSignedUrlEndpoint, {
+              signal: controller.signal,
+              headers: clientDemoMode ? undefined : authorizationHeader,
+            }).then(async (response) => {
+              const payload = await response.json();
+              if (response.status === 401) markSessionExpired();
+              if (!response.ok) throw new Error(payload.error || "Download URL could not be loaded.");
+              return payload;
+            });
 
-        return Promise.allSettled([detailRequest, signedUrlRequest]);
+        return Promise.allSettled([detailRequest, signedUrlRequest, signedDownloadUrlRequest]);
       })
-      .then(([detailResult, signedUrlResult]) => {
+      .then(([detailResult, signedUrlResult, signedDownloadUrlResult]) => {
         if (controller.signal.aborted) return;
 
         if (detailResult.status === "fulfilled") {
@@ -1937,11 +2102,28 @@ export function DocumentViewer({
           setPreviewError(null);
         } else {
           setSignedUrl(null);
+          setDownloadSignedUrl(null);
           setPreviewError(
             signedUrlResult.reason instanceof Error
               ? signedUrlResult.reason.message
               : "Source preview could not be loaded.",
           );
+        }
+
+        if (signedDownloadUrlResult.status === "fulfilled") {
+          const payload = signedDownloadUrlResult.value;
+          if (payload?.url) {
+            setCachedSignedUrl(downloadSignedUrlEndpoint, payload);
+            setDownloadSignedUrl(payload.url);
+            return;
+          }
+        }
+
+        if (signedUrlResult.status === "fulfilled") {
+          const payload = signedUrlResult.value;
+          setDownloadSignedUrl(payload?.url ?? null);
+        } else {
+          setDownloadSignedUrl(null);
         }
       })
       .catch((error) => {
@@ -2129,7 +2311,7 @@ export function DocumentViewer({
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };
   const handleDocumentDeleted = () => {
-    router.push("/");
+    router.push("/?mode=documents");
   };
   const handleDocumentLabelsUpdated = (labels: DocumentLabel[]) => {
     setDocument((current) => (current ? { ...current, labels } : current));
@@ -2178,9 +2360,9 @@ export function DocumentViewer({
     <main
       id="main-content"
       tabIndex={-1}
-      className={cn(appBackdrop, "min-h-screen overflow-x-clip text-[color:var(--text)] focus:outline-none")}
+      className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
-      <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4">
+      <header className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl">
         <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
           <Link
             href={documentHomeHref}
@@ -2204,7 +2386,7 @@ export function DocumentViewer({
             </Link>
             <Link
               href="/?mode=documents"
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-chat-teal)] px-3 text-xs font-semibold text-white shadow-[var(--shadow-tight)] sm:text-sm"
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-chat-teal)] px-3 text-xs font-semibold text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] sm:text-sm"
             >
               Documents
             </Link>
@@ -2296,6 +2478,19 @@ export function DocumentViewer({
                   Open original PDF
                 </a>
               )}
+              {downloadSignedUrl ? (
+                <a
+                  href={downloadSignedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={readyDocument.file_name || "clinical-source.pdf"}
+                  onClick={() => setMobileActionsOpen(false)}
+                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </a>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -2358,6 +2553,7 @@ export function DocumentViewer({
               document={readyDocument}
               initialPage={initialPage}
               signedUrl={signedUrl}
+              downloadUrl={downloadSignedUrl}
               pages={pages}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
@@ -2439,6 +2635,18 @@ export function DocumentViewer({
                         Source PDF
                       </a>
                     )}
+                    {downloadSignedUrl && (
+                      <a
+                        href={downloadSignedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={document?.file_name || "clinical-source.pdf"}
+                        className={cn(secondaryButton, "mt-3")}
+                      >
+                        <Download className="h-4 w-4" />
+                        Download PDF
+                      </a>
+                    )}
                   </div>
                 </div>
               ) : effectiveViewerError || previewError ? (
@@ -2457,16 +2665,66 @@ export function DocumentViewer({
                           Source PDF
                         </a>
                       )}
+                      {downloadSignedUrl && (
+                        <a
+                          href={downloadSignedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={document?.file_name || "clinical-source.pdf"}
+                          className={secondaryButton}
+                        >
+                          <Download className="h-4 w-4" />
+                          Download PDF
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
-                <PdfCanvasViewer
-                  key={documentId}
-                  url={signedUrl}
-                  title={documentDisplayTitle(document)}
-                  initialPage={initialPage}
-                />
+                <>
+                  <div className="mb-2 flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHasExplicitPdfViewerMode(true);
+                        setUseNativePdfViewer((current) => !current);
+                      }}
+                      aria-label={useNativePdfViewer ? "Switch to canvas zoom mode" : "Switch to browser PDF mode"}
+                      className={cn(secondaryButton, "text-xs")}
+                    >
+                      {useNativePdfViewer ? "Use canvas zoom mode" : "Use browser PDF mode"}
+                    </button>
+                    <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "text-xs")}>
+                      <ExternalLink className="h-4 w-4" />
+                      Open original PDF
+                    </a>
+                    {downloadSignedUrl ? (
+                      <a
+                        href={downloadSignedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={document.file_name || "clinical-source.pdf"}
+                        className={cn(secondaryButton, "text-xs")}
+                      >
+                        <Download className="h-4 w-4" />
+                        Download PDF
+                      </a>
+                    ) : null}
+                  </div>
+                  <p className="mb-2 text-center text-[11px] text-[color:var(--text-muted)]">
+                    Browser PDF mode keeps heavy-zoom pages crisp and is recommended when zoom quality looks soft.
+                  </p>
+                  {useNativePdfViewer ? (
+                    <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={initialPage} />
+                  ) : (
+                    <PdfCanvasViewer
+                      key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}
+                      url={signedUrl}
+                      title={documentDisplayTitle(document)}
+                      initialPage={initialPage}
+                    />
+                  )}
+                </>
               ) : (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--primary-soft)_40%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
                   <div>
@@ -2684,7 +2942,7 @@ export function DocumentViewer({
             event.preventDefault();
             if (canSummarizeDocument) void summarize();
           }}
-          className="fixed inset-x-3 bottom-3 z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl sm:bottom-4"
+          className="floating-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl"
         >
           <button
             type="button"
@@ -2713,7 +2971,7 @@ export function DocumentViewer({
           <button
             type="submit"
             disabled={!canSummarizeDocument}
-            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[inset_0_1px_0_rgb(255_255_255_/_18%),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Answer from this document"
           >
             {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

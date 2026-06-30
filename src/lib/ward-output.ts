@@ -57,8 +57,13 @@ export type AnswerEvidenceMapRow = {
   href?: string;
 };
 
-const thresholdPattern =
-  /\b(thresholds?|cut[\s-]?offs?|withhold|cease|stop|hold|discontinue|anc|fbc|wbc|neutrophils?|levels?|ranges?|criteria|scores?|ratings?|below|above|less than|greater than|mmol|mg\/l|x\s*10)\b|[<>]=?|[≤≥]/i;
+const hardThresholdPattern =
+  /\b(thresholds?|cut[\s-]?offs?|withhold|cease|stop|hold|discontinue|anc|fbc|wbc|neutrophils?|criteria|scores?|ratings?|below|above|less than|greater than|mmol|mg\/l|x\s*10)\b|[<>]=?|[≤≥]/i;
+const softThresholdTermPattern = /\b(?:levels?|ranges?)\b/i;
+const softThresholdContextPattern =
+  /\b(?:target|therapeutic|toxic|toxicity|red|amber|green|withhold|cease|stop|hold|discontinue|below|above|less than|greater than|between|minimum|maximum|max|min|safe|unsafe)\b|[<>]=?|[≤≥]|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:mmol\/l|mmol\/L|mmol|mg\/l|mg|x\s*10|×10)\b|\b\d+(?:[.,]\d+)?\s*%/i;
+const explicitThresholdIntentPattern =
+  /\b(?:thresholds?|cut[\s-]?offs?|target|therapeutic|toxic|toxicity|red\s+(?:result|range|zone)|amber\s+(?:result|range|zone)|green\s+(?:result|range|zone)|withhold|cease|stop|hold|discontinue|below|above|less than|greater than)\b/i;
 const unsupportedGapPattern =
   /\b(?:supplied\s+)?(?:sources?|documents?|guidelines?)\s+(?:do|does)\s+not\s+(?:provide|state|include|answer|cover)\b|\bnot\s+(?:provided|available|stated|covered|supported)\b|\bsource\s+gap\b/i;
 
@@ -143,6 +148,13 @@ function hasRequiredMedicationMatch(query: string, text: string) {
   return queryMedications.some((token) => textMedications.has(token));
 }
 
+function hasThresholdSignal(text: string, query = "") {
+  if (hardThresholdPattern.test(text)) return true;
+  if (!softThresholdTermPattern.test(text)) return false;
+  if (softThresholdContextPattern.test(text)) return true;
+  return Boolean(query && explicitThresholdIntentPattern.test(query) && softThresholdContextPattern.test(`${query} ${text}`));
+}
+
 function uniqueShortItems(items: string[], limit: number) {
   const seen = new Set<string>();
   const output: string[] = [];
@@ -209,9 +221,9 @@ function isWeakAnswer(answer: RagAnswer) {
 
 function isPromotableClinicalTable(card: VisualEvidenceCard, answer: RagAnswer) {
   const text = visualEvidenceText(card);
-  if (!thresholdPattern.test(text)) return false;
-
   const query = answer.smartPanel?.query ?? "";
+  if (!hasThresholdSignal(text, query)) return false;
+
   const relevance = card.relevance;
   const directlyRelevant = relevance?.verdict === "direct" || relevance?.verdict === "partial";
 
@@ -240,7 +252,7 @@ function sectionBodyMatchesKind(kind: AnswerSectionKind | undefined, body: strin
       text,
     );
   }
-  if (kind === "thresholds") return thresholdPattern.test(text);
+  if (kind === "thresholds") return hasThresholdSignal(text);
   if (kind === "monitoring_timing")
     return /\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood|level|review interval)\b/.test(text);
   if (kind === "escalation_risk")
@@ -617,8 +629,9 @@ export function buildClinicalOutputSections(answer: RagAnswer | null | undefined
   const quoteTexts = answer.quoteCards?.map((quote) => quote.quote) ?? [];
   const allTexts = [...parsedLines.map((line) => line.text), ...quoteTexts];
   const thresholdTables = buildThresholdTables(answer);
+  const query = answer.smartPanel?.query ?? "";
   const thresholdItems = uniqueShortItems(
-    allTexts.filter((item) => thresholdPattern.test(item) && isPromotableThresholdItem(item, answer)),
+    allTexts.filter((item) => hasThresholdSignal(item, query) && isPromotableThresholdItem(item, answer)),
     4,
   );
   const structuredSupportTable = buildStructuredSupportTable(answer);
