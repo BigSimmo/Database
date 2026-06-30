@@ -106,19 +106,31 @@ function metadataRecord(value: unknown) {
 }
 
 async function loadDocuments(supabase: SupabaseAdmin, args: ClassifyArgs) {
-  let query = supabase
-    .from("documents")
-    .select("id,owner_id,title,file_name,source_path,status,metadata")
-    .eq("status", "indexed")
-    .order("id", { ascending: true })
-    .range(args.documentId ? 0 : args.offset, args.documentId ? 0 : args.offset + args.limit - 1);
+  const documents: DocumentRow[] = [];
+  const pageSize = Math.min(args.limit, 1000);
+  const totalToLoad = args.documentId ? 1 : args.limit;
 
-  if (args.documentId) query = query.eq("id", args.documentId);
-  if (!args.allOwners && args.ownerId) query = query.eq("owner_id", args.ownerId);
+  while (documents.length < totalToLoad) {
+    const start = args.documentId ? 0 : args.offset + documents.length;
+    const end = args.documentId ? 0 : start + Math.min(pageSize, totalToLoad - documents.length) - 1;
+    let query = supabase
+      .from("documents")
+      .select("id,owner_id,title,file_name,source_path,status,metadata")
+      .eq("status", "indexed")
+      .order("id", { ascending: true })
+      .range(start, end);
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data ?? []) as DocumentRow[];
+    if (args.documentId) query = query.eq("id", args.documentId);
+    if (!args.allOwners && args.ownerId) query = query.eq("owner_id", args.ownerId);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as DocumentRow[];
+    documents.push(...rows);
+    if (args.documentId || rows.length < end - start + 1) break;
+  }
+
+  return documents;
 }
 
 async function loadEvidenceText(supabase: SupabaseAdmin, documentId: string) {
@@ -165,7 +177,17 @@ async function writeClassification(
     .delete()
     .eq("document_id", document.id)
     .eq("source", "generated")
-    .in("label_type", ["site", "document_type", "population", "topic", "setting", "service", "workflow", "medication", "risk"]);
+    .in("label_type", [
+      "site",
+      "document_type",
+      "population",
+      "topic",
+      "setting",
+      "service",
+      "workflow",
+      "medication",
+      "risk",
+    ]);
   if (deleteError) throw new Error(deleteError.message);
 
   // Write site labels (confident only, >= 0.75)
@@ -179,7 +201,9 @@ async function writeClassification(
   // Write all secondary facet labels (population, topic, setting, service, workflow, medication, risk)
   const secondaryLabels = classification.labels.filter(
     (label) =>
-      ["population", "topic", "setting", "service", "workflow", "medication", "risk"].includes(label.label_type) && label.confidence >= 0.5,
+      ["population", "topic", "setting", "service", "workflow", "medication", "risk"].includes(
+        label.label_type,
+      ) && label.confidence >= 0.5,
   );
 
   const generatedLabels = [...siteLabels, ...typeLabels, ...secondaryLabels];
@@ -226,12 +250,30 @@ function printPlan(
   const confident = plans.filter((plan) => plan.classification.profile.review_status === "confident").length;
   const needsReview = plans.filter((plan) => plan.classification.profile.review_status === "needs_review").length;
   const withSite = plans.filter((plan) => plan.classification.profile.site.label).length;
+  const labelCounts = plans.map((plan) => plan.classification.labels.length);
+  const labelsByType = new Map<string, number>();
+  for (const plan of plans) {
+    for (const label of plan.classification.labels) {
+      labelsByType.set(label.label_type, (labelsByType.get(label.label_type) ?? 0) + 1);
+    }
+  }
 
   console.log(`${write ? "WRITE" : "DRY-RUN"} document organization classification`);
   console.log(`documents scanned: ${plans.length}`);
   console.log(`confident profiles: ${confident}`);
   console.log(`needs review: ${needsReview}`);
   console.log(`assigned site labels: ${withSite}`);
+  console.log(
+    `generated labels: total=${labelCounts.reduce((sum, count) => sum + count, 0)} avg=${
+      labelCounts.length ? (labelCounts.reduce((sum, count) => sum + count, 0) / labelCounts.length).toFixed(2) : "0.00"
+    } max=${labelCounts.length ? Math.max(...labelCounts) : 0}`,
+  );
+  console.log(
+    `labels by type: ${[...labelsByType.entries()]
+      .sort()
+      .map(([type, count]) => `${type}=${count}`)
+      .join(", ")}`,
+  );
   console.log("");
 
   for (const plan of plans.slice(0, 25)) {

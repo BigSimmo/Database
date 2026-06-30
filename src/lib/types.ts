@@ -30,7 +30,13 @@ export type DocumentLabelType =
   | "service"
   | "custom";
 
-export type DocumentOrganizationSiteKind = "hospital" | "health_service" | "program" | "unit" | "unknown";
+export type DocumentOrganizationSiteKind =
+  | "hospital"
+  | "health_service"
+  | "program"
+  | "unit"
+  | "reference_collection"
+  | "unknown";
 export type DocumentOrganizationReviewStatus = "confident" | "needs_review" | "manual_override";
 export type DocumentOrganizationType =
   | "policy"
@@ -53,12 +59,14 @@ export type DocumentOrganizationProfile = {
   raw_bracket_tags: string[];
   site: {
     label: string | null;
+    short_label: string | null;
     raw_tag: string | null;
     kind: DocumentOrganizationSiteKind;
     confidence: number;
     evidence_sources: string[];
     candidates: Array<{
       label: string;
+      short_label: string;
       raw_tag: string;
       kind: DocumentOrganizationSiteKind;
       confidence: number;
