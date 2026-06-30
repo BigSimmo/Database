@@ -29,6 +29,34 @@ type DocumentRow = {
   metadata: unknown;
 };
 
+type Classification = Awaited<ReturnType<typeof classifyDocument>>;
+type ClassificationPlan = { document: DocumentRow; classification: Classification };
+type GeneratedLabelRow = {
+  document_id: string;
+  owner_id: string | null;
+  label: string;
+  label_type: string;
+  confidence: number;
+  source: "generated";
+  metadata: {
+    generated_by: "document-organization-classifier";
+    organization_profile_version: "document-organization-v1";
+    classified_at: string;
+  };
+};
+
+const generatedLabelTypes = [
+  "site",
+  "document_type",
+  "population",
+  "topic",
+  "setting",
+  "service",
+  "workflow",
+  "medication",
+  "risk",
+] as const;
+
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
@@ -105,6 +133,14 @@ function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 }
 
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
 async function loadDocuments(supabase: SupabaseAdmin, args: ClassifyArgs) {
   const documents: DocumentRow[] = [];
   const pageSize = Math.min(args.limit, 1000);
@@ -151,81 +187,86 @@ async function loadEvidenceText(supabase: SupabaseAdmin, documentId: string) {
   };
 }
 
-async function writeClassification(
-  supabase: SupabaseAdmin,
-  document: DocumentRow,
-  classification: Awaited<ReturnType<typeof classifyDocument>>,
-) {
-  const stampedAt = new Date().toISOString();
-  const metadata = {
-    ...metadataRecord(document.metadata),
-    ...classification.metadata,
-    organization_profile_updated_at: stampedAt,
-    organization_profile_updated_by: "classify-documents",
-  };
-
-  const { error: documentError } = await supabase
-    .from("documents")
-    .update({ metadata })
-    .eq("id", document.id)
-    .eq("status", "indexed");
-  if (documentError) throw new Error(documentError.message);
-
-  // Delete all previously generated labels for this document (all types)
-  const { error: deleteError } = await supabase
-    .from("document_labels")
-    .delete()
-    .eq("document_id", document.id)
-    .eq("source", "generated")
-    .in("label_type", [
-      "site",
-      "document_type",
-      "population",
-      "topic",
-      "setting",
-      "service",
-      "workflow",
-      "medication",
-      "risk",
-    ]);
-  if (deleteError) throw new Error(deleteError.message);
-
-  // Write site labels (confident only, >= 0.75)
-  const siteLabels = classification.labels.filter((label) => label.label_type === "site" && label.confidence >= 0.75);
-
-  // Write document_type labels (any confidence >= 0.5 — so even needs_review types are captured)
-  const typeLabels = classification.labels.filter(
+function generatedLabelsForPlan(plan: ClassificationPlan, stampedAt: string): GeneratedLabelRow[] {
+  const siteLabels = plan.classification.labels.filter(
+    (label) => label.label_type === "site" && label.confidence >= 0.75,
+  );
+  const typeLabels = plan.classification.labels.filter(
     (label) => label.label_type === "document_type" && label.confidence >= 0.5,
   );
-
-  // Write all secondary facet labels (population, topic, setting, service, workflow, medication, risk)
-  const secondaryLabels = classification.labels.filter(
+  const secondaryLabels = plan.classification.labels.filter(
     (label) =>
-      ["population", "topic", "setting", "service", "workflow", "medication", "risk"].includes(
-        label.label_type,
-      ) && label.confidence >= 0.5,
+      ["population", "topic", "setting", "service", "workflow", "medication", "risk"].includes(label.label_type) &&
+      label.confidence >= 0.5,
   );
 
-  const generatedLabels = [...siteLabels, ...typeLabels, ...secondaryLabels];
-  if (!generatedLabels.length) return;
+  return [...siteLabels, ...typeLabels, ...secondaryLabels].map((label) => ({
+    document_id: plan.document.id,
+    owner_id: plan.document.owner_id,
+    label: label.label,
+    label_type: label.label_type,
+    confidence: label.confidence,
+    source: "generated",
+    metadata: {
+      generated_by: "document-organization-classifier",
+      organization_profile_version: "document-organization-v1",
+      classified_at: stampedAt,
+    },
+  }));
+}
 
-  const { error: labelError } = await supabase.from("document_labels").upsert(
-    generatedLabels.map((label) => ({
-      document_id: document.id,
-      owner_id: document.owner_id,
-      label: label.label,
-      label_type: label.label_type,
-      confidence: label.confidence,
-      source: "generated",
+async function writeClassifications(supabase: SupabaseAdmin, plans: ClassificationPlan[]) {
+  const writeBatchSize = 100;
+  const documentUpdateConcurrency = 10;
+  const labelUpsertBatchSize = 500;
+  let updated = 0;
+
+  for (const batch of chunkArray(plans, writeBatchSize)) {
+    const stampedAt = new Date().toISOString();
+    const documentRows = batch.map((plan) => ({
+      id: plan.document.id,
       metadata: {
-        generated_by: "document-organization-classifier",
-        organization_profile_version: "document-organization-v1",
-        classified_at: stampedAt,
+        ...metadataRecord(plan.document.metadata),
+        ...plan.classification.metadata,
+        organization_profile_updated_at: stampedAt,
+        organization_profile_updated_by: "classify-documents",
       },
-    })),
-    { onConflict: "document_id,label_type,label,source" },
-  );
-  if (labelError) throw new Error(labelError.message);
+    }));
+
+    for (const documentBatch of chunkArray(documentRows, documentUpdateConcurrency)) {
+      const results = await Promise.all(
+        documentBatch.map((document) =>
+          supabase
+            .from("documents")
+            .update({ metadata: document.metadata })
+            .eq("id", document.id)
+            .eq("status", "indexed"),
+        ),
+      );
+      const failedUpdate = results.find((result) => result.error);
+      if (failedUpdate?.error) throw new Error(failedUpdate.error.message);
+    }
+
+    const documentIds = batch.map((plan) => plan.document.id);
+    const { error: deleteError } = await supabase
+      .from("document_labels")
+      .delete()
+      .in("document_id", documentIds)
+      .eq("source", "generated")
+      .in("label_type", [...generatedLabelTypes]);
+    if (deleteError) throw new Error(deleteError.message);
+
+    const generatedLabels = batch.flatMap((plan) => generatedLabelsForPlan(plan, stampedAt));
+    for (const labels of chunkArray(generatedLabels, labelUpsertBatchSize)) {
+      const { error: labelError } = await supabase
+        .from("document_labels")
+        .upsert(labels, { onConflict: "document_id,label_type,label,source" });
+      if (labelError) throw new Error(labelError.message);
+    }
+
+    updated += batch.length;
+    console.log(`Updated ${updated}/${plans.length} document organization profile(s).`);
+  }
 }
 
 async function classifyDocument(supabase: SupabaseAdmin, document: DocumentRow) {
@@ -243,10 +284,7 @@ async function classifyDocument(supabase: SupabaseAdmin, document: DocumentRow) 
   });
 }
 
-function printPlan(
-  plans: Array<{ document: DocumentRow; classification: Awaited<ReturnType<typeof classifyDocument>> }>,
-  write: boolean,
-) {
+function printPlan(plans: ClassificationPlan[], write: boolean) {
   const confident = plans.filter((plan) => plan.classification.profile.review_status === "confident").length;
   const needsReview = plans.filter((plan) => plan.classification.profile.review_status === "needs_review").length;
   const withSite = plans.filter((plan) => plan.classification.profile.site.label).length;
@@ -305,9 +343,7 @@ async function main() {
   printPlan(plans, args.write);
   if (!args.write) return;
 
-  for (const plan of plans) {
-    await writeClassification(supabase, plan.document, plan.classification);
-  }
+  await writeClassifications(supabase, plans);
   console.log(`\nUpdated ${plans.length} document organization profile(s).`);
 }
 

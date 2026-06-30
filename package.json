@@ -39,6 +39,7 @@
     "enrich:documents": "tsx scripts/enrich-documents.ts",
     "enrich:backfill": "tsx scripts/backfill-enrichment.ts",
     "classify:documents": "tsx scripts/classify-documents.ts",
+    "check:document-label-coverage": "tsx scripts/check-document-label-coverage.ts",
     "tags:backfill": "tsx scripts/backfill-document-tags.ts",
     "index:backfill": "tsx scripts/backfill-smart-index.ts",
     "visual:backfill": "tsx scripts/backfill-visual-intelligence.ts",

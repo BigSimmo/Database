@@ -285,6 +285,7 @@ function lexicalScoreForSignals(requiredSignals: string[], matchedSignals: strin
 function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandidate; result: SearchResult }) {
   const signals = new Set(args.candidate.matchedSignals);
   let boost = 0;
+  const metadata = args.result.source_metadata;
 
   if (args.intent.needsMedicationChart && args.candidate.chunkType === "medication_chart") boost += 0.18;
   if (args.intent.needsMedicationChart && args.intent.requiredTermSignals.includes("agitation")) {
@@ -323,6 +324,20 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (signals.has("direct_relevance")) boost += 0.06;
   if (args.intent.requiredTermSignals.length > 0 && args.candidate.lexicalScore === 1) boost += 0.1;
   if (args.intent.requiredTermSignals.length > 0 && (args.candidate.lexicalScore ?? 0) === 0) boost -= 0.08;
+
+  if (metadata?.document_status === "current") boost += 0.06;
+  if (metadata?.document_status === "review_due") boost -= 0.12;
+  if (metadata?.document_status === "outdated") boost -= 0.24;
+  if (!metadata?.document_status || metadata.document_status === "unknown") boost -= 0.08;
+
+  if (metadata?.clinical_validation_status === "approved") boost += 0.06;
+  if (metadata?.clinical_validation_status === "locally_reviewed") boost += 0.05;
+  if (!metadata?.clinical_validation_status || metadata.clinical_validation_status === "unverified") boost -= 0.08;
+
+  if (metadata?.extraction_quality === "good") boost += 0.02;
+  if (metadata?.extraction_quality === "partial") boost -= 0.04;
+  if (metadata?.extraction_quality === "poor") boost -= 0.12;
+  if (!metadata?.extraction_quality || metadata.extraction_quality === "unknown") boost -= 0.05;
 
   return boost;
 }
@@ -445,7 +460,7 @@ export function buildRetrievalCandidates(
     const candidate = { ...initial, lexicalScore, matchedSignals };
     return {
       ...candidate,
-      score: clamp(candidate.score + resultBoost({ intent, candidate, result })),
+      score: Number(Math.max(0, candidate.score + resultBoost({ intent, candidate, result })).toFixed(4)),
     };
   });
 }

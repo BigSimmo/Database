@@ -29,6 +29,13 @@ type DerivedMetadata = {
   changedKeys: string[];
 };
 
+type ClinicalValidationEvidence = {
+  status: "unverified" | "locally_reviewed" | "approved";
+  basis: string;
+  evidence_type: string;
+  evidence_text: string | null;
+};
+
 const APPLY = process.argv.includes("--apply");
 const EVAL_ONLY = process.argv.includes("--eval-only");
 const NOW = new Date("2026-06-30T00:00:00+08:00");
@@ -45,6 +52,7 @@ const publisherByCode: Record<string, { publisher: string; jurisdiction: string 
   KEMH: { publisher: "King Edward Memorial Hospital", jurisdiction: "Australia/WA" },
   KEMHS: { publisher: "King Edward Memorial Hospital", jurisdiction: "Australia/WA" },
   NMHS: { publisher: "North Metropolitan Health Service", jurisdiction: "Australia/WA" },
+  PHC: { publisher: "Peel Health Campus", jurisdiction: "Australia/WA" },
   RKPG: { publisher: "Rockingham Peel Group", jurisdiction: "Australia/WA" },
   RPBG: { publisher: "Royal Perth Bentley Group", jurisdiction: "Australia/WA" },
   SMHS: { publisher: "South Metropolitan Health Service", jurisdiction: "Australia/WA" },
@@ -62,7 +70,10 @@ function titleWithoutExtension(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "");
 }
 
-function publisherCodeFor(document: DocumentRow) {
+function publisherCodeFor(document: DocumentRow, text = "") {
+  if (/\bBM[J)]\s+Best\s+Practice\b/i.test(text) || /\bStraight\s+to\s+the\s+point\s+of\s+care\b/i.test(text)) {
+    return "BMJ";
+  }
   const haystack = `${document.file_name} ${document.title} ${document.source_path ?? ""}`;
   const parentheticalCodes = [...haystack.matchAll(/\(([A-Z]{2,8})\)/g)].map((match) => match[1]);
   for (const code of parentheticalCodes) {
@@ -83,7 +94,7 @@ function sourceTypeFor(document: DocumentRow, text: string) {
   if (/\bguideline\b/.test(haystack)) return "guideline";
   if (/\bshared care\b/.test(haystack)) return "shared_care_guideline";
   if (/\bform\b|\bchart\b|\bplan\b/.test(haystack)) return "form_or_plan";
-  if (publisherCodeFor(document) === "BMJ") return "clinical_reference";
+  if (publisherCodeFor(document, text) === "BMJ") return "clinical_reference";
   return "document";
 }
 
@@ -187,15 +198,38 @@ function parseClinicalDate(raw: string, options: { endOfMonth?: boolean } = {}) 
 }
 
 function firstMatchDate(text: string, labels: string[], endOfMonth: boolean) {
+  const datePattern =
+    "([0-3]?\\d[/-][01]?\\d[/-]20\\d{2}|[01]?\\d[/-]20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+[0-3]?\\d,?\\s+20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2}|[0-3]?\\d\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2})";
   for (const label of labels) {
-    const pattern = new RegExp(
-      `${label}\\s*:?\\s*([0-3]?\\d[/-][01]?\\d[/-]20\\d{2}|[01]?\\d[/-]20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2}|[0-3]?\\d\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2})`,
-      "i",
-    );
+    const pattern = new RegExp(`${label}\\s*:?\\s*${datePattern}`, "i");
     const match = text.match(pattern);
     if (match) {
       const parsed = parseClinicalDate(match[1], { endOfMonth });
       if (parsed) return { date: parsed, raw: normalizeWhitespace(match[0]) };
+    }
+    if (/^(?:Review Due|Revision Due)$/i.test(label)) {
+      const labelIndex = text.toLowerCase().indexOf(label.toLowerCase());
+      if (labelIndex >= 0) {
+        const window = text.slice(labelIndex, labelIndex + 320);
+        const dateMatches = [...window.matchAll(new RegExp(datePattern, "gi"))];
+        const last = dateMatches.at(-1);
+        if (last?.[1]) {
+          const parsed = parseClinicalDate(last[1], { endOfMonth });
+          if (parsed) return { date: parsed, raw: normalizeWhitespace(`${label} ${last[1]}`) };
+        }
+      }
+    }
+    if (/^Revision Due$/i.test(label)) {
+      const fuzzyHeader = text.match(/\bRevision\b[\s\S]{0,120}\bdue\b/i);
+      if (fuzzyHeader?.index !== undefined) {
+        const window = text.slice(fuzzyHeader.index, fuzzyHeader.index + 320);
+        const dateMatches = [...window.matchAll(new RegExp(datePattern, "gi"))];
+        const first = dateMatches[0];
+        if (first?.[1]) {
+          const parsed = parseClinicalDate(first[1], { endOfMonth });
+          if (parsed) return { date: parsed, raw: normalizeWhitespace(`Revision due ${first[1]}`) };
+        }
+      }
     }
   }
   return null;
@@ -210,18 +244,34 @@ function extractDates(text: string) {
         "Authorisation date",
         "Published date",
         "First Issued",
-        "Last Reviewed",
         "Date Compiled",
+        "Last updated",
+        "Last Reviewed",
         "Authorised by",
         "Approved by",
         "Endorsed by",
         "Endorsed",
-        "Last updated",
       ],
       false,
     ) ??
     null;
   const lastUpdated = firstMatchDate(text, ["Last updated", "Updated"], false);
+  const reviewCycle =
+    /\b(?:reviewed|evaluated)[^.]{0,120}\bat least every three\s*(?:\(\s*3\s*\)|3)?\s*years?\b/i.test(text) ||
+    /\bat least every three\s*(?:\(\s*3\s*\)|3)?\s*years?\b/i.test(text);
+  const reviewSource = publication ?? lastUpdated;
+  if (!review && reviewCycle && reviewSource?.date) {
+    const inferred = new Date(`${reviewSource.date}T00:00:00+08:00`);
+    inferred.setFullYear(inferred.getFullYear() + 3);
+    return {
+      review: {
+        date: `${inferred.getFullYear()}-${pad(inferred.getMonth() + 1)}-${pad(inferred.getDate())}`,
+        raw: `inferred from explicit three-year review cycle and ${reviewSource.raw}`,
+      },
+      publication,
+      lastUpdated,
+    };
+  }
   return { review, publication, lastUpdated };
 }
 
@@ -238,20 +288,82 @@ function documentStatusFor(dates: ReturnType<typeof extractDates>, publisherCode
   return "unknown";
 }
 
-function locallyReviewedFor(args: {
+function validationSnippet(text: string, pattern: RegExp) {
+  const match = pattern.exec(text);
+  if (!match || match.index === undefined) return null;
+  const start = Math.max(0, match.index - 90);
+  const end = Math.min(text.length, match.index + match[0].length + 180);
+  return normalizeWhitespace(text.slice(start, end));
+}
+
+function clinicalValidationEvidenceFor(args: {
   publisherCode: string | null;
-  documentStatus: string;
   text: string;
   existing: string;
-}) {
-  if (args.existing === "approved") return "approved";
-  if (args.existing === "locally_reviewed") return "locally_reviewed";
-  if (!args.publisherCode || publisherByCode[args.publisherCode]?.jurisdiction !== "Australia/WA") return "unverified";
-  if (args.documentStatus !== "current") return "unverified";
-  if (/\b(?:endorsed|authorised by|approved by|clinical practice committee|clinical excellence committee)\b/i.test(args.text)) {
-    return "locally_reviewed";
+}): ClinicalValidationEvidence {
+  if (args.existing === "approved") {
+    return {
+      status: "approved",
+      basis: "pre-existing approved status preserved",
+      evidence_type: "manual_approved_status",
+      evidence_text: null,
+    };
   }
-  return "unverified";
+  if (!args.publisherCode || publisherByCode[args.publisherCode]?.jurisdiction !== "Australia/WA") {
+    return {
+      status: "unverified",
+      basis: "not a local WA source",
+      evidence_type: "none",
+      evidence_text: null,
+    };
+  }
+
+  const evidencePatterns: Array<{ type: string; pattern: RegExp }> = [
+    {
+      type: "committee_endorsement",
+      pattern:
+        /\b(?:committee\/consumer\s+endorsed\s+by|endorsed\s+by|endorsed)\b[\s\S]{0,260}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
+    },
+    {
+      type: "committee_approval",
+      pattern:
+        /\b(?:approved\s+by|approval\s+by|approved)\b[\s\S]{0,260}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
+    },
+    {
+      type: "authorisation",
+      pattern:
+        /\b(?:authorisation|authorised\s+by|authorized\s+by|executive\s+sponsor)\b[\s\S]{0,300}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|sponsor|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
+    },
+    {
+      type: "policy_sponsor",
+      pattern:
+        /\b(?:policy\s+sponsor|executive\s+sponsor)\b[\s\S]{0,220}\b(?:director|co-?director|nurse\s+director|medical\s+director|clinical|medical|nursing|mental\s+health|service)\b/i,
+    },
+    {
+      type: "document_control_owner",
+      pattern:
+        /\b(?:document\s+owner|policy\s+owner|procedure\s+owner)\b[\s\S]{0,180}\b(?:clinical|medical|nursing|pharmacy|mental\s+health|service|director|committee)\b/i,
+    },
+  ];
+
+  for (const { type, pattern } of evidencePatterns) {
+    const evidence = validationSnippet(args.text, pattern);
+    if (evidence) {
+      return {
+        status: "locally_reviewed",
+        basis: `local WA source with document-control ${type.replace(/_/g, " ")} evidence`,
+        evidence_type: type,
+        evidence_text: evidence,
+      };
+    }
+  }
+
+  return {
+    status: "unverified",
+    basis: "no local document-control approval or endorsement evidence found",
+    evidence_type: "none",
+    evidence_text: null,
+  };
 }
 
 function extractionQualityFor(quality: QualityRow | undefined, existing: string) {
@@ -266,9 +378,29 @@ function extractionQualityFor(quality: QualityRow | undefined, existing: string)
   return existing || "unknown";
 }
 
+function metadataValuesEqual(left: unknown, right: unknown) {
+  if (left === right) return true;
+  if (left === undefined || right === undefined) return false;
+  if (left === null || right === null) return left === right;
+  if (typeof left !== "object" || typeof right !== "object") return false;
+  return stableJson(left) === stableJson(right);
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function setIfChanged(metadata: Record<string, unknown>, key: string, value: unknown, changed: string[]) {
   if (value === undefined || value === null || value === "") return;
-  if (metadata[key] === value) return;
+  if (metadataValuesEqual(metadata[key], value)) return;
   metadata[key] = value;
   changed.push(key);
 }
@@ -276,17 +408,17 @@ function setIfChanged(metadata: Record<string, unknown>, key: string, value: unk
 function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow | undefined): DerivedMetadata {
   const metadata = metadataRecord(document.metadata);
   const changedKeys: string[] = [];
-  const publisherCode = publisherCodeFor(document);
+  const publisherCode = publisherCodeFor(document, text);
   const publisher = publisherCode ? publisherByCode[publisherCode] : null;
   const dates = extractDates(text);
   const documentStatus = documentStatusFor(dates, publisherCode);
   const existingValidation = String(metadata.clinical_validation_status ?? "unverified");
-  const clinicalValidationStatus = locallyReviewedFor({
+  const clinicalValidation = clinicalValidationEvidenceFor({
     publisherCode,
-    documentStatus,
     text,
     existing: existingValidation,
   });
+  const clinicalValidationStatus = clinicalValidation.status;
   const extractionQuality = extractionQualityFor(quality, String(metadata.extraction_quality ?? "unknown"));
 
   setIfChanged(metadata, "source_title", titleWithoutExtension(document.file_name), changedKeys);
@@ -299,9 +431,19 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
   setIfChanged(metadata, "review_date", dates.review?.date, changedKeys);
   setIfChanged(metadata, "document_status", documentStatus, changedKeys);
   setIfChanged(metadata, "clinical_validation_status", clinicalValidationStatus, changedKeys);
+  setIfChanged(
+    metadata,
+    "clinical_validation_evidence",
+    {
+      status: clinicalValidation.status,
+      basis: clinicalValidation.basis,
+      evidence_type: clinicalValidation.evidence_type,
+      evidence_text: clinicalValidation.evidence_text,
+    },
+    changedKeys,
+  );
   setIfChanged(metadata, "extraction_quality", extractionQuality, changedKeys);
   setIfChanged(metadata, "source_metadata_backfill_version", BACKFILL_VERSION, changedKeys);
-  setIfChanged(metadata, "source_metadata_backfilled_at", new Date().toISOString(), changedKeys);
   setIfChanged(
     metadata,
     "source_metadata_backfill_basis",
@@ -310,17 +452,17 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
       document_status: dates.review?.raw ?? dates.lastUpdated?.raw ?? "not inferred",
       publication_date: dates.publication?.raw ?? "not inferred",
       clinical_validation_status:
-        clinicalValidationStatus === "locally_reviewed"
-          ? "local WA source with current review date and document-control endorsement text"
-          : clinicalValidationStatus === "approved"
-            ? "pre-existing approved status preserved"
-            : "not locally validated by this automated backfill",
+        clinicalValidation.basis,
       extraction_quality: quality
         ? `document_index_quality:${quality.extraction_quality ?? "unknown"} score:${quality.quality_score ?? "unknown"}`
         : "existing metadata",
     },
     changedKeys,
   );
+  if (changedKeys.length > 0) {
+    metadata.source_metadata_backfilled_at = new Date().toISOString();
+    changedKeys.push("source_metadata_backfilled_at");
+  }
 
   return { metadata, changedKeys };
 }
@@ -364,18 +506,22 @@ async function loadPageText(documentIds: string[]) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
   const textByDocument = new Map<string, string>();
+  const pageSize = 1000;
   for (let index = 0; index < documentIds.length; index += 100) {
     const batch = documentIds.slice(index, index + 100);
-    const { data, error } = await supabase
-      .from("document_pages")
-      .select("document_id,page_number,text")
-      .in("document_id", batch)
-      .lte("page_number", 5)
-      .order("document_id", { ascending: true })
-      .order("page_number", { ascending: true });
-    if (error) throw error;
-    for (const row of (data ?? []) as PageRow[]) {
-      textByDocument.set(row.document_id, `${textByDocument.get(row.document_id) ?? ""}\n${row.text}`);
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("document_pages")
+        .select("document_id,page_number,text")
+        .in("document_id", batch)
+        .order("document_id", { ascending: true })
+        .order("page_number", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      for (const row of (data ?? []) as PageRow[]) {
+        textByDocument.set(row.document_id, `${textByDocument.get(row.document_id) ?? ""}\n${row.text}`);
+      }
+      if (!data || data.length < pageSize) break;
     }
   }
   return textByDocument;

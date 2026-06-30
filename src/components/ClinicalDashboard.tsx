@@ -136,11 +136,8 @@ import {
 } from "@/components/clinical-dashboard/dashboard-shell";
 import {
   compactSourceSnippet,
-  compactTableFact,
   sanitizeAnswerDisplayText,
   sanitizeDisplayText,
-  sourceDisplayMeta,
-  sourceDisplayTitle,
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
@@ -183,7 +180,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
-import { logSourceOpen, SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
+import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
@@ -225,17 +222,18 @@ import {
 
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
+const sourcePreviewSheetMediaQuery = "(max-width: 1023px)";
 
 function subscribeToMobilePreviewMedia(callback: () => void) {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
-  const media = window.matchMedia(mobileSectionFabMediaQuery);
+  const media = window.matchMedia(sourcePreviewSheetMediaQuery);
   media.addEventListener("change", callback);
   return () => media.removeEventListener("change", callback);
 }
 
 function getMobilePreviewSnapshot() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(mobileSectionFabMediaQuery).matches;
+  return window.matchMedia(sourcePreviewSheetMediaQuery).matches;
 }
 
 function useMobilePreviewSheet() {
@@ -645,8 +643,6 @@ function ScopeAndGovernanceNotice({
   );
 }
 
-const sourceExcerptFallback = "No excerpt available.";
-
 function plainAnswerText(value: string) {
   const useful = clinicalProseUsefulness(value);
   return sanitizeAnswerDisplayText(useful.text || value, { minLength: 8, minTokens: 2 })
@@ -961,6 +957,7 @@ function NaturalLanguageAnswer({
           closeLabel="Close answer sources"
           contentClassName="sm:max-w-xl"
           returnFocusRef={sourceCapsuleRef}
+          portal
         >
           <div data-testid="source-capsule-preview">
             <SourcePreviewContent
@@ -2587,6 +2584,7 @@ function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerE
   return renderModel.evidenceRows.map((row, index) => ({
     id: row.id || `${row.source.chunk_id}:${index}`,
     section: row.section || "Source evidence",
+    detail: row.quote || row.source.snippet || row.source.reason || row.source.title,
     supportLevel: row.supportLevel || row.source.sourceStrength,
     citationCount: 1,
     sourceStatus:
@@ -3722,124 +3720,6 @@ function RelatedDocumentsPanel({
         ))}
       </div>
     </UtilityDrawer>
-  );
-}
-
-function SourceList({
-  sources,
-  query,
-  onScopeDocument,
-}: {
-  sources: SearchResult[];
-  query: string;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  if (sources.length === 0) {
-    return (
-      <EmptyState icon={FileText} title="No source passages yet" body="Ask a question to populate the source list." />
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {sources.map((source) => (
-        <article key={source.id} className={cn(sourceCard, "overflow-hidden p-0")}>
-          {(() => {
-            const snippet = compactSourceSnippet(source.content);
-            const fallback = sourceExcerptFallback;
-            const sourceTitle = sourceDisplayTitle(source);
-            const sourceMeta = sourceDisplayMeta(source, sourceTitle);
-            const tableFacts = (source.table_facts ?? [])
-              .slice(0, 3)
-              .map(compactTableFact)
-              .filter((fact): fact is NonNullable<ReturnType<typeof compactTableFact>> => Boolean(fact));
-
-            return (
-              <>
-                <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:p-4">
-                  <div className="min-w-0">
-                    <Link
-                      href={sourceResultHref(source)}
-                      onClick={() => logSourceOpen(query, source)}
-                      className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
-                    >
-                      {sourceTitle}
-                    </Link>
-                    {sourceMeta ? <p className={cn("mt-1 text-xs leading-5", textMuted)}>{sourceMeta}</p> : null}
-                    <SourceProvenance metadata={source.source_metadata} />
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <QueryCoverageChips relevance={source.relevance} />
-                    </div>
-                    <MatchExplanationChips source={source} />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <RelevanceBadge relevance={source.relevance} />
-                    <SourceStatusBadge metadata={source.source_metadata} />
-                    <StrengthBadge strength={source.source_strength} />
-                    <Link
-                      href={sourceResultHref(source)}
-                      onClick={() => logSourceOpen(query, source)}
-                      className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                      aria-label={`Open source for ${source.title}`}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Open source
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => onScopeDocument(source.document_id)}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)]"
-                      aria-label={`Scope search to ${source.title}`}
-                    >
-                      <Filter className="h-4 w-4" />
-                      Add scope
-                    </button>
-                  </div>
-                </div>
-                <blockquote className="border-t border-[color:var(--border)] bg-[color:var(--primary-soft)]/22 px-3 py-3 text-[15px] leading-7 text-[color:var(--text)] sm:px-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--primary)] ring-1 ring-[color:var(--primary)]/20">
-                      <Quote className="h-4 w-4" />
-                    </span>
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">Excerpt</p>
-                  </div>
-                  <p
-                    className={cn(
-                      proseMeasure,
-                      "line-clamp-3 border-l-4 border-[color:var(--primary)] pl-3 break-words [overflow-wrap:anywhere]",
-                    )}
-                  >
-                    {snippet ? <SafeBoldText text={snippet} /> : <span className="italic">{fallback}</span>}
-                  </p>
-                </blockquote>
-                {tableFacts.length ? (
-                  <div className="border-t border-[color:var(--border)] px-3 py-3 sm:px-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                      Structured matches
-                    </p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {tableFacts.map((fact) => (
-                        <dl
-                          key={fact.id}
-                          className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs leading-5 text-[color:var(--text)]"
-                        >
-                          {fact.fields.map((field) => (
-                            <div key={`${fact.id}:${field.label}`} className="grid gap-0.5">
-                              <dt className={cn("font-bold uppercase tracking-[0.06em]", textMuted)}>{field.label}</dt>
-                              <dd className="break-words [overflow-wrap:anywhere]">{field.value}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </>
-            );
-          })()}
-        </article>
-      ))}
-    </div>
   );
 }
 
@@ -6099,7 +5979,7 @@ function SettingsDialog({
       labelledBy="account-settings-title"
       initialFocusRef={closeButtonRef}
       mobilePlacement="fullscreen"
-      contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] font-sans shadow-none lg:max-w-[900px] lg:shadow-[var(--shadow-lux)]"
+      contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none lg:max-w-[900px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
     >
       <div className="relative grid h-dvh max-h-dvh min-h-0 overflow-hidden lg:h-auto lg:max-h-[min(86dvh,820px)] lg:grid-cols-[250px_minmax(0,1fr)]">
@@ -6130,12 +6010,12 @@ function SettingsDialog({
           </nav>
         </aside>
 
-        <div className="min-h-0 overflow-y-auto px-4 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.625rem+env(safe-area-inset-top)))] polished-scroll sm:px-6 lg:px-7 lg:pb-7 lg:pt-6">
+        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:px-7 lg:pb-7 lg:pt-6">
           <div className="mb-2 flex items-center justify-between gap-4 lg:mb-5">
             <div className="min-w-0">
               <h2
                 id="account-settings-title"
-                className="truncate text-[17px] font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
+                className="truncate text-[18px] font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
               >
                 Account &amp; app
               </h2>
@@ -6145,19 +6025,22 @@ function SettingsDialog({
             </span>
           </div>
 
-          <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-inset)] sm:rounded-2xl sm:p-2.5 lg:rounded-xl lg:p-3.5">
-            <div className="flex items-center gap-2 lg:gap-3">
-              <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[11px] font-bold leading-none text-[color:var(--clinical-chat-teal)] sm:h-10 sm:w-10 sm:text-xs lg:h-11 lg:w-11 lg:text-sm">
+          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-lux)_96%,white)_0%,color-mix(in_srgb,var(--surface-lux)_88%,var(--background))_100%)] p-3.5 shadow-[0_12px_30px_rgb(15_31_38_/_7%),inset_0_1px_0_rgb(255_255_255_/_72%)] dark:shadow-[0_18px_40px_rgb(0_0_0_/_32%),inset_0_1px_0_rgb(255_255_255_/_7%)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-3.5 lg:shadow-[var(--shadow-inset)]">
+            <div className="flex items-center gap-3 lg:gap-3">
+              <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-sm font-bold leading-none text-[color:var(--clinical-chat-teal)] ring-1 ring-[color:var(--clinical-chat-teal)]/10 lg:h-11 lg:w-11">
                 {identity.initials}
                 {identity.signedIn ? (
                   <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold leading-4 text-[color:var(--text-heading)] sm:text-sm lg:text-[15px] lg:leading-5">
+                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-chat-teal)] lg:hidden">
+                  Clinical context
+                </p>
+                <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
                   {identity.displayName}
                 </p>
-                <p className="truncate text-[11px] leading-4 text-[color:var(--text-muted)] sm:text-xs lg:text-[13px] lg:leading-5">
+                <p className="text-[12px] font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-[13px] lg:leading-5">
                   Consultant psychiatrist, Western Australia
                 </p>
               </div>
@@ -6166,11 +6049,7 @@ function SettingsDialog({
                 <SettingsChip label="No PHI" />
               </div>
             </div>
-            <div className="mt-1.5 flex flex-wrap gap-1.5 lg:hidden">
-              <SettingsContextPill label="Private" />
-              <SettingsContextPill label="WA" />
-              <SettingsContextPill label="No PHI" />
-            </div>
+            <SettingsClinicalContextStrip />
           </section>
 
           <div className="hidden lg:mt-4 lg:grid lg:grid-cols-3 lg:gap-3">
@@ -6179,14 +6058,14 @@ function SettingsDialog({
             <SettingsSummaryTile icon={PanelTop} label="Default view" value="Ask" />
           </div>
 
-          <section className="mt-2 grid gap-2 lg:mt-4 lg:rounded-xl lg:border lg:border-[color:var(--border-lux)] lg:bg-[color:var(--surface)] lg:px-5 lg:py-4 lg:shadow-[var(--shadow-inset)]">
-            <div className="grid gap-2 lg:gap-4">
+          <section className="mt-3.5 grid gap-3 lg:mt-4 lg:rounded-xl lg:border lg:border-[color:var(--border-lux)] lg:bg-[color:var(--surface)] lg:px-5 lg:py-4 lg:shadow-[var(--shadow-inset)]">
+            <div className="grid gap-3 lg:gap-4">
               {settingSections.map((section) => (
                 <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-normal text-[color:var(--text-muted)] sm:text-[11px] lg:mb-1.5 lg:text-[13px] lg:normal-case lg:text-[color:var(--text-heading)]">
+                  <h3 className="mb-1 px-1 text-[12px] font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-[13px] lg:text-[color:var(--text-heading)]">
                     {section.title}
                   </h3>
-                  <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)] sm:rounded-2xl lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
+                  <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgb(15_31_38_/_4%),inset_0_1px_0_rgb(255_255_255_/_62%)] dark:shadow-[0_12px_26px_rgb(0_0_0_/_24%),inset_0_1px_0_rgb(255_255_255_/_5%)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
                     {section.rows.map((row) => (
                       <SettingsRow key={`${section.title}-${row.label}`} {...row} />
                     ))}
@@ -6206,18 +6085,12 @@ function SettingsDialog({
                 </div>
               ))}
             </div>
-            <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)] sm:rounded-2xl lg:hidden">
-              <SettingsRow
-                icon={BookOpen}
-                label="Guide & help"
-                value=""
-                onClick={() => {
-                  onClose();
-                  onOpenGuide();
-                }}
-                actionLabel="Open guide and help"
-              />
-            </div>
+            <SettingsHelpFooter
+              onClick={() => {
+                onClose();
+                onOpenGuide();
+              }}
+            />
           </section>
         </div>
       </div>
@@ -6233,11 +6106,16 @@ function SettingsChip({ label }: { label: string }) {
   );
 }
 
-function SettingsContextPill({ label }: { label: string }) {
+function SettingsClinicalContextStrip() {
   return (
-    <span className="inline-flex min-h-[22px] min-w-0 items-center justify-center rounded-full border border-[color:var(--clinical-chat-teal)]/14 bg-[color:var(--clinical-chat-teal-soft)]/70 px-2 text-center text-[11px] font-semibold leading-none text-[color:var(--clinical-chat-teal)] sm:min-h-6 sm:px-2.5">
-      <span className="truncate">{label}</span>
-    </span>
+    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-chat-teal)]/14 bg-[color:var(--clinical-chat-teal-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-chat-teal)] lg:hidden">
+      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+      <span className="min-w-0 truncate">
+        Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
+        <span className="px-1 text-[color:var(--text-soft)]">·</span> WA{" "}
+        <span className="px-1 text-[color:var(--text-soft)]">·</span> No PHI
+      </span>
+    </div>
   );
 }
 
@@ -6304,20 +6182,20 @@ function SettingsRow({
     <>
       <span
         className={cn(
-          "grid h-7 w-7 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] sm:h-8 sm:w-8 sm:rounded-xl lg:rounded-lg",
+          "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
           active
-            ? "border-[color:var(--clinical-chat-teal)]/34 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
-            : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
+            ? "bg-[color:var(--clinical-chat-teal)] text-white shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-chat-teal)_24%,transparent)] lg:border-[color:var(--clinical-chat-teal)]"
+            : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
         )}
       >
         <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </span>
-      <span className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between sm:gap-3">
-        <span className="block truncate text-[13px] font-semibold leading-4 text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+      <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
+        <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
           {label}
         </span>
         {value ? (
-          <span className="mt-0.5 block break-words text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-0 sm:max-w-[58%] sm:truncate sm:text-right sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
+          <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
             {value}
           </span>
         ) : null}
@@ -6327,7 +6205,7 @@ function SettingsRow({
   );
 
   const className =
-    "flex min-h-10 w-full items-center gap-2 border-b border-[color:var(--border)] px-2.5 py-1.5 text-left last:border-b-0 transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-11 sm:gap-2.5 sm:px-3 lg:gap-3 lg:px-0 lg:py-0 lg:hover:bg-[color:var(--surface-lux)]/55";
+    "flex min-h-[50px] w-full items-center gap-2.5 border-b border-[color:var(--border)]/70 px-3 py-1.5 text-left last:border-b-0 transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-[54px] sm:gap-3 sm:px-3.5 sm:py-2 lg:min-h-10 lg:gap-3 lg:px-0 lg:py-0 lg:hover:bg-[color:var(--surface-lux)]/55";
   const testId = `settings-row-${label
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -6350,6 +6228,23 @@ function SettingsRow({
   return (
     <div className={className} data-testid={testId}>
       {content}
+    </div>
+  );
+}
+
+function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="px-1 pt-0.5 lg:hidden">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-[13px] font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        data-testid="settings-row-guide-help"
+      >
+        <BookOpen className="h-4 w-4" />
+        <span>Guide &amp; help</span>
+        <ChevronDown className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
+      </button>
     </div>
   );
 }

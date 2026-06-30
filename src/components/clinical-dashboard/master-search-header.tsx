@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ChevronDown,
   FileText,
+  Filter,
   Globe2,
   Heart,
   ListChecks,
@@ -71,7 +72,6 @@ import type { SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
-
 const visibleAppModeOptions = visibleAppModeDefinitions();
 const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
@@ -206,6 +206,7 @@ export function MasterSearchHeader({
   const selectedSearch = appModeSearchConfig(searchMode);
   const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
+  const isAnswerFooterComposer = searchMode === "answer";
   const scopeIsPlaceholder = scopeVariant === "placeholder";
   const canRunLocalSearch = selectedSearch.kind === "favourites" || selectedSearch.kind === "tools";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
@@ -230,6 +231,13 @@ export function MasterSearchHeader({
     .map((id) => documents.find((document) => document.id === id))
     .filter((document): document is ClinicalDocument => Boolean(document));
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
+  const footerScopeLabel = selectedDocumentIds.length === 0 ? "All sources" : `${selectedDocumentIds.length} scoped`;
+  const headerSourceSummary =
+    selectedDocumentIds.length === 0
+      ? `${indexedDocumentTotal.toLocaleString()} indexed source${indexedDocumentTotal === 1 ? "" : "s"}`
+      : `${selectedDocumentIds.length.toLocaleString()} scoped source${selectedDocumentIds.length === 1 ? "" : "s"}`;
+  const headerReadinessLabel = realDataReady ? "Ready" : "Setup needed";
+  const headerAccountLabel = identity.signedIn ? identity.displayName : "Guest";
   const scopePreview = selectedDocuments
     .slice(0, 2)
     .map((document) => document?.title.replace(/^Synthetic /, ""))
@@ -258,7 +266,7 @@ export function MasterSearchHeader({
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocumentIds.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
-  const queryPlaceholder = selectedSearch.placeholder;
+  const queryPlaceholder = isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
   const actionMenuSetId: ModeActionSetId =
     searchMode === "documents" || searchMode === "evidence" ? "documents" : searchMode === "tools" ? "tools" : "answer";
@@ -691,23 +699,46 @@ export function MasterSearchHeader({
     <>
       <header
         id="search"
-        className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
+        className="edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
       >
-        <div className="relative mx-auto flex h-12 max-w-7xl items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenMobileSidebar}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:hidden"
-            aria-label="Open Clinical Guide menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+        <div className="relative mx-auto grid min-h-14 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={onOpenMobileSidebar}
+              className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:hidden"
+              aria-label="Open Clinical Guide menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <div className="universal-header-ledger hidden min-w-0 items-center gap-1 md:inline-flex">
+              <span className="universal-header-ledger-label">Sources</span>
+              <span className="universal-header-ledger-item">
+                <span
+                  className={cn(
+                    "universal-header-status-dot",
+                    realDataReady ? "bg-[color:var(--clinical-chat-ready)]" : "bg-[color:var(--clinical-chat-amber)]",
+                  )}
+                  aria-hidden="true"
+                />
+                <span>{headerReadinessLabel}</span>
+              </span>
+              <span className="universal-header-ledger-separator" aria-hidden="true" />
+              <span className="universal-header-ledger-item nums">{headerSourceSummary}</span>
+              <span className="universal-header-ledger-separator hidden xl:inline-block" aria-hidden="true" />
+              <span className="universal-header-ledger-item hidden max-w-[9rem] truncate xl:inline-flex">
+                {headerAccountLabel}
+              </span>
+            </div>
+          </div>
 
           <div
             ref={modeMenuRef}
             className={cn(
-              "relative z-40 mx-auto sm:mx-0",
-              modeAlignment === "center" && "absolute left-1/2 top-1/2 mx-0 -translate-x-1/2 -translate-y-1/2",
+              "relative z-40 min-w-0 justify-self-center",
+              modeAlignment === "center" &&
+                "lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2",
             )}
           >
             <button
@@ -719,21 +750,21 @@ export function MasterSearchHeader({
                 setModeMenuOpen((open) => !open);
               }}
               onKeyDown={handleModeTriggerKeyDown}
-              className="inline-grid h-11 min-w-[10rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-[14rem]"
+              className="universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]"
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                  Mode
-                </span>
-                <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                   {selectedAppMode.label}
+                </span>
+                <span className="hidden truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)] sm:block">
+                  {selectedAppMode.description}
                 </span>
               </span>
               <ChevronDown
@@ -800,7 +831,7 @@ export function MasterSearchHeader({
             ) : null}
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
             {scopeIsPlaceholder ? (
               <button
                 type="button"
@@ -808,7 +839,7 @@ export function MasterSearchHeader({
                 aria-disabled="true"
                 aria-label="Document scope placeholder"
                 title="Document scope"
-                className="flex min-h-10 shrink-0 cursor-default items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
+                className="universal-header-icon-control flex h-11 w-11 shrink-0 cursor-default items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-0 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:min-h-10 sm:w-auto sm:px-3"
               >
                 <Globe2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Scope</span>
@@ -825,7 +856,7 @@ export function MasterSearchHeader({
                   setModeMenuOpen(false);
                   setScopeSheetOpen(true);
                 }}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label="Open document scope"
                 aria-expanded={scopeSheetOpen}
                 title="Document scope"
@@ -857,12 +888,14 @@ export function MasterSearchHeader({
                     scopeSummaryRef.current = element;
                   }}
                   data-testid="scope-trigger"
-                  className="flex min-h-10 cursor-pointer list-none items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="universal-header-icon-control flex h-11 w-11 cursor-pointer list-none items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-0 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:w-auto sm:px-3"
                   aria-label="Open document scope"
                   aria-expanded={scopeOpen}
                 >
                   <Globe2 className="h-4 w-4" />
-                  <span>{selectedDocumentIds.length ? `${selectedDocumentIds.length} scoped` : "All sources"}</span>
+                  <span className="hidden sm:inline">
+                    {selectedDocumentIds.length ? `${selectedDocumentIds.length} scoped` : "All sources"}
+                  </span>
                 </summary>
                 <div
                   data-testid="scope-command-popover"
@@ -882,7 +915,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="hidden min-h-10 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:inline-flex"
+              className="universal-header-icon-control hidden min-h-10 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:inline-flex"
               aria-label="Start a new chat"
             >
               <Plus className="h-4 w-4" />
@@ -891,7 +924,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
+              className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
               aria-label="Start a new chat"
             >
               <Plus className="h-5 w-5" />
@@ -899,7 +932,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onToggleTheme}
-              className="hidden h-10 w-10 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)] sm:grid"
+              className="universal-header-icon-control hidden h-10 w-10 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)] sm:grid"
               aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -908,7 +941,7 @@ export function MasterSearchHeader({
               type="button"
               onClick={onOpenSettings}
               data-testid="header-account-settings"
-              className="relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
+              className="universal-header-avatar relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
               aria-label={identity.signedIn ? `Open settings for ${identity.detail}` : "Open account settings"}
               title={identity.detail}
             >
@@ -924,70 +957,112 @@ export function MasterSearchHeader({
       <form
         onSubmit={submit}
         className={cn(
-          chatComposerShell,
           "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl",
+          isAnswerFooterComposer ? "answer-footer-search-edge flex flex-col items-center gap-2.5" : chatComposerShell,
         )}
       >
-        <ModeActionPopup
-          open={actionMenuOpen}
-          title={actionMenuTitle}
-          titleIcon={SelectedAppModeIcon}
-          buttonLabel={actionMenuButtonLabel}
-          items={actionMenuItems}
-          onOpenChange={setActionMenuOpen}
-          onBeforeOpen={() => {
-            setUsesScopeSheet(currentUsesScopeSheet());
-            setModeMenuOpen(false);
-            closeScope(false);
-          }}
-          onAction={runModeAction}
-        />
-
-        <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-          <input
-            ref={queryInputRef}
-            data-testid="global-search-input"
-            autoFocus={queryInputAutoFocus}
-            value={query}
-            onInput={(event) => onQueryChange(event.currentTarget.value)}
-            onChange={(event) => onQueryChange(event.target.value)}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
+        <div
+          className={cn(
+            isAnswerFooterComposer ? cn(chatComposerShell, "answer-footer-search-pill w-full") : "contents",
+          )}
+        >
+          <ModeActionPopup
+            open={actionMenuOpen}
+            title={actionMenuTitle}
+            titleIcon={SelectedAppModeIcon}
+            buttonLabel={actionMenuButtonLabel}
+            items={actionMenuItems}
+            onOpenChange={setActionMenuOpen}
+            onBeforeOpen={() => {
+              setUsesScopeSheet(currentUsesScopeSheet());
+              setModeMenuOpen(false);
+              closeScope(false);
             }}
-            aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
-            placeholder={queryPlaceholder}
-            className={cn(chatComposerInput, "w-full min-w-0", query ? "pr-11" : null)}
+            onAction={runModeAction}
+            triggerClassName={isAnswerFooterComposer ? "answer-footer-search-action" : undefined}
           />
-          {query && (
+
+          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+            <input
+              ref={queryInputRef}
+              data-testid="global-search-input"
+              autoFocus={queryInputAutoFocus}
+              value={query}
+              onInput={(event) => onQueryChange(event.currentTarget.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
+              }}
+              aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
+              placeholder={queryPlaceholder}
+              className={cn(
+                chatComposerInput,
+                "w-full min-w-0",
+                isAnswerFooterComposer && "answer-footer-search-input",
+                query ? "pr-11" : null,
+              )}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={onClearQuery}
+                className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                aria-label="Clear search question"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+          <button
+            type="button"
+            className={cn(chatComposerIconButton, isAnswerFooterComposer && "answer-footer-search-mic")}
+            aria-label="Voice input"
+            title="Voice input"
+          >
+            <Mic className="h-4.5 w-4.5" />
+          </button>
+          {isAnswerFooterComposer ? <span className="answer-footer-search-divider" aria-hidden="true" /> : null}
+          <button
+            type="submit"
+            disabled={!canAsk}
+            title={
+              !realDataReady
+                ? "Search setup not ready"
+                : trimmedQuery.length < 1
+                  ? selectedSearch.emptyTitle
+                  : selectedSearch.readyTitle
+            }
+            className={cn(chatSendButton, isAnswerFooterComposer && "answer-footer-search-send")}
+            aria-label={selectedSearch.submitAriaLabel}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <span className="sr-only">{submitLabel}</span>
+          </button>
+        </div>
+        {isAnswerFooterComposer ? (
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
             <button
               type="button"
-              onClick={onClearQuery}
-              className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Clear search question"
+              onClick={() => onOpenEvidence?.()}
+              className="answer-footer-search-chip"
+              aria-label="Open evidence-backed answer sources"
             >
-              <X className="h-4 w-4" />
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <span className="sm:hidden">Evidence</span>
+              <span className="hidden sm:inline">Evidence-based</span>
             </button>
-          )}
-        </label>
-        <button type="button" className={chatComposerIconButton} aria-label="Voice input" title="Voice input">
-          <Mic className="h-4.5 w-4.5" />
-        </button>
-        <button
-          type="submit"
-          disabled={!canAsk}
-          title={
-            !realDataReady
-              ? "Search setup not ready"
-              : trimmedQuery.length < 1
-                ? selectedSearch.emptyTitle
-                : selectedSearch.readyTitle
-          }
-          className={chatSendButton}
-          aria-label={selectedSearch.submitAriaLabel}
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          <span className="sr-only">{submitLabel}</span>
-        </button>
+            <button
+              type="button"
+              onClick={openScopePicker}
+              className="answer-footer-search-chip"
+              aria-label="Open source scope"
+            >
+              <Filter className="h-4 w-4" aria-hidden="true" />
+              <span className="sm:hidden">{selectedDocumentIds.length === 0 ? "Sources" : footerScopeLabel}</span>
+              <span className="hidden sm:inline">{footerScopeLabel}</span>
+            </button>
+          </div>
+        ) : null}
         <Sheet
           open={usesScopeSheet && scopeSheetOpen}
           onClose={closeScopeSheet}

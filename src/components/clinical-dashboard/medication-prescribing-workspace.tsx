@@ -272,6 +272,12 @@ const detailRows: DetailRow[] = [
       },
       { label: "Skin", value: "Rash and pruritus", meta: "Common", metaTone: "neutral" },
       {
+        label: "Sexual function",
+        value: "Reduced libido, impotence or frigidity",
+        meta: "Common",
+        metaTone: "neutral",
+      },
+      {
         label: "Neuropsychiatric",
         value: "Mood change, depression, suicidal ideation: monitor clinically",
         meta: "Monitor",
@@ -414,11 +420,13 @@ function BadgeCluster({
   items,
   compact = false,
   limit,
+  showOverflowCount = false,
   className,
 }: {
   items?: ClinicalBadgeItem[];
   compact?: boolean;
   limit?: number;
+  showOverflowCount?: boolean;
   className?: string;
 }) {
   if (!items?.length) return null;
@@ -436,7 +444,9 @@ function BadgeCluster({
       {visibleItems.map((item, index) => (
         <ClinicalBadge key={`${item.label}-${item.tone ?? "neutral"}-${index}`} compact={compact} {...item} />
       ))}
-      {hiddenCount ? <ClinicalBadge label={`+${hiddenCount}`} tone="neutral" compact={compact} /> : null}
+      {showOverflowCount && hiddenCount ? (
+        <ClinicalBadge label={`+${hiddenCount}`} tone="neutral" compact={compact} />
+      ) : null}
     </div>
   );
 }
@@ -822,9 +832,7 @@ function DetailTile({
     <div
       className={cn(
         "min-h-[4.05rem] rounded-lg border bg-[color:var(--surface-raised)] px-2.5 py-2.5 shadow-[var(--shadow-inset)] sm:min-h-[4.2rem] sm:px-3 sm:py-3",
-        danger
-          ? "border-red-500/35 bg-red-50/30 dark:bg-red-950/10"
-          : "border-[color:var(--border)]",
+        danger ? "border-red-500/35 bg-red-50/30 dark:bg-red-950/10" : "border-[color:var(--border)]",
       )}
     >
       <div className="flex items-start gap-2">
@@ -876,8 +884,8 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
           <div
             className={cn(
               "grid divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]",
-              row.columns.length >= 4 ? "md:grid-cols-4" : "md:grid-cols-3",
-              "md:divide-x md:divide-y-0",
+              columnStyle === "ledger" && (row.columns.length >= 4 ? "md:grid-cols-4" : "md:grid-cols-3"),
+              columnStyle === "ledger" && "md:divide-x md:divide-y-0",
               columnStyle === "systems" && "text-[color:var(--text-muted)]",
             )}
           >
@@ -885,7 +893,9 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
               <div key={column.label} className="min-w-0 py-2.5 md:px-3 first:md:pl-0 last:md:pr-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">{column.label}</p>
-                  {column.meta ? <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact /> : null}
+                  {column.meta ? (
+                    <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact />
+                  ) : null}
                 </div>
                 <p className="mt-1 text-[13px] font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
                   {column.value}
@@ -1054,7 +1064,7 @@ function MedicationSummaryTabs({
   onSectionChange: (section: MedicationSectionId) => void;
 }) {
   return (
-    <div className="sticky top-[3.55rem] z-10 mb-3 border-y border-[color:var(--border)] bg-[color:var(--surface)]/95 py-1.5 backdrop-blur-xl sm:hidden">
+    <div className="sticky top-[3.55rem] z-10 mb-3 bg-[color:var(--surface)]/90 py-1.5 backdrop-blur-xl sm:hidden">
       <div
         className="grid grid-cols-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1 text-center shadow-[var(--shadow-inset)]"
         role="tablist"
@@ -1162,14 +1172,20 @@ function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: 
           <div
             className={cn(
               "mt-2 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]",
-              columnStyle === "ledger" && "min-[460px]:grid min-[460px]:grid-cols-2 min-[460px]:divide-x min-[460px]:divide-y-0",
+              columnStyle === "ledger" &&
+                "min-[460px]:grid min-[460px]:grid-cols-2 min-[460px]:divide-x min-[460px]:divide-y-0",
             )}
           >
             {row.columns.map((column) => (
-              <div key={column.label} className="min-w-0 py-2 min-[460px]:px-2 first:min-[460px]:pl-0 last:min-[460px]:pr-0">
+              <div
+                key={column.label}
+                className="min-w-0 py-2 min-[460px]:px-2 first:min-[460px]:pl-0 last:min-[460px]:pr-0"
+              >
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <p className="text-[10.5px] font-semibold text-[color:var(--text-muted)]">{column.label}</p>
-                  {column.meta ? <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact /> : null}
+                  {column.meta ? (
+                    <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact />
+                  ) : null}
                 </div>
                 <p className="mt-0.5 text-xs font-semibold leading-[1.35] text-[color:var(--text-heading)]">
                   {column.value}
@@ -1206,9 +1222,9 @@ function MobileDisclosurePanel({ panel }: { panel: MobileDisclosurePanelData }) 
 
   return (
     <details className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-[13px] font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2">
-          <Icon className="h-4.5 w-4.5 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
+          <Icon className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
           <span className="truncate">{panel.label}</span>
         </span>
         <ChevronDown
@@ -1216,12 +1232,21 @@ function MobileDisclosurePanel({ panel }: { panel: MobileDisclosurePanelData }) 
           aria-hidden="true"
         />
       </summary>
-      <div className="px-10 pb-3">
-        <BadgeCluster items={panel.badges} compact limit={3} className="mb-2" />
-        <ul className="grid gap-1.5 text-xs leading-5 text-[color:var(--text-muted)]">
-          {panel.body.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
+      <div className="px-3 pb-3">
+        <BadgeCluster items={panel.badges} compact limit={panel.label === "Access" ? 3 : 2} className="mb-2" />
+        <ul className="divide-y divide-[color:var(--border)] text-xs leading-5 text-[color:var(--text-muted)]">
+          {panel.body.map((item) => {
+            const separatorIndex = item.indexOf(": ");
+            const label = separatorIndex >= 0 ? item.slice(0, separatorIndex) : null;
+            const value = separatorIndex >= 0 ? item.slice(separatorIndex + 2) : item;
+
+            return (
+              <li key={item} className="grid gap-0.5 py-1.5 first:pt-0 last:pb-0">
+                {label ? <span className="font-semibold text-[color:var(--text-heading)]">{label}</span> : null}
+                <span>{value}</span>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </details>
@@ -1308,12 +1333,7 @@ function MedicationDetail() {
           </section>
 
           <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            <DetailTile
-              icon={CheckCircle2}
-              label="Prescribing answer"
-              value="Maintenance"
-              meta="after withdrawal"
-            />
+            <DetailTile icon={CheckCircle2} label="Prescribing answer" value="Maintenance" meta="after withdrawal" />
             <DetailTile icon={CalendarDays} label="Dosing" value="666 mg TID" meta="2 x 333 mg" />
             <DetailTile icon={Gauge} label="Dose ceiling" value="1,998 mg/day" meta="MAX" />
             <DetailTile icon={AlertTriangle} label="Avoid" value="Cr >120" meta="micromol/L" danger />

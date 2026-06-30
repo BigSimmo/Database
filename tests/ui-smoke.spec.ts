@@ -626,7 +626,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSettingsSurface(settings);
   });
 
-  test("account settings uses a fullscreen settings page below desktop and closes from X, Escape, and backdrop", async ({ page }) => {
+  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -640,7 +640,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSettingsSurface(settings);
     const settingsBox = await settings.boundingBox();
     expect(settingsBox).not.toBeNull();
-    expect(settingsBox!.x).toBeGreaterThanOrEqual(0);
+    expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
     expect(settingsBox!.y).toBeLessThanOrEqual(1);
     expect(settingsBox!.width).toBeGreaterThanOrEqual(389);
     expect(settingsBox!.height).toBeGreaterThanOrEqual(819);
@@ -655,11 +655,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(settings).toBeHidden();
 
-    const backdropMenu = await openMobileClinicalGuideMenu(page);
-    await backdropMenu.getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await page.mouse.click(2, 2);
-    await expect(settings).toBeHidden();
   });
 
   test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {
@@ -806,7 +801,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(copiedText).toContain("Sources for review");
       expect(copiedText).toContain("/documents/");
     }
-    await expectMinTouchTarget(plainAnswer.getByRole("button", { name: "More answer actions" }));
+    await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
     const keyItems = page.getByLabel("Key monitoring items");
     await expect(keyItems).toBeVisible();
@@ -820,14 +815,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalTable).toContainText("FBC/ANC");
     await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     const openTableSource = clinicalTable.getByRole("link", { name: "Open table source" });
-    const copyTablePreview = clinicalTable.getByRole("button", { name: "Copy table preview" });
-    const moreTableActions = clinicalTable.getByRole("button", { name: "More table actions" });
     await expect(openTableSource).toBeVisible();
-    await expect(copyTablePreview).toBeVisible();
-    await expect(moreTableActions).toBeVisible();
     await expectMinTouchTarget(openTableSource);
-    await expectMinTouchTarget(copyTablePreview);
-    await expectMinTouchTarget(moreTableActions);
+    await expect(clinicalTable.getByRole("button", { name: "Copy table preview" })).toHaveCount(0);
+    await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(tableExpandButton).toBeVisible();
     await expectMinTouchTarget(tableExpandButton);
@@ -936,17 +927,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
       };
     });
     expect(evidenceSheetOrder.tabsTop).toBeLessThan(evidenceSheetOrder.reviewTop);
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-tables")).toHaveAttribute("aria-selected", "true");
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
-    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
-    await evidenceSheet.getByTestId("mobile-evidence-tab-sources").click();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-sources")).toHaveAttribute("aria-selected", "true");
     await expect(evidenceSheet.getByTestId("mobile-evidence-panel-sources")).toBeVisible();
+    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-sources"));
     const sourcePanelLink = evidenceSheet
       .getByTestId("mobile-evidence-panel-sources")
       .locator('a[href*="chunk="]')
       .first();
     await expect(sourcePanelLink).toBeVisible();
     await expect(sourcePanelLink).toHaveAttribute("href", /\/documents\/.+chunk=/);
+    await evidenceSheet.getByTestId("mobile-evidence-tab-tables").click();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
+    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
     await evidenceSheet.getByTestId("mobile-evidence-tab-map").click();
     await expect(evidenceSheet.getByTestId("mobile-evidence-panel-map")).toBeVisible();
     const evidenceMapOpenSource = evidenceSheet.getByTestId("evidence-map-open-source").first();

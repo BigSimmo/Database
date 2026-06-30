@@ -39,25 +39,27 @@ This is the runbook to make the app publishable in one focused pass.
 2. `npm run check:runtime`.
 3. `npm run check:production-readiness`.
 4. `npm run check:supabase-project`.
-5. `npm run lint`.
-6. `npm run typecheck`.
-7. `npm run test`.
-8. `npm run build`.
-9. `npm run eval:quality -- --fail-on-threshold` after cheaper local gates pass, or `npm run eval:quality:release` when the active release metadata debt file is intentionally accepted.
-10. `npm run check:production-readiness:ci` (CI context only).
-11. Frontend browser smoke:
+5. `npm run check:document-label-coverage`.
+6. `npm run lint`.
+7. `npm run typecheck`.
+8. `npm run test`.
+9. `npm run build`.
+10. `npm run eval:quality -- --fail-on-threshold` after cheaper local gates pass, or `npm run eval:quality:release` when the active release metadata debt file is intentionally accepted.
+11. `npm run check:production-readiness:ci` (CI context only).
+12. Frontend browser smoke:
 
 - auth flow
 - protected endpoint behavior
 - search + answer render path
 - mobile viewport
 
-12. Staging deployment smoke + rollback rehearsal.
+13. Staging deployment smoke + rollback rehearsal.
 
 ## Command outputs to record
 
 - `scripts/production-readiness.ts` result: PASS / WARN / FAIL.
 - `scripts/check-runtime.ts` result: PASS / FAIL.
+- `scripts/check-document-label-coverage.ts` result: PASS / FAIL and missing-label counts.
 - `npm run lint` output.
 - `npm run typecheck` output.
 - `npm run test` output.
