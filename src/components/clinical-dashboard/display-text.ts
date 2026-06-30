@@ -50,10 +50,30 @@ export function sanitizeDisplayText(value: string, options: DisplayTextSanitizeO
   return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
 }
 
+// A clinical unit that should stay attached to a preceding bare number when a
+// snippet is truncated (so "150 mg/day" or "1.5 ×10⁹/L" never lose their unit).
+const TRUNCATION_UNIT_PATTERN =
+  /^(?:×10|x10|mg|mcg|microgram|micrograms|µg|μg|g|kg|ml|l|mmol|mol|umol|µmol|ng|units?|iu|hours?|hrs?|h|days?|weeks?|wk|months?|minutes?|mins?|years?|°c|mmhg|bpm|%)\b/i;
+const TRUNCATION_TRAILING_CONNECTOR = /^(?:or|and|to|with|of|for|the|a|an|until|than|in|on|at|by)$/i;
+
+function isBareNumberWord(word: string) {
+  return /^[<>≤≥~]?\d[\d.,–—-]*$/.test(word);
+}
+
 export function truncateWords(value: string, maxWords: number) {
   const words = value.split(/\s+/).filter(Boolean);
   if (words.length <= maxWords) return value;
-  return `${words.slice(0, maxWords).join(" ")}...`;
+  let end = maxWords;
+  // Keep a number attached to its following unit so a threshold/dose is never
+  // cut between the value and the unit.
+  if (isBareNumberWord(words[end - 1]) && words[end] && TRUNCATION_UNIT_PATTERN.test(words[end])) {
+    end += 1;
+  }
+  // Drop a dangling connector left at the very end ("... or", "... until").
+  while (end > 1 && TRUNCATION_TRAILING_CONNECTOR.test(words[end - 1])) {
+    end -= 1;
+  }
+  return `${words.slice(0, end).join(" ")}...`;
 }
 
 export function sourceSnippetKey(value: string) {

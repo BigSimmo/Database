@@ -130,7 +130,12 @@ export function sanitizeStructuredText(
     normalized.search(answerSectionArtifactPattern) === 0
       ? normalized.replace(answerSectionArtifactPattern, "").trim()
       : leakedKeyIndex > 0
-        ? normalized.slice(0, leakedKeyIndex).trim()
+        ? // Slice off the leaked JSON tail and also drop any opening brace/bracket
+          // left dangling just before it (e.g. "...daily. {" -> "...daily.").
+          normalized
+            .slice(0, leakedKeyIndex)
+            .replace(/[\s{[]+$/, "")
+            .trim()
         : normalized;
 
   const finalText = keepLeading ? trimmed : trimmed.trim();

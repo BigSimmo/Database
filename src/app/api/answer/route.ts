@@ -20,7 +20,7 @@ import * as serverAuth from "@/lib/supabase/auth";
 export const runtime = "nodejs";
 
 const answerSchema = z.object({
-  query: z.string().trim().min(1),
+  query: z.string().trim().min(1).max(2000),
   documentId: z.string().uuid().optional(),
   documentIds: z.array(z.string().uuid()).max(25).optional(),
   filters: searchScopeFiltersSchema.optional(),

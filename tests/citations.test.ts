@@ -47,13 +47,33 @@ describe("citations", () => {
   });
 
   it("does not collapse unrelated titles to a hardcoded keyword label", () => {
+    // A "...Risk..." title must keep its real words, not collapse to "Risk".
     expect(
       formatCompactCitationLabel({
         title: "Clinical Risk Assessment",
         file_name: "risk.pdf",
         page_number: 5,
       }),
-    ).toBe("Clinical Risk p.5");
+    ).toBe("Clinical Risk Assessment p.5");
+  });
+
+  it("labels real documents from their title instead of a drug whitelist", () => {
+    // A real guideline keeps its distinguishing words rather than collapsing to
+    // a hardcoded demo drug name.
+    expect(
+      formatCompactCitationLabel({ title: "Maudsley Prescribing Guidelines", file_name: "maudsley.pdf", page_number: 5 }),
+    ).toBe("Maudsley Prescribing p.5");
+    expect(
+      formatCompactCitationLabel({ title: "Haloperidol acute agitation protocol", file_name: "halo.pdf", page_number: 3 }),
+    ).toBe("Haloperidol acute agitation p.3");
+  });
+
+  it("does not misattribute the drug when a title mentions more than one", () => {
+    // Previously a lithium passage inside a clozapine-titled doc was labelled
+    // "Clozapine"; the label now preserves both drugs.
+    expect(
+      formatCompactCitationLabel({ title: "Clozapine and lithium co-prescribing", file_name: "cl.pdf", page_number: 8 }),
+    ).toBe("Clozapine lithium co-prescribing p.8");
   });
 
   it("links to source document, page, and chunk", () => {
