@@ -84,7 +84,6 @@ const sidebarApplicationItems = [
   { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { label: "Documents", icon: FileText, href: "/?mode=documents" },
   { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
-  { label: "Favourites", icon: Star, href: "/?mode=favourites" },
 ] as const;
 
 const launcherApps: LauncherApp[] = [
@@ -102,7 +101,7 @@ const launcherApps: LauncherApp[] = [
     lastUsed: "May 12, 2025",
     status: "review_due",
     sourceToolId: "medications",
-    relatedIds: ["documents", "clinical-kb-search", "favourites"],
+    relatedIds: ["documents", "clinical-kb-search"],
     quickActions: ["Create new prescription", "Browse formulary", "Review interactions", "Medication templates"],
     recentWorkflows: [
       { title: "Medication review - Sam T.", date: "May 12, 2025" },
@@ -122,32 +121,12 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "May 10, 2025",
     status: "ready",
-    relatedIds: ["clinical-kb-search", "favourites", "medication-prescribing"],
+    relatedIds: ["clinical-kb-search", "medication-prescribing"],
     quickActions: ["Search documents", "Browse library", "Open source PDF", "Review indexed documents"],
     recentWorkflows: [
       { title: "Lithium monitoring guideline", date: "May 10, 2025" },
       { title: "Safety plan source review", date: "May 9, 2025" },
       { title: "Clozapine monitoring protocol", date: "May 7, 2025" },
-    ],
-  },
-  {
-    id: "favourites",
-    title: "Favourites",
-    description: "View and manage your saved items.",
-    detail: "Open saved sources, medications, documents, workflows, and reusable clinical sets.",
-    href: "/?mode=favourites",
-    external: false,
-    icon: Star,
-    category: "recent",
-    workflow: "Reference",
-    lastUsed: "Today, 8:45 AM",
-    status: "recent",
-    relatedIds: ["documents", "clinical-kb-search", "medication-prescribing"],
-    quickActions: ["Open saved items", "Manage pinned sets", "Review due favourites", "Add current answer"],
-    recentWorkflows: [
-      { title: "Ward round set", date: "Today, 8:45 AM" },
-      { title: "Prescribing safety set", date: "May 12, 2025" },
-      { title: "Document QA set", date: "May 10, 2025" },
     ],
   },
   {
@@ -162,7 +141,7 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "Today, 7:30 AM",
     status: "ready",
-    relatedIds: ["documents", "favourites", "medication-prescribing"],
+    relatedIds: ["documents", "medication-prescribing"],
     quickActions: ["Ask clinical question", "Search indexed guidelines", "Open document scope", "Review sources"],
     recentWorkflows: [
       { title: "Lithium monitoring search", date: "Today, 7:30 AM" },
@@ -178,7 +157,7 @@ const recentActivity = [
   { id: "clinical-kb-search", label: "Clinical KB Search opened", date: "Today, 7:30 AM", icon: Search },
   { id: "medication-prescribing", label: "Medication Prescribing reviewed", date: "May 12, 2025", icon: Pill },
   { id: "documents", label: "Documents opened", date: "May 10, 2025", icon: FileText },
-  { id: "favourites", label: "Favourites reviewed", date: "Today, 8:45 AM", icon: Star },
+  { id: "documents", label: "Saved items reviewed", date: "Today, 8:45 AM", icon: Star },
 ] as const;
 
 export const applicationsLauncherItemCount = launcherApps.length;
@@ -748,13 +727,6 @@ function ApplicationsModeMenu({ open, onOpenChange }: { open: boolean; onOpenCha
       description: "Search indexed PDFs and notes",
       href: "/?mode=documents",
       icon: FileText,
-      active: false,
-    },
-    {
-      label: "Favourites",
-      description: "Saved sources and workflows",
-      href: "/?mode=favourites",
-      icon: Star,
       active: false,
     },
     {

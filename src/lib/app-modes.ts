@@ -1,10 +1,10 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 
-export type AppModeId = "answer" | "documents" | "prescribing" | "evidence" | "favourites" | "tools";
+export type AppModeId = "answer" | "documents" | "prescribing" | "tools";
 export type SearchableAppModeId = AppModeId;
 
-export type AppModeSearchKind = "answer" | "documents" | "favourites" | "tools";
-export type AppModeResultKind = "answer" | "documents" | "favourites" | "tools";
+export type AppModeSearchKind = "answer" | "documents" | "tools";
+export type AppModeResultKind = "answer" | "documents" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -100,52 +100,6 @@ export const appModeDefinitions = [
     },
   },
   {
-    id: "evidence",
-    label: "Evidence",
-    description: "Tables, quotes, images, PDFs",
-    devOnly: true,
-    href: "/mockups/evidence-option",
-    search: {
-      kind: "documents",
-      placeholder: "Search evidence...",
-      inputAriaLabel: "Search evidence across indexed sources",
-      submitIdleLabel: "Evidence",
-      submitBusyLabel: "Evidence",
-      submitAriaLabel: "Search evidence",
-      emptyTitle: "Enter an evidence search term",
-      readyTitle: "Search evidence",
-      progressLabel: "Searching evidence.",
-      resultKind: "documents",
-      resultHeading: "Evidence matches",
-      statusLabel: "Evidence",
-      nextStep: "Review matching evidence",
-      badgeLabel: null,
-    },
-  },
-  {
-    id: "favourites",
-    label: "Favourites",
-    description: "Saved sources and workflows",
-    devOnly: true,
-    href: "/?mode=favourites",
-    search: {
-      kind: "favourites",
-      placeholder: "Search or ask from favourites...",
-      inputAriaLabel: "Search saved favourites",
-      submitIdleLabel: "Faves",
-      submitBusyLabel: "Faves",
-      submitAriaLabel: "Search favourites",
-      emptyTitle: "Browse favourites",
-      readyTitle: "Search saved favourites",
-      progressLabel: "Searching favourites.",
-      resultKind: "favourites",
-      resultHeading: "Favourites",
-      statusLabel: "Favourites",
-      nextStep: "Browse saved items",
-      badgeLabel: null,
-    },
-  },
-  {
     id: "tools",
     label: "Tools",
     description: "Clinical tools and applications",
@@ -214,5 +168,5 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
   const mode = appModeDefinitions.find((definition) => definition.id === modeId);
   if (!mode) return false;
   const kind = mode.search.kind;
-  return kind === "answer" || kind === "documents" || kind === "favourites" || kind === "tools";
+  return kind === "answer" || kind === "documents" || kind === "tools";
 }

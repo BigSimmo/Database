@@ -123,6 +123,7 @@ npm run test:e2e:visual
 npm run verify:cheap
 npm run verify:ui
 npm run verify:release
+npm run check:deployment-readiness
 npm run format
 npm run format:check
 npm run build

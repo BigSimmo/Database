@@ -14,6 +14,7 @@ import {
 } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -80,15 +81,14 @@ export async function POST(request: Request) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Bulk reindex is unavailable in demo mode." }, { status: 400 });
 
-    const parsed = bulkReindexSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) throw new PublicApiError("Bulk reindex payload is invalid.");
+    const parsed = await parseJsonBody(request, bulkReindexSchema, "Bulk reindex payload is invalid.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "bulk_reindex" });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many bulk reindex requests. Retry shortly.", rateLimit);
 
-    const documentIds = Array.from(new Set(parsed.data.documentIds));
+    const documentIds = Array.from(new Set(parsed.documentIds));
     const { data: documents, error: documentError } = await supabase
       .from("documents")
       .select("id,owner_id,title,file_name,source_path,import_batch_id,status,metadata")
@@ -110,17 +110,17 @@ export async function POST(request: Request) {
 
     for (const document of documents) {
       try {
-        if (parsed.data.mode === "retry_failed" && document.status !== "failed") {
+        if (parsed.mode === "retry_failed" && document.status !== "failed") {
           results.push({
             documentId: document.id,
-            mode: parsed.data.mode,
+            mode: parsed.mode,
             ok: false,
             error: "Document is not failed.",
           });
           continue;
         }
 
-        if (parsed.data.mode === "enrichment") {
+        if (parsed.mode === "enrichment") {
           const [chunks, images] = await Promise.all([
             selectRowsInPages<ReindexChunk>({
               supabase,
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
           });
           results.push({
             documentId: document.id,
-            mode: parsed.data.mode,
+            mode: parsed.mode,
             ok: true,
             jobId: `${enrichment.labels.length}:${memory.memoryCards.length}:${memory.indexUnits.length}`,
           });
@@ -189,11 +189,11 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         if (jobError) throw new Error(jobError.message);
-        results.push({ documentId: document.id, mode: parsed.data.mode, ok: true, jobId: job.id });
+        results.push({ documentId: document.id, mode: parsed.mode, ok: true, jobId: job.id });
       } catch (error) {
         results.push({
           documentId: document.id,
-          mode: parsed.data.mode,
+          mode: parsed.mode,
           ok: false,
           error: error instanceof Error ? error.message : "Reindex failed.",
         });
@@ -208,6 +208,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    if (error instanceof PublicApiError) return jsonError(error, error.status);
+    return jsonError(error, 500);
   }
 }

@@ -7,6 +7,7 @@ import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -84,11 +85,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }
 
-    const parsed = manualLabelSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) {
-      throw new PublicApiError("Enter a manual tag between 2 and 64 characters.");
-    }
-    const normalized = parseManualLabel(parsed.data);
+    const parsed = await parseJsonBody(request, manualLabelSchema, "Enter a manual tag between 2 and 64 characters.");
+    const normalized = parseManualLabel(parsed);
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
@@ -144,11 +142,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }
 
-    const parsed = manualLabelUpdateSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) {
-      throw new PublicApiError("Enter a manual tag between 2 and 64 characters.");
-    }
-    const normalized = parseManualLabel(parsed.data);
+    const parsed = await parseJsonBody(
+      request,
+      manualLabelUpdateSchema,
+      "Enter a manual tag between 2 and 64 characters.",
+    );
+    const normalized = parseManualLabel(parsed);
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
@@ -157,7 +156,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: existing, error: existingError } = await supabase
       .from("document_labels")
       .select("id,metadata")
-      .eq("id", parsed.data.labelId)
+      .eq("id", parsed.labelId)
       .eq("document_id", id)
       .eq("owner_id", user.id)
       .eq("source", "manual")
@@ -183,7 +182,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           curated_by: "document-viewer",
         },
       })
-      .eq("id", parsed.data.labelId)
+      .eq("id", parsed.labelId)
       .eq("document_id", id)
       .eq("owner_id", user.id)
       .eq("source", "manual")
@@ -208,10 +207,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }
 
-    const parsed = manualLabelDeleteSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) {
-      throw new PublicApiError("Choose a manual tag to remove.");
-    }
+    const parsed = await parseJsonBody(request, manualLabelDeleteSchema, "Choose a manual tag to remove.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
@@ -220,7 +216,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { data: existing, error: existingError } = await supabase
       .from("document_labels")
       .select("id")
-      .eq("id", parsed.data.labelId)
+      .eq("id", parsed.labelId)
       .eq("document_id", id)
       .eq("owner_id", user.id)
       .eq("source", "manual")
@@ -232,14 +228,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { error } = await supabase
       .from("document_labels")
       .delete()
-      .eq("id", parsed.data.labelId)
+      .eq("id", parsed.labelId)
       .eq("document_id", id)
       .eq("owner_id", user.id)
       .eq("source", "manual");
 
     if (error) throw new Error(error.message);
     invalidateRagCachesForDocumentMutation(user.id);
-    return NextResponse.json({ deleted: true, labelId: parsed.data.labelId, labels: await selectLabels(supabase, id) });
+    return NextResponse.json({ deleted: true, labelId: parsed.labelId, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

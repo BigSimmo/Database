@@ -14,6 +14,7 @@ import {
   sourceGovernanceRefusalAnswer,
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
+import { parseJsonBody } from "@/lib/validation/body";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 
@@ -30,7 +31,7 @@ const answerSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const body = answerSchema.parse(await request.json());
+    const body = await parseJsonBody(request, answerSchema, "Invalid answer request.");
     if (isDemoMode()) {
       const answer = demoAnswer(body.query, body.documentId, body.documentIds);
       const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);

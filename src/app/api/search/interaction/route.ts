@@ -10,6 +10,7 @@ import {
 } from "@/lib/query-privacy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -63,7 +64,7 @@ async function ownedChunkExists(args: {
 
 export async function POST(request: Request) {
   try {
-    const body = interactionSchema.parse(await request.json());
+    const body = await parseJsonBody(request, interactionSchema, "Invalid interaction request.");
     if (isDemoMode()) {
       return NextResponse.json({ ok: true });
     }
@@ -112,6 +113,9 @@ export async function POST(request: Request) {
     if (error instanceof serverAuth.AuthenticationError) {
       return serverAuth.unauthorizedResponse(error);
     }
-    return NextResponse.json({ ok: false }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

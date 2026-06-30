@@ -10,7 +10,6 @@ import {
   Filter,
   FolderOpen,
   GitBranch,
-  Heart,
   ListChecks,
   Plus,
   Search,
@@ -46,11 +45,7 @@ export type ModeActionId =
   | "medication-monitoring"
   | "medication-access"
   | "tools-browse"
-  | "tools-favourites"
   | "tools-new"
-  | "favourites-browse"
-  | "favourites-answer"
-  | "favourites-tools"
   | "differentials-build"
   | "differentials-criteria"
   | "differentials-documents"
@@ -116,13 +111,6 @@ const modeActionSets = {
       description: "Open the applications registry",
       icon: Wrench,
       primary: true,
-    },
-    {
-      id: "tools-favourites",
-      label: "Favourites",
-      shortLabel: "Saved",
-      description: "Saved clinical tools",
-      icon: Heart,
     },
     {
       id: "tools-new",

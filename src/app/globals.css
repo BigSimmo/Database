@@ -65,55 +65,55 @@
 
 /* Theme tokens */
 :root {
-  /* Tinted neutral ramp (cool teal-slate, lightest -> darkest) */
-  --neutral-0: #ffffff;
-  --neutral-50: #f1f7f8;
-  --neutral-100: #e7f0f2;
-  --neutral-200: #d4e1e6;
-  --neutral-300: #b9cbd2;
-  --neutral-400: #90a6af;
-  --neutral-500: #647a83;
-  --neutral-600: #4a5f68;
-  --neutral-700: #374c55;
-  --neutral-800: #233740;
-  --neutral-900: #15242b;
-  --neutral-950: #0a161b;
+  /* Neutral foundation tuned toward quiet graphite-to-ash */
+  --neutral-0: #f4f7f9;
+  --neutral-50: #edf2f6;
+  --neutral-100: #dde4ec;
+  --neutral-200: #c5d1de;
+  --neutral-300: #a2b2c5;
+  --neutral-400: #7f92a5;
+  --neutral-500: #5a7182;
+  --neutral-600: #435363;
+  --neutral-700: #2f4052;
+  --neutral-800: #1a2737;
+  --neutral-900: #111a26;
+  --neutral-950: #080f16;
 
-  /* Primary teal ramp (anchored on the accent, AA-tuned) */
-  --primary-50: #e6f7f4;
-  --primary-100: #c8ece5;
-  --primary-200: #98ddd3;
-  --primary-300: #5cc7ba;
-  --primary-400: #1aa99b;
-  --primary-500: #0c8278;
-  --primary-600: #0b7068;
-  --primary-700: #0a6a62;
-  --primary-800: #0c544f;
-  --primary-900: #0b403d;
+  /* Primary accent tuned for a restrained luxury look */
+  --primary-50: #dff2f0;
+  --primary-100: #bfe5e1;
+  --primary-200: #87c9c2;
+  --primary-300: #4caca3;
+  --primary-400: #1c8f82;
+  --primary-500: #137b6f;
+  --primary-600: #0f645d;
+  --primary-700: #0d5852;
+  --primary-800: #0d4743;
+  --primary-900: #0b3a37;
 
-  --background: #f3f6f7;
-  --app-shell: #102028;
-  --app-shell-muted: #18303a;
-  --app-shell-accent: #3d8d86;
+  --background: #f0f4f7;
+  --app-shell: #101a27;
+  --app-shell-muted: #182536;
+  --app-shell-accent: #2d948d;
   --surface: var(--neutral-0);
-  --surface-raised: #fbfdfe;
-  --surface-subtle: #eef3f6;
-  --surface-inset: #f7fafb;
+  --surface-raised: #f8fbfd;
+  --surface-subtle: #edf2f6;
+  --surface-inset: #e9eef3;
   --surface-glass: rgb(255 255 255 / 82%);
-  --surface-highlight: rgb(255 255 255 / 62%);
-  --surface-lux: rgb(255 255 255 / 94%);
-  --surface-wash: #edf4f5;
+  --surface-highlight: color-mix(in srgb, var(--neutral-0) 64%, transparent);
+  --surface-lux: color-mix(in srgb, var(--neutral-0) 94%, #ffffff 6%);
+  --surface-wash: #e9f0f4;
   --text: var(--neutral-900);
-  --text-heading: var(--neutral-950);
-  --text-muted: var(--neutral-600);
-  --text-soft: var(--neutral-500);
-  --border: #e6e9ed;
-  --border-strong: #cfd8df;
-  --border-lux: rgb(143 159 171 / 38%);
+  --text-heading: #02080f;
+  --text-muted: var(--neutral-700);
+  --text-soft: var(--neutral-600);
+  --border: #d9e0e7;
+  --border-strong: #c3ced7;
+  --border-lux: rgb(138 156 171 / 36%);
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
-  --primary-soft: #d6f2ec;
-  --primary-contrast: #f8fffe;
+  --primary-soft: #ddf0ec;
+  --primary-contrast: #eef8f7;
 
   /* Clinical chat redesign aliases. These are intentionally conservative and
      functional: teal for active/source/send, sand for clinical notes, blue-grey
@@ -129,18 +129,18 @@
   --clinical-chat-ready: #1a8f5a;
 
   /* Semantic triads (text / background / border), AA on their own bg */
-  --info-text: #2563eb;
-  --info-bg: #e4eeff;
-  --info-border: #b9d0f8;
-  --success-text: #0f6e33;
-  --success-bg: #e3f6ea;
-  --success-border: #a8ddbc;
-  --warning-text: #946011;
-  --warning-bg: #fbedcb;
-  --warning-border: #ecca7d;
-  --danger-text: #b91c1c;
-  --danger-bg: #fde7e7;
-  --danger-border: #f4b6b6;
+  --info-text: #5e9ad1;
+  --info-bg: #11213a;
+  --info-border: #274f85;
+  --success-text: #65c58b;
+  --success-bg: #102e1f;
+  --success-border: #205f42;
+  --warning-text: #f3bf52;
+  --warning-bg: #3a2e16;
+  --warning-border: #6f5d23;
+  --danger-text: #fd9298;
+  --danger-bg: #3a161e;
+  --danger-border: #7a2d34;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -152,7 +152,9 @@
   --danger-soft: var(--danger-bg);
 
   --disabled: #94a3b8;
-  --focus: #1aa99b;
+  --focus: #2aa49a;
+  --overlay-backdrop: rgb(4 8 14 / 56%);
+  --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
   /* Motion primitives (shared by both themes). The duration values live with
      the easing tokens lower in this block (120/180/240ms); they are not
@@ -160,17 +162,19 @@
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
-  --glow-primary: 0 0 0 1px rgb(61 141 134 / 10%), 0 10px 24px rgb(61 141 134 / 8%);
-  --glow-soft: 0 0 0 1px rgb(61 141 134 / 7%), 0 8px 18px rgb(15 31 38 / 5%);
+  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--primary) 15%, transparent),
+    0 10px 28px color-mix(in srgb, var(--primary) 16%, transparent);
+  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),
+    0 8px 20px color-mix(in srgb, var(--primary) 10%, transparent);
 
   /* Elevation: layered, small blur, low alpha */
-  --shadow-soft: 0 1px 2px rgb(15 31 38 / 5%), 0 7px 18px rgb(15 31 38 / 5%);
-  --shadow-tight: 0 1px 2px rgb(15 31 38 / 5%), 0 3px 8px rgb(15 31 38 / 4%);
-  --shadow-hover: 0 2px 4px rgb(15 31 38 / 7%), 0 10px 24px rgb(15 31 38 / 7%);
-  --shadow-elevated: 0 1px 2px rgb(15 31 38 / 7%), 0 8px 16px rgb(15 31 38 / 7%), 0 22px 44px rgb(15 31 38 / 8%);
-  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 65%), 0 10px 28px rgb(15 31 38 / 6%);
-  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 60%);
-  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
+  --shadow-soft: 0 1px 2px rgb(12 24 34 / 6%), 0 8px 20px rgb(12 24 34 / 6%);
+  --shadow-tight: 0 1px 2px rgb(12 24 34 / 7%), 0 3px 8px rgb(12 24 34 / 5%);
+  --shadow-hover: 0 2px 4px rgb(12 24 34 / 8%), 0 10px 26px rgb(12 24 34 / 8%);
+  --shadow-elevated: 0 1px 2px rgb(12 24 34 / 8%), 0 10px 20px rgb(12 24 34 / 9%), 0 24px 48px rgb(12 24 34 / 10%);
+  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
+  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -195,76 +199,77 @@
 }
 
 .dark {
-  --neutral-0: #0b1622;
-  --neutral-50: #0a1420;
-  --neutral-100: #101e2c;
-  --neutral-200: #22384a;
-  --neutral-300: #3f5c70;
-  --neutral-400: #5a7384;
-  --neutral-500: #8092a6;
-  --neutral-600: #a7b7c7;
-  --neutral-700: #c4d2de;
-  --neutral-800: #dbe6ef;
-  --neutral-900: #e5edf4;
-  --neutral-950: #f4fbff;
+  --neutral-0: #060708;
+  --neutral-50: #0c0d0f;
+  --neutral-100: #121417;
+  --neutral-200: #1b1d21;
+  --neutral-300: #24272d;
+  --neutral-400: #3c414a;
+  --neutral-500: #6a717f;
+  --neutral-600: #9ba2ae;
+  --neutral-700: #d0d4dc;
+  --neutral-800: #e4e6eb;
+  --neutral-900: #f2f3f5;
+  --neutral-950: #f8fafb;
 
-  --primary-50: #0a2f2e;
-  --primary-100: #0a3838;
-  --primary-200: #0f5650;
-  --primary-300: #157f74;
-  --primary-400: #20b3a4;
-  --primary-500: #33d4c2;
-  --primary-600: #5cdccd;
-  --primary-700: #76ded3;
-  --primary-800: #a3ebe3;
-  --primary-900: #c8f4ef;
+  --primary-50: #092a2a;
+  --primary-100: #0a3434;
+  --primary-200: #0f4f4a;
+  --primary-300: #16756c;
+  --primary-400: #22a095;
+  --primary-500: #31bfb2;
+  --primary-600: #58cfd1;
+  --primary-700: #7ddfe1;
+  --primary-800: #a6ebe9;
+  --primary-900: #d0f6f5;
 
-  --background: #0d1318;
-  --app-shell: #111d24;
-  --app-shell-muted: #172a34;
-  --app-shell-accent: #46a39a;
-  --surface: #101923;
-  --surface-raised: #15202b;
-  --surface-subtle: #0f1821;
-  --surface-inset: #0b1218;
-  --surface-glass: rgb(20 31 42 / 78%);
+  --background: #060708;
+  --app-shell: #090a0c;
+  --app-shell-muted: #0e0f11;
+  --app-shell-accent: #33a69f;
+  --surface: #0e1012;
+  --surface-raised: #141619;
+  --surface-subtle: #090a0c;
+  --surface-inset: #040506;
+  --surface-glass: rgb(6 7 8 / 78%);
   --surface-highlight: rgb(255 255 255 / 5%);
-  --surface-lux: rgb(20 31 42 / 92%);
-  --surface-wash: #111c25;
+  --surface-lux: rgb(11 12 14 / 93%);
+  --surface-wash: #0c0d0f;
   --text: var(--neutral-900);
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
-  --border: var(--neutral-200);
-  --border-strong: var(--neutral-300);
-  --border-lux: rgb(111 144 162 / 38%);
+  --border: var(--neutral-300);
+  --border-strong: var(--neutral-400);
+  --border-lux: rgba(255, 255, 255, 0.08);
+
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
-  --primary-soft: #0a3838;
+  --primary-soft: #0e3230;
   --primary-contrast: #04111a;
 
-  --clinical-chat-teal: #76ded3;
-  --clinical-chat-teal-soft: #0a3838;
+  --clinical-chat-teal: #4ccfd0;
+  --clinical-chat-teal-soft: #14353a;
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
   --clinical-chat-sand-border-strong: #806034;
-  --clinical-chat-document: #13202b;
-  --clinical-chat-table-header: #14212a;
-  --clinical-chat-amber: #f2b743;
-  --clinical-chat-ready: #42c77a;
+  --clinical-chat-document: #101215;
+  --clinical-chat-table-header: #141619;
+  --clinical-chat-amber: #d8ad48;
+  --clinical-chat-ready: #52d08d;
 
-  --info-text: #7db7ff;
-  --info-bg: #102c4f;
-  --info-border: #28507f;
-  --success-text: #5ee68a;
-  --success-bg: #10331f;
-  --success-border: #1f6b3d;
-  --warning-text: #f8c44d;
-  --warning-bg: #3a2a0c;
-  --warning-border: #7a5a18;
-  --danger-text: #fb7d86;
-  --danger-bg: #3f161a;
-  --danger-border: #7a2b30;
+  --info-text: #89c0f0;
+  --info-bg: #122c4c;
+  --info-border: #2c537f;
+  --success-text: #7de0a3;
+  --success-bg: #153f2a;
+  --success-border: #24794f;
+  --warning-text: #f2c45a;
+  --warning-bg: #3d2f14;
+  --warning-border: #725e23;
+  --danger-text: #ff9ca4;
+  --danger-bg: #401c24;
+  --danger-border: #7f2e36;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -275,18 +280,20 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
-  --disabled: #64748b;
-  --focus: #7de3d8;
+  --disabled: #555e6b;
+  --focus: #74e0d4;
+  --overlay-backdrop: rgb(0 0 0 / 72%);
+  --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
-  --glow-primary: 0 0 0 1px rgb(70 163 154 / 16%), 0 14px 34px rgb(70 163 154 / 10%);
-  --glow-soft: 0 0 0 1px rgb(70 163 154 / 10%), 0 10px 24px rgb(0 0 0 / 18%);
+  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent), 0 8px 24px color-mix(in srgb, var(--primary) 8%, transparent);
+  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
 
-  --shadow-soft: 0 1px 4px rgb(0 0 0 / 24%), 0 10px 24px rgb(0 0 0 / 26%);
-  --shadow-tight: 0 1px 2px rgb(0 0 0 / 24%), 0 4px 10px rgb(0 0 0 / 22%);
-  --shadow-hover: 0 3px 8px rgb(0 0 0 / 30%), 0 14px 30px rgb(0 0 0 / 32%);
-  --shadow-elevated: 0 2px 6px rgb(0 0 0 / 30%), 0 10px 22px rgb(0 0 0 / 34%), 0 26px 52px rgb(0 0 0 / 38%);
-  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 6%), 0 16px 40px rgb(0 0 0 / 44%);
-  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 6%);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 36%), 0 10px 26px rgb(0 0 0 / 40%);
+  --shadow-tight: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 35%);
+  --shadow-hover: 0 3px 10px rgb(0 0 0 / 42%), 0 16px 36px rgb(0 0 0 / 46%);
+  --shadow-elevated: 0 2px 8px rgb(0 0 0 / 46%), 0 12px 30px rgb(0 0 0 / 48%), 0 28px 58px rgb(0 0 0 / 50%);
+  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 4%), 0 18px 44px rgb(0 0 0 / 64%);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
   --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
   color-scheme: dark;
 }
@@ -853,6 +860,53 @@ summary::-webkit-details-marker {
 }
 
 /* Scroll and print helpers */
+.citation-link {
+  position: relative;
+}
+
+.citation-link::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  left: -10px;
+  right: -10px;
+}
+
+/* Premium Skeleton Shimmer animation with custom easing */
+.animate-skeleton-shimmer {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .35;
+  }
+}
+
+/* Premium Double-Ring Focus style */
+.focus-ring-premium {
+  outline: none;
+}
+.focus-ring-premium:focus-visible {
+  outline: 2px solid var(--focus) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
+}
+
+/* Premium Hover Transitions for Source Capsules and Action row chips */
+.source-capsule-hover {
+  transition: all 180ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.source-capsule-hover:hover {
+  transform: translateY(-1px) scale(1.015) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 8%, transparent) !important;
+}
+
 .polished-scroll {
   scrollbar-color: color-mix(in srgb, var(--border-strong) 80%, transparent) transparent;
   scrollbar-width: thin;

@@ -15,6 +15,9 @@ This is the runbook to make the app publishable in one focused pass.
 - [x] Added one-command production preflight:
   - `npm run check:production-readiness`
   - runs env validation, Supabase target checks, lockfile/env-file presence checks, and placeholder checks.
+- [x] Added deployment startup readiness gate:
+  - `npm run check:deployment-readiness`
+  - verifies `next start` boot behavior and local project identity guard on a managed local port.
 - [x] Added README-visible command for readiness preflight.
 - [x] Added CI-safe production preflight:
   - `npm run check:production-readiness:ci`
@@ -45,15 +48,16 @@ This is the runbook to make the app publishable in one focused pass.
 8. `npm run test`.
 9. `npm run build`.
 10. `npm run eval:quality -- --fail-on-threshold` after cheaper local gates pass, or `npm run eval:quality:release` when the active release metadata debt file is intentionally accepted.
-11. `npm run check:production-readiness:ci` (CI context only).
-12. Frontend browser smoke:
+11. `npm run check:deployment-readiness`.
+12. `npm run check:production-readiness:ci` (CI context only).
+13. Frontend browser smoke:
 
 - auth flow
 - protected endpoint behavior
 - search + answer render path
 - mobile viewport
 
-13. Staging deployment smoke + rollback rehearsal.
+14. Staging deployment smoke + rollback rehearsal.
 
 ## Command outputs to record
 

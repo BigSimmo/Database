@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import { parseJsonBody } from "@/lib/validation/body";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import {
@@ -795,7 +796,7 @@ export async function POST(request: Request) {
   let ownerId: string | null = null;
 
   try {
-    const body = searchSchema.parse(await request.json());
+    const body = await parseJsonBody(request, searchSchema, "Invalid search request.");
     if (isDemoMode()) {
       const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
       const queryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;

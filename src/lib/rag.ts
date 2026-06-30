@@ -650,7 +650,7 @@ function deriveConfidence(results: SearchResult[], acceptedCitationCount: number
   return "low";
 }
 
-function scoreValue(result: SearchResult) {
+export function scoreValue(result: SearchResult) {
   const similarity = result.similarity ?? 0;
   const hybrid = result.hybrid_score ?? similarity;
   if (similarity > 0 && hybrid > similarity + 0.12) return similarity;

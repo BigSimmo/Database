@@ -20,8 +20,6 @@ import {
   FileText,
   Filter,
   Globe2,
-  Heart,
-  ListChecks,
   Loader2,
   Menu,
   Mic,
@@ -68,7 +66,7 @@ import {
 } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
-import type { SearchScopeFilters } from "@/lib/search-scope";
+import { activeScopeFilterCount, type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
@@ -77,8 +75,6 @@ const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
   documents: FileText,
   prescribing: Pill,
-  evidence: ListChecks,
-  favourites: Heart,
   tools: Wrench,
 };
 
@@ -208,7 +204,7 @@ export function MasterSearchHeader({
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const scopeIsPlaceholder = scopeVariant === "placeholder";
-  const canRunLocalSearch = selectedSearch.kind === "favourites" || selectedSearch.kind === "tools";
+  const canRunLocalSearch = selectedSearch.kind === "tools";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -269,7 +265,7 @@ export function MasterSearchHeader({
   const queryPlaceholder = isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
   const actionMenuSetId: ModeActionSetId =
-    searchMode === "documents" || searchMode === "evidence" ? "documents" : searchMode === "tools" ? "tools" : "answer";
+    searchMode === "documents" ? "documents" : searchMode === "tools" ? "tools" : "answer";
   const actionMenuItems =
     searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
@@ -356,16 +352,13 @@ export function MasterSearchHeader({
       onNewChat?.();
       return;
     }
-    if (actionId === "answer-clinical" || actionId === "favourites-answer") {
+    if (actionId === "answer-clinical") {
       onSearchModeChange("answer");
       return;
     }
-    if (actionId === "tools-browse" || actionId === "favourites-tools") {
+    if (actionId === "tools-browse") {
       onSearchModeChange("tools");
       return;
-    }
-    if (actionId === "tools-favourites" || actionId === "favourites-browse") {
-      onSearchModeChange("favourites");
     }
   }
 
@@ -862,9 +855,9 @@ export function MasterSearchHeader({
                 title="Document scope"
               >
                 <Globe2 className="h-5 w-5" />
-                {selectedDocumentIds.length ? (
+                {selectedDocumentIds.length || activeScopeFilterCount(scopeFilters) > 0 ? (
                   <span className="absolute mt-7 rounded-md bg-[color:var(--clinical-chat-teal-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[color:var(--clinical-chat-teal)]">
-                    {selectedDocumentIds.length}
+                    {selectedDocumentIds.length || `F:${activeScopeFilterCount(scopeFilters)}`}
                   </span>
                 ) : null}
               </button>
@@ -896,6 +889,11 @@ export function MasterSearchHeader({
                   <span className="hidden sm:inline">
                     {selectedDocumentIds.length ? `${selectedDocumentIds.length} scoped` : "All sources"}
                   </span>
+                  {activeScopeFilterCount(scopeFilters) > 0 ? (
+                    <span className="ml-1.5 rounded-full bg-[color:var(--clinical-chat-teal)] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                      {activeScopeFilterCount(scopeFilters)}
+                    </span>
+                  ) : null}
                 </summary>
                 <div
                   data-testid="scope-command-popover"

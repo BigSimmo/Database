@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FileText, Heart, ListChecks, Pill, Search, Sparkles, Wrench } from "lucide-react";
+import { FileText, Pill, Search, Sparkles, Wrench } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -33,8 +33,6 @@ const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
   documents: FileText,
   prescribing: Pill,
-  evidence: ListChecks,
-  favourites: Heart,
   tools: Wrench,
 };
 
@@ -113,7 +111,7 @@ export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
         onScopeFiltersChange={setScopeFilters}
         onToggleScope={() => undefined}
         onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
-        onOpenEvidence={() => navigateToMode("evidence", { focus: true })}
+        onOpenEvidence={() => navigateToMode("answer", { focus: true })}
         onNewChat={startNewChat}
         onOpenMobileSidebar={() => setMobileMenuOpen(true)}
         onOpenSettings={() => setMobileMenuOpen(true)}

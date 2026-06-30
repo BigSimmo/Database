@@ -45,6 +45,10 @@ type GeneratedLabelRow = {
   };
 };
 
+type DatabaseError = {
+  message: string;
+};
+
 const generatedLabelTypes = [
   "site",
   "document_type",
@@ -131,6 +135,39 @@ function usage() {
 
 function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
+}
+
+type ExistingGeneratedLabelRow = {
+  id: string;
+  document_id: string;
+  label_type: string;
+  label: string;
+};
+
+function assertMutationRows(
+  result: { data: unknown[] | null; error: DatabaseError | null },
+  expected: number,
+  operation: string,
+) {
+  if (result.error) throw new Error(result.error.message);
+  const actual = result.data?.length ?? 0;
+  if (actual !== expected) {
+    throw new Error(`${operation} expected ${expected} row(s), received ${actual}.`);
+  }
+}
+
+function labelIdentity(row: { document_id: string; label_type: string; label: string }) {
+  return `${row.document_id}|${row.label_type}|${row.label}`;
+}
+
+function dedupeGeneratedLabels(rows: GeneratedLabelRow[]) {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = labelIdentity(row);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function chunkArray<T>(items: T[], size: number) {
@@ -240,28 +277,58 @@ async function writeClassifications(supabase: SupabaseAdmin, plans: Classificati
             .from("documents")
             .update({ metadata: document.metadata })
             .eq("id", document.id)
-            .eq("status", "indexed"),
+            .eq("status", "indexed")
+            .select("id"),
         ),
       );
-      const failedUpdate = results.find((result) => result.error);
-      if (failedUpdate?.error) throw new Error(failedUpdate.error.message);
+      for (const result of results) {
+        assertMutationRows(
+          result as { data: unknown[] | null; error: DatabaseError | null },
+          1,
+          "document metadata update",
+        );
+      }
     }
 
     const documentIds = batch.map((plan) => plan.document.id);
-    const { error: deleteError } = await supabase
+    const generatedLabels = dedupeGeneratedLabels(batch.flatMap((plan) => generatedLabelsForPlan(plan, stampedAt)));
+    const desiredLabelKeys = new Set(generatedLabels.map(labelIdentity));
+    const { data: existingGenerated, error: existingGeneratedError } = (await supabase
       .from("document_labels")
-      .delete()
+      .select("id,document_id,label_type,label")
       .in("document_id", documentIds)
       .eq("source", "generated")
-      .in("label_type", [...generatedLabelTypes]);
-    if (deleteError) throw new Error(deleteError.message);
+      .in("label_type", [...generatedLabelTypes])) as {
+      data: ExistingGeneratedLabelRow[] | null;
+      error: DatabaseError | null;
+    };
+    if (existingGeneratedError) throw new Error(existingGeneratedError.message);
 
-    const generatedLabels = batch.flatMap((plan) => generatedLabelsForPlan(plan, stampedAt));
+    const labelsToDelete = (existingGenerated ?? [])
+      .filter((label) => !desiredLabelKeys.has(labelIdentity(label)))
+      .map((label) => label.id);
+
     for (const labels of chunkArray(generatedLabels, labelUpsertBatchSize)) {
-      const { error: labelError } = await supabase
+      if (!labels.length) continue;
+      const { data, error: labelError } = await supabase
         .from("document_labels")
-        .upsert(labels, { onConflict: "document_id,label_type,label,source" });
+        .upsert(labels, { onConflict: "document_id,label_type,label,source" })
+        .select("id,document_id,label_type,label");
       if (labelError) throw new Error(labelError.message);
+      if (data?.length !== labels.length) {
+        throw new Error(`generated label upsert expected ${labels.length} row(s), received ${data?.length ?? 0}.`);
+      }
+    }
+
+    for (const labelIds of chunkArray(labelsToDelete, labelUpsertBatchSize)) {
+      if (!labelIds.length) continue;
+      const { data, error: labelDeleteError } = await supabase
+        .from("document_labels")
+        .delete()
+        .in("id", labelIds)
+        .select("id");
+      if (labelDeleteError) throw new Error(labelDeleteError.message);
+      assertMutationRows({ data: data ?? null, error: null }, labelIds.length, "generated label cleanup");
     }
 
     updated += batch.length;
