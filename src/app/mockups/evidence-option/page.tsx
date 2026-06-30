@@ -124,7 +124,8 @@ function Pill({
     <span
       className={cn(
         "inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs font-bold shadow-[var(--shadow-inset)]",
-        active && "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+        active &&
+          "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
         !active &&
           tone === "success" &&
           "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
@@ -170,12 +171,22 @@ function ActionButton({
 function Composer({ placeholder = "Ask a clinical question..." }: { placeholder?: string }) {
   return (
     <div className="flex min-h-[56px] items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl">
-      <button type="button" aria-label="Add" className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)]">
+      <button
+        type="button"
+        aria-label="Add"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)]"
+      >
         <Plus className="h-5 w-5" />
       </button>
-      <span className="min-w-0 flex-1 truncate px-1 text-base font-medium text-[color:var(--text-soft)]">{placeholder}</span>
+      <span className="min-w-0 flex-1 truncate px-1 text-base font-medium text-[color:var(--text-soft)]">
+        {placeholder}
+      </span>
       <Mic className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-      <button type="button" aria-label="Send" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+      <button
+        type="button"
+        aria-label="Send"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]"
+      >
         <Send className="h-5 w-5" />
       </button>
     </div>
@@ -186,7 +197,11 @@ function DesktopChrome({ children, mode = "Evidence" }: { children: ReactNode; m
   return (
     <div className="relative h-[620px] overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[0_24px_70px_rgb(15_31_38_/_14%)]">
       <header className="flex h-16 items-center border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 shadow-[var(--shadow-tight)]">
-        <button type="button" aria-label="Menu" className="grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-muted)]">
+        <button
+          type="button"
+          aria-label="Menu"
+          className="grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-muted)]"
+        >
           <Menu className="h-5 w-5" />
         </button>
         <div className="ml-3 inline-grid h-11 min-w-56 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]">
@@ -194,16 +209,24 @@ function DesktopChrome({ children, mode = "Evidence" }: { children: ReactNode; m
             <Layers3 className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Mode</span>
+            <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Mode
+            </span>
             <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{mode}</span>
           </span>
           <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-10 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)]">
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)]"
+          >
             <BookOpen className="h-4 w-4" /> All sources
           </button>
-          <button type="button" className="inline-flex h-10 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-heading)]"
+          >
             <Plus className="h-4 w-4" /> New chat
           </button>
           <span className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
@@ -220,7 +243,10 @@ function DesktopChrome({ children, mode = "Evidence" }: { children: ReactNode; m
               <p className="text-xs text-[color:var(--text-muted)]">Source-backed workspace</p>
             </div>
           </div>
-          <button type="button" className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] text-sm font-semibold text-white shadow-[var(--shadow-tight)]">
+          <button
+            type="button"
+            className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] text-sm font-semibold text-white shadow-[var(--shadow-tight)]"
+          >
             <Plus className="h-4 w-4" /> New chat
           </button>
           <div className="mt-5 space-y-1">
@@ -270,14 +296,18 @@ function PhoneChrome({ children, sheet = false }: { children: ReactNode; sheet?:
             <Layers3 className="h-4 w-4" />
           </span>
           <span>
-            <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Mode</span>
+            <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Mode
+            </span>
             <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
           </span>
           <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" />
         </div>
         <Plus className="h-6 w-6 text-[color:var(--text-muted)]" />
       </header>
-      <main className={cn("h-[calc(100%-4.5rem)] overflow-hidden", sheet && "bg-[color:var(--text-heading)]/30")}>{children}</main>
+      <main className={cn("h-[calc(100%-4.5rem)] overflow-hidden", sheet && "bg-[color:var(--text-heading)]/30")}>
+        {children}
+      </main>
       <div className="absolute inset-x-3 bottom-3">
         <Composer placeholder="Search evidence..." />
       </div>
@@ -299,7 +329,10 @@ function MockupPair({
   phone: ReactNode;
 }) {
   return (
-    <section data-mockup={id} className="rounded-[1.5rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+    <section
+      data-mockup={id}
+      className="rounded-[1.5rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]"
+    >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Evidence option</p>
@@ -358,7 +391,10 @@ function EvidenceHomeDesktop() {
             ["Review recent evidence", "Continue checking the objects used in recent answers", ClipboardCheck],
             ["Open source map", "Follow an evidence object back through document, section, and page", Link2],
           ].map(([title, body, Icon]) => (
-            <div key={title as string} className="grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-4 last:border-b-0">
+            <div
+              key={title as string}
+              className="grid min-h-[78px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-4 last:border-b-0"
+            >
               <IconTile icon={Icon as LucideIcon} />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[color:var(--text-heading)]">{title as string}</p>
@@ -370,7 +406,10 @@ function EvidenceHomeDesktop() {
         </div>
         <div className="mt-5 grid grid-cols-3 gap-2 text-left">
           {objectCounts.slice(0, 3).map(([label, count, Icon]) => (
-            <div key={label} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
+            <div
+              key={label}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
+            >
               <div className="flex items-center justify-between gap-2">
                 <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
                 <span className="text-xs font-bold text-[color:var(--clinical-chat-teal)]">{count}</span>
@@ -397,7 +436,10 @@ function EvidenceHomePhone() {
             ["Recent objects", ClipboardCheck],
             ["Source map", Link2],
           ].map(([label, Icon]) => (
-            <div key={label as string} className="grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 last:border-b-0">
+            <div
+              key={label as string}
+              className="grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 last:border-b-0"
+            >
               <IconTile icon={Icon as LucideIcon} />
               <p className="font-semibold text-[color:var(--text-heading)]">{label as string}</p>
               <ChevronRight className="h-5 w-5 text-[color:var(--text-soft)]" />
@@ -421,7 +463,9 @@ function EvidenceSearchDesktop() {
         <section className="min-w-0 space-y-3">
           <div className="flex min-h-14 items-center gap-3 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-4 shadow-[var(--shadow-soft)]">
             <Search className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">clozapine constipation monitoring table</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+              clozapine constipation monitoring table
+            </span>
             <Filter className="h-4 w-4 text-[color:var(--text-muted)]" />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -453,8 +497,12 @@ function EvidenceSearchDesktop() {
               <IconTile icon={Table2} />
               <Pill tone="success">97% direct</Pill>
             </div>
-            <h3 className="mt-3 text-base font-semibold text-[color:var(--text-heading)]">ANC monitoring frequency table</h3>
-            <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">Clozapine physical health protocol - p.12</p>
+            <h3 className="mt-3 text-base font-semibold text-[color:var(--text-heading)]">
+              ANC monitoring frequency table
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+              Clozapine physical health protocol - p.12
+            </p>
           </div>
           <div className="p-4">
             <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
@@ -512,15 +560,22 @@ function EvidenceSearchPhone() {
         </div>
         <div className="mt-4 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
           {tableRows.map(([stage, evidence]) => (
-            <div key={stage} className="grid grid-cols-[5.75rem_minmax(0,1fr)] border-b border-[color:var(--border)] last:border-b-0">
-              <span className="bg-[color:var(--clinical-chat-table-header)] px-3 py-2 text-xs font-bold text-[color:var(--text-muted)]">{stage}</span>
+            <div
+              key={stage}
+              className="grid grid-cols-[5.75rem_minmax(0,1fr)] border-b border-[color:var(--border)] last:border-b-0"
+            >
+              <span className="bg-[color:var(--clinical-chat-table-header)] px-3 py-2 text-xs font-bold text-[color:var(--text-muted)]">
+                {stage}
+              </span>
               <span className="px-3 py-2 text-xs font-semibold text-[color:var(--text-heading)]">{evidence}</span>
             </div>
           ))}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <ActionButton icon={ExternalLink}>Open</ActionButton>
-          <ActionButton icon={Copy} primary>Copy</ActionButton>
+          <ActionButton icon={Copy} primary>
+            Copy
+          </ActionButton>
         </div>
       </div>
     </PhoneChrome>
@@ -537,8 +592,12 @@ function EvidenceDetailDesktop() {
               <div className="flex min-w-0 items-start gap-3">
                 <IconTile icon={Quote} />
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Constipation escalation passage</h3>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--clinical-chat-teal)]">Clozapine safety bulletin - p.4 - exact extracted quote</p>
+                  <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">
+                    Constipation escalation passage
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
+                    Clozapine safety bulletin - p.4 - exact extracted quote
+                  </p>
                 </div>
               </div>
               <Pill tone="success">
@@ -557,15 +616,23 @@ function EvidenceDetailDesktop() {
             <div className="grid grid-cols-[minmax(0,1fr)_15rem] gap-3">
               <figure className="rounded-xl border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--clinical-chat-teal)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
                 <blockquote className="text-sm font-semibold leading-6 text-[color:var(--text-heading)]">
-                  &quot;Patients reporting severe constipation, abdominal pain, vomiting, or reduced bowel motions require same-day clinical review.&quot;
+                  &quot;Patients reporting severe constipation, abdominal pain, vomiting, or reduced bowel motions
+                  require same-day clinical review.&quot;
                 </blockquote>
-                <figcaption className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">Direct wording used in answer support.</figcaption>
+                <figcaption className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                  Direct wording used in answer support.
+                </figcaption>
               </figure>
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Citation packet</p>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Citation packet
+                </p>
                 <div className="mt-2 space-y-1.5">
                   {["Document", "Page", "Section", "Quote span", "Reviewed"].map((item) => (
-                    <div key={item} className="flex items-center justify-between rounded-md bg-[color:var(--surface-raised)] px-2 py-1.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    <div
+                      key={item}
+                      className="flex items-center justify-between rounded-md bg-[color:var(--surface-raised)] px-2 py-1.5 text-[11px] font-semibold text-[color:var(--text-muted)]"
+                    >
                       {item}
                       <Check className="h-3.5 w-3.5 text-[color:var(--clinical-chat-teal)]" />
                     </div>
@@ -575,16 +642,30 @@ function EvidenceDetailDesktop() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                <Image src="/demo-documents/clozapine-table.png" alt="Clozapine monitoring table evidence crop" width={560} height={320} className="h-24 w-full object-cover object-top" />
+                <Image
+                  src="/demo-documents/clozapine-table.png"
+                  alt="Clozapine monitoring table evidence crop"
+                  width={560}
+                  height={320}
+                  className="h-24 w-full object-cover object-top"
+                />
                 <p className="px-2 py-1.5 text-xs font-bold text-[color:var(--text-heading)]">Linked table</p>
               </div>
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                <Image src="/demo-documents/risk-flow.png" alt="Risk flow evidence image crop" width={560} height={320} className="h-24 w-full object-cover object-center" />
+                <Image
+                  src="/demo-documents/risk-flow.png"
+                  alt="Risk flow evidence image crop"
+                  width={560}
+                  height={320}
+                  className="h-24 w-full object-cover object-center"
+                />
                 <p className="px-2 py-1.5 text-xs font-bold text-[color:var(--text-heading)]">Linked image</p>
               </div>
               <div className="rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] p-3">
                 <p className="text-xs font-bold text-[color:var(--text-heading)]">Document context</p>
-                <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">Previous and next paragraphs retained with page coordinates.</p>
+                <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                  Previous and next paragraphs retained with page coordinates.
+                </p>
               </div>
             </div>
           </div>
@@ -611,7 +692,9 @@ function EvidenceDetailPhone() {
           <div className="mt-4 flex items-start gap-3">
             <IconTile icon={Quote} />
             <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Constipation escalation passage</h3>
+              <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">
+                Constipation escalation passage
+              </h3>
               <p className="mt-1 text-xs font-semibold text-[color:var(--clinical-chat-teal)]">Exact quote - p.4</p>
             </div>
             <X className="h-5 w-5 text-[color:var(--text-muted)]" />
@@ -625,16 +708,25 @@ function EvidenceDetailPhone() {
         <div className="max-h-[22rem] space-y-3 overflow-hidden p-4">
           <figure className="rounded-xl border border-[color:var(--border-lux)] border-l-4 border-l-[color:var(--clinical-chat-teal)] bg-[color:var(--surface)] p-4">
             <blockquote className="text-base font-semibold leading-7 text-[color:var(--text-heading)]">
-              &quot;Patients reporting severe constipation, abdominal pain, vomiting, or reduced bowel motions require same-day clinical review.&quot;
+              &quot;Patients reporting severe constipation, abdominal pain, vomiting, or reduced bowel motions require
+              same-day clinical review.&quot;
             </blockquote>
           </figure>
           <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            <Image src="/demo-documents/risk-flow.png" alt="Risk flow evidence image crop" width={560} height={320} className="h-32 w-full object-cover object-center" />
+            <Image
+              src="/demo-documents/risk-flow.png"
+              alt="Risk flow evidence image crop"
+              width={560}
+              height={320}
+              className="h-32 w-full object-cover object-center"
+            />
           </div>
         </div>
         <footer className="grid grid-cols-2 gap-2 border-t border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 p-3">
           <ActionButton icon={ExternalLink}>Open</ActionButton>
-          <ActionButton icon={Copy} primary>Copy quote</ActionButton>
+          <ActionButton icon={Copy} primary>
+            Copy quote
+          </ActionButton>
         </footer>
       </div>
     </PhoneChrome>
@@ -650,11 +742,16 @@ export default function EvidenceOptionMockupsPage() {
             <div>
               <div className="flex items-center gap-3">
                 <IconTile icon={Layers3} />
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Clinical KB evidence option</p>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Clinical KB evidence option
+                </p>
               </div>
-              <h1 className="mt-3 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)]">Premium evidence mockups</h1>
+              <h1 className="mt-3 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)]">
+                Premium evidence mockups
+              </h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--text-muted)]">
-                Three product-native mockups for evidence home, evidence search, and individual evidence review. Each pairs the PC layout with the phone bottom-sheet treatment.
+                Three product-native mockups for evidence home, evidence search, and individual evidence review. Each
+                pairs the PC layout with the phone bottom-sheet treatment.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

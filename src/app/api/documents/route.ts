@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { demoDocuments } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
@@ -65,16 +67,17 @@ type DocumentListRow = Record<string, unknown> & { id: string; status?: string |
 type LabelListRow = Record<string, unknown> & { document_id: string };
 type SummaryListRow = Record<string, unknown> & { document_id: string };
 
-function parsePositiveInt(value: string | null, fallback: number, max: number) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
-  return Math.min(parsed, max);
-}
-
-function parseOffset(value: string | null) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-}
+const documentListQuerySchema = z.object({
+  limit: queryInteger({ fallback: 100, min: 1, max: 200 }),
+  offset: queryInteger({ fallback: 0, min: 0, max: 1_000_000 }),
+  q: z.string().optional().default("").transform(safeSearchTerm),
+  status: z
+    .string()
+    .optional()
+    .default("")
+    .transform((value) => value.trim()),
+  includeMeta: queryBoolean({ defaultValue: true }),
+});
 
 function ilikePattern(value: string) {
   return `%${value.replace(/\\/g, "\\\\").replace(/[%_]/g, "\\$&")}%`;
@@ -118,12 +121,13 @@ export async function GET(request: Request) {
       return documentsResponse({ documents: demoDocuments, demoMode: true }, { active: false, pollAfterMs: null });
     }
 
-    const url = new URL(request.url);
-    const limit = parsePositiveInt(url.searchParams.get("limit"), 100, 200);
-    const offset = parseOffset(url.searchParams.get("offset"));
-    const search = safeSearchTerm(url.searchParams.get("q") ?? "");
-    const status = url.searchParams.get("status")?.trim() ?? "";
-    const includeMeta = url.searchParams.get("includeMeta") !== "false";
+    const {
+      limit,
+      offset,
+      q: search,
+      status,
+      includeMeta,
+    } = parseRequestQuery(request, documentListQuerySchema, "Invalid document list query.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);

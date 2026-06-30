@@ -35,15 +35,23 @@ describe("smart RAG API plan", () => {
     expect(plan.displayMode).toBe("clinical_pathway");
     expect(plan.answerFocus).toContain("medication");
     expect(plan.answerPlan).toMatchObject({
+      intent: "clinical_synthesis",
+      queryClass: "medication_dose_risk",
       retrievalQuality: "strong",
       routeMode: "fast",
       modelStrategy: "fast_model_then_quality_gate",
       fallbackBehavior: "retry_strong_then_source_gap",
-      sourcePolicy: "no_answer_without_retrieved_support",
+      sourcePolicy: "required_citations",
     });
+    expect(plan.answerPlan.retrievalIntent).toMatchObject({
+      needsDoseRouteFrequency: false,
+      needsMedicationChart: true,
+    });
+    expect(plan.answerPlan.sourceSelection.selectedCount).toBe(1);
     expect(plan.answerPlan.qualityCriteria).toEqual(
       expect.arrayContaining([
         "first_sentence_answers_query",
+        "natural_clinical_synthesis",
         "no_source_headings_or_fragments",
         "no_cross_medication_leakage",
       ]),
@@ -73,6 +81,7 @@ describe("smart RAG API plan", () => {
     expect(plan.answerFocus).toContain("2 documents");
     expect(plan.streamPlan).toContain("Fuse strongest points");
     expect(plan.answerPlan.qualityCriteria).toContain("conflicts_or_gaps_handled_when_supported");
+    expect(plan.answerPlan.intent).toBe("clinical_synthesis");
     expect(plan.coreSourceLinks.map((link) => link.document_id)).toEqual(["doc-a", "doc-b"]);
   });
 
@@ -88,7 +97,12 @@ describe("smart RAG API plan", () => {
     expect(plan.responseMode).toBe("document_lookup");
     expect(plan.displayMode).toBe("document_lookup");
     expect(plan.answerFocus).toContain("best matching document");
-    expect(plan.answerPlan.modelStrategy).toBe("narrow_extractive_lookup");
+    expect(plan.answerPlan).toMatchObject({
+      intent: "document_lookup",
+      modelStrategy: "extractive_lookup",
+      fallbackBehavior: "extractive_lookup_only",
+      sourcePolicy: "exact_source_links",
+    });
   });
 
   it("uses threshold table display mode and strong answer planning for threshold queries", () => {
@@ -103,6 +117,33 @@ describe("smart RAG API plan", () => {
     expect(plan.displayMode).toBe("threshold_table");
     expect(plan.answerPlan.routeMode).toBe("strong");
     expect(plan.answerPlan.modelStrategy).toBe("strong_model_then_quality_gate");
+    expect(plan.answerPlan.sourcePolicy).toBe("required_citations");
     expect(plan.answerFocus).toContain("threshold");
+  });
+
+  it("marks unsupported plans as source gaps with nearby sources allowed only when present", () => {
+    const plan = buildSmartRagApiPlan({
+      query: "unsupported clinical question",
+      queryClass: "unsupported_or_general",
+      results: [],
+      retrievalStrategy: "unsupported_short_circuit",
+      routeMode: "unsupported",
+    });
+
+    expect(plan.responseMode).toBe("unsupported");
+    expect(plan.answerPlan).toMatchObject({
+      intent: "unsupported",
+      queryClass: "unsupported_or_general",
+      routeMode: "unsupported",
+      modelStrategy: "source_gap",
+      retrievalQuality: "weak",
+      fallbackBehavior: "source_gap",
+      sourcePolicy: "required_citations",
+    });
+    expect(plan.answerPlan.sourceSelection).toMatchObject({
+      candidateCount: 0,
+      selectedCount: 0,
+      requiredSignalsSatisfied: true,
+    });
   });
 });

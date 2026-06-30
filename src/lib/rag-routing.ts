@@ -83,8 +83,24 @@ function hasSourceSupportLookupIntent(query: string) {
   return (
     /\b(?:what|which)\s+(?:documents?|sources?|files?|guidelines?)\b.{0,120}\b(?:support|supports|supporting|cover|covers|contain|contains|mention|mentions)\b/i.test(
       query,
+    ) || /\b(?:documents?|sources?|files?|guidelines?)\s+(?:supporting|for)\b/i.test(query)
+  );
+}
+
+function hasQuoteOrSourceLocationIntent(query: string) {
+  return /\b(?:quote|quotes|quoted|exact wording|source location|where in|which page|page number|open source|show source|source link|citation|citations)\b/i.test(
+    query,
+  );
+}
+
+function hasExplicitTableOrVisualLookupIntent(query: string) {
+  return (
+    /\b(?:which|what|show|find|open|where)\b.{0,120}\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
+      query,
     ) ||
-    /\b(?:documents?|sources?|files?|guidelines?)\s+(?:supporting|for)\b/i.test(query)
+    /\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b.{0,80}\b(?:cover|covers|contain|contains|list|lists|show|shows|guidance)\b/i.test(
+      query,
+    )
   );
 }
 
@@ -117,11 +133,34 @@ export function isComplexClinicalQuery(query: string) {
   return complexClinicalQueryPattern.test(query);
 }
 
+function hasTableOrVisualSourceSupport(results: SearchResult[]) {
+  return results.slice(0, 8).some((result) => {
+    const reasonText = (result.match_explanation?.reasons ?? []).join(" ");
+    const sourceText = [
+      result.title,
+      result.file_name,
+      result.section_heading,
+      result.content.slice(0, 300),
+      reasonText,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      Boolean(result.table_facts?.length) ||
+      Boolean(result.images?.length) ||
+      /\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|image|visual|medication_chart)\b/i.test(sourceText)
+    );
+  });
+}
+
 function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
   return (
     queryClass === "medication_dose_risk" ||
     queryClass === "table_threshold" ||
     queryClass === "comparison" ||
+    /\b(?:dose|dosing|monitoring|threshold|risk|compare|comparison|pathway|referral|refer|managed|management|treatment|escalat\w*)\b/i.test(
+      query,
+    ) ||
     clinicalPathwaySynthesisPattern.test(query)
   );
 }
@@ -153,8 +192,6 @@ export function shouldUseExtractiveAnswer(args: {
   const topTextRank = Math.max(...args.results.map((result) => result.text_rank ?? 0));
   const documents = documentCount(args.results);
   const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
-  const singleDocumentStrongMatch =
-    documents === 1 && strongestScore >= 0.74 && (topTextRank >= 0.04 || hasTextSupport(args.results));
 
   if (shouldPreferModelSynthesis(args.query, queryClass)) return false;
   if (queryClass === "broad_summary" || broadManagementSynthesisPattern.test(args.query)) return false;
@@ -165,16 +202,29 @@ export function shouldUseExtractiveAnswer(args: {
 
   if (hasActionableConflictOrGap(args.conflictsOrGaps) && !directTitleSupport && strongestScore < 0.82) return false;
 
-  if (queryClass === "document_lookup" && (directTitleSupport || strongestScore >= 0.72)) {
+  if (
+    queryClass === "document_lookup" &&
+    (hasExplicitDocumentLookupIntent(args.query) ||
+      hasSourceSupportLookupIntent(args.query) ||
+      hasQuoteOrSourceLocationIntent(args.query)) &&
+    (directTitleSupport || strongestScore >= 0.72)
+  ) {
     return true;
   }
 
-  return (
-    strongestScore >= extractiveRetrievalThreshold ||
-    singleDocumentStrongMatch ||
-    topTextRank >= 0.12 ||
-    (directTitleSupport && strongestScore >= 0.4)
-  );
+  if (hasSourceSupportLookupIntent(args.query) || hasQuoteOrSourceLocationIntent(args.query)) {
+    return directTitleSupport || strongestScore >= 0.4 || topTextRank >= 0.04;
+  }
+
+  if (
+    hasExplicitTableOrVisualLookupIntent(args.query) &&
+    hasTableOrVisualSourceSupport(args.results) &&
+    (directTitleSupport || strongestScore >= extractiveRetrievalThreshold || topTextRank >= 0.08)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function chooseAnswerRoute(args: {
@@ -260,11 +310,28 @@ export function chooseAnswerRoute(args: {
   const crossDocumentIntent = routineCrossDocumentPattern.test(args.query) || queryClass === "broad_summary";
   const actionableConflictOrGap = hasActionableConflictOrGap(args.conflictsOrGaps);
 
-  if (hasSourceSupportLookupIntent(args.query) && (directTitleSupport || strongestScore >= 0.4 || topTextRank >= 0.04)) {
+  if (
+    hasSourceSupportLookupIntent(args.query) &&
+    (directTitleSupport || strongestScore >= 0.4 || topTextRank >= 0.04)
+  ) {
     return {
       mode: "extractive",
       model: null,
       reason: "source_support_document_lookup",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    hasExplicitTableOrVisualLookupIntent(args.query) &&
+    hasTableOrVisualSourceSupport(args.results) &&
+    (directTitleSupport || strongestScore >= extractiveRetrievalThreshold || topTextRank >= 0.08)
+  ) {
+    return {
+      mode: "extractive",
+      model: null,
+      reason: "explicit_table_or_source_lookup",
       strongestScore,
       documentCount: documents,
     };
@@ -275,23 +342,6 @@ export function chooseAnswerRoute(args: {
       mode: "strong",
       model: args.strongModel,
       reason: "broad_clinical_management_synthesis",
-      strongestScore,
-      documentCount: documents,
-    };
-  }
-
-  if (
-    documents > 1 &&
-    (queryClass === "comparison" || comparisonQueryPattern.test(args.query)) &&
-    documents <= 3 &&
-    strongestScore >= 0.72 &&
-    !hasConflictIntent(args.query) &&
-    !actionableConflictOrGap
-  ) {
-    return {
-      mode: "fast",
-      model: args.fastModel,
-      reason: "balanced_multi_document_synthesis",
       strongestScore,
       documentCount: documents,
     };
@@ -315,7 +365,7 @@ export function chooseAnswerRoute(args: {
 
   if (
     queryClass === "comparison" ||
-    (documents > 3 && comparisonQueryPattern.test(args.query) && !directTitleSupport)
+    (documents > 1 && comparisonQueryPattern.test(args.query) && !directTitleSupport)
   ) {
     return {
       mode: "strong",
@@ -456,7 +506,8 @@ export function shouldRetryWithStrongAfterFast(args: {
     return false;
   }
 
-  const solidSourceSupport = strongestRetrievalScore(args.results) >= strongRetrievalThreshold && args.results.length > 0;
+  const solidSourceSupport =
+    strongestRetrievalScore(args.results) >= strongRetrievalThreshold && args.results.length > 0;
   if (args.answer.routingReason === "structured_parse_fallback") return solidSourceSupport;
   if (args.route.reason === "clinical_fast_grounded_synthesis") return solidSourceSupport;
   return solidSourceSupport && args.results.length >= 2;

@@ -71,9 +71,7 @@ describe("answer display formatting", () => {
 
     expect(parsed.type).toBe("bullets");
     expect(parsed.lines).toHaveLength(2);
-    expect(parsed.lines[0].text).toBe(
-      "Check FBC weekly. Continue weekly until stable and document abnormal results.",
-    );
+    expect(parsed.lines[0].text).toBe("Check FBC weekly. Continue weekly until stable and document abnormal results.");
     expect(parsed.lines[1].text).toBe(
       "Withhold clozapine if ANC is unsafe. Restart only when the source threshold is met.",
     );

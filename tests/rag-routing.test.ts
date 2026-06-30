@@ -30,12 +30,12 @@ function route(query: string, results: SearchResult[]) {
 }
 
 describe("RAG answer routing", () => {
-  it("uses extractive answers for direct routine document questions with strong retrieval", () => {
+  it("uses model synthesis for direct routine clinical content questions with strong retrieval", () => {
     const selected = route("What does the admission information document include?", [source()]);
 
-    expect(selected.mode).toBe("extractive");
-    expect(selected.model).toBeNull();
-    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+    expect(selected.mode).toBe("fast");
+    expect(selected.model).toBe("fast-model");
+    expect(selected.reason).toBe("strong_routine_retrieval");
   });
 
   it("uses the fast model for broader routine questions with strong retrieval", () => {
@@ -69,7 +69,7 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("limited_retrieval_strength");
   });
 
-  it("keeps direct title matches on the extractive path when the question is routine", () => {
+  it("uses synthesis for direct title matches unless the user asks for source lookup", () => {
     const selected = chooseAnswerRoute({
       query: "What are NOCC requirements?",
       results: [
@@ -85,8 +85,25 @@ describe("RAG answer routing", () => {
       strongModel: "strong-model",
     });
 
+    expect(selected.mode).toBe("fast");
+    expect(selected.reason).toBe("strong_routine_retrieval");
+  });
+
+  it("keeps source-support questions intentionally extractive", () => {
+    const selected = route("What documents support lithium monitoring?", [
+      source({
+        title: "Lithium Monitoring Guideline",
+        file_name: "CG.MHSP.Lithium.pdf",
+        content: "Lithium monitoring guidance covers baseline tests and level checks.",
+        similarity: 0.91,
+        hybrid_score: 0.93,
+        text_rank: 0.42,
+      }),
+    ]);
+
     expect(selected.mode).toBe("extractive");
-    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("source_support_document_lookup");
   });
 
   it("skips generation for document lookups without direct title support", () => {
@@ -118,6 +135,44 @@ describe("RAG answer routing", () => {
     expect(selected.mode).toBe("strong");
     expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("clinical_risk_or_complex_query");
+  });
+
+  it("keeps explicit table lookup questions extractive even when medication terms are present", () => {
+    const selected = route("Which table covers agitation and arousal pharmacological management?", [
+      source({
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        section_heading: "Appendix V: Agitation and Arousal PRN Medication",
+        content: "Appendix V table lists oral and intramuscular medication options for agitation and arousal.",
+        similarity: 0.9,
+        hybrid_score: 0.92,
+        text_rank: 0.2,
+        match_explanation: { tableHit: true, reasons: ["table", "document_title"] },
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("explicit_table_or_source_lookup");
+  });
+
+  it("keeps medication action questions on model synthesis even when table evidence exists", () => {
+    const selected = route("What IM or PO options are listed for agitation?", [
+      source({
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        section_heading: "Appendix V: Agitation and Arousal PRN Medication",
+        content: "Appendix V table lists oral and intramuscular medication options for agitation and arousal.",
+        similarity: 0.9,
+        hybrid_score: 0.92,
+        text_rank: 0.2,
+        match_explanation: { tableHit: true, reasons: ["table", "document_title"] },
+      }),
+    ]);
+
+    expect(selected.mode).toBe("fast");
+    expect(selected.model).toBe("fast-model");
+    expect(selected.reason).toBe("clinical_fast_grounded_synthesis");
   });
 
   it("keeps broad summaries on the fast synthesis path", () => {
@@ -167,14 +222,14 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("balanced_multi_document_synthesis");
   });
 
-  it("uses fast synthesis for simple two-document comparisons with strong support", () => {
+  it("uses strong synthesis for simple two-document comparisons with strong support", () => {
     const selected = route("Compare admission and discharge requirements", [
       source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
       source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
     ]);
 
-    expect(selected.mode).toBe("fast");
-    expect(selected.reason).toBe("balanced_multi_document_synthesis");
+    expect(selected.mode).toBe("strong");
+    expect(selected.reason).toBe("multi_document_comparison_synthesis");
   });
 
   it("skips generation when retrieval has no plausible support", () => {

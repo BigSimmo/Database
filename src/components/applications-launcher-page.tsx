@@ -972,9 +972,7 @@ export function ApplicationsLauncherWorkspace({
               <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
                 {copy.heading}
               </h2>
-              <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">
-                {copy.description}
-              </p>
+              <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">{copy.description}</p>
             </div>
           </div>
 

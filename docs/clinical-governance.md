@@ -40,6 +40,7 @@ Use the `.github/pull_request_template.md` clinical governance section for any c
 ## Verification Records
 
 ### RLS & access scoping — 2026-06-28
+
 - Supabase **security advisors: 0 findings** for `Clinical KB Database` (`sjrfecxgysukkwxsowpy`). The linter specifically flags missing RLS / insecure policies, so a clean run confirms RLS is enabled and policy-covered across `public` tables.
 - Supabase **performance advisors: INFO only** — unused indexes (expected on a low-traffic database; do not drop pre-launch) and one auth connection-strategy tip (switch to percentage-based allocation when scaling instance size).
 - **Application-layer cross-owner denial** (service-role routes enforce `owner_id` scoping in code) is covered by `tests/private-access-routes.test.ts` and `tests/private-rag-access.test.ts` (unowned document detail/signed-url/rename rejected; listing and search scoped to the authenticated owner).

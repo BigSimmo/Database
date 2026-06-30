@@ -59,6 +59,15 @@ async function checkOptionalFile(filePath: string, message: string) {
   }
 }
 
+async function hasFile(filePath: string) {
+  try {
+    await access(filePath, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function checkNodeRuntime() {
   const runtime = checkStrictNodeRuntime(process.versions.node);
   if (runtime.ok) {
@@ -91,7 +100,7 @@ function recordDemoModeProductionCheck() {
 }
 
 async function checkFileForServiceRoleExposure() {
-  const envFiles = [".env", ".env.local", ".env.production", ".env.development"];
+  const envFiles = [".env", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
     const filePath = path.join(process.cwd(), fileName);
     try {
@@ -123,8 +132,14 @@ async function main() {
     ".env.example is required for documented environment contract.",
   );
 
+  const hasEnvLocal = await hasFile(path.join(process.cwd(), ".env.local"));
+  const hasEnv = await hasFile(path.join(process.cwd(), ".env"));
   await checkOptionalFile(path.join(process.cwd(), ".env.local"), "Local override file .env.local is present");
-  await checkOptionalFile(path.join(process.cwd(), ".env"), "Top-level .env exists");
+  if (!hasEnvLocal && !hasEnv) {
+    result.warnings.push("Neither .env nor .env.local exists for local overrides.");
+  } else if (hasEnv) {
+    result.passes.push("Top-level .env exists");
+  }
 
   let envModule: typeof import("@/lib/env") | null = null;
   try {

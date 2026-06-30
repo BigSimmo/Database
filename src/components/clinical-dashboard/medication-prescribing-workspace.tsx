@@ -818,9 +818,7 @@ function DetailTile({
             {label}
           </p>
           <p className="text-[13px] font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">{value}</p>
-          {meta ? (
-            <p className="text-[11px] font-medium leading-4 text-[color:var(--text-muted)]">{meta}</p>
-          ) : null}
+          {meta ? <p className="text-[11px] font-medium leading-4 text-[color:var(--text-muted)]">{meta}</p> : null}
         </div>
       </div>
     </div>
@@ -1279,25 +1277,9 @@ function MedicationDetail() {
               value="Maintain abstinence"
               meta="after withdrawal"
             />
-            <DetailTile
-              icon={CalendarDays}
-              label="Dosing"
-              value="666 mg TID"
-              meta="2 x 333 mg"
-            />
-            <DetailTile
-              icon={Gauge}
-              label="Dose ceiling"
-              value="1,998 mg/day"
-              meta="MAX"
-            />
-            <DetailTile
-              icon={AlertTriangle}
-              label="Avoid"
-              value="Cr >120"
-              meta="micromol/L"
-              danger
-            />
+            <DetailTile icon={CalendarDays} label="Dosing" value="666 mg TID" meta="2 x 333 mg" />
+            <DetailTile icon={Gauge} label="Dose ceiling" value="1,998 mg/day" meta="MAX" />
+            <DetailTile icon={AlertTriangle} label="Avoid" value="Cr >120" meta="micromol/L" danger />
           </section>
 
           <MedicationSummaryTabs activeSection={activeMobileSection} onSectionChange={setActiveMobileSection} />

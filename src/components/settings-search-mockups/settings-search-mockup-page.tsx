@@ -311,10 +311,7 @@ function DesktopNav({ active }: { active: string }) {
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
             )}
           >
-            <Icon
-              className={cn("h-4 w-4", selected && "text-[color:var(--clinical-chat-teal)]")}
-              strokeWidth={1.8}
-            />
+            <Icon className={cn("h-4 w-4", selected && "text-[color:var(--clinical-chat-teal)]")} strokeWidth={1.8} />
             <span className="truncate">{label}</span>
           </button>
         );
@@ -471,7 +468,10 @@ function DesktopModal({ concept }: { concept: Concept }) {
             {concept.sections.map((section, index) => (
               <div
                 key={section.title}
-                className={cn(index > 0 && "border-t border-[color:var(--border)]", concept.tone === "compact" ? "pt-3" : "pt-4")}
+                className={cn(
+                  index > 0 && "border-t border-[color:var(--border)]",
+                  concept.tone === "compact" ? "pt-3" : "pt-4",
+                )}
               >
                 <h3
                   className={cn(
@@ -591,10 +591,7 @@ function PhoneSettingsSection({ section }: { section: SettingsSection }) {
               type="button"
               className="grid min-h-[51px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 text-left last:border-b-0"
             >
-              <IconFrame
-                icon={Icon}
-                active={index === 0 && section.title === "Clinical defaults"}
-              />
+              <IconFrame icon={Icon} active={index === 0 && section.title === "Clinical defaults"} />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium text-[color:var(--text-heading)]">{row.label}</span>
               </span>
@@ -624,7 +621,7 @@ function PhoneSheet({ concept }: { concept: Concept }) {
             <button
               type="button"
               aria-label="Close settings"
-                className="ml-auto grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+              className="ml-auto grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
             >
               <X className="h-5 w-5" strokeWidth={1.8} />
             </button>

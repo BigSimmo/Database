@@ -81,7 +81,7 @@ type GeneratedAnswerPayload = {
 async function answerFromTextSources(
   query: string,
   sources: SearchResult[],
-  generatedAnswer?: GeneratedAnswerPayload,
+  generatedAnswer?: GeneratedAnswerPayload | Error,
 ) {
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -99,24 +99,27 @@ async function answerFromTextSources(
       from: vi.fn(() => new EmptyQuery()),
     }),
   }));
-  const generateStructuredTextResult = vi.fn(async () => ({
-    text: JSON.stringify(
-      generatedAnswer ?? {
-        answer: "No current source with specific guidance for this query was found.",
-        grounded: false,
-        confidence: "unsupported",
-        answerSections: [],
-        citations: [],
-        quoteCards: [],
-        conflictsOrGaps: [],
-      },
-    ),
-    model: "gpt-4.1-mini",
-    operation: "answer",
-    latencyMs: 12,
-    requestId: "req_answer_from_text_sources",
-    usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
-  }));
+  const generateStructuredTextResult = vi.fn(async () => {
+    if (generatedAnswer instanceof Error) throw generatedAnswer;
+    return {
+      text: JSON.stringify(
+        generatedAnswer ?? {
+          answer: "No current source with specific guidance for this query was found.",
+          grounded: false,
+          confidence: "unsupported",
+          answerSections: [],
+          citations: [],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        },
+      ),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_answer_from_text_sources",
+      usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+    };
+  });
 
   vi.doMock("@/lib/openai", () => ({
     embedTextWithTelemetry: vi.fn(),
@@ -141,6 +144,7 @@ afterEach(() => {
 describe("RAG structured-output fallback", () => {
   it("uses model synthesis for strong source answers instead of packed source-card labels", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_ANSWER_TIMEOUT_MS", "4321");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
@@ -232,12 +236,95 @@ describe("RAG structured-output fallback", () => {
     });
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    const answerCalls = generateStructuredTextResult.mock.calls as unknown as Array<
+      [string, unknown, { timeoutMs?: number }]
+    >;
+    const answerInput = answerCalls[0]?.[0] ?? "";
+    expect(answerCalls[0]?.[2]).toMatchObject({ timeoutMs: 4321 });
+    expect(answerInput).toContain("answer_plan.intent: clinical_synthesis");
+    expect(answerInput).toContain("answer_plan.route_mode: fast");
+    expect(answerInput).toContain("answer_plan.model_strategy: fast_model_then_quality_gate");
+    expect(answerInput).toContain("answer_plan.source_policy: required_citations");
     expect(answer.routingMode).toBe("fast");
     expect(answer.routingReason).toContain("clinical_fast_grounded_synthesis");
+    expect(answer.smartApiPlan?.answerPlan).toMatchObject({
+      intent: "clinical_synthesis",
+      routeMode: "fast",
+      modelStrategy: "fast_model_then_quality_gate",
+      sourcePolicy: "required_citations",
+    });
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/clozapine Monitoring Form/i);
     expect(answer.answer).not.toContain("- Medication point");
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
     expect(answer.answerSections?.[0]?.heading).toBe("Monitoring documents");
+  });
+
+  it("preserves grounded source-backed answers when only the overlap heuristic is recoverable", async () => {
+    const answer = await answerFromTextSources(
+      "What is the long acting injectable pathway?",
+      [
+        source({
+          id: "lai-pathway-1",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Antipsychotic Pathway",
+          file_name: "MHSP.LongActingInjectableAntipsychoticPathway.pdf",
+          section_heading: "Depot pathway",
+          content: "Long acting injectable antipsychotic pathway guidance for depot reviews.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title"] },
+        }),
+      ],
+      {
+        answer: "Depot antipsychotic follow-up is covered by the cited local pathway.",
+        grounded: true,
+        confidence: "low",
+        answerSections: [],
+        citations: [{ chunk_id: "lai-pathway-1" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).toBe("medium");
+    expect(answer.routingReason).toContain("final_quality_gate_source_backed_recovery:missing_query_overlap");
+    expect(answer.answer).not.toMatch(/not enough source evidence|No current source/i);
+  });
+
+  it("recovers generation timeouts with an extractive source-backed answer when sources are strong", async () => {
+    const answer = await answerFromTextSources(
+      "How should agitation be managed when oral medication is refused?",
+      [
+        source({
+          id: "agitation-table-1",
+          title: "Agitation And Arousal Pharmacological Management(AKG)",
+          file_name: "Agitation and Arousal Pharmacological Management (AKG).pdf",
+          section_heading: "Appendix V: Agitation and Arousal PRN Medication",
+          content:
+            "Agitation is managed by using IM medication when oral medication is refused, with review and monitoring.",
+          match_explanation: { titleHit: true, contentHit: true, tableHit: true, reasons: ["title", "table"] },
+          table_facts: [
+            {
+              id: "fact-agitation-table",
+              document_id: "agitation-doc",
+              source_chunk_id: "agitation-table-1",
+              source_image_id: "image-agitation-table",
+              page_number: 11,
+              table_title: "Agitation and arousal pharmacological management",
+              row_label: "PRN medication",
+              clinical_parameter: "Medication table",
+              threshold_value: null,
+              action: "Use IM medication when oral medication is refused, with review and monitoring.",
+            },
+          ],
+        }),
+      ],
+      new Error("OpenAI timed out. Trying source-only fallback response."),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
   });
 
   it("retries template-like fast answers with the strong model before returning", async () => {
@@ -481,12 +568,12 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
-    expect(answer.routingMode).toBe("extractive");
-    expect(answer.routingReason).toContain("high_confidence_extractive_retrieval");
-    expect(answer.openAIRequestIds ?? []).toEqual([]);
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("fast_overexpanded_simple_retry_strong");
+    expect(answer.openAIRequestIds ?? []).toEqual(["req_fast_overexpanded", "req_strong_concise"]);
     expect(answer.answer.replace(/\*\*/g, "")).toContain("Bulimia nervosa is an eating disorder");
-    expect(answer.answerSections ?? []).toEqual([]);
+    expect(answer.smartApiPlan?.answerPlan.intent).toBe("clinical_synthesis");
   });
 
   it("records fast-template and strong-quality retry telemetry", async () => {
@@ -986,7 +1073,9 @@ describe("RAG structured-output fallback", () => {
         {
           properties: {
             citations: { items: { properties: { chunk_id: { enum: string[] } } } };
+            quoteCards: { items: { properties: { chunk_id: { enum: string[] } } } };
             answerSections: { items: { properties: { citation_chunk_ids: { items: { enum: string[] } } } } };
+            conflictsOrGaps: { items: { properties: { source_chunk_ids: { items: { enum: string[] } } } } };
           };
         },
       ]
@@ -996,11 +1085,17 @@ describe("RAG structured-output fallback", () => {
     expect(schema).toMatchObject({
       properties: {
         citations: { items: { properties: { chunk_id: { enum: ["agitation-chunk-1"] } } } },
+        quoteCards: { items: { properties: { chunk_id: { enum: ["agitation-chunk-1"] } } } },
         answerSections: { items: { properties: { citation_chunk_ids: { items: { enum: ["agitation-chunk-1"] } } } } },
+        conflictsOrGaps: { items: { properties: { source_chunk_ids: { items: { enum: ["agitation-chunk-1"] } } } } },
       },
     });
     expect(schema.properties.citations.items.properties.chunk_id.enum).toEqual(["agitation-chunk-1"]);
+    expect(schema.properties.quoteCards.items.properties.chunk_id.enum).toEqual(["agitation-chunk-1"]);
     expect(schema.properties.answerSections.items.properties.citation_chunk_ids.items.enum).toEqual([
+      "agitation-chunk-1",
+    ]);
+    expect(schema.properties.conflictsOrGaps.items.properties.source_chunk_ids.items.enum).toEqual([
       "agitation-chunk-1",
     ]);
     expect(rpc).toHaveBeenCalledWith("match_document_chunks_text", expect.any(Object));
@@ -1008,6 +1103,152 @@ describe("RAG structured-output fallback", () => {
     expect(firstAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.routingReason).toContain("answer_inflight_coalesced");
+  });
+
+  it("retries fast model output that cites evidence IDs outside retrieved chunks", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const bulimiaSource = source({
+      id: "bulimia-definition-1",
+      document_id: "bulimia-doc",
+      title: "Bulimia Nervosa Guideline",
+      file_name: "bulimia-guideline.pdf",
+      section_heading: "Definition",
+      content:
+        "Bulimia nervosa is an eating disorder characterised by recurrent binge-eating episodes followed by compensatory behaviours.",
+      similarity: 0.96,
+      hybrid_score: 0.96,
+      text_rank: 1.2,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: [bulimiaSource], error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi
+      .fn()
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          queryClass: "unsupported_or_general",
+          confidence: 0.4,
+          reasons: ["direct definition question"],
+          expandedTerms: ["bulimia nervosa"],
+        }),
+        model: "gpt-5.4-mini",
+        operation: "text_generation",
+        latencyMs: 6,
+        requestId: "req_classifier_invalid_evidence",
+        usage: { input_tokens: 80, output_tokens: 20, total_tokens: 100 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Bulimia nervosa is an eating disorder characterised by binge eating followed by compensatory behaviours.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "missing-bulimia-chunk" }],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-5.4-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_invalid_evidence",
+        usage: { input_tokens: 90, output_tokens: 50, total_tokens: 140 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          answer:
+            "Bulimia nervosa is an eating disorder characterised by recurrent binge-eating episodes followed by compensatory behaviours.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "bulimia-definition-1" }],
+          quoteCards: [
+            {
+              chunk_id: "bulimia-definition-1",
+              quote: "Bulimia nervosa is an eating disorder",
+              section_heading: "Definition",
+            },
+          ],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-5.5",
+        operation: "answer",
+        latencyMs: 18,
+        requestId: "req_valid_evidence",
+        usage: { input_tokens: 120, output_tokens: 60, total_tokens: 180 },
+      });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const answer = await answerQuestionWithScope({
+      query: "what is bulimia nervosa",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("fast_invalid_evidence_retry_strong");
+    expect(answer.grounded).toBe(true);
+    expect(answer.openAIRequestIds).toEqual(["req_invalid_evidence", "req_valid_evidence"]);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("Bulimia nervosa is an eating disorder");
+  });
+
+  it("fails closed when generated clinical prose starts as a source heading", async () => {
+    const answer = await answerFromTextSources(
+      "lithium dosing for patients",
+      [
+        source({
+          id: "lithium-heading-1",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy - Initiation And Continuation Guideline",
+          file_name: "lithium-therapy.pdf",
+          section_heading: "Dosage and monitoring",
+          content:
+            "Dosage and monitoring. Therapy with lithium should begin with conventional lithium carbonate tablets and serum lithium levels should guide titration.",
+          similarity: 0.95,
+          hybrid_score: 0.95,
+          text_rank: 1.3,
+        }),
+      ],
+      {
+        answer: "Dosage and monitoring.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "lithium-heading-1" }],
+        quoteCards: [
+          {
+            chunk_id: "lithium-heading-1",
+            quote: "Therapy with lithium should begin with conventional lithium carbonate tablets",
+            section_heading: "Dosage and monitoring",
+          },
+        ],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.answer).toBe("No current source with dose guidance for this query was found.");
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.grounded).toBe(false);
+    expect(answer.routingReason).toContain("final_quality_gate:incomplete_opening_sentence");
+    expect(answer.answer).not.toMatch(/^Dosage and monitoring/i);
   });
 
   it("treats max-output truncation as a distinct retry and fallback reason", async () => {
@@ -1060,7 +1301,8 @@ describe("RAG structured-output fallback", () => {
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
     expect(answer.routingMode).toBe("unsupported");
-    expect(answer.routingReason).toContain("generation_fallback:OpenAI generation incomplete: max_output_tokens");
+    expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).not.toContain("OpenAI generation incomplete");
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
       "fast_max_output_tokens_retry_strong",

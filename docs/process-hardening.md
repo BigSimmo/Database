@@ -46,3 +46,4 @@ This document turns the current process review into phased, durable repo practic
 - The new accessibility media smoke verifies usability and layout in reduced-motion and forced-colors modes; it is not a full WCAG audit.
 - The format gate intentionally ignores `.tmp-visual/` and `scratch/`; those folders are local investigation output, not release source.
 - Process scripts do not commit, push, deploy, mutate Supabase data, or run dependency updates.
+- `npm run check:indexing` includes local OCR prerequisites (`fitz`/PyMuPDF, `pytesseract`, and the Tesseract binary). A failure at that prerequisite step is local machine setup debt, not evidence that indexed production data or search behavior regressed.

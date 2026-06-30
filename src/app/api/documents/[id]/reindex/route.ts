@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
@@ -12,10 +13,20 @@ import {
 } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseJsonBodyOrDefault } from "@/lib/validation/body";
+import { parseRouteParams } from "@/lib/validation/params";
 
 export const runtime = "nodejs";
 
 const reindexPageSize = 1000;
+const reindexModeSchema = z
+  .object({
+    mode: z.preprocess((value) => (value === "enrichment" ? "enrichment" : "full"), z.enum(["full", "enrichment"])),
+  })
+  .default({ mode: "full" });
+const reindexRouteParamsSchema = z.object({
+  id: z.string().uuid(),
+});
 
 type ReindexChunk = {
   id: string;
@@ -50,12 +61,8 @@ function committedReindexRows<T extends { metadata?: unknown }>(document: { meta
 }
 
 async function readMode(request: Request) {
-  try {
-    const body = await request.json();
-    return body?.mode === "enrichment" ? "enrichment" : "full";
-  } catch {
-    return "full";
-  }
+  const parsed = await parseJsonBodyOrDefault(request, reindexModeSchema, { mode: "full" });
+  return parsed.mode;
 }
 
 async function selectReindexRowsInPages<T>(args: {
@@ -83,7 +90,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Reindex is unavailable in demo mode." }, { status: 400 });
 
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, reindexRouteParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const mode = await readMode(request);

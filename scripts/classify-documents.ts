@@ -179,7 +179,8 @@ async function writeClassification(
   // Write all secondary facet labels (population, topic, setting, service, workflow, medication)
   const secondaryLabels = classification.labels.filter(
     (label) =>
-      ["population", "topic", "setting", "service", "workflow", "medication"].includes(label.label_type) && label.confidence >= 0.5,
+      ["population", "topic", "setting", "service", "workflow", "medication"].includes(label.label_type) &&
+      label.confidence >= 0.5,
   );
 
   const generatedLabels = [...siteLabels, ...typeLabels, ...secondaryLabels];

@@ -82,11 +82,16 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
   const readabilityOk = wordCount >= 5 && wordCount <= 220 && !fragmentPattern.test(text);
   const artifactOk = !artifactPattern.test(text) && containsNone(text, testCase.mustNotContain);
   const intentOk = containsAny(text, testCase.mustContainAny);
-  const failClosedOk = testCase.supported || (unsupported && /no current source|could not find|not enough|no relevant/i.test(text));
+  const failClosedOk =
+    testCase.supported || (unsupported && /no current source|could not find|not enough|no relevant/i.test(text));
 
   return [
     { metric: "relevance", score: relevanceOk ? 1 : 0, reason: relevanceOk ? "relevant" : "missing relevance" },
-    { metric: "readability", score: readabilityOk ? 1 : 0, reason: readabilityOk ? "readable" : "fragmented or too long" },
+    {
+      metric: "readability",
+      score: readabilityOk ? 1 : 0,
+      reason: readabilityOk ? "readable" : "fragmented or too long",
+    },
     { metric: "artifact_leaks", score: artifactOk ? 1 : 0, reason: artifactOk ? "clean" : "artifact wording present" },
     { metric: "intent_coverage", score: intentOk ? 1 : 0, reason: intentOk ? "covered" : "intent cue missing" },
     { metric: "fail_closed", score: failClosedOk ? 1 : 0, reason: failClosedOk ? "safe" : "did not fail closed" },

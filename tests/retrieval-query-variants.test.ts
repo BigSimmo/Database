@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeClinicalQuery } from "../src/lib/clinical-search";
+import { analyzeClinicalQuery, buildClinicalTextSearchQuery } from "../src/lib/clinical-search";
 import {
   buildRetrievalQueryVariants,
   decideTextFastPath,
@@ -338,6 +338,32 @@ describe("retrieval query variants", () => {
         "table_threshold",
       ),
     ).toMatchObject({ accepted: true, sourceImageSatisfied: true });
+  });
+
+  it("keeps source-image table and ANC terms in the text retrieval query", () => {
+    const textQuery = buildClinicalTextSearchQuery(
+      "Show the source table image for the clozapine ANC monitoring table.",
+    );
+
+    expect(textQuery).toContain("source");
+    expect(textQuery).toContain("image");
+    expect(textQuery).toContain("table");
+    expect(textQuery).toContain("clozapine");
+    expect(textQuery).toContain("anc");
+  });
+
+  it("keeps risk and red-zone flowchart terms in the text retrieval query", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const textQuery = buildClinicalTextSearchQuery(query);
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    expect(textQuery).toContain("risk");
+    expect(textQuery).toContain("red");
+    expect(textQuery).toContain("flowchart");
+    expect(textQuery).toContain("next");
+    expect(textQuery).toContain("step");
+    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone risk flow"]));
+    expect(variants.length).toBeLessThanOrEqual(4);
   });
 
   it("redacts retrieval cache keys while preserving query class and variant uniqueness", () => {
