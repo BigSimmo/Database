@@ -273,6 +273,32 @@ function authenticatedRequest(path: string, init?: RequestInit) {
   });
 }
 
+function authenticatedCookieRequest(path: string, init?: RequestInit) {
+  return request(path, {
+    ...init,
+    headers: {
+      cookie: `sb-access-token=${token}`,
+      ...init?.headers,
+    },
+  });
+}
+
+function authenticatedAuthTokenCookieRequest(path: string, init?: RequestInit) {
+  return request(path, {
+    ...init,
+    headers: {
+      cookie: `sb-random-project-ref-auth-token=${encodeURIComponent(
+        JSON.stringify({
+          access_token: token,
+          refresh_token: "refresh-token",
+          type: "bearer",
+        }),
+      )}`,
+      ...init?.headers,
+    },
+  });
+}
+
 async function payload(response: Response) {
   return (await response.json()) as Record<string, unknown>;
 }
@@ -404,6 +430,36 @@ describe("private document API access", () => {
     expect(client.calls[0].range).toEqual({ from: 0, to: 99 });
   });
 
+  it("accepts legacy Supabase auth cookies for private document access", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedCookieRequest("/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(client.auth.getUser).toHaveBeenCalledWith(token);
+    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+  });
+
+  it("accepts Supabase auth token cookies for private document access", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedAuthTokenCookieRequest("/api/documents"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(client.auth.getUser).toHaveBeenCalledWith(token);
+    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+  });
+
   it("does not return raw internal database errors", async () => {
     const client = createSupabaseMock(() => fail("secret storage path and connection details"));
     mockRuntime(client);
@@ -481,6 +537,35 @@ describe("private document API access", () => {
       }
       if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
         return ok({ id: documentId, metadata: { index_generation_id: "generation-a" } });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.mimeType).toBe("image/png");
+    expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
+  });
+
+  it("allows legacy image signed URLs when parent document generation metadata is missing", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Legacy indexed image",
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
+        return ok({ id: documentId, metadata: {} });
       }
       return ok(null);
     });
@@ -771,6 +856,116 @@ describe("private document API access", () => {
       }),
     ]);
     expect(body.relatedDocuments).toHaveLength(1);
+  });
+
+  it("accepts differentials as a standalone source-library search mode", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_labels") {
+        return ok([
+          {
+            id: "label-1",
+            document_id: documentId,
+            label: "acute confusion",
+            label_type: "topic",
+            source: "generated",
+            confidence: 0.92,
+          },
+        ]);
+      }
+      if (call.table === "document_summaries") {
+        return ok([{ document_id: documentId, summary: "Acute confusion differential guidance." }]);
+      }
+      if (call.table === "document_images") {
+        return ok([]);
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit"
+        ? { data: [rateLimitRow()], error: null }
+        : {
+            data: [
+              {
+                document_id: documentId,
+                labels: [
+                  {
+                    id: "label-1",
+                    document_id: documentId,
+                    label: "acute confusion",
+                    label_type: "topic",
+                    source: "generated",
+                    confidence: 0.92,
+                  },
+                ],
+                summary: "Acute confusion differential guidance.",
+              },
+            ],
+            error: null,
+          },
+    );
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [
+        {
+          id: "chunk-1",
+          document_id: documentId,
+          title: "Acute confusion differential guide",
+          file_name: "acute-confusion-differentials.pdf",
+          page_number: 4,
+          chunk_index: 0,
+          section_heading: "Differentials",
+          content: "Acute confusion differentials include delirium, intoxication, seizure, withdrawal, and hypoxia.",
+          image_ids: [],
+          similarity: 0.9,
+          hybrid_score: 0.93,
+          images: [],
+        },
+      ],
+      telemetry: {
+        retrieval_strategy: "text",
+        search_cache_hit: false,
+        embedding_skipped: true,
+        embedding_cache_hit: false,
+        text_fast_path_latency_ms: 10,
+        embedding_latency_ms: 0,
+        supabase_rpc_latency_ms: 12,
+        rerank_latency_ms: 1,
+      },
+    }));
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "acute confusion after surgery",
+          mode: "differentials",
+          queryMode: "compare_guidance",
+          documentLimit: 10,
+        }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: userId,
+        query: "acute confusion after surgery",
+        queryMode: "compare_guidance",
+        topK: 12,
+      }),
+    );
+    expect(body.documentMatches).toEqual([
+      expect.objectContaining({
+        document_id: documentId,
+        title: "Acute confusion differential guide",
+        bestPages: [4],
+        summarySnippet: "Acute confusion differential guidance.",
+      }),
+    ]);
+    expect(body.relatedDocuments).toHaveLength(1);
+    expect(body.scope).toEqual(expect.objectContaining({ queryMode: "compare_guidance" }));
   });
 
   it("rejects unauthenticated reindex requests", async () => {

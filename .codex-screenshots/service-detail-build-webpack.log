@@ -1,0 +1,5 @@
+▲ Next.js 16.2.9 (webpack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Next.js build worker exited with code: 4294967295 and signal: null

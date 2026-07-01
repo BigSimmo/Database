@@ -35,19 +35,21 @@ export function AnswerEmptyState({
   onPickSample,
   onSearchDocuments,
   onUploadDocument,
+  desktopComposerSlotId,
 }: {
   onPickSample: (sample: string) => void;
   onSearchDocuments: () => void;
   onUploadDocument: () => void;
+  desktopComposerSlotId?: string;
 }) {
   const starterButtonClass = cn(
     floatingControl,
-    "min-h-[64px] flex-col items-start justify-center gap-1.5 rounded-lg px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:min-h-[6.25rem] sm:items-center sm:text-center",
+    "answer-empty-action min-h-[64px] flex-col items-start justify-center gap-1.5 rounded-lg px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:min-h-[6.25rem] sm:items-center sm:text-center",
   );
 
   return (
-    <div className="mx-auto grid w-full max-w-xl place-items-center gap-5 py-8 text-center sm:py-16">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+    <div className="answer-empty-state mx-auto grid w-full max-w-xl place-items-center gap-5 py-8 text-center sm:py-16">
+      <div className="answer-empty-icon grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
         <MessageSquareText className="h-8 w-8" />
       </div>
       <div className="space-y-2">
@@ -56,6 +58,9 @@ export function AnswerEmptyState({
           Ask a clinical question or search your documents.
         </p>
       </div>
+      {desktopComposerSlotId ? (
+        <div id={desktopComposerSlotId} className="hidden w-full max-w-3xl lg:block" />
+      ) : null}
       <section aria-label="Starter actions" className={cn("grid w-full gap-3 sm:grid-cols-3")}>
         <button
           type="button"

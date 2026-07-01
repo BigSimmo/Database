@@ -1,11 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { FileText, Pill, Search, Sparkles, Wrench } from "lucide-react";
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { BrainCircuit, ClipboardList, FileText, Heart, Pill, Search, Sparkles, Wrench } from "lucide-react";
+import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
+import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, sidebarItem } from "@/components/ui-primitives";
 import {
@@ -16,6 +17,7 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import type { ClinicalQueryMode } from "@/lib/types";
 
@@ -32,33 +34,97 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
   documents: FileText,
+  services: FileText,
+  forms: ClipboardList,
+  favourites: Heart,
+  differentials: BrainCircuit,
   prescribing: Pill,
   tools: Wrench,
 };
 
-export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
+type GlobalMockupSearchShellProps = {
+  children: ReactNode;
+  initialMode?: AppModeId;
+  availableModeIds?: readonly AppModeId[];
+};
+
+export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+          <div id="main-content" className="min-h-[calc(100dvh-4rem)] overflow-x-hidden pb-8">
+            {props.children}
+          </div>
+        </div>
+      }
+    >
+      <GlobalMockupSearchShellClient {...props} />
+    </Suspense>
+  );
+}
+
+function GlobalMockupSearchShellClient({
+  children,
+  initialMode = "answer",
+  availableModeIds,
+}: GlobalMockupSearchShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
+  const visibleShellModes = useMemo(() => {
+    const modes = visibleAppModeDefinitions();
+    if (!availableModeIds?.length) return modes;
+    const allowedModeIds = new Set<AppModeId>(availableModeIds);
+    return modes.filter((mode) => allowedModeIds.has(mode.id));
+  }, [availableModeIds]);
+  const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
+  const initialSearchMode = availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
   const [query, setQuery] = useState("");
-  const [searchMode, setSearchMode] = useState<AppModeId>("answer");
+  const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const requestedRun = searchParams.get("run") === "1";
+  const requestedQuery = searchParams.get("q")?.trim() ?? "";
+  const requestedMode = searchParams.get("mode");
+  const searchParamString = searchParams.toString();
+  const dashboardSearchMode =
+    isAppModeId(requestedMode) &&
+    isAppModeVisible(requestedMode) &&
+    (!availableModeIds?.length || availableModeIds.includes(requestedMode))
+      ? requestedMode
+      : initialSearchMode;
+  const shouldRenderDashboardSearch = requestedRun && requestedQuery.length > 0;
+  const isFormsOnlyShell = availableModeIds?.length === 1 && availableModeIds[0] === "forms";
+  const isStandaloneModeHome =
+    !shouldRenderDashboardSearch &&
+    ((searchMode === "services" && pathname === "/services") ||
+      (searchMode === "forms" && pathname === "/forms") ||
+      (searchMode === "favourites" && pathname === "/favourites") ||
+      (searchMode === "differentials" && pathname === "/differentials"));
+  const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const params = new URLSearchParams(window.location.search);
       const requestedMode = params.get("mode");
-      if (isAppModeId(requestedMode) && isAppModeVisible(requestedMode)) setSearchMode(requestedMode);
+      const nextMode =
+        isAppModeId(requestedMode) &&
+        isAppModeVisible(requestedMode) &&
+        (!availableModeIds?.length || availableModeIds.includes(requestedMode))
+          ? requestedMode
+          : initialSearchMode;
+      setSearchMode(nextMode);
 
       const requestedQuery = params.get("q")?.trim();
-      if (requestedQuery) setQuery(requestedQuery);
+      setQuery(requestedQuery ?? "");
 
       if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [availableModeIds, initialSearchMode, pathname, searchParamString]);
 
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
     router.push(appModeHomeHref(mode, options));
@@ -74,16 +140,31 @@ export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
   }
 
   function changeMode(mode: AppModeId) {
+    setQuery("");
     setSearchMode(mode);
     setMobileMenuOpen(false);
-    navigateToMode(mode, { focus: true });
+    navigateToMode(mode);
   }
 
   function startNewChat() {
     setQuery("");
-    setSearchMode("answer");
+    setSearchMode(fallbackMode);
     setMobileMenuOpen(false);
-    navigateToMode("answer", { focus: true });
+    navigateToMode(fallbackMode, { focus: true });
+  }
+
+  if (shouldRenderDashboardSearch && dashboardSearchMode === "forms" && isFormsOnlyShell) {
+    return <FormsSearchResultsPage query={requestedQuery} focusSearch={searchParams.get("focus") === "1"} />;
+  }
+
+  if (shouldRenderDashboardSearch) {
+    return (
+      <ClinicalDashboard
+        initialSearchMode={dashboardSearchMode}
+        initialQuery={requestedQuery}
+        focusSearch={searchParams.get("focus") === "1"}
+      />
+    );
   }
 
   return (
@@ -101,7 +182,6 @@ export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
         queryMode={queryMode}
         scopeFilters={scopeFilters}
         realDataReady
-        theme={theme}
         onQueryChange={setQuery}
         onSearchModeChange={changeMode}
         onAsk={submitSearch}
@@ -114,18 +194,28 @@ export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
         onOpenEvidence={() => navigateToMode("answer", { focus: true })}
         onNewChat={startNewChat}
         onOpenMobileSidebar={() => setMobileMenuOpen(true)}
-        onOpenSettings={() => setMobileMenuOpen(true)}
-        identity={{ displayName: "Guest", initials: "G", detail: "Not signed in", signedIn: false }}
-        onToggleTheme={toggleTheme}
         queryModeOptions={mockupQueryModeOptions}
-        scopeVariant="placeholder"
         queryInputRef={inputRef}
-        modeAlignment="center"
+        headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
+        modeAlignment={isDifferentialPresentationWorkflow ? "default" : "center"}
+        mobileSearchPlacement="bottom"
+        searchComposerVisible={!isDifferentialPresentationWorkflow}
+        workflowCopyText={
+          isDifferentialPresentationWorkflow
+            ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
+            : undefined
+        }
+        desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
       />
 
       <div
         id="main-content"
-        className="min-h-[calc(100dvh-4rem)] overflow-x-hidden pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
+        className={cn(
+          "min-h-[calc(100dvh-4rem)] overflow-x-hidden",
+          searchMode === "answer"
+            ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
+            : "pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-8",
+        )}
       >
         {children}
       </div>
@@ -140,7 +230,7 @@ export function GlobalMockupSearchShell({ children }: { children: ReactNode }) {
         contentClassName="max-w-[min(20rem,calc(100vw-1rem))]"
       >
         <nav aria-label="Clinical Guide workspaces" className="grid gap-1">
-          {visibleAppModeDefinitions().map((mode) => {
+          {visibleShellModes.map((mode) => {
             const Icon = appModeIcons[mode.id];
             const active = mode.id === searchMode;
             const modeDefinition = appModeDefinition(mode.id);

@@ -519,7 +519,8 @@ function MedicationHome({
   apiUnavailable,
   setupWarning,
   onSuggestedSearch,
-}: Omit<MedicationPrescribingWorkspaceProps, "query">) {
+  desktopComposerSlotId,
+}: Omit<MedicationPrescribingWorkspaceProps, "query"> & { desktopComposerSlotId?: string }) {
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-17rem)] w-full max-w-4xl flex-col items-center gap-5 px-1 pb-8 pt-[clamp(3rem,8vh,6.5rem)] sm:gap-6">
       <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
@@ -533,6 +534,10 @@ function MedicationHome({
           Search a medication or prescribing question.
         </p>
       </div>
+
+      {desktopComposerSlotId ? (
+        <div id={desktopComposerSlotId} className="hidden w-full max-w-3xl lg:block" />
+      ) : null}
 
       <CapabilityGrid />
 
@@ -1404,10 +1409,12 @@ export function MedicationPrescribingWorkspace({
   apiUnavailable,
   setupWarning,
   onSuggestedSearch,
-}: MedicationPrescribingWorkspaceProps) {
+  showHome = false,
+  desktopComposerSlotId,
+}: MedicationPrescribingWorkspaceProps & { showHome?: boolean; desktopComposerSlotId?: string }) {
   const trimmedQuery = query.trim();
 
-  if (!trimmedQuery) {
+  if (!trimmedQuery || showHome) {
     return (
       <MedicationHome
         loading={loading}
@@ -1416,6 +1423,7 @@ export function MedicationPrescribingWorkspace({
         apiUnavailable={apiUnavailable}
         setupWarning={setupWarning}
         onSuggestedSearch={onSuggestedSearch}
+        desktopComposerSlotId={desktopComposerSlotId}
       />
     );
   }

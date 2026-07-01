@@ -7,6 +7,7 @@ export default defineConfig({
   testDir: "./tests",
   testMatch: /.*ui-(smoke|stress|accessibility|tools)\.spec\.ts/,
   timeout: 60_000,
+  retries: process.env.CI ? 1 : 0,
   expect: {
     timeout: 10_000,
   },

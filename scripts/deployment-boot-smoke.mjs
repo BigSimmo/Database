@@ -27,6 +27,7 @@ const pollDelayMs = parsePositiveInt("DEPLOY_SMOKE_POLL_DELAY_MS", 1000);
 const logRoot = mkdtempSync(resolve(tmpdir(), "clinical-kb-deploy-smoke-"));
 const logPath = resolve(logRoot, "deploy-smoke.log");
 const nextBin = resolve(projectRoot, "node_modules", "next", "dist", "bin", "next");
+const requiredProductionEnv = ["SUPABASE_SERVICE_ROLE_KEY", "OPENAI_API_KEY"];
 
 if (!existsSync(nextBin)) {
   throw new Error(`Next.js binary not found at: ${nextBin}`);
@@ -50,6 +51,18 @@ function dumpLogTail() {
 
 function formatFailureMessage(error) {
   return error instanceof Error ? error.message : `Deployment boot smoke failed: ${String(error)}`;
+}
+
+function missingRequiredProductionEnv() {
+  return requiredProductionEnv.filter((name) => !process.env[name]?.trim());
+}
+
+function cleanupLogRoot() {
+  try {
+    rmSync(logRoot, { force: true, recursive: true });
+  } catch {
+    // best-effort cleanup
+  }
 }
 
 async function stopServer(child, logStream) {
@@ -84,6 +97,15 @@ async function stopServer(child, logStream) {
 }
 
 async function bootSmoke() {
+  const missingEnv = missingRequiredProductionEnv();
+  if (missingEnv.length > 0) {
+    throw new Error(
+      `Deployment boot smoke requires production server env: ${missingEnv.join(
+        ", ",
+      )}. Configure GitHub Actions secrets for release/main deployment checks or skip this smoke outside those contexts.`,
+    );
+  }
+
   const logStream = createWriteStream(logPath, { flags: "a", encoding: "utf8" });
   let spawnError = null;
   const child = spawn(
@@ -170,6 +192,7 @@ async function bootSmoke() {
     throw lastError ?? new Error("Deployment boot smoke timed out.");
   } finally {
     await stopServer(child, logStream);
+<<<<<<< Updated upstream
   }
 }
 
@@ -178,6 +201,8 @@ function cleanupLogRoot() {
     rmSync(logRoot, { force: true, recursive: true });
   } catch {
     // best-effort cleanup
+=======
+>>>>>>> Stashed changes
   }
 }
 
@@ -187,7 +212,11 @@ try {
   process.exit(0);
 } catch (error) {
   console.error(formatFailureMessage(error));
+<<<<<<< Updated upstream
   dumpLogTail(); // log still exists here — cleanup happens after the dump
+=======
+  dumpLogTail();
+>>>>>>> Stashed changes
   cleanupLogRoot();
   process.exit(1);
 }

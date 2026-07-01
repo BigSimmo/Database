@@ -41,7 +41,17 @@ type SecondaryFacet = {
   label: string;
   label_type: Extract<
     DocumentLabelType,
-    "population" | "setting" | "service" | "topic" | "workflow" | "medication" | "risk"
+    | "population"
+    | "setting"
+    | "service"
+    | "topic"
+    | "workflow"
+    | "medication"
+    | "risk"
+    | "clinical_action"
+    | "care_phase"
+    | "document_intent"
+    | "content_feature"
   >;
 };
 
@@ -354,6 +364,7 @@ const documentTypePatterns: Array<{
       /\bprint ready pi\b/i,
       /\bconsumer info\b/i,
       /\bbooklet\b/i,
+      /\bbrochure\b/i,
       /\bflyer\b/i,
       /\bposter\b/i,
       /\btips?\s+for\b/i,
@@ -380,10 +391,14 @@ const secondaryFacetLimits: Record<keyof DocumentOrganizationProfile["secondary_
   population: 2,
   setting: 2,
   service: 2,
-  topic: 4,
+  topic: 6,
   workflow: 2,
   medication: 3,
   risk: 2,
+  clinical_action: 3,
+  care_phase: 2,
+  document_intent: 2,
+  content_feature: 2,
 };
 
 const smartFacetRules: SmartFacetRule[] = [
@@ -835,6 +850,265 @@ const smartFacetRules: SmartFacetRule[] = [
   },
 
   // Workflow, document intent, care phase, and audience
+  {
+    label: "assess",
+    label_type: "clinical_action",
+    strong: [/\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination)\b/i],
+    body: [/\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "prescribe",
+    label_type: "clinical_action",
+    strong: [/\b(?:prescrib|dose|dosing|medication order|standing drug guideline|sdg\b|drug guideline)\b/i],
+  },
+  {
+    label: "administer",
+    label_type: "clinical_action",
+    strong: [/\b(?:administer|administration|infusions?|eye drops?|medication administration)\b/i],
+  },
+  {
+    label: "monitor",
+    label_type: "clinical_action",
+    strong: [/\b(?:monitor|monitoring|baseline test|ongoing test)\b/i],
+  },
+  {
+    label: "escalate",
+    label_type: "clinical_action",
+    strong: [/\b(?:escalat|urgent review|senior review|notify consultant)\b/i],
+  },
+  {
+    label: "refer",
+    label_type: "clinical_action",
+    strong: [/\b(?:refer|referral)\b/i],
+    body: [/\b(?:refer|referral)\b/i],
+    minBodyMatches: 3,
+  },
+  { label: "admit", label_type: "clinical_action", strong: [/\b(?:admit|admission|pre-admission)\b/i] },
+  { label: "discharge", label_type: "clinical_action", strong: [/\b(?:discharge|post-discharge)\b/i] },
+  { label: "transfer", label_type: "clinical_action", strong: [/\b(?:transfer|transport|escort)\b/i] },
+  { label: "observe", label_type: "clinical_action", strong: [/\b(?:observe|observation|special)\b/i] },
+  {
+    label: "document",
+    label_type: "clinical_action",
+    strong: [/\b(?:document|documentation|record in)\b/i],
+    body: [/\b(?:documentation|record in)\b/i],
+    minBodyMatches: 3,
+  },
+  { label: "notify", label_type: "clinical_action", strong: [/\b(?:notify|notification|report to)\b/i] },
+  {
+    label: "review",
+    label_type: "clinical_action",
+    strong: [/\b(?:review|reassess|follow up|follow-up)\b/i],
+    body: [/\b(?:review|reassess|follow up|follow-up)\b/i],
+    minBodyMatches: 3,
+  },
+  { label: "de-escalate", label_type: "clinical_action", strong: [/\b(?:de-escalat|deescalat)\b/i] },
+
+  {
+    label: "initial-assessment",
+    label_type: "care_phase",
+    strong: [/\b(?:initial assessment|first assessment|intake|entry protocol|screening)\b/i],
+  },
+  {
+    label: "acute-management",
+    label_type: "care_phase",
+    strong: [/\b(?:acute management|acute care|urgent management|emergency management)\b/i],
+  },
+  {
+    label: "crisis-response",
+    label_type: "care_phase",
+    strong: [/\b(?:crisis response|crisis plan|code black|duress|emergency response)\b/i],
+  },
+  {
+    label: "ongoing-management",
+    label_type: "care_phase",
+    strong: [/\b(?:ongoing management|continuing care|ongoing monitoring|case management)\b/i],
+  },
+  {
+    label: "maintenance-treatment",
+    label_type: "care_phase",
+    strong: [/\b(?:maintenance treatment|maintenance therapy|long term treatment|long-term treatment)\b/i],
+  },
+  {
+    label: "discharge-planning",
+    label_type: "care_phase",
+    strong: [/\b(?:discharge planning|discharge|post-discharge)\b/i],
+  },
+  {
+    label: "post-discharge-follow-up",
+    label_type: "care_phase",
+    strong: [/\b(?:post-discharge follow-up|post discharge follow up|follow-up after discharge)\b/i],
+  },
+
+  {
+    label: "clinical-instruction",
+    label_type: "document_intent",
+    strong: [/\b(?:guideline|procedure|protocol|qrg\b|quick reference guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline)\b/i],
+  },
+  {
+    label: "decision-support",
+    label_type: "document_intent",
+    strong: [/\b(?:algorithm|flowchart|decision tree|criteria|threshold|diagnos|diagnosis)\b/i],
+  },
+  {
+    label: "patient-information",
+    label_type: "document_intent",
+    strong: [/\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|for patients)\b/i],
+  },
+  {
+    label: "staff-guidance",
+    label_type: "document_intent",
+    strong: [/\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|orientation|training|education|competenc|whs\b|work health and safety)\b/i],
+  },
+  {
+    label: "legal-governance",
+    label_type: "document_intent",
+    strong: [/\b(?:policy|legal|governance|mental health act|rights|confidentiality|privacy|information sharing)\b/i],
+  },
+  {
+    label: "operational-process",
+    label_type: "document_intent",
+    strong: [/\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|management sop|roles? and responsibilities)\b/i],
+  },
+  {
+    label: "documentation-requirement",
+    label_type: "document_intent",
+    strong: [/\b(?:documentation|record in|form required|documented in)\b/i],
+  },
+  {
+    label: "medication-instruction",
+    label_type: "document_intent",
+    strong: [/\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|permethrin)\b/i],
+  },
+
+  { label: "contains-table", label_type: "content_feature", strong: [/\b(?:table|matrix|schedule)\b/i] },
+  {
+    label: "contains-flowchart",
+    label_type: "content_feature",
+    strong: [/\b(?:flowchart|algorithm|decision tree)\b/i],
+  },
+  { label: "contains-form", label_type: "content_feature", strong: [/\b(?:form|request form|referral form)\b/i] },
+  {
+    label: "contains-dosage-guidance",
+    label_type: "content_feature",
+    strong: [/\b(?:dose|dosing|dosage|nomogram|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?)\b/i],
+  },
+  {
+    label: "contains-monitoring-schedule",
+    label_type: "content_feature",
+    strong: [/\b(?:monitoring schedule|baseline test|ongoing test|blood test)\b/i],
+    body: [/\b(?:monitoring schedule|baseline test|ongoing test|blood test)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "contains-referral-criteria",
+    label_type: "content_feature",
+    strong: [/\b(?:referral criteria|eligibility criteria|inclusion criteria|exclusion criteria)\b/i],
+  },
+  {
+    label: "contains-escalation-criteria",
+    label_type: "content_feature",
+    strong: [/\b(?:escalation criteria|urgent review|red flag|notify consultant)\b/i],
+  },
+  {
+    label: "contains-legal-criteria",
+    label_type: "content_feature",
+    strong: [/\b(?:legal criteria|statutory criteria|mental health act criteria)\b/i],
+  },
+
+  {
+    label: "mental-state-examination",
+    label_type: "topic",
+    strong: [/\b(?:mental state examination|mse\b)\b/i],
+    body: [/\b(?:mental state examination|mse\b)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "risk-formulation",
+    label_type: "topic",
+    strong: [/\b(?:risk formulation|formulate risk|risk formulation)\b/i],
+    body: [/\b(?:risk formulation|formulate risk)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "safety-plan",
+    label_type: "topic",
+    strong: [/\b(?:safety plan|safety planning)\b/i],
+    body: [/\b(?:safety plan|safety planning)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "crisis-plan",
+    label_type: "topic",
+    strong: [/\b(?:crisis plan|crisis response plan)\b/i],
+    body: [/\b(?:crisis plan|crisis response plan)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "capacity-assessment",
+    label_type: "topic",
+    strong: [/\b(?:capacity assessment|decision making capacity)\b/i],
+    body: [/\b(?:capacity assessment|decision making capacity)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "involuntary-treatment",
+    label_type: "topic",
+    strong: [/\b(?:involuntary treatment|involuntary patient|detention under the mental health act)\b/i],
+    body: [/\b(?:involuntary treatment|involuntary patient|detention under the mental health act)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "community-treatment-order",
+    label_type: "topic",
+    strong: [/\b(?:community treatment order|cto\b)\b/i],
+    body: [/\b(?:community treatment order|cto\b)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "seclusion-review",
+    label_type: "topic",
+    strong: [/\b(?:seclusion review|seclusion episode)\b/i],
+    body: [/\b(?:seclusion review|seclusion episode)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "restraint-review",
+    label_type: "topic",
+    strong: [/\b(?:restraint review|physical restraint|mechanical restraint)\b/i],
+    body: [/\b(?:restraint review|physical restraint|mechanical restraint)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "substance-withdrawal",
+    label_type: "topic",
+    strong: [/\b(?:withdrawal|alcohol withdrawal|substance withdrawal)\b/i],
+    body: [/\b(?:withdrawal|alcohol withdrawal|substance withdrawal)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "intoxication",
+    label_type: "topic",
+    strong: [/\b(?:intoxication|intoxicated|drug affected)\b/i],
+    body: [/\b(?:intoxication|intoxicated|drug affected)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "acute-psychosis",
+    label_type: "topic",
+    strong: [/\b(?:acute psychosis|first episode psychosis|psychotic episode)\b/i],
+    body: [/\b(?:acute psychosis|first episode psychosis|psychotic episode)\b/i],
+    minBodyMatches: 1,
+  },
+  {
+    label: "mood-episode",
+    label_type: "topic",
+    strong: [/\b(?:mood episode|mania|manic episode|depressive episode)\b/i],
+    body: [/\b(?:mood episode|mania|manic episode|depressive episode)\b/i],
+    minBodyMatches: 1,
+  },
+
   {
     label: "assessment",
     label_type: "workflow",
@@ -1404,7 +1678,19 @@ function classifyDocumentType(input: OrganizationDocumentInput): DocumentOrganiz
 }
 
 function emptySecondaryFacets(): DocumentOrganizationProfile["secondary_facets"] {
-  return { population: [], setting: [], service: [], topic: [], workflow: [], medication: [], risk: [] };
+  return {
+    population: [],
+    setting: [],
+    service: [],
+    topic: [],
+    workflow: [],
+    medication: [],
+    risk: [],
+    clinical_action: [],
+    care_phase: [],
+    document_intent: [],
+    content_feature: [],
+  };
 }
 
 function countPatternMatches(text: string, pattern: RegExp) {
@@ -1453,7 +1739,34 @@ function secondaryFacets(rawTags: string[], titleText: string, sourceText: strin
     workflow: uniqueStrings(facets.workflow),
     medication: uniqueStrings(facets.medication),
     risk: uniqueStrings(facets.risk),
+    clinical_action: uniqueStrings(facets.clinical_action),
+    care_phase: uniqueStrings(facets.care_phase),
+    document_intent: uniqueStrings(facets.document_intent),
+    content_feature: uniqueStrings(facets.content_feature),
   };
+}
+
+function secondaryFacetConfidence(label_type: DocumentLabelType, label: string) {
+  const broadLabels = new Set([
+    "clinical-risk",
+    "mental-health",
+    "inpatient",
+    "assessment",
+    "monitoring",
+    "physical-health-care",
+    "admission-waitlist-bed-access",
+  ]);
+  if (broadLabels.has(label)) return 0.64;
+  if (label_type === "medication") return 0.84;
+  if (label_type === "topic") return 0.8;
+  if (label_type === "risk") return 0.76;
+  if (label_type === "clinical_action") return 0.74;
+  if (label_type === "care_phase") return 0.72;
+  if (label_type === "document_intent") return 0.7;
+  if (label_type === "content_feature") return 0.68;
+  if (label_type === "population" || label_type === "setting" || label_type === "service") return 0.76;
+  if (label_type === "workflow") return 0.7;
+  return 0.72;
 }
 
 function profileLabels(profile: DocumentOrganizationProfile): OrganizationGeneratedLabel[] {
@@ -1470,7 +1783,8 @@ function profileLabels(profile: DocumentOrganizationProfile): OrganizationGenera
   for (const [label_type, values] of Object.entries(profile.secondary_facets) as Array<
     [Exclude<DocumentLabelType, "site" | "document_type" | "custom">, string[]]
   >) {
-    for (const label of values) labels.push({ label, label_type, confidence: 0.78 });
+    for (const label of values)
+      labels.push({ label, label_type, confidence: secondaryFacetConfidence(label_type, label) });
   }
   return labels;
 }

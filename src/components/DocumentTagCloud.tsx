@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, ListChecks, ShieldAlert, Sparkles, Tag, Target, Users } from "lucide-react";
+import { Clock3, FileText, ListChecks, ShieldAlert, Sparkles, Tag, Target, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   buildSmartDocumentTags,
@@ -33,6 +33,10 @@ const groupIcon: Record<SmartDocumentTagGroup, typeof Tag> = {
   Setting: FileText,
   Service: Sparkles,
   "Document type": FileText,
+  "Clinical action": ListChecks,
+  "Care phase": Clock3,
+  "Document intent": Sparkles,
+  "Content feature": FileText,
   Manual: Sparkles,
 };
 
@@ -46,6 +50,10 @@ const groupTone: Record<SmartDocumentTagGroup, string> = {
   Setting: "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   Service: "border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] text-[color:var(--primary)]",
   "Document type": "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+  "Clinical action": "border-[color:var(--info)]/30 bg-[color:var(--info-soft)]/50 text-[color:var(--info)]",
+  "Care phase": "border-[color:var(--success)]/25 bg-[color:var(--success-soft)]/40 text-[color:var(--success)]",
+  "Document intent": "border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] text-[color:var(--primary)]",
+  "Content feature": "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   Manual: "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
 };
 

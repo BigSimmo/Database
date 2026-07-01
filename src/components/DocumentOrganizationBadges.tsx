@@ -61,6 +61,8 @@ export function DocumentOrganizationBadges({
     typeof profile?.site?.label === "string" && profile.site.label.trim()
       ? profile.site.label
       : labelFromLabels(document.labels, "site")?.label;
+  const siteShortLabel =
+    typeof profile?.site?.short_label === "string" && profile.site.short_label.trim() ? profile.site.short_label : null;
   const typeLabel =
     typeof profile?.document_type?.label === "string" && profile.document_type.label !== "unknown"
       ? profile.document_type.label
@@ -77,7 +79,7 @@ export function DocumentOrganizationBadges({
       {siteLabel ? (
         <span className={cn(metadataPill, toneInfo, sizeClass)} title="Hospital or service site">
           <Building2 className="mr-1 h-3.5 w-3.5" />
-          {displayLabel(siteLabel)}
+          {compact && siteShortLabel ? siteShortLabel : displayLabel(siteLabel)}
         </span>
       ) : needsReview && candidateCount > 0 ? (
         <span className={cn(metadataPill, toneWarning, sizeClass)} title="Site candidate needs review">

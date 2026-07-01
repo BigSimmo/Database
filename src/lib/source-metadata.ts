@@ -48,7 +48,7 @@ export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
   if (status === "current") return "Current source";
   if (status === "review_due") return "Review due";
   if (status === "outdated") return "Outdated source";
-  return "Source status unknown";
+  return "Review status unknown";
 }
 
 export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) {
@@ -80,7 +80,7 @@ export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null
 export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null) {
   const source = metadata ?? normalizeSourceMetadata(null);
   return [
-    `Source status: ${sourceStatusLabel(source)}`,
+    `Review status: ${sourceStatusLabel(source)}`,
     `Validation: ${validationStatusLabel(source)}`,
     `Review date: ${formatClinicalDate(source.review_date)}`,
     `Jurisdiction: ${source.jurisdiction ?? "Unknown"}`,
