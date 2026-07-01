@@ -387,22 +387,33 @@ function MobileResultCard({
   );
 }
 
-function BestAnswerCard({ best }: { best: DifferentialResult }) {
+function BestAnswerCard({
+  best,
+  selected,
+  onToggle,
+}: {
+  best: DifferentialResult;
+  selected?: boolean;
+  onToggle?: () => void;
+}) {
   const Icon = best.icon;
 
   return (
     <section className="rounded-lg border border-rose-200 bg-rose-50/55 p-4 shadow-[var(--shadow-inset)]">
-      <div className="flex items-start gap-3">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-rose-200 bg-white text-rose-600">
-          <Icon className="h-8 w-8 stroke-[1.8]" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
-          <h2 className="mt-1 text-lg font-extrabold leading-6 text-[color:var(--text-heading)]">{best.title}</h2>
-          <div className="mt-2">
-            <StatusBadge status={best.status} />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-rose-200 bg-white text-rose-600">
+            <Icon className="h-8 w-8 stroke-[1.8]" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
+            <h2 className="mt-1 text-lg font-extrabold leading-6 text-[color:var(--text-heading)]">{best.title}</h2>
+            <div className="mt-2">
+              <StatusBadge status={best.status} />
+            </div>
           </div>
         </div>
+        {onToggle ? <SelectionToggle selected={Boolean(selected)} onClick={onToggle} label={best.title} /> : null}
       </div>
       <p className="mt-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{best.subtitle}</p>
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -623,28 +634,37 @@ function SearchResultsView({
           </div>
 
           <div className="grid gap-2 lg:hidden">
-            <BestAnswerCard best={best} />
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {["All (8)", "Diagnosis (6)", "Mimics (2)"].map((label, index) => (
+            <BestAnswerCard
+              best={best}
+              selected={selectedIds.has(best.id)}
+              onToggle={() => toggleSelected(best.id)}
+            />
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
+              {[
+                { label: "All (8)", compact: "All" },
+                { label: "Diagnosis (6)", compact: "Dx (6)" },
+                { label: "Mimics (2)", compact: "Mimics" },
+              ].map((item, index) => (
                 <button
-                  key={label}
+                  key={item.label}
                   type="button"
                   className={cn(
-                    "min-h-9 shrink-0 rounded-lg border px-2.5 text-xs font-bold min-[370px]:text-sm",
+                    "min-h-9 min-w-0 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
                     index === 0
                       ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-white"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
                   )}
                 >
-                  {label}
+                  <span className="hidden min-[360px]:inline">{item.label}</span>
+                  <span className="min-[360px]:hidden">{item.compact}</span>
                 </button>
               ))}
               <button
                 type="button"
-                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-heading)] min-[370px]:text-sm"
+                className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
               >
                 <ListFilter className="h-4 w-4" aria-hidden />
-                Filters
+                <span className="hidden min-[360px]:inline">Filters</span>
               </button>
             </div>
             <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">

@@ -40,6 +40,7 @@ import {
   Sparkles,
   Sun,
   AlertCircle,
+  ArrowLeft,
   X,
   Lock,
   Wrench,
@@ -173,6 +174,8 @@ export function MasterSearchHeader({
   searchComposerVisible = true,
   workflowCopyText,
   desktopHomeComposerSlotId,
+  mobileLeadingAction = "menu",
+  onMobileBack,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -212,6 +215,8 @@ export function MasterSearchHeader({
   searchComposerVisible?: boolean;
   workflowCopyText?: string;
   desktopHomeComposerSlotId?: string;
+  mobileLeadingAction?: "menu" | "back";
+  onMobileBack?: () => void;
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -301,6 +306,7 @@ export function MasterSearchHeader({
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const isStandaloneModeHomeHeader = Boolean(desktopHomeComposerSlotId);
+  const useMobileBackControl = mobileLeadingAction === "back";
   const homeHeaderTitle =
     searchMode === "services"
       ? "Services Navigator"
@@ -1036,14 +1042,14 @@ export function MasterSearchHeader({
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={onOpenMobileSidebar}
+              onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
               className={cn(
                 "universal-header-icon-control h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 isWorkflowHeader ? "grid" : "grid lg:hidden",
               )}
-              aria-label="Open Clinical Guide menu"
+              aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
             >
-              <Menu className="h-5 w-5" />
+              {useMobileBackControl ? <ArrowLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             {isStandaloneModeHomeHeader ? (
               <div className="hidden min-w-0 items-center gap-3 lg:flex">

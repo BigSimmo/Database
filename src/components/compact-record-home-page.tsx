@@ -92,7 +92,7 @@ export function CompactRecordHomePage({
 
         <section
           aria-label={tasksLabel}
-          className="w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)]"
+          className="w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] lg:mt-6"
         >
           {taskCards.map((card, index) => {
             const CardIcon = card.icon;

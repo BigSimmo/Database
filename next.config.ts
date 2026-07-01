@@ -40,6 +40,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  experimental: {
+    webpackBuildWorker: false,
+  },
   poweredByHeader: false,
   turbopack: {
     root: projectRoot,

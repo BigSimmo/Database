@@ -94,15 +94,15 @@ function GlobalMockupSearchShellClient({
   const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
   const initialSearchMode =
     availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
-  const [query, setQuery] = useState("");
+  const requestedRun = searchParams.get("run") === "1";
+  const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
+  const requestedMode = searchParams.get("mode");
+  const searchParamString = searchParams.toString();
+  const [query, setQuery] = useState(requestedQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const requestedRun = searchParams.get("run") === "1";
-  const requestedQuery = searchParams.get("q")?.trim() ?? "";
-  const requestedMode = searchParams.get("mode");
-  const searchParamString = searchParams.toString();
   const dashboardSearchMode =
     isAppModeId(requestedMode) &&
     isAppModeVisible(requestedMode) &&
@@ -131,7 +131,7 @@ function GlobalMockupSearchShellClient({
           : initialSearchMode;
       setSearchMode(nextMode);
 
-      const requestedQuery = params.get("q")?.trim();
+      const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
       setQuery(requestedQuery ?? "");
 
       if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
@@ -208,6 +208,13 @@ function GlobalMockupSearchShellClient({
         onOpenEvidence={() => navigateToMode("answer", { focus: true })}
         onNewChat={startNewChat}
         onOpenMobileSidebar={() => setMobileMenuOpen(true)}
+        mobileLeadingAction={
+          pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
+        }
+        onMobileBack={() => {
+          setQuery("");
+          navigateToMode(searchMode, { focus: true });
+        }}
         queryModeOptions={mockupQueryModeOptions}
         queryInputRef={inputRef}
         headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
