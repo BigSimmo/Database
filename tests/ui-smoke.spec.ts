@@ -487,8 +487,8 @@ async function openGuide(page: Page) {
     viewport && viewport.width >= 1024
       ? page.locator("button:visible").filter({ hasText: "Guide & help" }).first()
       : null;
-    const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
-    if (trigger) {
+  const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
+  if (trigger) {
     await expect(trigger).toBeVisible();
     await expect(trigger).toBeEnabled();
     await expect(async () => {
@@ -546,10 +546,10 @@ async function openDailyActions(page: Page) {
   const menu = page.getByTestId("daily-actions-menu");
 
   await expect(trigger).toBeVisible();
-    await expect(trigger).toBeEnabled();
-    await expect(async () => {
-      if (await menu.isVisible().catch(() => false)) return;
-      await trigger.click();
+  await expect(trigger).toBeEnabled();
+  await expect(async () => {
+    if (await menu.isVisible().catch(() => false)) return;
+    await trigger.click();
     await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
   }).toPass({ timeout: 20_000 });
 
@@ -619,7 +619,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSettingsSurface(settings);
   });
 
-  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({ page }) => {
+  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -652,7 +654,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(settings).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(settings).toBeHidden();
-
   });
 
   test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {

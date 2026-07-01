@@ -110,15 +110,7 @@ function nodeLabel(node: SelectedNode, record: DifferentialRecord) {
   return node === "diagnosis" ? record.title : node.label;
 }
 
-function NodeBadge({
-  label,
-  selected,
-  className,
-}: {
-  label: string;
-  selected?: boolean;
-  className?: string;
-}) {
+function NodeBadge({ label, selected, className }: { label: string; selected?: boolean; className?: string }) {
   return (
     <span
       className={cn(
@@ -137,7 +129,10 @@ function NodeBadge({
 function MapLegend({ compact = false }: { compact?: boolean }) {
   const entries: Array<{ label: string; className: string }> = [
     { label: "Most likely", className: "bg-[color:var(--clinical-chat-teal)]" },
-    { label: "Possible", className: "bg-[color:var(--clinical-chat-teal-soft)] border border-[color:var(--clinical-chat-teal)]/20" },
+    {
+      label: "Possible",
+      className: "bg-[color:var(--clinical-chat-teal-soft)] border border-[color:var(--clinical-chat-teal)]/20",
+    },
     { label: "Less likely", className: "bg-[color:var(--surface-subtle)] border border-[color:var(--border)]" },
     { label: "Must-not-miss", className: "bg-[color:var(--danger)]" },
   ];
@@ -182,9 +177,7 @@ function MapGraph({
   onPointerMove?: (event: PointerEvent<HTMLDivElement>) => void;
   onPointerUp?: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
-  const visibleNodes = filtered
-    ? record.related.filter((node) => node.likelihood === "must-not-miss")
-    : record.related;
+  const visibleNodes = filtered ? record.related.filter((node) => node.likelihood === "must-not-miss") : record.related;
 
   return (
     <div
@@ -335,7 +328,9 @@ function NodeDetails({
             Must-not-miss
           </p>
           <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            {selectedIsDiagnosis ? (riskSection?.summary ?? record.safetySnapshot.summary) : record.safetySnapshot.summary}
+            {selectedIsDiagnosis
+              ? (riskSection?.summary ?? record.safetySnapshot.summary)
+              : record.safetySnapshot.summary}
           </p>
         </div>
       </div>
@@ -360,11 +355,7 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
   const [pan, setPan] = useState<ActivePoint>({ x: 0, y: 0 });
   const [filtered, setFiltered] = useState(false);
   const [addedIds, setAddedIds] = useState<string[]>([]);
-  const isLargeScreen = useSyncExternalStore(
-    subscribeLargeScreen,
-    getLargeScreenSnapshot,
-    getServerScreenSnapshot,
-  );
+  const isLargeScreen = useSyncExternalStore(subscribeLargeScreen, getLargeScreenSnapshot, getServerScreenSnapshot);
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const activePointers = useRef(new Map<number, ActivePoint>());
   const lastPointer = useRef<ActivePoint | null>(null);
@@ -551,11 +542,19 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
           <div className="shrink-0 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 lg:col-span-2">
             <div className="grid gap-3">
               <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                <button type="button" onClick={resetView} className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]">
+                <button
+                  type="button"
+                  onClick={resetView}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+                >
                   <Maximize2 className="h-4 w-4" aria-hidden />
                   Fit all
                 </button>
-                <button type="button" onClick={focusSelected} className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]">
+                <button
+                  type="button"
+                  onClick={focusSelected}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+                >
                   <Crosshair className="h-4 w-4" aria-hidden />
                   Focus
                 </button>

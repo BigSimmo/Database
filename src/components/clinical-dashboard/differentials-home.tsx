@@ -212,15 +212,7 @@ function Chip({ children }: { children: string }) {
   );
 }
 
-function SelectionToggle({
-  selected,
-  onClick,
-  label,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  label: string;
-}) {
+function SelectionToggle({ selected, onClick, label }: { selected: boolean; onClick: () => void; label: string }) {
   return (
     <button
       type="button"
@@ -294,7 +286,9 @@ function DesktopResultRow({
           </Link>
           <StatusBadge status={result.status} />
         </div>
-        <p className="mt-1 line-clamp-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">{result.subtitle}</p>
+        <p className="mt-1 line-clamp-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+          {result.subtitle}
+        </p>
         <div className="mt-2 flex max-w-full flex-wrap gap-1.5">
           {result.tags.slice(0, 4).map((tag) => (
             <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
@@ -366,7 +360,10 @@ function MobileResultCard({
         </Link>
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <Link href={result.href} className="min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+            <Link
+              href={result.href}
+              className="min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
+            >
               <span className="line-clamp-2">{result.title}</span>
             </Link>
             <StatusBadge status={result.status} />
@@ -377,7 +374,9 @@ function MobileResultCard({
         </div>
         <SelectionToggle selected={selected} onClick={onToggle} label={result.title} />
       </div>
-      {isBest ? <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{result.subtitle}</p> : null}
+      {isBest ? (
+        <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{result.subtitle}</p>
+      ) : null}
       <div className="flex max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, isBest ? 4 : 2).map((tag) => (
           <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
@@ -472,7 +471,9 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Highest urgency</h2>
+      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+        Highest urgency
+      </h2>
       <div className="mt-3 grid gap-2">
         {urgentResults.map((result, index) => (
           <Link
@@ -495,7 +496,9 @@ function SourceStatusCard({ sourceCount }: { sourceCount: number }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Source status</h2>
+      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+        Source status
+      </h2>
       <div className="mt-3 grid gap-2 text-sm font-bold">
         <p className="flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 text-[color:var(--clinical-chat-teal)]">

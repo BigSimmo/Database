@@ -137,11 +137,7 @@ function FormsSidebar() {
   );
 }
 
-function DesktopTopBar({
-  onSearch,
-}: {
-  onSearch: (query: string) => void;
-}) {
+function DesktopTopBar({ onSearch }: { onSearch: (query: string) => void }) {
   const [headerQuery, setHeaderQuery] = useState("");
 
   function submitHeaderSearch(event: FormEvent<HTMLFormElement>) {
@@ -196,7 +192,11 @@ function MobileTopBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#dfe8ed] bg-gradient-to-r from-[#005853] to-[#00796f] px-4 pb-3 pt-[calc(0.8rem+env(safe-area-inset-top))] text-white lg:hidden">
       <div className="flex min-h-12 items-center justify-between">
-        <button type="button" className="grid h-11 w-11 place-items-center rounded-full text-white/95" aria-label="Open menu">
+        <button
+          type="button"
+          className="grid h-11 w-11 place-items-center rounded-full text-white/95"
+          aria-label="Open menu"
+        >
           <Menu className="h-6 w-6" />
         </button>
         <div className="flex items-center gap-2">
@@ -207,7 +207,11 @@ function MobileTopBar() {
           <ChevronDown className="h-4 w-4" />
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" className="relative grid h-11 w-11 place-items-center rounded-full" aria-label="Notifications">
+          <button
+            type="button"
+            className="relative grid h-11 w-11 place-items-center rounded-full"
+            aria-label="Notifications"
+          >
             <Bell className="h-5 w-5" />
             <span className="absolute right-2 top-1 grid h-5 w-5 place-items-center rounded-full bg-[#12a08f] text-[10px] font-extrabold">
               2
@@ -267,9 +271,13 @@ function SearchSummary({
       <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-2 px-1 text-sm font-bold text-[#10233d]">
         <span>{formsCount} forms</span>
         <span className="text-[#718198]">·</span>
-        <span>{sourceSnippetCount} <span className="font-medium text-[#48617c]">snippets</span></span>
+        <span>
+          {sourceSnippetCount} <span className="font-medium text-[#48617c]">snippets</span>
+        </span>
         <span className="text-[#718198]">·</span>
-        <span>{taskCount} <span className="font-medium text-[#48617c]">tasks</span></span>
+        <span>
+          {taskCount} <span className="font-medium text-[#48617c]">tasks</span>
+        </span>
         <button
           type="button"
           className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6e2e8] px-4 text-sm font-bold text-[#10233d]"
@@ -292,7 +300,10 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
   ] as const;
 
   return (
-    <nav aria-label="Forms search sections" className="flex min-w-0 items-end gap-7 border-b border-[#dbe5eb] text-sm font-extrabold text-[#10233d]">
+    <nav
+      aria-label="Forms search sections"
+      className="flex min-w-0 items-end gap-7 border-b border-[#dbe5eb] text-sm font-extrabold text-[#10233d]"
+    >
       {tabs.map(([label, count], index) => (
         <button
           key={label}
@@ -349,10 +360,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                   return (
                     <span
                       key={`${chipLabel}-${chipIndex}`}
-                      className={cn(
-                        "rounded-full px-2 py-1 text-[10px] font-black uppercase",
-                        tagToneClass(chipLabel),
-                      )}
+                      className={cn("rounded-full px-2 py-1 text-[10px] font-black uppercase", tagToneClass(chipLabel))}
                     >
                       {chipLabel}
                     </span>
@@ -402,12 +410,7 @@ function ToggleRow({
         <p className="text-sm font-extrabold text-[#071b33]">{title}</p>
         <p className="mt-0.5 text-xs font-medium text-[#526981]">{subtitle}</p>
       </div>
-      <span
-        className={cn(
-          "relative h-6 w-10 rounded-full transition",
-          enabled ? "bg-[#007a70]" : "bg-[#c9d2dc]",
-        )}
-      >
+      <span className={cn("relative h-6 w-10 rounded-full transition", enabled ? "bg-[#007a70]" : "bg-[#c9d2dc]")}>
         <span
           className={cn(
             "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition",
@@ -424,7 +427,9 @@ function RefineRail() {
     <section className="rounded-xl border border-[#d8e4ea] bg-white p-5 shadow-[0_18px_40px_rgba(7,31,51,0.05)]">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-extrabold text-[#071b33]">Refine</h2>
-        <button type="button" className="text-xs font-extrabold text-[#007a70]">Reset</button>
+        <button type="button" className="text-xs font-extrabold text-[#007a70]">
+          Reset
+        </button>
       </div>
       <div className="mt-4">
         <ToggleRow icon={Shield} title="High risk only" subtitle="Show high risk forms" enabled={false} danger />
@@ -479,7 +484,10 @@ function SourceSnapshot() {
         {rows.map(([label, value], index) => {
           const Icon = index === 3 ? Clock3 : index === 1 ? ShieldCheck : FileText;
           return (
-            <div key={label} className="grid grid-cols-[28px_1fr_1fr] gap-3 border-b border-[#e1e9ee] py-4 text-sm last:border-b-0">
+            <div
+              key={label}
+              className="grid grid-cols-[28px_1fr_1fr] gap-3 border-b border-[#e1e9ee] py-4 text-sm last:border-b-0"
+            >
               <Icon className="h-5 w-5 text-[#007a70]" />
               <span className="font-extrabold text-[#071b33]">{label}</span>
               <span className="text-right font-medium text-[#48617c]">{value}</span>
@@ -502,7 +510,13 @@ function PathwayPanel() {
         <ChevronRight className="h-5 w-5 text-[#25435f]" />
         <PathwayNode label="Current" code="4A" title="Transport order" active />
         <ChevronRight className="h-5 w-5 text-[#25435f]" />
-        <PathwayNode label="Parallel" code="3A" title="Detention to enable examination" secondaryCode="4B" secondaryTitle="Extension of Transport Order" />
+        <PathwayNode
+          label="Parallel"
+          code="3A"
+          title="Detention to enable examination"
+          secondaryCode="4B"
+          secondaryTitle="Extension of Transport Order"
+        />
         <ChevronRight className="h-5 w-5 text-[#25435f]" />
         <PathwayNode label="After" code="" title="Examination at destination" />
       </div>
@@ -586,7 +600,11 @@ function MobileTabs({ formsCount }: { formsCount: number }) {
   return (
     <nav className="sticky top-[76px] z-20 flex max-w-full gap-5 overflow-x-auto border-b border-[#dfe8ed] bg-white px-4 text-sm font-extrabold text-[#10233d] lg:hidden">
       {tabs.map(([label, count], index) => (
-        <button key={label} type="button" className={cn("relative flex min-h-11 items-center gap-2 whitespace-nowrap", index === 0 && "text-[#007a70]")}>
+        <button
+          key={label}
+          type="button"
+          className={cn("relative flex min-h-11 items-center gap-2 whitespace-nowrap", index === 0 && "text-[#007a70]")}
+        >
           {label}
           {count ? <span className="rounded-full bg-[#eef2f5] px-2 py-0.5 text-xs">{count}</span> : null}
           {index === 0 ? <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[#007a70]" /> : null}
@@ -598,7 +616,10 @@ function MobileTabs({ formsCount }: { formsCount: number }) {
 
 function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
   return (
-    <section data-testid="form-search-mobile-results" className="rounded-lg border border-[#dbe5eb] bg-white p-2 shadow-[0_14px_30px_rgba(7,31,51,0.05)]">
+    <section
+      data-testid="form-search-mobile-results"
+      className="rounded-lg border border-[#dbe5eb] bg-white p-2 shadow-[0_14px_30px_rgba(7,31,51,0.05)]"
+    >
       <h2 className="px-1 pb-1.5 text-sm font-extrabold text-[#071b33]">Top forms</h2>
       <div className="grid gap-1">
         {matches.map((match, index) => {
@@ -640,13 +661,18 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                     );
                   })}
                 </div>
-                <p className="mt-0.5 truncate text-[10.5px] font-medium leading-3 text-[#526981]">{compactMatchReason(match)}</p>
+                <p className="mt-0.5 truncate text-[10.5px] font-medium leading-3 text-[#526981]">
+                  {compactMatchReason(match)}
+                </p>
               </div>
             </article>
           );
         })}
       </div>
-      <button type="button" className="mx-auto mt-1.5 flex min-h-7 items-center gap-2 text-sm font-extrabold text-[#007a70]">
+      <button
+        type="button"
+        className="mx-auto mt-1.5 flex min-h-7 items-center gap-2 text-sm font-extrabold text-[#007a70]"
+      >
         View all forms ({matches.length})
         <ChevronRight className="h-4 w-4" />
       </button>
@@ -668,16 +694,28 @@ function MobilePathway() {
           ["", "Destination Examination"],
         ].map(([code, label], index) => (
           <div key={`${code}-${label}`} className="flex items-center gap-1">
-            <div className={cn("min-w-[55px] rounded-md border p-1 text-center", index === 1 ? "border-[#77c9c2] bg-[#e8f7f4]" : "border-[#dbe5eb] bg-white")}>
+            <div
+              className={cn(
+                "min-w-[55px] rounded-md border p-1 text-center",
+                index === 1 ? "border-[#77c9c2] bg-[#e8f7f4]" : "border-[#dbe5eb] bg-white",
+              )}
+            >
               {code ? <p className="text-sm font-black leading-none text-[#007a70]">{code}</p> : null}
               <p className="mt-0.5 text-[7.5px] font-bold leading-[10px] text-[#25435f]">{label}</p>
-              {index === 1 ? <p className="mt-0.5 rounded-full bg-[#bfece3] px-1 py-0.5 text-[7.5px] font-black leading-[10px] text-[#007a70]">You are here</p> : null}
+              {index === 1 ? (
+                <p className="mt-0.5 rounded-full bg-[#bfece3] px-1 py-0.5 text-[7.5px] font-black leading-[10px] text-[#007a70]">
+                  You are here
+                </p>
+              ) : null}
             </div>
             {index < 3 ? <ChevronRight className="h-3.5 w-3.5 text-[#25435f]" /> : null}
           </div>
         ))}
       </div>
-      <button type="button" className="mx-auto mt-1 flex min-h-7 items-center gap-2 text-[13px] font-extrabold text-[#007a70]">
+      <button
+        type="button"
+        className="mx-auto mt-1 flex min-h-7 items-center gap-2 text-[13px] font-extrabold text-[#007a70]"
+      >
         <Workflow className="h-4 w-4" />
         View full pathway
       </button>
@@ -700,7 +738,11 @@ function BottomSearch({
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe8ed] bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-18px_40px_rgba(7,31,51,0.12)] backdrop-blur lg:hidden"
     >
       <div className="grid min-w-0 grid-cols-[42px_minmax(0,1fr)_52px] items-center gap-2">
-        <button type="button" className="grid h-11 w-11 place-items-center rounded-full border border-[#d6e2e8] text-[#10233d]" aria-label="Add">
+        <button
+          type="button"
+          className="grid h-11 w-11 place-items-center rounded-full border border-[#d6e2e8] text-[#10233d]"
+          aria-label="Add"
+        >
           <Plus className="h-6 w-6" />
         </button>
         <label className="relative block">
@@ -723,7 +765,11 @@ function BottomSearch({
             </button>
           ) : null}
         </label>
-        <button type="submit" className="grid h-12 w-12 place-items-center rounded-full bg-[#007a70] text-white shadow-[0_10px_24px_rgba(0,122,112,0.28)]" aria-label="Search forms">
+        <button
+          type="submit"
+          className="grid h-12 w-12 place-items-center rounded-full bg-[#007a70] text-white shadow-[0_10px_24px_rgba(0,122,112,0.28)]"
+          aria-label="Search forms"
+        >
           <Send className="h-5 w-5" />
         </button>
       </div>
@@ -762,7 +808,12 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
         <main className="grid w-full gap-3 px-4 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
           <div className="grid gap-3 lg:gap-5">
             <div className="hidden lg:block">
-              <SearchSummary query={draftQuery} formsCount={matches.length} onQueryChange={setDraftQuery} onSubmit={submit} />
+              <SearchSummary
+                query={draftQuery}
+                formsCount={matches.length}
+                onQueryChange={setDraftQuery}
+                onSubmit={submit}
+              />
             </div>
             <div className="hidden lg:block">
               <ResultTabs formsCount={matches.length} />
@@ -792,10 +843,15 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
 
           <div className="grid gap-3 lg:hidden">
             <NextSteps />
-            <button type="button" className="mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6e2e8] bg-white px-8 text-sm font-extrabold text-[#007a70] shadow-sm">
+            <button
+              type="button"
+              className="mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[#d6e2e8] bg-white px-8 text-sm font-extrabold text-[#007a70] shadow-sm"
+            >
               <SlidersHorizontal className="h-5 w-5" />
               Filters
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#007a70] px-1 text-[10px] text-white">3</span>
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#007a70] px-1 text-[10px] text-white">
+                3
+              </span>
             </button>
             <VerifiedFooter />
           </div>

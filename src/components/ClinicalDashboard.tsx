@@ -5688,7 +5688,10 @@ export function ClinicalDashboard({
     () => (searchMode === "services" ? searchServiceRecords(query) : []),
     [query, searchMode],
   );
-  const formSearchMatches = useMemo(() => (searchMode === "forms" ? searchFormRecords(query) : []), [query, searchMode]);
+  const formSearchMatches = useMemo(
+    () => (searchMode === "forms" ? searchFormRecords(query) : []),
+    [query, searchMode],
+  );
   const recordSearchMatches = useMemo(
     () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
     [searchMode, formSearchMatches, serviceSearchMatches],
@@ -7161,15 +7164,15 @@ export function ClinicalDashboard({
             ? query.trim()
               ? "Filtered favourites"
               : "Browse favourites"
-          : activeModeResultKind === "answer"
-            ? answer
-              ? weakEvidence
-                ? "Read synthesis carefully"
-                : "Clinical synthesis"
-              : activeModeSearch.nextStep
-            : documentMatches.length
-              ? "Document results"
-              : activeModeSearch.readyTitle,
+            : activeModeResultKind === "answer"
+              ? answer
+                ? weakEvidence
+                  ? "Read synthesis carefully"
+                  : "Clinical synthesis"
+                : activeModeSearch.nextStep
+              : documentMatches.length
+                ? "Document results"
+                : activeModeSearch.readyTitle,
       icon:
         activeModeResultKind === "tools"
           ? Wrench
@@ -7184,9 +7187,9 @@ export function ClinicalDashboard({
           ? applicationsLauncherItemCount
           : activeModeResultKind === "favourites"
             ? null
-          : activeModeResultKind === "documents"
-            ? documentMatches.length
-            : null,
+            : activeModeResultKind === "documents"
+              ? documentMatches.length
+              : null,
       empty: activeModeResultKind === "documents" && documentMatches.length === 0,
     },
     {

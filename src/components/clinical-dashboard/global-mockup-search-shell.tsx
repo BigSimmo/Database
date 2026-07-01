@@ -1,7 +1,17 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BrainCircuit, ClipboardList, FileText, Heart, Pill, Search, ShieldCheck, Sparkles, Wrench } from "lucide-react";
+import {
+  BrainCircuit,
+  ClipboardList,
+  FileText,
+  Heart,
+  Pill,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
@@ -82,7 +92,8 @@ function GlobalMockupSearchShellClient({
     return modes.filter((mode) => allowedModeIds.has(mode.id));
   }, [availableModeIds]);
   const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
-  const initialSearchMode = availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
+  const initialSearchMode =
+    availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
   const [query, setQuery] = useState("");
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
@@ -203,7 +214,7 @@ function GlobalMockupSearchShellClient({
         modeAlignment={isDifferentialPresentationWorkflow ? "default" : "center"}
         mobileSearchPlacement="bottom"
         desktopSearchPlacement={
-          desktopSearchPlacement === "hero" || (isFormsOnlyShell && isStandaloneModeHome) ? "hero" : "default"
+          (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
         }
         searchComposerVisible={!isDifferentialPresentationWorkflow}
         workflowCopyText={

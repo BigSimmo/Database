@@ -143,9 +143,7 @@ test.describe("Clinical KB applications launcher", () => {
     const servicesHomeSearch = page.getByTestId("services-home").getByTestId("global-search-input");
     await expect(servicesHomeSearch).toBeVisible();
     const servicesSearchBox = await servicesHomeSearch.boundingBox();
-    const servicesHeadingBox = await page
-      .getByRole("heading", { level: 1, name: "Find a service" })
-      .boundingBox();
+    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Find a service" }).boundingBox();
     expect(servicesSearchBox).not.toBeNull();
     expect(servicesHeadingBox).not.toBeNull();
     expect((servicesHeadingBox?.y ?? 0) + (servicesHeadingBox?.height ?? 0)).toBeLessThan(servicesSearchBox?.y ?? 0);
@@ -257,9 +255,7 @@ test.describe("Clinical KB applications launcher", () => {
     );
     await expect(page.getByTestId("form-search-result-transfer-order")).toContainText("Transfer order");
     await expect(
-      page
-        .getByTestId("form-search-result-transport-crisis-form")
-        .getByLabel("Open Transport order"),
+      page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
@@ -281,9 +277,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByTestId("form-search-results")).toBeVisible();
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(
-      page
-        .getByTestId("form-search-result-transport-crisis-form")
-        .getByLabel("Open Transport order"),
+      page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
     await expectNoPageHorizontalOverflow(page);
   });
@@ -346,9 +340,7 @@ test.describe("Clinical KB applications launcher", () => {
     const differentialsHomeSearch = page.getByTestId("differentials-home").getByTestId("global-search-input");
     await expect(differentialsHomeSearch).toBeVisible();
     const differentialsSearchBox = await differentialsHomeSearch.boundingBox();
-    const differentialsHeadingBox = await page
-      .getByRole("heading", { level: 1, name: "Differentials" })
-      .boundingBox();
+    const differentialsHeadingBox = await page.getByRole("heading", { level: 1, name: "Differentials" }).boundingBox();
     expect(differentialsSearchBox).not.toBeNull();
     expect(differentialsHeadingBox).not.toBeNull();
     expect((differentialsHeadingBox?.y ?? 0) + (differentialsHeadingBox?.height ?? 0)).toBeLessThan(
@@ -445,7 +437,6 @@ test.describe("Clinical KB applications launcher", () => {
       mode: "differentials",
       queryMode: "compare_guidance",
     });
-
   });
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {

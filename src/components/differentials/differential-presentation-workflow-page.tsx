@@ -77,13 +77,7 @@ function statusClassName(status: DifferentialRecord["status"]) {
   return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 }
 
-function CandidateGlyph({
-  record,
-  className,
-}: {
-  record: DifferentialRecord;
-  className?: string;
-}) {
+function CandidateGlyph({ record, className }: { record: DifferentialRecord; className?: string }) {
   if (record.slug.includes("substance")) return <FlaskConical className={className} aria-hidden />;
   if (record.slug.includes("post-ictal")) return <Activity className={className} aria-hidden />;
   if (record.slug.includes("hepatic")) return <Stethoscope className={className} aria-hidden />;
@@ -153,7 +147,9 @@ function CriteriaLabel({ criterion }: { criterion: DifferentialComparisonCriteri
   const Icon = criterionIcon[criterion.tone];
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full border", criterionTone[criterion.tone])}>
+      <span
+        className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full border", criterionTone[criterion.tone])}
+      >
         <Icon className="h-4 w-4" aria-hidden />
       </span>
       <span className="min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
@@ -319,16 +315,17 @@ function SelectedDifferentialsPanel({ candidates }: { candidates: CandidateView[
           );
         })}
       </div>
-      <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">
-        Long press to reorder. Tap to remove.
-      </p>
+      <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">Long press to reorder. Tap to remove.</p>
       <ul className="polished-scroll mt-3 max-h-[11rem] overflow-y-auto pr-1">
         {selectedCandidates.map((candidate) => (
           <li
             key={candidate.record.slug}
             className="flex min-h-9 items-center justify-between gap-2 border-t border-[color:var(--border)] py-2 text-sm font-bold text-[color:var(--text-heading)]"
           >
-            <Link href={`/differentials/diagnoses/${candidate.record.slug}`} className="inline-flex min-w-0 items-center gap-2">
+            <Link
+              href={`/differentials/diagnoses/${candidate.record.slug}`}
+              className="inline-flex min-w-0 items-center gap-2"
+            >
               <CheckCircle2 className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden />
               <span className="truncate">{candidate.record.title}</span>
             </Link>
@@ -406,13 +403,7 @@ function SourceStatusPanel() {
   );
 }
 
-function MobileCandidateCard({
-  candidate,
-  index,
-}: {
-  candidate: CandidateView;
-  index: number;
-}) {
+function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; index: number }) {
   return (
     <details
       className="group rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
@@ -437,8 +428,13 @@ function MobileCandidateCard({
         {acuteConfusionPresentationWorkflow.criteria.map((criterion) => {
           const Icon = criterionIcon[criterion.tone];
           return (
-            <div key={criterion.id} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] py-3 last:border-b-0">
-              <span className={cn("grid h-6 w-6 place-items-center rounded-full border", criterionTone[criterion.tone])}>
+            <div
+              key={criterion.id}
+              className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] py-3 last:border-b-0"
+            >
+              <span
+                className={cn("grid h-6 w-6 place-items-center rounded-full border", criterionTone[criterion.tone])}
+              >
                 <Icon className="h-3.5 w-3.5" aria-hidden />
               </span>
               <div className="min-w-0">
@@ -466,7 +462,8 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
         >
           <span className="inline-flex min-w-0 items-center gap-2">
             <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden />
-            {acuteConfusionPresentationWorkflow.selectedCount} of {acuteConfusionPresentationWorkflow.totalCount} selected
+            {acuteConfusionPresentationWorkflow.selectedCount} of {acuteConfusionPresentationWorkflow.totalCount}{" "}
+            selected
           </span>
           <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
         </button>
@@ -597,7 +594,10 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
                 >
                   Compact
                 </button>
-                <button type="button" className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]">
+                <button
+                  type="button"
+                  className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]"
+                >
                   Detailed
                 </button>
               </div>

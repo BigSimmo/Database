@@ -73,7 +73,9 @@ async function stopServer(child, logStream) {
         windowsHide: true,
       });
       await Promise.race([
-        once(killer, "exit").then(() => true).catch(() => true),
+        once(killer, "exit")
+          .then(() => true)
+          .catch(() => true),
         delay(5000).then(() => false),
       ]);
     } else {
@@ -81,7 +83,9 @@ async function stopServer(child, logStream) {
     }
 
     const terminated = await Promise.race([
-      once(child, "exit").then(() => true).catch(() => true),
+      once(child, "exit")
+        .then(() => true)
+        .catch(() => true),
       delay(5000).then(() => false),
     ]);
     if (!terminated && child.exitCode === null && process.platform !== "win32") {
@@ -108,27 +112,22 @@ async function bootSmoke() {
 
   const logStream = createWriteStream(logPath, { flags: "a", encoding: "utf8" });
   let spawnError = null;
-  const child = spawn(
-    process.execPath,
-    [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(port)],
-    {
-      cwd: projectRoot,
-      env: {
-        ...process.env,
-        PORT: String(port),
-        NEXT_PUBLIC_SUPABASE_URL:
-          process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://sjrfecxgysukkwxsowpy.supabase.co",
-        // instrumentation.ts register() requires these in production mode; provide
-        // placeholder values so the boot-smoke can verify server identity without
-        // needing real secrets. Routes that actually use Supabase/OpenAI will still
-        // fail with real errors, but /api/local-project-id does not.
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-ci-service-role",
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-ci-openai",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
+  const child = spawn(process.execPath, [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(port)], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://sjrfecxgysukkwxsowpy.supabase.co",
+      // instrumentation.ts register() requires these in production mode; provide
+      // placeholder values so the boot-smoke can verify server identity without
+      // needing real secrets. Routes that actually use Supabase/OpenAI will still
+      // fail with real errors, but /api/local-project-id does not.
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-ci-service-role",
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-ci-openai",
     },
-  );
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
   child.once("error", (error) => {
     spawnError = error;
   });

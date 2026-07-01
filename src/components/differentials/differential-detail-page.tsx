@@ -92,7 +92,9 @@ function SectionRow({ section }: { section: DifferentialSection }) {
   const meta = rowMeta[section.tone];
   return (
     <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 last:border-b-0 sm:min-h-[4.75rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4 sm:py-3">
-      <span className={cn("grid h-9 w-9 place-items-center rounded-lg border sm:h-10 sm:w-10", sectionTone[section.tone])}>
+      <span
+        className={cn("grid h-9 w-9 place-items-center rounded-lg border sm:h-10 sm:w-10", sectionTone[section.tone])}
+      >
         <Icon className="h-4 w-4" aria-hidden />
       </span>
       <div className="min-w-0">
@@ -262,7 +264,10 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
       </div>
       <ul className="mt-3 grid gap-2">
         {items.map((item) => (
-          <li key={item} className="flex items-center justify-between gap-2 text-xs font-bold text-[color:var(--text-heading)]">
+          <li
+            key={item}
+            className="flex items-center justify-between gap-2 text-xs font-bold text-[color:var(--text-heading)]"
+          >
             <span className="inline-flex min-w-0 items-center gap-2">
               <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
               <span className="truncate">{item}</span>
@@ -292,7 +297,10 @@ function FooterStatus() {
         ["Review status", "Review before use", "Use clinical judgement and local protocols."],
         ["Version", "v1.0 | Local content only", "Data not provided for clinical use."],
       ].map(([title, line, detail]) => (
-        <div key={title} className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0">
+        <div
+          key={title}
+          className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
+        >
           <p className="font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{title}</p>
           <p className="mt-3 font-bold text-[color:var(--clinical-chat-amber)]">{line}</p>
           <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{detail}</p>
@@ -313,10 +321,16 @@ function TopActions() {
         <ClipboardCopy className="h-4 w-4" aria-hidden />
         Copy after review
       </button>
-      <button className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]" aria-label="Save diagnosis">
+      <button
+        className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+        aria-label="Save diagnosis"
+      >
         <Bookmark className="h-4 w-4" aria-hidden />
       </button>
-      <button className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]" aria-label="More actions">
+      <button
+        className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+        aria-label="More actions"
+      >
         <MoreVertical className="h-4 w-4" aria-hidden />
       </button>
     </div>
@@ -326,11 +340,17 @@ function TopActions() {
 function MobilePrimaryActions({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
-      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-bold text-white shadow-[var(--shadow-tight)]">
+      <button
+        type="button"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-bold text-white shadow-[var(--shadow-tight)]"
+      >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare ({count})
       </button>
-      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--clinical-chat-teal)]">
+      <button
+        type="button"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--clinical-chat-teal)]"
+      >
         <ClipboardCopy className="h-4 w-4" aria-hidden />
         Copy
       </button>
@@ -355,7 +375,11 @@ function HeaderChrome() {
     <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/96 px-3 py-2 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/differentials" aria-label="Back to differentials" className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]">
+          <Link
+            href="/differentials"
+            aria-label="Back to differentials"
+            className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+          >
             <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
           </Link>
           <div className="hidden items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)] sm:flex">
@@ -376,7 +400,10 @@ function HeaderChrome() {
           <span className="hidden rounded-lg border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-bold text-[color:var(--warning)] sm:inline-flex">
             Source pending review
           </span>
-          <button className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]" aria-label="New item">
+          <button
+            className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            aria-label="New item"
+          >
             <Plus className="h-5 w-5" aria-hidden />
           </button>
         </div>
@@ -387,7 +414,10 @@ function HeaderChrome() {
 
 function Tabs() {
   return (
-    <nav className="flex border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]" aria-label="Diagnosis sections">
+    <nav
+      className="flex border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
+      aria-label="Diagnosis sections"
+    >
       {["Overview", "Compare", "Map", "Related", "Source"].map((tab, index) => (
         <a
           key={tab}

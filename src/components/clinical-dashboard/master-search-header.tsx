@@ -291,11 +291,11 @@ export function MasterSearchHeader({
         ? "documents"
         : searchMode === "favourites"
           ? "favourites"
-        : searchMode === "differentials"
-          ? "differentials"
-          : searchMode === "tools"
-            ? "tools"
-            : "answer";
+          : searchMode === "differentials"
+            ? "differentials"
+            : searchMode === "tools"
+              ? "tools"
+              : "answer";
   const actionMenuItems =
     searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
@@ -308,9 +308,9 @@ export function MasterSearchHeader({
         ? "Forms Navigator"
         : searchMode === "favourites"
           ? "Favourites"
-        : searchMode === "differentials"
-          ? "Differentials Navigator"
-          : "Clinical Guide";
+          : searchMode === "differentials"
+            ? "Differentials Navigator"
+            : "Clinical Guide";
   const homeHeaderDescription =
     searchMode === "services"
       ? "Psychiatry referral directory"
@@ -318,9 +318,9 @@ export function MasterSearchHeader({
         ? "Mental Health Act forms"
         : searchMode === "favourites"
           ? "Saved clinical items and sets"
-        : searchMode === "differentials"
-          ? "Differential diagnosis workspace"
-          : selectedAppMode.description;
+          : searchMode === "differentials"
+            ? "Differential diagnosis workspace"
+            : selectedAppMode.description;
 
   function currentUsesScopeSheet() {
     return window.matchMedia(mobileSheetMediaQuery).matches;
@@ -1085,8 +1085,7 @@ export function MasterSearchHeader({
               onKeyDown={handleModeTriggerKeyDown}
               className={cn(
                 "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]",
-                isWorkflowHeader &&
-                  "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
+                isWorkflowHeader && "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
               )}
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
@@ -1257,7 +1256,9 @@ export function MasterSearchHeader({
                 ) : (
                   <MessageSquarePlus className="h-5 w-5 xl:h-4 xl:w-4" />
                 )}
-                {isStandaloneModeHomeHeader ? null : <span className="hidden whitespace-nowrap xl:inline">New chat</span>}
+                {isStandaloneModeHomeHeader ? null : (
+                  <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+                )}
               </button>
             ) : null}
             {!isWorkflowHeader && hasUtilityActions ? (
@@ -1327,7 +1328,9 @@ export function MasterSearchHeader({
       {searchComposerVisible ? (
         <>
           {desktopHomeComposerTarget ? null : renderSearchComposer("default")}
-          {desktopHomeComposerTarget ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerTarget) : null}
+          {desktopHomeComposerTarget
+            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerTarget)
+            : null}
         </>
       ) : null}
     </>

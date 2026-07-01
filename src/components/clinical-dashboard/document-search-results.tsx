@@ -762,7 +762,8 @@ export function DocumentSearchResultsPanel({
         displayedMatches.length
       } document${displayedMatches.length === 1 ? "" : "s"}`;
     }
-    if (recordMatchCount > 0) return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
+    if (recordMatchCount > 0)
+      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
     if (matches.length) return `${displayedMatches.length} document${displayedMatches.length === 1 ? "" : "s"}`;
     if (documentCount === 0) return "No indexed source documents";
     if (trimmedQuery) return "No matching documents";
@@ -770,7 +771,11 @@ export function DocumentSearchResultsPanel({
   })();
   return (
     <div data-testid="document-search-workspace" className="space-y-3">
-      {recordMatchCount > 0 || matches.length > 0 || (trimmedQuery && !shouldShowHome) || loading || unavailableMessage ? (
+      {recordMatchCount > 0 ||
+      matches.length > 0 ||
+      (trimmedQuery && !shouldShowHome) ||
+      loading ||
+      unavailableMessage ? (
         <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
       ) : null}
 

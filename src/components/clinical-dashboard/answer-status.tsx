@@ -57,7 +57,8 @@ export function AnswerEmptyState({
           title: "Ask a question",
           description: "Start a source-backed clinical answer.",
           icon: Sparkles,
-          onClick: () => onPickSample("What monitoring and escalation issues should I consider across these documents?"),
+          onClick: () =>
+            onPickSample("What monitoring and escalation issues should I consider across these documents?"),
         },
         {
           title: "Search documents",

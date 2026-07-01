@@ -89,7 +89,9 @@ export function ModeHomeTemplate({
         </div>
       </section>
 
-      {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" /> : null}
+      {desktopComposerSlotId ? (
+        <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
+      ) : null}
 
       <section
         aria-label={actionsLabel}

@@ -94,7 +94,8 @@ function chipToneClass(tone: ServiceChipTone | null | undefined) {
 
 function sourceToneClass(form: FormRecord) {
   const status = form.source?.status?.toLowerCase() ?? "";
-  if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified")) return toneSuccess;
+  if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified"))
+    return toneSuccess;
   if (status.includes("required") || status.includes("review")) return toneWarning;
   return toneNeutral;
 }
@@ -190,7 +191,15 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
-function PathwayContextCard({ form, code, criteria }: { form: FormRecord; code: string; criteria: ServiceCriterion[] }) {
+function PathwayContextCard({
+  form,
+  code,
+  criteria,
+}: {
+  form: FormRecord;
+  code: string;
+  criteria: ServiceCriterion[];
+}) {
   const parallelForms = form.slug.includes("transport")
     ? [
         { code: "3A", title: "Detention to enable examination or movement" },
@@ -219,7 +228,9 @@ function PathwayContextCard({ form, code, criteria }: { form: FormRecord; code: 
         <Info className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
       </div>
       <div className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold">
-        <span className="rounded-md bg-[color:var(--clinical-chat-teal)] px-3 py-2 text-center text-white">Pathway</span>
+        <span className="rounded-md bg-[color:var(--clinical-chat-teal)] px-3 py-2 text-center text-white">
+          Pathway
+        </span>
         <span className="px-3 py-2 text-center text-[color:var(--text-muted)]">Source info</span>
       </div>
       <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
@@ -252,7 +263,10 @@ function PathwayContextCard({ form, code, criteria }: { form: FormRecord; code: 
           <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
             {parallelForms.map((item) => (
-              <div key={`${item.code}-${item.title}`} className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0">
+              <div
+                key={`${item.code}-${item.title}`}
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+              >
                 <span className="text-sm font-bold text-[color:var(--text-heading)]">{item.code}</span>
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
@@ -264,7 +278,10 @@ function PathwayContextCard({ form, code, criteria }: { form: FormRecord; code: 
           <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">After</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
             {afterForms.map((item) => (
-              <div key={`${item.code}-${item.title}`} className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0">
+              <div
+                key={`${item.code}-${item.title}`}
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+              >
                 <span className="text-sm font-bold text-[color:var(--text-heading)]">{item.code}</span>
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
@@ -309,19 +326,32 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
   const rows = [
     { icon: FileText, label: "Official PDF", value: `${formShortTitle(form)}.pdf · 2 pages` },
     { icon: ShieldCheck, label: "Source currency", value: displayText(form.source?.reviewed, "Review locally") },
-    { icon: Scale, label: "Act sections", value: form.slug.includes("transport") ? "29, 63, 67, 92, 112, 129, 133, 148, 154" : "See source" },
-    { icon: CalendarDays, label: "Review due", value: form.slug.includes("transport") ? "01 May 2026" : displayText(form.source?.reviewed, "Not listed") },
+    {
+      icon: Scale,
+      label: "Act sections",
+      value: form.slug.includes("transport") ? "29, 63, 67, 92, 112, 129, 133, 148, 154" : "See source",
+    },
+    {
+      icon: CalendarDays,
+      label: "Review due",
+      value: form.slug.includes("transport") ? "01 May 2026" : displayText(form.source?.reviewed, "Not listed"),
+    },
   ];
 
   return (
     <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
       {rows.map(({ icon: Icon, label, value }) => (
-        <div key={label} className="grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--border)] px-3 py-2 last:border-b-0">
+        <div
+          key={label}
+          className="grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--border)] px-3 py-2 last:border-b-0"
+        >
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
             <Icon className="h-4 w-4" aria-hidden />
           </span>
           <p className="text-xs font-semibold text-[color:var(--text-heading)]">{label}</p>
-          <p className="max-w-[12rem] text-right text-xs font-medium leading-5 text-[color:var(--text-muted)]">{value}</p>
+          <p className="max-w-[12rem] text-right text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+            {value}
+          </p>
         </div>
       ))}
     </section>
@@ -359,15 +389,7 @@ function ActionPanel({
   );
 }
 
-function RailCard({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  children: ReactNode;
-}) {
+function RailCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
       <div className="mb-3 flex items-center gap-2">
@@ -381,15 +403,7 @@ function RailCard({
   );
 }
 
-function InfoRow({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | null | undefined;
-  icon: LucideIcon;
-}) {
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon: LucideIcon }) {
   return (
     <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/25">
       <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
@@ -494,10 +508,15 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Back
           </button>
-          <nav aria-label="Form breadcrumbs" className="hidden min-w-0 items-center gap-2 text-xs font-semibold sm:flex">
+          <nav
+            aria-label="Form breadcrumbs"
+            className="hidden min-w-0 items-center gap-2 text-xs font-semibold sm:flex"
+          >
             <span className="text-[color:var(--clinical-chat-teal)]">Forms</span>
             <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
-            <span className="truncate text-[color:var(--text-muted)]">{displayText(form.catalogueLabel, "Catalogue")}</span>
+            <span className="truncate text-[color:var(--text-muted)]">
+              {displayText(form.catalogueLabel, "Catalogue")}
+            </span>
             <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
             <span className="truncate text-[color:var(--text-muted)]">{form.title}</span>
           </nav>
@@ -542,7 +561,11 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     aria-pressed={saved}
                     className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   >
-                    {saved ? <BookmarkCheck className="h-5 w-5" aria-hidden /> : <Bookmark className="h-5 w-5" aria-hidden />}
+                    {saved ? (
+                      <BookmarkCheck className="h-5 w-5" aria-hidden />
+                    ) : (
+                      <Bookmark className="h-5 w-5" aria-hidden />
+                    )}
                   </button>
                   <button
                     type="button"
@@ -672,16 +695,29 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   <p className="text-sm font-semibold text-[color:var(--text-heading)]">
                     {displayText(form.source?.label, "Source")}
                   </p>
-                  <span className={cn("inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[10px] font-bold", sourceToneClass(form))}>
+                  <span
+                    className={cn(
+                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[10px] font-bold",
+                      sourceToneClass(form),
+                    )}
+                  >
                     {displayText(form.source?.status, "Unreviewed")}
                   </span>
                 </div>
-                {form.source?.reviewed ? <p className={cn("mt-2 text-xs leading-5", textMuted)}>{form.source.reviewed}</p> : null}
+                {form.source?.reviewed ? (
+                  <p className={cn("mt-2 text-xs leading-5", textMuted)}>{form.source.reviewed}</p>
+                ) : null}
                 {form.source?.notes?.length ? (
                   <ul className="mt-2 space-y-1.5">
                     {form.source.notes.map((note) => (
-                      <li key={note} className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                      <li
+                        key={note}
+                        className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+                      >
+                        <Info
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]"
+                          aria-hidden
+                        />
                         <span>{note}</span>
                       </li>
                     ))}
@@ -703,8 +739,14 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 {form.verification?.notes?.length ? (
                   <ul className="space-y-1.5">
                     {form.verification.notes.map((note) => (
-                      <li key={note} className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                      <li
+                        key={note}
+                        className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+                      >
+                        <CheckCircle2
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]"
+                          aria-hidden
+                        />
                         <span>{note}</span>
                       </li>
                     ))}
