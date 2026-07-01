@@ -618,8 +618,10 @@ function ResultMatchBadge({ result }: { result: MedicationResult }) {
     <span
       className={cn(
         "inline-flex min-h-6 w-fit items-center gap-1.5 rounded-md px-2 text-2xs font-semibold",
-        result.tone === "teal" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300",
-        result.tone === "blue" && "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
+        result.tone === "teal" &&
+          "border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+        result.tone === "blue" &&
+          "border border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info)]",
         result.tone === "slate" && "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
       )}
     >

@@ -796,15 +796,15 @@ export function MasterSearchHeader({
                       className={cn(
                         "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                         active
-                          ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                          ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
                           : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                       )}
                     >
                       <span
                         className={cn(
-                          "grid h-8 w-8 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+                          "grid h-8 w-8 place-items-center rounded-lg border",
                           active
-                            ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)]"
+                            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         )}
                       >
@@ -816,7 +816,7 @@ export function MasterSearchHeader({
                           {mode.description}
                         </span>
                       </span>
-                      {active ? <Check className="h-4 w-4" /> : null}
+                      {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
                     </button>
                   );
                 })}
@@ -913,7 +913,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="universal-header-icon-control hidden min-h-10 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:inline-flex"
+              className="hidden min-h-10 items-center gap-1.5 rounded-full bg-[color:var(--command)] px-3.5 text-xs font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
               aria-label="Start a new chat"
             >
               <Plus className="h-4 w-4" />

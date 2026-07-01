@@ -1,5 +1,22 @@
 # Changelog — Premium Redesign
 
+## July 1 — Clinical White / Aegean Graphite
+
+### Rebuild
+
+- **Role-split colour system:** graphite `--command` for primary actions, Aegean `--clinical-accent` for clinical identity (selected/evidence/send/focus), green `--success` for status only. Splits the previously overloaded `--primary`. See decision log **D11**, direction doc updated.
+- **True-white canvas:** de-blued the neutral ramp to true-neutral gray; content surface `#FFFFFF` + new `--surface-chrome` for rails/header; light-mode materials de-glassed (flat + hairline + one shadow; glass kept for overlays). Dark mode keeps black polish, brightened Aegean accent.
+
+### Upgrade
+
+- **Command controls:** sidebar/header New chat and the mobile section FAB now read graphite; the composer send button reads Aegean.
+- **Active states:** sidebar tool tiles, recent-chat, and the header mode menu use rail + icon + graphite label instead of broad teal fills.
+- **Semantic hygiene:** medication match badge moved off hardcoded `emerald-*`/`blue-*` onto accent/info role tokens; status dots resolve to `--success`.
+
+### Verification
+
+- `npm run typecheck` passes; dev server serves 200 with 0 console errors; light/dark desktop + light mobile screenshots confirm the direction; contrast spot-checks pass (Aegean-on-white ≈5.8:1, command ≈16:1, semantics ≥4.5:1). `npm run verify:ui`/`verify:release` not yet run in this pass.
+
 ## June 23 process hardening pass
 
 ### Upgrade
