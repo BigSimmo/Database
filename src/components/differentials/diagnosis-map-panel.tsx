@@ -146,7 +146,7 @@ function MapLegend({ compact = false }: { compact?: boolean }) {
     <div
       className={cn(
         "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[color:var(--text-muted)]",
-        compact && "gap-x-3",
+        compact && "gap-x-3 text-[11px] sm:text-xs",
       )}
     >
       {entries.map((entry) => (
@@ -192,7 +192,7 @@ function MapGraph({
       className={cn(
         "relative min-h-0 min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)]",
         "bg-[radial-gradient(circle_at_50%_50%,color-mix(in_srgb,var(--clinical-chat-teal-soft)_34%,transparent)_0_7rem,transparent_18rem),linear-gradient(90deg,color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px),linear-gradient(color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px)] bg-[length:auto,28px_28px,28px_28px]",
-        interactive ? "h-full cursor-grab active:cursor-grabbing" : "h-36",
+        interactive ? "h-full cursor-grab active:cursor-grabbing" : "h-40 sm:h-44 lg:h-48",
       )}
       style={{ touchAction: interactive ? "none" : "auto" }}
       onPointerDown={interactive ? onPointerDown : undefined}
@@ -235,7 +235,7 @@ function MapGraph({
           }}
           className={cn(
             "absolute left-1/2 top-[52%] z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] p-3 text-center font-bold leading-tight text-white shadow-[var(--shadow-elevated)] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-            interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-[10px]",
+            interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-[10px] sm:h-16 sm:w-16 sm:text-[11px]",
             selectedId === "diagnosis" && "ring-4 ring-[color:var(--clinical-chat-teal)]/25",
           )}
           aria-pressed={selectedId === "diagnosis"}
@@ -257,7 +257,7 @@ function MapGraph({
               }}
               className={cn(
                 "absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border p-2 text-center font-bold leading-tight shadow-[var(--shadow-inset)] transition hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-                interactive ? "h-24 w-24 text-xs" : "h-12 w-12 text-[8px]",
+                interactive ? "h-24 w-24 text-xs" : "h-12 w-12 text-[8px] sm:h-14 sm:w-14 sm:text-[9px]",
                 likelihoodTone[node.likelihood],
                 isSelected && "ring-4 ring-[color:var(--focus)]/25",
               )}
@@ -410,6 +410,8 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
   }, []);
 
   const handlePointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = { x: event.clientX, y: event.clientY };
     activePointers.current.set(event.pointerId, point);
@@ -490,31 +492,35 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
     <>
       <section
         aria-label="Diagnosis map"
-        className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]"
+        className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-[color:var(--text-heading)]">Diagnosis map</h2>
-            <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+            <p className="mt-1 hidden text-sm leading-6 text-[color:var(--text-muted)] sm:block">
               {record.related.length} related differentials. Open the full map to pan, zoom, and inspect each node.
+            </p>
+            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
+              {record.related.length} related differentials
             </p>
           </div>
           <NodeBadge label={`${record.related.length} nodes`} />
         </div>
 
-        <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)] p-3">
-          <MapGraph record={record} selectedId="diagnosis" onSelect={setSelected} scale={0.46} />
-          <div className="flex items-center justify-between gap-3">
+        <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)] p-2.5 sm:p-3">
+          <MapGraph record={record} selectedId="diagnosis" onSelect={setSelected} scale={0.33} />
+          <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
             <MapLegend compact />
             <button
               ref={openButtonRef}
               type="button"
+              aria-label="Open full diagnosis map"
               onClick={() => {
                 setSelected("diagnosis");
                 resetView();
                 setOpen(true);
               }}
-              className={cn(floatingControl, "shrink-0 px-3")}
+              className={cn(floatingControl, "min-h-11 w-full shrink-0 justify-center px-3 sm:w-auto")}
               data-testid="open-diagnosis-map"
             >
               Open map
@@ -533,6 +539,7 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
         mobilePlacement="fullscreen"
         contentClassName="lg:max-w-[76rem]"
         bodyClassName="p-0"
+        portal
         returnFocusRef={openButtonRef}
         headerActions={
           <button type="button" onClick={resetView} className={toolbarButton} aria-label="Reset map view">

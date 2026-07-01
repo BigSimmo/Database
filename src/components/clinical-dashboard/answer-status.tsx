@@ -2,7 +2,8 @@
 
 import { Clipboard, ClipboardCheck, MessageSquareText, Search, Sparkles, UploadCloud } from "lucide-react";
 
-import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 
 export function CopyButton({
   label,
@@ -42,61 +43,36 @@ export function AnswerEmptyState({
   onUploadDocument: () => void;
   desktopComposerSlotId?: string;
 }) {
-  const starterButtonClass = cn(
-    floatingControl,
-    "answer-empty-action min-h-[64px] flex-col items-start justify-center gap-1.5 rounded-lg px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:min-h-[6.25rem] sm:items-center sm:text-center",
-  );
-
   return (
-    <div className="answer-empty-state mx-auto grid w-full max-w-xl place-items-center gap-5 py-8 text-center sm:py-16">
-      <div className="answer-empty-icon grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-        <MessageSquareText className="h-8 w-8" />
-      </div>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">How can I help?</h2>
-        <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>
-          Ask a clinical question or search your documents.
-        </p>
-      </div>
-      {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="hidden w-full max-w-3xl lg:block" />
-      ) : null}
-      <section aria-label="Starter actions" className={cn("grid w-full gap-3 sm:grid-cols-3")}>
-        <button
-          type="button"
-          onClick={() =>
-            onPickSample("What monitoring and escalation issues should I consider across these documents?")
-          }
-          className={starterButtonClass}
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
-            <Sparkles className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Ask a question
-          </span>
-          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Start a source-backed clinical answer.
-          </span>
-        </button>
-        <button type="button" onClick={onSearchDocuments} className={starterButtonClass}>
-          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
-            <Search className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Search documents
-          </span>
-          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Browse matching files and source sections.
-          </span>
-        </button>
-        <button type="button" onClick={onUploadDocument} className={starterButtonClass}>
-          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
-            <UploadCloud className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Upload document
-          </span>
-          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Add a guideline, PDF, or local source.
-          </span>
-        </button>
-      </section>
-    </div>
+    <ModeHomeTemplate
+      testId="answer-empty-state"
+      title="How can I help?"
+      subtitle="Ask a clinical question or search your documents."
+      icon={MessageSquareText}
+      headingLevel={2}
+      desktopComposerSlotId={desktopComposerSlotId}
+      actionsLabel="Starter actions"
+      actions={[
+        {
+          title: "Ask a question",
+          description: "Start a source-backed clinical answer.",
+          icon: Sparkles,
+          onClick: () => onPickSample("What monitoring and escalation issues should I consider across these documents?"),
+        },
+        {
+          title: "Search documents",
+          description: "Browse matching files and source sections.",
+          icon: Search,
+          onClick: onSearchDocuments,
+        },
+        {
+          title: "Upload document",
+          description: "Add a guideline, PDF, or local source.",
+          icon: UploadCloud,
+          onClick: onUploadDocument,
+        },
+      ]}
+    />
   );
 }
 

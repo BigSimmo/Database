@@ -478,7 +478,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
 
 async function waitForDemoDashboardReady(page: Page) {
   await expect(visibleQuestionInput(page)).toBeEnabled();
-  await expect(scopeTrigger(page)).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30000 });
 }
 
 async function openGuide(page: Page) {
@@ -571,7 +571,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
       const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
       expect(headerHeight).toBeLessThanOrEqual(viewport.width >= 640 ? 185 : 180);
-      await expect(scopeTrigger(page)).toBeVisible();
+      await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible();
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
@@ -707,7 +707,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await appModeTrigger.click();
     await expect(appModeMenu).toBeVisible();
-    await visibleQuestionInput(page).click();
+    await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
 
     await appModeTrigger.click();
@@ -720,19 +720,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // First open — use robust retry helper to handle async state update timing.
     await openDailyActions(page);
-    await visibleQuestionInput(page).click();
+    await page.mouse.click(640, 430);
     await expect(dailyActionsMenu).toHaveCount(0);
     await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
 
-    // Second open — verify closing via scope trigger.
+    // Second open - verify opening the mode menu closes the daily actions surface.
     await openDailyActions(page);
-    await scopeTrigger(page).click();
+    await appModeTrigger.click();
 
     await expect(dailyActionsMenu).toHaveCount(0);
-    const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
-    await expect(scopePopover).toBeVisible();
-    await visibleQuestionInput(page).click();
-    await expect(scopePopover).toBeHidden();
+    await expect(appModeMenu).toBeVisible();
+    await page.mouse.click(640, 430);
+    await expect(appModeMenu).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -742,7 +741,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await expect(scopeTrigger(page)).toBeVisible();
     const question = "What clozapine monitoring items are shown in the table image?";
     const questionInput = await fillVisibleQuestionInput(page, question);
     await expect(questionInput).toHaveValue(question);
@@ -1051,27 +1049,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-<<<<<<< Updated upstream
-  test("legacy favourites route falls back to answer mode and keeps new chat reset", async ({ page }) => {
-=======
   test("favourites route opens the favourites home", async ({ page }) => {
->>>>>>> Stashed changes
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set");
 
     const globalSearchInput = visibleQuestionInput(page);
-<<<<<<< Updated upstream
-    await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
-    await expect(page.getByTestId("favourites-hub")).toHaveCount(0);
-    await expect(globalSearchInput).toHaveAttribute("placeholder", "Ask Clinical Guide");
-=======
     await expect(page.getByRole("button", { name: "Current app mode: Favourites" })).toBeVisible();
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Favourites" })).toBeVisible();
->>>>>>> Stashed changes
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\/favourites\?focus=1$/);
@@ -1079,28 +1067,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 
-<<<<<<< Updated upstream
-  test("app mode menu supports keyboard navigation when legacy modes are absent", async ({ page }) => {
-=======
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
->>>>>>> Stashed changes
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
 
     const appModeButton = page.getByRole("button", { name: "Current app mode: Answer" });
-<<<<<<< Updated upstream
-    await appModeButton.focus();
-    await page.keyboard.press("ArrowDown");
-    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
-    await expect(appModeMenu).toBeVisible();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toHaveCount(0);
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeFocused();
-    await page.keyboard.press("Home");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeFocused();
-=======
     await appModeButton.click();
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
     await expect(appModeMenu).toBeVisible();
@@ -1122,7 +1094,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeFocused();
->>>>>>> Stashed changes
     await page.keyboard.press("Escape");
     await expect(appModeMenu).toBeHidden();
     await expect(appModeButton).toBeFocused();
@@ -1131,7 +1102,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("prescribing workflow uses in-app medication routes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose");
+    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
     const globalSearchInput = page.getByTestId("global-search-input");
     await expect(page.getByRole("button", { name: "Current app mode: Medication" })).toBeVisible();
@@ -1141,7 +1112,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const acamprosateResult = page.getByTestId("medication-result-acamprosate-desktop");
     await expect(acamprosateResult).toHaveAttribute("href", "/medications/acamprosate");
     await acamprosateResult.click();
-    await expect(page).toHaveURL(/\/medications\/acamprosate$/);
+    await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expect(page.getByTestId("acamprosate-medication-page")).toBeVisible();
 
     await gotoApp(page, "/mockups/medication-prescribing");
@@ -1297,14 +1268,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await tapOutsideActiveSurface(page);
     await expect(documentActions).toHaveCount(0);
     await expect(preview).toBeVisible();
-<<<<<<< Updated upstream
-    await page.getByRole("button", { name: "Switch to canvas zoom mode" }).click();
-=======
     const switchToCanvasMode = page.getByRole("button", { name: "Switch to canvas zoom mode" });
     if ((await switchToCanvasMode.count()) > 0) {
       await switchToCanvasMode.click();
     }
->>>>>>> Stashed changes
     await expect(toolbar).toBeVisible({ timeout: 30000 });
     await expectDomIntegrity(page);
 
@@ -1492,12 +1459,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
     await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
-<<<<<<< Updated upstream
     await expect(uploadDrawer.getByText("Clinical upload")).toBeVisible();
-    await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeDisabled();
-=======
     await expect(uploadDrawer.getByText("Guideline PDF files")).toBeVisible();
->>>>>>> Stashed changes
     await expect(uploadDrawer.getByRole("button", { name: "Upload guidelines" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });

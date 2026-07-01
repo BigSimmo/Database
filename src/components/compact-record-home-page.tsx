@@ -35,13 +35,14 @@ type CompactRecordHomePageProps = {
   desktopComposerSlotId?: string;
 };
 
-const pillToneClass: Record<CompactHomePillTone, string> = {
+const pillToneClass: Record<CompactHomePillTone | "teal", string> = {
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
-  primary: "bg-[color:var(--clinical-chat-teal)]",
-  success: "bg-[color:var(--success)]",
   neutral: "bg-[color:var(--text-soft)]",
+  primary: "bg-[color:var(--clinical-chat-teal)]",
   purple: "bg-violet-600",
+  success: "bg-[color:var(--success)]",
+  teal: "bg-[color:var(--clinical-chat-teal)]",
 };
 
 export function CompactRecordHomePage({
@@ -62,18 +63,24 @@ export function CompactRecordHomePage({
   return (
     <main
       data-testid={testId}
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 text-[color:var(--text)] sm:px-6 sm:pt-10 lg:px-8 lg:pb-12 lg:pt-11"
+      className="grid min-h-[calc(100dvh-4rem)] place-items-center bg-[color:var(--background)] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:px-6 sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8 lg:pb-[clamp(1.75rem,5vh,3.25rem)]"
     >
-      <div className="mx-auto grid w-full max-w-[58rem] justify-items-center gap-6 sm:gap-7">
-        <section className="grid max-w-3xl justify-items-center gap-4 text-center sm:gap-5">
-          <div className="grid h-16 w-16 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/22 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-[4.75rem] sm:w-[4.75rem]">
-            <Icon className="h-8 w-8 sm:h-9 sm:w-9" aria-hidden />
-          </div>
+      <div
+        data-testid={`${testId}-template`}
+        className="mx-auto flex w-full max-w-[58rem] flex-col items-center justify-center gap-5 text-center sm:gap-6 lg:gap-7"
+      >
+        <section className="grid justify-items-center gap-3 sm:gap-4" aria-labelledby={`${testId}-title`}>
+          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem] lg:rounded-[1.35rem]">
+            <Icon className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10" aria-hidden />
+          </span>
           <div className="grid gap-2">
-            <h1 className="text-balance text-[2rem] font-extrabold leading-[1.08] tracking-normal text-[color:var(--text-heading)] sm:text-[2.6rem] lg:text-[3rem]">
+            <h1
+              id={`${testId}-title`}
+              className="text-balance text-[1.85rem] font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-[2.45rem] lg:text-[2.9rem]"
+            >
               {title}
             </h1>
-            <p className="text-pretty text-base font-medium leading-7 text-[color:var(--text-muted)] sm:text-lg">
+            <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base lg:text-[1.0625rem]">
               {subtitle}
             </p>
           </div>
@@ -83,29 +90,32 @@ export function CompactRecordHomePage({
 
         <section
           aria-label={tasksLabel}
-          className="w-full max-w-3xl overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+          className="w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)]"
         >
-          {taskCards.map((card) => {
+          {taskCards.map((card, index) => {
             const CardIcon = card.icon;
             return (
               <Link
                 key={card.title}
                 href={card.href}
-                className="group grid min-h-[5.5rem] grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:gap-4 sm:px-5"
+                className={cn(
+                  "group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-[5.75rem] sm:grid-cols-[3rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:px-5 lg:px-6",
+                  index > 0 && "border-t border-[color:var(--border)]",
+                )}
               >
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12">
-                  <CardIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11">
+                  <CardIcon className="h-5 w-5" aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)] sm:text-lg">
+                  <span className="block text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] sm:text-[1.05rem]">
                     {card.title}
                   </span>
-                  <span className="mt-1 block text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.9rem]">
                     {card.description}
                   </span>
                 </span>
                 <ArrowRight
-                  className="h-5 w-5 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-chat-teal)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-chat-teal)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden
                 />
               </Link>
@@ -113,37 +123,34 @@ export function CompactRecordHomePage({
           })}
         </section>
 
-        <section className="grid w-full max-w-3xl justify-items-center gap-3">
-          <h2 className="text-center text-base font-extrabold text-[color:var(--text-heading)]">{quickLinksTitle}</h2>
-          <div className="flex w-full gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center sm:overflow-visible">
-            {quickLinks.map((task) => {
-              const PillIcon = task.icon;
+        <section className="grid w-full max-w-3xl justify-items-center gap-3 pt-1 sm:gap-4">
+          <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{quickLinksTitle}</h2>
+          <div className="flex w-full max-w-full gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center sm:overflow-visible">
+            {quickLinks.map((link) => {
+              const LinkIcon = link.icon;
               return (
                 <Link
-                  key={task.label}
-                  href={task.href}
-                  className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  key={link.label}
+                  href={link.href}
+                  className="inline-flex min-h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
                 >
-                  {PillIcon ? (
+                  {LinkIcon ? (
                     <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-                      <PillIcon className="h-3.5 w-3.5" aria-hidden />
+                      <LinkIcon className="h-3.5 w-3.5" aria-hidden />
                     </span>
                   ) : (
-                    <span
-                      className={cn("h-2.5 w-2.5 rounded-full", pillToneClass[task.tone ?? "neutral"])}
-                      aria-hidden
-                    />
+                    <span className={cn("h-2.5 w-2.5 rounded-full", pillToneClass[link.tone ?? "neutral"])} />
                   )}
-                  {task.label}
+                  {link.label}
                 </Link>
               );
             })}
           </div>
         </section>
 
-        <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-          <span className="inline-flex items-center gap-2 font-extrabold text-[color:var(--clinical-chat-teal)]">
-            <ShieldCheck className="h-5 w-5" aria-hidden />
+        <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+          <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-chat-teal)]">
+            <ShieldCheck className="h-4 w-4" aria-hidden />
             {verificationLabel}
           </span>
           <span aria-hidden="true">•</span>

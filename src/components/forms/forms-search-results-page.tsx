@@ -600,14 +600,14 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
   return (
     <section data-testid="form-search-mobile-results" className="rounded-lg border border-[#dbe5eb] bg-white p-2 shadow-[0_14px_30px_rgba(7,31,51,0.05)]">
       <h2 className="px-1 pb-1.5 text-sm font-extrabold text-[#071b33]">Top forms</h2>
-      <div className="grid gap-1.5">
+      <div className="grid gap-1">
         {matches.map((match, index) => {
           const form = match.service;
           return (
             <article
               key={form.slug}
               data-testid={`form-search-mobile-result-${form.slug}`}
-              className="grid grid-cols-[42px_minmax(0,1fr)] gap-2 rounded-lg border border-[#dfe8ed] bg-white p-2 shadow-[0_8px_18px_rgba(7,31,51,0.04)]"
+              className="grid grid-cols-[42px_minmax(0,1fr)] gap-1.5 rounded-lg border border-[#dfe8ed] bg-white p-1.5 shadow-[0_8px_18px_rgba(7,31,51,0.04)]"
             >
               <div className="grid h-10 w-10 place-items-center rounded-lg border border-[#bce4df] bg-[#e8f7f4] text-xl font-black leading-none text-[#007a70]">
                 {resultCode(index)}
@@ -646,7 +646,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
           );
         })}
       </div>
-      <button type="button" className="mx-auto mt-2 flex min-h-7 items-center gap-2 text-sm font-extrabold text-[#007a70]">
+      <button type="button" className="mx-auto mt-1.5 flex min-h-7 items-center gap-2 text-sm font-extrabold text-[#007a70]">
         View all forms ({matches.length})
         <ChevronRight className="h-4 w-4" />
       </button>
@@ -656,28 +656,28 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
 
 function MobilePathway() {
   return (
-    <section className="rounded-lg border border-[#dbe5eb] bg-white p-2.5 shadow-[0_14px_30px_rgba(7,31,51,0.05)]">
-      <h2 className="text-sm font-extrabold text-[#071b33]">
+    <section className="rounded-lg border border-[#dbe5eb] bg-white p-2 shadow-[0_14px_30px_rgba(7,31,51,0.05)]">
+      <h2 className="text-[13px] font-extrabold text-[#071b33]">
         Related pathway <span className="font-medium text-[#526981]">( PSOLIS Transport )</span>
       </h2>
-      <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1">
+      <div className="mt-1.5 flex items-center gap-1 overflow-x-auto pb-0.5">
         {[
           ["1A", "Referral"],
           ["4A", "Transport order"],
           ["3A/4B", "Parallel"],
           ["", "Destination Examination"],
         ].map(([code, label], index) => (
-          <div key={`${code}-${label}`} className="flex items-center gap-1.5">
-            <div className={cn("min-w-[58px] rounded-md border p-1.5 text-center", index === 1 ? "border-[#77c9c2] bg-[#e8f7f4]" : "border-[#dbe5eb] bg-white")}>
+          <div key={`${code}-${label}`} className="flex items-center gap-1">
+            <div className={cn("min-w-[55px] rounded-md border p-1 text-center", index === 1 ? "border-[#77c9c2] bg-[#e8f7f4]" : "border-[#dbe5eb] bg-white")}>
               {code ? <p className="text-sm font-black leading-none text-[#007a70]">{code}</p> : null}
-              <p className="mt-0.5 text-[8px] font-bold leading-3 text-[#25435f]">{label}</p>
-              {index === 1 ? <p className="mt-1 rounded-full bg-[#bfece3] px-1 py-0.5 text-[8px] font-black text-[#007a70]">You are here</p> : null}
+              <p className="mt-0.5 text-[7.5px] font-bold leading-[10px] text-[#25435f]">{label}</p>
+              {index === 1 ? <p className="mt-0.5 rounded-full bg-[#bfece3] px-1 py-0.5 text-[7.5px] font-black leading-[10px] text-[#007a70]">You are here</p> : null}
             </div>
             {index < 3 ? <ChevronRight className="h-3.5 w-3.5 text-[#25435f]" /> : null}
           </div>
         ))}
       </div>
-      <button type="button" className="mx-auto mt-1.5 flex min-h-8 items-center gap-2 text-sm font-extrabold text-[#007a70]">
+      <button type="button" className="mx-auto mt-1 flex min-h-7 items-center gap-2 text-[13px] font-extrabold text-[#007a70]">
         <Workflow className="h-4 w-4" />
         View full pathway
       </button>
@@ -712,7 +712,16 @@ function BottomSearch({
             placeholder="Ask or search forms..."
           />
           <Mic className="absolute right-12 top-1/2 h-5 w-5 -translate-y-1/2 text-[#48617c]" />
-          {query ? <X className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#48617c]" /> : null}
+          {query ? (
+            <button
+              type="button"
+              onClick={() => onQueryChange("")}
+              className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-[#48617c] transition hover:bg-[#edf4f7] focus:outline-none focus:ring-2 focus:ring-[#007a70]/30"
+              aria-label="Clear forms search"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          ) : null}
         </label>
         <button type="submit" className="grid h-12 w-12 place-items-center rounded-full bg-[#007a70] text-white shadow-[0_10px_24px_rgba(0,122,112,0.28)]" aria-label="Search forms">
           <Send className="h-5 w-5" />
@@ -725,12 +734,17 @@ function BottomSearch({
 export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSearchResultsPageProps) {
   const router = useRouter();
   const [draftQuery, setDraftQuery] = useState(query);
+  const [mobileQuery, setMobileQuery] = useState("");
   const matches = useMemo(() => searchFormRecords(query), [query]);
-  const displayQuery = query || "forms";
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     router.push(submitUrl(draftQuery));
+  }
+
+  function submitMobile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    router.push(submitUrl(mobileQuery || query));
   }
 
   function submitQuery(nextQuery: string) {
@@ -765,7 +779,9 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
             <div className="lg:hidden">
               <MobilePathway />
             </div>
-            <VerifiedFooter />
+            <div className="hidden lg:block">
+              <VerifiedFooter />
+            </div>
           </div>
 
           <aside className="hidden gap-5 lg:grid">
@@ -781,11 +797,12 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
               Filters
               <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#007a70] px-1 text-[10px] text-white">3</span>
             </button>
+            <VerifiedFooter />
           </div>
         </main>
       </div>
 
-      <BottomSearch query={draftQuery || displayQuery} onQueryChange={setDraftQuery} onSubmit={submit} />
+      <BottomSearch query={mobileQuery} onQueryChange={setMobileQuery} onSubmit={submitMobile} />
       {focusSearch ? null : null}
     </div>
   );

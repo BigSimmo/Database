@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import {
   appBackdrop,
   cn,
@@ -480,38 +481,6 @@ function QueryChip({ query }: { query: string }) {
   );
 }
 
-function CapabilityGrid({ compact = false }: { compact?: boolean }) {
-  return (
-    <div
-      className={cn(
-        "grid w-full max-w-3xl overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]/80 shadow-[var(--shadow-inset)]",
-        compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4",
-      )}
-    >
-      {medicationCapabilities.map((item, index) => {
-        const Icon = item.icon;
-        return (
-          <div
-            key={item.label}
-            className={cn(
-              "min-h-[4.35rem] px-3 py-2.5",
-              index > 0 && !compact && "sm:border-l sm:border-[color:var(--border)]",
-              index % 2 === 1 && "border-l border-[color:var(--border)] sm:border-l",
-              index > 1 && "border-t border-[color:var(--border)] sm:border-t-0",
-            )}
-          >
-            <div className="mb-1.5 flex items-center gap-2">
-              <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
-              <p className="text-sm font-semibold text-[color:var(--text-heading)]">{item.label}</p>
-            </div>
-            <p className="text-[11px] leading-4 text-[color:var(--text-muted)]">{item.description}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function MedicationHome({
   loading,
   realDataReady,
@@ -522,55 +491,36 @@ function MedicationHome({
   desktopComposerSlotId,
 }: Omit<MedicationPrescribingWorkspaceProps, "query"> & { desktopComposerSlotId?: string }) {
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-17rem)] w-full max-w-4xl flex-col items-center gap-5 px-1 pb-8 pt-[clamp(3rem,8vh,6.5rem)] sm:gap-6">
-      <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-        <Pill className="h-7 w-7" aria-hidden="true" />
-      </div>
-
-      <div className="space-y-2 text-center">
-        <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
-        <h3 className="text-3xl font-semibold text-[color:var(--text-heading)] sm:text-4xl">Medication prescribing</h3>
-        <p className="mx-auto max-w-xl text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
-          Search a medication or prescribing question.
-        </p>
-      </div>
-
-      {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="hidden w-full max-w-3xl lg:block" />
-      ) : null}
-
-      <CapabilityGrid />
-
-      <div className="mx-auto grid w-full max-w-xl gap-2">
-        {medicationPrompts.map((prompt) => {
-          const Icon = prompt.icon;
-          return (
-            <button
-              key={prompt.label}
-              type="button"
-              data-testid={`medication-prompt-${prompt.label.split(" ")[0]}`}
-              onClick={() => onSuggestedSearch(prompt.label)}
-              disabled={loading}
-              className="group flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
-            >
-              <IconTile icon={Icon} tone="teal" className="h-8 w-8" />
-              <span className="min-w-0 flex-1 truncate">{prompt.label}</span>
-              <ChevronRight
-                className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-chat-teal)]"
-                aria-hidden="true"
-              />
-            </button>
-          );
-        })}
-      </div>
-
-      <StatusNotice
-        realDataReady={realDataReady}
-        authUnavailable={authUnavailable}
-        apiUnavailable={apiUnavailable}
-        setupWarning={setupWarning}
-      />
-    </div>
+    <ModeHomeTemplate
+      testId="medication-home"
+      title="Medication prescribing"
+      subtitle="Search a medication or prescribing question."
+      icon={Pill}
+      headingLevel={2}
+      desktopComposerSlotId={desktopComposerSlotId}
+      actionsLabel="Medication prompts"
+      actions={medicationPrompts.map((prompt) => ({
+        title: prompt.label,
+        description: "Open a prescribing-focused search.",
+        icon: prompt.icon,
+        onClick: () => onSuggestedSearch(prompt.label),
+        disabled: loading,
+        testId: `medication-prompt-${prompt.label.split(" ")[0]}`,
+      }))}
+      pillsTitle="Medication checks"
+      pills={medicationCapabilities.map((item) => ({
+        label: item.label,
+        icon: item.icon,
+      }))}
+      footer={
+        <StatusNotice
+          realDataReady={realDataReady}
+          authUnavailable={authUnavailable}
+          apiUnavailable={apiUnavailable}
+          setupWarning={setupWarning}
+        />
+      }
+    />
   );
 }
 

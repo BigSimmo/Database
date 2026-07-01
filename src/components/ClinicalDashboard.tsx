@@ -5650,12 +5650,14 @@ export function ClinicalDashboard({
   initialSearchMode = "answer",
   initialQuery = "",
   focusSearch = false,
-}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean } = {}) {
+  autoRunSearch = false,
+}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
   const mainRef = useRef<HTMLElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
+  const autoRunSearchSignatureRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const nextWorkStatePollRef = useRef(0);
   const urlSearchBootstrappedRef = useRef(false);
@@ -6634,6 +6636,17 @@ export function ClinicalDashboard({
     await executeSearch(query, searchMode, scopeFilters);
   }
 
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    if (!autoRunSearch || !trimmedQuery || !canRunSearch || loading) return;
+    const signature = `${searchMode}:${trimmedQuery}`;
+    if (autoRunSearchSignatureRef.current === signature) return;
+    autoRunSearchSignatureRef.current = signature;
+    void ask();
+    // The signature ref gates this URL-triggered run so it only submits once per mode/query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunSearch, canRunSearch, loading, query, searchMode]);
+
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(recentQuery);
@@ -7527,7 +7540,6 @@ export function ClinicalDashboard({
                     if (normalizedQuery) queryParams.set("q", normalizedQuery);
                     router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
                   }}
-                  hideLocalComposer
                 />
               ) : activeModeResultKind === "tools" ? (
                 <ToolsHub query={query} onQueryChange={setQuery} desktopComposerSlotId={desktopHomeComposerSlotId} />

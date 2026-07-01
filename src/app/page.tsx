@@ -6,6 +6,7 @@ type HomeProps = {
     mode?: string | string[];
     q?: string | string[];
     focus?: string | string[];
+    run?: string | string[];
   }>;
 };
 
@@ -18,6 +19,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const requestedMode = firstSearchParam(params.mode);
   const requestedQuery = firstSearchParam(params.q)?.trim() ?? "";
   const requestedFocus = firstSearchParam(params.focus);
+  const requestedRun = firstSearchParam(params.run);
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
@@ -26,6 +28,7 @@ export default async function Home({ searchParams }: HomeProps) {
       initialSearchMode={initialSearchMode}
       initialQuery={requestedQuery}
       focusSearch={requestedFocus === "1"}
+      autoRunSearch={requestedRun === "1"}
     />
   );
 }

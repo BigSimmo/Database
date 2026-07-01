@@ -192,17 +192,6 @@ async function bootSmoke() {
     throw lastError ?? new Error("Deployment boot smoke timed out.");
   } finally {
     await stopServer(child, logStream);
-<<<<<<< Updated upstream
-  }
-}
-
-function cleanupLogRoot() {
-  try {
-    rmSync(logRoot, { force: true, recursive: true });
-  } catch {
-    // best-effort cleanup
-=======
->>>>>>> Stashed changes
   }
 }
 
@@ -212,11 +201,7 @@ try {
   process.exit(0);
 } catch (error) {
   console.error(formatFailureMessage(error));
-<<<<<<< Updated upstream
-  dumpLogTail(); // log still exists here — cleanup happens after the dump
-=======
   dumpLogTail();
->>>>>>> Stashed changes
   cleanupLogRoot();
   process.exit(1);
 }

@@ -24,6 +24,7 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import {
   DocumentActionButton,
   DocumentActionLink,
@@ -392,56 +393,26 @@ function DocumentSearchHome({
     },
   ];
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-13rem)] w-full max-w-xl flex-col items-center justify-center gap-6 px-0 pb-36 pt-10 text-center sm:min-h-[calc(100dvh-14rem)] sm:pb-32 sm:pt-14">
-      <section data-testid="document-search-empty-state" className="grid justify-items-center gap-4">
-        <span className="grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-          <FileText className="h-7 w-7" />
-        </span>
-        <div className="space-y-1.5">
-          <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">Documents</h2>
-          <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>
-            Open, browse, and continue reading your clinical sources.
-          </p>
-        </div>
-      </section>
-      {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="hidden w-full max-w-3xl lg:block" />
-      ) : null}
-
-      <section
-        aria-label="Start here"
-        className="grid w-full overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]"
-      >
-        {startItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.label}
-              type="button"
-              onClick={item.action}
-              className={cn(
-                "grid min-h-[72px] w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
-              )}
-            >
-              <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                  {item.label}
-                </span>
-                <span className={cn("mt-0.5 block truncate text-xs leading-5", textMuted)}>{item.description}</span>
-              </span>
-              <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />
-            </button>
-          );
-        })}
-      </section>
-
-      <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
-        {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-      </p>
-    </div>
+    <ModeHomeTemplate
+      testId="document-search-empty-state"
+      title="Documents"
+      subtitle="Open, browse, and continue reading your clinical sources."
+      icon={FileText}
+      headingLevel={2}
+      desktopComposerSlotId={desktopComposerSlotId}
+      actionsLabel="Start here"
+      actions={startItems.map((item) => ({
+        title: item.label,
+        description: item.description,
+        icon: item.icon,
+        onClick: item.action,
+      }))}
+      footer={
+        <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+          {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+        </p>
+      }
+    />
   );
 }
 

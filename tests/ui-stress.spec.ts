@@ -269,6 +269,15 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
       }
 
+      await page
+        .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
+        .first()
+        .fill("Show all stress citations and source cards");
+      await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();
+
+      await expect(page.getByLabel("Source-backed answer")).toBeVisible();
+      await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+
       await page.locator('[data-testid="scope-trigger"]:visible').click();
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(scopeContainer).toBeVisible();
@@ -292,14 +301,6 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(scopeContainer).toBeHidden();
       await expectNoPageHorizontalOverflow(page);
 
-      await page
-        .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
-        .first()
-        .fill("Show all stress citations and source cards");
-      await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();
-
-      await expect(page.getByLabel("Source-backed answer")).toBeVisible();
-      await expect(page.getByTestId("plain-answer-response")).toBeVisible();
       await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
       await expect(page.getByTestId("smart-follow-up-chips")).toHaveCount(0);
       await expect(page.getByText("Quality feedback")).toHaveCount(0);

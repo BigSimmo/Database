@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BrainCircuit, ClipboardList, FileText, Heart, Pill, Search, Sparkles, Wrench } from "lucide-react";
+import { BrainCircuit, ClipboardList, FileText, Heart, Pill, Search, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
@@ -34,7 +34,7 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
   documents: FileText,
-  services: FileText,
+  services: ShieldCheck,
   forms: ClipboardList,
   favourites: Heart,
   differentials: BrainCircuit,
@@ -46,6 +46,7 @@ type GlobalMockupSearchShellProps = {
   children: ReactNode;
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
+  desktopSearchPlacement?: "default" | "hero";
 };
 
 export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
@@ -68,6 +69,7 @@ function GlobalMockupSearchShellClient({
   children,
   initialMode = "answer",
   availableModeIds,
+  desktopSearchPlacement = "default",
 }: GlobalMockupSearchShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -163,6 +165,7 @@ function GlobalMockupSearchShellClient({
         initialSearchMode={dashboardSearchMode}
         initialQuery={requestedQuery}
         focusSearch={searchParams.get("focus") === "1"}
+        autoRunSearch
       />
     );
   }
@@ -199,6 +202,9 @@ function GlobalMockupSearchShellClient({
         headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
         modeAlignment={isDifferentialPresentationWorkflow ? "default" : "center"}
         mobileSearchPlacement="bottom"
+        desktopSearchPlacement={
+          desktopSearchPlacement === "hero" || (isFormsOnlyShell && isStandaloneModeHome) ? "hero" : "default"
+        }
         searchComposerVisible={!isDifferentialPresentationWorkflow}
         workflowCopyText={
           isDifferentialPresentationWorkflow

@@ -91,12 +91,12 @@ function SectionRow({ section }: { section: DifferentialSection }) {
   const Icon = sectionIcons[section.tone];
   const meta = rowMeta[section.tone];
   return (
-    <article className="group grid min-h-[4.75rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 last:border-b-0 sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4">
-      <span className={cn("grid h-9 w-9 place-items-center rounded-lg border", sectionTone[section.tone])}>
+    <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 last:border-b-0 sm:min-h-[4.75rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4 sm:py-3">
+      <span className={cn("grid h-9 w-9 place-items-center rounded-lg border sm:h-10 sm:w-10", sectionTone[section.tone])}>
         <Icon className="h-4 w-4" aria-hidden />
       </span>
       <div className="min-w-0">
-        <h2 className="text-sm font-bold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
+        <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">
           {section.summary}
         </p>
@@ -137,9 +137,9 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
       ];
 
   return (
-    <section className="rounded-lg border border-[color:var(--danger)]/24 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--danger-soft)_72%,var(--surface)_28%),var(--surface)_76%)] p-4 shadow-[var(--shadow-inset)] sm:p-5">
+    <section className="rounded-lg border border-[color:var(--danger)]/24 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--danger-soft)_72%,var(--surface)_28%),var(--surface)_76%)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--danger)]/20 bg-[color:var(--surface)] text-[color:var(--danger)]">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--danger)]/20 bg-[color:var(--surface)] text-[color:var(--danger)] sm:h-9 sm:w-9">
           <ShieldAlert className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
@@ -157,31 +157,33 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-[color:var(--text)]">{record.safetySnapshot.summary}</p>
-          <div className="mt-4 grid grid-cols-2 gap-3 border-y border-[color:var(--danger)]/14 py-3 sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-4 gap-2 border-y border-[color:var(--danger)]/14 py-3">
             {facts.map((fact, index) => {
               const Icon = fact.icon;
               return (
                 <div
                   key={fact.label}
-                  className={cn("min-w-0", index > 0 && "sm:border-l sm:border-[color:var(--danger)]/14 sm:pl-4")}
+                  className={cn("min-w-0", index > 0 && "border-l border-[color:var(--danger)]/14 pl-2 sm:pl-4")}
                 >
-                  <p className="flex items-center gap-2 text-xs font-bold text-[color:var(--text-heading)]">
-                    <Icon className="h-4 w-4 text-[color:var(--danger)]" aria-hidden />
-                    {fact.label}
+                  <p className="grid gap-1 text-[10px] font-bold leading-tight text-[color:var(--text-heading)] sm:flex sm:items-center sm:gap-2 sm:text-xs">
+                    <Icon className="h-3.5 w-3.5 text-[color:var(--danger)] sm:h-4 sm:w-4" aria-hidden />
+                    <span>{fact.label}</span>
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">{fact.value}</p>
+                  <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)] sm:text-xs">
+                    {fact.value}
+                  </p>
                 </div>
               );
             })}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-[color:var(--text-heading)]">Immediate priorities</span>
-            {record.immediateActions.slice(0, 4).map((action, index) => (
+            {record.safetySnapshot.tags.map((tag) => (
               <span
-                key={action}
+                key={tag}
                 className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--surface-subtle)] px-2.5 text-[11px] font-semibold text-[color:var(--text-muted)]"
               >
-                {index < 2 ? action : index === 2 ? "+2" : action}
+                {tag}
               </span>
             ))}
           </div>
@@ -321,12 +323,16 @@ function TopActions() {
   );
 }
 
-function MobileCompareBar({ count = 3 }: { count?: number }) {
+function MobilePrimaryActions({ count = 3 }: { count?: number }) {
   return (
-    <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 rounded-lg bg-[color:var(--clinical-chat-teal)] p-2 shadow-[0_18px_46px_rgb(0_74_82_/_32%)] lg:hidden">
-      <button type="button" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-bold text-white">
+    <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
+      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-bold text-white shadow-[var(--shadow-tight)]">
         <GitCompareArrows className="h-4 w-4" aria-hidden />
-        Compare selected ({count})
+        Compare ({count})
+      </button>
+      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--clinical-chat-teal)]">
+        <ClipboardCopy className="h-4 w-4" aria-hidden />
+        Copy
       </button>
     </div>
   );
@@ -346,13 +352,13 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
 
 function HeaderChrome() {
   return (
-    <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/96 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/96 px-3 py-2 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/differentials" aria-label="Back to differentials" className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]">
             <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
           </Link>
-          <div className="flex items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)]">
+          <div className="hidden items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)] sm:flex">
             <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white">
               <GitCompareArrows className="h-4 w-4" aria-hidden />
             </span>
@@ -387,7 +393,7 @@ function Tabs() {
           key={tab}
           href={`#${tab.toLowerCase()}`}
           className={cn(
-            "min-h-11 px-4 py-3",
+            "min-h-11 flex-1 px-2 py-3 text-center sm:flex-none sm:px-4",
             index === 0
               ? "border-b-2 border-[color:var(--clinical-chat-teal)] text-[color:var(--clinical-chat-teal)]"
               : "hover:text-[color:var(--text-heading)]",
@@ -408,7 +414,7 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
       className="min-h-dvh bg-[color:var(--background)] pb-24 text-[color:var(--text)] lg:pb-6"
     >
       <HeaderChrome />
-      <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto grid w-full max-w-7xl gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <nav aria-label="Differential breadcrumbs" className="mb-3 flex items-center gap-2 text-xs font-semibold">
@@ -420,7 +426,7 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
               <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
               <span className="text-[color:var(--text-muted)]">{record.title}</span>
             </nav>
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
               <IconForDiagnosis record={record} />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -436,7 +442,7 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
                     {statusLabel(record.status)}
                   </span>
                 </div>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
+                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] sm:mt-2 sm:text-base">
                   {record.subtitle}
                 </p>
               </div>
@@ -450,14 +456,15 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_27rem]">
           <section className="grid gap-4">
             <SafetySnapshot record={record} />
-            <div className="lg:hidden">
-              <DiagnosisMapPanel record={record} />
-            </div>
             <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
               {record.sections.map((section) => (
                 <SectionRow key={section.id} section={section} />
               ))}
             </div>
+            <div className="lg:hidden">
+              <DiagnosisMapPanel record={record} />
+            </div>
+            <MobilePrimaryActions />
             <FooterStatus />
           </section>
 
@@ -474,7 +481,6 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
           </aside>
         </div>
       </div>
-      <MobileCompareBar />
     </main>
   );
 }

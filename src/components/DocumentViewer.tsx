@@ -2676,11 +2676,7 @@ export function DocumentViewer({
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
                 <>
-<<<<<<< Updated upstream
-                  <div className="mb-2 flex flex-wrap justify-center gap-2">
-=======
                   <div className="mb-2 grid grid-cols-2 gap-2 px-2 pt-2 sm:flex sm:flex-wrap sm:justify-center sm:px-0 sm:pt-0">
->>>>>>> Stashed changes
                     <button
                       type="button"
                       onClick={() => {
@@ -2695,16 +2691,12 @@ export function DocumentViewer({
                         {useNativePdfViewer ? "Use canvas zoom mode" : "Use browser PDF mode"}
                       </span>
                     </button>
-<<<<<<< Updated upstream
-                    <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "text-xs")}>
-=======
                     <a
                       href={signedUrl}
                       target="_blank"
                       rel="noreferrer"
                       className={cn(secondaryButton, "min-h-11 justify-center px-3 text-xs")}
                     >
->>>>>>> Stashed changes
                       <ExternalLink className="h-4 w-4" />
                       <span className="sm:hidden">Open PDF</span>
                       <span className="hidden sm:inline">Open original PDF</span>

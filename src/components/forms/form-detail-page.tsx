@@ -171,17 +171,21 @@ function criterionToneClass(tone: ServiceCriterion["tone"]) {
 
 function DetailCard({ card }: { card: ServiceSummaryCard }) {
   return (
-    <article className="min-h-[7rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:p-3">
-      <div className="mb-2 flex items-start gap-2">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] sm:h-9 sm:w-9">
+    <article className="min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
+      <div className="mb-1.5 flex items-start gap-1.5 sm:mb-2 sm:gap-2">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] sm:h-9 sm:w-9">
           {summaryIcon(card)}
         </span>
-        <p className="min-w-0 pt-0.5 text-[10px] font-bold uppercase leading-4 text-[color:var(--text-soft)] sm:text-[11px]">
+        <p className="min-w-0 pt-0.5 text-[8.5px] font-bold uppercase leading-3 text-[color:var(--text-soft)] sm:text-[11px] sm:leading-4">
           {displayText(card.label, "Priority fact")}
         </p>
       </div>
-      <h3 className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{displayText(card.title)}</h3>
-      <p className={cn("mt-1 text-xs font-medium leading-5", textMuted)}>{displayText(card.detail)}</p>
+      <h3 className="text-[12.5px] font-semibold leading-4 text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+        {displayText(card.title)}
+      </h3>
+      <p className={cn("mt-1 text-[11px] font-medium leading-4 sm:text-xs sm:leading-5", textMuted)}>
+        {displayText(card.detail)}
+      </p>
     </article>
   );
 }
@@ -501,42 +505,36 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_28rem]">
           <div className="min-w-0 space-y-4">
-            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
-              <div className="grid gap-4 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <div className="grid h-20 w-20 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface)] text-3xl font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl">
+            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-5">
+              <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl">
                   {code}
                 </div>
                 <div className="min-w-0">
-                  <div className="mb-2 flex flex-wrap gap-1.5">
-                    <span className={cn(metadataPill, "rounded-full")}>{formShortTitle(form)}</span>
-                    <span className={cn(metadataPill, "rounded-full", verified ? toneSuccess : toneWarning)}>
-                      {verified ? "Verified" : "Confirm locally"}
-                    </span>
-                  </div>
-                  <h1 className="max-w-4xl text-3xl font-semibold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-xl font-semibold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
                   </h1>
-                  <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
+                  <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
                     {displayText(form.subtitle, "Psychiatry form and workflow details.")}
                   </p>
                   {form.statusChips?.length ? (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3">
                       {form.statusChips.map((chip, index) => (
                         <span
                           key={chip.label ?? `form-chip-${index}`}
                           className={cn(
-                            "inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-bold",
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 text-[0.68rem] font-bold uppercase leading-none sm:min-h-7 sm:px-2.5 sm:text-xs",
                             chipToneClass(chip.tone),
                           )}
                         >
-                          <span className="h-2 w-2 rounded-full bg-current" aria-hidden />
+                          <span className="hidden h-2 w-2 rounded-full bg-current sm:inline-block" aria-hidden />
                           {displayText(chip.label, "Status")}
                         </span>
                       ))}
                     </div>
                   ) : null}
                 </div>
-                <div className="flex items-center gap-2 xl:justify-end">
+                <div className="flex items-start justify-end gap-2 xl:justify-end">
                   <button
                     type="button"
                     onClick={toggleSaved}
@@ -550,19 +548,19 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     type="button"
                     onClick={useInNavigator}
                     aria-label="Open source for this form"
-                    className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
                   >
                     <FileText className="h-4 w-4" aria-hidden />
-                    <span className="hidden sm:inline">Source</span>
+                    <span>Source</span>
                   </button>
                 </div>
               </div>
             </section>
 
-            <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center">
+            <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)]">
-                  <FileText className="h-5 w-5" aria-hidden />
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
+                  <FileText className="h-4.5 w-4.5 sm:h-5 sm:w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -575,18 +573,24 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 {displayText(form.source?.status, "Source status pending")}
               </span>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">2 pages</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
+                <span>2 pages</span>
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </div>
               {form.source?.url ? (
                 <a
                   href={form.source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-chat-teal)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="hidden min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-chat-teal)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
                 >
                   Source
                   <ExternalLink className="h-4 w-4" aria-hidden />
                 </a>
               ) : (
-                <span className="text-xs font-semibold text-[color:var(--text-muted)]">Source link pending</span>
+                <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
+                  Source link pending
+                </span>
               )}
             </section>
 

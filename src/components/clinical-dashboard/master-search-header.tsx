@@ -21,7 +21,6 @@ import {
   ChevronDown,
   Cloud,
   Copy,
-  ClipboardList,
   FileText,
   Filter,
   Globe2,
@@ -85,7 +84,7 @@ const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
   documents: FileText,
-  services: ClipboardList,
+  services: ShieldCheck,
   forms: FileText,
   favourites: Heart,
   differentials: BrainCircuit,
@@ -170,6 +169,7 @@ export function MasterSearchHeader({
   headerVariant = "default",
   modeAlignment = "default",
   mobileSearchPlacement = "default",
+  desktopSearchPlacement = "default",
   searchComposerVisible = true,
   workflowCopyText,
   desktopHomeComposerSlotId,
@@ -208,6 +208,7 @@ export function MasterSearchHeader({
   headerVariant?: "default" | "workflow";
   modeAlignment?: "default" | "center";
   mobileSearchPlacement?: "default" | "bottom";
+  desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   workflowCopyText?: string;
   desktopHomeComposerSlotId?: string;
@@ -220,6 +221,7 @@ export function MasterSearchHeader({
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
+  const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch = selectedSearch.kind === "tools" || selectedSearch.kind === "favourites";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
@@ -828,6 +830,9 @@ export function MasterSearchHeader({
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesUniversalFooterStyle = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
+    const usesSendAffordance = usesAnswerFooterStyle || (isStandaloneModeHomeHeader && searchMode === "differentials");
+    const composerPlaceholder =
+      usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
 
     return (
       <form
@@ -838,7 +843,12 @@ export function MasterSearchHeader({
             : usesAnswerFooterStyle
               ? "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl"
               : usesMobileBottomStyle
-                ? "document-mobile-search-edge fixed z-40 mx-auto max-w-3xl sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))] sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl"
+                ? cn(
+                    "document-mobile-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                    isHeroDesktopComposer
+                      ? "forms-hero-search-edge sm:absolute"
+                      : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                  )
                 : "sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto w-full max-w-3xl px-3 py-3 sm:px-4 lg:max-w-4xl",
           usesUniversalFooterStyle && "answer-footer-search-edge flex flex-col items-center gap-2.5",
         )}
@@ -884,7 +894,7 @@ export function MasterSearchHeader({
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
               }}
               aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
-              placeholder={queryPlaceholder}
+              placeholder={composerPlaceholder}
               className={cn(
                 chatComposerInput,
                 "w-full min-w-0",
@@ -928,7 +938,7 @@ export function MasterSearchHeader({
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
-            ) : usesUniversalFooterStyle ? (
+            ) : usesSendAffordance ? (
               <Send className="h-4 w-4" />
             ) : (
               <Search className="h-4.5 w-4.5" />
@@ -1076,7 +1086,7 @@ export function MasterSearchHeader({
               className={cn(
                 "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]",
                 isWorkflowHeader &&
-                  "h-11 w-[min(12rem,calc(100vw-10.25rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
+                  "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
               )}
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
@@ -1176,7 +1186,7 @@ export function MasterSearchHeader({
           <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
             {isWorkflowHeader ? (
               <>
-                <div className="hidden min-w-0 items-center gap-2 lg:flex">
+                <div className="hidden min-w-0 items-center gap-2 xl:flex">
                   <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
                     Local only
@@ -1192,7 +1202,7 @@ export function MasterSearchHeader({
                 </div>
                 <button
                   type="button"
-                  className="universal-header-icon-control hidden h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
+                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open language and region settings"
                   title="Language and region"
                 >
@@ -1213,7 +1223,7 @@ export function MasterSearchHeader({
                   onClick={() => {
                     if (workflowCopyText) void navigator.clipboard?.writeText(workflowCopyText);
                   }}
-                  className="hidden min-h-11 items-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-extrabold text-white shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-chat-teal-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:inline-flex"
+                  className="hidden min-h-11 items-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-extrabold text-white shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-chat-teal-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:inline-flex"
                 >
                   <Copy className="h-4 w-4" aria-hidden />
                   Copy after review

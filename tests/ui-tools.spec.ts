@@ -79,12 +79,9 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
     await expect(medicationLink).not.toHaveAttribute("target", "_blank");
     await expect(page.locator('a[aria-label="Launch Documents"]').first()).toHaveAttribute("href", "/?mode=documents");
-<<<<<<< Updated upstream
-=======
     await expect(page.locator('a[aria-label="Launch Services"]').first()).toHaveAttribute("href", "/services");
     await expect(page.locator('a[aria-label="Launch Forms"]').first()).toHaveAttribute("href", "/forms");
     await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveCount(0);
->>>>>>> Stashed changes
     await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
       "href",
       "/?mode=answer",
@@ -101,11 +98,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-row-documents")).toBeHidden();
-<<<<<<< Updated upstream
-    await expect(page.getByText("Showing 1 to 1 of 3 applications")).toBeVisible();
-=======
     await expect(page.getByText("Showing 1 to 1 of 5 applications")).toBeVisible();
->>>>>>> Stashed changes
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -123,11 +116,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
-<<<<<<< Updated upstream
-    await expect(toolsHub.getByText("Showing 1 to 1 of 3 tools")).toBeVisible();
-=======
     await expect(toolsHub.getByText("Showing 1 to 1 of 5 tools")).toBeVisible();
->>>>>>> Stashed changes
     await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
@@ -305,7 +294,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByPlaceholder("Ask or search forms...")).toHaveValue("transport");
+    await expect(page.getByPlaceholder("Ask or search forms...")).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -471,7 +460,11 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+    await expect(page.getByText("Local only")).toBeVisible();
+    await expect(page.getByText("Offline ready")).toBeVisible();
+    await expect(page.getByText("Source pending review").first()).toBeVisible();
+    await expect(page.locator("header").getByRole("button", { name: "Copy after review" })).toBeVisible();
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {
       return element.scrollWidth > element.clientWidth;
@@ -488,7 +481,9 @@ test.describe("Clinical KB applications launcher", () => {
     const mobileComparison = page.getByLabel("Mobile differential comparison");
     await expect(mobileComparison.getByText("Delirium", { exact: true }).first()).toBeVisible();
     await expect(mobileComparison.getByText("Substance intoxication", { exact: true }).first()).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Open language and region settings" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start a new comparison" })).toBeVisible();
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);

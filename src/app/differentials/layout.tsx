@@ -4,8 +4,6 @@ import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search
 
 export default function DifferentialsLayout({ children }: { children: ReactNode }) {
   return (
-    <GlobalSearchShell initialMode="differentials" availableModeIds={["differentials"]}>
-      {children}
-    </GlobalSearchShell>
+    <GlobalSearchShell initialMode="differentials">{children}</GlobalSearchShell>
   );
 }
