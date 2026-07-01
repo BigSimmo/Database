@@ -20,6 +20,7 @@ import {
   Filter,
   Globe2,
   HelpCircle,
+  Heart,
   Keyboard,
   Layers,
   ListChecks,
@@ -150,6 +151,8 @@ import {
   sanitizeDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
+import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
 import { ApplicationsLauncherWorkspace, applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
@@ -182,11 +185,16 @@ import {
   appModeQueryMode,
   appModeHomeHref,
   appModeResultKind,
+  appModeCanUseSourceLibraryShortcut,
   appModeSearchConfig,
+  appModeSourceLibrarySearchMode,
   isAppModeId,
   isAppModeVisible,
   type AppModeId,
+  type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { searchFormRecords } from "@/lib/forms";
+import { searchServiceRecords } from "@/lib/services";
 import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
@@ -219,6 +227,7 @@ import type {
   ClinicalQueryMode,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
   type AnswerEvidenceMapRow,
   type AnswerViewMode,
@@ -330,6 +339,16 @@ function compactScopeFilters(filters: SearchScopeFilters) {
   if (filters.medications?.length) next.medications = filters.medications;
   if (filters.topics?.length) next.topics = filters.topics;
   if (filters.documentTypes?.length) next.documentTypes = filters.documentTypes;
+  if (filters.sites?.length) next.sites = filters.sites;
+  if (filters.services?.length) next.services = filters.services;
+  if (filters.settings?.length) next.settings = filters.settings;
+  if (filters.populations?.length) next.populations = filters.populations;
+  if (filters.risks?.length) next.risks = filters.risks;
+  if (filters.workflows?.length) next.workflows = filters.workflows;
+  if (filters.clinicalActions?.length) next.clinicalActions = filters.clinicalActions;
+  if (filters.carePhases?.length) next.carePhases = filters.carePhases;
+  if (filters.documentIntents?.length) next.documentIntents = filters.documentIntents;
+  if (filters.contentFeatures?.length) next.contentFeatures = filters.contentFeatures;
   if (filters.sourceStatuses?.length) next.sourceStatuses = filters.sourceStatuses;
   if (filters.validationStatuses?.length) next.validationStatuses = filters.validationStatuses;
   if (filters.extractionQualities?.length) next.extractionQualities = filters.extractionQualities;
@@ -356,6 +375,8 @@ type SearchResultModePayload =
       query: string;
       payload: AnswerPayload;
     };
+
+type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
 
 function parseSseData(lines: string[]) {
   const data = lines.join("\n").trim();
@@ -2434,9 +2455,7 @@ function RenderModelSourceList({
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
                 <span className={sourceStatusDotClass(metadata)} aria-hidden="true" />
                 <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
-                    {source.title}
-                  </p>
+                  <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">{source.title}</p>
                   <p className={cn("mt-1 text-xs", textMuted)}>
                     p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)} · {source.sourceStrength} support
                   </p>
@@ -2570,9 +2589,7 @@ function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerE
     supportLevel: row.supportLevel || row.source.sourceStrength,
     citationCount: 1,
     sourceStatus:
-      row.source.sourceStrength === "none"
-        ? "Source requires review"
-        : `${row.source.sourceStrength} source support`,
+      row.source.sourceStrength === "none" ? "Source requires review" : `${row.source.sourceStrength} source support`,
     bestSourceLabel: row.source.label,
     bestLinkedPassage: row.quote || row.source.snippet || row.source.reason,
     href: row.source.href,
@@ -4788,10 +4805,6 @@ function DocumentDrawer({
   );
 }
 
-
-
-
-
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type DocumentDrawerMode = "recent" | "library" | "source" | "admin";
 type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
@@ -4812,15 +4825,11 @@ function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
   return "All documents";
 }
 
-
-
 function DrawerGroupLabel({ title }: { title: string }) {
   return (
     <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }
-
-
 
 function SettingsDialog({
   open,
@@ -5121,9 +5130,7 @@ function SettingsRow({
         <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </span>
       <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
-        <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-          {label}
-        </span>
+        <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
         {value ? (
           <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
             {value}
@@ -5179,8 +5186,23 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
   );
 }
 
-function ToolsHub({ query, onQueryChange }: { query: string; onQueryChange: (nextQuery: string) => void }) {
-  return <ApplicationsLauncherWorkspace variant="dashboard-tools" query={query} onQueryChange={onQueryChange} />;
+function ToolsHub({
+  query,
+  onQueryChange,
+  desktopComposerSlotId,
+}: {
+  query: string;
+  onQueryChange: (nextQuery: string) => void;
+  desktopComposerSlotId?: string;
+}) {
+  return (
+    <ApplicationsLauncherWorkspace
+      variant="dashboard-tools"
+      query={query}
+      onQueryChange={onQueryChange}
+      desktopComposerSlotId={desktopComposerSlotId}
+    />
+  );
 }
 
 type MobileSectionFabItem = {
@@ -5246,8 +5268,17 @@ function buildMobileSectionFabState({
         badgeTone: "neutral",
       };
     }
+    if (modeSearch.resultKind === "differentials") {
+      return {
+        statusLabel: "Diffs",
+        statusTone: "neutral",
+        nextStep: modeSearch.nextStep,
+        badgeLabel: null,
+        badgeTone: "neutral",
+      };
+    }
     return {
-      statusLabel: modeSearch.resultKind === "documents" ? "Document search" : "No answer yet",
+      statusLabel: modeSearch.resultKind === "documents" ? modeSearch.statusLabel : "No answer yet",
       statusTone: "empty",
       nextStep: modeSearch.nextStep,
       badgeLabel: modeSearch.badgeLabel,
@@ -5619,12 +5650,14 @@ export function ClinicalDashboard({
   initialSearchMode = "answer",
   initialQuery = "",
   focusSearch = false,
-}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean } = {}) {
+  autoRunSearch = false,
+}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
   const mainRef = useRef<HTMLElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
+  const autoRunSearchSignatureRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const nextWorkStatePollRef = useRef(0);
   const urlSearchBootstrappedRef = useRef(false);
@@ -5641,6 +5674,7 @@ export function ClinicalDashboard({
   const batchesRef = useRef(batches);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
+  const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
@@ -5650,6 +5684,30 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
+  const serviceSearchMatches = useMemo(
+    () => (searchMode === "services" ? searchServiceRecords(query) : []),
+    [query, searchMode],
+  );
+  const formSearchMatches = useMemo(
+    () => (searchMode === "forms" ? searchFormRecords(query) : []),
+    [query, searchMode],
+  );
+  const recordSearchMatches = useMemo(
+    () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
+    [searchMode, formSearchMatches, serviceSearchMatches],
+  );
+  const recordSearchMode = searchMode === "forms" ? "forms" : "services";
+  function clearDifferentialModeResultState() {
+    setAnswer(null);
+    setSources([]);
+    setDocumentMatches([]);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setError(null);
+    setAnswerProgress(null);
+  }
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
@@ -5728,6 +5786,8 @@ export function ClinicalDashboard({
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const prefetchApplications = useCallback(() => {
     router.prefetch("/?mode=tools");
+    router.prefetch("/favourites");
+    router.prefetch("/differentials");
   }, [router]);
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
@@ -6244,6 +6304,7 @@ export function ClinicalDashboard({
     urlSearchBootstrappedRef.current = true;
     const targetMode = mode;
     const frame = window.requestAnimationFrame(() => {
+      if (targetMode === "differentials") clearDifferentialModeResultState();
       setSearchMode(targetMode);
       if (searchText) setQuery(searchText);
       if (shouldFocusComposer) focusComposerInput();
@@ -6259,9 +6320,13 @@ export function ClinicalDashboard({
     if (!searchText || !isAppModeId(mode) || !isAppModeVisible(mode)) return;
     if (mode === "prescribing") return;
     const modeSearch = appModeSearchConfig(mode);
-    const shouldRun = params.get("run") === "1" || modeSearch.kind === "documents";
+    const shouldRun =
+      params.get("run") === "1" ||
+      modeSearch.kind === "documents" ||
+      modeSearch.kind === "favourites" ||
+      modeSearch.kind === "differentials";
     if (!shouldRun) return;
-    if (modeSearch.kind !== "tools" && !canRunSearch) return;
+    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
@@ -6301,11 +6366,13 @@ export function ClinicalDashboard({
     );
   }
 
-  async function requestDocuments(
+  async function requestSourceLibrarySearch(
     queryText: string,
+    mode: SourceLibrarySearchMode = "documents",
     filtersOverride?: SearchScopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
   ) {
+    const searchLabel = mode === "differentials" ? "Differentials search" : "Document search";
     let response: Response;
     try {
       response = await fetch("/api/search", {
@@ -6316,7 +6383,7 @@ export function ClinicalDashboard({
         },
         body: JSON.stringify({
           query: queryText,
-          mode: "documents",
+          mode,
           documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
           filters: compactScopeFilters(filtersOverride ?? scopeFilters),
           queryMode: queryModeOverride,
@@ -6325,7 +6392,7 @@ export function ClinicalDashboard({
         }),
       });
     } catch {
-      throw searchNetworkFailure("Document search");
+      throw searchNetworkFailure(searchLabel);
     }
 
     if (response.status === 401) {
@@ -6334,7 +6401,7 @@ export function ClinicalDashboard({
     }
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
-      const message = typeof payload?.error === "string" ? payload.error : "Document search failed";
+      const message = typeof payload?.error === "string" ? payload.error : `${searchLabel} failed`;
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
     const payload = await response.json();
@@ -6460,14 +6527,23 @@ export function ClinicalDashboard({
     if (!trimmedQuery) return;
     const modeSearch = appModeSearchConfig(targetMode);
     const targetQueryMode = appModeQueryMode(targetMode, queryMode);
+    const isDifferentialsMode = modeSearch.resultKind === "differentials";
 
     setSearchMode(targetMode);
     setQuery(trimmedQuery);
+    if (modeSearch.kind !== "tools") setModeSearchSubmitted(true);
+    if (isDifferentialsMode) clearDifferentialModeResultState();
 
     if (modeSearch.kind === "tools") {
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Tools filtered from the composer." });
+      return;
+    }
+    if (modeSearch.kind === "favourites") {
+      setError(null);
+      rememberRecentQuery(trimmedQuery);
+      setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
     if (!canRunSearch) {
@@ -6502,8 +6578,10 @@ export function ClinicalDashboard({
 
         try {
           const payload =
-            modeSearch.kind === "documents"
-              ? await runWithRetries(() => requestDocuments(entry.query, filtersOverride, targetQueryMode))
+            modeSearch.kind === "documents" || modeSearch.kind === "differentials"
+              ? await runWithRetries(() =>
+                  requestSourceLibrarySearch(entry.query, modeSearch.kind, filtersOverride, targetQueryMode),
+                )
               : await runWithRetries(() => requestAnswer(entry.query, filtersOverride, targetQueryMode));
 
           if (!resultUsable(payload)) {
@@ -6544,6 +6622,7 @@ export function ClinicalDashboard({
     if (!trimmedSearchText) return;
     setSearchMode("prescribing");
     setQuery(trimmedSearchText);
+    setModeSearchSubmitted(true);
     setLoading(false);
     setError(null);
     setAnswerProgress(null);
@@ -6559,6 +6638,17 @@ export function ClinicalDashboard({
     }
     await executeSearch(query, searchMode, scopeFilters);
   }
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    if (!autoRunSearch || !trimmedQuery || !canRunSearch || loading) return;
+    const signature = `${searchMode}:${trimmedQuery}`;
+    if (autoRunSearchSignatureRef.current === signature) return;
+    autoRunSearchSignatureRef.current = signature;
+    void ask();
+    // The signature ref gates this URL-triggered run so it only submits once per mode/query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunSearch, canRunSearch, loading, query, searchMode]);
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -6668,9 +6758,12 @@ export function ClinicalDashboard({
 
     setQuery(trimmedSearchText);
     setSearchMode(targetMode);
+    setModeSearchSubmitted(true);
     setLoading(true);
     setError(null);
-    setAnswerProgress(appModeSearchConfig(targetMode).progressLabel);
+    const targetModeSearch = appModeSearchConfig(targetMode);
+    const sourceLibraryMode = appModeSourceLibrarySearchMode(targetMode);
+    setAnswerProgress(targetModeSearch.progressLabel);
     setSearchRelevance(null);
     setSearchFacets(null);
     setSearchScope(null);
@@ -6683,7 +6776,7 @@ export function ClinicalDashboard({
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
-        requestDocuments(trimmedSearchText, filtersOverride, shortcutQueryMode),
+        requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
       );
       applySearchResult(payload);
     } catch (requestError) {
@@ -6697,11 +6790,22 @@ export function ClinicalDashboard({
   function handleTagSearch(tag: SmartDocumentTag | SmartDocumentTagFacet) {
     const searchText = tag.searchText || tag.label;
     const nextFilters: SearchScopeFilters = { ...scopeFilters };
+    if (tag.group === "Site") nextFilters.sites = [searchText];
     if (tag.group === "Medication") nextFilters.medications = [tag.searchText || tag.label];
     if (tag.group === "Document type") nextFilters.documentTypes = [tag.searchText || tag.label];
     if (tag.group === "Topic") nextFilters.topics = [tag.searchText || tag.label];
+    if (tag.group === "Service") nextFilters.services = [searchText];
+    if (tag.group === "Setting") nextFilters.settings = [searchText];
+    if (tag.group === "Population") nextFilters.populations = [searchText];
+    if (tag.group === "Risk") nextFilters.risks = [searchText];
+    if (tag.group === "Workflow") nextFilters.workflows = [searchText];
+    if (tag.group === "Clinical action") nextFilters.clinicalActions = [searchText];
+    if (tag.group === "Care phase") nextFilters.carePhases = [searchText];
+    if (tag.group === "Document intent") nextFilters.documentIntents = [searchText];
+    if (tag.group === "Content feature") nextFilters.contentFeatures = [searchText];
     setScopeFilters(nextFilters);
-    void runDocumentSearchShortcut(searchText, nextFilters);
+    const targetMode = appModeCanUseSourceLibraryShortcut(searchMode) ? searchMode : "documents";
+    void runDocumentSearchShortcut(searchText, nextFilters, true, targetMode);
   }
 
   async function bulkReindexSelected(mode: "enrichment" | "full" | "retry_failed") {
@@ -6768,8 +6872,23 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    if (mode === "differentials") clearDifferentialModeResultState();
+    setQuery("");
+    if (mode === "answer") {
+      setAnswer(null);
+      setSources([]);
+    }
+    setModeSearchSubmitted(false);
+    setLoading(false);
+    setError(null);
+    setAnswerProgress(null);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setDocumentMatches([]);
     setSearchMode(mode);
-    router.replace(appModeHomeHref(mode));
+    router.push(appModeHomeHref(mode));
   }
 
   function focusComposerInput() {
@@ -6782,6 +6901,7 @@ export function ClinicalDashboard({
   function startNewChat() {
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
+    setModeSearchSubmitted(false);
     setSearchMode("answer");
     setQueryMode("auto");
     setSelectedDocumentIds([]);
@@ -7040,28 +7160,36 @@ export function ClinicalDashboard({
           ? query.trim()
             ? "Filtered tools"
             : "Browse tools"
-          : activeModeResultKind === "answer"
-            ? answer
-              ? weakEvidence
-                ? "Read synthesis carefully"
-                : "Clinical synthesis"
-              : activeModeSearch.nextStep
-            : documentMatches.length
-              ? "Document results"
-              : activeModeSearch.readyTitle,
+          : activeModeResultKind === "favourites"
+            ? query.trim()
+              ? "Filtered favourites"
+              : "Browse favourites"
+            : activeModeResultKind === "answer"
+              ? answer
+                ? weakEvidence
+                  ? "Read synthesis carefully"
+                  : "Clinical synthesis"
+                : activeModeSearch.nextStep
+              : documentMatches.length
+                ? "Document results"
+                : activeModeSearch.readyTitle,
       icon:
         activeModeResultKind === "tools"
           ? Wrench
-          : activeModeResultKind === "answer"
-            ? Search
-            : FileText,
+          : activeModeResultKind === "favourites"
+            ? Heart
+            : activeModeResultKind === "answer"
+              ? Search
+              : FileText,
       href: "#search",
       count:
         activeModeResultKind === "tools"
-            ? applicationsLauncherItemCount
+          ? applicationsLauncherItemCount
+          : activeModeResultKind === "favourites"
+            ? null
             : activeModeResultKind === "documents"
               ? documentMatches.length
-                : null,
+              : null,
       empty: activeModeResultKind === "documents" && documentMatches.length === 0,
     },
     {
@@ -7116,6 +7244,19 @@ export function ClinicalDashboard({
   );
   const showAuthPanel = !clientDemoMode && !canUsePrivateApis;
   const showDegradedNotice = !isOnline || apiUnavailable;
+  const hasMobileBottomSearch = searchMode !== "answer";
+  const showDesktopHomeComposer =
+    !loading &&
+    !error &&
+    ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
+      (searchMode === "documents" &&
+        activeModeResultKind === "documents" &&
+        documentMatches.length === 0 &&
+        !modeSearchSubmitted) ||
+      (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
+      (activeModeResultKind === "differentials" && !modeSearchSubmitted) ||
+      activeModeResultKind === "tools");
+  const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -7239,6 +7380,8 @@ export function ClinicalDashboard({
         onPickRecent={pickRecentQuery}
         onOpenGuide={openGuide}
         onOpenSettings={openSettings}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onPrefetchApplications={prefetchApplications}
       />
 
@@ -7253,11 +7396,13 @@ export function ClinicalDashboard({
           queryMode={queryMode}
           scopeFilters={scopeFilters}
           realDataReady={canRunSearch}
-          theme={theme}
           onQueryChange={setQuery}
           onSearchModeChange={selectSearchMode}
           onAsk={ask}
-          onClearQuery={() => setQuery("")}
+          onClearQuery={() => {
+            setQuery("");
+            setModeSearchSubmitted(false);
+          }}
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
           onScopeFiltersChange={setScopeFilters}
@@ -7273,11 +7418,13 @@ export function ClinicalDashboard({
             setMobileSidebarOpen(true);
           }}
           onOpenSettings={openSettings}
-          identity={sidebarIdentity}
+          theme={theme}
           onToggleTheme={toggleTheme}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}
+          mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
+          desktopHomeComposerSlotId={desktopHomeComposerSlotId}
         />
 
         <main
@@ -7285,10 +7432,26 @@ export function ClinicalDashboard({
           ref={mainRef}
           tabIndex={-1}
           onScroll={scheduleActiveSectionSync}
-          className="mb-[calc(5.25rem+env(safe-area-inset-bottom))] min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none sm:mb-24"
+          className={cn(
+            "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
+            searchMode === "answer"
+              ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+              : hasMobileBottomSearch
+                ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                : "mb-0",
+          )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
-          <div className="mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 pb-32 sm:space-y-5 sm:px-4 sm:py-5 sm:pb-36 lg:px-8 lg:pb-40">
+          <div
+            className={cn(
+              "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+              searchMode === "answer"
+                ? "pb-32 sm:pb-36 lg:pb-40"
+                : hasMobileBottomSearch
+                  ? "pb-32 sm:pb-10 lg:pb-12"
+                  : "pb-8 sm:pb-10 lg:pb-12",
+            )}
+          >
             {actionNotice && (
               <div
                 role="status"
@@ -7317,7 +7480,9 @@ export function ClinicalDashboard({
                 "min-h-[calc(100dvh-11rem)]",
                 activeModeResultKind === "answer" && !answer && !loading
                   ? "grid place-items-center"
-                  : activeModeResultKind === "tools"
+                  : activeModeResultKind === "tools" ||
+                      activeModeResultKind === "favourites" ||
+                      activeModeResultKind === "differentials"
                     ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                     : activeModeResultKind === "documents"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
@@ -7347,9 +7512,53 @@ export function ClinicalDashboard({
                 </div>
               )}
 
-              {activeModeResultKind === "tools" ? (
-                <ToolsHub query={query} onQueryChange={setQuery} />
-            ) : activeModeResultKind === "documents" ? (
+              {activeModeResultKind === "differentials" ? (
+                <DifferentialsHome
+                  query={query}
+                  loading={loading}
+                  documentMatches={documentMatches}
+                  documentCount={indexedDocumentTotal}
+                  realDataReady={canRunSearch}
+                  authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                  apiUnavailable={apiUnavailable}
+                  setupWarning={setupWarning}
+                  onQueryChange={setQuery}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                  onSuggestedSearch={(nextQuery) => {
+                    setQuery(nextQuery);
+                    focusComposerInput();
+                  }}
+                  onRunSearch={(nextQuery) => {
+                    void executeSearch(nextQuery, "differentials", scopeFilters);
+                  }}
+                  onOpenPresentations={(nextQuery) => {
+                    const queryParams = new URLSearchParams();
+                    const normalizedQuery = nextQuery.trim();
+                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                    router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
+                  }}
+                  onOpenDiagnoses={(nextQuery) => {
+                    const queryParams = new URLSearchParams();
+                    const normalizedQuery = nextQuery.trim();
+                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                    router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
+                  }}
+                />
+              ) : activeModeResultKind === "tools" ? (
+                <ToolsHub query={query} onQueryChange={setQuery} desktopComposerSlotId={desktopHomeComposerSlotId} />
+              ) : activeModeResultKind === "favourites" ? (
+                <FavouritesHub
+                  query={query}
+                  onClearQuery={() => {
+                    setQuery("");
+                    setModeSearchSubmitted(false);
+                    router.replace(appModeHomeHref("favourites", { focus: true }));
+                  }}
+                  onAddFavourite={() =>
+                    setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
+                  }
+                />
+              ) : activeModeResultKind === "documents" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace
                     query={query}
@@ -7359,12 +7568,17 @@ export function ClinicalDashboard({
                     apiUnavailable={false}
                     setupWarning={null}
                     onSuggestedSearch={setMedicationSearchQuery}
+                    showHome={!modeSearchSubmitted}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
                 ) : (
                   <>
                     <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
                     <DocumentSearchResultsPanel
                       matches={documentMatches}
+                      recordMatches={recordSearchMatches}
+                      recordMode={recordSearchMode}
+                      showRecordMatches={searchMode === "services" || searchMode === "forms"}
                       query={query}
                       loading={loading}
                       documentCount={indexedDocumentTotal}
@@ -7379,6 +7593,8 @@ export function ClinicalDashboard({
                       onOpenLibrary={openSourceLibrary}
                       onOpenSourcePdf={openSourcePdfBrowser}
                       onTagSearch={handleTagSearch}
+                      showHome={searchMode === "documents" && !modeSearchSubmitted}
+                      desktopComposerSlotId={desktopHomeComposerSlotId}
                     />
                   </>
                 )
@@ -7421,6 +7637,7 @@ export function ClinicalDashboard({
                   onPickSample={setQuery}
                   onSearchDocuments={() => setSearchMode("documents")}
                   onUploadDocument={openUploadDrawer}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
                 />
               )}
             </section>
@@ -7645,6 +7862,8 @@ export function ClinicalDashboard({
           onPickRecent={pickRecentQuery}
           onOpenGuide={openGuide}
           onOpenSettings={openSettings}
+          theme={theme}
+          onToggleTheme={toggleTheme}
           onPrefetchApplications={prefetchApplications}
         />
       </div>

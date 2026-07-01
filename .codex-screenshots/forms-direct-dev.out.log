@@ -1,0 +1,41 @@
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:4298
+- Network:       http://0.0.0.0:4298
+- Environments: .env.local
+✓ Ready in 2.6s
+
+ GET /api/local-project-id 200 in 560ms (next.js: 440ms, application-code: 120ms)
+ GET /api/local-project-id 200 in 17ms (next.js: 7ms, application-code: 10ms)
+ GET /api/local-project-id 200 in 87ms (next.js: 76ms, application-code: 10ms)
+ GET /api/local-project-id 200 in 14ms (next.js: 4ms, application-code: 10ms)
+ GET /api/local-project-id 200 in 15ms (next.js: 4ms, application-code: 11ms)
+ GET /api/local-project-id 200 in 17ms (next.js: 6ms, application-code: 11ms)
+ GET /api/local-project-id 200 in 15ms (next.js: 6ms, application-code: 9ms)
+ GET /api/local-project-id 200 in 17ms (next.js: 6ms, application-code: 11ms)
+ GET /api/local-project-id 200 in 26ms (next.js: 16ms, application-code: 10ms)
+ GET /api/local-project-id 200 in 19ms (next.js: 9ms, application-code: 10ms)
+ GET /api/local-project-id 200 in 35ms (next.js: 26ms, application-code: 9ms)
+ GET /api/local-project-id 200 in 11ms (next.js: 3ms, application-code: 8ms)
+○ Compiling / ...
+ GET / 200 in 5.2s (next.js: 3.0s, application-code: 2.2s)
+ GET /?mode=answer 200 in 5.9s (next.js: 3.4s, application-code: 2.5s)
+ GET /api/local-project-id 200 in 123ms (next.js: 79ms, application-code: 44ms)
+ GET /api/local-project-id 200 in 289ms (next.js: 95ms, application-code: 194ms)
+ GET /forms?q=transport&focus=1&run=1 200 in 4.5s (next.js: 2.9s, application-code: 1564ms)
+ GET /api/local-project-id 200 in 31ms (next.js: 22ms, application-code: 9ms)
+ GET /api/local-project-id 200 in 362ms (next.js: 130ms, application-code: 233ms)
+ GET /api/local-project-id 200 in 417ms (next.js: 205ms, application-code: 213ms)
+ GET /forms?q=transport&focus=1&run=1 200 in 1521ms (next.js: 264ms, application-code: 1258ms)
+ GET /api/local-project-id 200 in 445ms (next.js: 102ms, application-code: 343ms)
+ GET /api/local-project-id 200 in 12ms (next.js: 4ms, application-code: 9ms)
+ GET /api/local-project-id 200 in 428ms (next.js: 106ms, application-code: 322ms)
+ GET / 200 in 501ms (next.js: 136ms, application-code: 365ms)
+ GET /api/local-project-id 200 in 22ms (next.js: 13ms, application-code: 9ms)
+ GET /?mode=answer 200 in 442ms (next.js: 7ms, application-code: 435ms)
+ GET /api/local-project-id 200 in 19ms (next.js: 9ms, application-code: 10ms)
+ GET /?mode=documents 200 in 654ms (next.js: 23ms, application-code: 630ms)
+ GET /api/local-project-id 200 in 15ms (next.js: 6ms, application-code: 9ms)
+ GET /api/setup-status 200 in 1783ms (next.js: 1694ms, application-code: 89ms)
+ GET /api/local-project-id 200 in 20ms (next.js: 12ms, application-code: 8ms)
+ GET /services 200 in 1536ms (next.js: 290ms, application-code: 1246ms)
+[?25h

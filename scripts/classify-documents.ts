@@ -59,6 +59,10 @@ const generatedLabelTypes = [
   "workflow",
   "medication",
   "risk",
+  "clinical_action",
+  "care_phase",
+  "document_intent",
+  "content_feature",
 ] as const;
 
 async function loadAdminClient() {
@@ -233,7 +237,19 @@ function generatedLabelsForPlan(plan: ClassificationPlan, stampedAt: string): Ge
   );
   const secondaryLabels = plan.classification.labels.filter(
     (label) =>
-      ["population", "topic", "setting", "service", "workflow", "medication", "risk"].includes(label.label_type) &&
+      [
+        "population",
+        "topic",
+        "setting",
+        "service",
+        "workflow",
+        "medication",
+        "risk",
+        "clinical_action",
+        "care_phase",
+        "document_intent",
+        "content_feature",
+      ].includes(label.label_type) &&
       label.confidence >= 0.5,
   );
 

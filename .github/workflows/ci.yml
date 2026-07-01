@@ -68,6 +68,10 @@ jobs:
         run: npm run build
 
       - name: Deployment boot smoke
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npm run check:deployment-readiness
         env:
           SUPABASE_SERVICE_ROLE_KEY: placeholder-ci-service-role
