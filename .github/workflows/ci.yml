@@ -70,12 +70,9 @@ jobs:
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
         env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-ci-service-role' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'placeholder-ci-openai' }}
         run: npm run check:deployment-readiness
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: placeholder-ci-service-role
-          OPENAI_API_KEY: placeholder-ci-openai
 
       - name: Restore Chromium browser cache
         uses: actions/cache@v4
