@@ -86,7 +86,9 @@ export function CompactRecordHomePage({
           </div>
         </section>
 
-        {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="hidden w-full max-w-3xl lg:block" /> : null}
+        {desktopComposerSlotId ? (
+          <div id={desktopComposerSlotId} className="hidden min-h-14 w-full max-w-3xl lg:block" />
+        ) : null}
 
         <section
           aria-label={tasksLabel}
