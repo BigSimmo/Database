@@ -50,14 +50,22 @@ function parseArgs(argv: string[]): Args {
       args.backup = false;
       continue;
     }
+    if (token !== "--limit" && token !== "--document-id") {
+      throw new Error(`Unknown flag: ${token}`);
+    }
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
     index += 1;
-    if (token === "--limit") args.limit = Number.parseInt(value, 10);
+    if (token === "--limit") {
+      const parsed = Number.parseInt(value, 10);
+      // Validate at parse time: NaN and 0 are falsy, so a later truthiness
+      // check would silently treat "--limit foo" / "--limit 0" as unlimited.
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`--limit must be a positive integer (got "${value}").`);
+      }
+      args.limit = parsed;
+    }
     if (token === "--document-id") args.documentId = value;
-  }
-  if (args.limit && (!Number.isInteger(args.limit) || args.limit <= 0)) {
-    throw new Error("--limit must be a positive integer.");
   }
   return args;
 }

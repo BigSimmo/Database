@@ -318,10 +318,13 @@ export function stripInternalImageDataBlocks(text: string) {
   );
 }
 
-// Exact source quotes must stay verbatim — no prose-polishing or noise-stripping
-// that could alter the wording — but internal image-data blocks are removed and
-// glyph artifacts (ligatures, soft hyphens, control chars) are repaired via
-// compactWhitespace's normalizeExtractedGlyphs pass.
+// Exact source quotes keep their WORDING verbatim — no prose-polishing or
+// noise-stripping that could add, drop, or reorder words — but they are not
+// byte-verbatim: internal image-data blocks are removed, glyph artifacts
+// (ligatures, soft hyphens, control chars) are repaired, and whitespace is
+// collapsed to single spaces via compactWhitespace (quotes render as one
+// continuous quotation, so newline collapse is presentational only; every
+// word, hyphen, and punctuation mark is preserved).
 export function sourceTextForVerbatimQuote(text: string) {
   return stripInternalImageDataBlocks(text);
 }
