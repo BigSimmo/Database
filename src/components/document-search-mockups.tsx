@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import {
   AlertCircle,
   ArrowRight,
@@ -28,6 +29,7 @@ import { cn } from "@/components/ui-primitives";
 export type DocumentSearchMockupVariant = "command" | "evidence-lens" | "triage-board";
 
 type DocumentFixture = {
+  slug: string;
   title: string;
   meta: string;
   summary: string;
@@ -56,6 +58,7 @@ const focusRing =
 
 const documents: DocumentFixture[] = [
   {
+    slug: "clozapine-monitoring",
     title: "Clozapine physical health monitoring protocol",
     meta: "Current source - p.12 - table evidence",
     summary: "Monitoring schedule, escalation thresholds, and shared-care checks are visible before opening the PDF.",
@@ -68,6 +71,7 @@ const documents: DocumentFixture[] = [
     active: true,
   },
   {
+    slug: "acute-agitation-pathway",
     title: "Acute agitation clinical pathway",
     meta: "Local guideline - p.4 - image and flowchart",
     summary: "The result row separates pathway evidence from nearby medication references and keeps actions thumb-ready.",
@@ -78,6 +82,7 @@ const documents: DocumentFixture[] = [
     tags: ["Risk", "Escalation", "ED"],
   },
   {
+    slug: "mental-health-act-forms",
     title: "Mental Health Act forms quick reference",
     meta: "Indexed source - p.2 - form checklist",
     summary: "Fast access to document type, responsible service, and the exact page most likely to answer the search.",
@@ -88,6 +93,17 @@ const documents: DocumentFixture[] = [
     tags: ["Forms", "Workflow", "Legal"],
   },
 ];
+
+function highlightedDocumentHref(document: DocumentFixture) {
+  const params = new URLSearchParams({
+    mode: "documents",
+    document: document.slug,
+    q: document.active ? "clozapine monitoring table" : document.title,
+    page: document.page.replace("p.", ""),
+    chunk: document.active ? "monitoring-table" : "best-match",
+  });
+  return `/mockups/document-search/source?${params.toString()}`;
+}
 
 const facets = [
   { label: "Medication", count: 42, icon: Target },
@@ -198,6 +214,34 @@ function Button({ children, primary = false, icon: Icon }: { children: ReactNode
   );
 }
 
+function ActionLink({
+  children,
+  href,
+  primary = false,
+  icon: Icon,
+}: {
+  children: ReactNode;
+  href: string;
+  primary?: boolean;
+  icon?: LucideIcon;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        focusRing,
+        primary
+          ? "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
+          : "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)]",
+      )}
+    >
+      {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+      {children}
+    </Link>
+  );
+}
+
 function SectionFrame({ title, body, children }: { title: string; body: string; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
@@ -240,6 +284,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
 
 function ResultRow({ document, dense = false }: { document: DocumentFixture; dense?: boolean }) {
   const Icon = document.icon;
+  const openHref = highlightedDocumentHref(document);
   return (
     <article
       className={cn(
@@ -264,7 +309,16 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
               </Pill>
             ) : null}
           </div>
-          <h3 className="mt-2 line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] sm:text-base">
+          <Link
+            href={openHref}
+            className={cn(
+              "mt-2 block rounded-md text-sm font-extrabold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:text-base",
+              focusRing,
+            )}
+          >
+            <span className="line-clamp-2">{document.title}</span>
+          </Link>
+          <h3 className="sr-only">
             {document.title}
           </h3>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
@@ -281,13 +335,20 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
             ))}
           </div>
         </div>
-        <div className="hidden min-w-[4.25rem] text-right sm:block">
+        <Link
+          href={openHref}
+          aria-label={`Open ${document.title} with highlighted source information`}
+          className={cn(
+            "hidden min-w-[4.25rem] rounded-md text-right sm:block",
+            focusRing,
+          )}
+        >
           <p className="nums text-sm font-extrabold text-[color:var(--text-heading)]">{document.page}</p>
           <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
             Open
           </p>
           <ExternalLink className="ml-auto mt-2 h-4 w-4 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]" />
-        </div>
+        </Link>
       </div>
     </article>
   );
@@ -493,9 +554,9 @@ function EvidenceLensMockup({ copy }: { copy: VariantCopy }) {
             <ReasonRow label="Evidence type" value="Table, PDF text, image" />
             <ReasonRow label="Open target" value="p.12 with first chunk selected" />
             <div className="grid gap-2 pt-1">
-              <Button primary icon={ExternalLink}>
+              <ActionLink href={highlightedDocumentHref(documents[0])} primary icon={ExternalLink}>
                 Open exact page
-              </Button>
+              </ActionLink>
               <Button icon={Filter}>Scope to source</Button>
             </div>
           </aside>

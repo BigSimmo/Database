@@ -13,6 +13,8 @@ were removed in July 2026 so stale palettes do not mislead future design review 
 
 - Medication prescribing now lives in the app at `/?mode=prescribing` and `/medications/acamprosate`.
 - `answer-evidence-popups/page.tsx` - copied from `src/app/mockups/answer-evidence-popups/page.tsx`
+- `document-search` - runnable document-search mockup review board, in `src/app/mockups/document-search/page.tsx`
+- `document-search/source` - live handoff route that resolves a mock result into `/documents/{id}?page=...&chunk=...`, in `src/app/mockups/document-search/source/page.tsx`
 - `document-search-command` - runnable mockup only, in `src/app/mockups/document-search-command/page.tsx`
 - `document-search-evidence-lens` - runnable mockup only, in `src/app/mockups/document-search-evidence-lens/page.tsx`
 - `document-search-triage-board` - runnable mockup only, in `src/app/mockups/document-search-triage-board/page.tsx`
@@ -29,6 +31,8 @@ The runnable versions remain in the Next.js app route tree:
 - `/?mode=prescribing`
 - `/medications/acamprosate`
 - `/mockups/answer-evidence-popups`
+- `/mockups/document-search?mode=documents`
+- `/mockups/document-search/source?mode=documents&document=clozapine-monitoring&q=clozapine%20monitoring%20table&page=12&chunk=monitoring-table`
 - `/mockups/document-search-command?mode=documents`
 - `/mockups/document-search-evidence-lens?mode=documents`
 - `/mockups/document-search-triage-board?mode=documents`
@@ -55,3 +59,6 @@ New runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB he
 The document-search mockups use generated non-patient bitmap assets in `public/mockups/document-search/`. These images are
 abstract UI/document textures only: they must not be treated as source screenshots, hospital-branded material, or clinical
 content.
+
+The `document-search/source` route is the exception to the fixture-only mockup behavior: it is a local live handoff that
+finds an indexed document and opens the existing document viewer with a selected page and chunk.
