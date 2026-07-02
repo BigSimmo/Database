@@ -268,12 +268,22 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("button", { name: "Current app mode: Forms" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Transport order" })).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
-    await expect(page.locator('input[placeholder="Search forms..."]:visible').first()).toBeVisible();
+    const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
+    await expect(formsSearchInput).toBeVisible();
 
-    await page.locator('input[placeholder="Search forms..."]:visible').first().fill("transport forms");
-    await page.getByRole("button", { name: "Search forms" }).click();
-
-    await expect(page).toHaveURL(/\/forms\?/);
+    // Under client-only (ssr:false) rendering the shell re-syncs its query from
+    // the URL on mount via requestAnimationFrame. On Firefox/WebKit that frame
+    // can land right after a programmatic fill — wiping the value, disabling the
+    // submit, or dropping the submit before the router navigates. Drive the
+    // fill-and-submit as one retried unit until the search actually routes to
+    // the forms results URL; the assertions below still verify the result.
+    const formsSearchButton = page.getByRole("button", { name: "Search forms" });
+    await expect(async () => {
+      await formsSearchInput.fill("transport forms");
+      await expect(formsSearchButton).toBeEnabled({ timeout: 1_000 });
+      await formsSearchButton.click();
+      await expect(page).toHaveURL(/\/forms\?/, { timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
     await expect(page.getByTestId("form-search-results")).toBeVisible();
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(

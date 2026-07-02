@@ -31,7 +31,12 @@ async function mockSetupStatus(page: Page) {
 
 async function gotoHome(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  // The dashboard is a client-only (`ssr: false`) dynamic import, so DOM-ready
+  // and even network-idle can fire before the header mounts — Firefox and
+  // WebKit paint the client chunk later than Chromium, which is why the overlap
+  // assertion intermittently saw an empty shell. Wait for the real header to be
+  // attached before measuring instead of relying on the flaky idle heuristic.
+  await page.locator("header#search").waitFor({ state: "visible", timeout: 30_000 });
 }
 
 type OverlapReport = { count: number; overlaps: string[] };
