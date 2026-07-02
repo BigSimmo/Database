@@ -6,6 +6,7 @@ Scope: Issue #53 (security), #55 (reliability gaps only), #56 (no change unless 
 ## 1. Goals and non-goals
 
 ### Goals
+
 - Remove authentication bypass behavior so protected APIs fail closed.
 - Stop client-side reliance on persisted localStorage auth token hints.
 - Redact high-risk identifiers from generated image captions before persistence.
@@ -13,6 +14,7 @@ Scope: Issue #53 (security), #55 (reliability gaps only), #56 (no change unless 
 - Close currently open reliability gaps from #55 with minimal, targeted changes (especially embedding-dimension drift safeguards).
 
 ### Non-goals
+
 - No front-end refactor work from #51.
 - No performance-oriented search/ingestion optimization from #52.
 - No broad operational redesign for #56; only patch ops docs/scripts if implementation reveals a concrete missing step.
@@ -32,16 +34,19 @@ This is preferred over broader rewrites because it directly addresses active ris
 ## 3. Architecture and component changes
 
 ### 3.1 Authentication boundary
+
 - Primary file: `src/lib/supabase/auth.ts`.
 - Change: remove environment-based no-auth fallback paths for protected API authorization.
 - Result: auth gate requires valid Supabase-authenticated user identity; invalid/missing identity returns explicit unauthorized response paths.
 
 ### 3.2 Client-side session handling
+
 - Primary files: `src/lib/supabase/client.tsx`, `src/components/ClinicalDashboard.tsx`.
 - Change: stop relying on localStorage token presence scans and persisted auth-email hints for deciding private API/session capability.
 - Result: UI behavior follows actual Supabase session/auth state only.
 
 ### 3.3 Caption redaction before persistence
+
 - Primary file: `worker/main.ts` (with helper placement in shared privacy utility area where appropriate).
 - Change: sanitize generated caption text before database/cache writes.
 - Baseline redaction targets:
@@ -51,11 +56,13 @@ This is preferred over broader rewrites because it directly addresses active ris
 - Result: ingestion remains functional, but persisted captions are safer by default.
 
 ### 3.4 Safe Supabase logging
+
 - Primary files: worker/server/script callsites identified during implementation.
 - Change: route Supabase-related error detail formatting through existing safe redaction utilities instead of direct raw detail logging.
 - Result: operational logs remain actionable without leaking secret/token/identifier content.
 
 ### 3.5 Embedding-dimension drift safeguards
+
 - Primary file: `src/lib/embedding-dimensions.ts` and nearby ingestion assertions/tests.
 - Change: align expected dimension checks to a single configuration source used by ingestion-time assertions.
 - Result: mismatches fail fast and predictably, avoiding silent search-quality corruption.

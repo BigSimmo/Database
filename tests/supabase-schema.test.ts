@@ -271,7 +271,9 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("alter table public.ingestion_job_stages enable row level security");
     expect(schema).toContain('create policy "ingestion job stages service role all" on public.ingestion_job_stages');
     expect(schema).toContain("alter table public.indexing_v3_agent_jobs enable row level security");
-    expect(schema).toContain('create policy "indexing v3 agent jobs service role all" on public.indexing_v3_agent_jobs');
+    expect(schema).toContain(
+      'create policy "indexing v3 agent jobs service role all" on public.indexing_v3_agent_jobs',
+    );
     const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
     expect(authenticatedSelectGrant).not.toContain("public.ingestion_job_stages");
     expect(authenticatedSelectGrant).not.toContain("public.indexing_v3_agent_jobs");
