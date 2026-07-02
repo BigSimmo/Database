@@ -190,14 +190,6 @@ function hasRiskSignal(text: string) {
   return /\b(?:risk|red zone|red|amber|high risk|matrix|urgent|escalat)\b/.test(text);
 }
 
-function hasRiskFlowchartActionSignal(text: string) {
-  return (
-    /\b(?:flowchart|flow chart|algorithm|pathway|matrix)\b/.test(text) &&
-    /\b(?:risk|red zone|red|amber|high risk)\b/.test(text) &&
-    /\b(?:urgent|senior|escalat(?:e|ion|ed|ing)?|next step|step after)\b/.test(text)
-  );
-}
-
 function signalMatchesText(signal: string, text: string) {
   switch (signal) {
     case "active_community":
@@ -293,7 +285,6 @@ function lexicalScoreForSignals(requiredSignals: string[], matchedSignals: strin
 function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandidate; result: SearchResult }) {
   const signals = new Set(args.candidate.matchedSignals);
   let boost = 0;
-  const metadata = args.result.source_metadata;
 
   if (args.intent.needsMedicationChart && args.candidate.chunkType === "medication_chart") boost += 0.18;
   if (args.intent.needsMedicationChart && args.intent.requiredTermSignals.includes("agitation")) {
@@ -316,19 +307,6 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (args.intent.needsRiskFlowchart && !signals.has("risk")) boost -= 0.12;
   if (args.intent.needsRiskFlowchart && !signals.has("red_zone")) boost -= 0.06;
   if (args.intent.needsRiskFlowchart && args.candidate.chunkType === "flowchart" && !signals.has("risk")) boost -= 0.06;
-  if (args.intent.needsRiskFlowchart && args.intent.needsFlowchartStep) {
-    const text = evidenceText(args.result);
-    const hasActionSignal = hasRiskFlowchartActionSignal(text);
-    if (hasActionSignal) boost += 0.18;
-    if (
-      hasActionSignal &&
-      metadata?.document_status === "current" &&
-      (metadata.clinical_validation_status === "approved" || metadata.clinical_validation_status === "locally_reviewed")
-    ) {
-      boost += 0.05;
-    }
-    if (args.candidate.chunkType === "flowchart" && !hasActionSignal) boost -= 0.14;
-  }
   if (args.intent.needsPatientEducation && args.candidate.chunkType === "patient_education") boost += 0.18;
   if (args.intent.needsPatientEducation) {
     boost += signals.has("active_community") ? 0.16 : -0.16;
@@ -346,18 +324,14 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (args.intent.requiredTermSignals.length > 0 && args.candidate.lexicalScore === 1) boost += 0.1;
   if (args.intent.requiredTermSignals.length > 0 && (args.candidate.lexicalScore ?? 0) === 0) boost -= 0.08;
 
-  if (metadata?.document_status === "current") boost += 0.06;
-  if (metadata?.document_status === "review_due") boost -= 0.12;
-  if (metadata?.document_status === "outdated") boost -= 0.24;
-
-  if (metadata?.clinical_validation_status === "approved") boost += 0.06;
-  if (metadata?.clinical_validation_status === "locally_reviewed") boost += 0.05;
-  if (metadata?.clinical_validation_status === "unverified") boost -= 0.02;
-
-  if (metadata?.extraction_quality === "good") boost += 0.02;
-  if (metadata?.extraction_quality === "partial") boost -= 0.04;
-  if (metadata?.extraction_quality === "poor") boost -= 0.12;
-
+  // NOTE (measured, do not reintroduce without re-running the golden retrieval eval): source
+  // governance metadata (document_status / clinical_validation_status / extraction_quality) must
+  // NOT weight selection ordering here. The corpus is only partially enriched — unenriched docs
+  // normalize to unknown/unverified — so metadata weighting swings ranking by up to ~0.35 for
+  // reasons unrelated to relevance and buried correct documents (golden doc-recall@5 1.0 -> 0.76,
+  // 7/23 failures). Governance is enforced in ranking penalties and the answer/source-governance
+  // layer instead; RC8 (source-strength as a filter) remains tracked in
+  // docs/rag-hybrid-findings-and-todo.md.
   return boost;
 }
 
@@ -477,9 +451,14 @@ export function buildRetrievalCandidates(
     const matchedSignals = matchedSignalsForResult({ intent, result, chunkType });
     const lexicalScore = lexicalScoreForSignals(intent.requiredTermSignals, matchedSignals);
     const candidate = { ...initial, lexicalScore, matchedSignals };
+    // The relevance score stays CLAMPED: live hybrid scores routinely saturate at 1.0, and letting
+    // boosts raise the primary score uncapped made boost stacking override lexical relevance
+    // entirely (golden doc-recall@5 regressed 1.0 -> 0.76). Within the saturated region, ordering
+    // falls through to lexicalScore then rerankScore (the clinical relevance rank), which is the
+    // behaviour the golden retrieval eval validates.
     return {
       ...candidate,
-      score: Number(Math.max(0, candidate.score + resultBoost({ intent, candidate, result })).toFixed(4)),
+      score: clamp(candidate.score + resultBoost({ intent, candidate, result })),
     };
   });
 }

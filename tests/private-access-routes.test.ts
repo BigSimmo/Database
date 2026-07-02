@@ -221,7 +221,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
 function mockRuntime(
   client: ReturnType<typeof createSupabaseMock>,
   ragMock?: Record<string, unknown>,
-  options: { localNoAuth?: boolean; localOwnerEmail?: string } = {},
+  options: { localNoAuth?: boolean; localOwnerEmail?: string; providerMode?: string; openAiKey?: string } = {},
 ) {
   vi.resetModules();
   vi.doUnmock("@/lib/rag");
@@ -238,6 +238,10 @@ function mockRuntime(
       RAG_ANSWER_CACHE_TTL_MS: 0,
       RAG_ANSWER_CACHE_SIZE: 0,
       RAG_AWAIT_QUERY_LOGS: false,
+      // A key is present and provider mode is "auto" by default, so retrieval uses the online
+      // embedding/hybrid path; tests can override to exercise the source-only path.
+      OPENAI_API_KEY: options.openAiKey ?? "sk-test",
+      RAG_PROVIDER_MODE: options.providerMode ?? "auto",
       LOCAL_NO_AUTH_OWNER_EMAIL: options.localOwnerEmail,
       WORKER_STALE_AFTER_MINUTES: 10,
       WORKER_MAX_ATTEMPTS: 3,
@@ -2811,6 +2815,24 @@ describe("private document API access", () => {
         document_filters: [otherDocumentId],
       }),
     );
+  });
+
+  it("source-only mode skips embeddings and never calls the vector hybrid RPC", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { providerMode: "offline" });
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateTextResponse: vi.fn(),
+      generateStructuredTextResponse: vi.fn(),
+      generateStructuredTextResult: vi.fn(),
+    }));
+    const { searchChunks } = await import("../src/lib/rag");
+
+    await searchChunks({ query: "monitoring", documentId: otherDocumentId, ownerId: userId });
+
+    expect(embedTextWithTelemetry).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalledWith("match_document_chunks_hybrid", expect.anything());
   });
 
   it("uses the DB-backed document lookup RPC with owner scope", async () => {

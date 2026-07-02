@@ -9,6 +9,7 @@ import {
   selectRagAliasExpansions,
   shouldApplyUnsupportedSearchShortCircuit,
   textCandidateBudgetForQueryClass,
+  relaxVariantToOrQuery,
 } from "../src/lib/rag";
 import type { SearchResult } from "../src/lib/types";
 
@@ -633,5 +634,22 @@ describe("retrieval query variants", () => {
     expect(key).not.toEqual(retrievalPlanCacheQuery(baseArgs, "document_lookup", ["clozapine anc", "clozapine fbc"]));
     expect(key).not.toEqual(retrievalPlanCacheQuery(baseArgs, "table_threshold", ["different variant"]));
     expect(key).not.toEqual(retrievalPlanCacheQuery({ ...baseArgs, topK: 12 }, "table_threshold", ["clozapine anc"]));
+  });
+});
+
+describe("relaxVariantToOrQuery (8b over-conjunction fallback)", () => {
+  it("relaxes a multi-term AND variant to a deduped term-OR query", () => {
+    expect(relaxVariantToOrQuery("ciwa score threshold drug treatment alcohol withdrawal")).toBe(
+      "ciwa OR score OR threshold OR drug OR treatment OR alcohol OR withdrawal",
+    );
+  });
+
+  it("strips punctuation, single-char tokens, and duplicate terms", () => {
+    expect(relaxVariantToOrQuery("CIWA-Ar a alcohol, alcohol")).toBe("ciwa OR ar OR alcohol");
+  });
+
+  it("returns null when there is nothing to relax", () => {
+    expect(relaxVariantToOrQuery("")).toBeNull();
+    expect(relaxVariantToOrQuery("clozapine")).toBeNull();
   });
 });
