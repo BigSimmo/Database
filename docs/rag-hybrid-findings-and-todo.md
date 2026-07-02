@@ -97,6 +97,15 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
      remaining ranking-correctness item.)
    - ⏳ **Source-strength as a filter not just a penalty (RC8)**; **threshold floors (RC5)**;
      **rerank trigger (RC10)** — see item 4's note (marginal without a chunk-level eval metric).
+   - ⏳ **Differentials flowchart-action boost (dropped in the PR #120 merge).** The codex/RAG_FIX
+     branch carried a `hasRiskFlowchartActionSignal` boost in `retrieval-selection.ts` (+0.18 for
+     risk-flowchart action text, +0.05 metadata-conditional, −0.14 for flowcharts without action
+     signals) tuned for differentials-mode queries against the pre-optimization scoring. It was
+     dropped when merging main's relevance-first selection because its metadata-conditional part
+     violates the "governance must not reorder selection" contract and it was never measured against
+     the golden retrieval eval. If differentials-mode retrieval quality needs a lift, re-propose the
+     action-signal part (without the metadata condition) through the golden eval; the original code
+     is in PR #120 history (`git show 635485998^1:src/lib/retrieval-selection.ts`).
    - Higher-value redirect than mrr-chasing: **item 9 (enrichment/reindex — the OCR extraction drops
      letters, e.g. "score"→"core", "psychosis"→"p ycho i ", which hurts both lexical matching and the
      readability of quoted answer text)** and **item 10 (DB-backed synonyms/typos)**.
