@@ -121,6 +121,8 @@ type ChunkSectionSource = {
   content: string;
 };
 
+type AgentJobStatus = "pending" | "completed" | "failed" | "needs_enrichment_artifacts";
+
 const GENERATED_BY = "indexing-v3-agent";
 const AGENT_SECRET = Deno.env.get("INDEXING_V3_AGENT_SECRET") ?? Deno.env.get("CRON_SECRET") ?? "";
 const EXPECTED_EMBED_DIM = 1536;
@@ -1872,6 +1874,26 @@ async function needsVisualArtifacts(job: ClaimedJob): Promise<boolean> {
   return shouldRunVisualArtifacts(row);
 }
 
+async function updateAgentJobStatus(
+  job: ClaimedJob,
+  status: AgentJobStatus,
+  error: string | null = null,
+  nextRunAt: string | null = null,
+): Promise<void> {
+  const rows = await sql<Array<{ ok: boolean }>>`
+    select *
+    from public.update_indexing_v3_agent_job_status(
+      ${job.document_id}::uuid,
+      ${status}::text,
+      ${error}::text,
+      ${nextRunAt}::timestamptz
+    )
+  `;
+  if (!rows[0]?.ok) {
+    throw new Error(`Failed to update indexing_v3_agent_jobs status to ${status} for document ${job.document_id}`);
+  }
+}
+
 function logCompletionGate(job: ClaimedJob, gate: CompletionGate): void {
   console.log(
     JSON.stringify({
@@ -1919,6 +1941,12 @@ async function deferJob(job: ClaimedJob, gate: CompletionGate): Promise<void> {
       updated_at = now()
     where id = ${job.document_id}::uuid
   `;
+  await updateAgentJobStatus(
+    job,
+    decision.status === "needs_enrichment_artifacts" ? "needs_enrichment_artifacts" : "pending",
+    null,
+    decision.status === "needs_enrichment_artifacts" ? null : decision.next_run_at,
+  );
 }
 
 async function completeJob(job: ClaimedJob): Promise<void> {
@@ -1948,6 +1976,7 @@ async function completeJob(job: ClaimedJob): Promise<void> {
       })}`,
     );
   }
+  await updateAgentJobStatus(job, "completed");
 }
 
 async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean> {
@@ -1976,6 +2005,7 @@ async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean
       updated_at = now()
     where id = ${job.document_id}::uuid
   `;
+  await updateAgentJobStatus(job, shouldRetry ? "pending" : "failed", message, nextRunAt);
   return shouldRetry;
 }
 
