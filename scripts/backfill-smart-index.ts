@@ -533,6 +533,10 @@ async function main() {
     console.log("Metadata-only mode: repairing chunk metadata, document-level fields, labels, and quality rows.");
 
   for (const document of documents ?? []) {
+    const indexingDocument = {
+      ...document,
+      metadata: metadataRecord(document.metadata),
+    };
     const [chunks, images] = await Promise.all([
       loadRows<Record<string, unknown>>(
         reader,
@@ -562,13 +566,13 @@ async function main() {
     const summary = await loadDocumentSummary({ supabase, documentId: document.id });
     const generationId = await repairChunkIndexingMetadata({
       supabase,
-      document,
+      document: indexingDocument,
       chunks: chunks as Record<string, unknown>[],
       ragDeepMemoryVersion,
     });
     const embeddingFields = await upsertDocumentLevelEmbeddingFields({
       supabase,
-      document,
+      document: indexingDocument,
       chunks: chunks as Record<string, unknown>[],
       summary,
       embedTexts,
@@ -578,7 +582,7 @@ async function main() {
     if (args.metadataOnly) {
       fallbackLabels = await ensureGeneratedFallbackLabel({
         supabase,
-        document,
+        document: indexingDocument,
         ragEnrichmentVersion,
       });
       const [sectionCount, memoryCardCount] = await Promise.all([
@@ -587,7 +591,7 @@ async function main() {
       ]);
       const quality = await upsertIndexQuality({
         supabase,
-        document,
+        document: indexingDocument,
         chunks: chunks as Record<string, unknown>[],
         images: images as Record<string, unknown>[],
         sectionCount,
@@ -602,25 +606,25 @@ async function main() {
 
     const enrichment = await upsertDocumentEnrichment({
       supabase,
-      document,
+      document: indexingDocument,
       chunks: chunks as never,
       images: images as never,
     });
     fallbackLabels = await ensureGeneratedFallbackLabel({
       supabase,
-      document,
+      document: indexingDocument,
       ragEnrichmentVersion,
     });
     const memory = await upsertDocumentDeepMemory({
       supabase,
-      document,
+      document: indexingDocument,
       chunks: chunks as never,
       images: images as never,
       summary: enrichment.summary.summary,
     });
     const quality = await upsertIndexQuality({
       supabase,
-      document,
+      document: indexingDocument,
       chunks: chunks as Record<string, unknown>[],
       images: images as Record<string, unknown>[],
       sectionCount: memory.sections.length,
