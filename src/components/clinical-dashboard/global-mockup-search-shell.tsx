@@ -37,6 +37,8 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
   { value: "required_documentation", label: "Documentation" },
   { value: "compare_guidance", label: "Compare" },
 ];
+// Re-apply focus shortly after the first frame to survive initial hydration remounts.
+const focusHydrationRetryDelayMs = 300;
 
 type GlobalMockupSearchShellProps = {
   children: ReactNode;
@@ -86,6 +88,7 @@ function GlobalMockupSearchShellClient({
   const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
   const initialSearchMode =
     availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
+  const requestedFocus = searchParams.get("focus") === "1";
   const requestedRun = searchParams.get("run") === "1";
   const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
@@ -137,12 +140,22 @@ function GlobalMockupSearchShellClient({
     // because the state above is already seeded from the URL.
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
     lastSyncedSearchParamsRef.current = searchParamString;
-
     setSearchMode(resolvedSearchMode);
     setQuery(currentUrlHasQuery ? requestedQuery : "");
+  }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
 
-    if (searchParams.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
-  }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString, searchParams]);
+  useEffect(() => {
+    if (!requestedFocus) return undefined;
+    const focusInput = () => {
+      inputRef.current?.focus({ preventScroll: true });
+    };
+    const frame = window.requestAnimationFrame(focusInput);
+    const timeout = window.setTimeout(focusInput, focusHydrationRetryDelayMs);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [pathname, requestedFocus, searchParamString]);
 
   useEffect(() => {
     let cancelled = false;
