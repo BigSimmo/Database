@@ -589,3 +589,63 @@ test.describe("Clinical KB service detail page", () => {
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
   });
 });
+
+test.describe("Responsive layout guards", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  // Widths straddle the sm (640px), lg (1024px), and xl (1280px) layout switches,
+  // plus the narrow phone floor (320px).
+  const responsiveWidths = [320, 375, 414, 640, 768, 1024, 1280] as const;
+
+  async function settleLayout(page: Page) {
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  }
+
+  const modeHomeRoutes = [
+    { name: "prescribing", path: "/?mode=prescribing" },
+    { name: "differentials", path: "/?mode=differentials" },
+    { name: "services", path: "/?mode=services" },
+    { name: "forms", path: "/?mode=forms" },
+  ] as const;
+
+  for (const route of modeHomeRoutes) {
+    test(`${route.name} mode home never overflows horizontally across sizes`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await gotoLauncher(page, route.path);
+      await expect(page.getByRole("heading").first()).toBeVisible();
+
+      for (const width of responsiveWidths) {
+        await page.setViewportSize({ width, height: 900 });
+        await settleLayout(page);
+        await expectNoPageHorizontalOverflow(page);
+      }
+    });
+  }
+
+  test("prescribing mode home bottom-anchors its content on phones but centres on tablet", async ({ page }) => {
+    async function verticalWeighting(width: number) {
+      // Tall viewport exaggerates the free space so the anchor is unambiguous.
+      await page.setViewportSize({ width, height: 900 });
+      await gotoLauncher(page, "/?mode=prescribing");
+      const home = page.getByTestId("medication-home");
+      await expect(home).toBeVisible();
+      await settleLayout(page);
+      return page.evaluate(() => {
+        const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+        if (!rect) return null;
+        return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
+      });
+    }
+
+    // Phone (< sm): content is pushed toward the bottom, so the gap above exceeds the gap below.
+    const phone = await verticalWeighting(375);
+    expect(phone).not.toBeNull();
+    expect(phone?.topGap ?? 0).toBeGreaterThan(phone?.bottomGap ?? 0);
+
+    // Tablet (>= sm): content is vertically centred, so the two gaps are close to balanced.
+    const tablet = await verticalWeighting(768);
+    expect(tablet).not.toBeNull();
+    const balance = Math.abs((tablet?.topGap ?? 0) - (tablet?.bottomGap ?? 0));
+    expect(balance).toBeLessThan(Math.max(tablet?.topGap ?? 0, tablet?.bottomGap ?? 0));
+  });
+});

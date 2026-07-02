@@ -8413,7 +8413,7 @@ export function ClinicalDashboard({
               className={cn(
                 "min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? "grid w-full place-items-center"
+                  ? "grid w-full items-end justify-items-center sm:items-center"
                   : activeModeResultKind === "tools" ||
                       activeModeResultKind === "favourites" ||
                       activeModeResultKind === "differentials"
