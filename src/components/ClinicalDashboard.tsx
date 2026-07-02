@@ -207,8 +207,9 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
-import { searchFormRecords } from "@/lib/forms";
-import { searchServiceRecords } from "@/lib/services";
+import { rankFormRecords } from "@/lib/forms";
+import { rankServiceRecords } from "@/lib/services";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import {
@@ -360,6 +361,7 @@ function compactScopeFilters(filters: SearchScopeFilters) {
   if (filters.locality) next.locality = filters.locality;
   if (filters.importBatchIds?.length) next.importBatchIds = filters.importBatchIds;
   if (filters.collections?.length) next.collections = filters.collections;
+  if (filters.labelTypesAny?.length) next.labelTypesAny = filters.labelTypesAny;
   return next;
 }
 
@@ -3561,13 +3563,19 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
+  // Record matches come from the owner-scoped registry API (mock fixtures in
+  // demo mode); ranking stays client-side so live-typing behaviour is
+  // unchanged and the registry is fetched once per active mode.
+  const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
+    enabled: searchMode === "services" || searchMode === "forms",
+  });
   const serviceSearchMatches = useMemo(
-    () => (searchMode === "services" ? searchServiceRecords(query) : []),
-    [query, searchMode],
+    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, query) : []),
+    [query, searchMode, registryRecords.records],
   );
   const formSearchMatches = useMemo(
-    () => (searchMode === "forms" ? searchFormRecords(query) : []),
-    [query, searchMode],
+    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, query) : []),
+    [query, searchMode, registryRecords.records],
   );
   const recordSearchMatches = useMemo(
     () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
@@ -4496,6 +4504,11 @@ export function ClinicalDashboard({
     const modeSearch = appModeSearchConfig(targetMode);
     const targetQueryMode = appModeQueryMode(targetMode, queryMode);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
+    // Note: no automatic mode-default label scope for Services/Forms. Applying
+    // one on every search routed resolveSearchScope's label path over the whole
+    // library, whose single `document_labels.in(<all ids>)` request produces an
+    // over-long PostgREST URL that fails on large corpora. Corpus search runs
+    // unscoped (like Documents); users opt into label filters explicitly.
 
     setSearchMode(targetMode);
     setQuery(trimmedQuery);
@@ -5515,7 +5528,6 @@ export function ClinicalDashboard({
                   query={query}
                   loading={loading}
                   documentMatches={documentMatches}
-                  documentCount={indexedDocumentTotal}
                   realDataReady={canRunSearch}
                   authUnavailable={!clientDemoMode && !canUsePrivateApis}
                   apiUnavailable={apiUnavailable}

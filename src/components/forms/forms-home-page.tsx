@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowLeftRight, ClipboardCheck, FileText, Route, Search, ShieldCheck, Truck, UserRound } from "lucide-react";
 
 import {
@@ -8,8 +10,9 @@ import {
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { defaultFormSlug, formRecords } from "@/lib/forms";
+import { defaultFormSlug } from "@/lib/forms";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
@@ -59,11 +62,10 @@ const commonTasks: ModeHomePill[] = [
   },
 ];
 
-function verifiedCount() {
-  return formRecords.filter((form) => form.verification?.locallyVerified).length;
-}
-
 export function FormsHomePage() {
+  const registry = useRegistryRecords("form");
+  const verifiedCount = countVerifiedRegistryRecords(registry);
+
   return (
     <ModeHomeMain testId="forms-home">
       <ModeHomeTemplate
@@ -77,12 +79,14 @@ export function FormsHomePage() {
         pillsTitle="Common tasks"
         pills={commonTasks}
         footer={
-          <ModeHomeVerificationFooter
-            label="Source verified"
-            body="MHA 2014 forms"
-            verifiedCount={verifiedCount()}
-            totalCount={formRecords.length}
-          />
+          registry.status === "ready" ? (
+            <ModeHomeVerificationFooter
+              label="Source verified"
+              body="MHA 2014 forms"
+              verifiedCount={verifiedCount}
+              totalCount={registry.total}
+            />
+          ) : null
         }
       />
     </ModeHomeMain>

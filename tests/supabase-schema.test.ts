@@ -68,6 +68,10 @@ const indexingV3AgentJobsMigration = readFileSync(
   new URL("../supabase/migrations/20260702190000_indexing_v3_agent_jobs_table.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const clinicalRegistryRecordsMigration = readFileSync(
+  new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -648,5 +652,35 @@ describe("Supabase schema Data API grants", () => {
     expect(perDocTokenSearchMigration).toContain(
       "grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;",
     );
+  });
+
+  it("defines the clinical registry tables identically in migration and schema", () => {
+    for (const sql of [schema, clinicalRegistryRecordsMigration]) {
+      expect(sql).toContain("create table if not exists public.clinical_registry_records");
+      expect(sql).toContain("kind text not null check (kind in ('service', 'form'))");
+      expect(sql).toContain("owner_id uuid not null references auth.users(id) on delete cascade");
+      expect(sql).toContain(
+        "source_status text not null default 'unknown' check (source_status in ('current', 'review_due', 'outdated', 'unknown'))",
+      );
+      expect(sql).toContain(
+        "validation_status text not null default 'unverified' check (validation_status in ('unverified', 'locally_reviewed', 'approved'))",
+      );
+      expect(sql).toContain("unique (owner_id, kind, slug)");
+      expect(sql).toContain("create table if not exists public.clinical_registry_record_sources");
+      expect(sql).toContain(
+        "record_id uuid not null references public.clinical_registry_records(id) on delete cascade",
+      );
+      expect(sql).toContain("document_id uuid not null references public.documents(id) on delete cascade");
+      expect(sql).toContain("unique (record_id, document_id)");
+      expect(sql).toContain("create index if not exists clinical_registry_records_owner_kind_idx");
+      expect(sql).toContain("create trigger clinical_registry_records_updated_at");
+      expect(sql).toContain("alter table public.clinical_registry_records enable row level security");
+      expect(sql).toContain("revoke all on public.clinical_registry_records from anon, authenticated");
+      expect(sql).toContain(
+        "grant select, insert, update, delete on table public.clinical_registry_records to service_role",
+      );
+      expect(sql).toContain('create policy "registry records service role all"');
+      expect(sql).toContain('create policy "registry record sources service role all"');
+    }
   });
 });

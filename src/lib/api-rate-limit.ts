@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { PublicApiError } from "@/lib/http";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
-export type ApiRateLimitBucket = "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex";
+export type ApiRateLimitBucket =
+  "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -18,6 +19,7 @@ const apiRateLimitDefaults = {
   document_summarize: { limit: 12, windowSeconds: 60 },
   document_reindex: { limit: 6, windowSeconds: 60 },
   bulk_reindex: { limit: 2, windowSeconds: 60 },
+  registry: { limit: 120, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
