@@ -29,7 +29,8 @@ export async function POST(request: Request) {
 
   try {
     supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const adminSupabase = supabase;
+    const user = await requireAuthenticatedUser(request, adminSupabase);
     const formData = await request.formData();
     const file = formData.get("file");
     if (!(file instanceof File)) {
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     assertFileContentSignature(file.type, buffer);
     const contentHash = createHash("sha256").update(buffer).digest("hex");
 
-    const { data: duplicate, error: duplicateError } = await supabase
+    const { data: duplicate, error: duplicateError } = await adminSupabase
       .from("documents")
       .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
       .eq("owner_id", user.id)
@@ -70,10 +71,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const health = await probeSupabaseHealth(supabase);
+    const health = await probeSupabaseHealth(adminSupabase);
     if (!health.ok) return NextResponse.json({ error: `Upload is paused. ${health.message}` }, { status: 503 });
 
-    const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
+    const upload = await adminSupabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
       contentType: file.type,
       upsert: false,
     });
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     uploadedPath = storagePath;
 
     const namingSupabase: DocumentNameSupabase = {
-      from: ((table) => supabase!.from(table)) as DocumentNameSupabase["from"],
+      from: ((table) => adminSupabase.from(table)) as DocumentNameSupabase["from"],
     };
     const namePlan = await planDocumentName({
       supabase: namingSupabase,

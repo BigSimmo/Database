@@ -1,3 +1,6 @@
+/* Generated compatibility note: this repo currently relies on permissive JSONB typing
+   across many generated table and RPC shapes, so keep Json broad until the call sites
+   are narrowed coherently. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type Json = any
 

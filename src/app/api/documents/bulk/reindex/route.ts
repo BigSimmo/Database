@@ -66,7 +66,7 @@ async function selectRowsInPages<T>(args: {
 }) {
   const rows: T[] = [];
   if (args.searchableOnly && args.table !== "document_images") {
-    throw new Error("searchableOnly is only supported for document_images");
+    throw new Error("searchableOnly reindex paging only supports the document_images table.");
   }
   for (let offset = 0; ; offset += pageSize) {
     const query =
