@@ -637,8 +637,6 @@ returns trigger
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
-declare
-  v_processing_lock_timeout interval := make_interval(mins => 45);
 begin
   if tg_op = 'INSERT' then
     NEW.content_hash := md5(coalesce(NEW.content, ''));
@@ -3004,6 +3002,8 @@ language plpgsql
 security invoker
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  v_processing_lock_timeout interval := make_interval(mins => 45);
 begin
   return query
   with candidates as (
