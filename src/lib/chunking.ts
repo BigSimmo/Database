@@ -81,8 +81,11 @@ function looksLikeRepeatingBoilerplate(line: string) {
 function buildRepeatedBoilerplateLines(inputs: ChunkInput[]) {
   const counts = new Map<string, number>();
   for (const input of inputs) {
+    // Keys must be built from the SAME normalized text that removePageNoise
+    // later compares against, or a ligature/soft-hyphen in a repeated header
+    // ("Conﬁdential") would produce a mismatched key and survive filtering.
     const pageLines = new Set(
-      input.pageText
+      normalizeExtractedGlyphs(input.pageText)
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(looksLikeRepeatingBoilerplate)

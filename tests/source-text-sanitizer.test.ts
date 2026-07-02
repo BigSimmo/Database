@@ -172,6 +172,14 @@ describe("normalizeExtractedGlyphs", () => {
     expect(normalizeExtractedGlyphs("a\u0000b\u0007c\u001Fd")).toBe("abcd");
   });
 
+  it("converts whitespace-like controls to newlines instead of fusing words", () => {
+    // Vertical tab, form feed, and C1 NEL represent line/page breaks in
+    // extracted PDF text — deleting them would fuse "dose\fmonitoring".
+    expect(normalizeExtractedGlyphs("dose\u000Bmonitoring")).toBe("dose\nmonitoring");
+    expect(normalizeExtractedGlyphs("dose\u000Cmonitoring")).toBe("dose\nmonitoring");
+    expect(normalizeExtractedGlyphs("dose\u0085monitoring")).toBe("dose\nmonitoring");
+  });
+
   it("never fuses hyphenated compounds across a line break (keeps the hyphen verbatim)", () => {
     // A soft-wrap hyphen is indistinguishable from a real compound hyphen, so we
     // must not rejoin: low-dose / twice-daily must never become lowdose / twicedaily.
@@ -203,5 +211,17 @@ describe("sourceTextForVerbatimQuote", () => {
     expect(cleaned).toBe("fibrillation risk persists.");
     expect(cleaned).not.toContain("[[IMAGE_DATA_START]]");
     expect(cleaned).not.toContain("Image ID:");
+  });
+
+  it("strips omitted-image markers from verbatim quotes and display text", () => {
+    const quote =
+      "Withhold the dose. [[IMAGE_DATA_OMITTED]] 3 additional image/table blocks on this page. [[/IMAGE_DATA_OMITTED]] Recheck FBC.";
+
+    const cleaned = sourceTextForVerbatimQuote(quote);
+
+    expect(cleaned).toBe("Withhold the dose. Recheck FBC.");
+    expect(cleaned).not.toContain("IMAGE_DATA_OMITTED");
+    expect(sourceTextForDisplay(quote)).not.toContain("IMAGE_DATA_OMITTED");
+    expect(sourceTextForDocumentViewer(quote)).not.toContain("IMAGE_DATA_OMITTED");
   });
 });

@@ -31,11 +31,12 @@ type Args = {
   documentId?: string;
   write: boolean;
   confirm: boolean;
-  backup: boolean;
 };
 
+// The backup is deliberately NOT optional: every write run must leave a
+// revertible artifact, so there is no --no-backup escape hatch.
 function parseArgs(argv: string[]): Args {
-  const args: Args = { limit: 0, write: false, confirm: false, backup: true };
+  const args: Args = { limit: 0, write: false, confirm: false };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === "--write") {
@@ -44,10 +45,6 @@ function parseArgs(argv: string[]): Args {
     }
     if (token === "--confirm") {
       args.confirm = true;
-      continue;
-    }
-    if (token === "--no-backup") {
-      args.backup = false;
       continue;
     }
     if (token !== "--limit" && token !== "--document-id") {
@@ -75,6 +72,7 @@ type ChunkRow = {
   document_id: string;
   content: string | null;
   section_heading: string | null;
+  retrieval_synopsis: string | null;
 };
 
 type ChangedRow = {
@@ -82,10 +80,13 @@ type ChangedRow = {
   document_id: string;
   content_changed: boolean;
   heading_changed: boolean;
+  synopsis_changed: boolean;
   old_content: string | null;
   new_content: string | null;
   old_section_heading: string | null;
   new_section_heading: string | null;
+  old_retrieval_synopsis: string | null;
+  new_retrieval_synopsis: string | null;
 };
 
 type SelectResult = Promise<{ data: ChunkRow[] | null; error: { message: string } | null }> & {
@@ -146,7 +147,7 @@ async function main() {
   for (;;) {
     let query = supabase
       .from("document_chunks")
-      .select("id,document_id,content,section_heading")
+      .select("id,document_id,content,section_heading,retrieval_synopsis")
       .order("id", { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
     if (args.documentId) query = query.eq("document_id", args.documentId);
@@ -161,19 +162,25 @@ async function main() {
       const newContent = row.content == null ? row.content : normalizeExtractedGlyphs(row.content);
       const newHeading =
         row.section_heading == null ? row.section_heading : normalizeExtractedGlyphs(row.section_heading);
+      const newSynopsis =
+        row.retrieval_synopsis == null ? row.retrieval_synopsis : normalizeExtractedGlyphs(row.retrieval_synopsis);
       const contentChanged = newContent !== row.content;
       const headingChanged = newHeading !== row.section_heading;
-      if (!contentChanged && !headingChanged) continue;
+      const synopsisChanged = newSynopsis !== row.retrieval_synopsis;
+      if (!contentChanged && !headingChanged && !synopsisChanged) continue;
 
       changed.push({
         id: row.id,
         document_id: row.document_id,
         content_changed: contentChanged,
         heading_changed: headingChanged,
+        synopsis_changed: synopsisChanged,
         old_content: row.content,
         new_content: newContent,
         old_section_heading: row.section_heading,
         new_section_heading: newHeading,
+        old_retrieval_synopsis: row.retrieval_synopsis,
+        new_retrieval_synopsis: newSynopsis,
       });
       if (contentChanged && sampleDiffs.length < 8) {
         sampleDiffs.push({
@@ -211,33 +218,34 @@ async function main() {
     return;
   }
 
-  if (args.backup) {
-    const backupDir = resolve(process.cwd(), "output", "backfills");
-    mkdirSync(backupDir, { recursive: true });
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const backupPath = resolve(backupDir, `text-normalization-${stamp}.json`);
-    writeFileSync(
-      backupPath,
-      JSON.stringify(
-        changed.map((row) => ({
-          id: row.id,
-          document_id: row.document_id,
-          old_content: row.old_content,
-          old_section_heading: row.old_section_heading,
-        })),
-        null,
-        2,
-      ),
-      "utf8",
-    );
-    console.log(`\nBackup of ${changed.length} rows written to ${backupPath}`);
-  }
+  // Mandatory revertible backup before any write — there is no opt-out.
+  const backupDir = resolve(process.cwd(), "output", "backfills");
+  mkdirSync(backupDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = resolve(backupDir, `text-normalization-${stamp}.json`);
+  writeFileSync(
+    backupPath,
+    JSON.stringify(
+      changed.map((row) => ({
+        id: row.id,
+        document_id: row.document_id,
+        old_content: row.old_content,
+        old_section_heading: row.old_section_heading,
+        old_retrieval_synopsis: row.old_retrieval_synopsis,
+      })),
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  console.log(`\nBackup of ${changed.length} rows written to ${backupPath}`);
 
   let updated = 0;
   for (const row of changed) {
     const patch: Record<string, string | null> = {};
     if (row.content_changed) patch.content = row.new_content;
     if (row.heading_changed) patch.section_heading = row.new_section_heading;
+    if (row.synopsis_changed) patch.retrieval_synopsis = row.new_retrieval_synopsis;
     const { error } = (await supabase.from("document_chunks").update(patch).eq("id", row.id)) as {
       error: { message: string } | null;
     };
