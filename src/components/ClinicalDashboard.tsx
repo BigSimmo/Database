@@ -53,7 +53,6 @@ import {
 import {
   type CSSProperties,
   FormEvent,
-  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -510,7 +509,7 @@ function subscribeAuthEmail(onStoreChange: () => void) {
   };
 }
 
-const SourceImage = memo(function SourceImage({
+function SourceImage({
   endpoint,
   caption,
   className = "max-h-52",
@@ -610,7 +609,7 @@ const SourceImage = memo(function SourceImage({
       className={cn(className, "w-full rounded-lg object-contain")}
     />
   );
-});
+}
 
 function ScopeAndGovernanceNotice({
   scope,
