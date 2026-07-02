@@ -421,7 +421,7 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
     <section className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
             <FileText className="h-5 w-5" />
           </span>
           <div className="min-w-0">
@@ -429,7 +429,7 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
             {trimmedQuery ? (
               <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:truncate">
                 <span className="block sm:inline">Results for</span>{" "}
-                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-chat-teal)] sm:inline sm:line-clamp-none">
+                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-accent)] sm:inline sm:line-clamp-none">
                   {trimmedQuery}
                 </span>
               </p>
@@ -558,11 +558,11 @@ function SearchRecordResults({
     <section
       data-testid={`${copy.testIdPrefix}-results`}
       aria-label={copy.ariaLabel}
-      className="grid gap-3 rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-tight)]"
+      className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-tight)]"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
             <FileText className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -592,8 +592,8 @@ function SearchRecordResults({
               data-testid={`${copy.testIdPrefix}-result-${service.slug}`}
               className={cn(
                 sourceCard,
-                "grid gap-3 p-3 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-chat-teal-border)] sm:p-4",
-                index === 0 && "ring-1 ring-[color:var(--clinical-chat-teal)]/15",
+                "grid gap-3 p-3 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
+                index === 0 && "ring-1 ring-[color:var(--clinical-accent)]/15",
               )}
             >
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
@@ -615,7 +615,7 @@ function SearchRecordResults({
                   href={recordRoute(service.slug)}
                   className={cn(
                     floatingControl,
-                    "inline-flex min-h-11 w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-chat-teal)] sm:w-auto",
+                    "inline-flex min-h-11 w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-accent)] sm:w-auto",
                   )}
                   aria-label={`Open ${service.title}`}
                 >
@@ -797,7 +797,7 @@ export function DocumentSearchResultsPanel({
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
           <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
-            <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
               <FileText className="h-5 w-5" />
             </span>
             <div>
@@ -843,7 +843,7 @@ export function DocumentSearchResultsPanel({
                     className={cn(
                       "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-bold transition",
                       active
-                        ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                     )}
                   >
@@ -885,8 +885,8 @@ export function DocumentSearchResultsPanel({
                   key={document.document_id}
                   className={cn(
                     sourceCard,
-                    "relative overflow-visible p-0 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-chat-teal-border)] hover:shadow-[0_14px_32px_rgb(15_27_45_/_7%)]",
-                    index === 0 && "ring-1 ring-[color:var(--clinical-chat-teal)]/15",
+                    "relative overflow-visible p-0 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[0_14px_32px_rgb(15_27_45_/_7%)]",
+                    index === 0 && "ring-1 ring-[color:var(--clinical-accent)]/15",
                   )}
                 >
                   <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
@@ -902,7 +902,7 @@ export function DocumentSearchResultsPanel({
                                   className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
                                   aria-hidden="true"
                                 />
-                                <span className="text-[color:var(--clinical-chat-teal)]">Best match</span>
+                                <span className="text-[color:var(--clinical-accent)]">Best match</span>
                               </>
                             ) : null}
                           </p>
@@ -970,7 +970,7 @@ export function DocumentSearchResultsPanel({
                     <DocumentActionButton
                       onClick={() => onAnswerFromDocument(document.document_id)}
                       icon={Sparkles}
-                      className="ml-auto min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]"
+                      className="ml-auto min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
                       aria-label={`Answer from ${document.title}`}
                     >
                       Answer

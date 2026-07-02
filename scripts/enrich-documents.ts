@@ -1,4 +1,6 @@
 import { loadEnvConfig } from "@next/env";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@/lib/supabase/database.types";
 import { createHash } from "node:crypto";
 
 loadEnvConfig(process.cwd());
@@ -129,12 +131,18 @@ async function loadEnrichmentCoverage(supabase: SupabaseAdmin, documentIds: stri
   return coverage;
 }
 
-async function loadRowsForDocuments(supabase: SupabaseAdmin, table: string, select: string, documentIds: string[]) {
+async function loadRowsForDocuments(
+  supabase: SupabaseAdmin,
+  table: "document_sections" | "document_memory_cards",
+  select: string,
+  documentIds: string[],
+) {
   const rows: MetadataRow[] = [];
   for (let start = 0; start < documentIds.length; start += 5) {
     const ids = documentIds.slice(start, start + 5);
     for (let rangeStart = 0; ; rangeStart += 1000) {
-      const { data, error } = await supabase
+      // Dynamic table/select strings need the untyped client surface.
+      const { data, error } = await (supabase as unknown as SupabaseClient)
         .from(table)
         .select(select)
         .in("document_id", ids)
@@ -170,8 +178,28 @@ async function loadDeepMemoryCoverage(supabase: SupabaseAdmin, documentIds: stri
 }
 
 async function loadEvidence(supabase: SupabaseAdmin, documentId: string) {
-  const chunks = [];
-  const images = [];
+  const chunks: Array<{
+    id: string;
+    document_id: string;
+    page_number: number | null;
+    chunk_index: number;
+    section_heading: string | null;
+    section_path: string[];
+    anchor_id: string | null;
+    content: string;
+    image_ids: string[];
+    metadata: Record<string, unknown> | null;
+  }> = [];
+  const images: Array<{
+    id: string;
+    page_number: number | null;
+    caption: string;
+    image_type: string;
+    labels: string[];
+    source_kind: string;
+    clinical_relevance_score: number;
+    metadata: Record<string, unknown> | null;
+  }> = [];
 
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
@@ -265,6 +293,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       classifiedImageSkipReason,
       clinicalImagePolicyVersion,
       lightweightPerceptualHash,
+      normalizeImageBbox,
     },
     { classifyAndCaptionImageFromBase64 },
   ] = await Promise.all([import("@/lib/env"), import("@/lib/image-filtering"), import("@/lib/openai")]);
@@ -308,7 +337,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       imageHash,
       seenHashes,
       image: {
-        bbox: image.bbox as [number, number, number, number] | null,
+        bbox: normalizeImageBbox(image.bbox),
         width: image.width,
         height: image.height,
         sourceKind: image.source_kind as
@@ -394,7 +423,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       clinical_use_reason: finalAssessment.clinical_use_reason,
       clinical_signal_score: finalAssessment.clinical_signal_score,
       admin_signal_score: finalAssessment.admin_signal_score,
-    });
+    } as Parameters<typeof classifiedImageSkipReason>[0]);
     const retainAsAuditTable =
       image.source_kind === "table_crop" &&
       ["administrative", "reference"].includes(finalAssessment.clinical_use_class) &&
@@ -570,7 +599,7 @@ async function main() {
               .from("documents")
               .update({
                 image_count: imageStats.searchable,
-                metadata: imageMetadata,
+                metadata: imageMetadata as Json,
               })
               .eq("id", document.id);
           }
@@ -603,8 +632,8 @@ async function main() {
           const deepMemory = await upsertDocumentDeepMemory({
             supabase,
             document: { ...document, metadata: imageMetadata },
-            chunks: evidence.chunks,
-            images: evidence.images,
+            chunks: evidence.chunks as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["chunks"],
+            images: evidence.images as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["images"],
             summary: enrichmentSummary,
           });
           const { data: latestDoc } = await supabase

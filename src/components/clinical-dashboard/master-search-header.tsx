@@ -28,7 +28,6 @@ import {
   Loader2,
   Menu,
   MessageSquarePlus,
-  Mic,
   Moon,
   MoreHorizontal,
   Pill,
@@ -999,14 +998,6 @@ export function MasterSearchHeader({
               </button>
             )}
           </label>
-          <button
-            type="button"
-            className={cn(chatComposerIconButton, usesUniversalFooterStyle && "answer-footer-search-mic")}
-            aria-label="Voice input"
-            title="Voice input"
-          >
-            <Mic className="h-4.5 w-4.5" />
-          </button>
           {usesUniversalFooterStyle ? <span className="answer-footer-search-divider" aria-hidden="true" /> : null}
           <button
             type="submit"
@@ -1279,7 +1270,7 @@ export function MasterSearchHeader({
                     <Cloud className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
                     Offline ready
                   </span>
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 text-xs font-extrabold text-[color:var(--clinical-chat-amber)] shadow-[var(--shadow-inset)]">
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 text-xs font-extrabold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
                     <AlertCircle className="h-4 w-4" aria-hidden />
                     Source pending review
                   </span>

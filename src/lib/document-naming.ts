@@ -16,11 +16,11 @@ export type ExistingDocumentName = {
   metadata?: unknown;
 };
 
-type DocumentNameSupabase = {
+export type DocumentNameSupabase = {
   from: (table: "documents") => {
     select: (columns: string) => {
       eq: (column: "owner_id", value: string) => {
-        limit: (count: number) => PromiseLike<{ data: unknown[] | null; error: { message?: string } | null }>;
+        limit: (count: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
       };
     };
   };
@@ -160,7 +160,7 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase?: unknown;
+  supabase?: DocumentNameSupabase;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;

@@ -364,7 +364,7 @@ function IconTile({
       className={cn(
         "grid shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
         tone === "teal" &&
-          "border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+          "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
         tone === "blue" &&
           "border-[color:var(--info-border)]/60 bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
         tone === "slate" &&
@@ -387,7 +387,7 @@ function ClinicalBadge({
 }: ClinicalBadgeItem & { compact?: boolean }) {
   const toneClassName: Record<ClinicalBadgeTone, string> = {
     clinical:
-      "border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+      "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
     success: toneSuccess,
     danger: toneDanger,
     warning: toneWarning,
@@ -477,7 +477,7 @@ function StatusNotice({
 function QueryChip({ query }: { query: string }) {
   return (
     <span className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-      <Pill className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
+      <Pill className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
       <span className="min-w-0 truncate">{query}</span>
     </span>
   );
@@ -554,7 +554,7 @@ function FilterStrip({
           className={cn(
             "min-h-8 shrink-0 rounded-lg border px-2.5 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
             activeFilter === filter.id
-              ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
           )}
         >
@@ -643,7 +643,7 @@ function MedicationResults({
             const rowClassName = cn(
               "grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
               selected
-                ? "bg-[color:var(--clinical-chat-teal-soft)]/35 ring-1 ring-inset ring-[color:var(--clinical-chat-teal)]/35"
+                ? "bg-[color:var(--clinical-accent-soft)]/35 ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
                 : result.href
                   ? "hover:bg-[color:var(--surface-subtle)]"
                   : "cursor-default opacity-80",
@@ -707,7 +707,7 @@ function MedicationResults({
           const cardClassName = cn(
             "w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
-              ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)]/35"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35"
               : result.href
                 ? "border-[color:var(--border)] hover:border-[color:var(--border-strong)]"
                 : "border-[color:var(--border)] opacity-80",
@@ -919,7 +919,7 @@ function ClinicalViewToggle({
             className={cn(
               "min-h-8 rounded-md px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               active
-                ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-tight)]"
+                ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
             )}
           >
@@ -963,7 +963,7 @@ function DetailLedger({
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 items-center gap-2">
               <ChevronDown
-                className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)] transition group-open:rotate-180"
+                className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)] transition group-open:rotate-180"
                 aria-hidden="true"
               />
               <span className="truncate">Additional populations, risks and PK</span>
@@ -988,7 +988,7 @@ function SidePanel({ section }: { section: SideSection }) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-inset)]">
       <div className="mb-2.5 flex items-center gap-2">
-        <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
+        <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
         <h4 className="text-sm font-semibold text-[color:var(--text-heading)]">{section.title}</h4>
       </div>
       <div className="divide-y divide-[color:var(--border)]">
@@ -1001,7 +1001,7 @@ function SidePanel({ section }: { section: SideSection }) {
                   <IconTile icon={ItemIcon} tone="teal" className="mt-0.5 h-8 w-8" />
                 ) : (
                   <span
-                    className="mt-2 h-2 w-2 shrink-0 rounded-full border border-[color:var(--clinical-chat-teal)]/30 bg-[color:var(--clinical-chat-teal-soft)]"
+                    className="mt-2 h-2 w-2 shrink-0 rounded-full border border-[color:var(--clinical-accent)]/30 bg-[color:var(--clinical-accent-soft)]"
                     aria-hidden="true"
                   />
                 )}
@@ -1042,7 +1042,7 @@ function MedicationSummaryTabs({
             className={cn(
               "min-h-8 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               activeSection === item.target &&
-                "bg-[color:var(--surface-raised)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-tight)]",
+                "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]",
             )}
           >
             {item.label}
@@ -1061,7 +1061,7 @@ function AccessPanel() {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-inset)]">
       <div className="mb-2.5 flex items-center gap-2">
-        <Lock className="h-4.5 w-4.5 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
+        <Lock className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
         <h4 className="text-sm font-semibold text-[color:var(--text-heading)]">Access</h4>
       </div>
       <BadgeCluster items={accessBadges} compact limit={3} className="mb-2.5" />
@@ -1189,7 +1189,7 @@ function MobileDisclosurePanel({ panel }: { panel: MobileDisclosurePanelData }) 
     <details className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-[13px] font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2">
-          <Icon className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden="true" />
+          <Icon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
           <span className="truncate">{panel.label}</span>
         </span>
         <ChevronDown
@@ -1344,7 +1344,7 @@ export function AcamprosateMedicationPage() {
             Clinical KB
           </div>
           <div className="flex justify-end">
-            <span className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+            <span className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <Pill className="h-3.5 w-3.5" aria-hidden="true" />
               Medication
             </span>
