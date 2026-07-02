@@ -3402,8 +3402,6 @@ revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, in
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
 revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated;
 grant execute on function public.invoke_indexing_v3_agent(integer) to service_role;
-revoke execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) from public, anon, authenticated;
-grant execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) to service_role;
 
 grant select on table
   public.import_batches,
