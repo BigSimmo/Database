@@ -71,6 +71,7 @@ import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } f
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
+import { rankingConfig } from "@/lib/ranking-config";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import {
@@ -577,20 +578,29 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
     )
     .join(" ")}`;
   const hasDoseAmount = /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(doseAmountText);
-  score += Math.max(0, 0.09 - index * 0.004);
-  if (result.memory_cards?.length && (queryClass === "broad_summary" || queryClass === "comparison")) score += 0.035;
+  const w = rankingConfig.secondStage;
+  score += Math.max(0, w.positionBase - index * w.positionStep);
+  if (result.memory_cards?.length && (queryClass === "broad_summary" || queryClass === "comparison"))
+    score += w.memorySummaryBoost;
   if (queryClass === "document_lookup" && (result.match_explanation?.titleHit || result.match_explanation?.labelHit))
-    score += 0.045;
+    score += w.documentLookupTitleBoost;
   if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && result.table_facts?.length)
-    score += 0.065;
-  if (queryClass === "medication_dose_risk" && hasDoseAmount) score += 0.18;
-  if (tableVisualEvidenceUnitTypes.has(unitType)) score += 0.08;
-  else if (visualEvidenceUnitTypes.has(unitType)) score += 0.04;
-  if (source === "visual_intelligence") score += Math.min(0.035, Math.max(0, sourceQuality - 0.55) * 0.08);
-  if (result.source_metadata?.document_status === "outdated") score -= 0.035;
-  if (result.source_metadata?.extraction_quality === "poor") score -= 0.035;
-  if (result.indexing_quality?.quality_score !== undefined && result.indexing_quality.quality_score < 0.55)
-    score -= 0.035;
+    score += w.tableThresholdEvidenceBoost;
+  if (queryClass === "medication_dose_risk" && hasDoseAmount) score += w.doseAmountBoost;
+  if (tableVisualEvidenceUnitTypes.has(unitType)) score += w.tableVisualBoost;
+  else if (visualEvidenceUnitTypes.has(unitType)) score += w.visualBoost;
+  if (source === "visual_intelligence")
+    score += Math.min(
+      w.visualIntelligenceMax,
+      Math.max(0, sourceQuality - w.visualIntelligencePivot) * w.visualIntelligenceSlope,
+    );
+  if (result.source_metadata?.document_status === "outdated") score -= w.outdatedPenalty;
+  if (result.source_metadata?.extraction_quality === "poor") score -= w.poorExtractionPenalty;
+  if (
+    result.indexing_quality?.quality_score !== undefined &&
+    result.indexing_quality.quality_score < w.lowIndexQualityThreshold
+  )
+    score -= w.lowIndexQualityPenalty;
   return score;
 }
 
@@ -602,12 +612,26 @@ function applySecondStageRerankIfNeeded(args: {
 }) {
   if (!shouldUseSecondStageRerank(args.queryClass, args.results, args.topK)) return args.results;
   const startedAt = Date.now();
+  // CI-16 document diversity: subtract a demotion from each EXTRA chunk of a document that
+  // has already appeared higher up, so a single doc's sibling chunks can't crowd out other
+  // documents. Applied AFTER the additive-boost floor so it can actually lower the effective
+  // rank. Default penalty is 0 (disabled) — no reordering until deliberately tuned + eval-gated.
+  const seenPerDocument = new Map<string, number>();
   const reranked = args.results
     .map((result, index) => {
-      const score = secondStageScore(result, args.queryClass, index);
+      const boosted = secondStageScore(result, args.queryClass, index);
+      let score = Math.max(result.hybrid_score ?? 0, boosted);
+      const priorOccurrences = seenPerDocument.get(result.document_id) ?? 0;
+      seenPerDocument.set(result.document_id, priorOccurrences + 1);
+      if (rankingConfig.documentDiversityPenalty > 0 && priorOccurrences > 0) {
+        score -= Math.min(
+          rankingConfig.documentDiversityPenaltyCap,
+          rankingConfig.documentDiversityPenalty * priorOccurrences,
+        );
+      }
       return {
         ...result,
-        hybrid_score: Number(Math.max(result.hybrid_score ?? 0, score).toFixed(4)),
+        hybrid_score: Number(score.toFixed(4)),
         match_explanation: {
           ...result.match_explanation,
           reasons: Array.from(new Set([...(result.match_explanation?.reasons ?? []), "second_stage_rerank"])),

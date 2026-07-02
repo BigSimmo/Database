@@ -145,6 +145,23 @@ describe("golden retrieval eval helpers", () => {
     expect(summary.document_recall_at_5).toBe(0);
   });
 
+  it("classifies the abbreviation golden cases as their declared query class (CI-14)", async () => {
+    // The eval fails a case on query-class mismatch, so a golden case whose query does not
+    // classify as its expectedQueryClass would pollute the baseline. Guard the abbreviation
+    // cases added for the CBC/WCC synonym expansion.
+    const { classifyRagQuery } = await import("../src/lib/clinical-search");
+    const cases = loadGoldenRetrievalCases("scripts/fixtures/rag-retrieval-golden.json");
+    const abbreviationCases = cases.filter(
+      (testCase) =>
+        testCase.id === "clozapine-cbc-abbreviation-threshold" ||
+        testCase.id === "clozapine-wcc-abbreviation-threshold",
+    );
+    expect(abbreviationCases).toHaveLength(2);
+    for (const testCase of abbreviationCases) {
+      expect(classifyRagQuery(testCase.query).queryClass).toBe(testCase.expectedQueryClass);
+    }
+  });
+
   it("converts captured RAG eval cases into golden retrieval cases", () => {
     expect(
       capturedRagCaseToGoldenCase({

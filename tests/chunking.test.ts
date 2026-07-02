@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { buildChunks, buildImageTag, chunkTextWithOverlap } from "../src/lib/chunking";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  CHUNKER_VERSION,
+  buildChunks,
+  buildImageTag,
+  chunkContentKey,
+  chunkTextWithOverlap,
+} from "../src/lib/chunking";
 
 describe("chunkTextWithOverlap", () => {
   it("keeps short text as one chunk", () => {
@@ -326,5 +332,136 @@ describe("section-aware chunking groundwork", () => {
 
     expect(chunks.filter((chunk) => chunk.content.includes("ANC threshold 0.5 x 10^9/L"))).toHaveLength(2);
     expect(chunks.map((chunk) => chunk.page_number)).toEqual([4, 7]);
+  });
+});
+
+describe("stable chunk identity (CI-4)", () => {
+  it("stamps a stable chunk_key and chunker_version into metadata", () => {
+    const chunks = buildChunks([
+      { documentId: "doc-1", pageNumber: 1, pageText: "Check renal function before starting lithium.", metadata: {} },
+    ]);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].metadata.chunker_version).toBe(CHUNKER_VERSION);
+    expect(chunks[0].metadata.chunk_key).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("produces the same key across re-runs of identical input (idempotent re-index)", () => {
+    const input = [{ documentId: "doc-1", pageNumber: 1, pageText: "Withhold clozapine if ANC is low.", metadata: {} }];
+    const first = buildChunks(structuredClone(input));
+    const second = buildChunks(structuredClone(input));
+    expect(first[0].metadata.chunk_key).toBe(second[0].metadata.chunk_key);
+  });
+
+  it("is page-independent — identical content on different pages shares an identity", () => {
+    const text = "ANC threshold guidance: withhold clozapine and repeat FBC daily.";
+    const chunks = buildChunks([
+      { documentId: "doc-1", pageNumber: 4, pageText: text, metadata: {} },
+      { documentId: "doc-1", pageNumber: 7, pageText: text, metadata: {} },
+    ]);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0].metadata.chunk_key).toBe(chunks[1].metadata.chunk_key);
+  });
+
+  it("changes the key when content or document differs, and ignores inline image tags", () => {
+    const keyA = chunkContentKey("doc-1", "monitoring", "Withhold clozapine if ANC is low.");
+    const keyDifferentContent = chunkContentKey("doc-1", "monitoring", "Continue clozapine and monitor weekly.");
+    const keyDifferentDoc = chunkContentKey("doc-2", "monitoring", "Withhold clozapine if ANC is low.");
+    expect(keyA).not.toBe(keyDifferentContent);
+    expect(keyA).not.toBe(keyDifferentDoc);
+    // Image-data tags are stripped before hashing, so attaching image context does not
+    // change a chunk's stable identity.
+    const withImageTag = chunkContentKey(
+      "doc-1",
+      "monitoring",
+      "Withhold clozapine if ANC is low. [[IMAGE_DATA_START]] Image ID: x; Description: chart [[IMAGE_DATA_END]]",
+    );
+    expect(withImageTag).toBe(keyA);
+  });
+});
+
+describe("document-mode chunking (CI-1)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function buildDocumentChunks(inputs: Parameters<typeof buildChunks>[0]) {
+    vi.resetModules();
+    vi.stubEnv("CHUNK_STRATEGY", "document");
+    const mod = await import("../src/lib/chunking");
+    return mod.buildChunks(inputs);
+  }
+
+  it("merges a section across a page break into a single cross-page chunk", async () => {
+    const chunks = await buildDocumentChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText:
+          "Clozapine Monitoring\n\nBaseline full blood count and absolute neutrophil count must be checked before starting clozapine therapy for the patient.",
+        metadata: {},
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 2,
+        pageText:
+          "Continue weekly blood test monitoring and escalate any neutropenia to the prescriber and haematology team immediately.",
+        metadata: {},
+      },
+    ]);
+
+    // The section (heading on page 1, continuation on page 2) chunks together, so the
+    // page-1 baseline requirement and the page-2 continuation land in one chunk.
+    const spanning = chunks.find(
+      (chunk) => chunk.content.includes("Baseline full blood count") && chunk.content.includes("weekly blood test"),
+    );
+    expect(spanning).toBeDefined();
+    expect(spanning?.metadata.page_start).toBe(1);
+    expect(spanning?.metadata.page_end).toBe(2);
+    expect(spanning?.section_path).toContain("Clozapine Monitoring");
+    // A cross-page chunk records a source span for each contributing page.
+    const spanPageNumbers = (spanning?.metadata.source_spans as Array<{ page_number: number | null }>).map(
+      (span) => span.page_number,
+    );
+    expect(spanPageNumbers).toEqual(expect.arrayContaining([1, 2]));
+  });
+
+  it("does not merge across a section boundary introduced by a new heading", async () => {
+    const chunks = await buildDocumentChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "Section One\n\nAlpha guidance about clozapine baseline monitoring requirements for every patient.",
+        metadata: {},
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 2,
+        pageText: "Section Two\n\nBravo guidance about lithium renal function checks and thyroid monitoring tests.",
+        metadata: {},
+      },
+    ]);
+
+    const sectionTwo = chunks.find((chunk) => chunk.content.includes("Bravo guidance"));
+    expect(sectionTwo?.metadata.page_start).toBe(2);
+    expect(sectionTwo?.metadata.page_end).toBe(2);
+    expect(sectionTwo?.section_path).toContain("Section Two");
+    // The page-1 section must not have absorbed page-2 content.
+    const sectionOne = chunks.find((chunk) => chunk.content.includes("Alpha guidance"));
+    expect(sectionOne?.content).not.toContain("Bravo guidance");
+    expect(sectionOne?.metadata.page_end).toBe(1);
+  });
+
+  it("still stamps the stable chunk_key and chunker_version in document mode", async () => {
+    const chunks = await buildDocumentChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "Check renal function before starting lithium therapy.",
+        metadata: {},
+      },
+    ]);
+    expect(chunks[0].metadata.chunker_version).toBe(CHUNKER_VERSION);
+    expect(chunks[0].metadata.chunk_key).toMatch(/^[0-9a-f]{32}$/);
   });
 });

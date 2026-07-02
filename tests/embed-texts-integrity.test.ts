@@ -110,3 +110,57 @@ describe("embedTexts integrity (IDX-C1, IDX-C2)", () => {
     await expect(embedTexts(["a", "b"])).rejects.toThrow(/embeddings for/);
   });
 });
+
+describe("embedTexts batching (IDX-C3)", () => {
+  function embeddingForText(text: string): number[] {
+    // Encode the input's numeric suffix so a mis-mapped embedding is detectable.
+    const n = Number(text.replace(/[^0-9]/g, ""));
+    return [n, n];
+  }
+
+  it("splits large input into batches and reassembles by global index across batches", async () => {
+    stubEmbeddingEnv(2);
+    vi.stubEnv("OPENAI_EMBEDDING_BATCH_SIZE", "2");
+
+    const inputsPerCall: number[] = [];
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = {
+          create: vi.fn(async ({ input }: { input: string[] }) => {
+            inputsPerCall.push(input.length);
+            // Reverse within each batch so a naive position-based merge would corrupt order.
+            return { data: input.map((text, index) => ({ index, embedding: embeddingForText(text) })).reverse() };
+          }),
+        };
+
+        responses = { create: vi.fn() };
+      },
+    }));
+
+    const { clearOpenAICaches, embedTexts } = await import("../src/lib/openai");
+    clearOpenAICaches();
+
+    const result = await embedTexts(["t0", "t1", "t2", "t3", "t4"]);
+
+    // 5 inputs at batch size 2 -> three requests of 2, 2, 1.
+    expect(inputsPerCall).toEqual([2, 2, 1]);
+    // Every text maps back to its own embedding despite per-batch reversal and batch splits.
+    expect(result).toEqual([
+      [0, 0],
+      [1, 1],
+      [2, 2],
+      [3, 3],
+      [4, 4],
+    ]);
+  });
+
+  it("chunkIntoBatches partitions in order with a trailing remainder and rejects bad sizes", async () => {
+    stubEmbeddingEnv(2);
+    const { chunkIntoBatches } = await import("../src/lib/openai");
+
+    expect(chunkIntoBatches([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(chunkIntoBatches([], 3)).toEqual([]);
+    expect(chunkIntoBatches([1, 2], 10)).toEqual([[1, 2]]);
+    expect(() => chunkIntoBatches([1], 0)).toThrow(/positive integer/);
+  });
+});

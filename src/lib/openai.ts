@@ -405,6 +405,20 @@ export function clearOpenAICaches() {
   openAIClient = null;
 }
 
+// IDX-C3: split a list into fixed-size batches, preserving order. Pure/exported so the
+// batching contract (which underpins correct embedding reassembly) is unit-testable
+// without hitting the network.
+export function chunkIntoBatches<T>(items: T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new Error(`chunkIntoBatches: size must be a positive integer, got ${size}.`);
+  }
+  const batches: T[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    batches.push(items.slice(start, start + size));
+  }
+  return batches;
+}
+
 export async function embedTexts(texts: string[]) {
   if (texts.length === 0) return [];
 
@@ -423,45 +437,55 @@ export async function embedTexts(texts: string[]) {
 
   try {
     const client = createOpenAIClient();
-    const response = await client.embeddings.create(
-      {
-        model: env.OPENAI_EMBEDDING_MODEL,
-        input: uniqueTexts,
-        // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
-        dimensions: env.EMBEDDING_DIMENSIONS,
-      },
-      requestOptions({ operation: "embedding" }),
-    );
-
-    // IDX-C2: a short response means some inputs silently produced no embedding.
-    if (response.data.length !== uniqueTexts.length) {
-      throw new PublicApiError(
-        `OpenAI returned ${response.data.length} embeddings for ${uniqueTexts.length} inputs.`,
-        502,
-        { code: "openai_embedding_count_mismatch" },
-      );
-    }
-
-    // IDX-C1: the embeddings API does not guarantee response order; each item carries
-    // an explicit `index` into the input array. Reassemble by that index so a chunk is
-    // never stored with the embedding of an unrelated text (silent clinical corruption).
+    // IDX-C3: a single embeddings request is capped at 2048 inputs / ~300k tokens, so a
+    // full-corpus re-embed must be split. Batches run sequentially to stay polite to the
+    // rate limiter; the SDK still applies env.OPENAI_MAX_RETRIES per request. Reassembly
+    // uses the GLOBAL index (batchStart + item.index) so a chunk is never stored with the
+    // embedding of an unrelated text, even across batch boundaries (extends IDX-C1).
     const byIndex = new Array<number[]>(uniqueTexts.length);
-    for (const item of response.data) {
-      if (item.index < 0 || item.index >= uniqueTexts.length) {
-        throw new PublicApiError(`OpenAI returned an out-of-range embedding index ${item.index}.`, 502, {
-          code: "openai_embedding_index_range",
-        });
-      }
-      // IDX-C2: guard against a model whose dimension does not match the schema.
-      if (item.embedding.length !== env.EMBEDDING_DIMENSIONS) {
+    const batches = chunkIntoBatches(uniqueTexts, env.OPENAI_EMBEDDING_BATCH_SIZE);
+    let batchStart = 0;
+    for (const batch of batches) {
+      const response = await client.embeddings.create(
+        {
+          model: env.OPENAI_EMBEDDING_MODEL,
+          input: batch,
+          // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
+          dimensions: env.EMBEDDING_DIMENSIONS,
+        },
+        requestOptions({ operation: "embedding" }),
+      );
+
+      // IDX-C2: a short response means some inputs silently produced no embedding.
+      if (response.data.length !== batch.length) {
         throw new PublicApiError(
-          `OpenAI embedding has ${item.embedding.length} dimensions; expected ${env.EMBEDDING_DIMENSIONS}. ` +
-            `Check OPENAI_EMBEDDING_MODEL and EMBEDDING_DIMENSIONS match supabase/schema.sql.`,
+          `OpenAI returned ${response.data.length} embeddings for ${batch.length} inputs.`,
           502,
-          { code: "openai_embedding_dimension_mismatch" },
+          { code: "openai_embedding_count_mismatch" },
         );
       }
-      byIndex[item.index] = item.embedding;
+
+      // IDX-C1: the embeddings API does not guarantee response order; each item carries
+      // an explicit `index` into the request's input array. Reassemble by that index
+      // (offset to the global position) so embeddings are never mismatched to chunks.
+      for (const item of response.data) {
+        if (item.index < 0 || item.index >= batch.length) {
+          throw new PublicApiError(`OpenAI returned an out-of-range embedding index ${item.index}.`, 502, {
+            code: "openai_embedding_index_range",
+          });
+        }
+        // IDX-C2: guard against a model whose dimension does not match the schema.
+        if (item.embedding.length !== env.EMBEDDING_DIMENSIONS) {
+          throw new PublicApiError(
+            `OpenAI embedding has ${item.embedding.length} dimensions; expected ${env.EMBEDDING_DIMENSIONS}. ` +
+              `Check OPENAI_EMBEDDING_MODEL and EMBEDDING_DIMENSIONS match supabase/schema.sql.`,
+            502,
+            { code: "openai_embedding_dimension_mismatch" },
+          );
+        }
+        byIndex[batchStart + item.index] = item.embedding;
+      }
+      batchStart += batch.length;
     }
 
     return outputIndexes.map((index) => byIndex[index]);

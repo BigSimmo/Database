@@ -135,4 +135,60 @@ describe("index quality scoring", () => {
     expect(quality.metrics.average_structured_visual_confidence).toBeGreaterThan(0.75);
     expect(quality.issues).not.toContain("low visual unit coverage");
   });
+
+  it("forces poor quality and flags an actionable issue for un-OCR'd image-only PDFs (CI-6)", () => {
+    const quality = assessDocumentIndexQuality({
+      metrics: {
+        page_count: 5,
+        text_character_count: 30, // only incidental header text
+        extracted_image_count: 5,
+        searchable_image_count: 0,
+        needs_ocr_page_count: 5, // every page is image-only and was not OCR'd
+      },
+      chunks: [],
+      insertedImages: [],
+      sectionCount: 0,
+      memoryCardCount: 0,
+      documentEmbeddingFieldTypes: [],
+    });
+
+    expect(quality.extractionQuality).toBe("poor");
+    expect(quality.issues).toEqual(
+      expect.arrayContaining([expect.stringContaining("image-only pages not OCR'd (5 of 5)")]),
+    );
+  });
+
+  it("flags a minority of un-OCR'd pages without forcing an otherwise-strong index to poor", () => {
+    const quality = assessDocumentIndexQuality({
+      metrics: {
+        page_count: 10,
+        text_character_count: 24_000,
+        extracted_image_count: 1,
+        searchable_image_count: 1,
+        needs_ocr_page_count: 1, // a single image-only page in an otherwise strong text PDF
+      },
+      chunks: Array.from({ length: 12 }, (_, index) => ({
+        content: `Distinct clinical passage ${index} with monitoring action, threshold detail, and section context for complete retrieval.`,
+        section_heading: `Section ${index}`,
+        section_path: ["Guideline", `Section ${index}`],
+      })),
+      insertedImages: [
+        {
+          sourceKind: "table_crop",
+          tableRows: [["ANC", "withhold"]],
+          imageQualityScore: 1,
+          cropCompleteness: 1,
+          structuredVisualProfile: { confidence: 1, thresholds: [{}] },
+        },
+      ],
+      sectionCount: 3,
+      memoryCardCount: 6,
+      documentEmbeddingFieldTypes: ["document_title", "document_summary"],
+    });
+
+    expect(quality.issues).toEqual(
+      expect.arrayContaining([expect.stringContaining("image-only pages not OCR'd (1 of 10)")]),
+    );
+    expect(quality.extractionQuality).not.toBe("poor");
+  });
 });
