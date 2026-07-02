@@ -64,6 +64,23 @@ describe("privacy-safe logging helpers", () => {
     expect(output).not.toContain("+61 400 123 456");
     expect(output).toContain("[phone]");
   });
+
+  it("redacts spaced/grouped labeled MRN and NHS identifiers", () => {
+    const cases = [
+      "Patient MRN 12 3456 had an image.",
+      "Patient MRN: 12-3456 had an image.",
+      "Patient NHS 123 456 7890 had an image.",
+    ];
+
+    for (const input of cases) {
+      const out = redactCaptionIdentifiers(input);
+      expect(out).toContain("had an image.");
+      expect(out).toContain("[id]");
+      // Ensure raw labeled identifiers and grouped digits are removed
+      expect(out).not.toMatch(/\bMRN\b|\bNHS\b/i);
+      expect(out).not.toMatch(/\d{2,}/);
+    }
+  });
 });
 
 describe("query privacy storage helpers", () => {
