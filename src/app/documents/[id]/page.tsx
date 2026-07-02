@@ -1,4 +1,4 @@
-import { DocumentViewerLazy as DocumentViewer } from "@/components/document-viewer-lazy";
+import { DocumentViewer } from "@/components/DocumentViewer";
 
 export default async function DocumentPage({
   params,

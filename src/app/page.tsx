@@ -1,5 +1,5 @@
+import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
-import { ClinicalDashboardLazy as ClinicalDashboard } from "@/components/clinical-dashboard-lazy";
 
 type HomeProps = {
   searchParams?: Promise<{
