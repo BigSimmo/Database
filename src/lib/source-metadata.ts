@@ -68,13 +68,20 @@ export function extractionQualityLabel(metadata?: ClinicalSourceMetadata | null)
 
 export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null) {
   const source = metadata ?? normalizeSourceMetadata(null);
+  const reviewDate = formatClinicalDate(source.review_date);
+  // Publisher/jurisdiction/review segments are dropped when unknown — a run of
+  // "unknown" fillers is noise. The status and validation labels are always
+  // kept: "Source status unknown" / "Not locally validated" are clinical
+  // governance warnings, not filler.
   return [
-    source.publisher ?? "Publisher unknown",
-    source.jurisdiction ?? "Jurisdiction unknown",
-    `review ${formatClinicalDate(source.review_date)}`,
+    source.publisher,
+    source.jurisdiction,
+    reviewDate === "Unknown" ? null : `review ${reviewDate}`,
     sourceStatusLabel(source),
     validationStatusLabel(source),
-  ].join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null) {
@@ -83,6 +90,8 @@ export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null
     `Source status: ${sourceStatusLabel(source)}`,
     `Validation: ${validationStatusLabel(source)}`,
     `Review date: ${formatClinicalDate(source.review_date)}`,
-    `Jurisdiction: ${source.jurisdiction ?? "Unknown"}`,
-  ].join(" | ");
+    source.jurisdiction ? `Jurisdiction: ${source.jurisdiction}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
 }

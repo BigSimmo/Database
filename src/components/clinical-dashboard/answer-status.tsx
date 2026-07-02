@@ -3,6 +3,7 @@
 import { Clipboard, ClipboardCheck, MessageSquareText, Search, Sparkles, UploadCloud } from "lucide-react";
 
 import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
+import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -25,8 +26,8 @@ export function CopyButton({
       className={cn(floatingControl, "px-3 text-xs")}
     >
       {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
-      <span className="sm:hidden">{copied ? "Copied" : (shortLabel ?? label)}</span>
-      <span className="hidden sm:inline">{copied ? "Copied" : label}</span>
+      <span className="sm:hidden">{copied ? copyButton.copied : (shortLabel ?? label)}</span>
+      <span className="hidden sm:inline">{copied ? copyButton.copied : label}</span>
     </button>
   );
 }
@@ -51,43 +52,41 @@ export function AnswerEmptyState({
         <MessageSquareText className="h-8 w-8" />
       </div>
       <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">How can I help?</h2>
-        <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>
-          Ask a clinical question or search your documents.
-        </p>
+        <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">
+          {answerEmptyState.heading}
+        </h2>
+        <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>{answerEmptyState.subheading}</p>
       </div>
-      <section aria-label="Starter actions" className={cn("grid w-full gap-3 sm:grid-cols-3")}>
+      <section aria-label={answerEmptyState.starterActionsLabel} className={cn("grid w-full gap-3 sm:grid-cols-3")}>
         <button
           type="button"
-          onClick={() =>
-            onPickSample("What monitoring and escalation issues should I consider across these documents?")
-          }
+          onClick={() => onPickSample(answerEmptyState.starters.ask.samplePrompt)}
           className={starterButtonClass}
         >
           <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
             <Sparkles className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Ask a question
+            {answerEmptyState.starters.ask.title}
           </span>
           <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Start a source-backed clinical answer.
+            {answerEmptyState.starters.ask.description}
           </span>
         </button>
         <button type="button" onClick={onSearchDocuments} className={starterButtonClass}>
           <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
             <Search className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Search documents
+            {answerEmptyState.starters.searchDocuments.title}
           </span>
           <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Browse matching files and source sections.
+            {answerEmptyState.starters.searchDocuments.description}
           </span>
         </button>
         <button type="button" onClick={onUploadDocument} className={starterButtonClass}>
           <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
             <UploadCloud className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Upload document
+            {answerEmptyState.starters.uploadDocument.title}
           </span>
           <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Add a guideline, PDF, or local source.
+            {answerEmptyState.starters.uploadDocument.description}
           </span>
         </button>
       </section>
@@ -97,7 +96,7 @@ export function AnswerEmptyState({
 
 export function AnswerSkeleton() {
   return (
-    <div className="space-y-4" aria-label="Loading answer">
+    <div className="space-y-4" aria-label={answerLoading.ariaLabel}>
       <div className="space-y-3 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/45 p-4">
         <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />
         <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />

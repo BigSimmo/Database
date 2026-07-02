@@ -4,11 +4,13 @@ import {
   clinicalProseUsefulness,
   isLowYieldClinicalText,
   lowYieldSourceNoiseScore,
+  normalizeExtractedGlyphs,
   sourceTextForClinicalProse,
   sourceTextForDisplay,
   sourceTextForDocumentViewer,
   sourceTextForIndexedPage,
   sourceTextForModel,
+  sourceTextForVerbatimQuote,
 } from "../src/lib/source-text-sanitizer";
 
 describe("source text sanitizer", () => {
@@ -131,5 +133,50 @@ describe("source text sanitizer", () => {
 
     expect(cleaned).toContain("Clozapine    Clozapine dose");
     expect(cleaned).toContain("dose            Blood test monitoring");
+  });
+});
+
+describe("normalizeExtractedGlyphs", () => {
+  it("expands typographic ligatures to plain letters", () => {
+    expect(normalizeExtractedGlyphs("\uFB01brillation and in\uFB02ammation")).toBe("fibrillation and inflammation");
+    expect(normalizeExtractedGlyphs("e\uFB00icacy of di\uFB03cult a\uFB04uent")).toBe("efficacy of difficult affluent");
+  });
+
+  it("removes soft hyphens, zero-width and control characters", () => {
+    expect(normalizeExtractedGlyphs("inter\u00ADvention")).toBe("intervention");
+    expect(normalizeExtractedGlyphs("ward\u200B round\u200C review")).toBe("ward round review");
+    expect(normalizeExtractedGlyphs("a\u0000b\u0007c\u001Fd")).toBe("abcd");
+  });
+
+  it("never fuses hyphenated compounds across a line break (keeps the hyphen verbatim)", () => {
+    // A soft-wrap hyphen is indistinguishable from a real compound hyphen, so we
+    // must not rejoin: low-dose / twice-daily must never become lowdose / twicedaily.
+    expect(normalizeExtractedGlyphs("low-\ndose aspirin")).toBe("low-\ndose aspirin");
+    expect(normalizeExtractedGlyphs("twice-\ndaily")).toBe("twice-\ndaily");
+    expect(normalizeExtractedGlyphs("non-\nsteroidal")).toBe("non-\nsteroidal");
+  });
+
+  it("never alters numbers, units, ranges or clinical comparison symbols", () => {
+    const clinical = "Give 150 mg/day; keep ANC \u2265 1.5 \u00D710\u2079/L; taper 5\u201310 mg \u2192 review; well-being intact.";
+    expect(normalizeExtractedGlyphs(clinical)).toBe(clinical);
+  });
+
+  it("is idempotent", () => {
+    const messy = "in\uFB02am-\nmation\u200B of the co-\nadministered \uFB01lter";
+    const once = normalizeExtractedGlyphs(messy);
+    expect(normalizeExtractedGlyphs(once)).toBe(once);
+  });
+});
+
+describe("sourceTextForVerbatimQuote", () => {
+  it("strips image-data blocks and repairs glyphs but keeps the wording verbatim", () => {
+    const quote =
+      "\uFB01brillation risk persists. [[IMAGE_DATA_START]] Image ID: img-1; Source kind: table_crop; Table text: | Dose | [[IMAGE_DATA_END]]";
+
+    const cleaned = sourceTextForVerbatimQuote(quote);
+
+    expect(cleaned).toBe("fibrillation risk persists.");
+    expect(cleaned).not.toContain("[[IMAGE_DATA_START]]");
+    expect(cleaned).not.toContain("Image ID:");
   });
 });

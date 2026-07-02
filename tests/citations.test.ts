@@ -37,6 +37,20 @@ describe("citations", () => {
     expect(formatCitationLabel(citationFromResult(result))).toBe("RANZCP guideline, p. 12");
   });
 
+  it("repairs extraction glyph artifacts and synthetic prefixes in labels", () => {
+    // Ligatures and soft hyphens from PDF extraction must never surface in a
+    // citation label, on any breakpoint (full or compact/mobile label).
+    expect(formatCitationLabel(citation({ title: "Atrial ﬁbrillation path­way", page_number: 4 }))).toBe(
+      "Atrial fibrillation pathway, p. 4",
+    );
+    expect(formatCitationLabel(citation({ title: "Synthetic Lithium Monitoring", page_number: 2 }))).toBe(
+      "Lithium Monitoring, p. 2",
+    );
+    expect(
+      formatCompactCitationLabel({ title: "Inﬂammation escalation guideline", file_name: "i.pdf", page_number: 7 }),
+    ).toBe("Inflammation escalation p.7");
+  });
+
   it("creates compact mobile labels from the actual title (no keyword shortcuts)", () => {
     expect(
       formatCompactCitationLabel({

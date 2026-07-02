@@ -82,6 +82,7 @@ import type {
 } from "@/lib/types";
 import {
   cleanClinicalSummaryText,
+  sourceTextForCompactDisplay,
   sourceTextForDocumentViewer,
   sourceTextForIndexedPage,
 } from "@/lib/source-text-sanitizer";
@@ -357,18 +358,19 @@ function DocumentImage({ image }: { image: ImageRow }) {
     setFailed(true);
   }
 
-  const tableHeading = [image.tableLabel, image.tableTitle].filter(Boolean).join(": ");
+  const tableHeading = sourceTextForCompactDisplay([image.tableLabel, image.tableTitle].filter(Boolean).join(": "));
+  const cleanCaption = image.caption ? sourceTextForCompactDisplay(image.caption) : "";
   const tableMarkdown = image.accessibleTableMarkdown?.trim()
     ? image.accessibleTableMarkdown
     : looksLikeTableText(image.tableTextSnippet)
       ? image.tableTextSnippet
       : null;
   const hasStructuredTable = Boolean(tableMarkdown || image.tableRows?.length || image.tableColumns?.length);
-  const tableCaption = tableHeading || image.caption || "Document table";
-  const showImageCaptionLine = image.caption && image.caption !== tableCaption;
+  const tableCaption = tableHeading || cleanCaption || "Document table";
+  const showImageCaptionLine = cleanCaption && cleanCaption !== tableCaption;
   const displayLabels = smartEvidenceTags(
     image.labels,
-    [tableHeading, image.caption, image.tableTextSnippet].filter(Boolean).join(" "),
+    [tableHeading, cleanCaption, image.tableTextSnippet].filter(Boolean).join(" "),
   );
 
   return (
@@ -399,7 +401,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
         ) : url ? (
           <img
             src={url}
-            alt={image.caption}
+            alt={cleanCaption || "Document image"}
             loading="lazy"
             decoding="async"
             onError={handleImageError}
@@ -418,7 +420,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
       </div>
       <figcaption className="mt-3 space-y-2 text-[15px] leading-6 text-[color:var(--text)]">
         {tableHeading ? <p className="font-semibold">{tableHeading}</p> : null}
-        {showImageCaptionLine ? <p className={textMuted}>{image.caption}</p> : null}
+        {showImageCaptionLine ? <p className={textMuted}>{cleanCaption}</p> : null}
         <AccessibleTable
           caption={tableCaption}
           markdown={tableMarkdown}

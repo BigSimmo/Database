@@ -44,6 +44,7 @@
     "tags:backfill": "tsx scripts/backfill-document-tags.ts",
     "index:backfill": "tsx scripts/backfill-smart-index.ts",
     "visual:backfill": "tsx scripts/backfill-visual-intelligence.ts",
+    "backfill:text-normalization": "tsx scripts/backfill-text-normalization.ts",
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",

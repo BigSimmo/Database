@@ -41,6 +41,14 @@ This document turns the current process review into phased, durable repo practic
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.
 
+## Text formatting and copy conventions
+
+- **Document-derived text must never be rendered raw.** Any value pulled from an ingested document — answer prose, exact quotes, source snippets, document titles, image captions, extracted table text — must be routed through a `source-text-sanitizer` (`src/lib/source-text-sanitizer.ts`) or `display-text` (`src/components/clinical-dashboard/display-text.ts`) helper before it reaches JSX. Verbatim quotes use `sourceTextForVerbatimQuote`; titles use `cleanDisplayTitle`; snippets/captions use `sourceTextForCompactDisplay`.
+- `normalizeExtractedGlyphs` is the shared, lossless glyph-repair primitive (ligatures, soft hyphens, zero-width/control chars). It is wired into the base `compactWhitespace`/`readableWhitespace` cleaners and into ingestion (`buildChunks`), so every formatter and newly-indexed chunk inherits it. It must never strip clinical meaning (numbers, units, dose strings, comparison symbols, hyphens, or legitimate bullet structure). It deliberately does **not** rejoin line-break hyphenation — a soft-wrap hyphen is indistinguishable from a real compound hyphen (`low-dose`, `twice-daily`), so fusing would corrupt clinical compounds and verbatim quotes.
+- `tests/rendered-text-formatting.test.ts` is a static guard that fails if a known content surface reintroduces a raw interpolation. Extend it when adding new document-derived render surfaces.
+- **Static UI copy** (headings, empty states, error/toast messages, placeholders, starter prompts) lives in `src/lib/ui-copy.ts`, alongside `app-modes.ts` (mode labels) and `source-metadata.ts` (status labels). Do not hardcode new visible chrome copy inline.
+- `scripts/backfill-text-normalization.ts` cleans already-stored `document_chunks` text in place using the same primitive. It is dry-run by default, requires `--write --confirm` to mutate, writes a revertible JSON backup first, and **never re-embeds** — existing vectors are frozen, so retrieval is unchanged by construction.
+
 ## Known limits
 
 - Chromium UI coverage is active in CI on all branches; Firefox and WebKit run in the gated release-browser CI job and remain available locally through `npm run test:e2e` and `npm run verify:release`.

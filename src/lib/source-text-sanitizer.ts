@@ -35,12 +35,45 @@ const provenanceNoiseTermPattern =
 const concreteClinicalActionPattern =
   /\b(?:administer|arrange|assess|cease|check|complete|contact|document|escalat|follow\s*up|monitor|notify|record|refer|report|review|stop|withhold|dose|prescrib|titrate)\b/i;
 
+// Typographic ligatures produced by PDF text extraction → plain ASCII letters.
+const ligatureReplacements: Array<[RegExp, string]> = [
+  [/ﬀ/g, "ff"],
+  [/ﬁ/g, "fi"],
+  [/ﬂ/g, "fl"],
+  [/ﬃ/g, "ffi"],
+  [/ﬄ/g, "ffl"],
+  [/ﬅ/g, "st"],
+  [/ﬆ/g, "st"],
+];
+// Zero-width / invisible formatting characters that survive extraction.
+const invisibleCharacterPattern = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+// C0/C1 control characters, excluding tab (\u0009) and newline (\u000A).
+const controlCharacterPattern = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
+
+// Conservative, lossless repair of PDF-extraction glyph artifacts. Must NEVER
+// remove clinical meaning: numbers, units, dose strings, comparison symbols
+// (≥ ≤ < > → %), and legitimate bullet structure are all left untouched.
+// Line-break hyphenation ("inter-\nvention") is deliberately NOT rejoined: a soft-wrap
+// hyphen is indistinguishable from a real compound hyphen (low-dose, twice-daily), so
+// fusing would corrupt clinical compounds and verbatim quotes.
+// Idempotent — running it twice yields the same result.
+export function normalizeExtractedGlyphs(value: string) {
+  if (!value) return value;
+  let out = value.normalize("NFC").replace(/\r\n?/g, "\n");
+  for (const [pattern, replacement] of ligatureReplacements) out = out.replace(pattern, replacement);
+  out = out
+    .replace(/\u00AD/g, "") // soft hyphen
+    .replace(invisibleCharacterPattern, "")
+    .replace(controlCharacterPattern, "");
+  return out;
+}
+
 function compactWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+  return normalizeExtractedGlyphs(value).replace(/\s+/g, " ").trim();
 }
 
 function readableWhitespace(value: string) {
-  return value
+  return normalizeExtractedGlyphs(value)
     .replace(/[ \t]+/g, " ")
     .replace(/[ \t]*\n[ \t]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -253,6 +286,14 @@ export function stripInternalImageDataBlocks(text: string) {
       .replace(leadingImageDataBlockRemainderPattern, " ")
       .replace(internalImageMetadataPattern, " "),
   );
+}
+
+// Exact source quotes must stay verbatim — no prose-polishing or noise-stripping
+// that could alter the wording — but internal image-data blocks are removed and
+// glyph artifacts (ligatures, soft hyphens, control chars) are repaired via
+// compactWhitespace's normalizeExtractedGlyphs pass.
+export function sourceTextForVerbatimQuote(text: string) {
+  return stripInternalImageDataBlocks(text);
 }
 
 export function sourceTextForModel(text: string) {

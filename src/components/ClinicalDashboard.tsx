@@ -145,11 +145,13 @@ import {
   UtilityDrawer,
 } from "@/components/clinical-dashboard/dashboard-shell";
 import {
+  cleanDisplayTitle,
   compactSourceSnippet,
   sanitizeAnswerDisplayText,
   sanitizeDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
 import { ApplicationsLauncherWorkspace, applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
@@ -189,7 +191,12 @@ import {
 } from "@/lib/app-modes";
 import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
-import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
+import {
+  clinicalProseUsefulness,
+  normalizeExtractedGlyphs,
+  sourceTextForCompactDisplay,
+  sourceTextForVerbatimQuote,
+} from "@/lib/source-text-sanitizer";
 import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
@@ -781,12 +788,12 @@ function SourcePreviewContent({
             data-testid="source-capsule-preview-row"
             className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             role="listitem"
-            aria-label={`Open source ${source.title}, page ${source.pageNumber ?? "not available"}`}
+            aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
           >
             <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                {source.title}
+                {cleanDisplayTitle(source.title)}
               </span>
               <span className={cn("block truncate text-xs", textMuted)}>
                 p.{source.pageNumber ?? "n/a"} · {sourceStatusLabel(source.metadata)}
@@ -1239,7 +1246,7 @@ const clinicalNotesTabMeta: Record<
 };
 
 function compactClinicalNoteText(value: string) {
-  return value
+  return normalizeExtractedGlyphs(value)
     .replace(/\*\*/g, "")
     .replace(/\s*\[\d+(?:,\s*\d+)*\]\s*/g, " ")
     .replace(/\s+/g, " ")
@@ -1817,10 +1824,10 @@ function EvidenceGapPanel({
                   key={source.id}
                   href={sourceResultHref(source)}
                   className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-                  aria-label={`Open closest source ${source.title}`}
+                  aria-label={`Open closest source ${cleanDisplayTitle(source.title)}`}
                 >
                   <ExternalLink className="h-4 w-4" />
-                  <span className="max-w-[12rem] truncate">{source.title}</span>
+                  <span className="max-w-[12rem] truncate">{cleanDisplayTitle(source.title)}</span>
                 </Link>
               ))}
             </div>
@@ -2026,8 +2033,8 @@ function EvidenceSummaryCard({
       ) : (
         <EmptyState
           icon={Target}
-          title="No top source"
-          body="No source was strong enough to recommend as the leading citation."
+          title={emptyStates.topSource.title}
+          body={emptyStates.topSource.body}
         />
       )}
 
@@ -2412,8 +2419,8 @@ function RenderModelSourceList({
     return (
       <EmptyState
         icon={FileText}
-        title="No source passages yet"
-        body="Policy-approved source links appear here after a source-backed answer."
+        title={emptyStates.sourcePassages.title}
+        body={emptyStates.sourcePassages.body}
       />
     );
   }
@@ -2423,7 +2430,7 @@ function RenderModelSourceList({
       {sources.map((source, index) => {
         const metadata = normalizeSourceMetadata(source.sourceMetadata);
         const snippet = compactSourceSnippet(source.snippet ?? "");
-        const openLabel = `Open source ${index + 1}: ${source.title}${query ? ` for ${query}` : ""}`;
+        const openLabel = `Open source ${index + 1}: ${cleanDisplayTitle(source.title)}${query ? ` for ${query}` : ""}`;
         return (
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
             <Link
@@ -2435,7 +2442,7 @@ function RenderModelSourceList({
                 <span className={sourceStatusDotClass(metadata)} aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
-                    {source.title}
+                    {cleanDisplayTitle(source.title)}
                   </p>
                   <p className={cn("mt-1 text-xs", textMuted)}>
                     p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)} · {source.sourceStrength} support
@@ -2566,7 +2573,9 @@ function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerE
   return renderModel.evidenceRows.map((row, index) => ({
     id: row.id || `${row.source.chunk_id}:${index}`,
     section: row.section || "Source evidence",
-    detail: row.quote || row.source.snippet || row.source.reason || row.source.title,
+    detail:
+      sourceTextForCompactDisplay(row.quote || row.source.snippet || row.source.reason || "") ||
+      cleanDisplayTitle(row.source.title),
     supportLevel: row.supportLevel || row.source.sourceStrength,
     citationCount: 1,
     sourceStatus:
@@ -2584,8 +2593,8 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
     return (
       <EmptyState
         icon={BookOpen}
-        title="No evidence map rows"
-        body="This answer did not return structured answer sections or linked citations."
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
       />
     );
   }
@@ -2708,19 +2717,22 @@ function QuoteCards({
       {quotes.length === 0 ? (
         <EmptyState
           icon={Quote}
-          title="No exact quotes returned"
-          body="No separate quote cards. Verify linked citations and source passages before use."
+          title={emptyStates.exactQuotes.title}
+          body={emptyStates.exactQuotes.body}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {quotes.map((quote, index) => (
+          {quotes.map((quote, index) => {
+            const quoteText = sourceTextForVerbatimQuote(quote.quote);
+            const quoteTitle = cleanDisplayTitle(quote.title);
+            return (
             <article key={`${quote.chunk_id}:${quote.quote}`} className={cn(sourceCard, "p-3 sm:p-4")}>
               <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
                 <span className={cn(iconTilePremium, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>{index + 1}</span>
                 <StrengthBadge strength={quote.source_strength} />
               </div>
               <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
-                &ldquo;{quote.quote}&rdquo;
+                &ldquo;{quoteText}&rdquo;
               </blockquote>
               <div
                 className={cn(
@@ -2732,12 +2744,12 @@ function QuoteCards({
                   {formatCompactCitationLabel(quote)}
                 </span>
                 <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
-                  {quote.title}, page {quote.page_number ?? "n/a"}
+                  {quoteTitle}, page {quote.page_number ?? "n/a"}
                 </span>
                 <div className="w-full sm:w-auto">
                   <SourceActionRow
                     viewerHref={documentCitationHref(quote)}
-                    sourceTitle={`quote ${index + 1} from ${quote.title}`}
+                    sourceTitle={`quote ${index + 1} from ${quoteTitle}`}
                     documentId={quote.document_id}
                     onScopeDocument={onScopeDocument}
                     onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
@@ -2746,7 +2758,8 @@ function QuoteCards({
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -2757,7 +2770,9 @@ function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
   return quotes
     .map((quote, index) =>
       [
-        `${index + 1}. "${quote.quote}"`,
+        // Clean the copied text the same way the card displays it, so clipboard
+        // output never contains internal image-data blocks or glyph artifacts.
+        `${index + 1}. "${sourceTextForVerbatimQuote(quote.quote)}"`,
         `Source: ${formatCitationLabel(quote)}`,
         `Link: ${documentCitationHref(quote)}`,
       ].join("\n"),
@@ -2996,7 +3011,7 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">{source.title}</p>
+                <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">{cleanDisplayTitle(source.title)}</p>
                 <p className={cn("nums mt-1 text-xs leading-5", textMuted)}>
                   page {source.page_number ?? "n/a"} · chunk {source.chunk_index}
                 </p>
@@ -3095,7 +3110,7 @@ function VisualEvidenceStrip({
         compactMobile
       />
       {evidence.length === 0 ? (
-        <EmptyState icon={FileImage} title="No indexed visuals" body="This answer did not cite any indexed images." />
+        <EmptyState icon={FileImage} title={emptyStates.indexedVisuals.title} body={emptyStates.indexedVisuals.body} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {evidence.map((item) => {
@@ -3116,7 +3131,7 @@ function VisualEvidenceStrip({
             return (
               <figure key={item.id} className={cn(sourceCard, "overflow-hidden p-2.5 sm:p-3")}>
                 <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
-                  <SourceImage endpoint={item.signed_url_endpoint} caption={item.caption} />
+                  <SourceImage endpoint={item.signed_url_endpoint} caption={sourceHeader.caption || sourceHeader.title} />
                 </div>
                 <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
                   {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
@@ -3131,7 +3146,9 @@ function VisualEvidenceStrip({
                     dialogTitle={tableCaption || "Clinical table"}
                   />
                   {!hasStructuredTable && item.tableTextSnippet ? (
-                    <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>{item.tableTextSnippet}</p>
+                    <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>
+                      {sourceTextForCompactDisplay(item.tableTextSnippet)}
+                    </p>
                   ) : null}
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -3153,7 +3170,7 @@ function VisualEvidenceStrip({
                     {formatCompactCitationLabel(item)}
                   </span>
                   <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
-                    {item.title}, page {item.page_number ?? "n/a"}
+                    {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
                     <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
@@ -3408,7 +3425,7 @@ function MobileEvidenceTabPanel({
         ))}
       </div>
     ) : (
-      <EmptyState icon={ListChecks} title="No tables used" body="No table evidence was used for this answer." />
+      <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
     );
   }
 
@@ -3428,8 +3445,8 @@ function MobileEvidenceTabPanel({
     ) : (
       <EmptyState
         icon={FileImage}
-        title="No images used"
-        body="Image and table evidence appears here when available."
+        title={emptyStates.imagesUsed.title}
+        body={emptyStates.imagesUsed.body}
       />
     );
   }
@@ -3456,7 +3473,7 @@ function MobileEvidenceTabPanel({
             className={cn(sourceCard, "flex min-h-[52px] items-center justify-between gap-3 p-3")}
           >
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{source.title}</span>
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{cleanDisplayTitle(source.title)}</span>
               <span className={cn("block truncate text-xs", textMuted)}>
                 {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
               </span>
@@ -3466,7 +3483,7 @@ function MobileEvidenceTabPanel({
         ))}
       </div>
     ) : (
-      <EmptyState icon={FileText} title="No PDFs used" body="PDF source documents appear here when available." />
+      <EmptyState icon={FileText} title={emptyStates.pdfsUsed.title} body={emptyStates.pdfsUsed.body} />
     );
   }
 
@@ -3552,8 +3569,8 @@ function UnifiedEvidenceDrawerContent({
               ) : (
                 <EmptyState
                   icon={ListChecks}
-                  title="No tables used"
-                  body="No table evidence was used for this answer."
+                  title={emptyStates.tablesUsed.title}
+                  body={emptyStates.tablesUsed.body}
                 />
               )}
             </section>
@@ -3617,7 +3634,7 @@ function UnifiedEvidenceDrawerContent({
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
-                          {source.title}
+                          {cleanDisplayTitle(source.title)}
                         </span>
                         <span className={cn("block truncate text-xs", textMuted)}>
                           {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
@@ -3630,8 +3647,8 @@ function UnifiedEvidenceDrawerContent({
               ) : (
                 <EmptyState
                   icon={FileText}
-                  title="No PDFs used"
-                  body="PDF source documents appear here when available."
+                  title={emptyStates.pdfsUsed.title}
+                  body={emptyStates.pdfsUsed.body}
                 />
               )}
             </section>
@@ -4705,7 +4722,7 @@ function DocumentDrawer({
         {filtered.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title={documents.length === 0 ? "No indexed documents" : "No matching documents"}
+            title={documents.length === 0 ? emptyStates.documentsNoneIndexed.title : emptyStates.documentsNoMatch.title}
             body={
               documents.length === 0
                 ? "Upload a guideline to start indexing."
@@ -6471,7 +6488,7 @@ export function ClinicalDashboard({
       return;
     }
     if (!canRunSearch) {
-      setError("Search setup not ready.");
+      setError(errorCopy.searchSetupNotReady);
       return;
     }
     setLoading(true);
@@ -6662,7 +6679,7 @@ export function ClinicalDashboard({
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
     if (!canRunSearch) {
-      setError("Search setup not ready.");
+      setError(errorCopy.searchSetupNotReady);
       return;
     }
 
@@ -6722,13 +6739,13 @@ export function ClinicalDashboard({
         return;
       }
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Bulk reindex failed.");
+      if (!response.ok) throw new Error(payload.error || errorCopy.bulkReindexFailed);
       setBulkActionStatus(
         `${payload.results?.filter((result: { ok: boolean }) => result.ok).length ?? 0} selected documents updated.`,
       );
       await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
     } catch (error) {
-      setBulkActionStatus(error instanceof Error ? error.message : "Bulk reindex failed.");
+      setBulkActionStatus(error instanceof Error ? error.message : errorCopy.bulkReindexFailed);
     } finally {
       setBulkActionBusy(false);
     }
@@ -6757,11 +6774,11 @@ export function ClinicalDashboard({
         return;
       }
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Bulk metadata update failed.");
+      if (!response.ok) throw new Error(payload.error || errorCopy.bulkMetadataUpdateFailed);
       setBulkActionStatus(`${payload.updatedCount ?? 0} selected documents updated.`);
       await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
     } catch (error) {
-      setBulkActionStatus(error instanceof Error ? error.message : "Bulk metadata update failed.");
+      setBulkActionStatus(error instanceof Error ? error.message : errorCopy.bulkMetadataUpdateFailed);
     } finally {
       setBulkActionBusy(false);
     }
@@ -6955,7 +6972,7 @@ export function ClinicalDashboard({
       }
     }
     if (!copied) {
-      setError("Couldn't copy to the clipboard. Select the text and copy it manually.");
+      setError(errorCopy.clipboardCopyFailed);
       return;
     }
     setCopiedAction(action);

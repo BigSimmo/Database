@@ -3,6 +3,7 @@ import {
   clipboardProvenanceLine,
   formatClinicalDate,
   normalizeSourceMetadata,
+  sourceProvenanceSummary,
   sourceStatusLabel,
 } from "../src/lib/source-metadata";
 
@@ -32,5 +33,29 @@ describe("source metadata helpers", () => {
     expect(line).toContain("Source status: Current source");
     expect(line).toContain("Validation: Approved");
     expect(line).toContain("Review date: 18/05/2026");
+    expect(line).toContain("Jurisdiction: Australia/WA");
+  });
+
+  it("drops unknown filler segments but keeps governance warnings", () => {
+    const emptySummary = sourceProvenanceSummary(normalizeSourceMetadata(null));
+
+    // No "Publisher unknown · Jurisdiction unknown · review Unknown" filler —
+    // only the clinical governance warnings remain visible.
+    expect(emptySummary).toBe("Source status unknown · Not locally validated");
+
+    const emptyClipboard = clipboardProvenanceLine(normalizeSourceMetadata(null));
+    expect(emptyClipboard).not.toContain("Jurisdiction: Unknown");
+    expect(emptyClipboard).toContain("Source status: Source status unknown");
+
+    const fullSummary = sourceProvenanceSummary(
+      normalizeSourceMetadata({
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+        review_date: "2026-05-18",
+        document_status: "current",
+        clinical_validation_status: "approved",
+      }),
+    );
+    expect(fullSummary).toBe("WA Health · Australia/WA · review 18/05/2026 · Current source · Approved");
   });
 });

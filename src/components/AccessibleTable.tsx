@@ -14,6 +14,7 @@ import {
 } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
+import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 
 const tableExpandMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 const metadataHeaderPattern = /^(?:source|sources|support|pages?|chunk|file|document|citation|citations|provenance)$/i;
@@ -39,7 +40,7 @@ function parseMarkdownTable(markdown?: string | null) {
 }
 
 function cleanClinicalTableText(value: string) {
-  return value
+  return normalizeExtractedGlyphs(value)
     .replace(metadataCellPattern, "")
     .replace(fileNamePattern, "")
     .replace(/\b(?:direct|partial|nearby|unsupported|source-linked)\s+support\b/gi, "")

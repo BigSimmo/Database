@@ -24,6 +24,8 @@ import {
   toneWarning,
   EmptyState,
 } from "@/components/ui-primitives";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
+import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import type {
   ClinicalDocument,
@@ -219,7 +221,7 @@ export function UploadPanel({
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "Upload failed");
       } catch (error) {
-        failures.push(`${file.name}: ${error instanceof Error ? error.message : "Upload failed"}`);
+        failures.push(`${file.name}: ${error instanceof Error ? error.message : errorCopy.uploadFailed}`);
       }
     }
 
@@ -299,10 +301,10 @@ export function IndexingMonitor({
         icon={UploadCloud}
         title={
           filter === "failed"
-            ? "No failed indexing work"
+            ? emptyStates.ingestionJobs.noneFailed
             : filter === "active"
-              ? "No active indexing work"
-              : "No ingestion jobs"
+              ? emptyStates.ingestionJobs.noneActive
+              : emptyStates.ingestionJobs.none
         }
         body={
           filter === "failed"
@@ -436,8 +438,8 @@ export function IngestionQualityConsole({
     return (
       <EmptyState
         icon={ShieldCheck}
-        title="No ingestion quality issues"
-        body="Loaded documents have no current OCR, table, extraction, or failed-job review items."
+        title={emptyStates.ingestionQuality.title}
+        body={emptyStates.ingestionQuality.body}
       />
     );
   }
@@ -492,7 +494,9 @@ export function IngestionQualityConsole({
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">{item.documentTitle}</p>
+                  <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">
+                    {cleanDisplayTitle(item.documentTitle)}
+                  </p>
                   <p className={cn("mt-1 text-xs leading-5", textMuted)}>
                     {item.title}: {item.detail}
                   </p>
