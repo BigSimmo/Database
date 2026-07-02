@@ -2466,7 +2466,7 @@ function RenderModelSourceList({
     <div className="space-y-3">
       {sources.map((source, index) => {
         const metadata = normalizeSourceMetadata(source.sourceMetadata);
-        const snippet = compactSourceSnippet(source.snippet ?? "");
+        const snippet = compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title });
         const openLabel = `Open source ${index + 1}: ${cleanDisplayTitle(source.title)}${query ? ` for ${query}` : ""}`;
         return (
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
@@ -5778,8 +5778,7 @@ export function ClinicalDashboard({
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePrivateApis =
-    localProjectReady &&
-    (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
+    localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "mobileSidebar" | "documents" | "upload") => {

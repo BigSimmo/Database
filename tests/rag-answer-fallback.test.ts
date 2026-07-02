@@ -1449,6 +1449,63 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
   });
 
+  it("does not gate-block a moderate score clustered across several distinct documents", async () => {
+    // Regression: a topic with rich coverage (e.g. clozapine) returns many relevant
+    // documents whose scores cluster tightly at a moderate value. A tiny spread there
+    // is strong coverage, not weak retrieval, so the confidence gate must not refuse.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [1, 2, 3, 4, 5].map((n) =>
+      source({
+        id: `clustered-${n}`,
+        document_id: `doc-${n}`,
+        title: `Clozapine Guideline ${n}`,
+        file_name: `clozapine-${n}.pdf`,
+        content: "Clozapine missed-dose monitoring guidance describes retitration and observation steps.",
+        similarity: 0.57,
+        hybrid_score: 0.57,
+        text_rank: 0.06,
+      }),
+    );
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: sources, error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "Show the clozapine missed-dose monitoring guidance.",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "passed",
+      distinctDocumentCount: 5,
+    });
+    expect(answer.routingReason).not.toContain("confidence_gate_blocked");
+    // The gate passed, so generation is attempted rather than short-circuited to a refusal.
+    expect(generateStructuredTextResult).toHaveBeenCalled();
+  });
+
   it("returns document names for source-support questions instead of clinical advice", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");

@@ -3,9 +3,13 @@
  *
  * Applies the shared, lossless `normalizeExtractedGlyphs` transform to the stored
  * `document_chunks.content` (and `section_heading`) of already-indexed documents.
- * Only rows whose text actually changes are updated. Embeddings are NEVER
- * recomputed, so vector/semantic retrieval is unchanged by construction; the
- * generated `search_tsv` column refreshes automatically and can only improve.
+ * `retrieval_synopsis` additionally gets `polishStoredSynopsis` (protective-marking
+ * banner removal + truncated-tail repair) — the synopsis is a derived display/
+ * retrieval summary, never quoted verbatim, so the stronger polish is safe there
+ * and only there. Only rows whose text actually changes are updated. Embeddings
+ * are NEVER recomputed, so vector/semantic retrieval is unchanged by
+ * construction; the generated `search_tsv` column refreshes automatically and
+ * can only improve.
  *
  * Safety:
  *   - Confirms the Supabase project before writing.
@@ -109,7 +113,12 @@ const PAGE_SIZE = 1000;
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  const [{ requireServerEnv }, { createAdminClient }, { normalizeExtractedGlyphs }, projectModule] = await Promise.all([
+  const [
+    { requireServerEnv },
+    { createAdminClient },
+    { normalizeExtractedGlyphs, polishStoredSynopsis },
+    projectModule,
+  ] = await Promise.all([
     import("@/lib/env"),
     import("@/lib/supabase/admin"),
     import("@/lib/source-text-sanitizer"),
@@ -167,7 +176,7 @@ async function main() {
       const newHeading =
         row.section_heading == null ? row.section_heading : normalizeExtractedGlyphs(row.section_heading);
       const newSynopsis =
-        row.retrieval_synopsis == null ? row.retrieval_synopsis : normalizeExtractedGlyphs(row.retrieval_synopsis);
+        row.retrieval_synopsis == null ? row.retrieval_synopsis : polishStoredSynopsis(row.retrieval_synopsis);
       const contentChanged = newContent !== row.content;
       const headingChanged = newHeading !== row.section_heading;
       const synopsisChanged = newSynopsis !== row.retrieval_synopsis;
@@ -189,12 +198,18 @@ async function main() {
           new_retrieval_synopsis: newSynopsis,
         });
       }
-      if (contentChanged && sampleDiffs.length < 8) {
-        sampleDiffs.push({
-          id: row.id,
-          before: (row.content ?? "").slice(0, 160),
-          after: (newContent ?? "").slice(0, 160),
-        });
+      if ((contentChanged || synopsisChanged) && sampleDiffs.length < 8) {
+        // Prefer showing the content diff; fall back to the synopsis diff for
+        // synopsis-only rows so the dry run still demonstrates the change.
+        sampleDiffs.push(
+          contentChanged
+            ? { id: row.id, before: (row.content ?? "").slice(0, 160), after: (newContent ?? "").slice(0, 160) }
+            : {
+                id: row.id,
+                before: (row.retrieval_synopsis ?? "").slice(0, 160),
+                after: (newSynopsis ?? "").slice(0, 160),
+              },
+        );
       }
     }
 

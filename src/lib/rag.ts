@@ -36,7 +36,12 @@ import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } fr
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
-import { chooseAnswerRoute, hasDirectTitleSupport, shouldRetryWithStrongAfterFast } from "@/lib/rag-routing";
+import {
+  chooseAnswerRoute,
+  hasAdversarialManipulationIntent,
+  hasDirectTitleSupport,
+  shouldRetryWithStrongAfterFast,
+} from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -727,9 +732,16 @@ function buildRetrievalDiagnostics(args: {
   const distinctDocuments = new Set(args.results.map((result) => result.document_id)).size;
   const scoreSpread = Number(Math.max(0, topScore - secondScore).toFixed(4));
   const clinicallySensitiveQuery = /table_threshold|medication_dose_risk/.test(args.queryClass);
+  // A small score spread only signals weak/ambiguous retrieval when few documents
+  // are involved. When several distinct documents cluster at a moderate score, that
+  // is a topic with rich coverage (e.g. clozapine, which has many policy documents),
+  // not weak evidence — the tight spread is expected and answering is correct. Gating
+  // those would refuse answerable clinical questions; generation still validates
+  // grounding downstream, so passing the gate here does not lower the answer bar.
+  const lowDiversity = distinctDocuments <= 2;
   const weakSignal =
     topScore < 0.5 ||
-    (args.results.length > 1 && scoreSpread < 0.05 && topScore < 0.72) ||
+    (args.results.length > 1 && scoreSpread < 0.05 && topScore < 0.72 && lowDiversity) ||
     (args.results.length > 0 && distinctDocuments === 1 && clinicallySensitiveQuery && topScore < 0.68);
   const gateStatus: RetrievalConfidenceGateStatus = weakSignal ? "blocked" : "passed";
   return {
@@ -1163,6 +1175,11 @@ function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) 
 
 async function analyzeQueryWithClassifierFallback(query: string, analysis: ClinicalQueryAnalysis) {
   if (
+    // Fail closed before any generative model call: an adversarial-manipulation
+    // query is routed to "unsupported" downstream, so never send its text to the
+    // LLM query classifier. (Embedding-based retrieval is non-generative and not
+    // an injection surface.)
+    hasAdversarialManipulationIntent(query) ||
     unavailableDocumentNoisePattern.test(query) ||
     (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0)
   ) {
@@ -6330,7 +6347,12 @@ async function answerQuestionWithScopeUncoalesced(
     allowGlobalSearch: args.allowGlobalSearch,
   });
   const answerFocusQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
-  const cachedAnswer = getCachedAnswer(args, startedAt);
+  // Never serve a cached answer for an adversarial-manipulation query: a poisoned
+  // entry written before this guard existed (or a shared-cache hit under an
+  // unchanged cache version) would bypass chooseAnswerRoute's refusal. Skipping the
+  // cache lets the query flow to routing, which fails it closed to "unsupported".
+  const adversarialQuery = hasAdversarialManipulationIntent(answerFocusQuery);
+  const cachedAnswer = adversarialQuery ? null : getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
     const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
@@ -6355,7 +6377,7 @@ async function answerQuestionWithScopeUncoalesced(
         : cachedAnswer.smartPanel,
     };
   }
-  const sharedCachedAnswer = await getSharedCachedAnswer(args, startedAt);
+  const sharedCachedAnswer = adversarialQuery ? null : await getSharedCachedAnswer(args, startedAt);
   if (sharedCachedAnswer) {
     setCachedAnswer(args, sharedCachedAnswer);
     const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);

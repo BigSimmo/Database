@@ -27,14 +27,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { ModeHomeTemplate } from "@/components/mode-home-template";
-import {
-  cn,
-  toneDanger,
-  toneInfo,
-  toneNeutral,
-  toneSuccess,
-  toneWarning,
-} from "@/components/ui-primitives";
+import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
   query: string;

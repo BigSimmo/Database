@@ -11,18 +11,18 @@
  *   npx tsx scripts/capture-chrome-parity.ts --label baseline [--out <dir>]
  *   npx tsx scripts/capture-chrome-parity.ts --compare <a.json> <b.json>
  *
- * Requires the dev server (npm run ensure) at PLAYWRIGHT_BASE_URL or
- * http://localhost:3500. Snapshots are machine-specific; keep them out of
- * the repo (default output dir is scratch/chrome-parity, git-ignored by the
- * format gate and never committed).
+ * Requires the dev server from npm run ensure. PLAYWRIGHT_BASE_URL is accepted
+ * only after the repo identity guard verifies it. Snapshots are
+ * machine-specific; keep them out of the repo (default output dir is
+ * scratch/chrome-parity, git-ignored by the format gate and never committed).
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { chromium, type BrowserContext, type Page, type Route } from "playwright-core";
 
+import { getPlaywrightBaseUrl } from "./playwright-base-url";
 import { demoAnswer, demoDocuments, getDemoDocumentPayload } from "../src/lib/demo-data";
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3500";
 const DOCUMENT_PATH =
   "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442";
 const QUERY_TEXT = "Synthetic lithium monitoring guidance";
@@ -108,7 +108,13 @@ async function mockApis(page: Page) {
       json: {
         documents: demoDocuments,
         demoMode: true,
-        pagination: { limit: 150, offset: 0, total: demoDocuments.length, nextOffset: demoDocuments.length, hasMore: false },
+        pagination: {
+          limit: 150,
+          offset: 0,
+          total: demoDocuments.length,
+          nextOffset: demoDocuments.length,
+          hasMore: false,
+        },
       },
     });
   });
@@ -164,7 +170,7 @@ async function settle(page: Page) {
   await page.waitForTimeout(500);
 }
 
-async function captureAll(context: BrowserContext, dark: boolean): Promise<Record<string, Snapshot>> {
+async function captureAll(context: BrowserContext, dark: boolean, baseUrl: string): Promise<Record<string, Snapshot>> {
   const states: Record<string, Snapshot> = {};
   const page = await context.newPage();
   await mockApis(page);
@@ -180,7 +186,7 @@ async function captureAll(context: BrowserContext, dark: boolean): Promise<Recor
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
     // 1. Home (desktop-home / mobile composer variants).
-    await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
     await settle(page);
     states[`home-${viewport.tag}-${suffix}`] = await captureState(page);
 
@@ -188,10 +194,7 @@ async function captureAll(context: BrowserContext, dark: boolean): Promise<Recor
     const input = page.locator('[data-testid="global-search-input"]:visible').first();
     await input.fill(QUERY_TEXT);
     await page.keyboard.press("Control+Enter");
-    await page
-      .getByTestId("plain-answer-response")
-      .waitFor({ timeout: 20_000 })
-      .catch(() => undefined);
+    await page.getByTestId("plain-answer-response").waitFor({ timeout: 20_000 });
     await settle(page);
     states[`answer-${viewport.tag}-${suffix}`] = await captureState(page);
 
@@ -201,7 +204,7 @@ async function captureAll(context: BrowserContext, dark: boolean): Promise<Recor
     states[`answer-focus-${viewport.tag}-${suffix}`] = await captureState(page);
 
     // 4. Document viewer chrome.
-    await page.goto(`${BASE}${DOCUMENT_PATH}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}${DOCUMENT_PATH}`, { waitUntil: "domcontentloaded" });
     await settle(page);
     states[`document-${viewport.tag}-${suffix}`] = await captureState(page);
   }
@@ -257,10 +260,11 @@ async function main() {
   mkdirSync(outDir, { recursive: true });
 
   const browser = await chromium.launch();
+  const baseUrl = getPlaywrightBaseUrl();
   const all: Record<string, Snapshot> = {};
   for (const dark of [false, true]) {
     const context = await browser.newContext({ deviceScaleFactor: 1 });
-    Object.assign(all, await captureAll(context, dark));
+    Object.assign(all, await captureAll(context, dark, baseUrl));
     await context.close();
   }
   await browser.close();

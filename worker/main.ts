@@ -752,7 +752,9 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     : "unclear";
   const score = Number(metadata.clinical_relevance_score);
   const labels = cachedImageLabels(metadata.labels);
-  const cachedCaption = redactCaptionIdentifiers(cleanString(String(data.caption || "").trim() || "Extracted source image."));
+  const cachedCaption = redactCaptionIdentifiers(
+    cleanString(String(data.caption || "").trim() || "Extracted source image."),
+  );
   const assessment = assessClinicalImageUse({
     imageType,
     searchable: Boolean(metadata.searchable),
@@ -761,10 +763,13 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     labels,
     skipReason: typeof metadata.skip_reason === "string" ? metadata.skip_reason : null,
   });
-  const structuredProfile = normalizeStructuredVisualProfile(redactCaptionMetadataValue(metadata.structured_visual_profile), {
-    fallbackText: cachedCaption,
-    fallbackConfidence: score,
-  });
+  const structuredProfile = normalizeStructuredVisualProfile(
+    redactCaptionMetadataValue(metadata.structured_visual_profile),
+    {
+      fallbackText: cachedCaption,
+      fallbackConfidence: score,
+    },
+  );
 
   return {
     image_type: imageType,
@@ -813,8 +818,8 @@ async function setCachedImageClassification(args: {
         clinical_signal_score: classification.clinical_signal_score,
         admin_signal_score: classification.admin_signal_score,
         structured_visual_profile: (classification as ImageClassificationWithVisualProfile).structured_visual_profile,
-        structured_extraction_confidence:
-          (classification as ImageClassificationWithVisualProfile).structured_extraction_confidence,
+        structured_extraction_confidence: (classification as ImageClassificationWithVisualProfile)
+          .structured_extraction_confidence,
         image_policy_version: clinicalImagePolicyVersion,
         visual_intelligence_version: visualIntelligenceVersion,
         image_caption_cache_version: imageCaptionCacheVersion,

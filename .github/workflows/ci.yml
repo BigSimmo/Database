@@ -5,6 +5,7 @@ on:
     branches: [main, "release/**"]
   pull_request:
     branches: [main, "release/**"]
+  merge_group:
   workflow_dispatch:
   schedule:
     - cron: "0 18 * * 0"
@@ -56,6 +57,9 @@ jobs:
 
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint

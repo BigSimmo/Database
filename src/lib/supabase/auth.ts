@@ -81,4 +81,3 @@ export async function requireAuthenticatedUser(request: Request, supabase: Admin
 
   return { id: userId };
 }
-

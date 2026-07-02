@@ -32,6 +32,15 @@ describe("document-derived text must route through a formatter", () => {
     expect(dashboard).toContain("sourceTextForCompactDisplay(item.tableTextSnippet)");
   });
 
+  it("renders source-card snippets through compactSourceSnippet with the card title deduped", () => {
+    expect(dashboard).not.toMatch(/(?<!\$)\{source\.snippet\}/);
+    expect(dashboard).toContain('compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title })');
+  });
+
+  it("renders evidence-map row details through the compact formatter, never raw", () => {
+    expect(dashboard).toContain("sourceTextForCompactDisplay(row.quote || row.source.snippet");
+  });
+
   it("renders document-viewer image captions through a formatter, never raw", () => {
     expect(documentViewer).not.toMatch(/\{image\.caption\}/);
     expect(documentViewer).toContain("sourceTextForCompactDisplay(image.caption)");

@@ -166,7 +166,9 @@ export async function POST(request: Request) {
         .eq("id", documentId)
         .eq("owner_id", user.id);
       if (rollbackDocumentError) {
-        throw new Error(`Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`);
+        throw new Error(
+          `Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`,
+        );
       }
       insertedDocumentId = null;
       insertedDocumentOwnerId = null;
@@ -208,7 +210,9 @@ export async function POST(request: Request) {
 
     if (uploadedPath && supabase) {
       try {
-        const { error: cleanupStorageError } = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([uploadedPath]);
+        const { error: cleanupStorageError } = await supabase.storage
+          .from(env.SUPABASE_DOCUMENT_BUCKET)
+          .remove([uploadedPath]);
         if (cleanupStorageError) {
           logger.error("Upload cleanup failed; storage object may be orphaned", {
             storagePath: uploadedPath,
