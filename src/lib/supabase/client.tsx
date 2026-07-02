@@ -66,8 +66,8 @@ function createBrowserSupabaseClient() {
 }
 
 export function authorizationHeadersForAccessToken(accessToken: string | null | undefined): Record<string, string> {
-  if (accessToken) return Object.assign({}, { authorization: "******" });
-  return Object.assign({}, {});
+  if (!accessToken) return {};
+  return { authorization: `Bearer ${accessToken}` };
 }
 
 function clearLocationHash() {
