@@ -87,10 +87,12 @@ function GlobalMockupSearchShellClient({
   const initialSearchMode =
     availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
   const requestedRun = searchParams.get("run") === "1";
+  const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const requestedMode = searchParams.get("mode");
   const searchParamString = searchParams.toString();
   const [query, setQuery] = useState(requestedQuery);
+  const previousUrlHadQueryRef = useRef(currentUrlHasQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
@@ -117,6 +119,10 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  // True when on a sub-route of a mode home (e.g. /forms/transport-crisis-form,
+  // /services/13yarn) rather than the mode home itself (/forms, /services).
+  const isDetailPage =
+    /^\/(forms|services|favourites)\/.+/.test(pathname) || /^\/differentials\/diagnoses\/.+/.test(pathname);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -130,13 +136,24 @@ function GlobalMockupSearchShellClient({
           : initialSearchMode;
       setSearchMode(nextMode);
 
-      const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
-      setQuery(requestedQuery ?? "");
+      const urlHasQuery = params.has("q") || params.has("query");
+      const hadQueryBeforeThisSync = previousUrlHadQueryRef.current;
+      previousUrlHadQueryRef.current = urlHasQuery;
+      if (urlHasQuery) {
+        // Sync the controlled query state from the URL query param.
+        const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
+        setQuery(requestedQuery ?? "");
+      } else if (!isDetailPage || hadQueryBeforeThisSync) {
+        // On no-query routes, clear any stale URL-derived query. Initial detail
+        // page mounts still skip the deferred clear so programmatic fills are
+        // not wiped by the WebKit requestAnimationFrame race.
+        setQuery("");
+      }
 
       if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [availableModeIds, initialSearchMode, pathname, searchParamString]);
+  }, [availableModeIds, initialSearchMode, isDetailPage, pathname, searchParamString]);
 
   useEffect(() => {
     let cancelled = false;
