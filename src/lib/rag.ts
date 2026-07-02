@@ -3285,7 +3285,7 @@ function hasAnyTerm(text: string, pattern: RegExp) {
 
 function isRiskFlowchartNextStepQuery(query: string) {
   return (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
     riskZoneContextPattern.test(query) &&
     /\b(?:next step|step after|after|action)\b/i.test(query)
   );

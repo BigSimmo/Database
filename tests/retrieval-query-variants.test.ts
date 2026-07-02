@@ -377,6 +377,35 @@ describe("retrieval query variants", () => {
     ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
   });
 
+  it("treats hyphenated risk-matrix queries as flowchart next-step lookups", () => {
+    expect(
+      decideTextFastPath(
+        "In the risk-matrix flowchart, what action is shown after red-zone risk?",
+        [
+          result({
+            content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+            similarity: 0.82,
+            index_unit: {
+              id: "unit-rm-hyphen",
+              unit_type: "risk_matrix_cell",
+              title: "Physical aggression / Recent incident: Red",
+              content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_start: 1,
+              page_end: 1,
+              heading_path: ["Risk matrix"],
+              normalized_terms: ["red", "risk matrix"],
+              quality_score: 0.9,
+              extraction_mode: "model_heavy",
+            },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
   it("requires zone and action evidence on a single result for the flowchart risk gate", () => {
     const query = "In the clinical flowchart, what is the next step after red-zone risk?";
 
