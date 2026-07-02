@@ -30,6 +30,26 @@ export type GroupedSourceGovernanceWarning = {
 export const sourceGovernanceRefusalAnswer =
   "I cannot provide a clinical answer because one or more matched documents are not suitable for clinical use yet. Try a narrower clinical term or scope the search to a current approved document.";
 
+// Canonical per-source danger-severity warning messages. These are the exact
+// strings emitted by sourceGovernanceWarnings below AND the strings persisted by
+// UI captures (ClinicalDashboard submits warning.message to /api/eval-cases,
+// which drops the severity), so a consumer can recover danger severity from a
+// persisted message via isDangerSourceGovernanceMessage. weak_evidence danger is
+// intentionally excluded: its message is dynamic (relevance.supportReason) and
+// its fallback text is shared with the non-danger partial-verdict variant, so it
+// cannot be recovered from a message string without false positives.
+export const OUTDATED_SOURCE_WARNING_MESSAGE = "One or more supporting sources are marked outdated.";
+export const POOR_EXTRACTION_WARNING_MESSAGE = "One or more supporting sources have poor extraction quality.";
+
+const dangerSourceGovernanceMessages = new Set<string>([
+  OUTDATED_SOURCE_WARNING_MESSAGE,
+  POOR_EXTRACTION_WARNING_MESSAGE,
+]);
+
+export function isDangerSourceGovernanceMessage(message: string) {
+  return dangerSourceGovernanceMessages.has(message.trim());
+}
+
 const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
   "outdated_source",
   "poor_extraction",
@@ -72,7 +92,7 @@ export function sourceGovernanceWarnings(args: {
       pushUnique(warnings, {
         code: "outdated_source",
         severity: "danger",
-        message: "One or more supporting sources are marked outdated.",
+        message: OUTDATED_SOURCE_WARNING_MESSAGE,
         document_id,
         title,
       });
@@ -100,7 +120,7 @@ export function sourceGovernanceWarnings(args: {
       pushUnique(warnings, {
         code: "poor_extraction",
         severity: "danger",
-        message: "One or more supporting sources have poor extraction quality.",
+        message: POOR_EXTRACTION_WARNING_MESSAGE,
         document_id,
         title,
       });

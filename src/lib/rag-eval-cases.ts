@@ -1,3 +1,4 @@
+import { isDangerSourceGovernanceMessage } from "@/lib/source-governance";
 import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 export type RagEvalCategory = "routine" | "complex" | "unsupported";
@@ -193,11 +194,18 @@ function capturedCaseExpectsSourceDangerWarning(row: CapturedEvalCaseRow) {
   ) {
     return true;
   }
-  return metadataWarnings(row.metadata).some(
-    (warning) =>
-      (typeof warning === "string" && warning.trim().length > 0) ||
-      (typeof warning === "object" && warning !== null && (warning as { severity?: unknown }).severity === "danger"),
-  );
+  return metadataWarnings(row.metadata).some((warning) => {
+    // Object-shaped warnings carry severity directly.
+    if (typeof warning === "object" && warning !== null) {
+      return (warning as { severity?: unknown }).severity === "danger";
+    }
+    // UI captures persist governance warnings as plain message strings (severity
+    // dropped by /api/eval-cases). Match only the canonical danger messages —
+    // treating any non-empty string as danger would flag captures whose sole
+    // warning is non-danger (e.g. review_due / unverified) and then trip the
+    // "expected danger ... missing" gate on a false positive.
+    return typeof warning === "string" && isDangerSourceGovernanceMessage(warning);
+  });
 }
 
 function expectedFilesForCapturedCase(row: CapturedEvalCaseRow, rating: "good" | "needs_fixing") {
