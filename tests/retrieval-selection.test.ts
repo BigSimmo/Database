@@ -278,7 +278,13 @@ describe("retrieval source selection", () => {
     );
   });
 
-  it("prefers current locally reviewed clozapine threshold evidence over close review-required sources", () => {
+  // Contract changed 2026-07-02 (measured): source-governance metadata must NOT reorder retrieval
+  // selection. The corpus is only partially enriched — unenriched documents normalize to
+  // unknown/unverified — so metadata weighting in selection buried correct documents on the golden
+  // retrieval eval (doc-recall@5 1.0 -> 0.76, 7/23 failures). Selection orders by relevance
+  // (clamped score -> lexical -> rerank); governance is enforced by ranking penalties and the
+  // answer/source-governance layer instead (RC8 tracked in docs/rag-hybrid-findings-and-todo.md).
+  it("keeps relevance ordering and does not let source-governance metadata reorder selection", () => {
     const selection = selectRetrievalEvidence({
       query: "What ANC or FBC threshold should withhold clozapine?",
       queryClass: "table_threshold",
@@ -328,16 +334,15 @@ describe("retrieval source selection", () => {
     });
 
     expect(selection.results).toHaveLength(5);
+    // Relevance (hybrid) order is preserved; the review-due and unverified sources are NOT demoted
+    // here — their governance state is surfaced/penalised by the ranking and answer layers.
     expect(selection.results.map((result) => result.id)).toEqual([
+      "review-due-shared-care",
+      "current-unverified-bmj",
       "current-local-fsh",
       "current-local-nmhs",
       "current-local-akg",
-      "current-local-camhs",
-      "current-local-smhs",
     ]);
-    expect(
-      selection.results.every((result) => result.source_metadata?.clinical_validation_status === "locally_reviewed"),
-    ).toBe(true);
   });
 
   it("prefers risk/red-zone flowchart evidence over generic flowchart evidence", () => {

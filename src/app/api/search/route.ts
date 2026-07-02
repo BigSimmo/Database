@@ -652,7 +652,12 @@ async function buildScopedSearchPayload(
   });
   const resultLimit =
     body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8);
-  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 4, true));
+  // RC7: cap the search-results panel at 3 chunks per document (was 4) so one verbose document
+  // cannot crowd out sibling sources — the corpus has many near-duplicate guidelines (e.g. several
+  // "Safety Planning" / "Active Community Patients in ED" versions), and surfacing more distinct
+  // documents makes the panel more useful. diversifySearchResults backfills from remaining chunks
+  // when few documents match, so this never reduces the result count.
+  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 3, true));
 
   const relatedDocuments = body.includeRelatedDocuments
     ? await fetchRelatedDocuments({
