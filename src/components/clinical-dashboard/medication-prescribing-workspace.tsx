@@ -365,7 +365,8 @@ function IconTile({
         "grid shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
         tone === "teal" &&
           "border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
-        tone === "blue" && "border-[color:var(--info-border)]/60 bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
+        tone === "blue" &&
+          "border-[color:var(--info-border)]/60 bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
         tone === "slate" &&
           "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
         tone === "danger" &&
@@ -865,7 +866,10 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
           <ul className="grid gap-1.5">
             {body.map((item) => (
               <li key={item} className="flex gap-3">
-                <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]" aria-hidden="true" />
+                <span
+                  className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]"
+                  aria-hidden="true"
+                />
                 <span>{item}</span>
               </li>
             ))}
@@ -1156,7 +1160,10 @@ function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: 
             {body.map((item) => (
               <p key={item} className={cn(row.tone === "danger" && "flex gap-2")}>
                 {row.tone === "danger" ? (
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]" aria-hidden="true" />
+                  <span
+                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]"
+                    aria-hidden="true"
+                  />
                 ) : null}
                 <span>{item}</span>
               </p>
