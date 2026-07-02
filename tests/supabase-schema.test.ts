@@ -22,6 +22,10 @@ const strictGateRepairMigration = readFileSync(
   new URL("../supabase/migrations/20260625033425_strict_enrichment_gate_repair.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const indexingV3AgentWorkerHardeningMigration = readFileSync(
+  new URL("../supabase/migrations/20260625000000_indexing_v3_agent_worker_hardening.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicStrictCompletionMigration = readFileSync(
   new URL("../supabase/migrations/20260625033944_atomic_strict_enrichment_completion.sql", import.meta.url),
   "utf8",
@@ -183,7 +187,13 @@ describe("Supabase schema Data API grants", () => {
 
   it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
     expect(schema).toContain("create table if not exists public.ingestion_job_stages");
-    expect(schema).toContain("drop constraint if exists ingestion_job_stages_job_id_fkey");
+    expect(schema).toContain("job_id uuid not null references public.ingestion_jobs(id) on delete cascade");
+    expect(indexingV3AgentWorkerHardeningMigration).toContain(
+      "drop constraint if exists ingestion_job_stages_job_id_fkey",
+    );
+    expect(indexingV3AgentWorkerHardeningMigration).toContain(
+      "add constraint ingestion_job_stages_job_id_fkey foreign key (job_id) references public.ingestion_jobs(id) on delete cascade",
+    );
     expect(schema).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
     expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
     expect(schema).toContain("create or replace function public.claim_indexing_v3_agent_jobs");
@@ -403,7 +413,7 @@ describe("Supabase schema Data API grants", () => {
 
   it("covers advisor-reported foreign key indexes for search support tables", () => {
     expect(schema).toContain(
-      "create index if not exists document_embedding_fields_owner_idx on public.document_embedding_fields(owner_id)",
+      "create index if not exists document_embedding_fields_owner_id_idx on public.document_embedding_fields(owner_id)",
     );
     expect(schema).toContain(
       "create index if not exists document_table_facts_owner_idx on public.document_table_facts(owner_id)",
@@ -424,15 +434,23 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq");
       expect(sql).toContain("limit least(greatest(match_count, 1), 80)");
       expect(sql).toContain("limit least(greatest(match_count * 2, 24), 96)");
-      expect(sql).toContain("limit least(greatest(match_count * 2, 48), 128)");
-      expect(sql).toContain("limit least(greatest(match_count * 2, 32), 96)");
-      expect(sql).toContain("and (owner_filter is null or f.owner_id = owner_filter)");
-      expect(sql).toContain("and (owner_filter is null or u.owner_id = owner_filter)");
       expect(sql).toContain("create or replace function public.explain_retrieval_rpc");
       expect(sql).toContain("explain (%s) select * from public.match_document_chunks_text($1, $2, $3, $4)");
       expect(sql).toContain("revoke execute on function public.explain_retrieval_rpc");
       expect(sql).toContain("grant execute on function public.explain_retrieval_rpc");
     }
+    // The phase-7 migration captured the original hybrid candidate bounds and unit/field-level
+    // owner filters. The live perf fixes (codified in 20260701140631_codify_live_retrieval_rpcs)
+    // widened the candidate limits and moved the owner filter to document level; schema.sql now
+    // mirrors that live shape, so these old forms live only in the historical migration.
+    expect(phase7RetrievalPerformanceMigration).toContain("limit least(greatest(match_count * 2, 48), 128)");
+    expect(phase7RetrievalPerformanceMigration).toContain("limit least(greatest(match_count * 2, 32), 96)");
+    expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or f.owner_id = owner_filter)");
+    expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or u.owner_id = owner_filter)");
+    expect(schema).toContain("limit greatest(match_count * 6, 48)"); // chunks hybrid
+    expect(schema).toContain("limit greatest(match_count * 3, 48)"); // index units hybrid
+    expect(schema).toContain("limit greatest(match_count * 3, 32)"); // embedding fields hybrid
+    expect(schema).toContain("limit greatest(match_count * 6, 96)"); // memory cards hybrid v2
     expect(schema).toContain("match_document_lookup_chunks_text.signature");
     expect(schema).toContain("explain_retrieval_rpc.signature");
   });
@@ -455,7 +473,10 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("'alias'");
     expect(schema).toContain("'vocabulary_term'");
     expect(schema).toContain("source_span jsonb");
-    expect(schema).toContain("create index if not exists document_index_units_embedding_hnsw_idx");
+    // The index_units HNSW index was dropped live (0 lifetime scans; the hybrid RPC is
+    // text-candidate-gated) via the drop_legacy_vector_indexes migration; schema.sql
+    // intentionally no longer creates it.
+    expect(schema).not.toContain("create index if not exists document_index_units_embedding_hnsw_idx");
     expect(schema).toContain("create or replace function public.match_document_index_units_hybrid");
     expect(schema).toContain("delete from public.document_index_units where document_id = p_document_id;");
     expect(schema).toContain('create policy "document index units owner read"');
@@ -466,7 +487,6 @@ describe("Supabase schema Data API grants", () => {
       const functionBody = extractIndexUnitHybridFunction(sql);
 
       expect(functionBody).toContain("and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)");
-      expect(functionBody).toContain("order by text_rank desc, similarity desc");
       expect(functionBody).toContain("order by hybrid_score desc, similarity desc, text_rank desc");
       expect(functionBody).not.toContain("1 - (u.embedding <=> query_embedding) >= min_similarity or");
       expect(functionBody).not.toContain("vector_ranked as");
@@ -474,6 +494,10 @@ describe("Supabase schema Data API grants", () => {
       const rankedCte = functionBody.slice(0, functionBody.indexOf("from ranked"));
       expect(rankedCte).not.toContain("order by hybrid_score");
     }
+    // schema.sql mirrors the live-codified ranked ordering (single sort key, wider candidate
+    // bound); the original migration kept the similarity tie-breaker and tighter bound.
+    expect(extractIndexUnitHybridFunction(schema)).toContain("order by text_rank desc limit greatest(match_count * 3, 48)");
+    expect(extractIndexUnitHybridFunction(documentIndexUnitsMigration)).toContain("order by text_rank desc, similarity desc");
   });
 
   it("stores smart image metadata, document labels, and high-yield summaries", () => {

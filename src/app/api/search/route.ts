@@ -48,7 +48,7 @@ const searchSchema = z.object({
   documentIds: z.array(z.string().uuid()).max(25).optional(),
   filters: searchScopeFiltersSchema.optional(),
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
-  mode: z.enum(["answer", "documents"]).optional().default("answer"),
+  mode: z.enum(["answer", "documents", "differentials"]).optional().default("answer"),
   documentLimit: z.number().int().min(1).max(50).optional().default(20),
   includeRelatedDocuments: z.boolean().optional().default(true),
 });
@@ -56,6 +56,10 @@ const searchSchema = z.object({
 type SearchRequestBody = z.infer<typeof searchSchema>;
 
 const scopedSearchInflight = new Map<string, Promise<unknown>>();
+
+function isSourceLibrarySearchMode(mode: SearchRequestBody["mode"]) {
+  return mode === "documents" || mode === "differentials";
+}
 
 function scopedSearchKey(body: SearchRequestBody, ownerId: string) {
   return JSON.stringify({
@@ -302,25 +306,30 @@ function facetCounts(values: Array<string | null | undefined>, limit = 12) {
 }
 
 function buildSearchFacets(results: SearchResult[]) {
+  const labelFacet = (labelType: string) =>
+    facetCounts(
+      results.flatMap(
+        (result) =>
+          result.document_labels?.filter((label) => label.label_type === labelType).map((label) => label.label) ?? [],
+      ),
+    );
+
   return {
     status: facetCounts(results.map((result) => result.source_metadata?.document_status)),
     validation: facetCounts(results.map((result) => result.source_metadata?.clinical_validation_status)),
     extractionQuality: facetCounts(results.map((result) => result.source_metadata?.extraction_quality)),
     sections: facetCounts(results.map((result) => result.section_heading)),
     labels: facetCounts(results.flatMap((result) => result.document_labels?.map((label) => label.label) ?? [])),
-    sites: facetCounts(
-      results.flatMap(
-        (result) =>
-          result.document_labels?.filter((label) => label.label_type === "site").map((label) => label.label) ?? [],
-      ),
-    ),
-    documentTypes: facetCounts(
-      results.flatMap(
-        (result) =>
-          result.document_labels?.filter((label) => label.label_type === "document_type").map((label) => label.label) ??
-          [],
-      ),
-    ),
+    sites: labelFacet("site"),
+    documentTypes: labelFacet("document_type"),
+    services: labelFacet("service"),
+    settings: labelFacet("setting"),
+    populations: labelFacet("population"),
+    risks: labelFacet("risk"),
+    clinicalActions: labelFacet("clinical_action"),
+    carePhases: labelFacet("care_phase"),
+    documentIntents: labelFacet("document_intent"),
+    contentFeatures: labelFacet("content_feature"),
     evidence: [
       { value: "has_images", count: results.filter((result) => result.images?.length).length },
       {
@@ -628,7 +637,7 @@ async function buildScopedSearchPayload(
         results: [],
         retrievalStrategy: "unknown",
         routeMode: "unsupported",
-        preferredResponseMode: body.mode === "documents" ? "document_lookup" : undefined,
+        preferredResponseMode: isSourceLibrarySearchMode(body.mode) ? "document_lookup" : undefined,
       }),
       scope: { ...scope, queryMode: body.queryMode },
       sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [], relevance }),
@@ -645,14 +654,22 @@ async function buildScopedSearchPayload(
   }
   const search = await searchChunksWithTelemetry({
     query: body.query,
-    topK: body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8),
+    topK: isSourceLibrarySearchMode(body.mode)
+      ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
+      : (body.topK ?? 8),
     documentIds: scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     ownerId,
     queryMode: body.queryMode,
   });
-  const resultLimit =
-    body.mode === "documents" ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit)) : (body.topK ?? 8);
-  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 4, true));
+  const resultLimit = isSourceLibrarySearchMode(body.mode)
+    ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
+    : (body.topK ?? 8);
+  // RC7: cap the search-results panel at 3 chunks per document (was 4) so one verbose document
+  // cannot crowd out sibling sources — the corpus has many near-duplicate guidelines (e.g. several
+  // "Safety Planning" / "Active Community Patients in ED" versions), and surfacing more distinct
+  // documents makes the panel more useful. diversifySearchResults backfills from remaining chunks
+  // when few documents match, so this never reduces the result count.
+  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 3, true));
 
   const relatedDocuments = body.includeRelatedDocuments
     ? await fetchRelatedDocuments({
@@ -660,7 +677,7 @@ async function buildScopedSearchPayload(
         ownerId,
         query: searchFocusQuery,
         results,
-        limit: body.mode === "documents" ? body.documentLimit : undefined,
+        limit: isSourceLibrarySearchMode(body.mode) ? body.documentLimit : undefined,
       })
     : [];
   // Audit L10: compute relevance/visual evidence ONCE and share with the
@@ -669,17 +686,16 @@ async function buildScopedSearchPayload(
   const relevance = buildEvidenceRelevance(searchFocusQuery, results);
   const visualEvidence = buildVisualEvidence(results);
   const smartPanel = buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence });
-  const documentMatches =
-    body.mode === "documents"
-      ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
-      : [];
+  const documentMatches = isSourceLibrarySearchMode(body.mode)
+    ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
+    : [];
   const smartApiPlan = buildSmartRagApiPlan({
     query: searchFocusQuery,
     queryClass: effectiveQueryClass,
     results,
     retrievalStrategy: search.telemetry.retrieval_strategy,
-    routeMode: body.mode === "documents" ? undefined : "fast",
-    preferredResponseMode: body.mode === "documents" ? "document_lookup" : undefined,
+    routeMode: isSourceLibrarySearchMode(body.mode) ? undefined : "fast",
+    preferredResponseMode: isSourceLibrarySearchMode(body.mode) ? "document_lookup" : undefined,
   });
   logWeakSearch({
     supabase,
@@ -809,14 +825,13 @@ export async function POST(request: Request) {
         demoSearch(body.query, body.topK ?? 8, body.documentId, body.documentIds),
       );
       const relevance = buildEvidenceRelevance(searchFocusQuery, results);
-      const documentMatches =
-        body.mode === "documents"
-          ? annotateDocumentMatches(
-              searchFocusQuery,
-              buildDocumentMatchesFromResults(results, body.documentLimit),
-              results,
-            )
-          : [];
+      const documentMatches = isSourceLibrarySearchMode(body.mode)
+        ? annotateDocumentMatches(
+            searchFocusQuery,
+            buildDocumentMatchesFromResults(results, body.documentLimit),
+            results,
+          )
+        : [];
       const cachedVisualEvidence = buildVisualEvidence(results);
       return NextResponse.json({
         results: compactSearchResults(searchFocusQuery, results),
@@ -832,8 +847,8 @@ export async function POST(request: Request) {
           queryClass,
           results,
           retrievalStrategy: "hybrid",
-          routeMode: body.mode === "documents" ? undefined : "fast",
-          preferredResponseMode: body.mode === "documents" ? "document_lookup" : undefined,
+          routeMode: isSourceLibrarySearchMode(body.mode) ? undefined : "fast",
+          preferredResponseMode: isSourceLibrarySearchMode(body.mode) ? "document_lookup" : undefined,
         }),
         relatedDocuments: [],
         documentMatches,

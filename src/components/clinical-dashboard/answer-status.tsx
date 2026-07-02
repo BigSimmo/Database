@@ -2,7 +2,8 @@
 
 import { Clipboard, ClipboardCheck, MessageSquareText, Search, Sparkles, UploadCloud } from "lucide-react";
 
-import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 
 export function CopyButton({
   label,
@@ -35,88 +36,69 @@ export function AnswerEmptyState({
   onPickSample,
   onSearchDocuments,
   onUploadDocument,
+  desktopComposerSlotId,
 }: {
   onPickSample: (sample: string) => void;
   onSearchDocuments: () => void;
   onUploadDocument: () => void;
+  desktopComposerSlotId?: string;
 }) {
-  const starterButtonClass = cn(
-    floatingControl,
-    "min-h-[64px] flex-col items-start justify-center gap-1.5 rounded-lg px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:min-h-[6.25rem] sm:items-center sm:text-center",
-  );
-
   return (
-    <div className="mx-auto grid w-full max-w-xl place-items-center gap-5 py-8 text-center sm:py-16">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-        <MessageSquareText className="h-8 w-8" />
-      </div>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">How can I help?</h2>
-        <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>
-          Ask a clinical question or search your documents.
-        </p>
-      </div>
-      <section aria-label="Starter actions" className={cn("grid w-full gap-3 sm:grid-cols-3")}>
-        <button
-          type="button"
-          onClick={() =>
-            onPickSample("What monitoring and escalation issues should I consider across these documents?")
-          }
-          className={starterButtonClass}
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
-            <Sparkles className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Ask a question
-          </span>
-          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Start a source-backed clinical answer.
-          </span>
-        </button>
-        <button type="button" onClick={onSearchDocuments} className={starterButtonClass}>
-          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
-            <Search className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Search documents
-          </span>
-          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Browse matching files and source sections.
-          </span>
-        </button>
-        <button type="button" onClick={onUploadDocument} className={starterButtonClass}>
-          <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)] sm:flex-col sm:gap-2">
-            <UploadCloud className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" />
-            Upload document
-          </span>
-          <span className={cn("line-clamp-2 text-xs leading-5 sm:max-w-[9rem]", textMuted)}>
-            Add a guideline, PDF, or local source.
-          </span>
-        </button>
-      </section>
-    </div>
+    <ModeHomeTemplate
+      testId="answer-empty-state"
+      title="How can I help?"
+      subtitle="Ask a clinical question or search your documents."
+      icon={MessageSquareText}
+      headingLevel={2}
+      desktopComposerSlotId={desktopComposerSlotId}
+      actionsLabel="Starter actions"
+      actions={[
+        {
+          title: "Ask a question",
+          description: "Start a source-backed clinical answer.",
+          icon: Sparkles,
+          onClick: () =>
+            onPickSample("What monitoring and escalation issues should I consider across these documents?"),
+        },
+        {
+          title: "Search documents",
+          description: "Browse matching files and source sections.",
+          icon: Search,
+          onClick: onSearchDocuments,
+        },
+        {
+          title: "Upload document",
+          description: "Add a guideline, PDF, or local source.",
+          icon: UploadCloud,
+          onClick: onUploadDocument,
+        },
+      ]}
+    />
   );
 }
 
 export function AnswerSkeleton() {
   return (
     <div className="space-y-4" aria-label="Loading answer">
-      <div className="space-y-3 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/45 p-4">
-        <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />
-        <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />
-        <div className="h-4 w-8/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />
+      <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
+        <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+        <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+        <div className="h-4 w-8/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
         <div className={cn(sourceCard, "mt-4 flex min-h-[60px] items-center justify-between gap-3 p-3")}>
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-24 animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />
-            <div className="h-4 w-48 max-w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-subtle)]" />
+            <div className="h-3 w-24 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+            <div className="h-4 w-48 max-w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
           </div>
-          <div className="h-[44px] w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-subtle)]" />
+          <div className="h-[44px] w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="h-[44px] w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-subtle)]" />
-        <div className="h-[44px] w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-subtle)]" />
+        <div className="h-[44px] w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <div className="h-[44px] w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-subtle)]" />
-        <div className="hidden h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-subtle)] sm:block" />
+        <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <div className="hidden h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)] sm:block" />
       </div>
     </div>
   );

@@ -10,6 +10,10 @@ export type SmartDocumentTagGroup =
   | "Setting"
   | "Service"
   | "Document type"
+  | "Clinical action"
+  | "Care phase"
+  | "Document intent"
+  | "Content feature"
   | "Manual";
 
 export type SmartDocumentTag = {
@@ -68,6 +72,10 @@ const labelTypes = new Set<DocumentLabelType>([
   "workflow",
   "population",
   "service",
+  "clinical_action",
+  "care_phase",
+  "document_intent",
+  "content_feature",
   "custom",
 ]);
 
@@ -81,6 +89,10 @@ const groupLabels: Record<DocumentLabelType, SmartDocumentTagGroup> = {
   setting: "Setting",
   service: "Service",
   document_type: "Document type",
+  clinical_action: "Clinical action",
+  care_phase: "Care phase",
+  document_intent: "Document intent",
+  content_feature: "Content feature",
   custom: "Topic",
 };
 
@@ -94,7 +106,11 @@ const groupRank: Record<SmartDocumentTagGroup, number> = {
   Setting: 6,
   Service: 7,
   "Document type": 8,
-  Manual: 9,
+  "Clinical action": 9,
+  "Care phase": 10,
+  "Document intent": 11,
+  "Content feature": 12,
+  Manual: 13,
 };
 
 export const smartDocumentFacetGroups: SmartDocumentTagGroup[] = [
@@ -102,7 +118,11 @@ export const smartDocumentFacetGroups: SmartDocumentTagGroup[] = [
   "Medication",
   "Risk",
   "Workflow",
+  "Clinical action",
+  "Care phase",
+  "Document intent",
   "Setting",
+  "Population",
   "Service",
   "Document type",
 ];
@@ -130,9 +150,31 @@ const acronymDisplay = new Map([
   ["mhsp", "MHSP"],
   ["nocc", "NOCC"],
   ["nsaids", "NSAIDs"],
+  ["nmhs", "NMHS"],
   ["prn", "PRN"],
+  ["rpbg", "RPBG"],
   ["qtc", "QTc"],
+  ["rkpg", "RKPG"],
+  ["smhs", "SMHS"],
   ["wcc", "WCC"],
+]);
+
+const siteShortLabels = new Map([
+  ["armadale kalamunda group", "AKG"],
+  ["bentley health service", "BHS"],
+  ["bmj best practice", "BMJ"],
+  ["child and adolescent mental health service", "CAMHS"],
+  ["east metropolitan health service", "EMHS"],
+  ["fiona stanley hospital", "FSH"],
+  ["fremantle hospital", "FH"],
+  ["graylands neuropsychiatric", "Graylands"],
+  ["king edward memorial hospital", "KEMH"],
+  ["north metropolitan health service", "NMHS"],
+  ["peel health campus", "PHC"],
+  ["rockingham peel group", "RKPG"],
+  ["royal perth bentley group", "RPBG"],
+  ["south metropolitan health service", "SMHS"],
+  ["wa health", "WA Health"],
 ]);
 
 export const clinicalDocumentTagAliases = [
@@ -231,6 +273,33 @@ function canonicalLabel(value: string, labelType: DocumentLabelType) {
   const normalized = applyClinicalAliases(normalizedText(value));
   if (!normalized) return "";
 
+  if (labelType === "document_type") {
+    if (normalized === "assessment tool" || normalized === "assessment tools") return "assessment_tool";
+    if (normalized === "prescribing aid" || normalized === "medication chart") return "prescribing_aid";
+    if (normalized === "standard operating procedure") return "procedure";
+    if (normalized === "fact sheet" || normalized === "information sheet") return "factsheet";
+    if (
+      [
+        "policy",
+        "guideline",
+        "procedure",
+        "protocol",
+        "form",
+        "checklist",
+        "pathway",
+        "reference",
+        "algorithm",
+        "factsheet",
+        "manual",
+      ].includes(normalized)
+    ) {
+      return normalized;
+    }
+  }
+
+  if (labelType === "topic" && (normalized === "ect" || normalized === "electroconvulsive therapy")) {
+    return "electroconvulsive-therapy";
+  }
   if (normalized === "long acting injectable" || normalized === "long acting injectables") {
     return "long acting injectable medication";
   }
@@ -265,6 +334,14 @@ function isNoisyLabel(label: string, labelType: DocumentLabelType) {
   if (!label || label.length < 2 || label.length > 64) return true;
   if (lowValuePattern.test(label)) return true;
   if (/\b(?:docx?|xlsx?|pptx?|pdf)\b/.test(label)) return true;
+  if (
+    labelType === "document_type" &&
+    /^(?:policy|guideline|procedure|protocol|form|checklist|pathway|reference|algorithm|factsheet|manual|assessment_tool|prescribing_aid)$/.test(
+      label,
+    )
+  ) {
+    return false;
+  }
   if (lowValueExact.has(label)) return true;
   if (usefulTokenCount(label) === 0) return true;
   if (label.split(/\s+/).length > 6) return true;
@@ -284,8 +361,13 @@ function sourceValue(value: unknown): DocumentLabel["source"] {
   return value === "manual" ? "manual" : "generated";
 }
 
-function displayLabel(value: string) {
-  return value
+function displayLabel(value: string, labelType?: DocumentLabelType) {
+  const displayValue = value.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (labelType === "site") {
+    const siteShortLabel = siteShortLabels.get(displayValue);
+    if (siteShortLabel) return siteShortLabel;
+  }
+  return displayValue
     .split(" ")
     .filter(Boolean)
     .map((word) => acronymDisplay.get(word) ?? `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`)
@@ -311,6 +393,15 @@ function clinicalValueBoost(label: string, labelType: DocumentLabelType) {
   if (/\b(?:clozapine|lithium|antipsychotic|medication|dose|fbc|anc|qtc|ect|lai)\b/.test(label)) boost += 0.18;
   if (/\b(?:risk|escalation|safety|urgent|toxicity|suicide|violence|duress)\b/.test(label)) boost += 0.16;
   if (/\b(?:monitoring|threshold|pathway|workflow|admission|discharge|review|follow up)\b/.test(label)) boost += 0.12;
+  if (
+    /^(?:clinical risk|mental health|inpatient|assessment|monitoring|physical health care|admission waitlist bed access)$/.test(
+      label.replace(/[_-]+/g, " "),
+    )
+  ) {
+    boost -= 0.3;
+  }
+  if (labelType === "clinical_action" || labelType === "care_phase" || labelType === "document_intent") boost += 0.08;
+  if (labelType === "content_feature") boost -= 0.02;
   if (labelType === "document_type") boost -= 0.08;
   if (labelType === "custom") boost -= 0.05;
   return boost;
@@ -355,7 +446,7 @@ export function buildSmartDocumentTags(
       groupRank[group] * 0.04;
     const tag: SmartDocumentTag = {
       key: `${normalized.label_type}:${normalized.label}`,
-      label: displayLabel(normalized.label),
+      label: displayLabel(normalized.label, normalized.label_type),
       searchText: normalized.label,
       label_type: normalized.label_type,
       group,

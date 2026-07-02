@@ -28,6 +28,10 @@ export type DocumentLabelType =
   | "workflow"
   | "population"
   | "service"
+  | "clinical_action"
+  | "care_phase"
+  | "document_intent"
+  | "content_feature"
   | "custom";
 
 export type DocumentOrganizationSiteKind =
@@ -81,6 +85,10 @@ export type DocumentOrganizationProfile = {
     workflow: string[];
     medication: string[];
     risk: string[];
+    clinical_action: string[];
+    care_phase: string[];
+    document_intent: string[];
+    content_feature: string[];
   };
   review_status: DocumentOrganizationReviewStatus;
 };
@@ -837,6 +845,12 @@ export type RagAnswer = {
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;
+  // Provider/quality signalling for the answer. providerMode reflects how the answer was produced
+  // (full OpenAI vs source-only); answerQualityTier and fallbackReason let the UI show a clear
+  // "source-only — may be lower quality, verify against cited passages" disclosure.
+  providerMode?: "auto" | "openai" | "offline";
+  answerQualityTier?: "model_synthesis" | "source_only" | "cached";
+  fallbackReason?: string | null;
   queryClass?: RagQueryClass;
   queryAnalysis?: ClinicalQueryAnalysis;
   responseMode?: AnswerResponseMode;

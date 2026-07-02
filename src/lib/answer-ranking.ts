@@ -15,21 +15,11 @@ const answerRankStrategy = "query_focused_answer_evidence_v2";
 const answerBoilerplatePattern =
   /\b(?:uncontrolled when printed|document control|review date|version\s+\d|page\s+\d+\s+of\s+\d+|copyright|confidential|all rights reserved|refer to the electronic version|consult your doctor|seek medical advice|this is not medical advice|intended for healthcare professionals|disclaimer)\b/i;
 
-const queryTermExclusions = new Set([
-  "recommended",
-  "recommend",
-  "summary",
-  "summarize",
-  "summarise",
-  "overview",
-  "information",
-  "guidance",
-  "approach",
-  "therapy",
-]);
-
+// Minimal "values only" bolding: emphasise only decision-critical detail — escalation/stop
+// actions, numeric doses/thresholds/timings, and rating values. Topic nouns (clozapine, FBC,
+// ANC, ECG, …) and query terms are intentionally NOT bolded; bolding them everywhere produced
+// robotic, keyword-highlighted prose rather than natural clinical writing.
 const fixedHighYieldPatterns = [
-  /\b(?:clozapine|lithium|ECT|FBC|ANC|myocarditis|neutropenia|metabolic|constipation|ECG)\b/gi,
   /\b(?:withhold|withholding|cease|ceased|stop|stopping|discontinue\w*|contraindicat\w*|avoid|urgent|escalat\w*|red flag\w*)\b/gi,
   /\b\d+(?:\.\d+)?\s?(?:mg|mcg|g|mmol\/L|days?|weeks?|months?|hours?|minutes?|%)\b/gi,
   /\brating\s+\d+(?:\s*[-–]\s*\d+)?\b/gi,
@@ -271,40 +261,6 @@ export function rankAnswerEvidence(
   };
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function queryHighlightPatterns(query?: string) {
-  if (!query) return [];
-  const lowValueHighlightTerms = new Set([
-    "dose",
-    "dosing",
-    "monitor",
-    "monitoring",
-    "test",
-    "tests",
-    "result",
-    "results",
-    "baseline",
-    "clinical",
-    "patient",
-  ]);
-  const tokens = uniqueQueryTokens(query).filter(
-    (token) => token.length >= 4 && !queryTermExclusions.has(token) && !lowValueHighlightTerms.has(token),
-  );
-  const patterns: RegExp[] = [];
-  const normalizedQuery = normalizeText(query);
-  const queryPhrase = tokens.length >= 2 ? tokens.join(" ") : "";
-  if (queryPhrase && normalizedQuery.includes(queryPhrase)) {
-    patterns.push(new RegExp(`\\b${escapeRegExp(queryPhrase).replace(/\\ /g, "\\s+")}\\b`, "gi"));
-  }
-  for (const token of tokens.slice(0, 3).sort((a, b) => b.length - a.length)) {
-    patterns.push(new RegExp(`\\b${escapeRegExp(token)}\\w*\\b`, "gi"));
-  }
-  return patterns;
-}
-
 function applyBoldPatternOutsideExisting(text: string, pattern: RegExp, maxMatches: number) {
   let applied = 0;
   const segments = text.split(/(\*\*[^*]+\*\*)/g);
@@ -348,9 +304,6 @@ export function boldHighYieldClinicalText(text: string, query?: string) {
   if (query === undefined) return text;
   if (/[{}\[\]]/.test(text) && /"?(?:answer|heading|citation_chunk_ids|chunk_id)"?\s*:/i.test(text)) return text;
   let output = text;
-  for (const pattern of queryHighlightPatterns(query)) {
-    output = applyBoldPatternOutsideExisting(output, pattern, 1);
-  }
   for (const pattern of fixedHighYieldPatterns) {
     output = applyBoldPatternOutsideExisting(output, pattern, 1);
   }

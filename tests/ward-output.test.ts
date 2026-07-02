@@ -56,12 +56,7 @@ describe("ward output helpers", () => {
   it("builds source-backed clinical output sections", () => {
     const sections = buildClinicalOutputSections(answer);
 
-    expect(sections.map((section) => section.id)).toEqual([
-      "bottom-line",
-      "monitoring",
-      "escalation",
-      "verify-source",
-    ]);
+    expect(sections.map((section) => section.id)).toEqual(["bottom-line", "monitoring", "escalation", "verify-source"]);
     expect(sections[0].items[0]).toContain("Monitor renal function");
     expect(sections[1].items[0]).toContain("renal function");
     expect(sections[1].items[0]).toContain("lithium level");

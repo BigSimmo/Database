@@ -84,6 +84,17 @@ describe("clinical search query normalization", () => {
     );
   });
 
+  it("does not classify generic risk/urgent/escalation queries as medication_dose_risk (8a)", () => {
+    // Bare "risk"/"urgent"/"escalation" with no medication/dose signal must not route to the
+    // medication-dosing plan, which previously buried topical guidelines (e.g. suicide risk).
+    expect(classifyRagQuery("What does the guideline say about suicide risk mitigation?").queryClass).not.toBe(
+      "medication_dose_risk",
+    );
+    expect(classifyRagQuery("urgent clinical escalation pathway").queryClass).not.toBe("medication_dose_risk");
+    // A genuine medication + risk query still routes correctly via the drug/dose signal.
+    expect(classifyRagQuery("What are the risks of high-dose clozapine?").queryClass).toBe("medication_dose_risk");
+  });
+
   it("keeps high-yield clinical terms and removes question filler", () => {
     expect(normalizedClinicalSearchTokens("What safety monitoring is required for clozapine?")).toEqual([
       "safety",

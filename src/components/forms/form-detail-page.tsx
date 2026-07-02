@@ -1,0 +1,781 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clipboard,
+  ClipboardList,
+  Clock3,
+  Download,
+  ExternalLink,
+  FileText,
+  Info,
+  MapPin,
+  Navigation,
+  Phone,
+  Route,
+  Scale,
+  ShieldCheck,
+  Tag,
+  UserRound,
+  X,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+
+import {
+  cn,
+  codeText,
+  floatingControl,
+  metadataPill,
+  primaryControl,
+  textMuted,
+  toneDanger,
+  toneInfo,
+  toneNeutral,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
+import { appModeHomeHref } from "@/lib/app-modes";
+import { formNavigatorQuery, type FormRecord } from "@/lib/forms";
+import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/services";
+
+const savedFormsKey = "clinical-kb-saved-forms";
+const missingText = "Not listed";
+
+function hasText(value: string | null | undefined): value is string {
+  return Boolean(value && value.trim().length > 0);
+}
+
+function displayText(value: string | null | undefined, fallback = missingText) {
+  return hasText(value) ? value.trim() : fallback;
+}
+
+function readSavedForms() {
+  try {
+    const raw = window.localStorage.getItem(savedFormsKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.select();
+  const copied = document.execCommand?.("copy");
+  document.body.removeChild(textArea);
+  if (copied === false) throw new Error("copy command rejected");
+}
+
+function chipToneClass(tone: ServiceChipTone | null | undefined) {
+  if (tone === "danger") return toneDanger;
+  if (tone === "info") return toneInfo;
+  if (tone === "warning") return toneWarning;
+  if (tone === "success") return toneSuccess;
+  return toneNeutral;
+}
+
+function sourceToneClass(form: FormRecord) {
+  const status = form.source?.status?.toLowerCase() ?? "";
+  if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified"))
+    return toneSuccess;
+  if (status.includes("required") || status.includes("review")) return toneWarning;
+  return toneNeutral;
+}
+
+function formCode(form: FormRecord) {
+  if (form.slug.includes("transport")) return "4A";
+  if (form.slug.includes("capacity")) return "CAP";
+  if (form.slug.includes("clozapine")) return "CLZ";
+  if (form.slug.includes("handover")) return "SAFE";
+  return form.title
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 4)
+    .toUpperCase();
+}
+
+function formShortTitle(form: FormRecord) {
+  return form.slug.includes("transport") ? "Form 4A" : displayText(form.catalogueLabel, "Form");
+}
+
+function summaryIcon(card: ServiceSummaryCard) {
+  const label = `${card.id} ${card.label} ${card.title}`.toLowerCase();
+  const Icon = label.includes("clock")
+    ? Clock3
+    : label.includes("destination") || label.includes("place") || label.includes("route")
+      ? MapPin
+      : label.includes("authority") || label.includes("maker")
+        ? UserRound
+        : label.includes("criteria") || label.includes("threshold")
+          ? Scale
+          : ClipboardList;
+  return <Icon className="h-5 w-5" aria-hidden />;
+}
+
+function summaryCardsFor(form: FormRecord): ServiceSummaryCard[] {
+  if (form.summaryCards?.length) return form.summaryCards.slice(0, 4);
+
+  return [
+    { id: "route", label: "Route", title: "Use pathway", detail: form.route },
+    { id: "eligibility", label: "Eligibility", title: "Patient fit", detail: form.eligibility },
+    { id: "authority", label: "Authority", title: "Referral / maker", detail: form.referral },
+    { id: "source", label: "Source", title: form.source?.status, detail: form.source?.label },
+  ];
+}
+
+function detailRowsFor(form: FormRecord) {
+  const referralRows = form.referralInfo?.length
+    ? form.referralInfo
+    : [
+        { label: "Use only when", value: form.eligibility },
+        { label: "Before signing", value: form.referral },
+        { label: "Clinical pearls", value: form.bestUse },
+        { label: "Source details", value: form.source?.label },
+      ];
+
+  return [
+    ...referralRows,
+    { label: "Verification", value: form.verification?.notes?.join(" ") },
+    { label: "Related pathway", value: form.route },
+  ].filter((row) => hasText(row.value));
+}
+
+function callHref(contact: ServiceContact | null) {
+  if (!contact || contact.kind !== "phone" || !hasText(contact.value)) return null;
+  return `tel:${contact.value.replace(/[^\d+]/g, "")}`;
+}
+
+function criterionToneClass(tone: ServiceCriterion["tone"]) {
+  if (tone === "meet") return toneSuccess;
+  if (tone === "reject") return toneDanger;
+  return toneWarning;
+}
+
+function DetailCard({ card }: { card: ServiceSummaryCard }) {
+  return (
+    <article className="min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
+      <div className="mb-1.5 flex items-start gap-1.5 sm:mb-2 sm:gap-2">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-9 sm:w-9">
+          {summaryIcon(card)}
+        </span>
+        <p className="min-w-0 pt-0.5 text-[8.5px] font-bold uppercase leading-3 text-[color:var(--text-soft)] sm:text-[11px] sm:leading-4">
+          {displayText(card.label, "Priority fact")}
+        </p>
+      </div>
+      <h3 className="text-[12.5px] font-semibold leading-4 text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+        {displayText(card.title)}
+      </h3>
+      <p className={cn("mt-1 text-[11px] font-medium leading-4 sm:text-xs sm:leading-5", textMuted)}>
+        {displayText(card.detail)}
+      </p>
+    </article>
+  );
+}
+
+function PathwayContextCard({
+  form,
+  code,
+  criteria,
+}: {
+  form: FormRecord;
+  code: string;
+  criteria: ServiceCriterion[];
+}) {
+  const parallelForms = form.slug.includes("transport")
+    ? [
+        { code: "3A", title: "Detention to enable examination or movement" },
+        { code: "4B", title: "Extension of Transport Order" },
+      ]
+    : [
+        { code: "Linked", title: displayText(form.route, "Related pathway") },
+        { code: "Source", title: displayText(form.source?.label, "Source details") },
+      ];
+  const afterForms = form.slug.includes("transport")
+    ? [
+        { code: "4", title: "Admission order" },
+        { code: "3", title: "Treatment order" },
+      ]
+    : [{ code: "Review", title: displayText(form.source?.reviewed, "Review source currency") }];
+
+  return (
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <Navigation className="h-4 w-4" aria-hidden />
+          </span>
+          <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Decision context</h2>
+        </div>
+        <Info className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+      </div>
+      <div className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold">
+        <span className="rounded-md bg-[color:var(--clinical-accent)] px-3 py-2 text-center text-[color:var(--clinical-accent-contrast)]">
+          Pathway
+        </span>
+        <span className="px-3 py-2 text-center text-[color:var(--text-muted)]">Source info</span>
+      </div>
+      <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
+        <div className="relative">
+          <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Before</p>
+          <div className="mt-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
+            <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-2">
+              <span className="text-sm font-bold text-[color:var(--text-heading)]">5(2)</span>
+              <p className={cn("text-xs font-medium leading-5", textMuted)}>
+                {displayText(form.route, "Initial assessment for admission.")}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
+          <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
+          <p className="mb-2 text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Current</p>
+          <div className="flex items-center gap-2">
+            <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
+            <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
+          </div>
+          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-[10px] font-bold text-[color:var(--clinical-accent)]">
+            You are here
+          </span>
+          <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
+        </div>
+        <div className="relative">
+          <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
+          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+            {parallelForms.map((item) => (
+              <div
+                key={`${item.code}-${item.title}`}
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+              >
+                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="relative">
+          <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">After</p>
+          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+            {afterForms.map((item) => (
+              <div
+                key={`${item.code}-${item.title}`}
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+              >
+                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {criteria.length ? (
+          <div className="relative">
+            <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+            <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
+            <div className="mt-2 grid gap-1.5">
+              {criteria.slice(0, 3).map((criterion) => (
+                <span
+                  key={criterion.label}
+                  className={cn(
+                    "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
+                    criterionToneClass(criterion.tone),
+                  )}
+                >
+                  {criterion.tone === "reject" ? (
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {criterion.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <button type="button" className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs")}>
+        <Navigation className="h-4 w-4" aria-hidden />
+        View full pathway
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </section>
+  );
+}
+
+function SourceSnapshotCard({ form }: { form: FormRecord }) {
+  const rows = [
+    { icon: FileText, label: "Official PDF", value: `${formShortTitle(form)}.pdf · 2 pages` },
+    { icon: ShieldCheck, label: "Source currency", value: displayText(form.source?.reviewed, "Review locally") },
+    {
+      icon: Scale,
+      label: "Act sections",
+      value: form.slug.includes("transport") ? "29, 63, 67, 92, 112, 129, 133, 148, 154" : "See source",
+    },
+    {
+      icon: CalendarDays,
+      label: "Review due",
+      value: form.slug.includes("transport") ? "01 May 2026" : displayText(form.source?.reviewed, "Not listed"),
+    },
+  ];
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
+      {rows.map(({ icon: Icon, label, value }) => (
+        <div
+          key={label}
+          className="grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--border)] px-3 py-2 last:border-b-0"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <Icon className="h-4 w-4" aria-hidden />
+          </span>
+          <p className="text-xs font-semibold text-[color:var(--text-heading)]">{label}</p>
+          <p className="max-w-[12rem] text-right text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+            {value}
+          </p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ActionPanel({
+  onUse,
+  onCopy,
+  hrefForCall,
+}: {
+  onUse: () => void;
+  onCopy: () => void;
+  hrefForCall: string | null;
+}) {
+  return (
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] gap-2">
+        <button type="button" onClick={onUse} className={cn(primaryControl, "min-h-11 w-full px-3")}>
+          <ExternalLink className="h-4 w-4" aria-hidden />
+          Open PDF
+        </button>
+        <button type="button" onClick={onCopy} className={cn(floatingControl, "min-h-11 w-full px-3")}>
+          <Download className="h-4 w-4" aria-hidden />
+          Download
+        </button>
+      </div>
+      {hrefForCall ? (
+        <a href={hrefForCall} className={cn(floatingControl, "mt-2 min-h-11 w-full px-3")}>
+          <Phone className="h-4 w-4" aria-hidden />
+          Call contact
+        </a>
+      ) : null}
+    </section>
+  );
+}
+
+function RailCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon: LucideIcon }) {
+  return (
+    <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">{label}</h3>
+        <p className={cn("mt-0.5 truncate text-xs font-medium sm:whitespace-normal sm:leading-5", textMuted)}>
+          {displayText(value)}
+        </p>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+    </article>
+  );
+}
+
+export function FormDetailPage({ form }: { form: FormRecord }) {
+  const router = useRouter();
+  const [saved, setSaved] = useState(() =>
+    typeof window === "undefined" ? false : readSavedForms().includes(form.slug),
+  );
+  const [notice, setNotice] = useState<string | null>(null);
+  const code = formCode(form);
+  const summaryCards = summaryCardsFor(form);
+  const detailRows = detailRowsFor(form);
+  const primaryContact = hasText(form.primaryContact?.value)
+    ? form.primaryContact
+    : (form.contacts?.find((contact) => hasText(contact.value)) ?? null);
+  const hrefForCall = callHref(primaryContact);
+  const verified = form.verification?.locallyVerified === true;
+  const criteria = form.criteria ?? [];
+  const relatedTags = useMemo(() => [...(form.tags ?? []), ...(form.catchments ?? [])].slice(0, 8), [form]);
+
+  function goBack() {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(appModeHomeHref("forms", { focus: true }));
+  }
+
+  async function copyValue(value: string | null | undefined, label: string) {
+    if (!hasText(value)) {
+      setNotice("Nothing available to copy");
+      return;
+    }
+
+    try {
+      await copyText(value.trim());
+      setNotice(label);
+    } catch {
+      setNotice("Copy failed");
+    }
+  }
+
+  function toggleSaved() {
+    try {
+      const current = readSavedForms();
+      const next = current.includes(form.slug) ? current.filter((item) => item !== form.slug) : [form.slug, ...current];
+      window.localStorage.setItem(savedFormsKey, JSON.stringify(next));
+      const nowSaved = next.includes(form.slug);
+      setSaved(nowSaved);
+      setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
+    } catch {
+      setNotice("Save failed");
+    }
+  }
+
+  function useInNavigator() {
+    router.push(appModeHomeHref("forms", { query: formNavigatorQuery(form), run: true, focus: true }));
+  }
+
+  return (
+    <main
+      data-testid="form-detail-page"
+      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
+    >
+      <div className="mx-auto max-w-[104rem]">
+        {notice ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className={cn(
+              "mb-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
+              notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
+            )}
+          >
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss form notification"
+              className="grid h-8 w-8 place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={goBack} aria-label="Back to forms" className={cn(floatingControl, "px-3")}>
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Back
+          </button>
+          <nav
+            aria-label="Form breadcrumbs"
+            className="hidden min-w-0 items-center gap-2 text-xs font-semibold sm:flex"
+          >
+            <span className="text-[color:var(--clinical-accent)]">Forms</span>
+            <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
+            <span className="truncate text-[color:var(--text-muted)]">
+              {displayText(form.catalogueLabel, "Catalogue")}
+            </span>
+            <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
+            <span className="truncate text-[color:var(--text-muted)]">{form.title}</span>
+          </nav>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_28rem]">
+          <div className="min-w-0 space-y-4">
+            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-5">
+              <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
+                <div
+                  className={cn(
+                    "grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl",
+                    codeText,
+                  )}
+                >
+                  {code}
+                </div>
+                <div className="min-w-0">
+                  <h1 className="max-w-4xl text-xl font-semibold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
+                    {form.title}
+                  </h1>
+                  <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
+                    {displayText(form.subtitle, "Psychiatry form and workflow details.")}
+                  </p>
+                  {form.statusChips?.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3">
+                      {form.statusChips.map((chip, index) => (
+                        <span
+                          key={chip.label ?? `form-chip-${index}`}
+                          className={cn(
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 text-[0.68rem] font-bold uppercase leading-none sm:min-h-7 sm:px-2.5 sm:text-xs",
+                            chipToneClass(chip.tone),
+                          )}
+                        >
+                          <span className="hidden h-2 w-2 rounded-full bg-current sm:inline-block" aria-hidden />
+                          {displayText(chip.label, "Status")}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex items-start justify-end gap-2 xl:justify-end">
+                  <button
+                    type="button"
+                    onClick={toggleSaved}
+                    aria-label={saved ? "Remove saved form" : "Save form"}
+                    aria-pressed={saved}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    {saved ? (
+                      <BookmarkCheck className="h-5 w-5" aria-hidden />
+                    ) : (
+                      <Bookmark className="h-5 w-5" aria-hidden />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={useInNavigator}
+                    aria-label="Open source for this form"
+                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
+                  >
+                    <FileText className="h-4 w-4" aria-hidden />
+                    <span>Source</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
+                  <FileText className="h-4.5 w-4.5 sm:h-5 sm:w-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                    {formShortTitle(form)}.pdf
+                  </h2>
+                  <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
+                </div>
+              </div>
+              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+                {displayText(form.source?.status, "Source status pending")}
+              </span>
+              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">2 pages</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
+                <span>2 pages</span>
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </div>
+              {form.source?.url ? (
+                <a
+                  href={form.source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
+                >
+                  Source
+                  <ExternalLink className="h-4 w-4" aria-hidden />
+                </a>
+              ) : (
+                <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
+                  Source link pending
+                </span>
+              )}
+            </section>
+
+            <section aria-label="Priority facts" className="space-y-3">
+              <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Priority facts</h2>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+                {summaryCards.map((card) => (
+                  <DetailCard key={card.id} card={card} />
+                ))}
+              </div>
+            </section>
+
+            <div className="lg:hidden">
+              <PathwayContextCard form={form} code={code} criteria={criteria} />
+            </div>
+
+            <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
+              <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
+                <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--warning-soft)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+                  <ShieldCheck className="h-5 w-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
+                    <span className={cn(metadataPill, "rounded-full text-[10px] uppercase", toneWarning)}>
+                      Governance
+                    </span>
+                  </div>
+                  <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    {displayText(
+                      form.bestUse,
+                      "Use the current approved form, confirm authority, and document the least restrictive safe option before signing.",
+                    )}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section aria-label="Form information" className="grid gap-2">
+              {detailRows.map((row) => {
+                const label = row.label.toLowerCase();
+                const Icon = label.includes("only")
+                  ? Route
+                  : label.includes("sign")
+                    ? Clipboard
+                    : label.includes("clinical")
+                      ? Info
+                      : label.includes("source")
+                        ? FileText
+                        : label.includes("pathway")
+                          ? Navigation
+                          : CheckCircle2;
+                return <InfoRow key={row.label} label={row.label} value={row.value} icon={Icon} />;
+              })}
+            </section>
+
+            <div className="grid gap-3 lg:hidden">
+              <SourceSnapshotCard form={form} />
+              <ActionPanel
+                onUse={useInNavigator}
+                onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+                hrefForCall={hrefForCall}
+              />
+            </div>
+          </div>
+
+          <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+            <PathwayContextCard form={form} code={code} criteria={criteria} />
+            <SourceSnapshotCard form={form} />
+            <ActionPanel
+              onUse={useInNavigator}
+              onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+              hrefForCall={hrefForCall}
+            />
+
+            <RailCard icon={FileText} title="Source status">
+              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+                    {displayText(form.source?.label, "Source")}
+                  </p>
+                  <span
+                    className={cn(
+                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[10px] font-bold",
+                      sourceToneClass(form),
+                    )}
+                  >
+                    {displayText(form.source?.status, "Unreviewed")}
+                  </span>
+                </div>
+                {form.source?.reviewed ? (
+                  <p className={cn("mt-2 text-xs leading-5", textMuted)}>{form.source.reviewed}</p>
+                ) : null}
+                {form.source?.notes?.length ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {form.source.notes.map((note) => (
+                      <li
+                        key={note}
+                        className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+                      >
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </RailCard>
+
+            <RailCard icon={ShieldCheck} title="Verification">
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  <span className={cn(metadataPill, "rounded-full", verified ? toneSuccess : toneWarning)}>
+                    {verified ? "Locally verified" : "Verify locally"}
+                  </span>
+                  <span className={cn(metadataPill, "rounded-full")}>
+                    {form.verification?.confidence ?? "Unknown"} confidence
+                  </span>
+                </div>
+                {form.verification?.notes?.length ? (
+                  <ul className="space-y-1.5">
+                    {form.verification.notes.map((note) => (
+                      <li
+                        key={note}
+                        className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+                      >
+                        <CheckCircle2
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
+                          aria-hidden
+                        />
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={cn("text-sm leading-6", textMuted)}>No verification notes are listed.</p>
+                )}
+              </div>
+            </RailCard>
+
+            <RailCard icon={Tag} title="Tags & context">
+              {relatedTags.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {relatedTags.map((tag) => (
+                    <span key={tag} className={cn(metadataPill, "rounded-full text-[11px]")}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className={cn("text-sm leading-6", textMuted)}>No tags listed.</p>
+              )}
+            </RailCard>
+          </aside>
+        </div>
+      </div>
+    </main>
+  );
+}

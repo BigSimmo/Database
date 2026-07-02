@@ -337,6 +337,34 @@ describe("document organization classifier", () => {
     );
     expect(classification.profile.secondary_facets.workflow).toEqual(expect.arrayContaining(["monitoring"]));
     expect(classification.profile.secondary_facets.risk).toEqual(expect.arrayContaining(["high-risk-medication"]));
+    expect(classification.profile.secondary_facets.clinical_action).toEqual(expect.arrayContaining(["monitor"]));
+    expect(classification.profile.secondary_facets.document_intent).toEqual(
+      expect.arrayContaining(["clinical-instruction"]),
+    );
+    expect(classification.profile.secondary_facets.content_feature).toEqual(
+      expect.arrayContaining(["contains-monitoring-schedule"]),
+    );
+    expect(classification.labels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "monitor", label_type: "clinical_action", confidence: 0.74 }),
+        expect.objectContaining({ label: "clinical-instruction", label_type: "document_intent", confidence: 0.7 }),
+      ]),
+    );
+  });
+
+  it("adds psychiatry-specific smart labels for risk and legal pathways", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Mental Health Act Community Treatment Order Safety Plan",
+      file_name: "cto_safety_plan.pdf",
+      contentText:
+        "The pathway includes mental state examination, risk formulation, safety planning, community treatment order review, capacity assessment, and involuntary treatment requirements.",
+    });
+
+    expect(classification.profile.secondary_facets.topic).toEqual(
+      expect.arrayContaining(["mental-state-examination", "risk-formulation", "safety-plan"]),
+    );
+    expect(classification.profile.secondary_facets.document_intent).toContain("legal-governance");
+    expect(classification.profile.secondary_facets.clinical_action).toEqual(expect.arrayContaining(["assess"]));
   });
 
   it("does not turn incidental body mentions into broad service labels", () => {
@@ -349,5 +377,84 @@ describe("document organization classifier", () => {
 
     expect(classification.profile.secondary_facets.service).toEqual([]);
     expect(classification.profile.secondary_facets.workflow).toContain("staff-guidance");
+  });
+
+  it("adds smart-v2 intent labels for SOP, SDG, flyer, diagnosis, and staff-access documents", () => {
+    const sop = classifyDocumentOrganization({
+      title: "Citrate Toxicity During Apheresis Management SOP(RPBG)",
+      file_name: "Citrate Toxicity During Apheresis Management SOP (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group standard operating procedure.",
+    });
+    expect(sop.profile.secondary_facets.document_intent).toEqual(
+      expect.arrayContaining(["clinical-instruction", "operational-process"]),
+    );
+
+    const sdg = classifyDocumentOrganization({
+      title: "Aminophylline SDG(FSH)",
+      file_name: "Aminophylline SDG (FSH).pdf",
+      contentText: "Fiona Stanley Hospital standing drug guideline.",
+    });
+    expect(sdg.profile.secondary_facets.clinical_action).toContain("prescribe");
+    expect(sdg.profile.secondary_facets.document_intent).toEqual(
+      expect.arrayContaining(["clinical-instruction", "medication-instruction"]),
+    );
+    expect(sdg.profile.secondary_facets.content_feature).toContain("contains-dosage-guidance");
+
+    const flyer = classifyDocumentOrganization({
+      title: "PI Homatropine Flyer A4 Info Sheet 2016(RPBG)",
+      file_name: "PI Homatropine Flyer A4 Info Sheet 2016 (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group patient information flyer.",
+    });
+    expect(flyer.profile.secondary_facets.document_intent).toContain("patient-information");
+
+    const diagnosis = classifyDocumentOrganization({
+      title: "Diagnosis Of Potential Delayed Haemothorax In Blunt Thoracic Trauma(RPBG)",
+      file_name: "Diagnosis of Potential Delayed Haemothorax in Blunt Thoracic Trauma (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group clinical document.",
+    });
+    expect(diagnosis.profile.secondary_facets.clinical_action).toContain("assess");
+    expect(diagnosis.profile.secondary_facets.document_intent).toContain("decision-support");
+
+    const staffAccess = classifyDocumentOrganization({
+      title: "Staff Access To CAMHS Nickoll Ward(CAMHS)",
+      file_name: "Staff Access to CAMHS Nickoll Ward (CAMHS).pdf",
+      contentText: "Child and Adolescent Mental Health Service staff access process.",
+    });
+    expect(staffAccess.profile.secondary_facets.document_intent).toEqual(
+      expect.arrayContaining(["staff-guidance", "operational-process"]),
+    );
+
+    const brochure = classifyDocumentOrganization({
+      title: "Pregnancy Brochure(RPBG)",
+      file_name: "Pregnancy Brochure (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group patient brochure.",
+    });
+    expect(brochure.profile.document_type.label).toBe("factsheet");
+    expect(brochure.profile.secondary_facets.document_intent).toContain("patient-information");
+
+    const drugInfusion = classifyDocumentOrganization({
+      title: "ED Adult Drug Infusions(RPBG)",
+      file_name: "ED Adult Drug Infusions (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group drug infusion instructions.",
+    });
+    expect(drugInfusion.profile.secondary_facets.clinical_action).toContain("administer");
+    expect(drugInfusion.profile.secondary_facets.document_intent).toContain("medication-instruction");
+    expect(drugInfusion.profile.secondary_facets.content_feature).toContain("contains-dosage-guidance");
+
+    const confidentiality = classifyDocumentOrganization({
+      title: "Patient Confidentiality(FSH)",
+      file_name: "Patient Confidentiality (FSH).pdf",
+      contentText: "Fiona Stanley Hospital confidentiality guidance.",
+    });
+    expect(confidentiality.profile.secondary_facets.document_intent).toContain("legal-governance");
+
+    const roles = classifyDocumentOrganization({
+      title: "NOF Role Roles And Responsibilities(RPBG)",
+      file_name: "NOF Role Roles and Responsibilities (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group staff responsibilities.",
+    });
+    expect(roles.profile.secondary_facets.document_intent).toEqual(
+      expect.arrayContaining(["staff-guidance", "operational-process"]),
+    );
   });
 });

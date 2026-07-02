@@ -12,7 +12,7 @@ import type { ImageEvidenceCategory, OpenAITokenUsage } from "@/lib/types";
 type OpenAIOperation =
   "embedding" | "answer" | "summary" | "vision_caption" | "vision_classification" | "text_generation";
 
-type OpenAIReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
+export type OpenAIReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 type OpenAITextVerbosity = "low" | "medium" | "high";
 type OpenAIResponseInput = string | Array<Record<string, unknown>>;
 
@@ -313,6 +313,7 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
   const status = getErrorStatus(error);
   const code = getErrorCode(error) ?? "openai_request_failed";
   const requestId = getRequestId(error);
+  const message = error instanceof Error ? error.message : String(error);
 
   if (isTimeoutError(error) || status === 408) {
     return new PublicApiError("OpenAI timed out. Trying source-only fallback response.", 504, {
@@ -324,6 +325,16 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
   if (status === 401 || status === 403) {
     return new PublicApiError("OpenAI authentication failed. Check the server API key configuration.", 500, {
       code,
+      requestId,
+    });
+  }
+
+  // Billing/quota exhaustion (429 insufficient_quota) does NOT recover by retrying, unlike a
+  // transient rate limit. Surface it with a stable, distinct code so the answer/search paths
+  // degrade to a source-only response instead of telling the user to "retry in a moment".
+  if (code === "insufficient_quota" || (status === 429 && /quota|billing/i.test(message))) {
+    return new PublicApiError("OpenAI quota is exhausted. Falling back to a source-only answer.", 429, {
+      code: "insufficient_quota",
       requestId,
     });
   }

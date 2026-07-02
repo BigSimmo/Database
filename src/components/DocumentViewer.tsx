@@ -177,7 +177,6 @@ const primaryButton = primaryControl;
 const secondaryButton = floatingControl;
 const pdfViewerModeStorageKey = "clinical-kb:pdf-viewer-mode";
 const pdfViewerNativeModeBreakpoint = 820;
-const pdfViewerLowMemoryThreshold = 4;
 const pdfViewerModeValue = {
   native: "native",
   canvas: "canvas",
@@ -185,14 +184,7 @@ const pdfViewerModeValue = {
 const pdfViewerModeNativeValue = pdfViewerModeValue.native;
 
 function getDefaultPdfViewerMode(): boolean {
-  if (typeof window === "undefined") return false;
-
-  const isSmallScreen = window.matchMedia(`(max-width: ${pdfViewerNativeModeBreakpoint}px)`).matches;
-  const isSmallDevice = window.matchMedia(`(max-device-width: ${pdfViewerNativeModeBreakpoint}px)`).matches;
-  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  const isLowMemory = typeof memory === "number" && Number.isFinite(memory) && memory <= pdfViewerLowMemoryThreshold;
-
-  return isSmallScreen || isSmallDevice || isLowMemory;
+  return false;
 }
 
 function getInitialPdfViewerMode() {
@@ -1436,6 +1428,10 @@ const manualLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }>
   { value: "service", label: "Service" },
   { value: "document_type", label: "Document type" },
   { value: "population", label: "Population" },
+  { value: "clinical_action", label: "Clinical action" },
+  { value: "care_phase", label: "Care phase" },
+  { value: "document_intent", label: "Document intent" },
+  { value: "content_feature", label: "Content feature" },
   { value: "custom", label: "Manual" },
 ];
 
@@ -1935,15 +1931,13 @@ export function DocumentViewer({
     };
 
     const smallScreen = window.matchMedia(`(max-width: ${pdfViewerNativeModeBreakpoint}px)`);
-    const smallDevice = window.matchMedia(`(max-device-width: ${pdfViewerNativeModeBreakpoint}px)`);
 
-    syncDefaultViewerMode();
+    const syncFrame = window.requestAnimationFrame(syncDefaultViewerMode);
     smallScreen.addEventListener("change", syncDefaultViewerMode);
-    smallDevice.addEventListener("change", syncDefaultViewerMode);
 
     return () => {
+      window.cancelAnimationFrame(syncFrame);
       smallScreen.removeEventListener("change", syncDefaultViewerMode);
-      smallDevice.removeEventListener("change", syncDefaultViewerMode);
     };
   }, [viewerModeInitialized, hasExplicitPdfViewerMode]);
 
@@ -2682,7 +2676,7 @@ export function DocumentViewer({
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
                 <>
-                  <div className="mb-2 flex flex-wrap justify-center gap-2">
+                  <div className="mb-2 grid grid-cols-2 gap-2 px-2 pt-2 sm:flex sm:flex-wrap sm:justify-center sm:px-0 sm:pt-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -2690,13 +2684,22 @@ export function DocumentViewer({
                         setUseNativePdfViewer((current) => !current);
                       }}
                       aria-label={useNativePdfViewer ? "Switch to canvas zoom mode" : "Switch to browser PDF mode"}
-                      className={cn(secondaryButton, "text-xs")}
+                      className={cn(secondaryButton, "col-span-2 min-h-11 justify-center px-3 text-xs sm:col-span-1")}
                     >
-                      {useNativePdfViewer ? "Use canvas zoom mode" : "Use browser PDF mode"}
+                      <span className="sm:hidden">{useNativePdfViewer ? "Canvas mode" : "Browser mode"}</span>
+                      <span className="hidden sm:inline">
+                        {useNativePdfViewer ? "Use canvas zoom mode" : "Use browser PDF mode"}
+                      </span>
                     </button>
-                    <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "text-xs")}>
+                    <a
+                      href={signedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(secondaryButton, "min-h-11 justify-center px-3 text-xs")}
+                    >
                       <ExternalLink className="h-4 w-4" />
-                      Open original PDF
+                      <span className="sm:hidden">Open PDF</span>
+                      <span className="hidden sm:inline">Open original PDF</span>
                     </a>
                     {downloadSignedUrl ? (
                       <a
@@ -2704,14 +2707,15 @@ export function DocumentViewer({
                         target="_blank"
                         rel="noreferrer"
                         download={document.file_name || "clinical-source.pdf"}
-                        className={cn(secondaryButton, "text-xs")}
+                        className={cn(secondaryButton, "min-h-11 justify-center px-3 text-xs")}
                       >
                         <Download className="h-4 w-4" />
-                        Download PDF
+                        <span className="sm:hidden">Download</span>
+                        <span className="hidden sm:inline">Download PDF</span>
                       </a>
                     ) : null}
                   </div>
-                  <p className="mb-2 text-center text-[11px] text-[color:var(--text-muted)]">
+                  <p className="mb-2 hidden text-center text-[11px] text-[color:var(--text-muted)] sm:block">
                     Browser PDF mode keeps heavy-zoom pages crisp and is recommended when zoom quality looks soft.
                   </p>
                   {useNativePdfViewer ? (
@@ -2808,7 +2812,7 @@ export function DocumentViewer({
                   </div>
                   <div>
                     <dt>Index version</dt>
-                    <dd className="mt-0.5 truncate text-[color:var(--text)]">
+                    <dd className="mt-0.5 truncate font-mono tabular-nums text-[color:var(--text)]">
                       {indexHealth.indexVersion ?? "unknown"}
                     </dd>
                   </div>

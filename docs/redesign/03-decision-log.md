@@ -84,3 +84,10 @@ Entries are appended as work lands. Format: what changed / why better / consider
 **Why better:** The PDF regains priority on mobile when there is no citation to inspect, while source evidence remains discoverable and anchored for navigation.
 **Rejected:** Removing the evidence anchor entirely (would weaken navigation and tests); always showing the full card (kept the original hierarchy problem).
 **Verification:** Focused eslint and `npm run typecheck` pass; pinned evidence and PDF ordering are included in visual QA.
+
+## D11 — Clinical White / Aegean Graphite: role-split colour
+
+**What:** Split the overloaded accent into three roles. Added `--command` (graphite) for primary actions, `--clinical-accent` (Aegean blue-teal) for clinical identity (selected/evidence/send/focus), and reserved `--success` (green) for status only. De-blued the neutral ramp to true-neutral gray, set the content surface to `#FFFFFF` with a new `--surface-chrome` for rails/header, and de-glassed light-mode materials (flat + hairline + single shadow; glass kept for overlays). `--primary*` now resolves to the Aegean accent; `--clinical-chat-teal*`/`--clinical-chat-ready` retained as compat aliases pointing at the role tokens.
+**Why better:** `--primary` previously drove both command buttons and evidence surfaces, so nothing read as deliberate. Roleization makes command vs clinical-identity vs success visually distinct, yields a crisper premium white, and keeps the black-polish dark mode.
+**Rejected:** Keeping teal as the primary-action colour (accent keeps doing two jobs); a mass rename of the ~265 `--clinical-chat-teal` call-sites (unreviewable churn — aliases achieve the same end); a warm/cream canvas (the brief's premise; the real issue was blue-grey murk, not warmth).
+**Verification:** `npm run typecheck` passes; dev server compiles and serves 200 with 0 console errors; light/dark desktop + mobile screenshots confirm graphite command, Aegean send/evidence, and success-only green; contrast spot-checks — Aegean on white ≈5.8:1, command ≈16:1, soft text ≈5.0:1, semantics ≥4.5:1.

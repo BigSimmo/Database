@@ -153,7 +153,9 @@ function hasThresholdSignal(text: string, query = "") {
   if (hardThresholdPattern.test(text)) return true;
   if (!softThresholdTermPattern.test(text)) return false;
   if (softThresholdContextPattern.test(text)) return true;
-  return Boolean(query && explicitThresholdIntentPattern.test(query) && softThresholdContextPattern.test(`${query} ${text}`));
+  return Boolean(
+    query && explicitThresholdIntentPattern.test(query) && softThresholdContextPattern.test(`${query} ${text}`),
+  );
 }
 
 function uniqueShortItems(items: string[], limit: number) {

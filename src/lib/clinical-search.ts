@@ -304,8 +304,14 @@ const comparisonPattern =
   /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b|\bcombine\b.{0,100}\bwith\b/i;
 const tableThresholdPattern =
   /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b/i;
+// Note (8a): bare generic risk/workflow words (`risk`, `urgent`, `escalat*`) were removed from this
+// pattern. On their own — with no medication/dose/pharmacology signal — they mis-classified topical
+// queries like "suicide risk mitigation" or "urgent clinical escalation" as medication-dosing
+// queries, whose retrieval plan then buried the actual guideline under dose/threshold evidence. A
+// genuine medication_dose_risk query still matches via a drug name, dose/route term, or the
+// medication/pharmacology/agitation vocabulary retained below.
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
 const documentIncludePattern =
   /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
 const explicitDocumentLookupPattern =
@@ -1307,7 +1313,11 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     agitationArousalQuery &&
     /\bagitation\b/.test(titleTokenText) &&
     (/\barousal\b/.test(titleTokenText) || /\bpharma mgt\b/.test(titleTokenText));
-  const agitationArousalCanonicalBoost = agitationArousalCanonicalTitle ? 0.34 : agitationArousalQuery && agitationArousalSource ? 0.18 : 0;
+  const agitationArousalCanonicalBoost = agitationArousalCanonicalTitle
+    ? 0.34
+    : agitationArousalQuery && agitationArousalSource
+      ? 0.18
+      : 0;
   const agitationArousalGenericPenalty = agitationArousalQuery && !agitationArousalSource ? -0.32 : 0;
   const activeCommunityEdQuery =
     queryClass === "document_lookup" &&
@@ -1315,27 +1325,34 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     /\bcommunity\b/i.test(query) &&
     /\b(?:ed|emergency department)\b/i.test(query);
   const activeCommunityEdSource =
-    /\bactive\b/.test(haystack) &&
-    /\bcommunity\b/.test(haystack) &&
-    /\b(?:ed|emergency department)\b/.test(haystack);
+    /\bactive\b/.test(haystack) && /\bcommunity\b/.test(haystack) && /\b(?:ed|emergency department)\b/.test(haystack);
   const activeCommunityCanonicalTitle =
     activeCommunityEdQuery &&
     /\bactive\b/.test(titleTokenText) &&
     /\bcommunity\b/.test(titleTokenText) &&
     /\b(?:ed|emergency department)\b/.test(titleTokenText);
-  const activeCommunityCanonicalBoost = activeCommunityCanonicalTitle ? 0.38 : activeCommunityEdQuery && activeCommunityEdSource ? 0.18 : 0;
+  const activeCommunityCanonicalBoost = activeCommunityCanonicalTitle
+    ? 0.38
+    : activeCommunityEdQuery && activeCommunityEdSource
+      ? 0.18
+      : 0;
   const activeCommunityGenericPenalty = activeCommunityEdQuery && !activeCommunityEdSource ? -0.22 : 0;
   const riskFlowchartQuery =
     queryClass === "document_lookup" &&
     /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
     /\b(?:risk|red\s*zone|red|next step|step after)\b/i.test(query);
   const riskFlowchartSource =
-    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) && /\b(?:risk|red zone|red)\b/.test(haystack);
+    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
+    /\b(?:risk|red zone|red)\b/.test(haystack);
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
     /\b(?:flow|flowchart|flow chart|algorithm|pathway|matrix)\b/.test(titleTokenText) &&
     /\brisk\b/.test(titleTokenText);
-  const riskFlowchartCanonicalBoost = riskFlowchartCanonicalTitle ? 0.32 : riskFlowchartQuery && riskFlowchartSource ? 0.16 : 0;
+  const riskFlowchartCanonicalBoost = riskFlowchartCanonicalTitle
+    ? 0.32
+    : riskFlowchartQuery && riskFlowchartSource
+      ? 0.16
+      : 0;
   const riskFlowchartGenericPenalty = riskFlowchartQuery && !riskFlowchartSource ? -0.18 : 0;
   const structuredTableBoost =
     (queryClass === "table_threshold" || queryClass === "medication_dose_risk") && (result.table_facts?.length ?? 0) > 0
