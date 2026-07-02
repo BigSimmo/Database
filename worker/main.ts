@@ -345,6 +345,31 @@ function cleanString(val: string): string {
     .toWellFormed();
 }
 
+function redactCaptionMetadataValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return redactCaptionIdentifiers(cleanString(value));
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactCaptionMetadataValue(entry));
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, redactCaptionMetadataValue(entry)]),
+    );
+  }
+  return value;
+}
+
+function redactImageClassification<T extends ImageClassification>(classification: T): T {
+  return {
+    ...classification,
+    caption: redactCaptionIdentifiers(cleanString(classification.caption)),
+    structured_visual_profile: redactCaptionMetadataValue(
+      (classification as ImageClassificationWithVisualProfile).structured_visual_profile,
+    ) as ImageClassificationWithVisualProfile["structured_visual_profile"],
+  } as T;
+}
+
 type JsonbValue = string | number | boolean | null | { [key: string]: JsonbValue } | JsonbValue[];
 type JsonbRecord = { [key: string]: JsonbValue };
 
@@ -695,16 +720,17 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     : "unclear";
   const score = Number(metadata.clinical_relevance_score);
   const labels = cachedImageLabels(metadata.labels);
+  const cachedCaption = redactCaptionIdentifiers(cleanString(String(data.caption || "").trim() || "Extracted source image."));
   const assessment = assessClinicalImageUse({
     imageType,
     searchable: Boolean(metadata.searchable),
     clinicalRelevanceScore: score,
-    caption: String(data.caption || ""),
+    caption: cachedCaption,
     labels,
     skipReason: typeof metadata.skip_reason === "string" ? metadata.skip_reason : null,
   });
-  const structuredProfile = normalizeStructuredVisualProfile(metadata.structured_visual_profile, {
-    fallbackText: String(data.caption || ""),
+  const structuredProfile = normalizeStructuredVisualProfile(redactCaptionMetadataValue(metadata.structured_visual_profile), {
+    fallbackText: cachedCaption,
     fallbackConfidence: score,
   });
 
@@ -713,7 +739,7 @@ async function getCachedImageClassification(ownerId: string | null, imageHash: s
     searchable: assessment.searchable && imageType !== "logo_decorative",
     clinical_relevance_score: assessment.clinical_relevance_score,
     labels,
-    caption: String(data.caption || "").trim() || "Extracted source image.",
+    caption: cachedCaption,
     skip_reason:
       typeof metadata.skip_reason === "string" && metadata.skip_reason.trim() ? metadata.skip_reason.trim() : null,
     clinical_use_class: assessment.clinical_use_class,
@@ -733,30 +759,30 @@ async function setCachedImageClassification(args: {
   mimeType: string;
   classification: ImageClassification;
 }) {
-  if (!args.ownerId || !args.classification.caption.trim()) return;
+  const classification = redactImageClassification(args.classification);
+  if (!args.ownerId || !classification.caption.trim()) return;
 
   const { error } = await supabase.from("image_caption_cache").upsert(
     {
       owner_id: args.ownerId,
       image_hash: args.imageHash,
       model: env.OPENAI_VISION_MODEL,
-      caption: redactCaptionIdentifiers(cleanString(args.classification.caption)),
+      caption: classification.caption,
       mime_type: args.mimeType,
       metadata: {
         extractor: "local-worker",
-        image_type: args.classification.image_type,
-        searchable: args.classification.searchable,
-        clinical_relevance_score: args.classification.clinical_relevance_score,
-        labels: args.classification.labels,
-        skip_reason: args.classification.skip_reason,
-        clinical_use_class: args.classification.clinical_use_class,
-        clinical_use_reason: args.classification.clinical_use_reason,
-        clinical_signal_score: args.classification.clinical_signal_score,
-        admin_signal_score: args.classification.admin_signal_score,
-        structured_visual_profile: (args.classification as ImageClassificationWithVisualProfile)
-          .structured_visual_profile,
-        structured_extraction_confidence: (args.classification as ImageClassificationWithVisualProfile)
-          .structured_extraction_confidence,
+        image_type: classification.image_type,
+        searchable: classification.searchable,
+        clinical_relevance_score: classification.clinical_relevance_score,
+        labels: classification.labels,
+        skip_reason: classification.skip_reason,
+        clinical_use_class: classification.clinical_use_class,
+        clinical_use_reason: classification.clinical_use_reason,
+        clinical_signal_score: classification.clinical_signal_score,
+        admin_signal_score: classification.admin_signal_score,
+        structured_visual_profile: (classification as ImageClassificationWithVisualProfile).structured_visual_profile,
+        structured_extraction_confidence:
+          (classification as ImageClassificationWithVisualProfile).structured_extraction_confidence,
         image_policy_version: clinicalImagePolicyVersion,
         visual_intelligence_version: visualIntelligenceVersion,
         image_caption_cache_version: imageCaptionCacheVersion,
@@ -958,7 +984,7 @@ async function uploadAndCaptionImages(
   for (const resolved of resolvedTasks) {
     const { task, classificationCacheHit } = resolved;
     const { candidate, index, image, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } = task;
-    let classification = resolved.classification;
+    let classification = redactImageClassification(resolved.classification);
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
       searchable: classification.searchable,
@@ -982,7 +1008,7 @@ async function uploadAndCaptionImages(
       clinical_signal_score: policyAssessment.clinical_signal_score,
       admin_signal_score: policyAssessment.admin_signal_score,
       structured_visual_profile: normalizeStructuredVisualProfile(
-        (classification as ImageClassificationWithVisualProfile).structured_visual_profile,
+        redactCaptionMetadataValue((classification as ImageClassificationWithVisualProfile).structured_visual_profile),
         {
           fallbackText: [
             tableMetadata.tableTitle,
@@ -1037,7 +1063,7 @@ async function uploadAndCaptionImages(
         page_number: image.pageNumber,
         storage_path: imagePath,
         mime_type: image.mimeType,
-        caption: redactCaptionIdentifiers(cleanString(classification.caption)),
+        caption: classification.caption,
         bbox: image.bbox ?? null,
         image_type: classification.image_type,
         searchable: persistedSearchable,

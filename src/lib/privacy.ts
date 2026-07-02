@@ -54,8 +54,12 @@ export function safeErrorLogDetails(error: unknown) {
 }
 
 export function redactCaptionIdentifiers(value: string): string {
+  const clinicalRangePattern = /^\d+(?:\.\d+)?\s*-\s*\d+(?:\.\d+)?(?:\s*[A-Za-zµ/%][\w/%.-]*)?$/i;
   return value
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]")
-    .replace(/\b(?:\+?\d[\d\s().-]{6,}\d)\b/g, "[phone]")
+    .replace(/\b(?:\+?\d[\d\s().-]{6,}\d)\b/g, (match) => {
+      const digits = match.replace(/\D/g, "");
+      return digits.length >= 8 && !clinicalRangePattern.test(match.trim()) ? "[phone]" : match;
+    })
     .replace(/\b(?:mrn|nhs)\s*[:#-]?\s*[A-Za-z0-9-]{4,}\b/gi, "[id]");
 }

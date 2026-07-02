@@ -55,6 +55,15 @@ describe("privacy-safe logging helpers", () => {
     expect(output).not.toContain("123456");
     expect(output).not.toContain("0400 123 456");
   });
+
+  it("preserves clinical numeric ranges while still redacting likely phone numbers", () => {
+    const input = "Lithium therapeutic range 0.6 - 1.0 mmol/L. Ward contact: +61 400 123 456.";
+    const output = redactCaptionIdentifiers(input);
+
+    expect(output).toContain("0.6 - 1.0 mmol/L");
+    expect(output).not.toContain("+61 400 123 456");
+    expect(output).toContain("[phone]");
+  });
 });
 
 describe("query privacy storage helpers", () => {
