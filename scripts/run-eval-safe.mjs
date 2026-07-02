@@ -206,11 +206,28 @@ function terminateEvalProcess(pid) {
   terminateEvalProcessTree(pid);
 }
 
-function runEvalScript() {
-  const tsxBin = resolve(projectRoot, "node_modules", "tsx", "dist", "cli.mjs");
+function resolveTsxCli() {
+  // Fresh git worktrees often have no node_modules of their own, so walk up
+  // the ancestor directories like Node's own module resolution does: the repo
+  // root's install wins when present, otherwise the main checkout's install is
+  // found (worktrees live inside the repo directory). A plain existsSync walk
+  // is used instead of require.resolve because tsx's package "exports" map
+  // does not expose dist/cli.mjs.
+  let dir = projectRoot;
+  for (;;) {
+    const candidate = resolve(dir, "node_modules", "tsx", "dist", "cli.mjs");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
-  if (!existsSync(tsxBin)) {
-    console.error(`Could not find tsx runtime at ${tsxBin}`);
+function runEvalScript() {
+  const tsxBin = resolveTsxCli();
+
+  if (!tsxBin) {
+    console.error("Could not resolve the tsx runtime. Run `npm install` first (or invoke the script with `npx tsx` directly).");
     process.exit(1);
   }
 
