@@ -202,6 +202,74 @@ describe("retrieval query variants", () => {
     ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
   });
 
+  it("keeps flowchart zone-action fast paths gated on action evidence", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+
+    // A lexically strong but action-free flowchart page must not short-circuit
+    // retrieval before the structured/vector layers can surface the zone actions.
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content: "Appendix IV: Risk assessment flow chart to identify infection control procedures.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" });
+
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content:
+              "If deteriorating (has any Purple or Red Zone criteria on observation chart), escalate for Senior Clinician Review or call a MET.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
+  it("requires zone and action evidence on a single result for the flowchart risk gate", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+
+    // Zone words on one result and action words on another (or a flowchart image
+    // caption) must not satisfy the gate - the answer needs both on one result.
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({ content: "Risk assessment flow chart for infection control procedures.", similarity: 0.9 }),
+          result({
+            id: "chunk-2",
+            content: "Compliance is monitored by review of clinical incidents.",
+            similarity: 0.8,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_visual_flowchart_risk_evidence" });
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({
+            content:
+              "If deteriorating (has any Purple or Red Zone criteria on observation chart), escalate for Senior Clinician Review.",
+            similarity: 0.9,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ accepted: true, reason: "visual_flowchart_risk_gate" });
+  });
+
   it("does not fast-path comparison queries before synthesis retrieval", () => {
     expect(
       decideTextFastPath(
@@ -363,7 +431,11 @@ describe("retrieval query variants", () => {
     expect(textQuery).toContain("flowchart");
     expect(textQuery).toContain("next");
     expect(textQuery).toContain("step");
-    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone risk flow"]));
+    // "red zone" replaces the old fully-conjunctive variants ("red zone risk flow",
+    // "risk flow review urgent escalation") which matched 0/2 live chunks under
+    // websearch_to_tsquery AND semantics and never contributed candidates.
+    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone"]));
+    expect(variants).not.toContain("red zone risk flow");
     expect(variants.length).toBeLessThanOrEqual(4);
   });
 
@@ -517,6 +589,26 @@ describe("retrieval query variants", () => {
 
     expect(ranked[0].file_name).toBe("Clinical Risk Flowchart.pdf");
     expect(selected.results[0]?.file_name).toBe("Clinical Risk Flowchart.pdf");
+  });
+
+  it("treats zone-action escalation text as risk-flowchart evidence even without the word flowchart", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "zone-action",
+        document_id: "zone-action-doc",
+        title: "Recognising and Responding to Acute Deterioration",
+        file_name: "Recognising and Responding to Acute Deterioration.pdf",
+        content:
+          "If deteriorating (has any Purple or Red Zone criteria on observation chart), escalate for Senior Clinician Review or call a MET.",
+        similarity: 0.62,
+      }),
+    ]);
+
+    // Escalation protocols express the flowchart's decision steps as text; they
+    // must not take the generic risk-flowchart penalty for lacking the literal
+    // word "flowchart".
+    expect(ranked[0]?.score_explanation?.rawPenalty).toBe(0);
   });
 
   it("redacts retrieval cache keys while preserving query class and variant uniqueness", () => {

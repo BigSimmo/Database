@@ -1895,8 +1895,15 @@ export function buildRetrievalQueryVariants(
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
   ) {
     addVariant("risk flow");
-    addVariant("red zone risk flow");
-    addVariant("risk flow review urgent escalation");
+    // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"
+    // and "risk flow review urgent escalation" variants required all terms in one
+    // chunk and matched 0 and 2 live chunks respectively - they pulled nothing
+    // into the candidate pool. A plain "red zone" variant retrieves the small,
+    // precise set of zone-action chunks (escalation protocols, observation and
+    // response charts) that actually answer red-zone / next-step questions.
+    if (/\b(?:red[\s-]*zone|zones?)\b/i.test(query)) {
+      addVariant("red zone");
+    }
   }
   addVariant(analysis.queryRewrite.searchQuery);
 
@@ -3048,6 +3055,25 @@ export function decideTextFastPath(
   }
 
   if (queryClass === "document_lookup") {
+    // Flowchart/zone "next step" questions need the action evidence (escalate /
+    // urgent review / actions required), not just a lexically matching flowchart
+    // page. Many unrelated policies embed "risk assessment flow chart" appendices
+    // that outscore the intended zone-action document on text alone, so mirror the
+    // threshold_action gate: only fast-path when the top candidates already carry
+    // action language; otherwise fall through to structured/vector retrieval.
+    const flowchartZoneActionQuery =
+      /\b(?:flow\s*charts?|flowcharts?|algorithms?|pathways?)\b/i.test(query) &&
+      /\b(?:red[\s-]*zone|next step|step after)\b/i.test(query);
+    if (
+      flowchartZoneActionQuery &&
+      !results.slice(0, 5).some((result) =>
+        /\b(?:escalat\w*|urgent|review\w*|respond\w*|actions?\s+required)\b/i.test(
+          `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")} ${result.retrieval_synopsis ?? ""} ${result.content ?? ""}`,
+        ),
+      )
+    ) {
+      return { returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" };
+    }
     if (directTitleSupport && strongestScore >= 0.32) {
       return { returnFastPath: true, reason: "direct_title_text_match" };
     }
@@ -3332,11 +3358,19 @@ export function evaluateEvidenceCoverageGate(
         sourceImageSatisfied,
       };
     }
-    if (/\b(?:flow\s*chart|flowchart|red\s*zone|risk matrix)\b/i.test(query)) {
-      const accepted =
-        hasVisualUnit ||
-        (hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|risk|red|zone|matrix)\b/i) &&
-          hasAnyTerm(evidenceText, /\b(?:escalat|urgent|review|action|next step|senior)\b/i));
+    if (/\b(?:flow\s*chart|flowchart|red[\s-]*zone|risk matrix)\b/i.test(query)) {
+      // A flowchart/zone question is only answered when a single top result carries
+      // BOTH the zone/escalation context AND the action language. Checking the two
+      // term groups independently across all top-5 evidence (or accepting any visual
+      // unit) let unrelated risk-assessment flowcharts pass on a generic flowchart
+      // page plus scattered "action"/"review" words from other candidates.
+      const accepted = top.some((result) => {
+        const text = evidenceTextForGate(result);
+        return (
+          /\b(?:red[\s-]*zone|zone|escalation|deteriorat\w+)\b/i.test(text) &&
+          /\b(?:escalat\w*|urgent|review\w*|actions?\s+required)\b/i.test(text)
+        );
+      });
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",

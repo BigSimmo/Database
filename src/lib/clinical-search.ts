@@ -1312,8 +1312,18 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     queryClass === "document_lookup" &&
     /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
     /\b(?:risk|red\s*zone|red|next step|step after)\b/i.test(query);
+  // Zone-action evidence ("red zone ... escalate / urgent review") answers a risk
+  // flowchart question even when the source never uses the word "flowchart" —
+  // escalation protocols express the flowchart's decision steps as text. Without
+  // this, the generic penalty demoted the documents that actually contain the
+  // red-zone next step while unrelated risk-assessment flowcharts kept the boost.
+  const riskFlowchartZoneActionSource =
+    /\b(?:red[\s-]*zones?|coloured? zones?|colored? zones?|zones?)\b/.test(haystack) &&
+    /\b(?:escalat\w*|urgent|review\w*|actions? required)\b/.test(haystack);
   const riskFlowchartSource =
-    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) && /\b(?:risk|red zone|red)\b/.test(haystack);
+    (/\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
+      /\b(?:risk|red zone|red)\b/.test(haystack)) ||
+    riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
     /\b(?:flow|flowchart|flow chart|algorithm|pathway|matrix)\b/.test(titleTokenText) &&
