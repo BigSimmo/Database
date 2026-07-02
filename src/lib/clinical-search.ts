@@ -24,6 +24,43 @@ export type RagQueryClassification = {
   needsSynthesis: boolean;
 };
 
+// Shared signals for coloured-zone "next step" retrieval guards (ranking source
+// evidence here; text fast-path and coverage gates in rag.ts). The zone context
+// deliberately requires an explicit coloured-zone reference or "zone criteria" —
+// a bare "zone" (clean zone, time zone, zone 3) plus a common word like "review"
+// must not qualify as escalation evidence. The action group likewise requires a
+// real clinical instruction: bare "review\w*" would let document boilerplate
+// ("Review date: ...", "reviewed by ...") satisfy the guard, so "review" only
+// counts when attached to a clinical role or urgency (senior clinician review,
+// urgent medical officer review) or an escalation/MET phrase.
+export const zoneColourAlternatives = "red|amber|yellow|orange|purple|green|blue";
+export const riskZoneContextPattern = new RegExp(
+  `\\b(?:(?:${zoneColourAlternatives})[\\s-]*zones?|colou?red zones?|zone criteria)\\b`,
+  "i",
+);
+export const riskZoneActionPattern =
+  /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|immediate|medical|clinical|clinician|nursing|officer)\s+(?:clinician\s+|specialist\s+|nurse\s+|officer\s+)?review\w*)\b/i;
+
+// The zone colour a query names, if any ("red-zone risk" -> "red").
+export function queriedZoneColour(query: string) {
+  return query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1]?.toLowerCase() ?? null;
+}
+
+// Zone-context patterns scoped to the colour the query names (falling back to
+// any colour). `zonePhrasePattern` matches explicit zone phrases; `bareColourPattern`
+// is for risk-matrix / flowchart visual units, which store the cell colour as a
+// bare token ("... | Red | escalate ..."). Shared by the fast-path guard and
+// coverage gate in rag.ts and the ranking source check here so a red-zone
+// question is never satisfied (or boosted) by another colour's action evidence.
+export function zoneContextPatternsForQuery(query: string) {
+  const colour = queriedZoneColour(query);
+  const colourGroup = colour ?? `(?:${zoneColourAlternatives})`;
+  return {
+    zonePhrasePattern: new RegExp(`\\b${colourGroup}[\\s-]*zones?\\b|\\bcolou?red zones?\\b|\\bzone criteria\\b`, "i"),
+    bareColourPattern: new RegExp(`\\b${colourGroup}\\b`, "i"),
+  };
+}
+
 export const intentSignalWords = {
   dosing: [
     "dose",
@@ -1340,10 +1377,41 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const riskFlowchartQuery =
     queryClass === "document_lookup" &&
     /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|next step|step after)\b/i.test(query);
-  const riskFlowchartSource =
-    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
-    /\b(?:risk|red zone|red)\b/.test(haystack);
+    (/\b(?:risk|next step|step after)\b/i.test(query) || riskZoneContextPattern.test(query));
+  // Zone-action evidence ("red zone ... escalate / urgent review") answers a risk
+  // flowchart question even when the source never uses the word "flowchart" —
+  // escalation protocols express the flowchart's decision steps as text. Without
+  // this, the generic penalty demoted the documents that actually contain the
+  // red-zone next step while unrelated risk-assessment flowcharts kept the boost.
+  // Both term groups must hit: a bare "zone" or a lone "review" is not evidence.
+  // The patterns are scoped to the colour the query names, so a red-zone
+  // question is not boosted by an amber-zone cell's action; risk-matrix /
+  // flowchart visual units store the cell colour as a bare token
+  // ("... | Red | escalate ..."), so for those units the colour token counts as
+  // zone context.
+  const indexUnitText = result.index_unit
+    ? `${result.index_unit.title} ${result.index_unit.content}`.toLowerCase()
+    : "";
+  const riskFlowchartEvidenceText = `${haystack} ${indexUnitText}`;
+  const zonePatterns = zoneContextPatternsForQuery(query);
+  const zoneCellUnitEvidence =
+    ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
+    zonePatterns.bareColourPattern.test(riskFlowchartEvidenceText);
+  const riskFlowchartZoneActionSource =
+    (zonePatterns.zonePhrasePattern.test(riskFlowchartEvidenceText) || zoneCellUnitEvidence) &&
+    riskZoneActionPattern.test(riskFlowchartEvidenceText);
+  const riskFlowchartLexicalSource =
+    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(riskFlowchartEvidenceText) &&
+    /\b(?:risk|red zone|red)\b/.test(riskFlowchartEvidenceText);
+  // For next-step/action questions, a flowchart page that names the risk but
+  // carries no action instruction is exactly the false positive the retrieval
+  // gates defer past — it must not take the risk-flowchart boost (nor dodge the
+  // generic penalty) on lexical grounds alone; the action evidence must be on
+  // the same result.
+  const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
+  const riskFlowchartSource = nextStepActionQuery
+    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
+    : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
     /\b(?:flow|flowchart|flow chart|algorithm|pathway|matrix)\b/.test(titleTokenText) &&
