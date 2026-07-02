@@ -1,0 +1,56 @@
+# TEMPORARY: focused CI reproduction for the forms-detail shared-search race that
+# only surfaces on CI Linux WebKit (ui-tools.spec.ts:264). Runs just that spec on
+# WebKit so the fix in GlobalMockupSearchShellClient can be verified without the
+# full ~70 min release-browser-matrix. Delete once the fix is confirmed green.
+name: WebKit forms-detail check (temporary)
+
+on:
+  # A workflow_dispatch-only file that is not on the default branch cannot be
+  # dispatched, so trigger on push to this feature branch instead — push events
+  # run the workflow from the pushed ref's own file.
+  push:
+    branches: [claude/webkit-forms-search-fix]
+  workflow_dispatch:
+
+jobs:
+  webkit-forms-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: ui-tools spec across all browsers (WebKit is the fix target)
+        run: node scripts/run-playwright.mjs tests/ui-tools.spec.ts
+
+      - name: Upload UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-forms-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
