@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -36,6 +37,7 @@ import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
 import { createAdminClient } from "../src/lib/supabase/admin";
+import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
@@ -93,7 +95,7 @@ function supabaseStageError(
   return wrapped;
 }
 
-async function updateJob(jobId: string, patch: Record<string, unknown>) {
+async function updateJob(jobId: string, patch: TablesUpdate<"ingestion_jobs">) {
   const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
   if (error) throw supabaseStageError("update ingestion job", error);
   if (typeof patch.progress === "number" || typeof patch.stage === "string") {
@@ -125,7 +127,7 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
   progressUpdateState.set(jobId, { updatedAt: now, progress: patch.progress, stage: patch.stage });
 }
 
-async function updateDocument(documentId: string, patch: Record<string, unknown>) {
+async function updateDocument(documentId: string, patch: TablesUpdate<"documents">) {
   const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
   const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
   if (error) throw supabaseStageError("update document", error);
@@ -171,7 +173,7 @@ async function updateBatch(batchId: string | null) {
   const failed = data.filter((job) => job.status === "failed").length;
   const status = terminalBatchStatus({ queued, processing, failed });
 
-  const { error: fallbackUpdateError } = await supabase
+  await supabase
     .from("import_batches")
     .update({
       status,
@@ -179,19 +181,15 @@ async function updateBatch(batchId: string | null) {
       completed_at: status === "processing" ? null : new Date().toISOString(),
     })
     .eq("id", batchId);
-  if (fallbackUpdateError) {
-    console.warn(
-      "Import batch status fallback update failed",
-      safeErrorLogDetails(supabaseStageError("update import batch status fallback", fallbackUpdateError)),
-    );
-  }
 }
 
 async function completeJob(job: JobRow, stage: string) {
   const { error } = await supabase.rpc("complete_ingestion_job", {
     p_job_id: job.id,
     p_document_id: job.document_id,
-    p_batch_id: job.batch_id,
+    // SQL default for p_batch_id is null, so omitting the key when batch_id
+    // is null sends the same value the explicit null did.
+    p_batch_id: job.batch_id ?? undefined,
     p_stage: stage,
   });
   if (!error) return;
@@ -253,12 +251,13 @@ async function failOrRetryJob(args: {
   const { error } = await supabase.rpc("fail_or_retry_ingestion_job", {
     p_job_id: args.job.id,
     p_document_id: args.job.document_id,
-    p_batch_id: args.job.batch_id,
+    p_batch_id: args.job.batch_id ?? undefined,
     p_retry: args.retry,
     p_document_status: args.documentStatus,
     p_stage: args.stage,
     p_error_message: args.errorMessage,
-    p_next_run_at: args.nextRunAt ?? null,
+    // SQL default is null; omitting the key matches the old explicit null.
+    p_next_run_at: args.nextRunAt,
   });
   if (!error) return;
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
@@ -329,7 +328,7 @@ async function claimJobs() {
   });
 
   if (error) throw supabaseStageError("claim ingestion jobs", error);
-  return ((data ?? []) as Array<Omit<JobRow, "documents"> & { documents: JobDocument }>).map((job) => ({
+  return ((data ?? []) as unknown as Array<Omit<JobRow, "documents"> & { documents: JobDocument }>).map((job) => ({
     ...job,
     documents: job.documents,
   })) as JobRow[];
@@ -368,7 +367,7 @@ function sanitizeJsonb(val: unknown): JsonbValue {
   return val as JsonbValue;
 }
 
-function sanitizeJsonbRecord(value: unknown): Record<string, unknown> {
+function sanitizeJsonbRecord(value: unknown): JsonbRecord {
   const sanitized = sanitizeJsonb(value);
   return typeof sanitized === "object" && sanitized !== null && !Array.isArray(sanitized) ? sanitized : {};
 }
@@ -454,8 +453,12 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // fields, index units) cascade with their legacy chunks regardless — the
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
+  // Dynamic table names and `metadata->>` JSON-path filters are outside what
+  // the generated Database types can express; scope an untyped client to
+  // these generation-cleanup helpers only.
+  const dynamicTables = supabase as unknown as SupabaseClient;
   const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = supabase.from(table).select("id").eq("document_id", documentId).limit(1);
+    let query = dynamicTables.from(table).select("id").eq("document_id", documentId).limit(1);
     query = direct
       ? query.eq("index_generation_id", indexGenerationId)
       : query.eq("metadata->>index_generation_id", indexGenerationId);
@@ -464,25 +467,29 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
     return (data ?? []).length > 0;
   };
   const deleteDirectGenerationRows = async (table: string) => {
-    const stale = await supabase
+    const stale = await dynamicTables
       .from(table)
       .delete()
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await supabase.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
+    const missing = await dynamicTables
+      .from(table)
+      .delete()
+      .eq("document_id", documentId)
+      .is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
-    const stale = await supabase
+    const stale = await dynamicTables
       .from(table)
       .delete()
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, false))) return;
-    const missing = await supabase
+    const missing = await dynamicTables
       .from(table)
       .delete()
       .eq("document_id", documentId)
@@ -500,9 +507,11 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
 }
 
 async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {
-  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality), {
-    onConflict: "document_id",
-  });
+  const { error } = await supabase
+    .from("document_index_quality")
+    .upsert(sanitizeJsonbRecord(quality) as unknown as TablesInsert<"document_index_quality">, {
+      onConflict: "document_id",
+    });
   if (error) throw supabaseStageError("upsert document_index_quality", error);
 }
 
@@ -768,7 +777,9 @@ async function setCachedImageClassification(args: {
         image_caption_cache_version: imageCaptionCacheVersion,
         vision_classification_prompt_version: visionClassificationPromptVersion,
         caption_context_hash: args.contextHash,
-      },
+        // JSON-serializable at runtime; structured_visual_profile's type is
+        // wider than the generated Json shape.
+      } as unknown as Json,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "owner_id,image_hash,model" },
@@ -1106,7 +1117,7 @@ async function uploadAndCaptionImages(
         id: data.id,
         caption: data.caption,
         pageNumber: data.page_number,
-        imageType: data.image_type,
+        imageType: data.image_type as ImageEvidenceCategory,
         sourceKind: image.sourceKind ?? "embedded",
         labels: data.labels ?? [],
         tableLabel: tableMetadata.tableLabel,
@@ -1264,7 +1275,9 @@ async function insertDocumentLevelEmbeddingFields(args: {
       index_generation_id: args.chunkRows[0]?.index_generation_id ?? null,
     },
   }));
-  const { error } = await supabase.from("document_embedding_fields").insert(rows);
+  const { error } = await supabase
+    .from("document_embedding_fields")
+    .insert(rows as unknown as TablesInsert<"document_embedding_fields">[]);
   if (error) throw supabaseStageError("insert document-level embedding fields", error);
   return rows.map((row) => row.field_type);
 }
@@ -1329,7 +1342,9 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     })) satisfies IndexedChunkRow[];
     indexedChunkRows.push(...rows);
 
-    const { error } = await supabase.from("document_chunks").insert(rows);
+    const { error } = await supabase
+      .from("document_chunks")
+      .insert(rows as unknown as TablesInsert<"document_chunks">[]);
     if (error) throw new Error(error.message);
 
     const fieldInputs = buildEmbeddingFieldInputs(job, rows);
@@ -1345,7 +1360,9 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
         }));
         for (let start = 0; start < fieldRows.length; start += 50) {
           const batch = fieldRows.slice(start, start + 50);
-          const { error: fieldsError } = await supabase.from("document_embedding_fields").insert(batch);
+          const { error: fieldsError } = await supabase
+            .from("document_embedding_fields")
+            .insert(batch as unknown as TablesInsert<"document_embedding_fields">[]);
           if (fieldsError) throw supabaseStageError("insert section-context embedding fields", fieldsError);
         }
       } catch (error) {
@@ -1364,7 +1381,9 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     metadata: sanitizeJsonbRecord({ ...row.metadata, index_generation_id: indexGenerationId }),
   }));
   if (tableFacts.length > 0) {
-    const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
+    const { error: factsError } = await supabase
+      .from("document_table_facts")
+      .insert(tableFacts as unknown as TablesInsert<"document_table_facts">[]);
     if (factsError)
       optionalIndexWriteIssues.push(
         optionalIndexWriteWarning("table fact", supabaseStageError("insert table facts", factsError)),
@@ -1391,7 +1410,9 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           embedding: assertEmbeddingDim(unitEmbeddings[start + index], `document_index_units.visual.${start + index}`),
           metadata: sanitizeJsonbRecord({ ...unit.metadata, index_generation_id: indexGenerationId }),
         }));
-        const { error: visualUnitError } = await supabase.from("document_index_units").insert(batch);
+        const { error: visualUnitError } = await supabase
+          .from("document_index_units")
+          .insert(batch as unknown as TablesInsert<"document_index_units">[]);
         if (visualUnitError) throw supabaseStageError("insert visual index units", visualUnitError);
       }
     } catch (error) {
@@ -1421,7 +1442,9 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       });
       for (let start = 0; start < additionalRows.length; start += 50) {
         const batch = additionalRows.slice(start, start + 50);
-        const { error: additionalFieldsError } = await supabase.from("document_embedding_fields").insert(batch);
+        const { error: additionalFieldsError } = await supabase
+          .from("document_embedding_fields")
+          .insert(batch as unknown as TablesInsert<"document_embedding_fields">[]);
         if (additionalFieldsError)
           throw supabaseStageError("insert supplemental embedding fields", additionalFieldsError);
       }
@@ -1614,8 +1637,8 @@ async function processJob(job: JobRow) {
         const deepMemory = await upsertDocumentDeepMemory({
           supabase,
           document: job.documents,
-          chunks: enrichmentRows.chunks,
-          images: enrichmentRows.images,
+          chunks: enrichmentRows.chunks as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["chunks"],
+          images: enrichmentRows.images as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["images"],
           summary: enrichment.summary.summary,
         });
         sectionCount = deepMemory.sections.length;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { documentTitleKey, planDocumentName, smartDocumentTitle } from "../src/lib/document-naming";
 
 function supabaseWithDocuments(documents: unknown[]) {
+  // Minimal stub of the query chain planDocumentName uses.
   return {
     from: () => ({
       select: () => ({
@@ -10,7 +11,7 @@ function supabaseWithDocuments(documents: unknown[]) {
         }),
       }),
     }),
-  };
+  } as unknown as Parameters<typeof planDocumentName>[0]["supabase"];
 }
 
 describe("document naming", () => {

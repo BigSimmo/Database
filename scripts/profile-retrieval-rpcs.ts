@@ -81,8 +81,8 @@ async function main() {
       p_rpc: rpcName,
       p_query_text: args.query,
       p_match_count: args.matchCount,
-      p_owner_filter: ownerId ?? null,
-      p_document_filters: args.documentIds ?? null,
+      p_owner_filter: ownerId ?? undefined,
+      p_document_filters: args.documentIds ?? undefined,
       p_analyze: args.analyze,
     });
     if (error) {

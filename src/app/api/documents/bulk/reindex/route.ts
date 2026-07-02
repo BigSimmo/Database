@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
@@ -66,7 +67,11 @@ async function selectRowsInPages<T>(args: {
 }) {
   const rows: T[] = [];
   for (let offset = 0; ; offset += pageSize) {
-    let query = args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);
+    // Dynamic table/select strings need the untyped client surface.
+    let query = (args.supabase as unknown as SupabaseClient)
+      .from(args.table)
+      .select(args.select)
+      .eq("document_id", args.documentId);
     if (args.searchableOnly) query = query.eq("searchable", true);
     const { data, error } = await query.range(offset, offset + pageSize - 1);
     if (error) throw new Error(error.message);
@@ -91,7 +96,7 @@ export async function POST(request: Request) {
     const documentIds = Array.from(new Set(parsed.documentIds));
     const { data: documents, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,error_message,page_count,chunk_count,image_count,metadata")
+      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,metadata")
       .eq("owner_id", user.id)
       .in("id", documentIds);
     if (documentError) throw new Error(documentError.message);
@@ -145,13 +150,13 @@ export async function POST(request: Request) {
           );
           const enrichment = await upsertDocumentEnrichment({
             supabase,
-            document,
+            document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
             chunks: committedChunks,
             images: committedImages,
           });
           const memory = await upsertDocumentDeepMemory({
             supabase,
-            document,
+            document: document as Parameters<typeof upsertDocumentDeepMemory>[0]["document"],
             chunks: committedChunks,
             images: committedImages,
             summary: enrichment.summary.summary,
@@ -166,15 +171,6 @@ export async function POST(request: Request) {
         }
 
         const atomicReindex = isAtomicReindexCandidate(document);
-        const rollbackDocumentPayload = atomicReindex
-          ? { error_message: document.error_message ?? null }
-          : {
-              status: document.status ?? null,
-              error_message: document.error_message ?? null,
-              page_count: document.page_count ?? 0,
-              chunk_count: document.chunk_count ?? 0,
-              image_count: document.image_count ?? 0,
-            };
         const { error: updateError } = await supabase
           .from("documents")
           .update(
@@ -197,17 +193,7 @@ export async function POST(request: Request) {
           })
           .select("id")
           .single();
-        if (jobError) {
-          const { error: rollbackError } = await supabase
-            .from("documents")
-            .update(rollbackDocumentPayload)
-            .eq("id", document.id)
-            .eq("owner_id", user.id);
-          if (rollbackError) {
-            throw new Error(`Failed to enqueue bulk reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
-          }
-          throw new Error(jobError.message);
-        }
+        if (jobError) throw new Error(jobError.message);
         results.push({ documentId: document.id, mode: parsed.mode, ok: true, jobId: job.id });
       } catch (error) {
         results.push({

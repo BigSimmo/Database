@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
   generateStructuredTextResult,
@@ -325,6 +325,8 @@ type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
 export type SearchTelemetry = {
   search_cache_hit: boolean;
   shared_cache_hit?: boolean;
+  shared_cache_status?: "hit" | "miss";
+  shared_cache_miss_reason?: string | null;
   query_class?: RagQueryClass;
   vector_candidate_count?: number;
   text_candidate_count?: number;
@@ -1074,7 +1076,9 @@ function fallbackReasonFromRouting(reason?: string | null) {
       .split(";")
       .map((part) => part.trim())
       .find((part) =>
-        /fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(part),
+        /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(
+          part,
+        ),
       ) ?? null
   );
 }
@@ -1415,6 +1419,15 @@ function cloneSearchResults(results: SearchResult[]) {
   return structuredClone(results);
 }
 
+function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {
+  return {
+    ...telemetry,
+    shared_cache_hit: false,
+    shared_cache_status: undefined,
+    shared_cache_miss_reason: null,
+  };
+}
+
 function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
@@ -1440,6 +1453,9 @@ function getCachedSearch(
       embedding_latency_ms: 0,
       supabase_rpc_latency_ms: 0,
       rerank_latency_ms: 0,
+      shared_cache_hit: false,
+      shared_cache_status: undefined,
+      shared_cache_miss_reason: null,
     },
   };
 }
@@ -1451,12 +1467,13 @@ function setCachedSearch(
   queryVariants: string[] = [],
 ) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
+  const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: cloneSearchResults(results),
-    telemetry: { ...telemetry },
+    telemetry: { ...cacheTelemetry },
   });
 
   while (searchCache.size > env.RAG_SEARCH_CACHE_SIZE) {
@@ -1464,10 +1481,19 @@ function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, telemetry, queryVariants);
+  setSharedCachedSearch(args, results, cacheTelemetry, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
+type SharedCacheMissReason =
+  | "cache_lookup_error"
+  | "cache_lookup_exception"
+  | "cache_payload_invalid"
+  | "no_entry"
+  | "expired"
+  | "indexing_version_mismatch"
+  | "dependency_version_mismatch"
+  | "unknown_filter_miss";
 
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
@@ -1532,25 +1558,69 @@ async function getSharedCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
-): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
+): Promise<
+  | { kind: "hit"; results: SearchResult[]; telemetry: SearchTelemetry }
+  | { kind: "miss"; reason: SharedCacheMissReason }
+  | null
+> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
+  const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
+  const indexingVersion = await cacheIndexingVersion(args);
+  async function probeSharedCacheMissReason(
+    reasonFromLookup?: SharedCacheMissReason,
+  ): Promise<SharedCacheMissReason> {
+    if (reasonFromLookup) return reasonFromLookup;
+    try {
+      const supabase = createAdminClient();
+      let probeQuery = supabase
+        .from("rag_response_cache")
+        .select("indexing_version,dependency_version,expires_at")
+        .eq("cache_kind", "search")
+        .eq("scope_key", scopeKey(args))
+        .eq("normalized_query", normalizedQuery)
+        .order("expires_at", { ascending: false })
+        .limit(5);
+      probeQuery = args.ownerId ? probeQuery.eq("owner_id", args.ownerId) : probeQuery.is("owner_id", null);
+      const { data, error } = await probeQuery;
+      if (error) return "cache_lookup_error";
+      if (!data?.length) return "no_entry";
+      const now = Date.now();
+      const nonExpired = data.find((entry) => {
+        const expiresAt = Date.parse(String(entry.expires_at ?? ""));
+        return Number.isFinite(expiresAt) && expiresAt > now;
+      });
+      if (!nonExpired) return "expired";
+      if (String(nonExpired.indexing_version ?? "") !== indexingVersion) return "indexing_version_mismatch";
+      if (String(nonExpired.dependency_version ?? "") !== ragCacheDependencyVersion) {
+        return "dependency_version_mismatch";
+      }
+      return "unknown_filter_miss";
+    } catch {
+      return "cache_lookup_exception";
+    }
+  }
   try {
-    const indexingVersion = await cacheIndexingVersion(args);
     const { data, error } = await sharedCacheSelector(
       createAdminClient(),
       "search",
       args,
       indexingVersion,
-      retrievalPlanCacheQuery(args, queryClass, queryVariants),
+      normalizedQuery,
     ).maybeSingle();
-    if (error || !data?.payload) return null;
+    if (error) return { kind: "miss", reason: await probeSharedCacheMissReason("cache_lookup_error") };
+    if (!data?.payload) return { kind: "miss", reason: await probeSharedCacheMissReason() };
     const payload = data.payload as { results?: SearchResult[]; telemetry?: Partial<SearchTelemetry> };
-    if (!Array.isArray(payload.results)) return null;
+    if (!Array.isArray(payload.results)) {
+      return { kind: "miss", reason: await probeSharedCacheMissReason("cache_payload_invalid") };
+    }
     return {
+      kind: "hit",
       results: cloneSearchResults(payload.results),
       telemetry: {
         search_cache_hit: true,
         shared_cache_hit: true,
+        shared_cache_status: "hit",
+        shared_cache_miss_reason: null,
         query_class: payload.telemetry?.query_class,
         vector_candidate_count: payload.telemetry?.vector_candidate_count,
         text_candidate_count: payload.telemetry?.text_candidate_count,
@@ -1590,7 +1660,7 @@ async function getSharedCachedSearch(
       },
     };
   } catch {
-    return null;
+    return { kind: "miss", reason: "cache_lookup_exception" };
   }
 }
 
@@ -1615,6 +1685,9 @@ async function getSharedCachedAnswer(
     answer.latencyTimings = {
       ...answer.latencyTimings,
       search_cache_hit: true,
+      shared_cache_hit: true,
+      shared_cache_status: "hit",
+      shared_cache_miss_reason: null,
       total_latency_ms: Date.now() - startedAt,
     };
     return answer;
@@ -1651,7 +1724,8 @@ async function replaceSharedCacheRow(
       normalized_query: normalizedQuery,
       indexing_version: indexingVersion,
       dependency_version: ragCacheDependencyVersion,
-      payload,
+      // JSON-serializable by contract of the response cache.
+      payload: payload as Json,
       expires_at: new Date(Date.now() + ttlMs).toISOString(),
     });
   } catch {
@@ -1716,11 +1790,11 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
   void (async () => {
     try {
-      await createAdminClient()
-        .from("rag_response_cache")
-        .delete()
-        [sharedCacheOwnerId ? "eq" : "is"]("owner_id", sharedCacheOwnerId)
-        .in("cache_kind", ["search", "answer"]);
+      const deletion = createAdminClient().from("rag_response_cache").delete();
+      await (sharedCacheOwnerId ? deletion.eq("owner_id", sharedCacheOwnerId) : deletion.is("owner_id", null)).in(
+        "cache_kind",
+        ["search", "answer"],
+      );
     } catch (error) {
       // Shared cache invalidation is best effort.
       console.warn("Shared cache invalidation failed for owner:", error);
@@ -1769,9 +1843,7 @@ async function insertRagQuery(row: RagQueryInsert) {
     query: queryTextForStorage(rawQuery),
     metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
   };
-  await supabase
-    .from("rag_queries")
-    .insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
+  await supabase.from("rag_queries").insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
 }
 
 async function logRagQuery(row: RagQueryInsert) {
@@ -1899,12 +1971,7 @@ async function fetchEnabledRagAliases(
       .eq("enabled", true)
       .order("weight", { ascending: false })
       .limit(maxRagAliasesPerScope);
-    const nullableQuery = query as typeof query & { is?: (column: string, value: null) => typeof query };
-    query = scopeOwnerId
-      ? query.eq("owner_id", scopeOwnerId)
-      : nullableQuery.is
-        ? nullableQuery.is("owner_id", null)
-        : query.eq("owner_id", null);
+    query = scopeOwnerId ? query.eq("owner_id", scopeOwnerId) : query.is("owner_id", null);
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as RagAliasInput[];
@@ -2070,8 +2137,8 @@ async function searchTextChunkCandidates(args: {
     const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
       query_text: queryText,
       match_count: matchCount,
-      document_filters: args.documentIds ?? null,
-      owner_filter: args.ownerId ?? null,
+      document_filters: args.documentIds ?? undefined,
+      owner_filter: args.ownerId ?? undefined,
     });
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
@@ -2222,9 +2289,9 @@ async function fetchBestDocumentLookupChunks(args: {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
     query_text: args.query,
-    document_filters: args.documentIds,
+    document_filters: args.documentIds ?? undefined,
     match_count: Math.max(args.limit * 3, 24),
-    owner_filter: args.ownerId ?? null,
+    owner_filter: args.ownerId ?? undefined,
   });
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -2328,7 +2395,7 @@ async function searchDocumentLookupFastPath(args: {
       const { data, error } = await args.supabase.rpc("match_documents_for_query", {
         query_text: variant,
         match_count: index === 0 ? 12 : 8,
-        owner_filter: args.ownerId ?? null,
+        owner_filter: args.ownerId ?? undefined,
       });
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
@@ -2681,8 +2748,8 @@ async function searchTableFactCandidates(args: {
       const { data, error } = await args.supabase.rpc("match_document_table_facts_text", {
         query_text: variant,
         match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-        document_filters: args.documentIds ?? null,
-        owner_filter: args.ownerId ?? null,
+        document_filters: args.documentIds ?? undefined,
+        owner_filter: args.ownerId ?? undefined,
       });
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
@@ -2725,12 +2792,12 @@ async function searchEmbeddingFieldCandidates(args: {
   telemetry?: SearchTelemetry;
 }) {
   const { data, error } = await args.supabase.rpc("match_document_embedding_fields_hybrid", {
-    query_embedding: args.queryEmbedding,
+    query_embedding: args.queryEmbedding as unknown as string,
     query_text: buildClinicalTextSearchQuery(args.query),
     match_count: args.matchCount,
     min_similarity: 0.12,
-    document_filters: args.documentIds ?? null,
-    owner_filter: args.ownerId ?? null,
+    document_filters: args.documentIds ?? undefined,
+    owner_filter: args.ownerId ?? undefined,
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2775,12 +2842,12 @@ async function searchIndexUnitCandidates(args: {
   telemetry?: SearchTelemetry;
 }) {
   const { data, error } = await args.supabase.rpc("match_document_index_units_hybrid", {
-    query_embedding: args.queryEmbedding,
+    query_embedding: args.queryEmbedding as unknown as string,
     query_text: buildClinicalTextSearchQuery(args.query),
     match_count: args.matchCount,
     min_similarity: 0.1,
-    document_filters: args.documentIds ?? null,
-    owner_filter: args.ownerId ?? null,
+    document_filters: args.documentIds ?? undefined,
+    owner_filter: args.ownerId ?? undefined,
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2903,7 +2970,7 @@ async function attachIndexQualityMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   ownerId?: string,
-) {
+): Promise<SearchResult[]> {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
   try {
@@ -2917,7 +2984,10 @@ async function attachIndexQualityMetadata(
     const qualityByDocument = new Map(data.map((row) => [row.document_id, row]));
     return results.map((result) => ({
       ...result,
-      indexing_quality: qualityByDocument.get(result.document_id) ?? result.indexing_quality ?? null,
+      indexing_quality:
+        (qualityByDocument.get(result.document_id) as SearchResult["indexing_quality"]) ??
+        result.indexing_quality ??
+        null,
     }));
   } catch {
     return results;
@@ -3095,8 +3165,8 @@ async function attachPageVisualEvidence(
       page_number: image.page_number,
       storage_path: image.storage_path,
       caption: image.caption,
-      bbox: image.bbox,
-      image_type: image.image_type,
+      bbox: image.bbox as ChunkImage["bbox"],
+      image_type: image.image_type as ChunkImage["image_type"],
       searchable: image.searchable,
       clinical_relevance_score: image.clinical_relevance_score,
       source_kind: image.source_kind,
@@ -5131,19 +5201,27 @@ function cleanAnswerSectionHeading(heading: string, body: string) {
 }
 
 function applyProviderLabels(answer: RagAnswer): RagAnswer {
+  const inferredSourceOnlyFallback =
+    answer.routingMode === "extractive" ||
+    /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
   const answerQualityTier: RagAnswer["answerQualityTier"] =
     answer.answerQualityTier ??
-    (answer.modelUsed ? "model_synthesis" : answer.routingMode === "extractive" ? "source_only" : undefined);
+    (answer.modelUsed ? "model_synthesis" : inferredSourceOnlyFallback ? "source_only" : undefined);
   const fallbackReason =
     answer.fallbackReason ??
     (answerQualityTier === "source_only"
-      ? (answer.routingReason?.match(/source_only_[a-z_]+/)?.[0] ?? "source_only")
+      ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only")
       : null);
+  const degradedActive = answerQualityTier === "source_only";
   return {
     ...answer,
     providerMode: answer.providerMode ?? ragProviderMode(),
     answerQualityTier,
     fallbackReason,
+    degradedMode: answer.degradedMode ?? {
+      active: degradedActive,
+      reason: degradedActive ? fallbackReason : null,
+    },
   };
 }
 
@@ -5302,9 +5380,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const cached = getCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (cached) return cached;
   const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
-  if (sharedCached) {
+  if (sharedCached?.kind === "hit") {
     setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
-    return sharedCached;
+    return { results: sharedCached.results, telemetry: sharedCached.telemetry };
+  }
+  if (sharedCached?.kind === "miss") {
+    telemetry.shared_cache_status = "miss";
+    telemetry.shared_cache_miss_reason = sharedCached.reason;
   }
 
   if (shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
@@ -5645,12 +5727,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     (async () => {
       const startedAt = Date.now();
       const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
-        query_embedding: embedding,
+        query_embedding: embedding as unknown as string,
         query_text: textSearchQuery,
         match_count: candidateCount,
         min_similarity: minSimilarity,
-        document_filters: documentFilterList ?? null,
-        owner_filter: args.ownerId ?? null,
+        document_filters: documentFilterList ?? undefined,
+        owner_filter: args.ownerId ?? undefined,
       });
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -5738,11 +5820,11 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const resultSets = await Promise.all(
     vectorFilters.map(async (documentFilter) => {
       const { data, error } = await supabase.rpc("match_document_chunks", {
-        query_embedding: embedding,
+        query_embedding: embedding as unknown as string,
         match_count: candidateCount,
         min_similarity: minSimilarity,
-        document_filter: documentFilter,
-        owner_filter: args.ownerId ?? null,
+        document_filter: documentFilter ?? undefined,
+        owner_filter: args.ownerId ?? undefined,
       });
 
       if (error) throw new Error(error.message);
@@ -6520,6 +6602,9 @@ async function answerQuestionWithScopeUncoalesced(
         responseMode: smartApiPlan.displayMode,
         latencyTimings: {
           search_cache_hit: search.telemetry.search_cache_hit,
+          shared_cache_hit: search.telemetry.shared_cache_hit,
+          shared_cache_status: search.telemetry.shared_cache_status,
+          shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_skip_reason: search.telemetry.embedding_skip_reason,
@@ -6633,6 +6718,9 @@ async function answerQuestionWithScopeUncoalesced(
         routeReason: route.reason,
         timings: {
           search_cache_hit: search.telemetry.search_cache_hit,
+          shared_cache_hit: search.telemetry.shared_cache_hit,
+          shared_cache_status: search.telemetry.shared_cache_status,
+          shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_skip_reason: search.telemetry.embedding_skip_reason,
@@ -6945,6 +7033,9 @@ ${qualityRetryInstruction}`
       responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`).displayMode,
       latencyTimings: {
         search_cache_hit: search.telemetry.search_cache_hit,
+        shared_cache_hit: search.telemetry.shared_cache_hit,
+        shared_cache_status: search.telemetry.shared_cache_status,
+        shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
         text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
         embedding_skipped: search.telemetry.embedding_skipped,
         embedding_skip_reason: search.telemetry.embedding_skip_reason,
@@ -7150,6 +7241,9 @@ ${qualityRetryInstruction}`
     const relatedDocuments = await relatedDocumentsPromise;
     const answerTimings = {
       search_cache_hit: search.telemetry.search_cache_hit,
+      shared_cache_hit: search.telemetry.shared_cache_hit,
+      shared_cache_status: search.telemetry.shared_cache_status,
+      shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
       text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
       embedding_skipped: search.telemetry.embedding_skipped,
       embedding_skip_reason: search.telemetry.embedding_skip_reason,
