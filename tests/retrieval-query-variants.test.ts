@@ -660,6 +660,16 @@ describe("retrieval query variants", () => {
     expect(variants).not.toContain("red zone");
   });
 
+  it("injects zone-colour variant for risk-matrix queries without a flowchart token", () => {
+    // A query phrased as "risk matrix" (no "flowchart"/"algorithm"/"pathway") must
+    // still receive the zone-colour variant so recall is not regressed for this
+    // class of next-step question.
+    const query = "In the risk matrix, what is the next step after the red zone?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone"]));
+  });
+
   it("keeps agitation route queries focused on the canonical agitation and arousal source", () => {
     const query = "What IM or PO options are listed for agitation?";
     const textQuery = buildClinicalTextSearchQuery(query);

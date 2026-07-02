@@ -1957,7 +1957,7 @@ export function buildRetrievalQueryVariants(
     addVariant("admission discharge");
   }
   if (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
   ) {
     addVariant("risk flow");
