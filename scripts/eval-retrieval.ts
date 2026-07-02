@@ -84,7 +84,12 @@ export type GoldenRetrievalResult = {
     page_number: number | null;
     document_status?: string | null;
     clinical_validation_status?: string | null;
+    clinical_validation_evidence_status?: string | null;
+    clinical_validation_evidence_basis?: string | null;
+    clinical_validation_evidence_type?: string | null;
     extraction_quality?: string | null;
+    publisher_code?: string | null;
+    jurisdiction?: string | null;
     hybrid_score: number | null;
     similarity: number;
     text_rank: number | null;
@@ -375,22 +380,38 @@ function hasTableEvidence(results: SearchResult[], limit = 5) {
 }
 
 function topResultSummary(results: SearchResult[]) {
-  return results.slice(0, 5).map((result, index) => ({
-    rank: index + 1,
-    title: result.title,
-    file_name: result.file_name,
-    chunk_id: result.id,
-    page_number: result.page_number,
-    document_status: result.source_metadata?.document_status ?? null,
-    clinical_validation_status: result.source_metadata?.clinical_validation_status ?? null,
-    extraction_quality: result.source_metadata?.extraction_quality ?? null,
-    hybrid_score: result.hybrid_score ?? null,
-    similarity: result.similarity,
-    text_rank: result.text_rank ?? null,
-    rrf_score: result.rrf_score ?? null,
-    score_explanation: result.score_explanation,
-    content_preview: (result.retrieval_synopsis || result.content).replace(/\s+/g, " ").trim().slice(0, 220),
-  }));
+  return results.slice(0, 5).map((result, index) => {
+    const validationEvidence =
+      result.source_metadata?.clinical_validation_evidence &&
+      typeof result.source_metadata.clinical_validation_evidence === "object" &&
+      !Array.isArray(result.source_metadata.clinical_validation_evidence)
+        ? (result.source_metadata.clinical_validation_evidence as Record<string, unknown>)
+        : {};
+    return {
+      rank: index + 1,
+      title: result.title,
+      file_name: result.file_name,
+      chunk_id: result.id,
+      page_number: result.page_number,
+      document_status: result.source_metadata?.document_status ?? null,
+      clinical_validation_status: result.source_metadata?.clinical_validation_status ?? null,
+      clinical_validation_evidence_status:
+        typeof validationEvidence.status === "string" ? validationEvidence.status : null,
+      clinical_validation_evidence_basis:
+        typeof validationEvidence.basis === "string" ? validationEvidence.basis : null,
+      clinical_validation_evidence_type:
+        typeof validationEvidence.evidence_type === "string" ? validationEvidence.evidence_type : null,
+      extraction_quality: result.source_metadata?.extraction_quality ?? null,
+      publisher_code: result.source_metadata?.publisher_code ?? null,
+      jurisdiction: result.source_metadata?.jurisdiction ?? null,
+      hybrid_score: result.hybrid_score ?? null,
+      similarity: result.similarity,
+      text_rank: result.text_rank ?? null,
+      rrf_score: result.rrf_score ?? null,
+      score_explanation: result.score_explanation,
+      content_preview: (result.retrieval_synopsis || result.content).replace(/\s+/g, " ").trim().slice(0, 220),
+    };
+  });
 }
 
 export function evaluateGoldenRetrievalCase(args: {

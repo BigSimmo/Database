@@ -1766,7 +1766,9 @@ as $$
     '[]'::jsonb
   )
   from public.document_labels l
-  where l.document_id = p_document_id;
+  where l.document_id = p_document_id
+    and coalesce(l.metadata->>'review_status', 'new') <> 'hidden'
+    and coalesce(l.metadata->>'hidden', 'false') <> 'true';
 $$;
 
 create or replace function public.document_summary_text(p_document_id uuid)
@@ -2506,7 +2508,10 @@ as $$
         else 'none'
       end as match_reason
     from public.documents d
-    left join public.document_labels l on l.document_id = d.id
+    left join public.document_labels l
+      on l.document_id = d.id
+      and coalesce(l.metadata->>'review_status', 'new') <> 'hidden'
+      and coalesce(l.metadata->>'hidden', 'false') <> 'true'
     left join public.document_summaries s on s.document_id = d.id
     cross join query
     where (owner_filter is null or d.owner_id = owner_filter)
@@ -2618,6 +2623,8 @@ as $$
       ) as labels
     from public.document_labels l
     where l.document_id in (select distinct ranked.document_id from ranked)
+      and coalesce(l.metadata->>'review_status', 'new') <> 'hidden'
+      and coalesce(l.metadata->>'hidden', 'false') <> 'true'
     group by l.document_id
   ),
   -- Batch-fetch summary text for all distinct document_ids in the result set.
@@ -2760,6 +2767,8 @@ as $$
         from public.document_labels l
         where l.document_id = d.id
           and (owner_filter is null or l.owner_id = owner_filter)
+          and coalesce(l.metadata->>'review_status', 'new') <> 'hidden'
+          and coalesce(l.metadata->>'hidden', 'false') <> 'true'
       ),
       '[]'::jsonb
     ) as labels,

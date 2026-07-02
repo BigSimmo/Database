@@ -335,7 +335,9 @@ export function AccessibleTable({
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
   const hasExplicitRows = Boolean(rows?.length);
-  const parsed = hasExplicitRows ? rows : parseMarkdownTable(markdown);
+  const parsed = useMemo(() => {
+    return hasExplicitRows ? rows : parseMarkdownTable(markdown);
+  }, [hasExplicitRows, rows, markdown]);
   const normalized = useMemo(() => {
     if (!parsed?.length) return null;
     // Audit M8/H4 parity (diff review): markdown-parsed rows include their

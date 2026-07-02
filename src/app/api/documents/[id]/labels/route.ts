@@ -38,6 +38,13 @@ const manualLabelUpdateSchema = manualLabelSchema.extend({
   labelId: z.string().uuid(),
 });
 
+const labelReviewSchema = z.object({
+  labelId: z.string().uuid(),
+  action: z.enum(["approve", "hide", "restore"]),
+});
+
+const labelPatchSchema = z.union([manualLabelUpdateSchema, labelReviewSchema]);
+
 const manualLabelDeleteSchema = z.object({
   labelId: z.string().uuid(),
 });
@@ -56,6 +63,10 @@ function parseManualLabel(input: z.infer<typeof manualLabelSchema>) {
     throw new PublicApiError("Enter a short, specific clinical tag. Generic document-control tags are not allowed.");
   }
   return normalized;
+}
+
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 }
 
 async function requireOwnedDocument(
@@ -152,16 +163,48 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }
 
-    const parsed = await parseJsonBody(
-      request,
-      manualLabelUpdateSchema,
-      "Enter a manual tag between 2 and 64 characters.",
-    );
-    const normalized = parseManualLabel(parsed);
+    const parsed = await parseJsonBody(request, labelPatchSchema, "Enter a manual tag or label review action.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
     await requireOwnedDocument(supabase, id, user.id);
+
+    if ("action" in parsed) {
+      const { data: existing, error: existingError } = await supabase
+        .from("document_labels")
+        .select("id,metadata")
+        .eq("id", parsed.labelId)
+        .eq("document_id", id)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (existingError) throw new Error(existingError.message);
+      if (!existing) throw new PublicApiError("Tag not found.", 404);
+
+      const reviewStatus = parsed.action === "approve" ? "approved" : parsed.action === "hide" ? "hidden" : "new";
+      const metadata = {
+        ...metadataRecord(existing.metadata),
+        review_status: reviewStatus,
+        hidden: parsed.action === "hide",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: "label-review-admin",
+      };
+
+      const { data: label, error } = await supabase
+        .from("document_labels")
+        .update({ metadata })
+        .eq("id", parsed.labelId)
+        .eq("document_id", id)
+        .eq("owner_id", user.id)
+        .select("*")
+        .single();
+
+      if (error) throw new Error(error.message);
+      invalidateRagCachesForDocumentMutation(user.id);
+      return NextResponse.json({ label });
+    }
+
+    const normalized = parseManualLabel(parsed);
 
     const { data: existing, error: existingError } = await supabase
       .from("document_labels")
