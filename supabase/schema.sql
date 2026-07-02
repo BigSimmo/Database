@@ -3452,8 +3452,18 @@ $$;
 revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role;
 
-alter database postgres
-  set app.indexing_v3_agent_base_url = 'https://sjrfecxgysukkwxsowpy.supabase.co';
+-- Guarded: hosted Supabase denies ALTER DATABASE SET to the migration role
+-- (42501); swallow insufficient_privilege so schema replay succeeds on hosted.
+-- invoke_indexing_v3_agent falls back to the hardcoded URL when the GUC is unset.
+do $$
+begin
+  execute format('alter database %I set app.indexing_v3_agent_base_url = %L',
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
+exception
+  when insufficient_privilege then
+    raise notice 'Skipping ALTER DATABASE SET app.indexing_v3_agent_base_url (insufficient privilege on hosted Supabase).';
+end
+$$;
 
 create or replace function public.invoke_indexing_v3_agent(p_limit integer default 1)
 returns bigint

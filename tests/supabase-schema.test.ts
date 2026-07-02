@@ -286,7 +286,10 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("set search_path = public, extensions, vault, pg_temp");
     expect(schema).toContain("from vault.decrypted_secrets");
     expect(schema).toContain("where name = 'indexing_v3_agent_secret'");
-    expect(schema).toContain("set app.indexing_v3_agent_base_url = 'https://sjrfecxgysukkwxsowpy.supabase.co';");
+    // The GUC default is set through a privilege-guarded DO block so schema
+    // replay succeeds on hosted Supabase (ALTER DATABASE SET is denied there).
+    expect(schema).toContain("alter database %I set app.indexing_v3_agent_base_url = %L");
+    expect(schema).toContain("when insufficient_privilege then");
     expect(schema).toContain("nullif(current_setting('app.indexing_v3_agent_base_url', true), '')");
     expect(schema).toContain("select net.http_post(");
     expect(schema).toContain("v_base_url || '/functions/v1/indexing-v3-agent?limit='");
