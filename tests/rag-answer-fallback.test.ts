@@ -1362,6 +1362,11 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingMode).toBe("unsupported");
     expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
     expect(answer.routingReason).not.toContain("OpenAI generation incomplete");
+    expect(answer.answerQualityTier).toBe("source_only");
+    expect(answer.degradedMode).toMatchObject({
+      active: true,
+      reason: "generation_fallback:provider_incomplete_max_output_tokens",
+    });
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
       "fast_max_output_tokens_retry_strong",
