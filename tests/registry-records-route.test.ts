@@ -1,0 +1,282 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const token = "valid-token";
+const recordId = "11111111-1111-4111-8111-111111111111";
+
+type QueryError = { message: string };
+type QueryResult = { data: unknown; error: QueryError | null };
+type QueryFilter = { column: string; value: unknown };
+type QueryCall = {
+  table: string;
+  filters: QueryFilter[];
+  inFilters: Array<{ column: string; values: unknown[] }>;
+  maybeSingle: boolean;
+};
+type QueryResolver = (call: QueryCall) => QueryResult;
+
+function ok(data: unknown): QueryResult {
+  return { data, error: null };
+}
+
+function registryRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: recordId,
+    owner_id: userId,
+    kind: "service",
+    slug: "13yarn",
+    title: "13YARN",
+    subtitle: "Crisis support line",
+    route: null,
+    eligibility: null,
+    cost: null,
+    referral: null,
+    location: null,
+    best_use: null,
+    catalogue_label: null,
+    navigator_query: null,
+    tags: ["crisis"],
+    catchments: [],
+    status_chips: [],
+    primary_contact: { label: "Phone", value: "13 92 76", kind: "phone" },
+    contacts: [],
+    summary_cards: [],
+    referral_info: [],
+    criteria: [],
+    verification: { locallyVerified: true },
+    source: { status: "Source checked" },
+    source_status: "current",
+    validation_status: "locally_reviewed",
+    last_reviewed_at: null,
+    review_due_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+class QueryBuilder implements PromiseLike<QueryResult> {
+  constructor(
+    private readonly call: QueryCall,
+    private readonly resolver: QueryResolver,
+  ) {}
+
+  select() {
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
+  in(column: string, values: unknown[]) {
+    this.call.inFilters.push({ column, values });
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  maybeSingle() {
+    this.call.maybeSingle = true;
+    return Promise.resolve(this.resolver(this.call));
+  }
+
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this.resolver(this.call)).then(onfulfilled, onrejected);
+  }
+}
+
+function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { limited?: boolean } = {}) {
+  const calls: QueryCall[] = [];
+  const getUser = vi.fn(async (receivedToken?: string) =>
+    receivedToken === token
+      ? { data: { user: { id: userId } }, error: null }
+      : { data: { user: null }, error: { message: "Invalid token" } },
+  );
+  const rpc = vi.fn(async (name: string) =>
+    name === "consume_api_rate_limit"
+      ? {
+          data: [
+            {
+              limited: Boolean(options.limited),
+              limit_value: 120,
+              remaining: options.limited ? 0 : 119,
+              retry_after_seconds: 60,
+              reset_at: new Date(Date.now() + 60_000).toISOString(),
+            },
+          ],
+          error: null,
+        }
+      : ok([]),
+  );
+  return {
+    calls,
+    auth: { getUser },
+    rpc,
+    from: vi.fn((table: string) => {
+      const call: QueryCall = { table, filters: [], inFilters: [], maybeSingle: false };
+      calls.push(call);
+      return new QueryBuilder(call, resolve);
+    }),
+  };
+}
+
+function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { demoMode?: boolean } = {}) {
+  vi.resetModules();
+  vi.doMock("@/lib/env", () => ({
+    env: {},
+    isDemoMode: () => Boolean(options.demoMode),
+    isLocalNoAuthMode: () => false,
+    requireOpenAIEnv: () => undefined,
+    requireServerEnv: () => undefined,
+  }));
+  vi.doMock("@/lib/supabase/admin", () => ({
+    createAdminClient: () => client,
+  }));
+}
+
+function request(path: string, init?: RequestInit) {
+  return new Request(`http://localhost${path}`, init);
+}
+
+function authedRequest(path: string) {
+  return request(path, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.resetModules();
+});
+
+describe("registry records API", () => {
+  it("serves mock records in demo mode without touching Supabase", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+    const payload = (await response.json()) as { records: Array<{ slug: string }>; demoMode?: boolean };
+
+    expect(response.status).toBe(200);
+    expect(payload.demoMode).toBe(true);
+    expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
+    expect(client.from).not.toHaveBeenCalled();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthenticated list requests outside demo mode", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+
+    expect(response.status).toBe(401);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid kind with a validation error", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=differentials"));
+
+    expect(response.status).toBe(400);
+  });
+
+  it("scopes every registry query to the authenticated owner", async () => {
+    const client = createSupabaseMock((call) =>
+      call.table === "clinical_registry_records" ? ok([registryRow()]) : ok([]),
+    );
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=service&q=yarn"));
+    const payload = (await response.json()) as {
+      records: Array<{ slug: string }>;
+      matches?: Array<{ record: { slug: string }; score: number; reasons: string[] }>;
+      governance: Record<string, { validationStatus: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.records[0]?.slug).toBe("13yarn");
+    expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
+    expect(payload.governance["13yarn"]?.validationStatus).toBe("locally_reviewed");
+    for (const call of client.calls) {
+      expect(call.filters).toContainEqual({ column: "owner_id", value: userId });
+    }
+  });
+
+  it("returns 429 when the registry rate limit is exhausted", async () => {
+    const client = createSupabaseMock(() => ok([]), { limited: true });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=form"));
+
+    expect(response.status).toBe(429);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("returns a single owner-scoped record with governance metadata", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "clinical_registry_records") return ok(registryRow());
+      if (call.table === "clinical_registry_record_sources") return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(authedRequest("/api/registry/records/13YARN?kind=service"), {
+      params: Promise.resolve({ slug: "13YARN" }),
+    });
+    const payload = (await response.json()) as {
+      record: { slug: string };
+      governance: { sourceStatus: string; validationStatus: string };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.record.slug).toBe("13yarn");
+    expect(payload.governance.sourceStatus).toBe("current");
+    for (const call of client.calls) {
+      expect(call.filters).toContainEqual({ column: "owner_id", value: userId });
+    }
+    const recordCall = client.calls.find((call) => call.table === "clinical_registry_records");
+    expect(recordCall?.filters).toContainEqual({ column: "slug", value: "13yarn" });
+  });
+
+  it("returns 404 for an unknown slug", async () => {
+    const client = createSupabaseMock((call) => (call.table === "clinical_registry_records" ? ok(null) : ok([])));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(authedRequest("/api/registry/records/unknown-service?kind=service"), {
+      params: Promise.resolve({ slug: "unknown-service" }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("serves the mock detail record in demo mode", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(request("/api/registry/records/transport-crisis-form?kind=form"), {
+      params: Promise.resolve({ slug: "transport-crisis-form" }),
+    });
+    const payload = (await response.json()) as { record: { slug: string }; demoMode?: boolean };
+
+    expect(response.status).toBe(200);
+    expect(payload.demoMode).toBe(true);
+    expect(payload.record.slug).toBe("transport-crisis-form");
+    expect(client.from).not.toHaveBeenCalled();
+  });
+});
