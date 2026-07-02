@@ -14,7 +14,9 @@ describe("flattened-table run-on separation", () => {
   });
 
   it("handles the pattern with no comma present", () => {
-    const out = polishClinicalAnswerProse("U&Es are repeated every 6 months for inpatients for community patients they are checked annually.");
+    const out = polishClinicalAnswerProse(
+      "U&Es are repeated every 6 months for inpatients for community patients they are checked annually.",
+    );
     expect(out).toContain("for inpatients. For community patients,");
   });
 

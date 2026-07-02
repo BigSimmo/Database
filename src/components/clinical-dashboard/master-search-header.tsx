@@ -889,7 +889,10 @@ export function MasterSearchHeader({
             integrated={usesUniversalFooterStyle}
           />
 
-          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+          {/* The clear button is a flex sibling (not absolutely positioned): the
+              unlayered .answer-footer-search-input padding beats a conditional
+              pr-* utility, which let text run under an overlaid button. */}
+          <label className="flex min-w-0 flex-1 items-center overflow-hidden">
             <input
               ref={queryInputRef}
               data-testid="global-search-input"
@@ -907,14 +910,13 @@ export function MasterSearchHeader({
                 "w-full min-w-0",
                 usesUniversalFooterStyle && "answer-footer-search-input",
                 isDesktopHomeComposer && "desktop-home-search-input",
-                query ? "pr-11" : null,
               )}
             />
             {query && (
               <button
                 type="button"
                 onClick={onClearQuery}
-                className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                 aria-label="Clear search question"
               >
                 <X className="h-4 w-4" />
@@ -1236,7 +1238,10 @@ export function MasterSearchHeader({
                 </button>
               </>
             ) : isStandaloneModeHomeHeader ? (
-              <div className="hidden min-w-0 items-center gap-2 lg:flex">
+              /* min-[1400px]: below that the equal-thirds grid leaves the right
+                 column too narrow for these chips and they slide under the
+                 centered mode pill. */
+              <div className="hidden min-w-0 items-center gap-2 min-[1400px]:flex">
                 <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                   <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                   Local only

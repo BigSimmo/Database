@@ -496,8 +496,12 @@ describe("Supabase schema Data API grants", () => {
     }
     // schema.sql mirrors the live-codified ranked ordering (single sort key, wider candidate
     // bound); the original migration kept the similarity tie-breaker and tighter bound.
-    expect(extractIndexUnitHybridFunction(schema)).toContain("order by text_rank desc limit greatest(match_count * 3, 48)");
-    expect(extractIndexUnitHybridFunction(documentIndexUnitsMigration)).toContain("order by text_rank desc, similarity desc");
+    expect(extractIndexUnitHybridFunction(schema)).toContain(
+      "order by text_rank desc limit greatest(match_count * 3, 48)",
+    );
+    expect(extractIndexUnitHybridFunction(documentIndexUnitsMigration)).toContain(
+      "order by text_rank desc, similarity desc",
+    );
   });
 
   it("stores smart image metadata, document labels, and high-yield summaries", () => {

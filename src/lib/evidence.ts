@@ -254,12 +254,22 @@ export function buildDocumentBreakdown(results: SearchResult[], quoteCards: Quot
   return Array.from(grouped.values()).sort((a, b) => b.top_similarity - a.top_similarity);
 }
 
-export function buildSmartPanel(query: string, results: SearchResult[]) {
+// Audit L10: callers that already computed relevance/visual evidence for the
+// same query+results (the hot search route does) can pass them in instead of
+// paying for a recomputation whose smart-panel copy was then overwritten.
+export function buildSmartPanel(
+  query: string,
+  results: SearchResult[],
+  precomputed?: {
+    relevance?: ReturnType<typeof buildEvidenceRelevance>;
+    visualEvidence?: ReturnType<typeof buildVisualEvidence>;
+  },
+) {
   const quoteCards = extractQuoteCards(results, query);
   const documentBreakdown = buildDocumentBreakdown(results, quoteCards);
-  const visualEvidence = buildVisualEvidence(results);
+  const visualEvidence = precomputed?.visualEvidence ?? buildVisualEvidence(results);
   const bestSource = selectBestSourceRecommendation(results, quoteCards);
-  const relevance = buildEvidenceRelevance(query, results);
+  const relevance = precomputed?.relevance ?? buildEvidenceRelevance(query, results);
 
   return {
     query,

@@ -25,10 +25,7 @@ describe("mapOpenAIError quota vs rate-limit classification", () => {
   });
 
   it("detects quota exhaustion from the message even when no error code is set", () => {
-    const mapped = mapOpenAIError(
-      openAIError("Billing hard limit reached.", { status: 429 }),
-      "answer",
-    );
+    const mapped = mapOpenAIError(openAIError("Billing hard limit reached.", { status: 429 }), "answer");
 
     expect(mapped.details?.code).toBe("insufficient_quota");
     expect(mapped.message).not.toMatch(/retry in a moment/i);

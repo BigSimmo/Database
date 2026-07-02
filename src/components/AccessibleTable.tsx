@@ -334,13 +334,21 @@ export function AccessibleTable({
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
-  const parsed = rows?.length ? rows : parseMarkdownTable(markdown);
+  const hasExplicitRows = Boolean(rows?.length);
+  const parsed = hasExplicitRows ? rows : parseMarkdownTable(markdown);
   const normalized = useMemo(() => {
     if (!parsed?.length) return null;
-    const table = normalizeAccessibleTable(parsed, columns);
+    // Audit M8/H4 parity (diff review): markdown-parsed rows include their
+    // own header line as row 0 — passing explicit columns alongside them made
+    // the markdown header render as the first DATA row on screen, and let the
+    // on-screen and copied-ward-note normalizations disagree (different
+    // headers, potentially different lowConfidence caveats). Columns are the
+    // header only for explicit row arrays, matching clinicalTableToTextRows
+    // in ward-output.ts.
+    const table = normalizeAccessibleTable(parsed, hasExplicitRows ? columns : null);
     if (!table) return null;
     return clinicalOnly ? clinicalOnlyTable(table) : table;
-  }, [clinicalOnly, columns, parsed]);
+  }, [clinicalOnly, columns, hasExplicitRows, parsed]);
 
   const dialogOpen = open && canExpand;
 

@@ -127,6 +127,45 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     expect(verification.unverifiedTokens).toContain("12.5mg");
   });
 
+  // H1 (audit 2026-07-01): the verification corpus must include everything the
+  // model was shown in buildRagSourceBlock. A number living only in the chunk's
+  // retrieval synopsis or a table-crop image's text previously flagged as
+  // unverified, blanking a faithful answer.
+  it("verifies a number that appears only in the retrieval synopsis (H1)", () => {
+    const result = source({
+      content: "See the monitoring summary.",
+      retrieval_synopsis: "Withhold clozapine when ANC falls below 2.0 ×10⁹/L; restart at 12.5 mg.",
+    });
+    const verification = verifyAnswerNumbers(
+      "Withhold below 2.0 ×10⁹/L and restart at 12.5 mg.",
+      [{ chunk_id: "chunk-1" }],
+      [result],
+    );
+    expect(verification.hasUnverifiedNumbers).toBe(false);
+  });
+
+  it("verifies a number that appears only in a cited image's table text (H1)", () => {
+    const result = source({
+      content: "Refer to the threshold table.",
+      images: [
+        {
+          id: "img-1",
+          page_number: 4,
+          storage_path: "images/doc-1/img-1.png",
+          caption: "Monitoring thresholds",
+          tableTextSnippet: "Amber: ANC 1.5-2.0, increase monitoring.",
+          accessibleTableMarkdown: "| Band | ANC | Action |\n| Amber | 1.5-2.0 | Increase monitoring |",
+        },
+      ],
+    });
+    const verification = verifyAnswerNumbers(
+      "In the amber band (ANC 1.5-2.0) increase monitoring.",
+      [{ chunk_id: "chunk-1" }],
+      [result],
+    );
+    expect(verification.hasUnverifiedNumbers).toBe(false);
+  });
+
   it("matches numbers in table facts of a cited chunk", () => {
     const result = source({
       content: "See monitoring table.",

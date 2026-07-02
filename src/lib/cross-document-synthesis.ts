@@ -192,7 +192,7 @@ export function buildCrossDocumentSynthesisPlan(
   const documents = documentCount(results);
   const reason = planReason(query, queryClass, documents);
   const enabled = documents > 1 && isCrossDocumentIntent(query, queryClass);
-  const maxPerDocument = queryClass === "comparison" ? 2 : 2;
+  const maxPerDocument = 2;
   const limit = queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 6;
   const balanced = enabled
     ? balanceCrossDocumentResults(results, {

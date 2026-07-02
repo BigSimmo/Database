@@ -60,6 +60,30 @@ describe("document organization classifier", () => {
     expect(classification.profile.secondary_facets.service).toEqual(["kara maar"]);
   });
 
+  // M6 (audit 2026-07-01): a site named in PLAIN TEXT in the title must be
+  // detected even when the body never repeats it.
+  it("detects a site named only in the title text (M6)", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Fiona Stanley Hospital Sepsis Pathway",
+      file_name: "sepsis-pathway.pdf",
+      contentText: "Escalate suspected sepsis immediately.",
+    });
+
+    expect(classification.profile.site.label).toBe("Fiona Stanley Hospital");
+  });
+
+  // M7: the generic phrase "best practice" must not attribute a local policy
+  // to the BMJ Best Practice reference collection.
+  it("does not attribute BMJ on the bare phrase 'best practice' (M7)", () => {
+    const classification = classifyDocumentOrganization({
+      title: "Local Escalation Policy",
+      file_name: "local-escalation-policy.pdf",
+      contentText: "In line with best practice, staff should escalate concerns to the senior clinician.",
+    });
+
+    expect(classification.profile.site.label).not.toBe("BMJ Best Practice");
+  });
+
   it("maps health-service and program tags conservatively", () => {
     expect(
       classifyDocumentOrganization({

@@ -34,6 +34,16 @@ const provenanceNoiseTermPattern =
   /\b(?:guideline|procedure|protocol|policy|appendix|source|evidence|document|file|page|scale|lunsers|liverpool university|rating scale|retrieved|excerpt|passage)\b/gi;
 const concreteClinicalActionPattern =
   /\b(?:administer|arrange|assess|cease|check|complete|contact|document|escalat|follow\s*up|monitor|notify|record|refer|report|review|stop|withhold|dose|prescrib|titrate)\b/i;
+// Audit H2: threshold-bearing numerics (unit-bearing figures, ranges,
+// comparatives like "8 or below", decimals) mark a fragment as carrying
+// clinical VALUES. The noise heuristics below must never drop such a fragment:
+// sourceTitleFragmentPattern greedily consumes up to 180 chars after a title
+// keyword ("… Scale ranges from 3 to 15 …"), which silently deleted threshold
+// sentences. Bare integers ("Appendix 1") deliberately do NOT match, so real
+// title noise is still dropped. Falsely keeping noise is cosmetic; falsely
+// dropping a threshold is a clinical-safety failure, so this leans generous.
+const clinicalThresholdSignalPattern =
+  /\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|micrograms?|μg|µg|g|kg|ml|mmol|mol|units?|iu|hours?|hrs?|mins?|minutes?|days?|weeks?|months?|years?|mmhg|bpm|°c)\b|\b\d+(?:[.,]\d+)?\s*%|\b\d+(?:[.,]\d+)?\s*(?:[-–—]|to)\s*\d+(?:[.,]\d+)?\b|(?<![a-z0-9])(?:×|x)10\^?\d*|\b(?:below|above|under|over|at\s+least|at\s+most|more\s+than|less\s+than|greater\s+than|fewer\s+than)\s+\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s+or\s+(?:below|above|less|more|lower|higher|greater|fewer)\b|(?<![vV])\b\d+\.\d+\b/i;
 
 // Typographic ligatures produced by PDF text extraction → plain ASCII letters.
 const ligatureReplacements: Array<[RegExp, string]> = [
@@ -252,24 +262,44 @@ function isMostlySourceTitleFragment(text: string) {
 
 export function clinicalProseUsefulness(text: string) {
   const cleaned = sourceTextForClinicalProse(text);
-  const fragments = sentenceFragments(cleaned).filter((fragment) => {
-    if (!fragment) return false;
-    if (tokenCount(fragment) < 3) return false;
-    if (/^the\s+(?:retrieved|supplied|provided|indexed)\s+/i.test(fragment)) return false;
+  const keptFragments: string[] = [];
+  const baselineKeptFragments: string[] = [];
+  for (const fragment of sentenceFragments(cleaned)) {
+    if (!fragment) continue;
+    if (tokenCount(fragment) < 3) continue;
+    if (/^the\s+(?:retrieved|supplied|provided|indexed)\s+/i.test(fragment)) continue;
     const hasClinicalSignal = clinicalSignalPattern.test(fragment);
     const hasConcreteClinicalAction = concreteClinicalActionPattern.test(fragment);
+    // H2: a fragment carrying threshold-bearing numerics is never dropped by
+    // the title/noise heuristics — deleting clinical values is worse than
+    // keeping a little provenance noise.
+    const hasClinicalThresholdSignal = clinicalThresholdSignalPattern.test(fragment);
     const noiseRatio = provenanceNoiseRatio(fragment);
     const mostlySourceTitle = isMostlySourceTitleFragment(fragment);
-    if (mostlySourceTitle && !hasConcreteClinicalAction) return false;
-    if (noiseRatio >= 0.28 && !hasConcreteClinicalAction) return false;
-    if (isLowYieldClinicalText(fragment) && !hasConcreteClinicalAction) return false;
-    return hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16;
-  });
-  const textWithoutNoise = readableWhitespace(fragments.join(" "));
+    const droppedByBaseline =
+      (mostlySourceTitle && !hasConcreteClinicalAction) ||
+      (noiseRatio >= 0.28 && !hasConcreteClinicalAction) ||
+      (isLowYieldClinicalText(fragment) && !hasConcreteClinicalAction);
+    const keptByBaseline = !droppedByBaseline && (hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16);
+    if (!keptByBaseline && !hasClinicalThresholdSignal) continue;
+    keptFragments.push(fragment);
+    if (keptByBaseline) baselineKeptFragments.push(fragment);
+  }
+  const textWithoutNoise = readableWhitespace(keptFragments.join(" "));
   const clinicalSignalScore =
     (textWithoutNoise.match(clinicalSignalPattern) ? 1 : 0) +
-    (textWithoutNoise.match(concreteClinicalActionPattern) ? 1 : 0);
-  const provenanceScore = provenanceNoiseRatio(textWithoutNoise || cleaned);
+    (textWithoutNoise.match(concreteClinicalActionPattern) ? 1 : 0) +
+    // H2: threshold values ARE clinical signal — text kept purely for its
+    // thresholds must still be classifiable as useful.
+    (textWithoutNoise.match(clinicalThresholdSignalPattern) ? 1 : 0);
+  // Diff-review hardening of H2: the provenance score is computed over the
+  // fragments the BASELINE criteria kept. A noise-dense fragment rescued only
+  // for its threshold values must not inflate the score past the 0.42
+  // usefulness gate — that flipped `useful` to false and made downstream
+  // callers (rag-answer-text, ward-output) discard text that previously
+  // survived, including its clean actionable sentences.
+  const baselineText = readableWhitespace(baselineKeptFragments.join(" "));
+  const provenanceScore = provenanceNoiseRatio(baselineText || textWithoutNoise || cleaned);
   return {
     text: textWithoutNoise,
     useful: Boolean(textWithoutNoise && clinicalSignalScore > 0 && provenanceScore < 0.42),

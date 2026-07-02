@@ -110,6 +110,30 @@ describe("source text sanitizer", () => {
     expect(usefulness.useful).toBe(true);
   });
 
+  // H2 (audit 2026-07-01): a sentence carrying clinical threshold values must
+  // survive even when it starts near a title keyword (Scale/Guideline/…) and
+  // has no concrete-action verb — the greedy title-fragment match previously
+  // deleted it wholesale.
+  it("keeps threshold sentences that resemble source-title fragments (H2)", () => {
+    const text =
+      "Assess the patient on admission. The Glasgow Coma Scale ranges from 3 to 15 with 8 or below indicating severe head injury. Document the score.";
+
+    const usefulness = clinicalProseUsefulness(text);
+
+    expect(usefulness.text).toContain("ranges from 3 to 15");
+    expect(usefulness.text).toContain("8 or below");
+    expect(usefulness.text).toContain("Assess the patient on admission");
+  });
+
+  it("still drops bare-integer title noise like 'Guideline Appendix 1' (H2 guard)", () => {
+    const noisy =
+      "Dose evidence: LUNSERS (Liverpool University Neuroleptic Side Effect Rating Scale) - using for monitoring Neuroleptic side effect Guideline Appendix 1.";
+
+    const usefulness = clinicalProseUsefulness(noisy);
+
+    expect(usefulness.text).not.toContain("Liverpool University");
+  });
+
   it("scores document-control snippets as low yield without hiding document viewer provenance", () => {
     const text = "Neuroleptic side effect Guideline PAE-PRO-0338/16 Page 5 of 5";
 
