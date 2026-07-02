@@ -52,7 +52,6 @@ import {
 } from "@/components/clinical-dashboard/mode-action-popup";
 import {
   cn,
-  chatComposerIconButton,
   chatComposerInput,
   chatComposerShell,
   chatSendButton,
