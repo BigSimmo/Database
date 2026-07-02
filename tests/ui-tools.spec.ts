@@ -64,7 +64,7 @@ test.describe("Clinical KB applications launcher", () => {
         await expect(desktopLaunchLink).toBeVisible();
         await expect(desktopLaunchLink).toHaveAttribute("href", "/?mode=answer");
       }
-      await expect(page.getByLabel("Current app mode: Applications")).toBeVisible();
+      await expect(page.getByLabel("Current app mode: Tools")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
       await expect(page.getByLabel("Open selected application")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
@@ -339,14 +339,20 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
     const differentialsHomeSearch = page.getByTestId("differentials-home").getByTestId("global-search-input");
     await expect(differentialsHomeSearch).toBeVisible();
-    const differentialsSearchBox = await differentialsHomeSearch.boundingBox();
-    const differentialsHeadingBox = await page.getByRole("heading", { level: 1, name: "Differentials" }).boundingBox();
-    expect(differentialsSearchBox).not.toBeNull();
-    expect(differentialsHeadingBox).not.toBeNull();
-    expect((differentialsHeadingBox?.y ?? 0) + (differentialsHeadingBox?.height ?? 0)).toBeLessThan(
-      differentialsSearchBox?.y ?? 0,
-    );
-    expect((differentialsSearchBox?.y ?? 0) + (differentialsSearchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
+    // The shell's Suspense swap after client navigation can briefly detach the
+    // hero heading, so retry the geometry probe instead of measuring once.
+    await expect(async () => {
+      const differentialsSearchBox = await differentialsHomeSearch.boundingBox();
+      const differentialsHeadingBox = await page
+        .getByRole("heading", { level: 1, name: "Differentials" })
+        .boundingBox();
+      expect(differentialsSearchBox).not.toBeNull();
+      expect(differentialsHeadingBox).not.toBeNull();
+      expect((differentialsHeadingBox?.y ?? 0) + (differentialsHeadingBox?.height ?? 0)).toBeLessThan(
+        differentialsSearchBox?.y ?? 0,
+      );
+      expect((differentialsSearchBox?.y ?? 0) + (differentialsSearchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
+    }).toPass({ timeout: 10_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 

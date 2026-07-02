@@ -137,6 +137,7 @@ create table if not exists public.document_images (
   image_hash text,
   perceptual_hash text,
   labels text[] not null default '{}',
+  index_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
@@ -214,6 +215,7 @@ create table if not exists public.document_sections (
   tags text[] not null default '{}',
   extraction_quality text not null default 'unknown'
     check (extraction_quality in ('good', 'partial', 'poor', 'unknown')),
+  index_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -244,6 +246,7 @@ create table if not exists public.document_memory_cards (
   source_chunk_ids uuid[] not null default '{}',
   source_image_ids uuid[] not null default '{}',
   confidence real not null default 0.5 check (confidence >= 0 and confidence <= 1),
+  index_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   embedding extensions.vector(1536) not null,
   search_tsv tsvector generated always as (
@@ -293,6 +296,7 @@ create table if not exists public.document_table_facts (
   threshold_value text,
   action text,
   normalized_terms text[] not null default '{}',
+  index_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   search_tsv tsvector generated always as (
     to_tsvector(
@@ -328,6 +332,7 @@ create table if not exists public.document_embedding_fields (
   content text not null,
   content_hash text,
   embedding extensions.vector(1536) not null,
+  index_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   search_tsv tsvector generated always as (to_tsvector('english', content)) stored,
   created_at timestamptz not null default now()
@@ -520,7 +525,11 @@ create table if not exists public.storage_cleanup_jobs (
   metadata jsonb not null default '{}'::jsonb,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint storage_cleanup_jobs_document_id_fkey
+    foreign key (document_id)
+    references public.documents(id)
+    on delete set null
 );
 
 create unique index if not exists documents_owner_content_hash_unique_idx
@@ -530,9 +539,9 @@ create index if not exists import_batches_owner_status_idx on public.import_batc
 create index if not exists documents_status_idx on public.documents(status);
 create index if not exists documents_owner_status_idx on public.documents(owner_id, status, created_at desc);
 create index if not exists documents_import_batch_idx on public.documents(import_batch_id);
-create index if not exists documents_owner_hash_idx on public.documents(owner_id, content_hash);
 create index if not exists documents_search_idx on public.documents using gin(search_tsv);
 create index if not exists documents_title_search_idx on public.documents using gin(title_search_tsv);
+create index if not exists documents_owner_id_covering_idx on public.documents(owner_id, id);
 create index if not exists documents_indexed_owner_title_idx
   on public.documents(owner_id, title, file_name)
   where status = 'indexed';
@@ -660,9 +669,6 @@ create index if not exists document_index_quality_owner_score_idx
   on public.document_index_quality(owner_id, quality_score, updated_at desc);
 create index if not exists ingestion_jobs_document_idx on public.ingestion_jobs(document_id);
 create index if not exists ingestion_jobs_batch_idx on public.ingestion_jobs(batch_id, status);
-create index if not exists ingestion_jobs_claim_idx
-  on public.ingestion_jobs(status, next_run_at, created_at)
-  where status in ('pending', 'processing');
 create index if not exists ingestion_jobs_status_next_run_idx
   on public.ingestion_jobs(status, next_run_at, created_at)
   where status in ('pending', 'processing', 'failed');
@@ -981,58 +987,48 @@ returns table (
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
+-- Dual-write compatibility note:
+-- This RPC claims via the jobs table (SKIP LOCKED) and also patches
+-- documents.metadata so the edge function continues to read correct
+-- state. Once the edge function writes completions to this table,
+-- the documents.metadata patch below should be removed.
 begin
   return query
-  with eligible as (
-    select
-      d.id,
-      d.import_batch_id,
-      state.attempt_count,
-      state.max_attempts
-    from public.documents d
-    cross join lateral (
-      select
-        coalesce(d.metadata->>'enrichment_status', 'pending') as enrichment_status,
-        coalesce(d.metadata->>'indexing_v3_agent_status', 'pending') as agent_status,
-        case
-          when coalesce(d.metadata->>'indexing_v3_agent_attempt_count', '') ~ '^[0-9]+$'
-            then (d.metadata->>'indexing_v3_agent_attempt_count')::integer
-          else 0
-        end as attempt_count,
-        greatest(
-          case
-            when coalesce(d.metadata->>'indexing_v3_agent_max_attempts', '') ~ '^[0-9]+$'
-              then (d.metadata->>'indexing_v3_agent_max_attempts')::integer
-            else 3
-          end,
-          1
-        ) as max_attempts,
-        case
-          when coalesce(d.metadata->>'indexing_v3_agent_locked_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-            then (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz
-          else null
-        end as locked_at,
-        case
-          when coalesce(d.metadata->>'indexing_v3_agent_next_run_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
-            then (d.metadata->>'indexing_v3_agent_next_run_at')::timestamptz
-          else null
-        end as next_run_at
-    ) state
-    where d.status = 'indexed'
-      and state.enrichment_status in ('pending', 'failed', 'processing')
-      and state.agent_status not in ('completed', 'needs_enrichment_artifacts')
-      and state.attempt_count < state.max_attempts
-      and coalesce(state.next_run_at, now()) <= now()
+  with eligible_jobs as (
+    select j.id, j.document_id, j.attempt_count, j.max_attempts
+    from public.indexing_v3_agent_jobs j
+    -- must join documents to confirm document.status = 'indexed'
+    -- and to gate on enrichment_status (also stored in the job row)
+    where j.status not in ('completed', 'needs_enrichment_artifacts')
+      and j.enrichment_status in ('pending', 'failed', 'processing')
+      and j.attempt_count < j.max_attempts
+      and coalesce(j.next_run_at, now()) <= now()
       and (
-        state.agent_status <> 'processing'
-        or state.locked_at is null
-        or state.locked_at < now() - make_interval(mins => p_stale_after_minutes)
+        j.status <> 'processing'
+        or j.locked_at is null
+        or j.locked_at < now() - make_interval(mins => p_stale_after_minutes)
       )
-    order by coalesce(state.next_run_at, d.updated_at), d.id
+    order by coalesce(j.next_run_at, j.updated_at), j.id
     limit greatest(p_claim_limit, 1)
-    for update of d skip locked
+    for update of j skip locked
   ),
-  claimed as (
+  claimed_jobs as (
+    update public.indexing_v3_agent_jobs j
+    set
+      status = 'processing',
+      enrichment_status = 'processing',
+      locked_by = p_worker_id,
+      locked_at = now(),
+      attempt_count = e.attempt_count + 1,
+      last_error = null,
+      next_run_at = null,
+      updated_at = now()
+    from eligible_jobs e
+    where j.id = e.id
+    returning j.*
+  ),
+  -- Patch documents.metadata for backward compatibility with edge function
+  patched_documents as (
     update public.documents d
     set
       metadata = jsonb_strip_nulls(
@@ -1041,52 +1037,36 @@ begin
           - 'indexing_v3_agent_last_error')
         || jsonb_build_object(
           'indexing_v3_agent_status', 'processing',
-          'indexing_v3_agent_version', 'visual-core-v3',
+          'indexing_v3_agent_version', cj.version,
           'indexing_v3_agent_locked_by', p_worker_id,
-          'indexing_v3_agent_locked_at', now(),
-          'indexing_v3_agent_attempt_count', e.attempt_count + 1,
-          'indexing_v3_agent_max_attempts', e.max_attempts,
+          'indexing_v3_agent_locked_at', cj.locked_at,
+          'indexing_v3_agent_attempt_count', cj.attempt_count,
+          'indexing_v3_agent_max_attempts', cj.max_attempts,
           'indexing_v3_agent_updated_at', now(),
           'enrichment_status', 'processing'
         )
       ),
       updated_at = now()
-    from eligible e
-    where d.id = e.id
-    returning d.*, e.attempt_count + 1 as claimed_attempt_count, e.max_attempts as claimed_max_attempts
+    from claimed_jobs cj
+    where d.id = cj.document_id
+      and d.status = 'indexed'  -- safety: only touch documents still eligible
+    returning d.*, cj.id as job_id, cj.attempt_count as job_attempt_count,
+              cj.max_attempts as job_max_attempts, cj.locked_at as job_locked_at
   )
   select
-    c.id,
-    c.id as document_id,
-    c.import_batch_id as batch_id,
+    pd.job_id as id,
+    pd.id as document_id,
+    pd.import_batch_id as batch_id,
     'processing'::text as status,
     'v3 enrichment claimed'::text as stage,
     95::integer as progress,
     null::text as error_message,
-    c.claimed_attempt_count,
-    c.claimed_max_attempts,
-    (c.metadata->>'indexing_v3_agent_locked_at')::timestamptz as locked_at,
-    c.metadata->>'indexing_v3_agent_locked_by' as locked_by,
-    to_jsonb(c.*) - 'claimed_attempt_count' - 'claimed_max_attempts' as documents
-  from claimed c;
-end;
-$$;
-
-create or replace function public.reset_document_index(p_document_id uuid)
-returns void
-language plpgsql
-set search_path = public, extensions, pg_temp
-as $$
-begin
-  perform set_config('statement_timeout', '180000', true);
-  delete from public.document_memory_cards where document_id = p_document_id;
-  delete from public.document_sections where document_id = p_document_id;
-  delete from public.document_table_facts where document_id = p_document_id;
-  delete from public.document_embedding_fields where document_id = p_document_id;
-  delete from public.document_index_quality where document_id = p_document_id;
-  delete from public.document_chunks where document_id = p_document_id;
-  delete from public.document_images where document_id = p_document_id;
-  delete from public.document_pages where document_id = p_document_id;
+    pd.job_attempt_count,
+    pd.job_max_attempts,
+    pd.job_locked_at as locked_at,
+    p_worker_id as locked_by,
+    to_jsonb(pd.*) - 'job_id' - 'job_attempt_count' - 'job_max_attempts' - 'job_locked_at' as documents
+  from patched_documents pd;
 end;
 $$;
 
@@ -1171,13 +1151,7 @@ begin
       updated_at = excluded.updated_at;
   end if;
 
-  -- M13 (audit 2026-07-01): superseded-generation rows always go; legacy
-  -- NULL-generation rows go only when this generation wrote replacement rows
-  -- into the same table (see 20260702000000_commit_generation_preserve_legacy_artifacts).
-  -- Guarantee scope: fully protects document_images/document_memory_cards/
-  -- document_sections; chunk-anchored artifacts (table facts, embedding
-  -- fields, index units) cascade with their legacy chunks via
-  -- source_chunk_id ON DELETE CASCADE when chunks are replaced.
+  -- Preserve legacy NULL-generation rows unless this generation wrote replacements.
   delete from public.document_chunks
   where document_id = p_document_id
     and (
@@ -1193,18 +1167,27 @@ begin
       )
     );
 
+  -- artifact tables: use typed column where set; fall back to metadata when typed is NULL
+  -- because the writer still populates metadata.index_generation_id rather than the typed
+  -- column.  Without the metadata fallback, stale null-typed rows from a prior run would
+  -- never be cleaned up (the typed-column EXISTS guard would always be false), allowing
+  -- artifact rows to accumulate across re-indexes.
   delete from public.document_images
   where document_id = p_document_id
     and (
-      (nullif(metadata->>'index_generation_id', '') is not null
-        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
       or (
-        nullif(metadata->>'index_generation_id', '') is null
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
         and exists (
           select 1
           from public.document_images replacement
           where replacement.document_id = p_document_id
-            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
         )
       )
     );
@@ -1212,15 +1195,19 @@ begin
   delete from public.document_table_facts
   where document_id = p_document_id
     and (
-      (nullif(metadata->>'index_generation_id', '') is not null
-        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
       or (
-        nullif(metadata->>'index_generation_id', '') is null
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
         and exists (
           select 1
           from public.document_table_facts replacement
           where replacement.document_id = p_document_id
-            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
         )
       )
     );
@@ -1228,15 +1215,19 @@ begin
   delete from public.document_embedding_fields
   where document_id = p_document_id
     and (
-      (nullif(metadata->>'index_generation_id', '') is not null
-        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
       or (
-        nullif(metadata->>'index_generation_id', '') is null
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
         and exists (
           select 1
           from public.document_embedding_fields replacement
           where replacement.document_id = p_document_id
-            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
         )
       )
     );
@@ -1244,15 +1235,19 @@ begin
   delete from public.document_index_units
   where document_id = p_document_id
     and (
-      (nullif(metadata->>'index_generation_id', '') is not null
-        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
       or (
-        nullif(metadata->>'index_generation_id', '') is null
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
         and exists (
           select 1
           from public.document_index_units replacement
           where replacement.document_id = p_document_id
-            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
         )
       )
     );
@@ -1260,15 +1255,19 @@ begin
   delete from public.document_memory_cards
   where document_id = p_document_id
     and (
-      (nullif(metadata->>'index_generation_id', '') is not null
-        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
       or (
-        nullif(metadata->>'index_generation_id', '') is null
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
         and exists (
           select 1
           from public.document_memory_cards replacement
           where replacement.document_id = p_document_id
-            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
         )
       )
     );
@@ -1276,15 +1275,19 @@ begin
   delete from public.document_sections
   where document_id = p_document_id
     and (
-      (nullif(metadata->>'index_generation_id', '') is not null
-        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
       or (
-        nullif(metadata->>'index_generation_id', '') is null
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
         and exists (
           select 1
           from public.document_sections replacement
           where replacement.document_id = p_document_id
-            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
         )
       )
     );
@@ -1318,9 +1321,12 @@ declare
 begin
   perform set_config('statement_timeout', '180000', true);
 
+  -- Collect distinct document_ids that have stale (non-committed) artifact rows.
+  -- document_chunks uses its typed column; artifact tables use their new typed columns.
   with candidate_documents as (
     select distinct document_id
     from (
+      -- document_chunks (typed index_generation_id)
       select c.document_id
       from public.document_chunks c
       join public.documents d on d.id = c.document_id
@@ -1333,72 +1339,78 @@ begin
             and j.status in ('pending', 'processing')
         )
       union all
+      -- document_images (typed index_generation_id)
       select a.document_id
       from public.document_images a
       join public.documents d on d.id = a.document_id
       where (p_document_id is null or a.document_id = p_document_id)
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
+        and a.index_generation_id is not null
+        and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
         and not exists (
           select 1 from public.ingestion_jobs j
           where j.document_id = a.document_id
             and j.status in ('pending', 'processing')
         )
       union all
+      -- document_table_facts (typed index_generation_id)
       select a.document_id
       from public.document_table_facts a
       join public.documents d on d.id = a.document_id
       where (p_document_id is null or a.document_id = p_document_id)
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
+        and a.index_generation_id is not null
+        and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
         and not exists (
           select 1 from public.ingestion_jobs j
           where j.document_id = a.document_id
             and j.status in ('pending', 'processing')
         )
       union all
+      -- document_embedding_fields (typed index_generation_id)
       select a.document_id
       from public.document_embedding_fields a
       join public.documents d on d.id = a.document_id
       where (p_document_id is null or a.document_id = p_document_id)
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
+        and a.index_generation_id is not null
+        and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
         and not exists (
           select 1 from public.ingestion_jobs j
           where j.document_id = a.document_id
             and j.status in ('pending', 'processing')
         )
       union all
+      -- document_index_units (typed index_generation_id)
       select a.document_id
       from public.document_index_units a
       join public.documents d on d.id = a.document_id
       where (p_document_id is null or a.document_id = p_document_id)
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
+        and a.index_generation_id is not null
+        and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
         and not exists (
           select 1 from public.ingestion_jobs j
           where j.document_id = a.document_id
             and j.status in ('pending', 'processing')
         )
       union all
+      -- document_memory_cards (typed index_generation_id)
       select a.document_id
       from public.document_memory_cards a
       join public.documents d on d.id = a.document_id
       where (p_document_id is null or a.document_id = p_document_id)
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
+        and a.index_generation_id is not null
+        and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
         and not exists (
           select 1 from public.ingestion_jobs j
           where j.document_id = a.document_id
             and j.status in ('pending', 'processing')
         )
       union all
+      -- document_sections (typed index_generation_id)
       select a.document_id
       from public.document_sections a
       join public.documents d on d.id = a.document_id
       where (p_document_id is null or a.document_id = p_document_id)
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-        and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
+        and a.index_generation_id is not null
+        and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '')
         and not exists (
           select 1 from public.ingestion_jobs j
           where j.document_id = a.document_id
@@ -1411,6 +1423,7 @@ begin
   into target_document_ids
   from candidate_documents;
 
+  -- Count stale rows (typed column comparisons)
   select count(*) into chunk_count
   from public.document_chunks c
   join public.documents d on d.id = c.document_id
@@ -1422,43 +1435,43 @@ begin
   from public.document_images a
   join public.documents d on d.id = a.document_id
   where a.document_id = any(target_document_ids)
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+    and a.index_generation_id is not null
+    and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   select count(*) into table_fact_count
   from public.document_table_facts a
   join public.documents d on d.id = a.document_id
   where a.document_id = any(target_document_ids)
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+    and a.index_generation_id is not null
+    and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   select count(*) into embedding_field_count
   from public.document_embedding_fields a
   join public.documents d on d.id = a.document_id
   where a.document_id = any(target_document_ids)
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+    and a.index_generation_id is not null
+    and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   select count(*) into index_unit_count
   from public.document_index_units a
   join public.documents d on d.id = a.document_id
   where a.document_id = any(target_document_ids)
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+    and a.index_generation_id is not null
+    and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   select count(*) into memory_card_count
   from public.document_memory_cards a
   join public.documents d on d.id = a.document_id
   where a.document_id = any(target_document_ids)
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+    and a.index_generation_id is not null
+    and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   select count(*) into section_count
   from public.document_sections a
   join public.documents d on d.id = a.document_id
   where a.document_id = any(target_document_ids)
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-    and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+    and a.index_generation_id is not null
+    and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   if not coalesce(p_dry_run, true) then
     delete from public.document_chunks c
@@ -1472,43 +1485,43 @@ begin
     using public.documents d
     where d.id = a.document_id
       and a.document_id = any(target_document_ids)
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+      and a.index_generation_id is not null
+      and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
     delete from public.document_table_facts a
     using public.documents d
     where d.id = a.document_id
       and a.document_id = any(target_document_ids)
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+      and a.index_generation_id is not null
+      and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
     delete from public.document_embedding_fields a
     using public.documents d
     where d.id = a.document_id
       and a.document_id = any(target_document_ids)
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+      and a.index_generation_id is not null
+      and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
     delete from public.document_index_units a
     using public.documents d
     where d.id = a.document_id
       and a.document_id = any(target_document_ids)
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+      and a.index_generation_id is not null
+      and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
     delete from public.document_memory_cards a
     using public.documents d
     where d.id = a.document_id
       and a.document_id = any(target_document_ids)
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+      and a.index_generation_id is not null
+      and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
     delete from public.document_sections a
     using public.documents d
     where d.id = a.document_id
       and a.document_id = any(target_document_ids)
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is not null
-      and nullif(coalesce(a.metadata, '{}'::jsonb)->>'index_generation_id', '') is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
+      and a.index_generation_id is not null
+      and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
   end if;
 
   return jsonb_build_object(
@@ -2579,6 +2592,43 @@ as $$
       (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
     ) desc
     limit least(greatest(match_count * 2, 24), 96)
+  ),
+  -- Batch-fetch label metadata for all distinct document_ids in the result set.
+  -- One query replaces N per-row calls to document_label_metadata().
+  doc_labels as (
+    select
+      l.document_id,
+      coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'id',          l.id,
+            'document_id', l.document_id,
+            'owner_id',    l.owner_id,
+            'label',       l.label,
+            'label_type',  l.label_type,
+            'source',      l.source,
+            'confidence',  l.confidence,
+            'metadata',    l.metadata,
+            'created_at',  l.created_at,
+            'updated_at',  l.updated_at
+          )
+          order by l.confidence desc, l.label
+        ),
+        '[]'::jsonb
+      ) as labels
+    from public.document_labels l
+    where l.document_id in (select distinct ranked.document_id from ranked)
+    group by l.document_id
+  ),
+  -- Batch-fetch summary text for all distinct document_ids in the result set.
+  -- One query replaces N per-row calls to document_summary_text().
+  doc_summaries as (
+    select distinct on (s.document_id)
+      s.document_id,
+      s.summary
+    from public.document_summaries s
+    where s.document_id in (select distinct ranked.document_id from ranked)
+    order by s.document_id
   )
   select
     ranked.id,
@@ -2592,21 +2642,23 @@ as $$
     ranked.retrieval_synopsis,
     ranked.image_ids,
     ranked.source_metadata,
-    coalesce(public.document_label_metadata(ranked.document_id), '[]'::jsonb) as document_labels,
-    public.document_summary_text(ranked.document_id) as document_summary,
+    coalesce(doc_labels.labels,   '[]'::jsonb) as document_labels,
+    doc_summaries.summary                       as document_summary,
     -- Text-only fallback has NO vector cosine similarity. Do not fabricate one:
     -- a synthetic value here was read downstream as a real semantic score and
     -- could label a pure keyword hit as "strong"/"moderate" evidence (>=0.64).
     -- Leave similarity at 0; the lexical signal lives in lexical_score.
-    0::double precision as similarity,
+    0::double precision                                                              as similarity,
     ranked.text_rank,
     -- Cap hybrid_score well below the 0.64 "moderate" threshold so a lexical-only
     -- row can order amongst its peers but can never masquerade as a moderate/strong
     -- cosine match when merged with vector results.
-    least(0.5, 0.18 + (least(ranked.text_rank, 1) * 0.3))::double precision as hybrid_score,
-    least(0.99, 0.4 + (least(ranked.text_rank, 1) * 0.59))::double precision as lexical_score,
-    public.chunk_image_metadata(ranked.image_ids) as images
+    least(0.5,  0.18 + (least(ranked.text_rank, 1) * 0.3))::double precision       as hybrid_score,
+    least(0.99, 0.4  + (least(ranked.text_rank, 1) * 0.59))::double precision      as lexical_score,
+    public.chunk_image_metadata(ranked.image_ids)                                   as images
   from ranked
+  left join doc_labels    on doc_labels.document_id    = ranked.document_id
+  left join doc_summaries on doc_summaries.document_id = ranked.document_id
   order by lexical_score desc, text_rank desc
   limit match_count;
 $$;
@@ -3391,6 +3443,9 @@ $$;
 revoke execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.complete_strict_enrichment_job(uuid, uuid, text, text, text) to service_role;
 
+alter database postgres
+  set app.indexing_v3_agent_base_url = 'https://sjrfecxgysukkwxsowpy.supabase.co';
+
 create or replace function public.invoke_indexing_v3_agent(p_limit integer default 1)
 returns bigint
 language plpgsql
@@ -3399,7 +3454,8 @@ set search_path = public, extensions, vault, pg_temp
 as $$
 declare
   v_request_id bigint;
-  v_secret text;
+  v_secret     text;
+  v_base_url   text;
 begin
   select decrypted_secret
     into v_secret
@@ -3411,8 +3467,16 @@ begin
     raise exception 'indexing_v3_agent_secret is missing from Supabase Vault';
   end if;
 
+  -- Prefer the GUC; fall back to the hardcoded production URL so that
+  -- existing deployments that have not yet set the GUC continue to work.
+  v_base_url := coalesce(
+    nullif(current_setting('app.indexing_v3_agent_base_url', true), ''),
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
+  );
+
   select net.http_post(
-    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/indexing-v3-agent?limit=' || greatest(1, least(coalesce(p_limit, 1), 10))::text,
+    url := v_base_url || '/functions/v1/indexing-v3-agent?limit='
+           || greatest(1, least(coalesce(p_limit, 1), 10))::text,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-indexing-agent-secret', v_secret
@@ -3653,6 +3717,7 @@ create table if not exists public.document_index_units (
   source_span jsonb,
   quality_score real not null default 0.7 check (quality_score >= 0 and quality_score <= 1),
   extraction_mode text not null default 'deterministic' check (extraction_mode in ('deterministic', 'model_heavy', 'hybrid')),
+  index_generation_id uuid,
   embedding extensions.vector(1536) not null,
   metadata jsonb not null default '{}'::jsonb,
   search_tsv tsvector generated always as (to_tsvector('english', coalesce(unit_type, '') || ' ' || coalesce(title, '') || ' ' || coalesce(content, ''))) stored,
@@ -3806,7 +3871,129 @@ grant execute on function public.is_committed_document_generation(uuid, jsonb) t
 revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
+-- Typed overload: NULL keeps legacy artifacts visible; otherwise compare to committed id
+create or replace function public.is_committed_artifact_generation(p_artifact_gen_id uuid, p_document_metadata jsonb)
+returns boolean
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select p_artifact_gen_id is null
+    or p_artifact_gen_id::text = nullif(coalesce(p_document_metadata, '{}'::jsonb)->>'index_generation_id', '');
+$$;
+
+revoke execute on function public.is_committed_artifact_generation(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.is_committed_artifact_generation(uuid, jsonb) to service_role;
+
 create policy "document index units owner read" on public.document_index_units
   for select to authenticated using (
     exists (select 1 from public.documents d where d.id = document_id and d.owner_id = (select auth.uid()))
   );
+
+-- -------------------------------------------------------------------------
+-- indexing_v3_agent_jobs: dedicated worker-state table (Finding #1)
+-- Replaces JSONB claim state in documents.metadata with typed rows that
+-- support SKIP LOCKED on a small, hot table instead of a full-table scan.
+-- -------------------------------------------------------------------------
+
+create table if not exists public.indexing_v3_agent_jobs (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  -- v3 agent processing status (mirrors metadata->>'indexing_v3_agent_status')
+  status text not null default 'pending'
+    check (status in ('pending', 'processing', 'completed', 'failed', 'needs_enrichment_artifacts')),
+  -- enrichment pipeline status (mirrors metadata->>'enrichment_status')
+  enrichment_status text not null default 'pending'
+    check (enrichment_status in ('pending', 'processing', 'completed', 'failed', 'needs_enrichment_artifacts')),
+  attempt_count integer not null default 0,
+  max_attempts integer not null default 3,
+  locked_by text,
+  locked_at timestamptz,
+  next_run_at timestamptz,
+  version text not null default 'visual-core-v3',
+  last_error text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- One row per document; re-running resets the row in-place
+create unique index if not exists indexing_v3_agent_jobs_document_id_idx
+  on public.indexing_v3_agent_jobs(document_id);
+
+-- Hot path for claim: eligible candidates ordered by next_run_at
+create index if not exists indexing_v3_agent_jobs_claim_idx
+  on public.indexing_v3_agent_jobs(status, enrichment_status, next_run_at, id)
+  where status not in ('completed', 'needs_enrichment_artifacts');
+
+-- Operational: find stale processing jobs
+create index if not exists indexing_v3_agent_jobs_locked_at_idx
+  on public.indexing_v3_agent_jobs(locked_at)
+  where status = 'processing';
+
+-- RLS + grants (service_role only, same as ingestion_jobs)
+alter table public.indexing_v3_agent_jobs enable row level security;
+
+create policy "indexing v3 agent jobs service role all"
+  on public.indexing_v3_agent_jobs
+  for all to service_role
+  using (true)
+  with check (true);
+
+grant select, insert, update, delete
+  on table public.indexing_v3_agent_jobs to service_role;
+
+create or replace function public.update_indexing_v3_agent_job_status(
+  p_document_id uuid,
+  p_status text,         -- 'completed', 'failed', 'needs_enrichment_artifacts', 'pending'
+  p_error text default null,
+  p_next_run_at timestamptz default null
+)
+returns jsonb
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_job_id uuid;
+begin
+  if p_status not in ('pending', 'completed', 'failed', 'needs_enrichment_artifacts') then
+    raise exception 'invalid status %', p_status;
+  end if;
+
+  update public.indexing_v3_agent_jobs
+  set
+    status = p_status,
+    enrichment_status = case
+      when p_status = 'completed' then 'completed'
+      when p_status = 'failed' then 'failed'
+      when p_status = 'needs_enrichment_artifacts' then 'needs_enrichment_artifacts'
+      else enrichment_status
+    end,
+    last_error = p_error,
+    next_run_at = case
+      when p_status = 'pending' then coalesce(p_next_run_at, now())
+      else null
+    end,
+    locked_by = null,
+    locked_at = null,
+    updated_at = now()
+  where document_id = p_document_id
+  returning id into v_job_id;
+
+  return jsonb_build_object(
+    'ok', v_job_id is not null,
+    'job_id', v_job_id,
+    'document_id', p_document_id,
+    'status', p_status
+  );
+end;
+$$;
+
+revoke execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) to service_role;
+
+comment on index public.documents_indexing_v3_agent_claim_idx is
+  'Retained for backward compatibility while edge function still writes enrichment_status / indexing_v3_agent_status to documents.metadata. Drop after edge function migration.';
+
+comment on table public.indexing_v3_agent_jobs is
+  'Dedicated worker-state table for the v3 indexing / enrichment agent. Replaces JSONB state in documents.metadata. claim_indexing_v3_agent_jobs uses SKIP LOCKED here; update_indexing_v3_agent_job_status completes/fails a job. See migration 20260702190000 for transition notes.';

@@ -3,14 +3,11 @@
 import Link from "next/link";
 import {
   BookOpen,
-  Check,
   ChevronRight,
   ClipboardList,
   ExternalLink,
   FileText,
   Grid2X2,
-  Globe2,
-  Menu,
   MoreVertical,
   Pill,
   Pin,
@@ -18,24 +15,20 @@ import {
   Plus,
   Search,
   Send,
-  Settings,
-  Sparkles,
   Star,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
+import { ModeHomeHero } from "@/components/mode-home-template";
 import { Sheet } from "@/components/ui/sheet";
 import {
-  appBackdrop,
   chatComposerIconButton,
   chatComposerInput,
   chatComposerShell,
   chatSendButton,
   cn,
-  sidebarItem,
-  sidebarToolTile as sidebarApplicationTile,
   textMuted,
 } from "@/components/ui-primitives";
 type LauncherStatus = "ready" | "recent" | "review_due";
@@ -77,14 +70,6 @@ const filterOptions = [
   { id: "clinical", label: "Clinical" },
   { id: "admin", label: "Admin" },
   { id: "recent", label: "Recent" },
-] as const;
-
-const sidebarApplicationItems = [
-  { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  { label: "Documents", icon: FileText, href: "/?mode=documents" },
-  { label: "Services", icon: ClipboardList, href: "/services" },
-  { label: "Forms", icon: FileText, href: "/forms" },
-  { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
 ] as const;
 
 const launcherApps: LauncherApp[] = [
@@ -663,270 +648,6 @@ function DetailPanel({
   );
 }
 
-function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const recentQueries = ["lithium", "tables", "dosing for lithium", "management of bulimia nervosa"];
-
-  return (
-    <Sheet
-      open={open}
-      onClose={() => onOpenChange(false)}
-      title="Clinical Guide"
-      description="Recent chats, applications, help, and settings."
-      closeLabel="Close Clinical Guide menu"
-      placement="left"
-      contentClassName="font-sans lg:hidden"
-    >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-        <Link
-          href="/"
-          onClick={() => onOpenChange(false)}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]"
-        >
-          <Plus className="h-4 w-4" />
-          New chat
-        </Link>
-
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-          <input
-            type="search"
-            placeholder="Search chats"
-            className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-          />
-        </label>
-
-        <section className="min-w-0">
-          <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Recent chats
-          </p>
-          <div className="grid gap-1">
-            {recentQueries.map((recent) => (
-              <button key={recent} type="button" className={sidebarItem} onClick={() => onOpenChange(false)}>
-                <Search className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Applications
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {sidebarApplicationItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => onOpenChange(false)}
-                  className={sidebarApplicationTile}
-                >
-                  <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-
-        <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
-          <button type="button" className={sidebarItem} onClick={() => onOpenChange(false)}>
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span>Guide & help</span>
-          </button>
-          <button
-            type="button"
-            className={cn(sidebarItem, "disabled:cursor-not-allowed disabled:opacity-60")}
-            disabled
-            aria-label="Settings coming soon"
-            title="Settings coming soon"
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-            <span>Settings</span>
-          </button>
-          <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)]">
-              AK
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">Dr A. Khan</span>
-              <span className={cn("text-xs", textMuted)}>Ready</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </Sheet>
-  );
-}
-
-function ApplicationsModeMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const options = [
-    {
-      label: "Answer",
-      description: "Source-backed clinical answer",
-      href: "/?mode=answer",
-      icon: Sparkles,
-      active: false,
-    },
-    {
-      label: "Documents",
-      description: "Search indexed PDFs and notes",
-      href: "/?mode=documents",
-      icon: FileText,
-      active: false,
-    },
-    {
-      label: "Services",
-      description: "Service records and referral pathways",
-      href: "/services",
-      icon: ClipboardList,
-      active: false,
-    },
-    {
-      label: "Forms",
-      description: "Clinical forms and pathways",
-      href: "/forms",
-      icon: FileText,
-      active: false,
-    },
-    {
-      label: "Applications",
-      description: "Launch connected applications",
-      href: "/applications",
-      icon: Grid2X2,
-      active: true,
-    },
-  ] as const;
-
-  if (!open) return null;
-
-  return (
-    <div
-      role="group"
-      aria-label="Choose app mode"
-      className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
-    >
-      {options.map((option) => {
-        const Icon = option.icon;
-        return (
-          <Link
-            key={option.label}
-            href={option.href}
-            onClick={() => onOpenChange(false)}
-            aria-current={option.active ? "page" : undefined}
-            className={cn(
-              "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              option.active
-                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-            )}
-          >
-            <span
-              className={cn(
-                "grid h-8 w-8 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
-                option.active
-                  ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{option.label}</span>
-              <span className="block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
-                {option.description}
-              </span>
-            </span>
-            {option.active ? <Check className="h-4 w-4" /> : null}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-function ApplicationsHeader({
-  mobileMenuOpen,
-  modeMenuOpen,
-  onMobileMenuOpenChange,
-  onModeMenuOpenChange,
-}: {
-  mobileMenuOpen: boolean;
-  modeMenuOpen: boolean;
-  onMobileMenuOpenChange: (open: boolean) => void;
-  onModeMenuOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <header
-      id="search"
-      className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
-    >
-      <div className="mx-auto flex h-12 min-w-0 max-w-7xl items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onMobileMenuOpenChange(true)}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:hidden"
-          aria-label="Open Clinical Guide menu"
-          aria-expanded={mobileMenuOpen}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-
-        <div className="relative z-40 mx-auto min-w-0 flex-1 sm:mx-0 sm:flex-none">
-          <button
-            type="button"
-            onClick={() => onModeMenuOpenChange(!modeMenuOpen)}
-            className="inline-grid h-11 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[14rem]"
-            aria-haspopup="true"
-            aria-expanded={modeMenuOpen}
-            aria-label="Current app mode: Applications"
-          >
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-              <Grid2X2 className="h-3.5 w-3.5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                Mode
-              </span>
-              <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                Applications
-              </span>
-            </span>
-            <ChevronRight
-              className={cn(
-                "h-4 w-4 rotate-90 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
-                modeMenuOpen && "-rotate-90",
-              )}
-            />
-          </button>
-          <ApplicationsModeMenu open={modeMenuOpen} onOpenChange={onModeMenuOpenChange} />
-        </div>
-
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <Link
-            href="/?mode=documents"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            aria-label="Open document scope"
-            title="Document scope"
-          >
-            <Globe2 className="h-5 w-5" />
-          </Link>
-          <Link
-            href="/"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            aria-label="Start a new chat"
-            title="New chat"
-          >
-            <Plus className="h-5 w-5" />
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 type ApplicationsLauncherWorkspaceProps = {
   variant?: LauncherVariant;
   query?: string;
@@ -946,8 +667,6 @@ export function ApplicationsLauncherWorkspace({
   const [activeFilter, setActiveFilter] = useState<(typeof filterOptions)[number]["id"]>("all");
   const [selectedId, setSelectedId] = useState("clinical-kb-search");
   const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const isDashboardTools = variant === "dashboard-tools";
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
@@ -1001,18 +720,16 @@ export function ApplicationsLauncherWorkspace({
     <>
       {isDashboardTools ? (
         <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7">
-          <div className="grid justify-items-center gap-3 text-center">
-            <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/15 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-              <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
-            </span>
-            <div className="max-w-2xl space-y-2">
-              <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
-                {copy.heading}
-              </h2>
-              <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">{copy.description}</p>
-            </div>
+          <div className="grid justify-items-center gap-5 text-center sm:gap-6">
+            <ModeHomeHero
+              testId="tools-home"
+              title={copy.heading}
+              subtitle={copy.description}
+              icon={Grid2X2}
+              headingLevel={2}
+            />
             {desktopComposerSlotId ? (
-              <div id={desktopComposerSlotId} className="mt-2 hidden w-full max-w-3xl lg:block" />
+              <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
             ) : null}
           </div>
 
@@ -1218,19 +935,7 @@ export function ApplicationsLauncherWorkspace({
   }
 
   return (
-    <div className={cn(appBackdrop, "min-h-[100dvh] text-[color:var(--text)]", className)}>
-      <ApplicationsHeader
-        mobileMenuOpen={mobileMenuOpen}
-        modeMenuOpen={modeMenuOpen}
-        onMobileMenuOpenChange={setMobileMenuOpen}
-        onModeMenuOpenChange={setModeMenuOpen}
-      />
-      <ApplicationsMobileMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
-
-      <main id="main-content" className="min-w-0 pb-8 lg:pb-10">
-        {workspace}
-      </main>
-    </div>
+    <main className={cn("min-w-0 pb-8 text-[color:var(--text)] lg:pb-10", className)}>{workspace}</main>
   );
 }
 
