@@ -3048,6 +3048,9 @@ export function decideTextFastPath(
   }
 
   if (queryClass === "document_lookup") {
+    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(results)) {
+      return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
+    }
     if (directTitleSupport && strongestScore >= 0.32) {
       return { returnFastPath: true, reason: "direct_title_text_match" };
     }
@@ -3139,6 +3142,28 @@ function topEvidenceText(results: SearchResult[], limit = 5) {
 
 function hasAnyTerm(text: string, pattern: RegExp) {
   return pattern.test(text);
+}
+
+function isRiskFlowchartNextStepQuery(query: string) {
+  return (
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
+    /\b(?:risk|red[\s-]*zone|red)\b/i.test(query) &&
+    /\b(?:next step|step after|after|action)\b/i.test(query)
+  );
+}
+
+function hasRiskFlowchartActionEvidence(results: SearchResult[], limit = 5) {
+  return results.slice(0, limit).some((result) => {
+    const evidenceText = evidenceTextForGate(result);
+    const hasFlowchartRiskContext =
+      hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|algorithm|pathway|matrix)\b/i) &&
+      hasAnyTerm(evidenceText, /\b(?:risk|red[\s-]*zone|red)\b/i);
+    const hasAction =
+      hasAnyTerm(evidenceText, /\b(?:escalat(?:e|ion|ed|ing)?|urgent|next step|senior)\b/i) ||
+      (visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? "") &&
+        hasAnyTerm(evidenceText, /\b(?:escalat(?:e|ion|ed|ing)?|urgent|next step|senior)\b/i));
+    return hasFlowchartRiskContext && hasAction;
+  });
 }
 
 function hasDoseAmountEvidenceForGate(result: SearchResult) {
@@ -3333,10 +3358,7 @@ export function evaluateEvidenceCoverageGate(
       };
     }
     if (/\b(?:flow\s*chart|flowchart|red\s*zone|risk matrix)\b/i.test(query)) {
-      const accepted =
-        hasVisualUnit ||
-        (hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|risk|red|zone|matrix)\b/i) &&
-          hasAnyTerm(evidenceText, /\b(?:escalat|urgent|review|action|next step|senior)\b/i));
+      const accepted = hasRiskFlowchartActionEvidence(results);
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",

@@ -40,6 +40,9 @@ export type SetupCheck = {
   detail: string;
 };
 
+const demoUploadReadOnlyMessage =
+  "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files.";
+
 export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 export type IndexingMonitorFilter = "all" | "active" | "failed";
 
@@ -188,7 +191,7 @@ export function UploadPanel({
   async function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (demoMode) {
-      changeStatus("Demo mode is serving seeded documents. Configure .env.local, run supabase/schema.sql, and start npm run worker to upload real files.");
+      changeStatus(demoUploadReadOnlyMessage);
       return;
     }
     if (!canUpload) {
@@ -239,6 +242,7 @@ export function UploadPanel({
         Guideline PDF files
         <input
           ref={fileInputRef}
+          name="file"
           type="file"
           accept=".pdf,application/pdf"
           multiple
@@ -257,9 +261,9 @@ export function UploadPanel({
           Upload guidelines
         </button>
       </div>
-      {displayStatus && (
+      {(displayStatus || demoMode) && (
         <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]" data-testid="upload-status">
-          {displayStatus}
+          {displayStatus ?? demoUploadReadOnlyMessage}
         </p>
       )}
     </form>

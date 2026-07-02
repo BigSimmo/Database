@@ -40,6 +40,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  experimental: {
+    cpus: 1,
+  },
   poweredByHeader: false,
   turbopack: {
     root: projectRoot,

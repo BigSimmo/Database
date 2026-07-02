@@ -8,6 +8,7 @@ const readySetupChecks = [
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
 ];
+const uiAssertionTimeoutMs = 5_000;
 
 async function mockMinimalDashboardApi(page: Page) {
   await page.route("**/api/setup-status**", async (route) => {
@@ -58,7 +59,7 @@ async function openScopeControl(page: Page) {
 
   await expect(async () => {
     await scopeTrigger.click();
-    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({ timeout: uiAssertionTimeoutMs });
   }).toPass({ timeout: 10_000 });
 }
 

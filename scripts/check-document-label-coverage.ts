@@ -123,7 +123,7 @@ async function loadAllowlist(path: string | undefined) {
   return new Set(parseAllowlistValue(raw));
 }
 
-async function fetchAll<T>(
+async function fetchAll<T extends { id: string }>(
   supabase: SupabaseAdmin,
   table: "documents" | "document_labels",
   select: string,
@@ -146,8 +146,7 @@ async function fetchAll<T>(
     const nextRows = data ?? [];
     rows.push(...nextRows);
     if (nextRows.length < pageSize) break;
-    const lastRow = nextRows[nextRows.length - 1] as { id?: string };
-    const lastId = lastRow?.id;
+    const lastId = nextRows[nextRows.length - 1]?.id;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
@@ -162,6 +161,8 @@ function countByLabelType(labels: LabelRow[]) {
   }
   return Object.fromEntries([...counts.entries()].sort());
 }
+
+const smartV2LabelTypes = new Set(["clinical_action", "care_phase", "document_intent", "content_feature"]);
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -186,8 +187,11 @@ async function main() {
   const documentTypeDocumentIds = new Set(
     labels.filter((label) => label.label_type === "document_type").map((label) => label.document_id),
   );
+  const smartV2Labels = labels.filter((label) => smartV2LabelTypes.has(label.label_type));
+  const smartV2DocumentIds = new Set(smartV2Labels.map((label) => label.document_id));
 
   const missingGenerated = [...documentIds].filter((id) => !generatedDocumentIds.has(id));
+  const missingSmartV2 = [...documentIds].filter((id) => !smartV2DocumentIds.has(id));
   const allowedSiteMissingDocs = [...allowedSiteMissing].filter(
     (id) => !siteDocumentIds.has(id) && documentIds.has(id),
   );
@@ -208,10 +212,15 @@ async function main() {
     indexed_without_generated: missingGenerated.length,
     indexed_without_site: missingSite.length,
     indexed_without_document_type: missingDocumentType.length,
+    smart_v2_label_rows: smartV2Labels.length,
+    smart_v2_documents: smartV2DocumentIds.size,
+    indexed_without_smart_v2: missingSmartV2.length,
     labels_by_type: countByLabelType(labels),
+    smart_v2_labels_by_type: countByLabelType(smartV2Labels),
     sample_missing_generated: missingGenerated.slice(0, 10),
     sample_missing_site: missingSite.slice(0, 10),
     sample_missing_document_type: missingDocumentType.slice(0, 10),
+    sample_missing_smart_v2: missingSmartV2.slice(0, 10),
     allowed_site_missing: allowedSiteMissing.size,
     allowed_document_type_missing: allowedDocumentTypeMissing.size,
     allowed_site_missing_docs: allowedSiteMissingDocs,
@@ -229,8 +238,16 @@ async function main() {
     console.log(`Indexed without generated labels: ${report.indexed_without_generated}`);
     console.log(`Indexed without site label: ${report.indexed_without_site}`);
     console.log(`Indexed without document_type label: ${report.indexed_without_document_type}`);
+    console.log(`Smart-v2 label rows: ${report.smart_v2_label_rows}`);
+    console.log(`Documents with smart-v2 labels: ${report.smart_v2_documents}`);
+    console.log(`Indexed without smart-v2 labels: ${report.indexed_without_smart_v2}`);
     console.log(
       `Labels by type: ${Object.entries(report.labels_by_type)
+        .map(([type, count]) => `${type}=${count}`)
+        .join(", ")}`,
+    );
+    console.log(
+      `Smart-v2 labels by type: ${Object.entries(report.smart_v2_labels_by_type)
         .map(([type, count]) => `${type}=${count}`)
         .join(", ")}`,
     );

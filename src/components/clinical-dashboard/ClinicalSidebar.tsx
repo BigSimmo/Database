@@ -5,16 +5,20 @@ import Link from "next/link";
 import {
   BookOpen,
   ChevronDown,
+  ClipboardList,
   FileText,
+  Heart,
+  MessageSquarePlus,
   MessageSquare,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Pill,
-  Plus,
   Search,
   Settings as SettingsIcon,
   ShieldAlert,
   Sparkles,
+  Sun,
   Wrench,
 } from "lucide-react";
 import {
@@ -26,6 +30,7 @@ import {
 } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { type AppModeId } from "@/lib/app-modes";
+import { type ResolvedTheme } from "@/lib/theme";
 
 export type SidebarIdentity = {
   displayName: string;
@@ -50,6 +55,9 @@ export function deriveSidebarIdentity(email: string | null | undefined): Sidebar
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
+  { id: "services", label: "Services", icon: ClipboardList, href: "/services" },
+  { id: "forms", label: "Forms", icon: FileText, href: "/forms" },
+  { id: "favourites", label: "Faves", icon: Heart, href: "/favourites" },
   { id: "prescribing", label: "Meds", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
@@ -57,9 +65,9 @@ const sidebarToolItems = [
 const collapsedSidebarButton =
   "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const collapsedSidebarActiveButton =
-  "border-[color:var(--clinical-chat-teal)]/22 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]";
+  "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
 const collapsedSidebarPrimaryButton =
-  "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--clinical-chat-teal)]";
+  "border-transparent bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:text-[color:var(--command-contrast)]";
 
 export function ClinicalSidebarContent({
   recentQueries,
@@ -69,6 +77,8 @@ export function ClinicalSidebarContent({
   onPickRecent,
   onOpenGuide,
   onOpenSettings,
+  theme,
+  onToggleTheme,
   onPrefetchApplications,
   showHeader = true,
   onCollapsedChange,
@@ -81,6 +91,8 @@ export function ClinicalSidebarContent({
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
   onOpenSettings: () => void;
+  theme: ResolvedTheme;
+  onToggleTheme: () => void;
   onPrefetchApplications?: () => void;
   showHeader?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -92,13 +104,15 @@ export function ClinicalSidebarContent({
     ? recentQueries.filter((recent) => recent.toLowerCase().includes(normalizedChatFilter))
     : recentQueries;
   const visibleRecentQueries = matchingRecentQueries.slice(0, 5);
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
+  const nextThemeLabel = theme === "dark" ? "Light mode" : "Dark mode";
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+    <div className="clinical-sidebar-content flex min-h-0 min-w-0 flex-1 flex-col gap-4">
       {showHeader ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldAlert className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -126,7 +140,7 @@ export function ClinicalSidebarContent({
         }}
         className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
-        <Plus className="h-4 w-4" />
+        <MessageSquarePlus className="h-4 w-4" />
         New chat
       </button>
 
@@ -138,7 +152,7 @@ export function ClinicalSidebarContent({
           value={chatFilter}
           onChange={(event) => setChatFilter(event.target.value)}
           aria-label="Search recent chats"
-          className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+          className="clinical-sidebar-search-input h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
         />
       </label>
 
@@ -206,6 +220,7 @@ export function ClinicalSidebarContent({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   sidebarToolTile,
+                  "clinical-sidebar-tool-tile",
                   active &&
                     "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] shadow-[var(--shadow-tight)]",
                 )}
@@ -248,6 +263,15 @@ export function ClinicalSidebarContent({
         </button>
         <button
           type="button"
+          onClick={onToggleTheme}
+          className={sidebarItem}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        >
+          <ThemeIcon className="h-4 w-4 shrink-0" />
+          <span>{nextThemeLabel}</span>
+        </button>
+        <button
+          type="button"
           onClick={() => {
             onNavigate?.();
             window.requestAnimationFrame(onOpenSettings);
@@ -264,10 +288,10 @@ export function ClinicalSidebarContent({
             window.requestAnimationFrame(onOpenSettings);
           }}
           data-testid="sidebar-account-settings"
-          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/24 hover:bg-[color:var(--clinical-chat-teal-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)]">
             {identity.initials}
           </span>
           <span className="min-w-0 flex-1">
@@ -295,6 +319,8 @@ export function ClinicalDesktopSidebar({
   onPickRecent,
   onOpenGuide,
   onOpenSettings,
+  theme,
+  onToggleTheme,
   onPrefetchApplications,
 }: {
   collapsed: boolean;
@@ -306,8 +332,12 @@ export function ClinicalDesktopSidebar({
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
   onOpenSettings: () => void;
+  theme: ResolvedTheme;
+  onToggleTheme: () => void;
   onPrefetchApplications: () => void;
 }) {
+  const CollapsedThemeIcon = theme === "dark" ? Sun : Moon;
+
   if (collapsed) {
     return (
       <aside
@@ -334,7 +364,7 @@ export function ClinicalDesktopSidebar({
             aria-label="New chat"
             title="New chat"
           >
-            <Plus className="h-4 w-4" />
+            <MessageSquarePlus className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -346,6 +376,33 @@ export function ClinicalDesktopSidebar({
           >
             <Search className="h-4 w-4" />
           </button>
+          <Link
+            href="/services"
+            className={cn(collapsedSidebarButton, activeMode === "services" && collapsedSidebarActiveButton)}
+            aria-label="Services"
+            title="Services"
+            aria-current={activeMode === "services" ? "page" : undefined}
+          >
+            <ClipboardList className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/forms"
+            className={cn(collapsedSidebarButton, activeMode === "forms" && collapsedSidebarActiveButton)}
+            aria-label="Forms"
+            title="Forms"
+            aria-current={activeMode === "forms" ? "page" : undefined}
+          >
+            <FileText className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/favourites"
+            className={cn(collapsedSidebarButton, activeMode === "favourites" && collapsedSidebarActiveButton)}
+            aria-label="Favourites"
+            title="Favourites"
+            aria-current={activeMode === "favourites" ? "page" : undefined}
+          >
+            <Heart className="h-4 w-4" />
+          </Link>
           <Link
             href="/?mode=tools"
             prefetch
@@ -369,6 +426,15 @@ export function ClinicalDesktopSidebar({
           </button>
           <button
             type="button"
+            onClick={onToggleTheme}
+            className={collapsedSidebarButton}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            <CollapsedThemeIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             onClick={onOpenSettings}
             className={collapsedSidebarButton}
             aria-label="Settings"
@@ -381,7 +447,7 @@ export function ClinicalDesktopSidebar({
           type="button"
           onClick={onOpenSettings}
           data-testid="collapsed-account-settings"
-          className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/14 bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--clinical-chat-teal-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           title={identity.detail}
           aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
         >
@@ -406,6 +472,8 @@ export function ClinicalDesktopSidebar({
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
         onOpenSettings={onOpenSettings}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
         onPrefetchApplications={onPrefetchApplications}
       />
     </aside>
@@ -422,6 +490,8 @@ export function ClinicalMobileSidebar({
   onPickRecent,
   onOpenGuide,
   onOpenSettings,
+  theme,
+  onToggleTheme,
   onPrefetchApplications,
 }: {
   open: boolean;
@@ -433,6 +503,8 @@ export function ClinicalMobileSidebar({
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
   onOpenSettings: () => void;
+  theme: ResolvedTheme;
+  onToggleTheme: () => void;
   onPrefetchApplications: () => void;
 }) {
   return (
@@ -454,6 +526,8 @@ export function ClinicalMobileSidebar({
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
         onOpenSettings={onOpenSettings}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
         onPrefetchApplications={onPrefetchApplications}
         onNavigate={() => onOpenChange(false)}
       />

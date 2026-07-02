@@ -190,6 +190,14 @@ function hasRiskSignal(text: string) {
   return /\b(?:risk|red zone|red|amber|high risk|matrix|urgent|escalat)\b/.test(text);
 }
 
+function hasRiskFlowchartActionSignal(text: string) {
+  return (
+    /\b(?:flowchart|flow chart|algorithm|pathway|matrix)\b/.test(text) &&
+    /\b(?:risk|red zone|red|amber|high risk)\b/.test(text) &&
+    /\b(?:urgent|senior|escalat(?:e|ion|ed|ing)?|next step|step after)\b/.test(text)
+  );
+}
+
 function signalMatchesText(signal: string, text: string) {
   switch (signal) {
     case "active_community":
@@ -308,6 +316,20 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (args.intent.needsRiskFlowchart && !signals.has("risk")) boost -= 0.12;
   if (args.intent.needsRiskFlowchart && !signals.has("red_zone")) boost -= 0.06;
   if (args.intent.needsRiskFlowchart && args.candidate.chunkType === "flowchart" && !signals.has("risk")) boost -= 0.06;
+  if (args.intent.needsRiskFlowchart && args.intent.needsFlowchartStep) {
+    const text = evidenceText(args.result);
+    const hasActionSignal = hasRiskFlowchartActionSignal(text);
+    if (hasActionSignal) boost += 0.18;
+    if (
+      hasActionSignal &&
+      metadata?.document_status === "current" &&
+      (metadata.clinical_validation_status === "approved" ||
+        metadata.clinical_validation_status === "locally_reviewed")
+    ) {
+      boost += 0.05;
+    }
+    if (args.candidate.chunkType === "flowchart" && !hasActionSignal) boost -= 0.14;
+  }
   if (args.intent.needsPatientEducation && args.candidate.chunkType === "patient_education") boost += 0.18;
   if (args.intent.needsPatientEducation) {
     boost += signals.has("active_community") ? 0.16 : -0.16;
@@ -328,16 +350,14 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (metadata?.document_status === "current") boost += 0.06;
   if (metadata?.document_status === "review_due") boost -= 0.12;
   if (metadata?.document_status === "outdated") boost -= 0.24;
-  if (!metadata?.document_status || metadata.document_status === "unknown") boost -= 0.08;
 
   if (metadata?.clinical_validation_status === "approved") boost += 0.06;
   if (metadata?.clinical_validation_status === "locally_reviewed") boost += 0.05;
-  if (!metadata?.clinical_validation_status || metadata.clinical_validation_status === "unverified") boost -= 0.08;
+  if (metadata?.clinical_validation_status === "unverified") boost -= 0.02;
 
   if (metadata?.extraction_quality === "good") boost += 0.02;
   if (metadata?.extraction_quality === "partial") boost -= 0.04;
   if (metadata?.extraction_quality === "poor") boost -= 0.12;
-  if (!metadata?.extraction_quality || metadata.extraction_quality === "unknown") boost -= 0.05;
 
   return boost;
 }

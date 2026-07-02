@@ -40,6 +40,15 @@ describe("smart document tags", () => {
         source: "generated",
       }),
     ).toBeNull();
+
+    expect(
+      normalizeDocumentLabelForStorage({
+        label: "Policy",
+        label_type: "document_type",
+        confidence: 0.91,
+        source: "generated",
+      }),
+    ).toMatchObject({ label: "policy", label_type: "document_type" });
   });
 
   it("deduplicates near-equivalent tags and preserves useful manual tags", () => {
@@ -105,6 +114,15 @@ describe("smart document tags", () => {
     expect(buildSmartDocumentTags([label({ label: "HoNOS", label_type: "topic" })])[0].label).toBe(
       "HoNOS Rating Scale",
     );
+    expect(
+      buildSmartDocumentTags([label({ label: "electroconvulsive therapy", label_type: "topic" })])[0],
+    ).toMatchObject({
+      searchText: "electroconvulsive-therapy",
+      label: "Electroconvulsive Therapy",
+    });
+    expect(
+      buildSmartDocumentTags([label({ label: "substance-use-alcohol-and-drugs", label_type: "topic" })])[0].label,
+    ).toBe("Substance Use Alcohol And Drugs");
   });
 
   it("builds grouped tag facets with document counts", () => {

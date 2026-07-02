@@ -22,6 +22,10 @@ const strictGateRepairMigration = readFileSync(
   new URL("../supabase/migrations/20260625033425_strict_enrichment_gate_repair.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const indexingV3AgentWorkerHardeningMigration = readFileSync(
+  new URL("../supabase/migrations/20260625000000_indexing_v3_agent_worker_hardening.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicStrictCompletionMigration = readFileSync(
   new URL("../supabase/migrations/20260625033944_atomic_strict_enrichment_completion.sql", import.meta.url),
   "utf8",
@@ -183,7 +187,13 @@ describe("Supabase schema Data API grants", () => {
 
   it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
     expect(schema).toContain("create table if not exists public.ingestion_job_stages");
-    expect(schema).toContain("drop constraint if exists ingestion_job_stages_job_id_fkey");
+    expect(schema).toContain("job_id uuid not null references public.ingestion_jobs(id) on delete cascade");
+    expect(indexingV3AgentWorkerHardeningMigration).toContain(
+      "drop constraint if exists ingestion_job_stages_job_id_fkey",
+    );
+    expect(indexingV3AgentWorkerHardeningMigration).toContain(
+      "add constraint ingestion_job_stages_job_id_fkey foreign key (job_id) references public.ingestion_jobs(id) on delete cascade",
+    );
     expect(schema).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
     expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
     expect(schema).toContain("create or replace function public.claim_indexing_v3_agent_jobs");

@@ -71,9 +71,6 @@ function titleWithoutExtension(fileName: string) {
 }
 
 function publisherCodeFor(document: DocumentRow, text = "") {
-  if (/\bBM[J)]\s+Best\s+Practice\b/i.test(text) || /\bStraight\s+to\s+the\s+point\s+of\s+care\b/i.test(text)) {
-    return "BMJ";
-  }
   const haystack = `${document.file_name} ${document.title} ${document.source_path ?? ""}`;
   const parentheticalCodes = [...haystack.matchAll(/\(([A-Z]{2,8})\)/g)].map((match) => match[1]);
   for (const code of parentheticalCodes) {
@@ -81,6 +78,9 @@ function publisherCodeFor(document: DocumentRow, text = "") {
   }
   for (const code of Object.keys(publisherByCode).sort((a, b) => b.length - a.length)) {
     if (new RegExp(`(?:^|[\\\\/\\s])${code}(?:[\\\\/\\s]|$)`, "i").test(haystack)) return code;
+  }
+  if (/\bBM[J)]\s+Best\s+Practice\b/i.test(text) || /\bStraight\s+to\s+the\s+point\s+of\s+care\b/i.test(text)) {
+    return "BMJ";
   }
   return null;
 }
@@ -200,14 +200,41 @@ function parseClinicalDate(raw: string, options: { endOfMonth?: boolean } = {}) 
 function firstMatchDate(text: string, labels: string[], endOfMonth: boolean) {
   const datePattern =
     "([0-3]?\\d[/-][01]?\\d[/-]20\\d{2}|[01]?\\d[/-]20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+[0-3]?\\d,?\\s+20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2}|[0-3]?\\d\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2})";
+  const labelSeparator = "[\\s:;,*()\\-]*";
   for (const label of labels) {
-    const pattern = new RegExp(`${label}\\s*:?\\s*${datePattern}`, "i");
+    const pattern = new RegExp(`${label}${labelSeparator}${datePattern}`, "i");
     const match = text.match(pattern);
     if (match) {
       const parsed = parseClinicalDate(match[1], { endOfMonth });
       if (parsed) return { date: parsed, raw: normalizeWhitespace(match[0]) };
     }
-    if (/^(?:Review Due|Revision Due)$/i.test(label)) {
+
+    if (/^(?:Review Due|Revision Due|Revision Date|Next Review|Review Date)$/i.test(label)) {
+      const monthThenYearPattern = new RegExp(
+        `${label}[\\s\\S]{0,100}?\\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\b[\\s\\S]{0,50}?\\b(20\\d{2})\\b`,
+        "i",
+      );
+      const monthThenYearMatch = text.match(monthThenYearPattern);
+      if (monthThenYearMatch) {
+        const parsed = parseClinicalDate(`${monthThenYearMatch[1]} ${monthThenYearMatch[2]}`, { endOfMonth });
+        if (parsed) return { date: parsed, raw: normalizeWhitespace(monthThenYearMatch[0]) };
+      }
+    }
+
+    if (
+      /^(?:Review Due|Revision Due|Revision Date|Next Review|Review Date|Last Reviewed|Authorisation date|Published date|First Issued|Approved by|Endorsed by|Authorised by)$/i.test(
+        label,
+      )
+    ) {
+      const nearLabelPattern = new RegExp(`${label}[\\s\\S]{0,120}?${datePattern}`, "i");
+      const nearLabelMatch = text.match(nearLabelPattern);
+      if (nearLabelMatch) {
+        const parsed = parseClinicalDate(nearLabelMatch[1], { endOfMonth });
+        if (parsed) return { date: parsed, raw: normalizeWhitespace(nearLabelMatch[0]) };
+      }
+    }
+
+    if (/^(?:Review Due|Revision Due|Revision Date|Review Date)$/i.test(label)) {
       const labelIndex = text.toLowerCase().indexOf(label.toLowerCase());
       if (labelIndex >= 0) {
         const window = text.slice(labelIndex, labelIndex + 320);
@@ -235,8 +262,30 @@ function firstMatchDate(text: string, labels: string[], endOfMonth: boolean) {
   return null;
 }
 
+function standaloneReviewDate(text: string) {
+  const datePattern =
+    "([0-3]?\\d[/-][01]?\\d[/-]20\\d{2}|[01]?\\d[/-]20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+[0-3]?\\d,?\\s+20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2}|[0-3]?\\d\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2})";
+  const reviewedThenReview = text.match(new RegExp(`\\bReviewed\\s+${datePattern}[\\s\\S]{0,100}?\\bReview\\s+${datePattern}`, "i"));
+  if (reviewedThenReview?.[2]) {
+    const parsed = parseClinicalDate(reviewedThenReview[2], { endOfMonth: true });
+    if (parsed) return { date: parsed, raw: normalizeWhitespace(reviewedThenReview[0]) };
+  }
+
+  const review = text.match(new RegExp(`\\bReview\\s*[:,]?\\s*${datePattern}`, "i"));
+  if (review?.[1]) {
+    const parsed = parseClinicalDate(review[1], { endOfMonth: true });
+    if (parsed) return { date: parsed, raw: normalizeWhitespace(review[0]) };
+  }
+
+  return null;
+}
+
 function extractDates(text: string) {
-  const review = firstMatchDate(text, ["Review Due", "Revision Due", "Review Date", "Next Review"], true);
+  const review = firstMatchDate(
+    text,
+    ["Review Due", "Revision Due", "Revision Date", "Review Date", "Next Review"],
+    true,
+  ) ?? standaloneReviewDate(text);
   const publication =
     firstMatchDate(
       text,
@@ -245,6 +294,9 @@ function extractDates(text: string) {
         "Published date",
         "First Issued",
         "Date Compiled",
+        "Date of Issue",
+        "Date First Issued",
+        "Issue Date",
         "Last updated",
         "Last Reviewed",
         "Authorised by",
@@ -322,17 +374,17 @@ function clinicalValidationEvidenceFor(args: {
     {
       type: "committee_endorsement",
       pattern:
-        /\b(?:committee\/consumer\s+endorsed\s+by|endorsed\s+by|endorsed)\b[\s\S]{0,260}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
+        /\b(?:committee\/consumer\s+endorsed\s+by|endorsed\s+by|endorsed)\b[\s\S]{0,260}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|head\s+of\s+department|HOD|NUM|CNC|CN|consultant|physiotherapy|pharmacy|haematology|respiratory|transfusion|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
     },
     {
       type: "committee_approval",
       pattern:
-        /\b(?:approved\s+by|approval\s+by|approved)\b[\s\S]{0,260}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
+        /\b(?:approved\s+by|approval\s+by|approved)\b[\s\S]{0,260}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|head\s+of\s+department|HOD|NUM|CNC|CN|consultant|physiotherapy|pharmacy|haematology|respiratory|transfusion|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
     },
     {
       type: "authorisation",
       pattern:
-        /\b(?:authorisation|authorised\s+by|authorized\s+by|executive\s+sponsor)\b[\s\S]{0,300}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|sponsor|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
+        /\b(?:authorisation|authorised\s+by|authorized\s+by|executive\s+sponsor)\b[\s\S]{0,300}\b(?:committee|clinical|governance|safety|quality|risk|drug|therapeutics|executive|service\s+director|director|co-?director|nurse\s+director|medical\s+director|head\s+of\s+department|HOD|NUM|CNC|CN|consultant|physiotherapy|pharmacy|haematology|respiratory|transfusion|sponsor|commissioning|assurance|group|DONM|DCS|CPC|HoLAA)\b/i,
     },
     {
       type: "policy_sponsor",
@@ -342,7 +394,7 @@ function clinicalValidationEvidenceFor(args: {
     {
       type: "document_control_owner",
       pattern:
-        /\b(?:document\s+owner|policy\s+owner|procedure\s+owner)\b[\s\S]{0,180}\b(?:clinical|medical|nursing|pharmacy|mental\s+health|service|director|committee)\b/i,
+        /\b(?:document\s+owner|policy\s+owner|procedure\s+owner)\b[\s\S]{0,180}\b(?:clinical|medical|nursing|pharmacy|mental\s+health|service|director|committee|head\s+of\s+department|HOD|NUM|CNC|CN|consultant|physiotherapy|haematology|respiratory|transfusion)\b/i,
     },
   ];
 
@@ -410,7 +462,8 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
   const changedKeys: string[] = [];
   const publisherCode = publisherCodeFor(document, text);
   const publisher = publisherCode ? publisherByCode[publisherCode] : null;
-  const dates = extractDates(text);
+  const extractedDates = extractDates(text);
+  const dates = publisherCode === "BMJ" ? { ...extractedDates, review: null } : extractedDates;
   const documentStatus = documentStatusFor(dates, publisherCode);
   const existingValidation = String(metadata.clinical_validation_status ?? "unverified");
   const clinicalValidation = clinicalValidationEvidenceFor({
