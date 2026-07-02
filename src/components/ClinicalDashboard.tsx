@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Activity,
   AlertCircle,
@@ -156,10 +157,24 @@ import {
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
-import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
-import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
-import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
-import { ApplicationsLauncherWorkspace, applicationsLauncherItemCount } from "@/components/applications-launcher-page";
+import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
+
+const DifferentialsHome = dynamic(
+  () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
+  { ssr: false }
+);
+const FavouritesHub = dynamic(
+  () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
+  { ssr: false }
+);
+const MedicationPrescribingWorkspace = dynamic(
+  () => import("@/components/clinical-dashboard/medication-prescribing-workspace").then((m) => m.MedicationPrescribingWorkspace),
+  { ssr: false }
+);
+const ApplicationsLauncherWorkspace = dynamic(
+  () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
+  { ssr: false }
+);
 import {
   DocumentSearchResultsPanel,
   MatchExplanationChips,
@@ -4162,7 +4177,7 @@ function StagedAnswerResultSurface({
       if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
     };
   }, []);
-  const openClinicalNotes = useCallback(() => {
+  function openClinicalNotes() {
     setEvidenceOpen(false);
     setEvidenceInitialTab(null);
     if (useReviewSheet) {
@@ -4172,21 +4187,18 @@ function StagedAnswerResultSurface({
     }
     setClinicalNotesOpen(false);
     setActiveReviewPanel("clinical");
-  }, [useReviewSheet, setEvidenceOpen, setEvidenceInitialTab, setActiveReviewPanel, setClinicalNotesOpen]);
-  const openEvidence = useCallback(
-    (initialTab: EvidenceTabName | null = null) => {
-      setClinicalNotesOpen(false);
-      setEvidenceInitialTab(initialTab);
-      if (useReviewSheet) {
-        setActiveReviewPanel(null);
-        setEvidenceOpen(true);
-        return;
-      }
-      setEvidenceOpen(false);
-      setActiveReviewPanel("evidence");
-    },
-    [useReviewSheet, setClinicalNotesOpen, setEvidenceInitialTab, setActiveReviewPanel, setEvidenceOpen],
-  );
+  }
+  function openEvidence(initialTab: EvidenceTabName | null = null) {
+    setClinicalNotesOpen(false);
+    setEvidenceInitialTab(initialTab);
+    if (useReviewSheet) {
+      setActiveReviewPanel(null);
+      setEvidenceOpen(true);
+      return;
+    }
+    setEvidenceOpen(false);
+    setActiveReviewPanel("evidence");
+  }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
     openEvidence("Tables");
@@ -4329,7 +4341,7 @@ function StagedAnswerResultSurface({
 
         {showClinicalNotes ? (
           <Sheet
-            open={useReviewSheet && clinicalNotesOpen}
+            open={clinicalNotesOpen}
             onClose={() => setClinicalNotesOpen(false)}
             title="Clinical notes"
             description="Source-backed points from this answer."
@@ -4378,7 +4390,7 @@ function StagedAnswerResultSurface({
 
         {showEvidenceDrawer ? (
           <Sheet
-            open={useReviewSheet && evidenceOpen}
+            open={evidenceOpen}
             onClose={() => {
               setEvidenceOpen(false);
               setEvidenceInitialTab(null);

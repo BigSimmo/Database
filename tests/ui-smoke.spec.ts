@@ -967,6 +967,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   for (const viewport of [
     { name: "phone", width: 390, height: 820, sheet: true },
     { name: "tablet", width: 768, height: 1024, sheet: true },
+    { name: "near sheet breakpoint", width: 1018, height: 900, sheet: true },
     { name: "desktop", width: 1440, height: 900, sheet: false },
   ] as const) {
     test(`answer support popups adapt at ${viewport.name}`, async ({ page }) => {
