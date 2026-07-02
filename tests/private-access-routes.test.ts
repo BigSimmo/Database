@@ -175,10 +175,17 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
     data: { signedUrl: `https://signed.local/${path}` },
     error: null,
   }));
-  const remove = vi.fn(async (...args: [string[]]) => {
-    void args;
-    return { data: [], error: null };
-  });
+  const remove = vi.fn(
+    async (
+      ...args: [string[]]
+    ): Promise<{
+      data: string[] | null;
+      error: QueryError | null;
+    }> => {
+      void args;
+      return { data: [], error: null };
+    },
+  );
   const storageFrom = vi.fn(() => ({ upload, createSignedUrl, remove }));
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
