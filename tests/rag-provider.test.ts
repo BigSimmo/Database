@@ -51,7 +51,9 @@ describe("provider failure classification", () => {
     );
     expect(p.classifyProviderFailure(Object.assign(new Error("x"), { status: 401 }))).toBe("auth_failed");
     expect(
-      p.classifyProviderFailure(Object.assign(new Error("Rate limit reached"), { status: 429, code: "rate_limit_exceeded" })),
+      p.classifyProviderFailure(
+        Object.assign(new Error("Rate limit reached"), { status: 429, code: "rate_limit_exceeded" }),
+      ),
     ).toBe("rate_limited");
     expect(p.classifyProviderFailure(Object.assign(new Error("Request timed out"), { code: "ETIMEDOUT" }))).toBe(
       "timeout",

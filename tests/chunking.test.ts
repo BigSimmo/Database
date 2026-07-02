@@ -17,6 +17,26 @@ describe("chunkTextWithOverlap", () => {
     expect(chunks.join(" ")).toContain("Sentence 0.");
   });
 
+  // M17 (audit 2026-07-01): overlap >= chunkSize previously made the sentence
+  // window loop spin forever (no forward progress), hanging the worker.
+  it("terminates when overlap >= chunkSize (M17)", () => {
+    const text = `${"Withhold clozapine and review blood results. ".repeat(60)}`.trim();
+    const chunks = chunkTextWithOverlap(text, 200, 200);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.join(" ")).toContain("Withhold clozapine");
+  });
+
+  // M14: only standalone page footers are noise. An inline page reference in a
+  // clinical sentence must never delete the whole line.
+  it("keeps clinical lines containing inline page references (M14)", () => {
+    const text = "Give paracetamol, refer to p 3 for dosing.\nPage 3 of 12\nWithhold clozapine if ANC is low.";
+    const chunks = chunkTextWithOverlap(text, 2000, 200);
+    const joined = chunks.join(" ");
+    expect(joined).toContain("refer to p 3 for dosing");
+    expect(joined).toContain("Withhold clozapine");
+    expect(joined).not.toMatch(/Page 3 of 12/);
+  });
+
   it("prefers paragraph boundaries before falling back to sentence windows", () => {
     const chunks = chunkTextWithOverlap("Heading\n\nFirst clinical paragraph.\n\nSecond clinical paragraph.", 32, 4);
 

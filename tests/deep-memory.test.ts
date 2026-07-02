@@ -234,7 +234,11 @@ describe("deep RAG memory indexing", () => {
     expect(boosted[0].hybrid_score).toBeGreaterThan(0.7);
   });
 
-  it("keeps memory cards when committed-generation metadata lookup fails", async () => {
+  // L8 (audit 2026-07-01): fail CLOSED. When the documents lookup errors we
+  // cannot verify which reindex generation is committed, so the fallback must
+  // drop its cards for that query rather than risk injecting content from an
+  // abandoned/superseded generation into a clinical answer.
+  it("drops fallback memory cards when committed-generation metadata lookup fails", async () => {
     const cards = [
       {
         id: "card-new",
@@ -295,7 +299,7 @@ describe("deep RAG memory indexing", () => {
       matchCount: 8,
     });
 
-    expect(result.map((card) => card.id)).toEqual(["card-new"]);
+    expect(result).toEqual([]);
   });
 
   it("persists memory cards without leaking internal section indexes into inserts", async () => {

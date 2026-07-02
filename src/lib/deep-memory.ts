@@ -642,40 +642,15 @@ export async function upsertDocumentDeepMemory(args: {
   const cards = buildDocumentMemoryCards({ ...args, sections, modelProfile });
   if (cards.length === 0) throw new Error("Deep memory generated no source-backed memory cards.");
 
-  await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
-  await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
-  await args.supabase
-    .from("document_index_units")
-    .delete()
-    .eq("document_id", args.document.id)
-    .then(undefined, () => undefined);
-
-  const { data: insertedSections, error: sectionError } = await args.supabase
-    .from("document_sections")
-    .insert(sections)
-    .select("id,section_index");
-  if (sectionError) throw new Error(sectionError.message);
-
-  const sectionIds = new Map<string | number, string>();
-  for (const section of insertedSections ?? []) {
-    sectionIds.set(section.section_index, section.id);
-  }
-
+  // Audit M11: compute everything that can fail on the network (memory-card
+  // and index-unit embeddings) BEFORE deleting the existing memory rows. The
+  // previous order deleted first and rebuilt after, so an OpenAI outage
+  // mid-rebuild left the document with ZERO memory rows (silent retrieval
+  // degradation) while documents.metadata still advertised the prior
+  // rag_memory_version. A failure between the delete and insert below is
+  // still possible, but the exposure window no longer spans OpenAI calls.
   const embeddings = await embedTexts(cards.map(embeddingText));
   if (embeddings.length !== cards.length) throw new Error("OpenAI returned an unexpected memory-card embedding count.");
-
-  for (let start = 0; start < cards.length; start += 50) {
-    const batch = cards.slice(start, start + 50).map((card, index) => {
-      const { section_index: sectionIndex, ...row } = card;
-      return {
-        ...row,
-        section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
-        embedding: assertEmbeddingDim(embeddings[start + index], `document_memory_cards.${start + index}`),
-      };
-    });
-    const { error } = await args.supabase.from("document_memory_cards").insert(batch);
-    if (error) throw new Error(error.message);
-  }
 
   const indexUnits = buildDocumentIndexUnitInputs({
     document: args.document,
@@ -713,8 +688,47 @@ export async function upsertDocumentDeepMemory(args: {
       };
     }),
   });
+  const indexUnitEmbeddings =
+    indexUnits.length > 0 ? await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit)) : [];
+  if (indexUnits.length > 0 && indexUnitEmbeddings.length !== indexUnits.length) {
+    throw new Error("OpenAI returned an unexpected index-unit embedding count.");
+  }
+
+  // All embeddings are in hand — replace the previous memory atomically-ish:
+  // delete then insert without any intervening network dependency (M11).
+  await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
+  await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
+  await args.supabase
+    .from("document_index_units")
+    .delete()
+    .eq("document_id", args.document.id)
+    .then(undefined, () => undefined);
+
+  const { data: insertedSections, error: sectionError } = await args.supabase
+    .from("document_sections")
+    .insert(sections)
+    .select("id,section_index");
+  if (sectionError) throw new Error(sectionError.message);
+
+  const sectionIds = new Map<string | number, string>();
+  for (const section of insertedSections ?? []) {
+    sectionIds.set(section.section_index, section.id);
+  }
+
+  for (let start = 0; start < cards.length; start += 50) {
+    const batch = cards.slice(start, start + 50).map((card, index) => {
+      const { section_index: sectionIndex, ...row } = card;
+      return {
+        ...row,
+        section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
+        embedding: assertEmbeddingDim(embeddings[start + index], `document_memory_cards.${start + index}`),
+      };
+    });
+    const { error } = await args.supabase.from("document_memory_cards").insert(batch);
+    if (error) throw new Error(error.message);
+  }
+
   if (indexUnits.length > 0) {
-    const indexUnitEmbeddings = await embedTexts(indexUnits.map(embeddingTextForDocumentIndexUnit));
     for (let start = 0; start < indexUnits.length; start += 50) {
       const batch = indexUnits.slice(start, start + 50).map((unit, index) => ({
         ...unit,
@@ -872,9 +886,15 @@ export async function fetchMemoryCardsForQuery(args: {
       (documents ?? []).map((document) => [document.id, committedIndexGeneration(document.metadata)] as const),
     );
 
+    // Audit L8: fail CLOSED. If the documents lookup errors we cannot tell
+    // which generation is committed, so returning the cards unfiltered could
+    // inject content from an abandoned/superseded reindex generation into a
+    // clinical answer. Dropping the fallback cards for one query (retrieval
+    // degrades gracefully) is safer than exposing stale memory.
+    if (documentsError) return [];
+
     return cards
       .filter((card) => {
-        if (documentsError) return true;
         if (!committedGenerationByDocument.has(card.document_id)) return true;
         return isCommittedGenerationMetadata({
           rowMetadata: card.metadata,

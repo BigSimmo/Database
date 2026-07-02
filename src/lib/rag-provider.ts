@@ -40,12 +40,7 @@ export function allowsAutoDegrade(): boolean {
 }
 
 export type ProviderFailureKind =
-  | "missing_key"
-  | "auth_failed"
-  | "quota_exhausted"
-  | "rate_limited"
-  | "timeout"
-  | "provider_failed";
+  "missing_key" | "auth_failed" | "quota_exhausted" | "rate_limited" | "timeout" | "provider_failed";
 
 /**
  * Classify why an OpenAI call failed, for telemetry and user-facing fallback messaging.

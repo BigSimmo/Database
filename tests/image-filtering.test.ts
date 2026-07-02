@@ -156,7 +156,10 @@ describe("smart image filtering", () => {
   });
 
   it("builds a stable lightweight perceptual hash key", () => {
-    expect(lightweightPerceptualHash("1234567890abcdef", 100, 200)).toMatch(/^ph1:100x200:[0-9a-f]{4}$/);
+    // M12 (audit 2026-07-01): ph2 digest — 16 hex threshold bits + 32 hex
+    // quantized-level bits; ph1's 4-hex space collided across distinct
+    // same-dimension clinical tables.
+    expect(lightweightPerceptualHash("1234567890abcdef", 100, 200)).toMatch(/^ph2:100x200:[0-9a-f]{48}$/);
   });
 
   it("groups identical sampled image bytes but separates different bytes", () => {

@@ -2,8 +2,20 @@ export function safeIngestionJobLog(jobId: string) {
   return `Processing ingestion job ${jobId}`;
 }
 
-function redactLogValue(value: unknown) {
-  if (typeof value !== "string") return value;
+function redactLogValue(value: unknown): unknown {
+  if (typeof value !== "string") {
+    // Audit L12: non-string code/details/hint fields (objects/arrays from
+    // non-standard error shapes) used to pass through verbatim, skipping the
+    // path/url/secret/email redaction below. Serialize them (guarded) and
+    // redact the serialized form; primitives stay as-is.
+    if (value === null || value === undefined) return value;
+    if (typeof value === "number" || typeof value === "boolean") return value;
+    try {
+      return redactLogValue(JSON.stringify(value) ?? "[unserializable]");
+    } catch {
+      return "[unserializable]";
+    }
+  }
   const htmlTitle = value.match(/<title>\s*([^<]+?)\s*<\/title>/i)?.[1]?.trim();
   const normalizedValue = htmlTitle ? `HTML response: ${htmlTitle}` : value;
   return normalizedValue

@@ -9,7 +9,11 @@ const metadataNoisePatterns: RegExp[] = [
   /\b(?:version|revision)\s+\d+\s*$/i,
 ];
 const lineNoisePatterns: RegExp[] = [
-  /\b(page|p\.?)\s*\d+\s*(?:\/\s*\d+)?\b/i,
+  // Audit M14: anchored to the WHOLE line. The previous unanchored form
+  // matched an inline page reference anywhere in a sentence ("refer to p 3
+  // for dosing", "titrate p 20 micrograms") and removePageNoise then deleted
+  // the entire clinical line. Only a standalone page footer counts as noise.
+  /^\s*(?:page|p\.?)\s*\d+\s*(?:(?:\/|of)\s*\d+)?\s*$/i,
   /^\s*[-*_]{3,}\s*$/,
   /^\s*[\u25cf\u25e6\u2022]\s*$/,
 ];
@@ -317,7 +321,13 @@ function chunkTextBySentence(clean: string, chunkSize: number, overlap: number) 
     const chunk = clean.slice(start, end).trim();
     if (chunk) chunks.push(chunk);
     if (end >= clean.length) break;
-    start = readableOverlapStart(clean, end, overlap);
+    // Audit M17: when overlap >= chunkSize, readableOverlapStart can return a
+    // position at or before the current start and the loop never advances,
+    // hanging the ingestion worker on that document. Force strict forward
+    // progress: if the overlap window does not move us forward, continue from
+    // the end of the current chunk instead.
+    const nextStart = readableOverlapStart(clean, end, overlap);
+    start = nextStart > start ? nextStart : end;
   }
 
   return chunks;

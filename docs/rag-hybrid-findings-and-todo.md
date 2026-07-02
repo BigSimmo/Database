@@ -63,8 +63,8 @@ outstanding backlog. See also the master plan
 
 4. 🔍 **Answer-path ranking investigated (2026-07-01) — healthy; low mrr is a sibling-doc artifact,
    NOT a defect.** Probed every low-`rr@10` golden case. In each, the docs ranked above the pinned
-   one are **legitimate siblings** the corpus genuinely contains: several *Safety Planning* guidelines
-   (KEMH/RKPG/AKG), multiple hospital versions of *Active Community Patients in ED*, multiple
+   one are **legitimate siblings** the corpus genuinely contains: several _Safety Planning_ guidelines
+   (KEMH/RKPG/AKG), multiple hospital versions of _Active Community Patients in ED_, multiple
    opioid-pharmacotherapy guidelines, and the two agitation guidelines. Recall stays 1.0 and the model
    gets correct context; forcing the pinned doc to #1 over equally-valid siblings would be overfitting.
    **So items 1/6 (query-class weighting to raise mrr) are deprioritized** — chasing that metric on
@@ -73,25 +73,25 @@ outstanding backlog. See also the master plan
      (`clinical-search.ts:1362`) — base + the ~40 stacked boosts routinely exceed 1.0, so many strong
      matches tie at 1.0 and order by an arbitrary `document_id` tiebreak. It doesn't hurt these cases
      (the tied docs are all relevant), but it wastes the boost engineering. If ever revisited, break
-     ties by the *pre-clamp* score rather than raising the ceiling (downstream gates assume [0,1]).
+     ties by the _pre-clamp_ score rather than raising the ceiling (downstream gates assume [0,1]).
    - The second-stage rerank (which uses unclamped scoring + a strong dose-amount/title boost) rarely
      fires for document_lookup/broad_summary (`shouldUseSecondStageRerank` needs `topScoresClose &&
-     hasVisualEvidence`, `rag.ts:548`). Widening it (RC10) could restore discrimination among the
+hasVisualEvidence`, `rag.ts:548`). Widening it (RC10) could restore discrimination among the
      1.0-tied group, but since the tied docs are valid siblings the payoff is marginal and unvalidatable
      on the current golden set — do it only alongside a chunk-level "best-passage-first" eval metric.
 5. ⏸️ **`ef_search` policy inconsistent — BLOCKED, deferred.** Attempted `ALTER FUNCTION … SET
-   hnsw.ef_search='100'` on the three sql functions; **hosted Supabase denies it (`42501 permission
-   denied to set parameter`)** — the RC11 blocker. The only method hosted allows is the plpgsql-wrapper
-   + runtime `PERFORM set_config('hnsw.ef_search','100',true)` pattern (what memory_cards uses; measured
-   latency-neutral: chunks 76→79ms warm). Deferred: the recall gain is unquantified (golden already 1.0)
-   and there's no hard-query eval set to justify adding three plpgsql wrappers. Revisit once an
-   expanded/hard eval set exists (see P2.8).
+hnsw.ef_search='100'` on the three sql functions; **hosted Supabase denies it (`42501 permission
+denied to set parameter`)** — the RC11 blocker. The only method hosted allows is the plpgsql-wrapper
+   - runtime `PERFORM set_config('hnsw.ef_search','100',true)` pattern (what memory_cards uses; measured
+     latency-neutral: chunks 76→79ms warm). Deferred: the recall gain is unquantified (golden already 1.0)
+     and there's no hard-query eval set to justify adding three plpgsql wrappers. Revisit once an
+     expanded/hard eval set exists (see P2.8).
 6. **RC5–RC13 ranking tuning** — partially addressed / re-scoped after the item-4 investigation:
    - ✅ **Same-document crowding (RC7)** — the `/api/search` results panel cap was lowered
      `maxPerDocument 4→3` (`app/api/search/route.ts`, backfill-protected so result count is unchanged).
      Note: this only affects the **panel**; the answer-retrieval path (`searchChunksWithTelemetry`) has
      no per-doc cap and doesn't need one — the comparison gate already enforces ≥2 distinct docs, and
-     single-topic queries *should* be able to draw multiple chunks from the best document.
+     single-topic queries _should_ be able to draw multiple chunks from the best document.
    - ⏳ **Synthetic text similarity (RC9)** `least(0.95, 0.56 + text_rank*0.39)` still feeds coverage
      gates that assume a real cosine — gate text-only paths on `text_rank`/`rrf` instead. (Cleanest
      remaining ranking-correctness item.)
@@ -137,12 +137,13 @@ outstanding backlog. See also the master plan
      working precise match. Unit tests in `tests/retrieval-query-variants.test.ts` + the
      `alcohol-ciwa-threshold` golden case guard it. **This is a general recall win, not just CIWA** —
      any long multi-term query previously risked silent 0-match FTS.
+
 9. ⚠️ **OCR "dropped-s" defect — real but NOT reliably heuristically-detectable; guard attempted then
    REVERTED (2026-07-01). Honest post-mortem below.**
    - **What's true:** real dropped-'s' corruption exists in some table-derived index units
      ("psychosocial"→"p ycho ocial", "1st mood stabiliser"→"1 t mood tabili er"). The **raw
      `document_chunks` (answer context) are clean** — 0 docs below 0.025 s-ratio — so **generated
-     answer text is not degraded**; the defect only touches structured *table* units (OCR'd from
+     answer text is not degraded**; the defect only touches structured _table_ units (OCR'd from
      images), and the intact numbers survive ("CIWA-Ar **core** <10" keeps the "<10").
    - **The detection is the hard part — every heuristic false-positives.** First tried an s-ratio
      detector (`'s'`/letter < 0.03): it flagged 772 units but **only 135 were real (82% false
@@ -164,8 +165,8 @@ outstanding backlog. See also the master plan
    - **If ever pursued (low priority, modest impact):** reliable detection needs a **dictionary/
      spellcheck approach** ("fraction of tokens that aren't valid English/clinical words") or fixing
      the **upstream table-OCR** step — not a token heuristic. Neither is warranted by the impact.
-   Remaining true enrichment items: confirm `20260627000000_retrieval_hnsw_ef_search.sql` on live; run
-   `enrich:backfill` / `tags:backfill` for any genuinely missing synopsis/labels.
+     Remaining true enrichment items: confirm `20260627000000_retrieval_hnsw_ef_search.sql` on live; run
+     `enrich:backfill` / `tags:backfill` for any genuinely missing synopsis/labels.
 10. 🔧 **Query understanding (RC6/E) — pg_trgm typo correction started (2026-07-01).**
     - **Data-driven promotion is blocked:** `rag_query_misses` (71 rows) are privacy-redacted hashes
       with empty `candidate_aliases`, so the plan's "promote real misses to aliases" path can't run.
@@ -179,7 +180,7 @@ outstanding backlog. See also the master plan
       min_sim 0.45. Validated: clozapin→clozapine, agitaton→agitation, schizophrenai→schizophrenia,
       bipoler→bipolar, withdrawl→withdrawal, lithiun→lithium; clean queries unchanged. ~85ms.
     - ✅ **Wired as a text-search fallback** in `searchTextChunkCandidates` (`rag.ts`): when strict AND
-      variants return nothing, correct the query and retry (strictly, then OR-relaxed) *before* the 8b
+      variants return nothing, correct the query and retry (strictly, then OR-relaxed) _before_ the 8b
       OR-relaxation, so a typo like "clozapin monitoring" resolves to clozapine rather than OR-matching
       generic "monitoring" docs. Verified end-to-end: "clozapin anc threshold"→Clozapine docs, "dischage
       planning"→Discharge Planning. Golden set unchanged (23/23, no regression); 682 tests pass.
@@ -187,10 +188,10 @@ outstanding backlog. See also the master plan
       (`rag.ts:4986`) now, when a query would short-circuit as unsupported, trigram-corrects it and —
       if it changed — re-runs the whole retrieval once on the corrected text (guarded by an internal
       `typoCorrected` flag; only fires for would-be-unsupported queries so no hot-path cost). Rescues
-      typo queries whose corrected form is a *supported* class (e.g. a typo'd clozapine/dose query
+      typo queries whose corrected form is a _supported_ class (e.g. a typo'd clozapine/dose query
       → table_threshold). Golden 23/23 unchanged, 682 tests pass.
     - ⚠️ **Pre-existing bug surfaced (NEW, finding #11):** unsupported-classified queries retrieve
-      **nondeterministically** — the *same* query in the *same* process alternates
+      **nondeterministically** — the _same_ query in the _same_ process alternates
       `unsupported_short_circuit` (0 results) vs `text_fast_path`/`hybrid` (real results), e.g.
       "anorexia management" (no typo). Classification is pure and all caches honour `skipCache`, so the
       variance is elsewhere in the unsupported-query path (candidate: alias fetch/expansion or an async
