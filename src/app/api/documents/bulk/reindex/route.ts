@@ -66,7 +66,7 @@ async function selectRowsInPages<T>(args: {
 }) {
   const rows: T[] = [];
   for (let offset = 0; ; offset += pageSize) {
-    let query =
+    const query =
       args.table === "document_images" && args.searchableOnly
         ? args.supabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
         : args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);

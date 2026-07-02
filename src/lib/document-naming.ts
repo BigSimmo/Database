@@ -16,6 +16,16 @@ export type ExistingDocumentName = {
   metadata?: unknown;
 };
 
+type DocumentNameSupabase = {
+  from: (table: "documents") => {
+    select: (columns: string) => {
+      eq: (column: "owner_id", value: string) => {
+        limit: (count: number) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
+      };
+    };
+  };
+};
+
 const titleAbbreviations = new Map<string, string>([
   ["admin", "Administering"],
   ["assoc", "Associated"],
@@ -150,7 +160,7 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase?: any;
+  supabase?: unknown;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;
@@ -166,7 +176,8 @@ export async function planDocumentName(args: {
     documents = args.existingDocs;
   } else {
     if (!args.supabase) throw new Error("supabase client or existingDocs is required");
-    const { data, error } = await args.supabase
+    const supabase = args.supabase as DocumentNameSupabase;
+    const { data, error } = await supabase
       .from("documents")
       .select("id,title,file_name,content_hash")
       .eq("owner_id", args.ownerId)

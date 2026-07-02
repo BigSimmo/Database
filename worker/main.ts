@@ -37,6 +37,7 @@ import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
+import type { Database, Json } from "../src/lib/supabase/database.types";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkPythonPdfPrerequisites } from "./prerequisites";
@@ -80,6 +81,24 @@ type OptionalIndexWriteIssue = {
   code?: string | null;
 };
 
+type GenerationTableResult = {
+  data: unknown[] | null;
+  error: { message?: string; code?: string; details?: string; hint?: string } | null;
+};
+
+type GenerationTableMutation = PromiseLike<GenerationTableResult> & {
+  eq: (column: string, value: string) => GenerationTableMutation;
+  neq: (column: string, value: string) => PromiseLike<GenerationTableResult>;
+  is: (column: string, value: null) => PromiseLike<GenerationTableResult>;
+  limit: (count: number) => GenerationTableMutation;
+  select: (columns: string) => GenerationTableMutation;
+  delete: () => GenerationTableMutation;
+};
+
+type GenerationTableClient = {
+  from: (table: string) => GenerationTableMutation;
+};
+
 function supabaseStageError(
   stage: string,
   error: { message?: string; code?: string; details?: string; hint?: string },
@@ -94,7 +113,10 @@ function supabaseStageError(
 }
 
 async function updateJob(jobId: string, patch: Record<string, unknown>) {
-  const { error } = await supabase.from("ingestion_jobs").update(patch as any).eq("id", jobId);
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .update(patch as Database["public"]["Tables"]["ingestion_jobs"]["Update"])
+    .eq("id", jobId);
   if (error) throw supabaseStageError("update ingestion job", error);
   if (typeof patch.progress === "number" || typeof patch.stage === "string") {
     progressUpdateState.set(jobId, {
@@ -127,7 +149,10 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 
 async function updateDocument(documentId: string, patch: Record<string, unknown>) {
   const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
-  const { error } = await supabase.from("documents").update(sanitized as any).eq("id", documentId);
+  const { error } = await supabase
+    .from("documents")
+    .update(sanitized as Database["public"]["Tables"]["documents"]["Update"])
+    .eq("id", documentId);
   if (error) throw supabaseStageError("update document", error);
 }
 
@@ -454,8 +479,9 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // fields, index units) cascade with their legacy chunks regardless — the
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
+  const mutationClient = supabase as unknown as GenerationTableClient;
   const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = (supabase.from(table as any) as any).select("id").eq("document_id", documentId).limit(1);
+    let query = mutationClient.from(table).select("id").eq("document_id", documentId).limit(1);
     query = direct
       ? query.eq("index_generation_id", indexGenerationId)
       : query.eq("metadata->>index_generation_id", indexGenerationId);
@@ -464,26 +490,26 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
     return (data ?? []).length > 0;
   };
   const deleteDirectGenerationRows = async (table: string) => {
-    const stale = await supabase
-      .from(table as any)
+    const stale = await mutationClient
+      .from(table)
       .delete()
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await supabase.from(table as any).delete().eq("document_id", documentId).is("index_generation_id", null);
+    const missing = await mutationClient.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
-    const stale = await supabase
-      .from(table as any)
+    const stale = await mutationClient
+      .from(table)
       .delete()
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, false))) return;
-    const missing = await supabase
-      .from(table as any)
+    const missing = await mutationClient
+      .from(table)
       .delete()
       .eq("document_id", documentId)
       .is("metadata->>index_generation_id", null);
@@ -500,7 +526,7 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
 }
 
 async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {
-  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality) as any, {
+  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality) as Json, {
     onConflict: "document_id",
   });
   if (error) throw supabaseStageError("upsert document_index_quality", error);
