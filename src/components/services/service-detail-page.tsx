@@ -200,6 +200,23 @@ function referralRowsFor(service: ServiceRecord, primaryContact: ServiceContact 
   ].filter((row) => hasText(row.value));
 }
 
+function normalizeTagForList(tag: string) {
+  return tag.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function dedupeTagItems(items: string[]) {
+  const seen = new Set<string>();
+  return items
+    .map((tag) => tag.trim())
+    .filter((tag) => hasText(tag))
+    .filter((tag) => {
+      const key = normalizeTagForList(tag);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function ActionIconButton({
   label,
   onClick,
@@ -297,25 +314,35 @@ function ReferralTable({
   }
 
   return (
-    <>
-      <div className="grid gap-2 sm:hidden">
-        {rows.map((row, index) => (
+    <div className="space-y-2">
+      {rows.map((row, index) => {
+        const isPrimary = index === 0;
+        const isCost = row.label.toLowerCase().includes("cost");
+
+        return (
           <article
-            key={`${row.label}-${index}-mobile`}
+            key={`${row.label}-${index}`}
             className={cn(
-              "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-              index === 0 && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35",
-              row.label.toLowerCase().includes("cost") && "bg-[color:var(--success-soft)]/25",
+              "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
+              isPrimary && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35",
+              isCost && "bg-[color:var(--success-soft)]/25",
             )}
           >
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
-              {renderRowIcon(row.label)}
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2.5 sm:grid-cols-[auto_minmax(8rem,0.55fr)_minmax(0,1fr)_auto] sm:items-center">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]">
+                {renderRowIcon(row.label)}
+              </span>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">{row.label}</h3>
-                <p className="mt-1 whitespace-pre-line text-sm font-medium leading-6 text-[color:var(--text-heading)]">
-                  {displayText(row.value)}
-                </p>
+                <h3 className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{row.label}</h3>
+                {isPrimary ? (
+                  <p className="mt-0.5 text-xs font-medium leading-4 text-[color:var(--clinical-accent)]">
+                    Primary access route
+                  </p>
+                ) : null}
               </div>
+              <p className="col-start-2 min-w-0 whitespace-pre-line break-words text-sm font-medium leading-6 text-[color:var(--text-heading)] sm:col-start-auto">
+                {displayText(row.value)}
+              </p>
               <button
                 type="button"
                 disabled={!hasText(row.value)}
@@ -327,79 +354,9 @@ function ReferralTable({
               </button>
             </div>
           </article>
-        ))}
-      </div>
-
-      <div className="polished-scroll hidden overflow-x-auto rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:block">
-        <table className="w-full border-separate border-spacing-0 text-left">
-          <caption className="sr-only">Service referral information</caption>
-          <colgroup>
-            <col className="w-[12rem]" />
-            <col />
-            <col className="w-[3.75rem]" />
-          </colgroup>
-          <thead>
-            <tr className="bg-[color:var(--clinical-chat-table-header)] text-xs font-bold uppercase text-[color:var(--text-soft)]">
-              <th scope="col" className="border-b border-[color:var(--border)] px-4 py-3">
-                Field
-              </th>
-              <th scope="col" className="border-b border-[color:var(--border)] px-4 py-3">
-                Detail
-              </th>
-              <th scope="col" className="border-b border-[color:var(--border)] px-4 py-3 text-right">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr
-                key={`${row.label}-${index}`}
-                className={cn(
-                  "align-top transition-colors hover:bg-[color:var(--surface-subtle)]",
-                  index === 0 && "bg-[color:var(--clinical-accent-soft)]/45",
-                  row.label.toLowerCase().includes("cost") && "bg-[color:var(--success-soft)]/30",
-                )}
-              >
-                <th scope="row" className="border-b border-[color:var(--border)] px-4 py-4">
-                  <span className="flex min-w-0 items-start gap-2.5">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]">
-                      {renderRowIcon(row.label)}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                        {row.label}
-                      </span>
-                      {index === 0 ? (
-                        <span className="mt-0.5 block text-xs font-medium text-[color:var(--clinical-accent)]">
-                          Primary access route
-                        </span>
-                      ) : null}
-                    </span>
-                  </span>
-                </th>
-                <td className="border-b border-[color:var(--border)] px-4 py-4">
-                  <p className="max-w-[48rem] whitespace-pre-line text-sm font-medium leading-6 text-[color:var(--text-heading)]">
-                    {displayText(row.value)}
-                  </p>
-                </td>
-                <td className="border-b border-[color:var(--border)] px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    disabled={!hasText(row.value)}
-                    onClick={() => onCopy(row.value, `${row.label} copied`)}
-                    aria-label={`Copy ${row.label}`}
-                    className="inline-grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Copy className="h-4 w-4" aria-hidden />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+        );
+      })}
+    </div>
   );
 }
 
@@ -473,12 +430,14 @@ function CriteriaGroup({
 }
 
 function TagList({ items, emptyLabel }: { items: string[]; emptyLabel: string }) {
-  if (!items.length) return <p className={cn("text-sm leading-6", textMuted)}>{emptyLabel}</p>;
+  const uniqueItems = dedupeTagItems(items);
+
+  if (!uniqueItems.length) return <p className={cn("text-sm leading-6", textMuted)}>{emptyLabel}</p>;
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {items.map((item) => (
-        <span key={item} className={cn(metadataPill, "min-h-7 rounded-full text-[11px]")}>
+      {uniqueItems.map((item) => (
+        <span key={normalizeTagForList(item)} className={cn(metadataPill, "min-h-7 rounded-full text-[11px]")}>
           {item}
         </span>
       ))}
@@ -573,7 +532,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   return (
     <main
       data-testid="service-detail-page"
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-8 text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-[calc(10rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className="mx-auto max-w-[94rem]">
         {notice ? (
@@ -661,7 +620,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 </span>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-[color:var(--text-muted)]">Contact</p>
-                  <h2 className="mt-1 truncate text-xl font-semibold text-[color:var(--text-heading)]">
+                  <h2 className="mt-1 break-words text-xl font-semibold text-[color:var(--text-heading)]">
                     Contact: {displayText(primaryContact?.value)}
                   </h2>
                   <p className={cn("mt-1 text-sm leading-5", textMuted)}>
@@ -694,15 +653,16 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               </div>
             </section>
 
-            <div aria-hidden="true" className="h-2 sm:hidden" />
-
-            <section aria-label="Service quick facts" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <section
+              aria-label="Service quick facts"
+              className="grid gap-3 pt-52 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
+            >
               {compactSummaryCards.map((card) => (
                 <SummaryCard key={card.id} card={card} />
               ))}
             </section>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)]">
+            <div className="grid gap-4 xl:grid-cols-[minmax(28rem,0.86fr)_minmax(0,1fr)]">
               <Section icon={Clipboard} title="Referral information">
                 <ReferralTable rows={referralRows} onCopy={copyValue} />
               </Section>
