@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // job is NOT processing, OR its lock is already stale, OR it has no lock.
     const staleThreshold = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
 
-    const nextRunAt = new Date().toISOString();
+    const retryScheduledAt = new Date().toISOString();
     const { data, error } = await supabase
       .from("ingestion_jobs")
       .update({
@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         max_attempts: env.WORKER_MAX_ATTEMPTS,
         locked_at: null,
         locked_by: null,
-        next_run_at: nextRunAt,
+        next_run_at: retryScheduledAt,
         completed_at: null,
       })
       .eq("id", id)
@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         { status: 409 },
       );
     }
-    const resetNextRunAt = data.next_run_at ?? nextRunAt;
+    const appliedRetryScheduledAt = data.next_run_at ?? retryScheduledAt;
 
     // IDX-H1: do NOT reset the document index here. The worker calls resetDocumentIndex at
     // job start (worker/main.ts), so resetting before enqueue would leave a previously-good
@@ -100,7 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .eq("attempt_count", 0)
         .is("locked_at", null)
         .is("locked_by", null)
-        .eq("next_run_at", resetNextRunAt);
+        .eq("next_run_at", appliedRetryScheduledAt);
       if (rollbackError) throw new Error(rollbackError.message);
       throw new Error(documentError.message);
     }
