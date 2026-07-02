@@ -1,0 +1,6 @@
+# Fingerprints of known false positives, one per line:
+# <commit>:<file>:<rule>:<line>
+# Fake Supabase-style secret fixture in a test that verifies secret *redaction*.
+# The current tip no longer matches the rule, but this historical commit is
+# still scanned on every PR run.
+92cd8ac656800a0db504bdf9559bd9b30b52212c:tests/privacy.test.ts:generic-api-key:32

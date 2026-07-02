@@ -5,7 +5,11 @@ import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
-import { checkIngestionMutationSafety, ingestionMutationSafetyPayload } from "@/lib/ingestion-mutation-safety";
+import {
+  checkIngestionMutationSafety,
+  ingestionMutationSafetyPayload,
+  ingestionRollbackFenceStamp,
+} from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import {
   committedIndexGeneration,
@@ -80,7 +84,11 @@ async function selectReindexRowsInPages<T>(args: {
   for (let offset = 0; ; offset += reindexPageSize) {
     const dynamicSupabase = args.supabase as unknown as SupabaseClient;
     const query = args.searchableOnly
-      ? dynamicSupabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
+      ? dynamicSupabase
+          .from("document_images")
+          .select(args.select)
+          .eq("document_id", args.documentId)
+          .eq("searchable", true)
       : dynamicSupabase.from(args.table).select(args.select).eq("document_id", args.documentId);
     const { data, error } = await query.range(offset, offset + reindexPageSize - 1);
     if (error) throw new Error(error.message);
@@ -107,7 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: document, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,page_count,chunk_count,image_count,error_message,metadata")
+      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,error_message,page_count,chunk_count,image_count,metadata")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
@@ -176,12 +184,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const atomicReindex = isAtomicReindexCandidate(document);
+    // Rollback fence: the queue-state write stamps updated_at with a
+    // per-request value and the rollback below matches on that stamp, making
+    // it a single conditional UPDATE that is atomic server-side. An
+    // overlapping reindex/retry re-stamps the row before enqueueing its own
+    // job, so a stale rollback from this request matches zero rows instead of
+    // reverting the newer queue state. The competing-job SELECT below is only
+    // a cheap fast path; the fence is what closes the check-then-write race.
+    const rollbackFence = ingestionRollbackFenceStamp();
+    const rollbackDocumentPayload = atomicReindex
+      ? { error_message: document.error_message ?? null }
+      : {
+          status: document.status ?? null,
+          error_message: document.error_message ?? null,
+          page_count: document.page_count ?? 0,
+          chunk_count: document.chunk_count ?? 0,
+          image_count: document.image_count ?? 0,
+        };
     const { error: updateError } = await supabase
       .from("documents")
       .update(
         atomicReindex
-          ? { error_message: null }
-          : { status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 },
+          ? { error_message: null, updated_at: rollbackFence }
+          : {
+              status: "queued",
+              error_message: null,
+              page_count: 0,
+              chunk_count: 0,
+              image_count: 0,
+              updated_at: rollbackFence,
+            },
       )
       .eq("id", id)
       .eq("owner_id", user.id);
@@ -201,24 +233,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (jobError) {
-      if (!atomicReindex) {
-        const { error: rollbackError } = await supabase
+      const { data: competingJobs, error: competingJobsError } = await supabase
+        .from("ingestion_jobs")
+        .select("id")
+        .eq("document_id", id)
+        .in("status", ["pending", "processing"])
+        .limit(1);
+      if (competingJobsError) {
+        throw new Error(`Failed to enqueue reindex job: ${jobError.message}; competing-job check failed: ${competingJobsError.message}`);
+      }
+      if ((competingJobs?.length ?? 0) === 0) {
+        let rollbackQuery = supabase
           .from("documents")
-          .update({
-            status: document.status,
-            error_message: document.error_message,
-            page_count: document.page_count,
-            chunk_count: document.chunk_count,
-            image_count: document.image_count,
-          })
+          .update(rollbackDocumentPayload)
           .eq("id", id)
           .eq("owner_id", user.id)
-          .eq("status", "queued")
-          .is("error_message", null)
-          .eq("page_count", 0)
-          .eq("chunk_count", 0)
-          .eq("image_count", 0);
-        if (rollbackError) throw new Error(rollbackError.message);
+          .eq("updated_at", rollbackFence);
+        if (!atomicReindex) {
+          rollbackQuery = rollbackQuery
+            .eq("status", "queued")
+            .is("error_message", null)
+            .eq("page_count", 0)
+            .eq("chunk_count", 0)
+            .eq("image_count", 0);
+        }
+        const { error: rollbackError } = await rollbackQuery;
+        if (rollbackError) {
+          throw new Error(`Failed to enqueue reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
+        }
       }
       throw new Error(jobError.message);
     }
