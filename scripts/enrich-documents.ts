@@ -185,7 +185,7 @@ async function loadEvidence(supabase: SupabaseAdmin, documentId: string) {
     anchor_id: string | null;
     content: string;
     image_ids: string[];
-    metadata: unknown;
+    metadata: Record<string, unknown> | null;
   }> = [];
   const images: Array<{
     id: string;
@@ -195,7 +195,7 @@ async function loadEvidence(supabase: SupabaseAdmin, documentId: string) {
     labels: string[];
     source_kind: string;
     clinical_relevance_score: number;
-    metadata: unknown;
+    metadata: Record<string, unknown> | null;
   }> = [];
 
   for (let start = 0; ; start += 1000) {
@@ -628,8 +628,8 @@ async function main() {
           const deepMemory = await upsertDocumentDeepMemory({
             supabase,
             document: { ...document, metadata: imageMetadata },
-            chunks: evidence.chunks as never,
-            images: evidence.images as never,
+            chunks: evidence.chunks,
+            images: evidence.images,
             summary: enrichmentSummary,
           });
           const { data: latestDoc } = await supabase
