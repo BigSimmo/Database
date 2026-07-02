@@ -120,6 +120,12 @@ const qualityThresholds = {
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
   ragP95LatencyMs: 25_000,
+  ragRouteP95LatencyMs: {
+    unsupported: 4_000,
+    extractive: 12_000,
+    fast: 25_000,
+    strong: 35_000,
+  } as Record<string, number>,
 };
 
 function parseArgs(argv: string[]): EvalQualityArgs {
@@ -363,6 +369,16 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
   const sourceGovernanceDangerFailures = results.filter((result) => result.sourceDangerWarningCount > 0);
   const latencies = results.map((result) => result.latencyMs);
+  const routeLatencyP95 = Object.fromEntries(
+    Array.from(
+      results.reduce((accumulator, result) => {
+        const current = accumulator.get(result.route) ?? [];
+        current.push(result.latencyMs);
+        accumulator.set(result.route, current);
+        return accumulator;
+      }, new Map<string, number[]>()),
+    ).map(([route, routeLatencies]) => [route, percentile(routeLatencies, 95)]),
+  );
   const estimatedCostUsd = results.some((result) => result.estimatedCostUsd === null)
     ? null
     : results.reduce((sum, result) => sum + (result.estimatedCostUsd ?? 0), 0);
@@ -381,6 +397,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
+    route_p95_latency_ms: routeLatencyP95,
     estimated_cost_usd: estimatedCostUsd === null ? null : Number(estimatedCostUsd.toFixed(6)),
     failure_category_counts: failureCategoryCounts(results),
     failed_cases: results.filter((result) => result.failures.length > 0),
@@ -455,6 +472,12 @@ export function buildEvalQualityReport(args: {
       thresholdFailures.push(
         `RAG p95_latency_ms ${ragSummary.p95_latency_ms} above ${qualityThresholds.ragP95LatencyMs}`,
       );
+    }
+    for (const [route, maxP95] of Object.entries(qualityThresholds.ragRouteP95LatencyMs)) {
+      const routeP95 = ragSummary.route_p95_latency_ms?.[route];
+      if (typeof routeP95 === "number" && routeP95 > maxP95) {
+        thresholdFailures.push(`RAG route ${route} p95_latency_ms ${routeP95} above ${maxP95}`);
+      }
     }
   }
 
