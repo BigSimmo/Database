@@ -170,6 +170,10 @@ create table if not exists public.document_labels (
       'workflow',
       'population',
       'service',
+      'clinical_action',
+      'care_phase',
+      'document_intent',
+      'content_feature',
       'custom'
     )),
   source text not null default 'generated'
@@ -362,7 +366,7 @@ create table if not exists public.ingestion_jobs (
 
 create table if not exists public.ingestion_job_stages (
   id uuid primary key default gen_random_uuid(),
-  job_id uuid not null,
+  job_id uuid not null references public.ingestion_jobs(id) on delete cascade,
   document_id uuid not null references public.documents(id) on delete cascade,
   stage_name text not null,
   stage_status text not null default 'started'
@@ -374,9 +378,6 @@ create table if not exists public.ingestion_job_stages (
   finished_at timestamptz,
   created_at timestamptz not null default now()
 );
-
-alter table if exists public.ingestion_job_stages
-  drop constraint if exists ingestion_job_stages_job_id_fkey;
 
 create table if not exists public.rag_queries (
   id uuid primary key default gen_random_uuid(),

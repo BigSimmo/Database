@@ -24,6 +24,7 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { SafeBoldText } from "@/components/SafeBoldText";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import {
   DocumentActionButton,
   DocumentActionLink,
@@ -49,6 +50,8 @@ import {
   type SmartDocumentTagFacet,
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
+import type { ServiceSearchMatch } from "@/lib/services";
+import type { FormSearchMatch } from "@/lib/forms";
 import type { DocumentMatch, SearchResult } from "@/lib/types";
 import { documentRelevancePercent } from "./relevance-score";
 
@@ -62,7 +65,47 @@ export type SearchFacets = {
   labels?: SearchFacet[];
   sites?: SearchFacet[];
   documentTypes?: SearchFacet[];
+  services?: SearchFacet[];
+  settings?: SearchFacet[];
+  populations?: SearchFacet[];
+  risks?: SearchFacet[];
+  clinicalActions?: SearchFacet[];
+  carePhases?: SearchFacet[];
+  documentIntents?: SearchFacet[];
+  contentFeatures?: SearchFacet[];
   evidence?: SearchFacet[];
+};
+
+type SearchRecordMode = "services" | "forms";
+type SearchRecordMatch = ServiceSearchMatch | FormSearchMatch;
+
+const searchRecordConfig: Record<
+  SearchRecordMode,
+  {
+    routePrefix: string;
+    ariaLabel: string;
+    heading: string;
+    chip: string;
+    recordLabel: string;
+    testIdPrefix: string;
+  }
+> = {
+  services: {
+    routePrefix: "/services",
+    ariaLabel: "Service record matches",
+    heading: "Verified service records",
+    chip: "Services mode",
+    recordLabel: "service record",
+    testIdPrefix: "service-search",
+  },
+  forms: {
+    routePrefix: "/forms",
+    ariaLabel: "Form record matches",
+    heading: "Verified forms",
+    chip: "Forms mode",
+    recordLabel: "form record",
+    testIdPrefix: "form-search",
+  },
 };
 
 const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
@@ -75,6 +118,10 @@ const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
   Setting: FileText,
   Service: Sparkles,
   "Document type": FileText,
+  "Clinical action": ListChecks,
+  "Care phase": Clock3,
+  "Document intent": Sparkles,
+  "Content feature": FileText,
   Manual: Sparkles,
 };
 
@@ -317,11 +364,13 @@ function DocumentSearchHome({
   onOpenRecentDocuments,
   onOpenLibrary,
   onOpenSourcePdf,
+  desktopComposerSlotId,
 }: {
   documentCount: number;
   onOpenRecentDocuments: () => void;
   onOpenLibrary: () => void;
   onOpenSourcePdf: () => void;
+  desktopComposerSlotId?: string;
 }) {
   const startItems = [
     {
@@ -344,53 +393,26 @@ function DocumentSearchHome({
     },
   ];
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-13rem)] w-full max-w-xl flex-col items-center justify-center gap-6 px-0 pb-28 pt-10 text-center sm:min-h-[calc(100dvh-14rem)] sm:pb-32 sm:pt-14">
-      <section data-testid="document-search-empty-state" className="grid justify-items-center gap-4">
-        <span className="grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-          <FileText className="h-7 w-7" />
-        </span>
-        <div className="space-y-1.5">
-          <h2 className="text-2xl font-semibold tracking-normal text-[color:var(--text-heading)]">Documents</h2>
-          <p className={cn("mx-auto max-w-sm text-sm leading-6", textMuted)}>
-            Open, browse, and continue reading your clinical sources.
-          </p>
-        </div>
-      </section>
-
-      <section
-        aria-label="Start here"
-        className="grid w-full overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]"
-      >
-        {startItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.label}
-              type="button"
-              onClick={item.action}
-              className={cn(
-                "grid min-h-[72px] w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
-              )}
-            >
-              <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                  {item.label}
-                </span>
-                <span className={cn("mt-0.5 block truncate text-xs leading-5", textMuted)}>{item.description}</span>
-              </span>
-              <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />
-            </button>
-          );
-        })}
-      </section>
-
-      <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
-        {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-      </p>
-    </div>
+    <ModeHomeTemplate
+      testId="document-search-empty-state"
+      title="Documents"
+      subtitle="Open, browse, and continue reading your clinical sources."
+      icon={FileText}
+      headingLevel={2}
+      desktopComposerSlotId={desktopComposerSlotId}
+      actionsLabel="Start here"
+      actions={startItems.map((item) => ({
+        title: item.label,
+        description: item.description,
+        icon: item.icon,
+        onClick: item.action,
+      }))}
+      footer={
+        <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+          {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+        </p>
+      }
+    />
   );
 }
 
@@ -520,8 +542,137 @@ export function MatchExplanationChips({ source }: { source: SearchResult }) {
   );
 }
 
+function SearchRecordResults({
+  matches,
+  query,
+  mode,
+}: {
+  matches: SearchRecordMatch[];
+  query: string;
+  mode: SearchRecordMode;
+}) {
+  if (matches.length === 0) return null;
+  const copy = searchRecordConfig[mode];
+  const recordRoute = (slug: string) => `${copy.routePrefix}/${slug}`;
+  return (
+    <section
+      data-testid={`${copy.testIdPrefix}-results`}
+      aria-label={copy.ariaLabel}
+      className="grid gap-3 rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-tight)]"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+            <FileText className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-[color:var(--text-heading)]">{copy.heading}</h3>
+            <p className={cn("text-sm leading-5", textMuted)}>
+              {matches.length} structured {copy.recordLabel}
+              {matches.length === 1 ? "" : "s"} matched
+              {query.trim() ? ` "${query.trim()}"` : ""}.
+            </p>
+          </div>
+        </div>
+        <span className={cn(metadataPill, "min-h-8 px-2.5 text-[11px]")}>{copy.chip}</span>
+      </div>
+
+      <div className="grid gap-3">
+        {matches.map(({ service, reasons }, index) => {
+          const summaryCards = service.summaryCards?.slice(0, 3) ?? [];
+          const chips = [
+            ...(service.statusChips ?? []).map((chip) => chip.label).filter(Boolean),
+            service.primaryContact?.value,
+            service.source?.status,
+          ].filter((value): value is string => Boolean(value?.trim()));
+
+          return (
+            <article
+              key={service.slug}
+              data-testid={`${copy.testIdPrefix}-result-${service.slug}`}
+              className={cn(
+                sourceCard,
+                "grid gap-3 p-3 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-chat-teal-border)] sm:p-4",
+                index === 0 && "ring-1 ring-[color:var(--clinical-chat-teal)]/15",
+              )}
+            >
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                    {service.catalogueLabel ?? "Source-backed record"}
+                  </p>
+                  <a
+                    href={recordRoute(service.slug)}
+                    className="mt-0.5 inline-flex min-h-11 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] sm:min-h-7"
+                  >
+                    <span className="line-clamp-2">{service.title}</span>
+                  </a>
+                  <p className={cn("mt-1 line-clamp-2 text-sm leading-6", textMuted)}>
+                    {service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record."}
+                  </p>
+                </div>
+                <a
+                  href={recordRoute(service.slug)}
+                  className={cn(
+                    floatingControl,
+                    "inline-flex min-h-11 w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-chat-teal)] sm:w-auto",
+                  )}
+                  aria-label={`Open ${service.title}`}
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  Open
+                </a>
+              </div>
+
+              {chips.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {chips.slice(0, 5).map((chip) => (
+                    <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {summaryCards.length ? (
+                <dl className="grid gap-2 sm:grid-cols-3">
+                  {summaryCards.map((card) => (
+                    <div
+                      key={card.id}
+                      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
+                    >
+                      <dt className="text-[10px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                        {card.label ?? card.id}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                        {card.title ?? "Check record"}
+                      </dd>
+                      {card.detail ? (
+                        <dd className={cn("mt-0.5 text-xs leading-5", textMuted)}>{card.detail}</dd>
+                      ) : null}
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+
+              {reasons.length ? (
+                <p className="text-xs font-medium text-[color:var(--text-soft)]">
+                  Matched by {reasons.slice(0, 3).join(", ")}.
+                </p>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function DocumentSearchResultsPanel({
   matches,
+  recordMatches = [],
+  recordMode = "services",
+  showRecordMatches = false,
   query,
   loading,
   documentCount,
@@ -536,8 +687,13 @@ export function DocumentSearchResultsPanel({
   onOpenLibrary,
   onOpenSourcePdf,
   onTagSearch,
+  showHome = false,
+  desktopComposerSlotId,
 }: {
   matches: DocumentMatch[];
+  recordMatches?: SearchRecordMatch[];
+  recordMode?: SearchRecordMode;
+  showRecordMatches?: boolean;
   query: string;
   loading: boolean;
   documentCount: number;
@@ -552,6 +708,8 @@ export function DocumentSearchResultsPanel({
   onOpenLibrary: () => void;
   onOpenSourcePdf: () => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
+  showHome?: boolean;
+  desktopComposerSlotId?: string;
 }) {
   void _facets;
   const trimmedQuery = query.trim();
@@ -572,6 +730,9 @@ export function DocumentSearchResultsPanel({
     () => filterMatchesByResultType(visibleMatches, effectiveResultType),
     [visibleMatches, effectiveResultType],
   );
+  const recordMatchCount = recordMatches.length;
+  const recordCopy = searchRecordConfig[recordMode];
+  const shouldShowHome = showHome || !trimmedQuery;
 
   function toggleTagFacet(facet: SmartDocumentTagFacet) {
     setActiveFacetState((current) => {
@@ -590,18 +751,31 @@ export function DocumentSearchResultsPanel({
       : !realDataReady
         ? setupWarning || "Complete the search setup before using Documents mode."
         : null;
-  const resultLabel = loading
-    ? "Finding matching documents"
-    : matches.length
-      ? `${displayedMatches.length} document${displayedMatches.length === 1 ? "" : "s"}`
-      : documentCount === 0
-        ? "No indexed source documents"
-        : trimmedQuery
-          ? "No matching documents"
-          : `${documentCount} document${documentCount === 1 ? "" : "s"}`;
+  const resultLabel = (() => {
+    if (loading) {
+      return showRecordMatches
+        ? `Finding matching ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`
+        : "Finding matching documents";
+    }
+    if (recordMatchCount > 0 && matches.length > 0) {
+      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"} and ${
+        displayedMatches.length
+      } document${displayedMatches.length === 1 ? "" : "s"}`;
+    }
+    if (recordMatchCount > 0)
+      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
+    if (matches.length) return `${displayedMatches.length} document${displayedMatches.length === 1 ? "" : "s"}`;
+    if (documentCount === 0) return "No indexed source documents";
+    if (trimmedQuery) return "No matching documents";
+    return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
+  })();
   return (
     <div data-testid="document-search-workspace" className="space-y-3">
-      {matches.length > 0 || trimmedQuery || loading || unavailableMessage ? (
+      {recordMatchCount > 0 ||
+      matches.length > 0 ||
+      (trimmedQuery && !shouldShowHome) ||
+      loading ||
+      unavailableMessage ? (
         <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
       ) : null}
 
@@ -613,10 +787,14 @@ export function DocumentSearchResultsPanel({
           <AlertCircle className="mr-2 inline h-4 w-4" />
           {unavailableMessage}
         </div>
-      ) : loading ? (
+      ) : null}
+
+      {showRecordMatches ? <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} /> : null}
+
+      {loading ? (
         <LoadingPanel label="Finding matching documents" />
       ) : matches.length === 0 ? (
-        trimmedQuery ? (
+        recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
           <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
             <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
               <FileText className="h-5 w-5" />
@@ -638,6 +816,7 @@ export function DocumentSearchResultsPanel({
             onOpenRecentDocuments={onOpenRecentDocuments}
             onOpenLibrary={onOpenLibrary}
             onOpenSourcePdf={onOpenSourcePdf}
+            desktopComposerSlotId={desktopComposerSlotId}
           />
         )
       ) : (

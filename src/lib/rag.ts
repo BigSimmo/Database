@@ -3164,23 +3164,9 @@ export function decideTextFastPath(
   if (queryClass === "document_lookup") {
     // Flowchart/zone "next step" questions need the zone-action evidence (red
     // zone -> escalate / urgent review), not just a lexically matching flowchart
-    // page. Many unrelated policies embed "risk assessment flow chart" appendices
-    // that outscore the intended zone-action document on text alone, so mirror the
-    // threshold_action gate: only fast-path when a single top candidate carries
-    // BOTH the zone context and the action language (an action word like "review"
-    // on an unrelated flowchart must not qualify); otherwise fall through to
-    // structured/vector retrieval.
-    const flowchartZoneActionQuery =
-      /\b(?:flow\s*charts?|flowcharts?|algorithms?|pathways?)\b/i.test(query) &&
-      /\b(?:red[\s-]*zone|next step|step after)\b/i.test(query);
-    if (
-      flowchartZoneActionQuery &&
-      !results.slice(0, 5).some((result) => {
-        const text = `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")} ${result.retrieval_synopsis ?? ""} ${result.content ?? ""}`;
-        return riskZoneContextPattern.test(text) && riskZoneActionPattern.test(text);
-      })
-    ) {
-      return { returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" };
+    // page; otherwise fall through to structured/vector retrieval.
+    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(results)) {
+      return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
     }
     if (directTitleSupport && strongestScore >= 0.32) {
       return { returnFastPath: true, reason: "direct_title_text_match" };
@@ -3273,6 +3259,30 @@ function topEvidenceText(results: SearchResult[], limit = 5) {
 
 function hasAnyTerm(text: string, pattern: RegExp) {
   return pattern.test(text);
+}
+
+function isRiskFlowchartNextStepQuery(query: string) {
+  return (
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
+    /\b(?:risk|red[\s-]*zone|red)\b/i.test(query) &&
+    /\b(?:next step|step after|after|action)\b/i.test(query)
+  );
+}
+
+function hasRiskFlowchartActionEvidence(results: SearchResult[], limit = 5) {
+  // A single result must carry BOTH the coloured-zone context and the action
+  // language (escalate / urgent review): scattering the two term groups across
+  // different results (or their image captions) let unrelated risk-assessment
+  // flowcharts pass. Deliberately does NOT require a flowchart word in the
+  // evidence — the escalation protocols that answer a red-zone question express
+  // the flowchart's decision steps as prose ("has any Purple or Red Zone
+  // criteria ... escalate for Senior Clinician Review") without ever saying
+  // "flowchart". Shared patterns keep this aligned with the ranking source
+  // check in clinical-search.
+  return results.slice(0, limit).some((result) => {
+    const evidenceText = evidenceTextForGate(result);
+    return riskZoneContextPattern.test(evidenceText) && riskZoneActionPattern.test(evidenceText);
+  });
 }
 
 function hasDoseAmountEvidenceForGate(result: SearchResult) {
@@ -3467,15 +3477,7 @@ export function evaluateEvidenceCoverageGate(
       };
     }
     if (/\b(?:flow\s*chart|flowchart|red[\s-]*zone|risk matrix)\b/i.test(query)) {
-      // A flowchart/zone question is only answered when a single top result carries
-      // BOTH the zone/escalation context AND the action language. Checking the two
-      // term groups independently across all top-5 evidence (or accepting any visual
-      // unit) let unrelated risk-assessment flowcharts pass on a generic flowchart
-      // page plus scattered "action"/"review" words from other candidates.
-      const accepted = top.some((result) => {
-        const text = evidenceTextForGate(result);
-        return riskZoneContextPattern.test(text) && riskZoneActionPattern.test(text);
-      });
+      const accepted = hasRiskFlowchartActionEvidence(results);
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",

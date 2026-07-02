@@ -284,10 +284,12 @@ async function main() {
           [
             `  Diagnostics: expected=${result.expectedFiles.join(", ") || "none"}`,
             `missing=${result.missingFiles.join(", ") || "none"}`,
-            `topFiles=${result.retrievedSources
-              .slice(0, 5)
-              .map((source) => `${source.rank}:${source.fileName}`)
-              .join(" | ") || "none"}`,
+            `topFiles=${
+              result.retrievedSources
+                .slice(0, 5)
+                .map((source) => `${source.rank}:${source.fileName}`)
+                .join(" | ") || "none"
+            }`,
             `route=${result.route}`,
             `grounded=${result.grounded}`,
             `citations=${result.citations}`,

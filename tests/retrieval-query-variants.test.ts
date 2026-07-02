@@ -142,6 +142,55 @@ describe("retrieval query variants", () => {
     ).toEqual({ returnFastPath: true, reason: "direct_title_text_match" });
   });
 
+  it("does not fast-path red-zone flowchart matches unless action evidence is present", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            title: "CJD Risk Assessment Flow Chart",
+            file_name: "cjd-risk-flowchart.pdf",
+            section_heading: "Risk assessment flow chart",
+            content: "The risk assessment flow chart identifies red-zone procedural exposure risk.",
+            similarity: 0.82,
+            index_unit: {
+              id: "unit-1",
+              unit_type: "flowchart_step",
+              title: "Risk assessment flow chart",
+              content: "Red-zone procedural exposure risk.",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_start: 1,
+              page_end: 1,
+              heading_path: ["Risk assessment"],
+              normalized_terms: ["risk", "red zone", "flowchart"],
+              quality_score: 0.9,
+              extraction_mode: "model_heavy",
+            },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            title: "Risk Matrix Flowchart",
+            file_name: "risk-flowchart.pdf",
+            content: "Risk flowchart red-zone risk: next step is urgent senior review and escalation.",
+            similarity: 0.72,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "direct_title_text_match" });
+  });
+
   it("keeps table-threshold fast paths gated on structured evidence", () => {
     expect(
       decideTextFastPath(
@@ -219,7 +268,7 @@ describe("retrieval query variants", () => {
         ],
         "document_lookup",
       ),
-    ).toEqual({ returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" });
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
 
     // An action word alone (review/urgent) without any coloured-zone context on
     // the same result must not satisfy the guard either.
@@ -234,7 +283,7 @@ describe("retrieval query variants", () => {
         ],
         "document_lookup",
       ),
-    ).toEqual({ returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" });
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
 
     expect(
       decideTextFastPath(
@@ -323,6 +372,55 @@ describe("retrieval query variants", () => {
       reason: "active_community_ed_title_gate",
       strategy: "document_lookup_fast_path",
     });
+  });
+
+  it("requires action-bearing risk flowchart evidence before accepting document lookup coverage", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({
+            title: "CJD Risk Assessment Flow Chart",
+            file_name: "cjd-risk-flowchart.pdf",
+            section_heading: "Risk assessment flow chart",
+            content: "The flowchart identifies red-zone procedural risk categories.",
+            similarity: 0.85,
+            index_unit: {
+              id: "unit-1",
+              unit_type: "flowchart_step",
+              title: "Risk assessment flow chart",
+              content: "Red-zone procedural exposure risk.",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_start: 1,
+              page_end: 1,
+              heading_path: ["Risk assessment"],
+              normalized_terms: ["risk", "red zone", "flowchart"],
+              quality_score: 0.9,
+              extraction_mode: "model_heavy",
+            },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_visual_flowchart_risk_evidence" });
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({
+            title: "Risk Matrix Flowchart",
+            file_name: "risk-flowchart.pdf",
+            content: "Risk flowchart red-zone risk: next step is urgent senior review and escalation.",
+            similarity: 0.72,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ accepted: true, reason: "visual_flowchart_risk_gate" });
   });
 
   it("requires clozapine blood action structured evidence for withhold threshold fast gates", () => {
