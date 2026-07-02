@@ -14,36 +14,38 @@ function componentSource(relativePath: string) {
 describe("document-derived text must route through a formatter", () => {
   const dashboard = componentSource("ClinicalDashboard.tsx");
   const documentViewer = componentSource("DocumentViewer.tsx");
-  // Answer render surfaces (SourceImage, SourcePreviewContent, NaturalLanguageAnswer,
-  // KeyClinicalItems, …) now live in the extracted module. Scan it alongside the
-  // monolith so the raw-render guards travel with the code as it moves out.
+  // Answer/evidence render surfaces (SourceImage, SourcePreviewContent,
+  // NaturalLanguageAnswer, QuoteCards, EvidenceMapTable, …) now live in extracted
+  // modules. Scan them alongside the monolith so the raw-render guards travel with
+  // the code as it moves out — assertions check the combined dashboard surfaces.
   const answerContent = componentSource("clinical-dashboard/answer-content.tsx");
-  const dashboardSurfaces = `${dashboard}\n${answerContent}`;
+  const evidenceContent = componentSource("clinical-dashboard/evidence-panels.tsx");
+  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}`;
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);
     // only a bare JSX child `{quote.quote}` is a raw-render regression.
     expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{quote\.quote\}/);
-    expect(dashboard).toContain("sourceTextForVerbatimQuote(quote.quote)");
+    expect(dashboardSurfaces).toContain("sourceTextForVerbatimQuote(quote.quote)");
   });
 
   it("renders document titles through cleanDisplayTitle, never raw", () => {
     expect(dashboardSurfaces).not.toMatch(/\{source\.title\}/);
-    expect(dashboard).toContain("cleanDisplayTitle(");
+    expect(dashboardSurfaces).toContain("cleanDisplayTitle(");
   });
 
   it("renders extracted table snippets through a compact formatter, never raw", () => {
     expect(dashboardSurfaces).not.toMatch(/>\s*\{item\.tableTextSnippet\}\s*</);
-    expect(dashboard).toContain("sourceTextForCompactDisplay(item.tableTextSnippet)");
+    expect(dashboardSurfaces).toContain("sourceTextForCompactDisplay(item.tableTextSnippet)");
   });
 
   it("renders source-card snippets through compactSourceSnippet with the card title deduped", () => {
     expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{source\.snippet\}/);
-    expect(dashboard).toContain('compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title })');
+    expect(dashboardSurfaces).toContain('compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title })');
   });
 
   it("renders evidence-map row details through the compact formatter, never raw", () => {
-    expect(dashboard).toContain("sourceTextForCompactDisplay(row.quote || row.source.snippet");
+    expect(dashboardSurfaces).toContain("sourceTextForCompactDisplay(row.quote || row.source.snippet");
   });
 
   it("renders document-viewer image captions through a formatter, never raw", () => {
@@ -58,7 +60,7 @@ describe("document-derived text must route through a formatter", () => {
 
   it("cleans quotes for both display and clipboard through the verbatim cleaner", () => {
     // One call for the rendered blockquote, one for the copy-to-clipboard text.
-    const cleanerCalls = dashboard.match(/sourceTextForVerbatimQuote\(quote\.quote\)/g) ?? [];
+    const cleanerCalls = dashboardSurfaces.match(/sourceTextForVerbatimQuote\(quote\.quote\)/g) ?? [];
     expect(cleanerCalls.length).toBeGreaterThanOrEqual(2);
   });
 });
