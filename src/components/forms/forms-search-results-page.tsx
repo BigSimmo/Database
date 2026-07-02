@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 
-import { searchFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 import { cn, codeText } from "@/components/ui-primitives";
 
 type FormsSearchResultsPageProps = {
@@ -839,7 +840,8 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
   const [prevQuery, setPrevQuery] = useState(query);
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
-  const matches = useMemo(() => searchFormRecords(query), [query]);
+  const registry = useRegistryRecords("form");
+  const matches = useMemo(() => rankFormRecords(registry.records, query), [registry.records, query]);
 
   // Reset the editable draft when the incoming query prop changes (new
   // navigation) during render rather than in an effect, to avoid a

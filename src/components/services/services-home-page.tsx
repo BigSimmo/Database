@@ -1,3 +1,5 @@
+"use client";
+
 import { FileSearch, MapPinned, Route, Users } from "lucide-react";
 
 import {
@@ -9,7 +11,8 @@ import {
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { defaultServiceSlug, serviceRecords } from "@/lib/services";
+import { defaultServiceSlug } from "@/lib/services";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
@@ -73,11 +76,10 @@ const commonPathways: ModeHomePill[] = [
   },
 ];
 
-function verifiedCount() {
-  return serviceRecords.filter((service) => service.verification?.locallyVerified).length;
-}
-
 export function ServicesHomePage() {
+  const registry = useRegistryRecords("service");
+  const verifiedCount = registry.records.filter((service) => service.verification?.locallyVerified).length;
+
   return (
     <ModeHomeMain testId="services-home">
       <ModeHomeTemplate
@@ -91,12 +93,14 @@ export function ServicesHomePage() {
         pillsTitle="Common pathways"
         pills={commonPathways}
         footer={
-          <ModeHomeVerificationFooter
-            label="Catalogue service data"
-            body="Confirm locally before use"
-            verifiedCount={verifiedCount()}
-            totalCount={serviceRecords.length}
-          />
+          registry.status === "ready" ? (
+            <ModeHomeVerificationFooter
+              label="Catalogue service data"
+              body="Confirm locally before use"
+              verifiedCount={verifiedCount}
+              totalCount={registry.total}
+            />
+          ) : null
         }
       />
     </ModeHomeMain>
