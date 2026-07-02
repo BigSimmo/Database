@@ -30,6 +30,12 @@ export type GroupedSourceGovernanceWarning = {
 export const sourceGovernanceRefusalAnswer =
   "I cannot provide a clinical answer because one or more matched documents are not suitable for clinical use yet. Try a narrower clinical term or scope the search to a current approved document.";
 
+const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
+  "outdated_source",
+  "poor_extraction",
+  "weak_evidence",
+]);
+
 function isLocalMetadataText(value: string) {
   return /\b(?:wa|western australia|perth|north metropolitan|east metropolitan|south metropolitan|health service)\b/i.test(
     value,
@@ -195,6 +201,14 @@ export function groupSourceGovernanceWarnings(warnings: SourceGovernanceWarning[
 
   const severityRank = { danger: 0, warning: 1, info: 2 } satisfies Record<SourceGovernanceWarning["severity"], number>;
   return Array.from(grouped.values()).sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
+
+export function isFrontendVisibleSourceGovernanceWarning(warning: SourceGovernanceWarning) {
+  return frontendVisibleWarningCodes.has(warning.code);
+}
+
+export function frontendSourceGovernanceWarnings(warnings: SourceGovernanceWarning[]) {
+  return warnings.filter(isFrontendVisibleSourceGovernanceWarning);
 }
 
 export function hasDangerSourceGovernanceWarning(warnings: SourceGovernanceWarning[]) {

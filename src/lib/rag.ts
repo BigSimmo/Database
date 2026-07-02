@@ -579,7 +579,7 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
   if (tableVisualEvidenceUnitTypes.has(unitType)) score += 0.08;
   else if (visualEvidenceUnitTypes.has(unitType)) score += 0.04;
   if (source === "visual_intelligence") score += Math.min(0.035, Math.max(0, sourceQuality - 0.55) * 0.08);
-  if (result.source_metadata?.document_status === "outdated") score -= 0.05;
+  if (result.source_metadata?.document_status === "outdated") score -= 0.04;
   if (result.source_metadata?.extraction_quality === "poor") score -= 0.05;
   if (result.indexing_quality?.quality_score !== undefined && result.indexing_quality.quality_score < 0.55)
     score -= 0.035;
@@ -3308,7 +3308,10 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
     const evidenceText = evidenceTextForGate(result);
     if (!riskZoneActionPattern.test(evidenceText)) return false;
     if (zonePhrasePattern.test(evidenceText)) return true;
-    return ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
+    return (
+      ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
+      bareColourPattern.test(evidenceText)
+    );
   });
 }
 

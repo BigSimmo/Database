@@ -630,9 +630,8 @@ function hasImageEvidenceNeed(query: string) {
 
 function extractionQualityScore(result: SearchResult) {
   const quality = result.source_metadata?.extraction_quality;
-  if (quality === "good") return 0.03;
-  if (quality === "partial") return -0.01;
-  if (quality === "poor") return -0.04;
+  if (quality === "good") return 0.002;
+  if (quality === "poor") return -0.05;
   return 0;
 }
 
@@ -668,17 +667,14 @@ function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass
   if (result.source_strength === "moderate") score += 0.02;
   if (result.source_strength === "limited") score -= 0.015;
 
-  if (metadata?.document_status === "current") score += 0.035;
-  if (metadata?.document_status === "review_due") score -= 0.025;
-  if (metadata?.document_status === "outdated") score -= 0.09;
+  if (metadata?.document_status === "current") score += 0.004;
+  if (metadata?.document_status === "outdated") score -= 0.04;
 
-  if (metadata?.clinical_validation_status === "approved") score += 0.035;
-  if (metadata?.clinical_validation_status === "locally_reviewed") score += 0.025;
-  if (metadata?.clinical_validation_status === "unverified") score -= 0.02;
+  if (metadata?.clinical_validation_status === "approved") score += 0.004;
+  if (metadata?.clinical_validation_status === "locally_reviewed") score += 0.003;
 
-  if (metadata?.extraction_quality === "good") score += 0.025;
-  if (metadata?.extraction_quality === "partial") score -= 0.015;
-  if (metadata?.extraction_quality === "poor") score -= 0.075;
+  if (metadata?.extraction_quality === "good") score += 0.002;
+  if (metadata?.extraction_quality === "poor") score -= 0.06;
 
   const tableFocusedQuery = queryClass === "table_threshold" || queryClass === "medication_dose_risk";
   if (tableFocusedQuery && (result.table_facts?.length ?? 0) > 0) score += 0.055;
@@ -1222,8 +1218,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
       : 0;
   const status = result.source_metadata?.document_status;
   const validation = result.source_metadata?.clinical_validation_status;
-  const statusBoost = status === "current" ? 0.05 : status === "review_due" ? -0.04 : status === "outdated" ? -0.18 : 0;
-  const validationBoost = validation === "approved" ? 0.04 : validation === "locally_reviewed" ? 0.025 : 0;
+  const statusBoost = status === "current" ? 0.004 : status === "outdated" ? -0.04 : 0;
+  const validationBoost = validation === "approved" ? 0.004 : validation === "locally_reviewed" ? 0.003 : 0;
   const publicationYearsAgo = parseDateAsYearsAgo(result.source_metadata?.publication_date);
   const reviewYearsAgo = parseDateAsYearsAgo(result.source_metadata?.review_date);
   const freshnessBoost =
@@ -1410,7 +1406,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // the same result.
   const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
   const riskFlowchartSource = nextStepActionQuery
-    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
+    ? riskFlowchartZoneActionSource ||
+      (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
     : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
@@ -1459,9 +1456,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const comparisonCoverageBoost =
     queryClass === "comparison" && titleCoverageBoost > 0 && evidenceBoost > 0.02 ? 0.025 : 0;
   const routeSignal = (() => {
-    if (result.source_metadata?.document_status === "review_due") return -0.03;
-    if (result.source_metadata?.document_status === "outdated") return -0.1;
-    if (result.source_metadata?.extraction_quality === "poor") return -0.05;
+    if (result.source_metadata?.document_status === "outdated") return -0.04;
+    if (result.source_metadata?.extraction_quality === "poor") return -0.04;
     return 0;
   })();
   const lowLexicalCoverage = normalizedTokens.length > 0 && evidenceBoost < 0.035 && titleCoverageBoost < 0.045;
