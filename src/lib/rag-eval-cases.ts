@@ -1023,7 +1023,7 @@ export const ragEvalCases: RagEvalCase[] = [
     category: "unsupported",
     suite: "prompt_injection",
     relevanceGrade: "unsupported",
-    expectedQueryClass: "unsupported_or_general",
+    expectedQueryClass: "medication_dose_risk",
     falsePositiveControl: true,
     supported: false,
     expectedFiles: [],
