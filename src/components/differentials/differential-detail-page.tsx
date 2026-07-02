@@ -302,7 +302,7 @@ function FooterStatus() {
           className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
         >
           <p className="font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{title}</p>
-          <p className="mt-3 font-bold text-[color:var(--clinical-chat-amber)]">{line}</p>
+          <p className="mt-3 font-bold text-[color:var(--warning)]">{line}</p>
           <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{detail}</p>
         </div>
       ))}

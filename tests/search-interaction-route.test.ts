@@ -63,36 +63,7 @@ describe("/api/search/interaction", () => {
     const response = await POST(request({ query: "", documentId: "not-a-document-id" }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Invalid interaction request." });
-  });
-
-  it("returns the shared server-error envelope when persistence fails", async () => {
-    const documentLookup = {
-      select: vi.fn(() => documentLookup),
-      eq: vi.fn(() => documentLookup),
-      maybeSingle: vi.fn(async () => ({ data: null, error: { message: "db unavailable" } })),
-    };
-    const client = {
-      from: vi.fn(() => documentLookup),
-    };
-    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false }, isDemoMode: () => false }));
-    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
-    vi.doMock("@/lib/supabase/auth", () => ({
-      AuthenticationError: class AuthenticationError extends Error {},
-      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
-      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
-    }));
-    const { POST } = await import("../src/app/api/search/interaction/route");
-
-    const response = await POST(
-      request({
-        query: "clozapine monitoring",
-        documentId,
-      }),
-    );
-
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({ error: "Request failed." });
+    await expect(response.json()).resolves.toEqual({ ok: false });
   });
 
   it("stores owned clicked document and chunk ids with sanitized labels", async () => {

@@ -139,16 +139,13 @@
   --clinical-accent-border: #b9e4ea;
   --clinical-accent-contrast: #ffffff;
 
-  /* Migration compat: existing teal/ready call-sites resolve to the new roles.
-     Remove once all call-sites reference the role tokens directly. */
-  --clinical-chat-teal: var(--clinical-accent);
-  --clinical-chat-teal-soft: var(--clinical-accent-soft);
+  /* Bespoke chat surfaces with no role-token equivalent: warm sand callouts
+     and table headers. Per-theme values, not aliases. */
   --clinical-chat-sand: #f7f1e6;
   --clinical-chat-sand-border: #eadcc7;
   --clinical-chat-sand-border-strong: #ddc7a8;
   --clinical-chat-document: #f1f4f6;
   --clinical-chat-table-header: #f7f8fa;
-  --clinical-chat-amber: var(--warning);
   --clinical-chat-ready: var(--success);
 
   /* Semantic triads (text / background / border), on-white for light mode. */
@@ -281,14 +278,11 @@
   --clinical-accent-border: #235b60;
   --clinical-accent-contrast: #04252a;
 
-  --clinical-chat-teal: var(--clinical-accent);
-  --clinical-chat-teal-soft: var(--clinical-accent-soft);
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
   --clinical-chat-sand-border-strong: #806034;
   --clinical-chat-document: #101215;
   --clinical-chat-table-header: #141619;
-  --clinical-chat-amber: var(--warning);
   --clinical-chat-ready: var(--success);
 
   --info-text: #89c0f0;
@@ -430,11 +424,12 @@ summary::-webkit-details-marker {
   color: #ecfeff;
 }
 
-/* Layout utilities */
-.app-edge-backdrop {
-  background: var(--background);
-}
-
+/*
+ * Layout chrome — INTENTIONALLY UNLAYERED: these classes beat Tailwind
+ * utilities on the same element (unlayered CSS wins over all layers). Their
+ * call sites stack utilities that set the same properties and rely on the
+ * class winning; the conflict-free helpers live in @layer components below.
+ */
 .edge-glass-header {
   isolation: isolate;
   padding-left: max(0.75rem, var(--safe-area-left));
@@ -538,13 +533,6 @@ summary::-webkit-details-marker {
   opacity: 1;
 }
 
-.answer-footer-search-mic {
-  height: 2.75rem;
-  width: 2.75rem;
-  min-width: 44px;
-  color: var(--text-muted);
-}
-
 .answer-footer-search-divider {
   display: none;
   height: 2.25rem;
@@ -589,11 +577,6 @@ summary::-webkit-details-marker {
 .dark .answer-footer-search-action,
 .dark .answer-footer-search-chip {
   color: var(--text-muted);
-}
-
-.mobile-app-shell {
-  min-height: 100svh;
-  height: 100svh;
 }
 
 .dashboard-composer-edge {
@@ -644,21 +627,6 @@ summary::-webkit-details-marker {
   font-weight: 560;
 }
 
-.mobile-popover-scroll {
-  max-height: min(70svh, 28rem);
-}
-
-@supports (height: 100dvh) {
-  .mobile-app-shell {
-    min-height: 100dvh;
-    height: 100dvh;
-  }
-
-  .mobile-popover-scroll {
-    max-height: min(70dvh, 28rem);
-  }
-}
-
 @media (min-width: 640px) {
   .edge-glass-header {
     padding-left: max(1rem, var(--safe-area-left));
@@ -689,11 +657,6 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-action,
   .answer-footer-search-send {
-    height: 3.3rem;
-    width: 3.3rem;
-  }
-
-  .answer-footer-search-mic {
     height: 3.3rem;
     width: 3.3rem;
   }
@@ -855,23 +818,98 @@ summary::-webkit-details-marker {
   }
 }
 
-/* Scroll and print helpers */
-.citation-link {
-  position: relative;
-}
+/*
+ * Helper classes with no same-property utility conflicts at any call site
+ * live in @layer components so Tailwind utilities can override them.
+ * Audited 2026-07-02: the chrome classes above (edge-glass-header,
+ * universal-header-*, answer-footer-search-*, *-composer-edge,
+ * desktop-home-search-*) DO conflict with call-site utilities and stay
+ * unlayered deliberately — layering them changes rendered pixels. When
+ * adding a utility to an element carrying one of those classes, check the
+ * class body first; the class wins.
+ */
+@layer components {
+  .app-edge-backdrop {
+    background: var(--background);
+  }
 
-.citation-link::after {
-  content: "";
-  position: absolute;
-  top: -10px;
-  bottom: -10px;
-  left: -10px;
-  right: -10px;
-}
+  .mobile-app-shell {
+    min-height: 100svh;
+    height: 100svh;
+  }
 
-/* Premium Skeleton Shimmer animation with custom easing */
-.animate-skeleton-shimmer {
-  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  .mobile-popover-scroll {
+    max-height: min(70svh, 28rem);
+  }
+
+  @supports (height: 100dvh) {
+    .mobile-app-shell {
+      min-height: 100dvh;
+      height: 100dvh;
+    }
+
+    .mobile-popover-scroll {
+      max-height: min(70dvh, 28rem);
+    }
+  }
+
+  /* Scroll and print helpers */
+  .citation-link {
+    position: relative;
+  }
+
+  .citation-link::after {
+    content: "";
+    position: absolute;
+    top: -10px;
+    bottom: -10px;
+    left: -10px;
+    right: -10px;
+  }
+
+  /* Premium Skeleton Shimmer animation with custom easing */
+  .animate-skeleton-shimmer {
+    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  /* Premium Double-Ring Focus style */
+  .focus-ring-premium {
+    outline: none;
+  }
+  .focus-ring-premium:focus-visible {
+    outline: 2px solid var(--focus) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
+  }
+
+  /* Premium Hover Transitions for Source Capsules and Action row chips */
+  .source-capsule-hover {
+    transition: all 180ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  .source-capsule-hover:hover {
+    transform: translateY(-1px) scale(1.015) !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 8%, transparent) !important;
+  }
+
+  .polished-scroll {
+    scrollbar-color: color-mix(in srgb, var(--border-strong) 80%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+
+  .polished-scroll::-webkit-scrollbar {
+    height: 0.5rem;
+    width: 0.5rem;
+  }
+
+  .polished-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--border-strong) 72%, transparent);
+    border-radius: 999px;
+  }
+
+  .polished-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 @keyframes skeleton-pulse {
@@ -882,45 +920,6 @@ summary::-webkit-details-marker {
   50% {
     opacity: 0.35;
   }
-}
-
-/* Premium Double-Ring Focus style */
-.focus-ring-premium {
-  outline: none;
-}
-.focus-ring-premium:focus-visible {
-  outline: 2px solid var(--focus) !important;
-  outline-offset: 2px !important;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
-}
-
-/* Premium Hover Transitions for Source Capsules and Action row chips */
-.source-capsule-hover {
-  transition: all 180ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-
-.source-capsule-hover:hover {
-  transform: translateY(-1px) scale(1.015) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 8%, transparent) !important;
-}
-
-.polished-scroll {
-  scrollbar-color: color-mix(in srgb, var(--border-strong) 80%, transparent) transparent;
-  scrollbar-width: thin;
-}
-
-.polished-scroll::-webkit-scrollbar {
-  height: 0.5rem;
-  width: 0.5rem;
-}
-
-.polished-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--border-strong) 72%, transparent);
-  border-radius: 999px;
-}
-
-.polished-scroll::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 /* User preference and alternate output modes */

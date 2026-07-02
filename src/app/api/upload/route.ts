@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { assertAllowedFile, assertFileContentSignature, jsonError } from "@/lib/http";
+import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName } from "@/lib/document-naming";
@@ -28,7 +28,13 @@ export async function POST(request: Request) {
   try {
     supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const formData = await request.formData();
+    const formData = await request.formData().catch((cause) => {
+      throw new PublicApiError("Invalid upload form data.", 400, {
+        code: "invalid_form_data",
+        causeName: cause instanceof Error ? cause.name : null,
+        causeMessage: cause instanceof Error ? cause.message : null,
+      });
+    });
     const file = formData.get("file");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing file field." }, { status: 400 });
