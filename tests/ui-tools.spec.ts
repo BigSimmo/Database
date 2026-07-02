@@ -279,6 +279,11 @@ test.describe("Clinical KB applications launcher", () => {
     // the forms results URL; the assertions below still verify the result.
     const formsSearchButton = page.getByRole("button", { name: "Search forms" });
     await expect(async () => {
+      // A previous attempt's click may have navigated late — after the inner URL
+      // wait timed out and triggered a retry. If we have already routed to the
+      // results page the detail-page input is gone, so re-filling would throw;
+      // treat the completed navigation as success instead.
+      if (/\/forms\?/.test(page.url())) return;
       await formsSearchInput.fill("transport forms");
       await expect(formsSearchButton).toBeEnabled({ timeout: 1_000 });
       await formsSearchButton.click();
