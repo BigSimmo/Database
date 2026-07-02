@@ -1,4 +1,4 @@
-import { ClinicalDashboard } from "@/components/clinical-dashboard";
+import { ClinicalDashboardLazy as ClinicalDashboard } from "@/components/clinical-dashboard-lazy";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
 type HomeProps = {

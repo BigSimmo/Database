@@ -219,6 +219,6 @@ export async function POST(request: Request) {
       return unauthorizedResponse();
     }
 
-    return jsonError(error);
+    return jsonError(error, 400);
   }
 }
