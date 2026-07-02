@@ -46,7 +46,7 @@ const tableRows = [
 ] as const;
 
 const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--clinical-chat-teal)]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--clinical-accent)]";
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -129,7 +129,7 @@ function Action({ children, primary = false }: { children: ReactNode; primary?: 
       className={
         primary
           ? `${baseClass} bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)]`
-          : `${baseClass} border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-chat-teal)]/35`
+          : `${baseClass} border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent)]/35`
       }
     >
       {children}
@@ -142,7 +142,7 @@ function CloseButton({ label = "Close popup" }: { label?: string }) {
     <button
       type="button"
       aria-label={label}
-      className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--text)] ${focusRing} sm:h-11 sm:w-11`}
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:text-[color:var(--text)] ${focusRing} sm:h-11 sm:w-11`}
     >
       <X className="h-4 w-4" />
     </button>
@@ -155,10 +155,10 @@ function SourceCapsule() {
       type="button"
       aria-haspopup="dialog"
       aria-expanded="true"
-      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:border-[color:var(--clinical-chat-teal)]/45 hover:shadow-[var(--shadow-tight)] ${focusRing}`}
+      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] ${focusRing}`}
     >
       <span className="min-w-0 truncate">Source-backed</span>
-      <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-[11px] font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+      <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-[11px] font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
         3
       </span>
       <ChevronDown className="h-3.5 w-3.5 shrink-0" />
@@ -173,7 +173,7 @@ function SourceRows() {
         <div key={title} role="listitem">
           <button
             type="button"
-            className={`grid min-h-[56px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-raised)] ${focusRing}`}
+            className={`grid min-h-[56px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-raised)] ${focusRing}`}
           >
             <span
               className={`h-2 w-2 rounded-full ${index === 2 ? "bg-[color:var(--warning)]" : "bg-[color:var(--success)]"}`}
@@ -219,7 +219,7 @@ function SourcePreviewPopover() {
         <Pill tone="success">3 sources</Pill>
       </div>
       <SourceRows />
-      <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+      <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
         &ldquo;Monitor FBC/ANC, myocarditis symptoms, metabolic risk, constipation, and shared-care communication during
         clozapine initiation.&rdquo;
       </blockquote>
@@ -279,8 +279,8 @@ function EvidenceTabs({ selected }: { selected: string }) {
               aria-selected={active}
               className={`inline-flex min-h-10 max-w-[8rem] items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] ${focusRing} sm:min-h-11 sm:max-w-none sm:px-3 ${
                 active
-                  ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-raised)]"
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-raised)]"
               }`}
             >
               <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -350,7 +350,7 @@ function TablePreview({ expanded = false }: { expanded?: boolean }) {
           <button
             type="button"
             aria-label="Expand clozapine monitoring table"
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--clinical-chat-teal)] ${focusRing}`}
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:text-[color:var(--clinical-accent)] ${focusRing}`}
           >
             <Maximize2 className="h-4 w-4" />
           </button>
@@ -442,7 +442,7 @@ function QuoteCards() {
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Exact quote</p>
             <Pill>{item === 1 ? "p.12" : "p.14"}</Pill>
           </div>
-          <blockquote className="mt-2 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+          <blockquote className="mt-2 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
             &ldquo;FBC/ANC monitoring, myocarditis symptoms, metabolic review and constipation prevention should be
             checked during initiation and ongoing care.&rdquo;
           </blockquote>
@@ -477,7 +477,7 @@ function ImageEvidence() {
         >
           <div className="grid min-h-28 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:min-h-32">
             <div className="grid justify-items-center gap-2">
-              <Icon className="h-9 w-9 text-[color:var(--clinical-chat-teal)]" />
+              <Icon className="h-9 w-9 text-[color:var(--clinical-accent)]" />
               <Pill>p.14</Pill>
             </div>
           </div>
@@ -498,7 +498,7 @@ function PdfLinks() {
         <button
           type="button"
           key={title}
-          className={`grid min-h-[56px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 text-left shadow-[var(--shadow-tight)] transition hover:-translate-y-px hover:border-[color:var(--clinical-chat-teal)]/35 hover:shadow-[var(--shadow-elevated)] ${focusRing}`}
+          className={`grid min-h-[56px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 text-left shadow-[var(--shadow-tight)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/35 hover:shadow-[var(--shadow-elevated)] ${focusRing}`}
         >
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{title}</span>
