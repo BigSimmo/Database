@@ -214,6 +214,25 @@ export function qualityFailureCategory(message: string): QualityFailureCategory 
   return "other";
 }
 
+export function sourceGovernanceDangerFailuresForAnswer(args: {
+  routingMode: string | null | undefined;
+  sourceDangerWarningCount: number;
+  expectedUnsupported: boolean;
+}): string[] {
+  if ((args.routingMode ?? "none") === "unsupported") {
+    // A danger warning on a declined answer is the expected refusal signal, not
+    // a governance failure. Where the question is genuinely out of scope we do
+    // assert the warning is present, so a regression that silently drops it is
+    // caught. Where a supported question was wrongly refused, the routing
+    // failure is reported elsewhere and we do not add misleading warning noise.
+    if (!args.expectedUnsupported) return [];
+    return args.sourceDangerWarningCount === 0
+      ? ["unsupported-route answer missing danger source governance warning"]
+      : [];
+  }
+  return args.sourceDangerWarningCount > 0 ? ["danger source governance warning present"] : [];
+}
+
 function rate(numerator: number, denominator: number) {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(4));
 }
@@ -367,7 +386,9 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
       result.failures.some((failure) => qualityFailureCategory(failure) === "numeric_grounding"),
   );
   const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
-  const sourceGovernanceDangerFailures = results.filter((result) => result.sourceDangerWarningCount > 0);
+  const sourceGovernanceDangerFailures = results.filter(
+    (result) => result.route !== "unsupported" && result.sourceDangerWarningCount > 0,
+  );
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -752,7 +773,13 @@ async function runRagQualityCases(args: {
     const failures = [...validation.failures];
     const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
     const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
-    if (sourceDangerWarningCount > 0) failures.push("danger source governance warning present");
+    failures.push(
+      ...sourceGovernanceDangerFailuresForAnswer({
+        routingMode: answer.routingMode,
+        sourceDangerWarningCount,
+        expectedUnsupported: !testCase.supported,
+      }),
+    );
 
     results.push({
       id: testCase.id,

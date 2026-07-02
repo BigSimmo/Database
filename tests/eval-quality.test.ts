@@ -4,6 +4,7 @@ import {
   buildEvalQualityReport,
   qualityFailureCategory,
   renderEvalQualityMarkdown,
+  sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
 } from "../scripts/eval-quality";
@@ -249,6 +250,87 @@ describe("eval quality reporting", () => {
     expect(report.blocking_threshold_failures).toEqual(
       expect.arrayContaining([expect.stringContaining("RAG source_governance_danger_failure_rate")]),
     );
+  });
+
+  it("treats danger warnings as failures only for answered routes", () => {
+    // Genuinely out-of-scope question that declined: a danger warning is the
+    // expected refusal signal, not a failure; and its absence is asserted.
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        routingMode: "unsupported",
+        sourceDangerWarningCount: 1,
+        expectedUnsupported: true,
+      }),
+    ).toEqual([]);
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        routingMode: "unsupported",
+        sourceDangerWarningCount: 0,
+        expectedUnsupported: true,
+      }),
+    ).toEqual(["unsupported-route answer missing danger source governance warning"]);
+    // Supported question wrongly refused: the routing failure is reported
+    // elsewhere; do not add misleading missing-warning noise.
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        routingMode: "unsupported",
+        sourceDangerWarningCount: 0,
+        expectedUnsupported: false,
+      }),
+    ).toEqual([]);
+    // Answered routes: a danger warning means we delivered an answer on
+    // dangerous sourcing, which is a failure regardless of expectation.
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        routingMode: "fast",
+        sourceDangerWarningCount: 1,
+        expectedUnsupported: false,
+      }),
+    ).toEqual(["danger source governance warning present"]);
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        routingMode: null,
+        sourceDangerWarningCount: 1,
+        expectedUnsupported: false,
+      }),
+    ).toEqual(["danger source governance warning present"]);
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        routingMode: "fast",
+        sourceDangerWarningCount: 0,
+        expectedUnsupported: false,
+      }),
+    ).toEqual([]);
+    expect(qualityFailureCategory("unsupported-route answer missing danger source governance warning")).toBe(
+      "source_governance",
+    );
+  });
+
+  it("excludes declined unsupported-route answers from the danger failure rate", () => {
+    const declinedOnly = buildEvalQualityReport({
+      generatedAt: "2026-07-02T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        ragResult({
+          id: "unsupported-declined",
+          supported: false,
+          grounded: false,
+          route: "unsupported",
+          citations: 0,
+          sourceWarningCount: 1,
+          sourceDangerWarningCount: 1,
+        }),
+        ragResult({ id: "answered-clean" }),
+      ],
+    });
+    expect(declinedOnly.rag.summary.source_governance_danger_failure_rate).toBe(0);
+
+    const answeredDangerous = buildEvalQualityReport({
+      generatedAt: "2026-07-02T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [ragResult({ sourceWarningCount: 1, sourceDangerWarningCount: 1 })],
+    });
+    expect(answeredDangerous.rag.summary.source_governance_danger_failure_rate).toBeGreaterThan(0);
   });
 
   it("rejects source metadata debt acceptance when outdated sources are present", () => {
