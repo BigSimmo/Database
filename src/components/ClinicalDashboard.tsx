@@ -1274,9 +1274,11 @@ type AnswerSupportPriority = {
 };
 
 function answerSupportPriority(
+  answer: RagAnswer,
   sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
   table: VisualEvidenceCard | null,
   safetyFindings: ReturnType<typeof extractSafetyFindings>,
+  options: { grounded: boolean; weakEvidence: boolean },
 ): AnswerSupportPriority | null {
   const firstSafetyFinding = safetyFindings[0];
   if (firstSafetyFinding) {
@@ -1284,6 +1286,15 @@ function answerSupportPriority(
       title: "Priority",
       detail: formatSafetyFindingLabel(firstSafetyFinding),
       sourceLabel: "S1",
+      tone: "caution",
+    };
+  }
+
+  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence) {
+    return {
+      title: "Review source match",
+      detail: "Verify cited passages before using clinical numbers, monitoring, dose, route, timing, or risk decisions.",
+      sourceLabel: "Review",
       tone: "caution",
     };
   }
@@ -1305,6 +1316,8 @@ function AnswerSupportSummaryCard({
   priority,
   clinicalCount,
   evidenceSummary,
+  clinicalAvailable,
+  evidenceAvailable,
   clinicalTriggerRef,
   evidenceTriggerRef,
   onOpenClinicalNotes,
@@ -1313,11 +1326,17 @@ function AnswerSupportSummaryCard({
   priority: AnswerSupportPriority | null;
   clinicalCount: number;
   evidenceSummary: string;
+  clinicalAvailable: boolean;
+  evidenceAvailable: boolean;
   clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
   evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
   onOpenClinicalNotes: () => void;
   onOpenEvidence: () => void;
 }) {
+  const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
+  const supportButtonClass =
+    "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+
   return (
     <section
       data-testid="answer-support-card"
@@ -1335,7 +1354,7 @@ function AnswerSupportSummaryCard({
             className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
             aria-hidden="true"
           >
-            <ShieldCheck className="h-5 w-5" />
+            {priority.tone === "caution" ? <AlertCircle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
           </span>
           <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
             <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
@@ -1347,42 +1366,53 @@ function AnswerSupportSummaryCard({
         </div>
       ) : null}
 
-      <div className="grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-        <button
-          ref={clinicalTriggerRef}
-          id="answer-clinical-notes-drawer-mobile-trigger"
-          data-testid="answer-clinical-notes-trigger"
-          type="button"
-          onClick={onOpenClinicalNotes}
-          className="grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-          aria-label="Open clinical notes"
+      {supportRowCount > 0 ? (
+        <div
+          className={cn(
+            "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
+            supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
+          )}
         >
-          <ClipboardCheck className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
-            <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-              {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
-            </span>
-          </span>
-          <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-        </button>
-        <button
-          ref={evidenceTriggerRef}
-          id="answer-evidence-drawer-mobile-trigger"
-          data-testid="answer-evidence-trigger"
-          type="button"
-          onClick={onOpenEvidence}
-          className="grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-          aria-label="Open evidence"
-        >
-          <Layers className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
-            <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
-          </span>
-          <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-        </button>
-      </div>
+          {clinicalAvailable ? (
+            <button
+              ref={clinicalTriggerRef}
+              id="answer-clinical-notes-drawer-mobile-trigger"
+              data-testid="answer-clinical-notes-trigger"
+              type="button"
+              onClick={onOpenClinicalNotes}
+              className={supportButtonClass}
+              aria-label="Open clinical notes"
+            >
+              <ClipboardCheck className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
+                <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                  {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+            </button>
+          ) : null}
+          {evidenceAvailable ? (
+            <button
+              ref={evidenceTriggerRef}
+              id="answer-evidence-drawer-mobile-trigger"
+              data-testid="answer-evidence-trigger"
+              type="button"
+              onClick={onOpenEvidence}
+              className={supportButtonClass}
+              aria-label="Open evidence"
+            >
+              <Layers className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
+                <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
+              </span>
+              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1904,7 +1934,7 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onOpenTables}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Table2 className="h-3.5 w-3.5" />
             Tables
@@ -2370,13 +2400,18 @@ function compactEvidenceSummary(
   const tableCount = (renderModel?.visualEvidence ?? answer.visualEvidence ?? []).filter(
     (item) => item.accessibleTableMarkdown || item.tableRows?.length,
   ).length;
-  const parts = [
-    support,
-    `${claimCount} claim${claimCount === 1 ? "" : "s"}`,
-    `${quoteCount} quote${quoteCount === 1 ? "" : "s"}`,
-    `${tableCount} table${tableCount === 1 ? "" : "s"}`,
-  ];
-  return parts.join(" · ");
+  const sourceCount = renderModel?.primarySources.length || sourceSummary?.total_sources || sources.length;
+  const countParts = [
+    claimCount > 0 ? `${claimCount} claim${claimCount === 1 ? "" : "s"}` : null,
+    quoteCount > 0 ? `${quoteCount} quote${quoteCount === 1 ? "" : "s"}` : null,
+    tableCount > 0 ? `${tableCount} table${tableCount === 1 ? "" : "s"}` : null,
+  ].filter((part): part is string => Boolean(part));
+
+  if (countParts.length === 0 && sourceCount > 0) {
+    countParts.push(`${sourceCount} source${sourceCount === 1 ? "" : "s"}`);
+  }
+
+  return [support, ...countParts].join(" · ");
 }
 
 type EvidenceTabName = "Claims" | "Quotes" | "Tables" | "Images" | "Gaps";
@@ -4216,7 +4251,10 @@ function StagedAnswerResultSurface({
       setCopiedQuotes(false);
     }
   }, [renderModel.quoteCards]);
-  const priority = answerSupportPriority(safeAnswerSections, centralTable, safetyFindings);
+  const priority = answerSupportPriority(answer, safeAnswerSections, centralTable, safetyFindings, {
+    grounded: answerGrounded,
+    weakEvidence,
+  });
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
   const showLayoutAside = Boolean(activeReviewPanel || centralTable);
@@ -4254,6 +4292,8 @@ function StagedAnswerResultSurface({
                 priority={priority}
                 clinicalCount={clinicalNoteDisplayCount}
                 evidenceSummary={inlineEvidenceSummary}
+                clinicalAvailable={showClinicalNotes}
+                evidenceAvailable={showEvidenceDrawer}
                 clinicalTriggerRef={clinicalNotesTriggerRef}
                 evidenceTriggerRef={evidenceTriggerRef}
                 onOpenClinicalNotes={openClinicalNotes}
@@ -8441,6 +8481,7 @@ export function ClinicalDashboard({
                       query={query}
                       loading={loading}
                       documentCount={indexedDocumentTotal}
+                      recentDocuments={documents}
                       realDataReady={canRunSearch}
                       authUnavailable={!clientDemoMode && !canUsePrivateApis}
                       apiUnavailable={apiUnavailable}

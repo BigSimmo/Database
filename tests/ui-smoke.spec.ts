@@ -159,7 +159,9 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
   await route.fulfill({ json: payload });
 }
 
-async function mockDemoApi(page: Page) {
+type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
+
+async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOverride } = {}) {
   await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
@@ -196,8 +198,11 @@ async function mockDemoApi(page: Page) {
       documentId?: string;
       documentIds?: string[];
     };
+    const answer =
+      options.answerOverride?.(body.query ?? "What monitoring is required?", body.documentId, body.documentIds) ??
+      demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds);
     await fulfillAnswerResponse(route, {
-      ...demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
+      ...answer,
       demoMode: true,
     });
   });
@@ -964,6 +969,57 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("source-only answer keeps support rows honest", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          answer:
+            "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the sources directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.",
+          grounded: false,
+          confidence: "low",
+          answerQualityTier: "source_only",
+          fallbackReason: "source_only_no_api",
+          citations: [],
+          answerSections: [],
+          quoteCards: [],
+          visualEvidence: [],
+        };
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium");
+    await visibleAnswerSubmitButton(page).click();
+
+    const supportCard = page.getByTestId("answer-support-card");
+    await expect(supportCard).toBeVisible();
+    await expect(supportCard).toContainText("Review source match");
+    await expect(supportCard).toContainText("Verify cited passages");
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).toContainText(/sources?|claims?/i);
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).not.toContainText("0 claims");
+
+    const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
+    if (await clinicalTrigger.count()) {
+      await clinicalTrigger.click();
+      const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
+      await expect(clinicalNotesSheet).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(clinicalNotesSheet).toHaveCount(0);
+    }
+
+    await supportCard.getByTestId("answer-evidence-trigger").click();
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(evidenceSheet).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   for (const viewport of [
     { name: "phone", width: 390, height: 820, sheet: true },
     { name: "tablet", width: 768, height: 1024, sheet: true },
@@ -1228,13 +1284,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: /Recent documents/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Browse library/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Open a source PDF/i })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Explore document parts" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Suggested searches" })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Recently indexed" })).toHaveCount(0);
-    await expect(page.locator('a[href^="/documents/"]')).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Resume Lithium monitoring guideline/i })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Document shortcuts" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "monitoring", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Smart facets" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Recent documents" })).toBeVisible();
+    await expect(page.locator('a[href^="/documents/"]').first()).toBeVisible();
     await expect(page.getByText("Source library workspace")).toHaveCount(0);
     await expect(page.getByText("Document display")).toHaveCount(0);
 
@@ -1247,12 +1299,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("1 table").first()).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toContainText("Best match");
     await expect(page.getByTestId("document-search-workspace")).toContainText("Relevant");
+    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open exact evidence/i })).toBeVisible();
     await expect(page.getByRole("button", { name: "Lithium", exact: true })).toBeVisible();
     await expect(page.getByText("Tag facets")).toHaveCount(0);
-    await expect(page.getByTestId("document-search-workspace")).not.toContainText(
-      /No direct support|Partial support|source support|direct support/i,
-    );
     await expectMinTouchTarget(page.getByRole("link", { name: /Open Synthetic lithium/i }).first());
+    await expect(page.getByRole("button", { name: /Preview evidence for/i }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
     await page
       .getByRole("button", { name: /Answer from/i })
