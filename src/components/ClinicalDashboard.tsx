@@ -2466,7 +2466,7 @@ function RenderModelSourceList({
     <div className="space-y-3">
       {sources.map((source, index) => {
         const metadata = normalizeSourceMetadata(source.sourceMetadata);
-        const snippet = compactSourceSnippet(source.snippet ?? "");
+        const snippet = compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title });
         const openLabel = `Open source ${index + 1}: ${cleanDisplayTitle(source.title)}${query ? ` for ${query}` : ""}`;
         return (
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
