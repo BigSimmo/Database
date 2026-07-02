@@ -1339,8 +1339,14 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // this, the generic penalty demoted the documents that actually contain the
   // red-zone next step while unrelated risk-assessment flowcharts kept the boost.
   // Both term groups must hit: a bare "zone" or a lone "review" is not evidence.
+  // Risk-matrix / flowchart visual units store the cell colour as a bare token
+  // ("... | Red | escalate ..."), so for those units the colour token counts as
+  // zone context.
+  const zoneCellUnitEvidence =
+    ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
+    /\b(?:red|amber|yellow|orange|purple|green|blue)\b/.test(haystack);
   const riskFlowchartZoneActionSource =
-    riskZoneContextPattern.test(haystack) && riskZoneActionPattern.test(haystack);
+    (riskZoneContextPattern.test(haystack) || zoneCellUnitEvidence) && riskZoneActionPattern.test(haystack);
   const riskFlowchartSource =
     (/\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
       /\b(?:risk|red zone|red)\b/.test(haystack)) ||

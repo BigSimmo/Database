@@ -3165,7 +3165,7 @@ export function decideTextFastPath(
     // Flowchart/zone "next step" questions need the zone-action evidence (red
     // zone -> escalate / urgent review), not just a lexically matching flowchart
     // page; otherwise fall through to structured/vector retrieval.
-    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(results)) {
+    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(query, results)) {
       return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
     }
     if (directTitleSupport && strongestScore >= 0.32) {
@@ -3261,27 +3261,46 @@ function hasAnyTerm(text: string, pattern: RegExp) {
   return pattern.test(text);
 }
 
+const zoneColourAlternatives = "red|amber|yellow|orange|purple|green|blue";
+
+function queriedZoneColour(query: string) {
+  return query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1]?.toLowerCase() ?? null;
+}
+
 function isRiskFlowchartNextStepQuery(query: string) {
   return (
     /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
-    /\b(?:risk|red[\s-]*zone|red)\b/i.test(query) &&
+    (new RegExp(`\\b(?:risk|(?:${zoneColourAlternatives})[\\s-]*zones?)\\b`, "i").test(query)) &&
     /\b(?:next step|step after|after|action)\b/i.test(query)
   );
 }
 
-function hasRiskFlowchartActionEvidence(results: SearchResult[], limit = 5) {
-  // A single result must carry BOTH the coloured-zone context and the action
-  // language (escalate / urgent review): scattering the two term groups across
-  // different results (or their image captions) let unrelated risk-assessment
-  // flowcharts pass. Deliberately does NOT require a flowchart word in the
-  // evidence — the escalation protocols that answer a red-zone question express
-  // the flowchart's decision steps as prose ("has any Purple or Red Zone
-  // criteria ... escalate for Senior Clinician Review") without ever saying
-  // "flowchart". Shared patterns keep this aligned with the ranking source
-  // check in clinical-search.
+function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], limit = 5) {
+  // A single result must carry BOTH the zone context and the action language
+  // (escalate / urgent review): scattering the two term groups across different
+  // results (or their image captions) let unrelated risk-assessment flowcharts
+  // pass. Deliberately does NOT require a flowchart word in the evidence — the
+  // escalation protocols that answer a red-zone question express the flowchart's
+  // decision steps as prose ("has any Purple or Red Zone criteria ... escalate
+  // for Senior Clinician Review") without ever saying "flowchart".
+  //
+  // When the query names a colour, the zone evidence must match that colour (a
+  // red-zone question must not fast-path on an amber-zone chunk). Risk-matrix /
+  // flowchart visual units store the cell colour as a bare token
+  // ("... | Red | escalate ..."), so for those units the colour token alone
+  // counts as zone context.
+  const colour = queriedZoneColour(query);
+  const colourGroup = colour ?? `(?:${zoneColourAlternatives})`;
+  const zonePhrasePattern = new RegExp(
+    `\\b${colourGroup}[\\s-]*zones?\\b|\\bcolou?red zones?\\b|\\bzone criteria\\b`,
+    "i",
+  );
+  const bareColourPattern = new RegExp(`\\b${colourGroup}\\b`, "i");
   return results.slice(0, limit).some((result) => {
     const evidenceText = evidenceTextForGate(result);
-    return riskZoneContextPattern.test(evidenceText) && riskZoneActionPattern.test(evidenceText);
+    if (!riskZoneActionPattern.test(evidenceText)) return false;
+    if (zonePhrasePattern.test(evidenceText)) return true;
+    return visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
   });
 }
 
@@ -3476,8 +3495,12 @@ export function evaluateEvidenceCoverageGate(
         sourceImageSatisfied,
       };
     }
-    if (/\b(?:flow\s*chart|flowchart|red[\s-]*zone|risk matrix)\b/i.test(query)) {
-      const accepted = hasRiskFlowchartActionEvidence(results);
+    // Only zone/next-step flowchart questions need the zone-action evidence
+    // gate; a plain flowchart document lookup ("which procedure flowchart
+    // covers X?") falls through to the ordinary title gate below so a direct
+    // title hit is not rejected for lacking zone evidence.
+    if (isRiskFlowchartNextStepQuery(query)) {
+      const accepted = hasRiskFlowchartActionEvidence(query, results);
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",

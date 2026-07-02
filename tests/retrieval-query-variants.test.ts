@@ -300,6 +300,68 @@ describe("retrieval query variants", () => {
     ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
   });
 
+  it("matches the queried zone colour before fast-pathing", () => {
+    // A red-zone question must not fast-path on an amber-zone action chunk.
+    expect(
+      decideTextFastPath(
+        "In the clinical flowchart, what is the next step after red-zone risk?",
+        [
+          result({
+            content: "If the patient reaches the Amber Zone, escalate for urgent senior review.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
+    // ...and an amber-zone question (no literal "risk"/"red") still triggers the
+    // guard and is satisfied by amber-zone action evidence.
+    expect(
+      decideTextFastPath(
+        "In the clinical flowchart, what is the next step after the amber zone?",
+        [
+          result({
+            content: "If the patient reaches the Amber Zone, escalate for urgent senior review.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
+  it("accepts risk-matrix cell colour tokens as zone context", () => {
+    // risk_matrix_cell units store the cell colour as a bare token
+    // ("... | Red | escalate ..."), not as the phrase "red zone".
+    expect(
+      decideTextFastPath(
+        "In the risk matrix flowchart, what action is shown after red-zone risk?",
+        [
+          result({
+            content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+            similarity: 0.82,
+            index_unit: {
+              id: "unit-rm",
+              unit_type: "risk_matrix_cell",
+              title: "Physical aggression / Recent incident: Red",
+              content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_start: 1,
+              page_end: 1,
+              heading_path: ["Risk matrix"],
+              normalized_terms: ["red", "risk matrix"],
+              quality_score: 0.9,
+              extraction_mode: "model_heavy",
+            },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
   it("requires zone and action evidence on a single result for the flowchart risk gate", () => {
     const query = "In the clinical flowchart, what is the next step after red-zone risk?";
 
@@ -333,6 +395,26 @@ describe("retrieval query variants", () => {
         "document_lookup",
       ),
     ).toMatchObject({ accepted: true, reason: "visual_flowchart_risk_gate" });
+  });
+
+  it("routes plain flowchart document lookups through the ordinary title gate", () => {
+    // A flowchart mention without zone / next-step intent must not be forced
+    // through the zone-action gate; a direct title hit uses the title gate.
+    expect(
+      evaluateEvidenceCoverageGate(
+        "Which procedure flowchart covers ECT team coordination?",
+        [
+          result({
+            title: "ECT Team Coordination Procedure Flowchart",
+            file_name: "ect-team-coordination-flowchart.pdf",
+            content: "Procedure flowchart covering ECT team coordination responsibilities.",
+            similarity: 0.72,
+            match_explanation: { titleHit: true, reasons: ["title"] },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ strategy: "document_lookup_fast_path", reason: "document_title_evidence_gate" });
   });
 
   it("does not fast-path comparison queries before synthesis retrieval", () => {
