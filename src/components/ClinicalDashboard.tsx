@@ -4986,7 +4986,7 @@ function SettingsDialog({
               <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-bold leading-none text-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10 lg:h-11 lg:w-11">
                 {identity.initials}
                 {identity.signedIn ? (
-                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
+                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
