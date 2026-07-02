@@ -17,7 +17,6 @@ import {
   FileText,
   Loader2,
   Maximize2,
-  Menu,
   Minimize2,
   Minus,
   Plus,
@@ -46,7 +45,6 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
-  appBackdrop,
   clinicalDivider,
   cn,
   evidenceSurface,
@@ -2355,61 +2353,38 @@ export function DocumentViewer({
 
   return (
     <main
-      id="main-content"
       tabIndex={-1}
-      className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
+      className="min-h-[calc(100dvh-4rem)] overflow-x-clip text-[color:var(--text)] focus:outline-none"
     >
-      <header className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
+      <div className="mx-auto flex h-12 max-w-7xl items-center gap-2 px-3 pt-2 sm:px-4 lg:px-8">
+        <Link
+          href={documentHomeHref}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+          aria-label="Back to documents"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Link
-            href={documentHomeHref}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            aria-label="Back to documents"
+            href={scopedDocumentHref}
+            className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            aria-label="Scope this document"
+            title={headerSubtitle}
           >
-            <Menu className="h-5 w-5 sm:hidden" />
-            <ArrowLeft className="hidden h-5 w-5 sm:block" />
+            <Target className="h-5 w-5" />
           </Link>
-
-          <div
-            role="group"
-            aria-label="Search mode"
-            className="mx-auto grid w-[min(13.25rem,52vw)] grid-cols-2 gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)] sm:mx-0 sm:w-auto sm:min-w-[14rem]"
+          <button
+            type="button"
+            onClick={() => setMobileActionsOpen(true)}
+            className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            aria-label="Open document actions"
           >
-            <Link
-              href="/"
-              className="inline-flex min-h-9 items-center justify-center rounded-full px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:text-sm"
-            >
-              Answer
-            </Link>
-            <Link
-              href="/?mode=documents"
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-3 text-xs font-semibold text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] sm:text-sm"
-            >
-              Documents
-            </Link>
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            <Link
-              href={scopedDocumentHref}
-              className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Scope this document"
-              title={headerSubtitle}
-            >
-              <Target className="h-5 w-5" />
-            </Link>
-            <button
-              type="button"
-              onClick={() => setMobileActionsOpen(true)}
-              className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Open document actions"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          </div>
+            <Plus className="h-5 w-5" />
+          </button>
         </div>
-        <h1 className="sr-only">{headerTitle}</h1>
-      </header>
+      </div>
+      <h1 className="sr-only">{headerTitle}</h1>
 
       {readyDocument ? (
         <Sheet
