@@ -1837,7 +1837,7 @@ async function insertRagQuery(row: RagQueryInsert) {
   await supabase.from("rag_queries").insert(safeRow);
 }
 
-async function logRagQuery(row: Record<string, unknown>) {
+async function logRagQuery(row: RagQueryInsert) {
   if (env.RAG_AWAIT_QUERY_LOGS) {
     await insertRagQuery(row);
     return;
@@ -3381,7 +3381,10 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
     const evidenceText = evidenceTextForGate(result);
     if (!riskZoneActionPattern.test(evidenceText)) return false;
     if (zonePhrasePattern.test(evidenceText)) return true;
-    return ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
+    return (
+      ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
+      bareColourPattern.test(evidenceText)
+    );
   });
 }
 

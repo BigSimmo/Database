@@ -36,8 +36,7 @@ type DocumentDetailPayload = {
 };
 
 type ResolverState =
-  | { status: "opening"; message: string; liveHref?: string }
-  | { status: "error"; message: string; liveHref?: string };
+  { status: "opening"; message: string; liveHref?: string } | { status: "error"; message: string; liveHref?: string };
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -97,7 +96,10 @@ export function DocumentSearchLiveOpener() {
           includeMeta: "false",
           q: lookupTerm,
         });
-        let payload = await fetchJson<DocumentsPayload>(`/api/documents?${documentParams.toString()}`, controller.signal);
+        let payload = await fetchJson<DocumentsPayload>(
+          `/api/documents?${documentParams.toString()}`,
+          controller.signal,
+        );
         let documents = (payload.documents ?? []).filter((document) => document.status === "indexed");
 
         if (documents.length === 0) {

@@ -1217,12 +1217,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const statusBoost = status === "outdated" ? -0.04 : 0;
   const publicationYearsAgo = parseDateAsYearsAgo(result.source_metadata?.publication_date);
   const reviewYearsAgo = parseDateAsYearsAgo(result.source_metadata?.review_date);
-  const freshnessBoost =
-    publicationYearsAgo === null
-      ? 0
-      : publicationYearsAgo >= 8
-        ? -0.015
-        : 0;
+  const freshnessBoost = publicationYearsAgo === null ? 0 : publicationYearsAgo >= 8 ? -0.015 : 0;
   const reviewBoost = reviewYearsAgo === null ? 0 : reviewYearsAgo >= 5 ? -0.01 : 0;
   const imageBoost = imageEvidenceSignal(query, result);
   const sectionBoost = sectionMatchBoost(query, result);
@@ -1397,7 +1392,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // the same result.
   const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
   const riskFlowchartSource = nextStepActionQuery
-    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
+    ? riskFlowchartZoneActionSource ||
+      (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
     : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&

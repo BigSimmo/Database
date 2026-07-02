@@ -74,7 +74,8 @@ const documents: DocumentFixture[] = [
     slug: "acute-agitation-pathway",
     title: "Acute agitation clinical pathway",
     meta: "Local guideline - p.4 - image and flowchart",
-    summary: "The result row separates pathway evidence from nearby medication references and keeps actions thumb-ready.",
+    summary:
+      "The result row separates pathway evidence from nearby medication references and keeps actions thumb-ready.",
     relevance: "Relevant",
     metadata: "Guideline",
     page: "p.4",
@@ -155,7 +156,12 @@ function IconTile({ icon: Icon, tone = "accent" }: { icon: LucideIcon; tone?: "a
         : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 
   return (
-    <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]", toneClass)}>
+    <span
+      className={cn(
+        "grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+        toneClass,
+      )}
+    >
       <Icon className="h-4.5 w-4.5" aria-hidden="true" />
     </span>
   );
@@ -196,7 +202,15 @@ function Pill({
   );
 }
 
-function Button({ children, primary = false, icon: Icon }: { children: ReactNode; primary?: boolean; icon?: LucideIcon }) {
+function Button({
+  children,
+  primary = false,
+  icon: Icon,
+}: {
+  children: ReactNode;
+  primary?: boolean;
+  icon?: LucideIcon;
+}) {
   return (
     <button
       type="button"
@@ -289,7 +303,9 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
     <article
       className={cn(
         "group rounded-lg border bg-[color:var(--surface)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
-        document.active ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20" : "border-[color:var(--border)]",
+        document.active
+          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20"
+          : "border-[color:var(--border)]",
         dense ? "p-2.5" : "p-3",
       )}
     >
@@ -318,9 +334,7 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
           >
             <span className="line-clamp-2">{document.title}</span>
           </Link>
-          <h3 className="sr-only">
-            {document.title}
-          </h3>
+          <h3 className="sr-only">{document.title}</h3>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
             {document.summary}
           </p>
@@ -338,15 +352,10 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
         <Link
           href={openHref}
           aria-label={`Open ${document.title} with highlighted source information`}
-          className={cn(
-            "hidden min-w-[4.25rem] rounded-md text-right sm:block",
-            focusRing,
-          )}
+          className={cn("hidden min-w-[4.25rem] rounded-md text-right sm:block", focusRing)}
         >
           <p className="nums text-sm font-extrabold text-[color:var(--text-heading)]">{document.page}</p>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Open
-          </p>
+          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Open</p>
           <ExternalLink className="ml-auto mt-2 h-4 w-4 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]" />
         </Link>
       </div>
@@ -428,7 +437,9 @@ function CommandMockup({ copy }: { copy: VariantCopy }) {
               <Button icon={SlidersHorizontal}>Best match</Button>
               <Button icon={Filter}>Filter</Button>
               <Button icon={FolderOpen}>Browse library</Button>
-              <span className="ml-auto text-sm font-bold text-[color:var(--text-muted)]">30 matches from 2,065 indexed</span>
+              <span className="ml-auto text-sm font-bold text-[color:var(--text-muted)]">
+                30 matches from 2,065 indexed
+              </span>
             </div>
             <div className="grid gap-2.5">
               {documents.map((document) => (
@@ -476,7 +487,10 @@ function Metric({ label, value, icon: Icon }: { label: string; value: string; ic
 
 function MobileShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <SectionFrame title="Mobile composition" body="A phone-width composition proves the same idea can fit around the document-mode bottom composer.">
+    <SectionFrame
+      title="Mobile composition"
+      body="A phone-width composition proves the same idea can fit around the document-mode bottom composer."
+    >
       <div className="mx-auto max-w-[25rem] rounded-[2rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-chrome)] p-3 shadow-[var(--shadow-lux)]">
         <div className="overflow-hidden rounded-[1.45rem] border border-[color:var(--border)] bg-[color:var(--background)]">
           <div className="border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
@@ -535,9 +549,24 @@ function EvidenceLensMockup({ copy }: { copy: VariantCopy }) {
           <div className="min-w-0 space-y-3">
             <PreviewImage asset={copy.asset} priority />
             <div className="grid gap-3 md:grid-cols-3">
-              <EvidenceTile icon={Table2} title="Table hit" body="Monitoring intervals line up with the query." tone="success" />
-              <EvidenceTile icon={FileImage} title="Image hit" body="Visual pathway available from the same source." tone="info" />
-              <EvidenceTile icon={AlertCircle} title="Review note" body="Review date visible before opening." tone="warning" />
+              <EvidenceTile
+                icon={Table2}
+                title="Table hit"
+                body="Monitoring intervals line up with the query."
+                tone="success"
+              />
+              <EvidenceTile
+                icon={FileImage}
+                title="Image hit"
+                body="Visual pathway available from the same source."
+                tone="info"
+              />
+              <EvidenceTile
+                icon={AlertCircle}
+                title="Review note"
+                body="Review date visible before opening."
+                tone="warning"
+              />
             </div>
           </div>
           <aside className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">

@@ -1091,10 +1091,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ? page.getByRole("dialog", { name: "Evidence" })
         : page.getByTestId("desktop-answer-review-panel");
       await expect(evidenceSurface).toBeVisible();
-      await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
       await expect(evidenceSurface.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
       await expect(evidenceSurface.getByTestId("evidence-claims-panel")).toBeVisible();
       await expectMinTouchTarget(evidenceSurface.getByRole("link", { name: /^Source$/ }).first());
@@ -1162,7 +1159,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
             tableTop: tableRect?.top ?? 9999,
           };
         });
-        expect(desktopLayout.tableLeft).toBeGreaterThan(Math.max(desktopLayout.answerRight, desktopLayout.supportRight));
+        expect(desktopLayout.tableLeft).toBeGreaterThan(
+          Math.max(desktopLayout.answerRight, desktopLayout.supportRight),
+        );
         expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
         await expect(expandButton).toHaveCount(0);
         await expectNoPageHorizontalOverflow(page);

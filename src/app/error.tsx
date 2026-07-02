@@ -5,13 +5,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { primaryControl } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
 
-export default function ErrorBoundary({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function ErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     // Log the error to an error reporting service
     console.error("Unhandled runtime error captured by boundary:", error);
@@ -23,13 +17,14 @@ export default function ErrorBoundary({
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--danger-soft)] text-[color:var(--danger)]">
           <AlertTriangle className="h-6 w-6" />
         </div>
-        
+
         <h1 className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)]">
           Something went wrong
         </h1>
-        
+
         <p className="mt-2 text-sm text-[color:var(--text-muted)] leading-relaxed">
-          An unexpected error occurred in the application shell. You can try to reset the current view or refresh the browser.
+          An unexpected error occurred in the application shell. You can try to reset the current view or refresh the
+          browser.
         </p>
 
         {error.digest && (
@@ -42,15 +37,12 @@ export default function ErrorBoundary({
           <button
             type="button"
             onClick={() => reset()}
-            className={cn(
-              primaryControl,
-              "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium"
-            )}
+            className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
           >
             <RefreshCw className="h-4 w-4" />
             Try again
           </button>
-          
+
           <button
             type="button"
             onClick={() => window.location.reload()}

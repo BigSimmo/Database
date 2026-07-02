@@ -220,10 +220,7 @@ async function loadDebtPolicy(path: string): Promise<DebtPolicy> {
       max_review_required_rate: requiredNumber(ceilings, "max_review_required_rate"),
       max_outdated_top_results: requiredNumber(ceilings, "max_outdated_top_results"),
       max_poor_extraction_top_results: requiredNumber(ceilings, "max_poor_extraction_top_results"),
-      max_source_governance_danger_failure_rate: requiredNumber(
-        ceilings,
-        "max_source_governance_danger_failure_rate",
-      ),
+      max_source_governance_danger_failure_rate: requiredNumber(ceilings, "max_source_governance_danger_failure_rate"),
     },
     observed_retrieval_eval: observedRetrievalEval
       ? {

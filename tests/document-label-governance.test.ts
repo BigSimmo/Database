@@ -61,9 +61,7 @@ describe("document label governance", () => {
       },
     ];
 
-    expect(missingGoldLabelsForDocument(documents[0]).map((item) => item.label)).toContain(
-      "medication-instruction",
-    );
+    expect(missingGoldLabelsForDocument(documents[0]).map((item) => item.label)).toContain("medication-instruction");
     expect(runLabelRelevanceChecks(documents).find((check) => check.id === "lithium-monitoring")).toMatchObject({
       passed: true,
       matchingDocumentCount: 1,

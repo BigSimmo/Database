@@ -319,8 +319,8 @@ function formatDocumentDate(value?: string | null) {
 }
 
 function topDocumentFacets(documents: ClinicalDocument[]) {
-  return buildSmartDocumentTagFacetIndex(documents, { limitPerGroup: 4 }).groups
-    .flatMap((group) => group.facets.map((facet) => ({ ...facet, group: facet.group })))
+  return buildSmartDocumentTagFacetIndex(documents, { limitPerGroup: 4 })
+    .groups.flatMap((group) => group.facets.map((facet) => ({ ...facet, group: facet.group })))
     .slice(0, 8);
 }
 
@@ -480,7 +480,10 @@ function DocumentSearchHome({
                   {item.description}
                 </span>
               </span>
-              <ChevronDown className="hidden -rotate-90 h-4 w-4 text-[color:var(--text-soft)] md:block" aria-hidden="true" />
+              <ChevronDown
+                className="hidden -rotate-90 h-4 w-4 text-[color:var(--text-soft)] md:block"
+                aria-hidden="true"
+              />
             </button>
           );
         })}
@@ -489,7 +492,12 @@ function DocumentSearchHome({
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
-            <DocumentHomeLane title="Current sources" count={documentCount.toLocaleString()} icon={CheckCircle2} tone="success" />
+            <DocumentHomeLane
+              title="Current sources"
+              count={documentCount.toLocaleString()}
+              icon={CheckCircle2}
+              tone="success"
+            />
             <DocumentHomeLane title="Review states" count={reviewDueCount} icon={AlertCircle} tone="warning" />
             <DocumentHomeLane title="Tables and forms" count={tableLikeCount} icon={ListChecks} tone="info" />
           </div>
@@ -536,7 +544,11 @@ function DocumentSearchHome({
         >
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Recent documents</h3>
-            <button type="button" onClick={onOpenRecentDocuments} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
+            <button
+              type="button"
+              onClick={onOpenRecentDocuments}
+              className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+            >
               <Clock3 className="h-4 w-4" aria-hidden="true" />
               Recent
             </button>
@@ -727,7 +739,10 @@ function SelectedDocumentEvidencePanel({
       </div>
 
       <div className="grid gap-2">
-        <EvidencePanelRow label="Open target" value={document.bestChunkIds[0] ? `${documentPageLabel(document)} with chunk` : documentPageLabel(document)} />
+        <EvidencePanelRow
+          label="Open target"
+          value={document.bestChunkIds[0] ? `${documentPageLabel(document)} with chunk` : documentPageLabel(document)}
+        />
         <EvidencePanelRow label="Relevance" value={`${relevanceDisplay.short} - ${relevanceDisplay.detail}`} />
         <EvidencePanelRow label="Evidence type" value={evidence.length ? evidence.join(", ") : "Indexed text"} />
         {matchedTerms.length ? <EvidencePanelRow label="Matched terms" value={matchedTerms.join(", ")} /> : null}
@@ -1132,126 +1147,133 @@ export function DocumentSearchResultsPanel({
           ) : null}
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="min-w-0 space-y-3">
-            {displayedMatches.length === 0 ? (
-              <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
-                No document matches include all selected filters.
-              </div>
-            ) : null}
-            {displayedMatches.map((document, index) => {
-              const relevanceDisplay = relevanceTone(document);
-              const fileKind = documentFileKind(document.file_name, "DOC");
-              const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
-              const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
-              const openHref = documentOpenHref(document);
-              const selected = selectedDocument?.document_id === document.document_id;
-              return (
-                <article
-                  key={document.document_id}
-                  className={cn(
-                    sourceCard,
-                    "relative overflow-visible p-0 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[0_14px_32px_rgb(15_27_45_/_7%)]",
-                    selected && "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
-                  )}
-                >
-                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
-                    <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-                            <span>{documentKindLabel(document)}</span>
-                            {index === 0 ? (
-                              <>
-                                <span
-                                  className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
-                                  aria-hidden="true"
-                                />
-                                <span className="text-[color:var(--clinical-accent)]">Best match</span>
-                              </>
-                            ) : null}
-                          </p>
-                          <a
-                            href={openHref}
-                            className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
-                          >
-                            <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                          </a>
+              {displayedMatches.length === 0 ? (
+                <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
+                  No document matches include all selected filters.
+                </div>
+              ) : null}
+              {displayedMatches.map((document, index) => {
+                const relevanceDisplay = relevanceTone(document);
+                const fileKind = documentFileKind(document.file_name, "DOC");
+                const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
+                const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
+                const openHref = documentOpenHref(document);
+                const selected = selectedDocument?.document_id === document.document_id;
+                return (
+                  <article
+                    key={document.document_id}
+                    className={cn(
+                      sourceCard,
+                      "relative overflow-visible p-0 shadow-[0_8px_18px_rgb(15_27_45_/_4%)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[0_14px_32px_rgb(15_27_45_/_7%)]",
+                      selected &&
+                        "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
+                    )}
+                  >
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
+                      <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                              <span>{documentKindLabel(document)}</span>
+                              {index === 0 ? (
+                                <>
+                                  <span
+                                    className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="text-[color:var(--clinical-accent)]">Best match</span>
+                                </>
+                              ) : null}
+                            </p>
+                            <a
+                              href={openHref}
+                              className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                            >
+                              <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
+                            </a>
+                          </div>
                         </div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <DocumentBadge
+                            variant={relevanceVariant}
+                            icon={Target}
+                            className="min-h-7 rounded-lg px-2.5 text-[11px]"
+                          >
+                            {relevanceDisplay.short}
+                            <span className="sr-only">, {relevanceDisplay.detail}</span>
+                          </DocumentBadge>
+                          <DocumentBadge
+                            variant="neutral"
+                            icon={BookOpen}
+                            className="min-h-7 rounded-lg px-2.5 text-[11px]"
+                          >
+                            {metadataBadgeLabel(document)}
+                          </DocumentBadge>
+                          <DocumentBadge
+                            variant={document.tableCount > 0 || document.imageCount > 0 ? "relevant" : "neutral"}
+                            icon={
+                              document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
+                            }
+                            className="min-h-7 rounded-lg px-2.5 text-[11px]"
+                          >
+                            {cautionBadgeLabel(document)}
+                          </DocumentBadge>
+                        </div>
+                        <p className={cn("mt-1.5 line-clamp-2 text-sm leading-6", textMuted)}>
+                          <SafeBoldText text={summaryText} />
+                        </p>
+                        <DocumentTagCloud
+                          labels={document.labels}
+                          query={query}
+                          limit={2}
+                          compact
+                          className="mt-2"
+                          onTagClick={onTagSearch}
+                        />
                       </div>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <DocumentBadge
-                          variant={relevanceVariant}
-                          icon={Target}
-                          className="min-h-7 rounded-lg px-2.5 text-[11px]"
-                        >
-                          {relevanceDisplay.short}
-                          <span className="sr-only">, {relevanceDisplay.detail}</span>
-                        </DocumentBadge>
-                        <DocumentBadge variant="neutral" icon={BookOpen} className="min-h-7 rounded-lg px-2.5 text-[11px]">
-                          {metadataBadgeLabel(document)}
-                        </DocumentBadge>
-                        <DocumentBadge
-                          variant={document.tableCount > 0 || document.imageCount > 0 ? "relevant" : "neutral"}
-                          icon={document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink}
-                          className="min-h-7 rounded-lg px-2.5 text-[11px]"
-                        >
-                          {cautionBadgeLabel(document)}
-                        </DocumentBadge>
-                      </div>
-                      <p className={cn("mt-1.5 line-clamp-2 text-sm leading-6", textMuted)}>
-                        <SafeBoldText text={summaryText} />
-                      </p>
-                      <DocumentTagCloud
-                        labels={document.labels}
-                        query={query}
-                        limit={2}
-                        compact
-                        className="mt-2"
-                        onTagClick={onTagSearch}
-                      />
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
-                    <DocumentActionButton
-                      onClick={() => setSelectedDocumentId(document.document_id)}
-                      icon={Sparkles}
-                      className={cn(
-                        "min-h-11 rounded-lg px-2.5 text-xs",
-                        selected
-                          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                          : "text-[color:var(--text)]",
-                      )}
-                      aria-label={`Preview evidence for ${document.title}`}
-                    >
-                      Preview
-                    </DocumentActionButton>
-                    <DocumentActionLink
-                      href={openHref}
-                      className="min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--text)]"
-                      aria-label={`Open ${document.title}`}
-                    >
-                      {contextualOpenLabel(document)}
-                    </DocumentActionLink>
-                    <DocumentActionButton
-                      onClick={() => onScopeDocument(document.document_id)}
-                      icon={Filter}
-                      className="min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--text)]"
-                      aria-label={`Scope search to ${document.title}`}
-                    >
-                      Scope
-                    </DocumentActionButton>
-                    <DocumentActionButton
-                      onClick={() => onAnswerFromDocument(document.document_id)}
-                      icon={Sparkles}
-                      className="ml-auto min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
-                      aria-label={`Answer from ${document.title}`}
-                    >
-                      Answer
-                    </DocumentActionButton>
-                  </div>
-                </article>
-              );
-            })}
+                    <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
+                      <DocumentActionButton
+                        onClick={() => setSelectedDocumentId(document.document_id)}
+                        icon={Sparkles}
+                        className={cn(
+                          "min-h-11 rounded-lg px-2.5 text-xs",
+                          selected
+                            ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                            : "text-[color:var(--text)]",
+                        )}
+                        aria-label={`Preview evidence for ${document.title}`}
+                      >
+                        Preview
+                      </DocumentActionButton>
+                      <DocumentActionLink
+                        href={openHref}
+                        className="min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        aria-label={`Open ${document.title}`}
+                      >
+                        {contextualOpenLabel(document)}
+                      </DocumentActionLink>
+                      <DocumentActionButton
+                        onClick={() => onScopeDocument(document.document_id)}
+                        icon={Filter}
+                        className="min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        aria-label={`Scope search to ${document.title}`}
+                      >
+                        Scope
+                      </DocumentActionButton>
+                      <DocumentActionButton
+                        onClick={() => onAnswerFromDocument(document.document_id)}
+                        icon={Sparkles}
+                        className="ml-auto min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+                        aria-label={`Answer from ${document.title}`}
+                      >
+                        Answer
+                      </DocumentActionButton>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
             {selectedDocument ? (
               <SelectedDocumentEvidencePanel

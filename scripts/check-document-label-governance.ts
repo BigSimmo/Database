@@ -123,7 +123,10 @@ async function loadLabels(supabase: SupabaseAdmin, documentIds: string[]) {
 async function loadSummaries(supabase: SupabaseAdmin, documentIds: string[]) {
   const rows: SummaryRow[] = [];
   for (const ids of chunkArray(documentIds, 100)) {
-    const { data, error } = await supabase.from("document_summaries").select("document_id,summary").in("document_id", ids);
+    const { data, error } = await supabase
+      .from("document_summaries")
+      .select("document_id,summary")
+      .in("document_id", ids);
     if (error) throw new Error(error.message);
     rows.push(...((data ?? []) as SummaryRow[]));
   }
@@ -143,9 +146,13 @@ async function main() {
     loadDocuments(supabase, args.limit),
   ]);
   const documentIds = documents.map((document) => document.id);
-  const [labels, summaries] = await Promise.all([loadLabels(supabase, documentIds), loadSummaries(supabase, documentIds)]);
+  const [labels, summaries] = await Promise.all([
+    loadLabels(supabase, documentIds),
+    loadSummaries(supabase, documentIds),
+  ]);
   const labelsByDocument = new Map<string, LabelRow[]>();
-  for (const label of labels) labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+  for (const label of labels)
+    labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
   const summariesByDocument = new Map(summaries.map((summary) => [summary.document_id, summary]));
 
   const report = buildDocumentLabelGovernanceReport(

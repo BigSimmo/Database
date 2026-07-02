@@ -50,7 +50,11 @@ export const highValueGoldLabelRules: GoldDocumentLabelRule[] = [
     labels: [
       { label: "clozapine", label_type: "medication", reason: "High-risk medication label." },
       { label: "monitor", label_type: "clinical_action", reason: "Clozapine requires active monitoring." },
-      { label: "maintenance-treatment", label_type: "care_phase", reason: "Most clozapine sources support ongoing care." },
+      {
+        label: "maintenance-treatment",
+        label_type: "care_phase",
+        reason: "Most clozapine sources support ongoing care.",
+      },
       { label: "high-risk-medication", label_type: "risk", reason: "Clozapine is a high-risk medicine." },
       {
         label: "contains-monitoring-schedule",
@@ -66,7 +70,11 @@ export const highValueGoldLabelRules: GoldDocumentLabelRule[] = [
     labels: [
       { label: "electroconvulsive-therapy", label_type: "topic", reason: "Canonical ECT topic label." },
       { label: "refer", label_type: "clinical_action", reason: "ECT sources often guide referral or review." },
-      { label: "legal-governance", label_type: "document_intent", reason: "ECT often has consent/governance criteria." },
+      {
+        label: "legal-governance",
+        label_type: "document_intent",
+        reason: "ECT often has consent/governance criteria.",
+      },
     ],
   },
   {
@@ -74,9 +82,17 @@ export const highValueGoldLabelRules: GoldDocumentLabelRule[] = [
     description: "Seclusion, restraint, de-escalation, and restrictive-practice sources.",
     patterns: [/\b(?:seclusion|restraint|restrictive practice|de-escalat|deescalat)\b/i],
     labels: [
-      { label: "de-escalate", label_type: "clinical_action", reason: "Restrictive-practice sources need action filtering." },
+      {
+        label: "de-escalate",
+        label_type: "clinical_action",
+        reason: "Restrictive-practice sources need action filtering.",
+      },
       { label: "clinical-risk", label_type: "risk", reason: "Restrictive practice belongs in risk/governance search." },
-      { label: "legal-governance", label_type: "document_intent", reason: "Restrictive practice has governance rules." },
+      {
+        label: "legal-governance",
+        label_type: "document_intent",
+        reason: "Restrictive practice has governance rules.",
+      },
     ],
   },
   {
@@ -93,16 +109,24 @@ export const highValueGoldLabelRules: GoldDocumentLabelRule[] = [
   {
     id: "camhs",
     description: "CAMHS and child/adolescent mental health sources.",
-    patterns: [/\b(?:camhs|child and adolescent mental health|youth mental health|youth crisis|paediatric consultation liaison|pcls)\b/i],
+    patterns: [
+      /\b(?:camhs|child and adolescent mental health|youth mental health|youth crisis|paediatric consultation liaison|pcls)\b/i,
+    ],
     labels: [
-      { label: "child and adolescent mental health service", label_type: "site", reason: "Canonical CAMHS site label." },
+      {
+        label: "child and adolescent mental health service",
+        label_type: "site",
+        reason: "Canonical CAMHS site label.",
+      },
       { label: "youth", label_type: "population", reason: "Youth-specific source filtering." },
     ],
   },
   {
     id: "camhs-crisis",
     description: "Explicit CAMHS crisis, urgent assessment, and emergency liaison sources.",
-    patterns: [/\b(?:camhs crisis|youth crisis|urgent camhs|camhs urgent|camhs emergency|pcls|paediatric consultation liaison)\b/i],
+    patterns: [
+      /\b(?:camhs crisis|youth crisis|urgent camhs|camhs urgent|camhs emergency|pcls|paediatric consultation liaison)\b/i,
+    ],
     labels: [
       { label: "crisis-response", label_type: "care_phase", reason: "Explicit crisis pathways need phase filtering." },
     ],
@@ -110,7 +134,9 @@ export const highValueGoldLabelRules: GoldDocumentLabelRule[] = [
   {
     id: "emergency-workflow",
     description: "Emergency, escalation, Code Black, transfer, and acute response sources.",
-    patterns: [/\b(?:emergency department|code black|duress|acute response|rapid response|mental health patient management within the emergency)\b/i],
+    patterns: [
+      /\b(?:emergency department|code black|duress|acute response|rapid response|mental health patient management within the emergency)\b/i,
+    ],
     labels: [
       { label: "escalate", label_type: "clinical_action", reason: "Emergency sources commonly define escalation." },
       { label: "acute-management", label_type: "care_phase", reason: "Emergency sources support acute management." },
@@ -280,7 +306,9 @@ export function buildLabelAnalytics(documents: LabelGovernanceDocument[]) {
     lowConfidence,
     byType: Object.fromEntries([...byType.entries()].sort()),
     byTier: Object.fromEntries([...byTier.entries()].sort()),
-    topLabels: [...labelCounts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 25),
+    topLabels: [...labelCounts.values()]
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, 25),
     qualityIssues: qualityIssues.slice(0, 25),
     blockingQualityIssues: blockingQualityIssues.slice(0, 25),
     missingGoldLabels: missingGoldLabels.slice(0, 50),
@@ -316,7 +344,9 @@ export function buildClinicalLabelQaSample(documents: LabelGovernanceDocument[],
         visible_labels: rows.filter((row) => row.review_status !== "hidden" && row.tier !== "ranking").length,
         ranking_labels: rows.filter((row) => row.review_status !== "hidden" && row.tier === "ranking").length,
         hidden_labels: rows.filter((row) => row.review_status === "hidden").length,
-        missing_gold_labels: missingGoldLabelsForDocument(document).map((label) => `${label.label_type}:${label.label}`),
+        missing_gold_labels: missingGoldLabelsForDocument(document).map(
+          (label) => `${label.label_type}:${label.label}`,
+        ),
       };
     });
 }

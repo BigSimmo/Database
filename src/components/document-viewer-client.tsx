@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 
-const DocumentViewer = dynamic(
-  () => import("@/components/DocumentViewer").then((m) => m.DocumentViewer),
-  { ssr: false },
-);
+const DocumentViewer = dynamic(() => import("@/components/DocumentViewer").then((m) => m.DocumentViewer), {
+  ssr: false,
+});
 
 type DocumentViewerClientProps = {
   documentId: string;

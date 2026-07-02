@@ -162,19 +162,22 @@ import { applicationsLauncherItemCount } from "@/components/applications-launche
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
-  { ssr: false }
+  { ssr: false },
 );
 const FavouritesHub = dynamic(
   () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
-  { ssr: false }
+  { ssr: false },
 );
 const MedicationPrescribingWorkspace = dynamic(
-  () => import("@/components/clinical-dashboard/medication-prescribing-workspace").then((m) => m.MedicationPrescribingWorkspace),
-  { ssr: false }
+  () =>
+    import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
+      (m) => m.MedicationPrescribingWorkspace,
+    ),
+  { ssr: false },
 );
 const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
-  { ssr: false }
+  { ssr: false },
 );
 import {
   DocumentSearchResultsPanel,
@@ -752,7 +755,8 @@ type CapsulePreviewSource = {
   score: number;
   href: string;
   snippet?: string;
-  sourceStrength?: SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
+  sourceStrength?:
+    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
 };
 
 function sourceBadgeLabel(index: number) {
@@ -876,14 +880,19 @@ function SourcePreviewContent({
           </div>
         </div>
       ) : null}
-      <div className={cn("grid gap-0 divide-y divide-[color:var(--border)]", showHeader ? "mt-3" : "")} role="list" aria-label="Sources behind this answer">
+      <div
+        className={cn("grid gap-0 divide-y divide-[color:var(--border)]", showHeader ? "mt-3" : "")}
+        role="list"
+        aria-label="Sources behind this answer"
+      >
         {previewSources.map((source, index) => (
           <div
             key={`${source.id}:${index}`}
             role="listitem"
             className={cn(
               "min-w-0 py-2.5",
-              index === 0 && "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]",
+              index === 0 &&
+                "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]",
             )}
           >
             {index === 0 ? (
@@ -976,7 +985,9 @@ function SourcePreviewContent({
           )}
         >
           {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-          {reviewDueSource ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due` : "Sources current"}
+          {reviewDueSource
+            ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
+            : "Sources current"}
         </span>
         {primaryPreviewSource ? (
           <Link
@@ -1293,7 +1304,8 @@ function answerSupportPriority(
   if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence) {
     return {
       title: "Review source match",
-      detail: "Verify cited passages before using clinical numbers, monitoring, dose, route, timing, or risk decisions.",
+      detail:
+        "Verify cited passages before using clinical numbers, monitoring, dose, route, timing, or risk decisions.",
       sourceLabel: "Review",
       tone: "caution",
     };
@@ -2452,7 +2464,13 @@ function evidenceTabCount({
   if (tab === "Tables") {
     return visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
   }
-  if (tab === "Claims") return answerEvidenceMapRows.length || renderModel.evidenceRows.length || sources.length || renderModel.primarySources.length;
+  if (tab === "Claims")
+    return (
+      answerEvidenceMapRows.length ||
+      renderModel.evidenceRows.length ||
+      sources.length ||
+      renderModel.primarySources.length
+    );
   if (tab === "Images") return visualEvidence.length;
   if (tab === "Quotes") return renderModel.quoteCards.length;
   return renderModel.warnings.length;
@@ -3594,7 +3612,8 @@ function supportDotClass(supportLevel: string) {
 function supportLabel(supportLevel: string) {
   const normalized = supportLevel.toLowerCase();
   if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) return "Partial";
+  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
+    return "Partial";
   return "Direct";
 }
 
@@ -3606,20 +3625,15 @@ function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: An
     detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
     supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
     citationCount: 1,
-    sourceStatus: source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
+    sourceStatus:
+      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
     bestSourceLabel: source.label,
     bestLinkedPassage: source.snippet || source.reason,
     href: source.href,
   }));
 }
 
-function EvidenceClaimsList({
-  rows,
-  renderModel,
-}: {
-  rows: AnswerEvidenceMapRow[];
-  renderModel: AnswerRenderModel;
-}) {
+function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[]; renderModel: AnswerRenderModel }) {
   const claimRows = claimRowsForEvidencePanel(rows, renderModel);
   const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
   const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
@@ -3684,7 +3698,9 @@ function EvidenceClaimsList({
 
 function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
   if (!warnings.length) {
-    return <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />;
+    return (
+      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
+    );
   }
 
   return (
@@ -4641,8 +4657,7 @@ function labelTypeDisplay(value: DocumentLabelType) {
 }
 
 type LabelReviewMutationBody =
-  | { labelId: string; action: "approve" | "hide" | "restore" }
-  | { label: string; label_type: DocumentLabelType };
+  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
 
 function DocumentLabelReviewPanel({
   documents,
@@ -4651,11 +4666,7 @@ function DocumentLabelReviewPanel({
 }: {
   documents: ClinicalDocument[];
   canManage: boolean;
-  onMutateLabel: (
-    documentId: string,
-    method: "POST" | "PATCH",
-    body: LabelReviewMutationBody,
-  ) => Promise<boolean>;
+  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
 }) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [overrideDrafts, setOverrideDrafts] = useState<Record<string, { label: string; labelType: DocumentLabelType }>>(
@@ -4681,12 +4692,7 @@ function DocumentLabelReviewPanel({
 
   if (!items.length) return null;
 
-  async function mutate(
-    documentId: string,
-    method: "POST" | "PATCH",
-    body: LabelReviewMutationBody,
-    actionId: string,
-  ) {
+  async function mutate(documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody, actionId: string) {
     setBusyAction(actionId);
     try {
       return await onMutateLabel(documentId, method, body);
@@ -5080,11 +5086,7 @@ function DocumentDrawer({
   bulkActionBusy: boolean;
   canManageDocuments: boolean;
   onTagSearch: (tag: SmartDocumentTag) => void;
-  onMutateLabel: (
-    documentId: string,
-    method: "POST" | "PATCH",
-    body: LabelReviewMutationBody,
-  ) => Promise<boolean>;
+  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
 }) {
   const [filter, setFilter] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");

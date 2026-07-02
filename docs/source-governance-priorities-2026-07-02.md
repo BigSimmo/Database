@@ -13,23 +13,23 @@ Source report: `output/evals/retrieval-quality-2026-07-02T06-55-32-323Z.json`
 
 Review these first because they appear as rank-1 primary results and drive the release governance rate.
 
-| Priority | Document | Status | Validation | Eval queries |
-| --- | --- | --- | --- | --- |
-| 1 | `Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf` | `review_due` | `locally_reviewed` | `alcohol-ciwa-scoring`, `alcohol-ciwa-threshold` |
-| 2 | `Alcohol withdrawal.pdf` | `review_due` | `unverified`, explicit non-local BMJ source | `alcohol-withdrawal-management` |
-| 3 | `Schizoaffective disorder.pdf` | `review_due` | `unverified`, explicit non-local BMJ source | `bipolar-vs-schizoaffective` |
+| Priority | Document                                                                 | Status       | Validation                                  | Eval queries                                     |
+| -------- | ------------------------------------------------------------------------ | ------------ | ------------------------------------------- | ------------------------------------------------ |
+| 1        | `Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf` | `review_due` | `locally_reviewed`                          | `alcohol-ciwa-scoring`, `alcohol-ciwa-threshold` |
+| 2        | `Alcohol withdrawal.pdf`                                                 | `review_due` | `unverified`, explicit non-local BMJ source | `alcohol-withdrawal-management`                  |
+| 3        | `Schizoaffective disorder.pdf`                                           | `review_due` | `unverified`, explicit non-local BMJ source | `bipolar-vs-schizoaffective`                     |
 
 ## Supporting Top-5 Debt
 
 Review these next, ordered by repeated top-5 appearances.
 
-| Priority | Document | Count | Status | Validation | Eval queries |
-| --- | --- | ---: | --- | --- | --- |
-| 1 | `Clozapine Management by GP (NMHS).pdf` | 8 | `review_due` | `locally_reviewed` | `show-source-table-image`, `monitoring-threshold-from-chart` |
-| 2 | `Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf` | 5 | `review_due` | `locally_reviewed` | `alcohol-ciwa-scoring`, `alcohol-ciwa-threshold` |
-| 3 | `Alcohol withdrawal.pdf` | 5 | `review_due` | explicit non-local BMJ source | `alcohol-withdrawal-management`, `alcohol-ciwa-threshold` |
-| 4 | `Arousal and Agitation Drug Management (CAMHS).pdf` | 2 | `review_due` | `locally_reviewed` | `agitation-im-po-options`, `medication-chart-dose-route` |
-| 5 | `Schizoaffective disorder.pdf` | 2 | `review_due` | explicit non-local BMJ source | `bipolar-vs-schizoaffective` |
+| Priority | Document                                                                 | Count | Status       | Validation                    | Eval queries                                                 |
+| -------- | ------------------------------------------------------------------------ | ----: | ------------ | ----------------------------- | ------------------------------------------------------------ |
+| 1        | `Clozapine Management by GP (NMHS).pdf`                                  |     8 | `review_due` | `locally_reviewed`            | `show-source-table-image`, `monitoring-threshold-from-chart` |
+| 2        | `Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf` |     5 | `review_due` | `locally_reviewed`            | `alcohol-ciwa-scoring`, `alcohol-ciwa-threshold`             |
+| 3        | `Alcohol withdrawal.pdf`                                                 |     5 | `review_due` | explicit non-local BMJ source | `alcohol-withdrawal-management`, `alcohol-ciwa-threshold`    |
+| 4        | `Arousal and Agitation Drug Management (CAMHS).pdf`                      |     2 | `review_due` | `locally_reviewed`            | `agitation-im-po-options`, `medication-chart-dose-route`     |
+| 5        | `Schizoaffective disorder.pdf`                                           |     2 | `review_due` | explicit non-local BMJ source | `bipolar-vs-schizoaffective`                                 |
 
 ## Policy Notes
 

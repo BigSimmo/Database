@@ -268,7 +268,9 @@ function evaluateSourceMetadataDebtAcceptance(args: {
     }
   }
   if (args.governance.stale_rate > acceptance.max_stale_rate) {
-    rejectionReasons.push(`stale rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`);
+    rejectionReasons.push(
+      `stale rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`,
+    );
   }
   if (args.governance.review_required_rate > acceptance.max_review_required_rate) {
     rejectionReasons.push(
@@ -287,7 +289,11 @@ function evaluateSourceMetadataDebtAcceptance(args: {
   }
   const acceptedFailures = rejectionReasons.length === 0 ? metadataFailures : [];
   const status =
-    rejectionReasons.length > 0 ? ("rejected" as const) : metadataFailures.length > 0 ? ("accepted" as const) : ("passed" as const);
+    rejectionReasons.length > 0
+      ? ("rejected" as const)
+      : metadataFailures.length > 0
+        ? ("accepted" as const)
+        : ("passed" as const);
   return {
     status,
     path: acceptance.path,

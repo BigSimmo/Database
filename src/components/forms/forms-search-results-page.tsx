@@ -267,7 +267,7 @@ function SearchSummary({
             <button
               type="button"
               onClick={() => onQueryChange("")}
-            className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--clinical-accent)]/25"
+              className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--clinical-accent)]/25"
               aria-label="Clear forms query"
             >
               <X className="h-4 w-4" />

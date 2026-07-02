@@ -325,9 +325,7 @@ export function MasterSearchHeader({
     () =>
       [
         ...selectedDocuments,
-        ...(requireScopeFilter
-          ? []
-          : matchingDocuments.filter((document) => !selectedDocumentIdSet.has(document.id))),
+        ...(requireScopeFilter ? [] : matchingDocuments.filter((document) => !selectedDocumentIdSet.has(document.id))),
       ].slice(0, 12),
     [matchingDocuments, requireScopeFilter, selectedDocumentIdSet, selectedDocuments],
   );
