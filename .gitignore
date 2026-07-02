@@ -70,3 +70,6 @@ scratch/
 .qa-smoke/
 *.pid
 tmp_output.txt
+
+# machine-local tooling hook cache (session ids, timestamps, local paths)
+.impeccable/
