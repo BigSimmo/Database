@@ -1113,6 +1113,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
   });
 
   test("prescribing workflow uses in-app medication routes", async ({ page }) => {
+    // Regression guard: navigating away from a mode home used to throw
+    // "Cannot read properties of null (reading 'parentNode')" because the header
+    // portaled its search composer straight into a page-owned slot that unmounts
+    // on navigation. Narrowly scoped to that error so it won't trip on unrelated
+    // console noise.
+    const parentNodeErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      if (String(error).includes("parentNode")) parentNodeErrors.push(String(error));
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error" && message.text().includes("parentNode")) parentNodeErrors.push(message.text());
+    });
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
@@ -1131,6 +1143,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/mockups/medication-prescribing");
     await expect(page).toHaveURL(/\/medications\/acamprosate$/);
     await expectSingleMedicationPage(page);
+    expect(parentNodeErrors).toEqual([]);
   });
 
   test("document search mode lists matching documents and scope actions", async ({ page }) => {

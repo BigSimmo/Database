@@ -227,7 +227,10 @@ export function MasterSearchHeader({
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
-  const [desktopHomeComposerTarget, setDesktopHomeComposerTarget] = useState<HTMLElement | null>(null);
+  const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
+  // Stable, header-owned element the composer is portaled into; we move it in and
+  // out of the page-owned slot rather than portaling into the slot directly.
+  const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -515,9 +518,22 @@ export function MasterSearchHeader({
 
   useEffect(() => {
     if (!desktopHomeComposerSlotId) {
-      const frame = window.requestAnimationFrame(() => setDesktopHomeComposerTarget(null));
+      const frame = window.requestAnimationFrame(() => {
+        setDesktopHomeComposerActive(false);
+        setDesktopHomeComposerHost(null);
+      });
       return () => window.cancelAnimationFrame(frame);
     }
+
+    // The composer is portaled into a stable host we own, and we move that host
+    // in and out of the page-owned slot as it appears/disappears. The slot is
+    // rendered by mode-home pages and unmounts on navigation; portaling directly
+    // into it made React reconcile the portal against a container that another
+    // part of the tree had already removed, throwing a null-parentNode error.
+    // Because the host is stable, React's portal container never disappears.
+    const host = document.createElement("div");
+    // Layout-transparent so the composer lays out as a direct child of the slot.
+    host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(desktopHomeComposerMediaQuery);
     let frame: number | null = null;
@@ -527,10 +543,17 @@ export function MasterSearchHeader({
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
-      const target = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
-      setDesktopHomeComposerTarget((current) => (current === target ? current : target));
-      if (mediaQuery.matches && !target) {
-        retryTimeout = window.setTimeout(syncTarget, 50);
+      const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
+      if (slot) {
+        if (host.parentNode !== slot) slot.appendChild(host);
+        setDesktopHomeComposerHost(host);
+        setDesktopHomeComposerActive(true);
+      } else {
+        host.parentNode?.removeChild(host);
+        setDesktopHomeComposerActive(false);
+        if (mediaQuery.matches) {
+          retryTimeout = window.setTimeout(syncTarget, 50);
+        }
       }
     };
     const scheduleSync = () => {
@@ -547,6 +570,9 @@ export function MasterSearchHeader({
       if (retryTimeout !== null) window.clearTimeout(retryTimeout);
       observer.disconnect();
       mediaQuery.removeEventListener("change", scheduleSync);
+      host.parentNode?.removeChild(host);
+      setDesktopHomeComposerActive(false);
+      setDesktopHomeComposerHost(null);
     };
   }, [desktopHomeComposerSlotId]);
 
@@ -1158,9 +1184,9 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerTarget ? null : renderSearchComposer("default")}
-          {desktopHomeComposerTarget
-            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerTarget)
+          {desktopHomeComposerActive && desktopHomeComposerHost ? null : renderSearchComposer("default")}
+          {desktopHomeComposerActive && desktopHomeComposerHost
+            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}
         </>
       ) : null}
