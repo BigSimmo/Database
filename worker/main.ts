@@ -33,7 +33,7 @@ import {
 } from "../src/lib/ingestion";
 import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
-import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
+import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
@@ -1037,7 +1037,7 @@ async function uploadAndCaptionImages(
         page_number: image.pageNumber,
         storage_path: imagePath,
         mime_type: image.mimeType,
-        caption: cleanString(classification.caption),
+        caption: redactCaptionIdentifiers(cleanString(classification.caption)),
         bbox: image.bbox ?? null,
         image_type: classification.image_type,
         searchable: persistedSearchable,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
+import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -44,6 +44,16 @@ describe("privacy-safe logging helpers", () => {
     expect(details).toMatchObject({ name: "SupabaseRecoveryError", message: "<!DOCTYPE html>" });
     expect(details.stack).not.toContain("<!DOCTYPE html>");
     expect(details.stack).not.toContain("<!--[if");
+  });
+
+  it("redacts identifiers in captions while preserving clinical context", () => {
+    const input = "Patient Jane Citizen MRN 123456 email jane@example.com phone 0400 123 456 has lithium level note.";
+    const output = redactCaptionIdentifiers(input);
+
+    expect(output).toContain("has lithium level note.");
+    expect(output).not.toContain("jane@example.com");
+    expect(output).not.toContain("123456");
+    expect(output).not.toContain("0400 123 456");
   });
 });
 

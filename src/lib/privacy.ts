@@ -52,3 +52,10 @@ export function safeErrorLogDetails(error: unknown) {
     ...(firstStackLine ? { stack: redactLogValue(firstStackLine) } : {}),
   };
 }
+
+export function redactCaptionIdentifiers(value: string): string {
+  return value
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]")
+    .replace(/\b(?:\+?\d[\d\s().-]{6,}\d)\b/g, "[phone]")
+    .replace(/\b(?:mrn|nhs)\s*[:#-]?\s*[A-Za-z0-9-]{4,}\b/gi, "[id]");
+}
