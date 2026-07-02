@@ -2173,7 +2173,8 @@ create or replace function public.search_schema_health()
 returns jsonb
 language plpgsql
 stable
-set search_path = public, extensions, pg_temp
+security definer
+set search_path = public, extensions, pg_catalog, pg_temp
 as $$
 declare
   missing text[] := array[]::text[];
@@ -2181,6 +2182,15 @@ declare
   vector_schema text;
   index_name text;
   legacy_ivfflat_indexes text[];
+  zero_vec extensions.vector(1536);
+  probe_text text := 'schema health probe zzznomatch';
+  hybrid_rpcs text[] := array[
+    'match_document_chunks_hybrid',
+    'match_document_index_units_hybrid',
+    'match_document_embedding_fields_hybrid',
+    'match_document_memory_cards_hybrid'
+  ];
+  rpc_name text;
   required_indexes constant text[] := array[
     'documents_title_trgm_idx',
     'document_chunks_content_trgm_idx',
@@ -2188,6 +2198,7 @@ declare
     'document_summaries_summary_trgm_idx',
     'document_chunks_embedding_hnsw_idx',
     'document_embedding_fields_embedding_hnsw_idx',
+    'document_memory_cards_embedding_hnsw_idx',
     'documents_indexed_owner_title_idx',
     'document_table_facts_owner_document_page_idx',
     'document_embedding_fields_owner_chunk_idx',
@@ -2232,6 +2243,9 @@ begin
   if to_regprocedure('public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_memory_cards_hybrid.extensions_vector_signature');
   end if;
+  if to_regprocedure('public.match_document_memory_cards_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
+    missing := array_append(missing, 'match_document_memory_cards_hybrid_v2.extensions_vector_signature');
+  end if;
   if to_regprocedure('public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_index_units_hybrid.extensions_vector_signature');
   end if;
@@ -2263,6 +2277,28 @@ begin
       missing := array_append(missing, index_name);
     end if;
   end loop;
+
+  -- Execution smoke: invoke each hybrid RPC with a zero vector so silent runtime
+  -- breaks (e.g. the historical 42702 ambiguous-id plpgsql regression) surface as
+  -- `<rpc>.execution:<sqlstate>` instead of passing a signature-only check. Only
+  -- runs when the vector type resolved, so a missing extension is not double
+  -- reported; each RPC gets its own sub-block so one failure does not mask others.
+  if vector_type_oid is not null then
+    zero_vec := (select ('[' || string_agg('0', ',') || ']') from generate_series(1, 1536))::extensions.vector(1536);
+    foreach rpc_name in array hybrid_rpcs loop
+      begin
+        execute format(
+          'select 1 from public.%I($1, $2, 1, 0.1, null::uuid[], null::uuid) limit 1',
+          rpc_name
+        ) using zero_vec, probe_text;
+      exception
+        when undefined_function then
+          missing := array_append(missing, rpc_name || '.execution_signature');
+        when others then
+          missing := array_append(missing, rpc_name || '.execution:' || SQLSTATE);
+      end;
+    end loop;
+  end if;
 
   select public.detect_legacy_ivfflat_indexes() into legacy_ivfflat_indexes;
 
