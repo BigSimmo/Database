@@ -4,14 +4,7 @@ import { BookOpen, ChevronDown, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
-import {
-  clinicalDivider,
-  cn,
-  iconTilePremium,
-  navPill,
-  panelSubtle,
-  textMuted,
-} from "@/components/ui-primitives";
+import { clinicalDivider, cn, iconTilePremium, navPill, panelSubtle, textMuted } from "@/components/ui-primitives";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
 

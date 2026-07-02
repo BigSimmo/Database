@@ -11,57 +11,69 @@ The product is Clinical Guide: a source-backed clinical knowledge workspace for 
 ### Medium: the current light foundation still reads warm rather than crisp
 
 Evidence:
+
 - `src/app/globals.css:68` describes light mode as "porcelain workspace".
 - `src/app/globals.css:94` sets `--background: #f7f7f4`.
 - `src/app/globals.css:99-105` uses off-white raised/subtle/inset surfaces.
 
 Why it matters:
+
 - The user's newer direction is explicitly crisp white, not cream.
 - A warm base can look softer and more editorial, but this app needs to feel precise, clean, and instrument-grade.
 
 Recommended fix:
+
 - Move the light canvas to true white.
 - Use cool neutral rails and panels only where hierarchy is needed.
 - Let depth come from hairline borders, low-alpha graphite shadows, and spacing, not a tinted page background.
 
 Verification:
+
 - A full-page light screenshot should read white first, not ivory or mint.
 
 ### Medium: teal is still doing too much visual work
 
 Evidence:
+
 - `src/app/globals.css:113-122` maps primary and clinical chat aliases to teal.
 - `src/components/clinical-dashboard/ClinicalSidebar.tsx:136` uses teal for the primary sidebar CTA.
 - `src/components/clinical-dashboard/master-search-header.tsx:719-725` uses teal in the main answer-mode control.
 
 Why it matters:
+
 - Teal should communicate clinical evidence, source state, selected mode, and send intent.
 - If the primary CTA, selected tile, source chip, icon tile, and composer all glow teal, the UI reads themed instead of premium.
 
 Recommended fix:
+
 - Use graphite for the strongest normal action.
 - Use teal as an instrument accent: selected state rail, source confidence, send, and evidence-backed marks.
 - Keep amber/red reserved for safety and setup, never for decoration.
 
 Verification:
+
 - In light mode, the dominant colours should be white, graphite, and cool neutral. Teal should appear as a deliberate signal.
 
 ### Low: existing component hooks are good enough for a token-led implementation
 
 Evidence:
+
 - `src/app/globals.css:40-64` already exposes semantic Tailwind colour bridge tokens.
 - `src/components/clinical-dashboard/master-search-header.tsx:800-884` centralises header actions and the answer footer composer shell.
 - `src/components/clinical-dashboard/ClinicalSidebar.tsx:330` and `src/components/clinical-dashboard/ClinicalSidebar.tsx:422` centralise sidebar rails.
 
 Why it matters:
+
 - This should not need a component rewrite.
 - The safest implementation path is token replacement plus a few targeted material overrides.
 
 Recommended fix:
+
 - Apply the new colour system first in `:root`.
 - Then tune the sidebar, header, composer, empty state, answer cards, and source chips through existing class hooks.
 
 Verification:
+
 - The app should visually change without changing answer generation, routing, or data contracts.
 
 ## Proposed design direction: Clinical White
@@ -70,24 +82,24 @@ Clinical White is a clean white workspace with graphite command weight, nickel b
 
 ### Core tokens
 
-| Role | Token | Hex | Use |
-| --- | --- | --- | --- |
-| Canvas | `white-0` | `#FFFFFF` | Main app background |
-| Rail | `white-rail` | `#F7F8FA` | Sidebar/header bands, subtle separated regions |
-| Paper | `paper` | `#FFFFFF` | Cards, popovers, answer surfaces |
-| Raised | `raised` | `#FCFCFD` | Floating controls and composer |
-| Inset | `inset` | `#F1F3F5` | Search fields, subtle chip backgrounds |
-| Border | `line` | `#E5E7EB` | Default hairline |
-| Strong border | `line-strong` | `#D0D5DD` | Focused/selected outer lines |
-| Ink | `ink` | `#101418` | Primary text |
-| Graphite | `graphite` | `#111827` | Primary CTA, high-emphasis controls |
-| Muted text | `muted` | `#475467` | Secondary text |
-| Soft text | `soft` | `#667085` | Metadata, placeholders |
-| Clinical teal | `teal` | `#0B7A75` | Evidence, selected rail, send |
-| Soft teal | `teal-soft` | `#E6F7F5` | Low-emphasis evidence chips |
-| Information blue | `blue` | `#2563EB` | Document/search information where teal would imply evidence |
-| Safety amber | `amber` | `#A15C07` | Warnings and setup |
-| Critical red | `red` | `#B42318` | Safety-critical states |
+| Role             | Token         | Hex       | Use                                                         |
+| ---------------- | ------------- | --------- | ----------------------------------------------------------- |
+| Canvas           | `white-0`     | `#FFFFFF` | Main app background                                         |
+| Rail             | `white-rail`  | `#F7F8FA` | Sidebar/header bands, subtle separated regions              |
+| Paper            | `paper`       | `#FFFFFF` | Cards, popovers, answer surfaces                            |
+| Raised           | `raised`      | `#FCFCFD` | Floating controls and composer                              |
+| Inset            | `inset`       | `#F1F3F5` | Search fields, subtle chip backgrounds                      |
+| Border           | `line`        | `#E5E7EB` | Default hairline                                            |
+| Strong border    | `line-strong` | `#D0D5DD` | Focused/selected outer lines                                |
+| Ink              | `ink`         | `#101418` | Primary text                                                |
+| Graphite         | `graphite`    | `#111827` | Primary CTA, high-emphasis controls                         |
+| Muted text       | `muted`       | `#475467` | Secondary text                                              |
+| Soft text        | `soft`        | `#667085` | Metadata, placeholders                                      |
+| Clinical teal    | `teal`        | `#0B7A75` | Evidence, selected rail, send                               |
+| Soft teal        | `teal-soft`   | `#E6F7F5` | Low-emphasis evidence chips                                 |
+| Information blue | `blue`        | `#2563EB` | Document/search information where teal would imply evidence |
+| Safety amber     | `amber`       | `#A15C07` | Warnings and setup                                          |
+| Critical red     | `red`         | `#B42318` | Safety-critical states                                      |
 
 ### Colour rules
 

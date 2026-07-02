@@ -235,7 +235,9 @@ async function main() {
 
   if (existingPort) {
     if (await waitForProject(existingPort)) {
-      console.log(printUrlOnly ? localUrl(existingPort) : `Clinical KB is already running at ${localUrl(existingPort)}`);
+      console.log(
+        printUrlOnly ? localUrl(existingPort) : `Clinical KB is already running at ${localUrl(existingPort)}`,
+      );
       return 0;
     }
   }
@@ -248,7 +250,9 @@ async function main() {
 
     if (lockedExistingPort && (await waitForProject(lockedExistingPort))) {
       console.log(
-        printUrlOnly ? localUrl(lockedExistingPort) : `Clinical KB is already running at ${localUrl(lockedExistingPort)}`,
+        printUrlOnly
+          ? localUrl(lockedExistingPort)
+          : `Clinical KB is already running at ${localUrl(lockedExistingPort)}`,
       );
       return 0;
     }
@@ -258,7 +262,9 @@ async function main() {
 
     if (target.alreadyRunning) {
       if (await waitForProject(target.port)) {
-        console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is already running at ${localUrl(target.port)}`);
+        console.log(
+          printUrlOnly ? localUrl(target.port) : `Clinical KB is already running at ${localUrl(target.port)}`,
+        );
         return 0;
       }
     }

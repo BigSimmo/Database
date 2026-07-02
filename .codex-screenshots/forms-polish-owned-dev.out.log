@@ -1,9 +1,0 @@
-▲ Next.js 16.2.9 (Turbopack)
-- Local:         http://127.0.0.1:4341
-- Network:       http://127.0.0.1:4341
-- Environments: .env.local
-✓ Ready in 638ms
-
- GET /api/local-project-id 200 in 240ms (next.js: 212ms, application-code: 28ms)
- GET /forms/transport-crisis-form 200 in 2.0s (next.js: 1322ms, generate-params: 715ms, application-code: 681ms)
- GET /forms/transport-crisis-form 200 in 338ms (next.js: 181ms, generate-params: 12ms, application-code: 158ms)

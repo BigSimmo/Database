@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeClinicalQuery,
   buildClinicalTextSearchQuery,
+  classifyQueryIntent,
   classifyRagQuery,
   clinicalRankExplanation,
   expandClinicalQuery,
@@ -36,6 +37,15 @@ describe("clinical search query normalization", () => {
   it("classifies common RAG query shapes for routing and observability", () => {
     expect(classifyRagQuery("Find the NOCC document").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What should a patient safety plan include?").queryClass).toBe("document_lookup");
+    // M2/M3 (audit 2026-07-01): intent signals match at word boundaries, and
+    // explicit dose vocabulary survives escalation-word cancellation.
+    expect(classifyQueryIntent("What is the time limit for a notable review?").hasDosingSignals).toBe(false);
+    expect(classifyQueryIntent("What is the time limit for a notable review?").imageEvidenceFocus).toBe(false);
+    expect(classifyQueryIntent("clozapine dose review schedule").hasDosingSignals).toBe(true);
+    expect(classifyQueryIntent("What IM options are listed for agitation?").hasDosingSignals).toBe(true);
+    expect(classifyQueryIntent("clozapine 100mg starting schedule").hasDosingSignals).toBe(true);
+    expect(classifyQueryIntent("Show the monitoring table for lithium").imageEvidenceFocus).toBe(true);
+
     expect(classifyRagQuery("What forms are required for a patient safety plan?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What are NOCC requirements?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What assessment documentation is required?").queryClass).toBe("document_lookup");
@@ -72,6 +82,17 @@ describe("clinical search query normalization", () => {
     expect(classifyRagQuery("What does the clozapine gardening equipment checklist require?").queryClass).toBe(
       "document_lookup",
     );
+  });
+
+  it("does not classify generic risk/urgent/escalation queries as medication_dose_risk (8a)", () => {
+    // Bare "risk"/"urgent"/"escalation" with no medication/dose signal must not route to the
+    // medication-dosing plan, which previously buried topical guidelines (e.g. suicide risk).
+    expect(classifyRagQuery("What does the guideline say about suicide risk mitigation?").queryClass).not.toBe(
+      "medication_dose_risk",
+    );
+    expect(classifyRagQuery("urgent clinical escalation pathway").queryClass).not.toBe("medication_dose_risk");
+    // A genuine medication + risk query still routes correctly via the drug/dose signal.
+    expect(classifyRagQuery("What are the risks of high-dose clozapine?").queryClass).toBe("medication_dose_risk");
   });
 
   it("keeps high-yield clinical terms and removes question filler", () => {

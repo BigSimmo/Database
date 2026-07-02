@@ -21,24 +21,27 @@ type BatchRow = {
   status: string;
 };
 
-function createQueryMock<T>(
-  result: { data: T; error: { message: string } | null },
-) {
+function createQueryMock<T>(result: { data: T; error: { message: string } | null }) {
   const chain = {
     select: null as unknown as ReturnType<typeof vi.fn>,
     eq: null as unknown as ReturnType<typeof vi.fn>,
     in: null as unknown as ReturnType<typeof vi.fn>,
     order: null as unknown as ReturnType<typeof vi.fn>,
     limit: null as unknown as ReturnType<typeof vi.fn>,
-    then: (resolve: (value: { data: T; error: { message: string } | null }) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject),
+    then: (
+      resolve: (value: { data: T; error: { message: string } | null }) => void,
+      reject?: (reason?: unknown) => void,
+    ) => Promise.resolve(result).then(resolve, reject),
   } as {
     select: ReturnType<typeof vi.fn>;
     eq: ReturnType<typeof vi.fn>;
     in: ReturnType<typeof vi.fn>;
     order: ReturnType<typeof vi.fn>;
     limit: ReturnType<typeof vi.fn>;
-    then: (resolve: (value: { data: T; error: { message: string } | null }) => void, reject?: (reason?: unknown) => void) => Promise<unknown>;
+    then: (
+      resolve: (value: { data: T; error: { message: string } | null }) => void,
+      reject?: (reason?: unknown) => void,
+    ) => Promise<unknown>;
   };
 
   chain.select = vi.fn(() => chain);
@@ -179,7 +182,10 @@ describe("/api/ingestion/jobs", () => {
 describe("/api/ingestion/batches", () => {
   it("returns ingestion batch state with active polling headers", async () => {
     const chain = createQueryMock({
-      data: [{ id: "b1", status: "queued" }, { id: "b2", status: "completed" }] satisfies BatchRow[],
+      data: [
+        { id: "b1", status: "queued" },
+        { id: "b2", status: "completed" },
+      ] satisfies BatchRow[],
       error: null,
     });
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));

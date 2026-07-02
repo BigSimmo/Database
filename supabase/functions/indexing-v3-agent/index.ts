@@ -171,7 +171,27 @@ const TYPE_BUDGET: Record<string, number> = {
   unclear: 4,
 };
 
-function authorizeRequest(req: Request): Response | null {
+// Audit L20: constant-time secret comparison. This function runs with
+// verify_jwt=false, so the shared secret is the ONLY auth gate; a plain !==
+// short-circuits on the first mismatching character and leaks match length
+// via response timing. Hashing both sides to fixed-length digests and
+// XOR-comparing removes the content-dependent timing signal.
+async function timingSafeSecretEqual(candidate: string, expected: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [candidateDigest, expectedDigest] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(candidate)),
+    crypto.subtle.digest("SHA-256", encoder.encode(expected)),
+  ]);
+  const candidateBytes = new Uint8Array(candidateDigest);
+  const expectedBytes = new Uint8Array(expectedDigest);
+  let difference = 0;
+  for (let index = 0; index < candidateBytes.length; index += 1) {
+    difference |= candidateBytes[index] ^ expectedBytes[index];
+  }
+  return difference === 0;
+}
+
+async function authorizeRequest(req: Request): Promise<Response | null> {
   if (!AGENT_SECRET) {
     return Response.json(
       { ok: false, error: "INDEXING_V3_AGENT_SECRET is required when JWT verification is disabled" },
@@ -183,7 +203,7 @@ function authorizeRequest(req: Request): Response | null {
   const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   const headerSecret = req.headers.get("x-indexing-agent-secret") ?? req.headers.get("x-cron-secret") ?? bearer ?? "";
 
-  if (headerSecret !== AGENT_SECRET) {
+  if (!(await timingSafeSecretEqual(headerSecret, AGENT_SECRET))) {
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -416,7 +436,13 @@ async function fetchEmbeddingBatch(texts: string[]): Promise<number[][]> {
       if (!response.ok) {
         const body = await response.text();
         const error = new Error(`OpenAI embedding request failed (${response.status}): ${body.slice(0, 500)}`);
-        if (response.status !== 429 && response.status < 500) throw error;
+        if (response.status !== 429 && response.status < 500) {
+          // Audit L7: a 4xx client error (bad model name, revoked key) can
+          // never succeed on retry — tag it so the catch below fails fast
+          // instead of re-sending the identical doomed request.
+          (error as Error & { nonRetryable?: boolean }).nonRetryable = true;
+          throw error;
+        }
         lastError = error;
       } else {
         const payload = (await response.json()) as { data?: Array<{ embedding?: unknown; index?: number }> };
@@ -434,7 +460,8 @@ async function fetchEmbeddingBatch(texts: string[]): Promise<number[][]> {
       }
     } catch (e) {
       lastError = e;
-      if (e instanceof Error && e.name !== "AbortError" && attempt >= OPENAI_MAX_RETRIES) throw e;
+      const nonRetryable = e instanceof Error && (e as Error & { nonRetryable?: boolean }).nonRetryable === true;
+      if (e instanceof Error && e.name !== "AbortError" && (nonRetryable || attempt >= OPENAI_MAX_RETRIES)) throw e;
     } finally {
       clearTimeout(timeout);
     }
@@ -2076,7 +2103,7 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? "8000") }, async (req: Request
     if (req.method !== "POST" && req.method !== "GET") {
       return new Response("Method not allowed", { status: 405 });
     }
-    const unauthorized = authorizeRequest(req);
+    const unauthorized = await authorizeRequest(req);
     if (unauthorized) return unauthorized;
 
     const url = new URL(req.url);

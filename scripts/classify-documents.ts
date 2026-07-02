@@ -252,8 +252,7 @@ function generatedLabelsForPlan(plan: ClassificationPlan, stampedAt: string): Ge
         "care_phase",
         "document_intent",
         "content_feature",
-      ].includes(label.label_type) &&
-      label.confidence >= 0.5,
+      ].includes(label.label_type) && label.confidence >= 0.5,
   );
 
   return [...siteLabels, ...typeLabels, ...secondaryLabels].map((label) => ({

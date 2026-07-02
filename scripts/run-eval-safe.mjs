@@ -85,10 +85,7 @@ function shouldTerminateCandidate(commandLine) {
     return true;
   }
 
-  if (
-    normalizedCommandLine.includes("\\.next\\build\\") ||
-    normalizedCommandLine.includes("\\.next\\dev\\build\\")
-  ) {
+  if (normalizedCommandLine.includes("\\.next\\build\\") || normalizedCommandLine.includes("\\.next\\dev\\build\\")) {
     return true;
   }
 
@@ -110,12 +107,16 @@ function listRepoNodeProcesses() {
     "$matches | ConvertTo-Json -Compress",
   ];
 
-  const result = spawnSync("powershell.exe", ["-NoProfile", "-NoLogo", "-NonInteractive", "-Command", command.join("\n")], {
-    encoding: "utf8",
-    env: { ...process.env, RUN_EVAL_GUARD_REPO_ROOT: projectRoot },
-    cwd: projectRoot,
-    windowsHide: true,
-  });
+  const result = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-NoLogo", "-NonInteractive", "-Command", command.join("\n")],
+    {
+      encoding: "utf8",
+      env: { ...process.env, RUN_EVAL_GUARD_REPO_ROOT: projectRoot },
+      cwd: projectRoot,
+      windowsHide: true,
+    },
+  );
 
   if (result.status !== 0) return [];
 
@@ -213,15 +214,11 @@ function runEvalScript() {
     process.exit(1);
   }
 
-  const child = spawn(
-    process.execPath,
-    [tsxBin, resolve(projectRoot, targetScript), ...forwardArgs],
-    {
-      cwd: projectRoot,
-      stdio: "inherit",
-      windowsHide: true,
-    },
-  );
+  const child = spawn(process.execPath, [tsxBin, resolve(projectRoot, targetScript), ...forwardArgs], {
+    cwd: projectRoot,
+    stdio: "inherit",
+    windowsHide: true,
+  });
 
   const stopEvalProcess = () => {
     terminateEvalProcess(child.pid);

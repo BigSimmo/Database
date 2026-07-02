@@ -469,7 +469,8 @@ export const differentialRecords: DifferentialRecord[] = [
     subtitle: "Placeholder scaffold for acute intoxication causing altered mental state.",
     clinicalHinge:
       "Recent use, altered consciousness, ataxia, slurred speech, abnormal pupils, or toxidrome features can support intoxication.",
-    safetySummary: "Airway, breathing, circulation, temperature, glucose, and co-ingestion risk are immediate priorities.",
+    safetySummary:
+      "Airway, breathing, circulation, temperature, glucose, and co-ingestion risk are immediate priorities.",
     currentPresentation: ["Recent use possible", "Abnormal pupils or speech", "Consciousness altered"],
     investigations: ["Toxicology screen", "VBG/ABG", "U&E", "LFTs", "ECG", "BGL"],
     immediateActions: ["Support airway and breathing", "Check BGL", "Decontaminate if indicated", "Treat toxidrome"],
@@ -486,10 +487,16 @@ export const differentialRecords: DifferentialRecord[] = [
     subtitle: "Placeholder scaffold for withdrawal states causing agitation, confusion, or autonomic features.",
     clinicalHinge:
       "Recent reduction or cessation with autonomic symptoms, agitation, tremor, craving, seizures, or hallucinations can support withdrawal.",
-    safetySummary: "Withdrawal can deteriorate quickly. Assess autonomic instability, seizures, hydration, and delirium risk.",
+    safetySummary:
+      "Withdrawal can deteriorate quickly. Assess autonomic instability, seizures, hydration, and delirium risk.",
     currentPresentation: ["Recent cessation possible", "Autonomic symptoms", "Agitation or tremor"],
     investigations: ["BGL", "U&E", "LFTs", "Mg", "PO4", "Thiamine", "Toxicology if unclear"],
-    immediateActions: ["Treat withdrawal syndrome", "Give thiamine where indicated", "Correct electrolytes", "Monitor closely"],
+    immediateActions: [
+      "Treat withdrawal syndrome",
+      "Give thiamine where indicated",
+      "Correct electrolytes",
+      "Monitor closely",
+    ],
     whyFits: "Recent cessation or reduction in use with autonomic symptoms, cravings, or agitation.",
     arguesAgainst: "No recent use or cessation and no autonomic features.",
     mustNotMiss: "Alcohol or benzodiazepine withdrawal, delirium tremens, seizures.",
@@ -503,7 +510,8 @@ export const differentialRecords: DifferentialRecord[] = [
     subtitle: "Placeholder scaffold for confusion after suspected or witnessed seizure.",
     clinicalHinge:
       "Confusion after a witnessed or suspected seizure, amnesia, fatigue, tongue bite, incontinence, or focal recovery pattern can support a post-ictal state.",
-    safetySummary: "Protect airway, check glucose, assess injury, and identify ongoing seizure or non-convulsive status risk.",
+    safetySummary:
+      "Protect airway, check glucose, assess injury, and identify ongoing seizure or non-convulsive status risk.",
     currentPresentation: ["Witnessed event possible", "Amnesia or fatigue", "Injury check needed"],
     investigations: ["BGL", "U&E", "EEG if persistent", "CT/MRI if focal", "ECG"],
     immediateActions: ["Ensure safety", "Check glucose", "Treat seizures if present", "Assess injury"],
@@ -523,7 +531,12 @@ export const differentialRecords: DifferentialRecord[] = [
     safetySummary: "Give parenteral thiamine before glucose where risk is significant and correct electrolytes.",
     currentPresentation: ["Nutrition risk", "Confusion", "Ataxia or eye signs"],
     investigations: ["BGL", "U&E", "Mg", "PO4", "LFTs", "Consider EEG", "MRI if atypical"],
-    immediateActions: ["Give IV thiamine before glucose", "Correct electrolytes", "Treat nutrition risk", "Escalate if atypical"],
+    immediateActions: [
+      "Give IV thiamine before glucose",
+      "Correct electrolytes",
+      "Treat nutrition risk",
+      "Escalate if atypical",
+    ],
     whyFits: "Alcohol use or poor nutrition with confusion, ataxia, eye signs, or ophthalmoplegia.",
     arguesAgainst: "No alcohol use, no risk factors, no eye signs, and adequate nutrition.",
     mustNotMiss: "Korsakoff syndrome and reversible thiamine deficiency.",
@@ -537,7 +550,8 @@ export const differentialRecords: DifferentialRecord[] = [
     subtitle: "Placeholder scaffold for encephalopathy in liver disease.",
     clinicalHinge:
       "Known liver disease, asterixis, sleep reversal, personality change, GI bleed, infection, constipation, or precipitating factors can support hepatic encephalopathy.",
-    safetySummary: "Treat precipitants, check for GI bleed or sepsis, and correct dehydration or electrolyte disturbance.",
+    safetySummary:
+      "Treat precipitants, check for GI bleed or sepsis, and correct dehydration or electrolyte disturbance.",
     currentPresentation: ["Liver disease context", "Sleep reversal", "Precipitant check needed"],
     investigations: ["LFTs", "Ammonia", "U&E", "Coagulation", "FBC", "Liver ultrasound if needed"],
     immediateActions: ["Treat precipitants", "Consider lactulose", "Consider rifaximin", "Correct electrolytes"],
@@ -554,12 +568,14 @@ export const differentialRecords: DifferentialRecord[] = [
     subtitle: "Placeholder scaffold for CNS infection causing confusion or encephalopathy.",
     clinicalHinge:
       "Fever, headache, meningism, photophobia, rash, focal neurological signs, seizure, or immunosuppression should raise concern for CNS infection.",
-    safetySummary: "Sepsis, raised intracranial pressure, seizures, and delayed antimicrobial treatment are priority risks.",
+    safetySummary:
+      "Sepsis, raised intracranial pressure, seizures, and delayed antimicrobial treatment are priority risks.",
     currentPresentation: ["Fever or headache check", "Neck stiffness check", "Seizure or focal signs"],
     investigations: ["BGL", "FBC", "CRP", "U&E", "Blood cultures", "CT head if indicated", "LP when safe"],
     immediateActions: ["Stabilise ABCs", "Treat sepsis", "Start antimicrobials if suspected", "Escalate urgently"],
     whyFits: "Fever, headache, meningism, photophobia, seizure, focal signs, or immunosuppression.",
-    arguesAgainst: "Afebrile presentation with no headache, meningism, focal signs, or infection risk lowers likelihood.",
+    arguesAgainst:
+      "Afebrile presentation with no headache, meningism, focal signs, or infection risk lowers likelihood.",
     mustNotMiss: "Bacterial meningitis, HSV encephalitis, sepsis, raised intracranial pressure.",
     bedsideQuestion: "Any fever, headache, photophobia, rash, neck stiffness, seizure, or immunosuppression?",
     mimicsOverlap: "Delirium, migraine, post-ictal state, intoxication, and stroke.",
@@ -571,7 +587,8 @@ export const differentialRecords: DifferentialRecord[] = [
     subtitle: "Placeholder scaffold for thyroid dysfunction contributing to altered mental state.",
     clinicalHinge:
       "Severe hyperthyroidism, hypothyroidism, medication changes, systemic illness, temperature disturbance, or autonomic features can contribute to confusion.",
-    safetySummary: "Temperature, pulse, blood pressure, hydration, cardiac rhythm, and endocrine escalation guide urgency.",
+    safetySummary:
+      "Temperature, pulse, blood pressure, hydration, cardiac rhythm, and endocrine escalation guide urgency.",
     currentPresentation: ["Autonomic features", "Temperature disturbance", "Medication history"],
     investigations: ["BGL", "U&E", "TSH", "Free T4", "ECG", "FBC", "CRP"],
     immediateActions: ["Assess ABCs", "Correct dehydration", "Treat temperature disturbance", "Seek endocrine advice"],

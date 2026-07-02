@@ -80,7 +80,7 @@ export function FormsHomePage() {
         className="mx-auto grid w-full max-w-[78rem] justify-items-center gap-5 text-center sm:gap-6 lg:gap-7"
       >
         <section className="grid justify-items-center gap-3 sm:gap-4" aria-labelledby="forms-home-title">
-          <span className="grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-[5.25rem] sm:w-[5.25rem] lg:h-[6.25rem] lg:w-[6.25rem] lg:rounded-[1.35rem]">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-[5.25rem] sm:w-[5.25rem] lg:h-[6.25rem] lg:w-[6.25rem] lg:rounded-[1.35rem]">
             <FileText className="h-7 w-7 sm:h-10 sm:w-10 lg:h-12 lg:w-12" aria-hidden />
           </span>
           <div className="grid gap-2">
@@ -109,11 +109,11 @@ export function FormsHomePage() {
                 key={card.title}
                 href={card.href}
                 className={[
-                  "group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-[5.75rem] sm:grid-cols-[3rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:px-5 md:min-h-[9.75rem] md:grid-cols-[4.5rem_minmax(0,1fr)_1.5rem] md:rounded-lg md:border md:border-[color:var(--border)] md:p-4 md:shadow-[var(--shadow-tight)] md:hover:-translate-y-0.5 md:hover:border-[color:var(--clinical-chat-teal)]/35 md:hover:shadow-[var(--shadow-elevated)] motion-reduce:md:hover:translate-y-0 lg:grid-cols-[5rem_minmax(0,1fr)_1.5rem] lg:px-5",
+                  "group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-[5.75rem] sm:grid-cols-[3rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:px-5 md:min-h-[9.75rem] md:grid-cols-[4.5rem_minmax(0,1fr)_1.5rem] md:rounded-lg md:border md:border-[color:var(--border)] md:p-4 md:shadow-[var(--shadow-tight)] md:hover:-translate-y-0.5 md:hover:border-[color:var(--clinical-accent-border)] md:hover:shadow-[var(--shadow-elevated)] motion-reduce:md:hover:translate-y-0 lg:grid-cols-[5rem_minmax(0,1fr)_1.5rem] lg:px-5",
                   index > 0 ? "border-t border-[color:var(--border)] md:border-t-0" : "",
                 ].join(" ")}
               >
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11 md:h-[4.5rem] md:w-[4.5rem] lg:h-20 lg:w-20">
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11 md:h-[4.5rem] md:w-[4.5rem] lg:h-20 lg:w-20">
                   <CardIcon className="h-5 w-5 md:h-9 md:w-9 lg:h-10 lg:w-10" aria-hidden />
                 </span>
                 <span className="min-w-0">
@@ -125,7 +125,7 @@ export function FormsHomePage() {
                   </span>
                 </span>
                 <ArrowRight
-                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-chat-teal)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden
                 />
               </Link>
@@ -142,9 +142,9 @@ export function FormsHomePage() {
                 <Link
                   key={task.label}
                   href={task.href}
-                  className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:hover:translate-y-0 sm:min-h-14 sm:text-sm"
+                  className="inline-flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:hover:translate-y-0 sm:min-h-14 sm:text-sm"
                 >
-                  <TaskIcon className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                  <TaskIcon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
                   <span className="truncate">{task.label}</span>
                 </Link>
               );
@@ -153,7 +153,7 @@ export function FormsHomePage() {
         </section>
 
         <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-          <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-chat-teal)]">
+          <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
             <ShieldCheck className="h-5 w-5" aria-hidden />
             Source verified
           </span>

@@ -31,6 +31,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import {
   cn,
+  codeText,
   floatingControl,
   metadataPill,
   primaryControl,
@@ -174,7 +175,7 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
   return (
     <article className="min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
       <div className="mb-1.5 flex items-start gap-1.5 sm:mb-2 sm:gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] sm:h-9 sm:w-9">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-9 sm:w-9">
           {summaryIcon(card)}
         </span>
         <p className="min-w-0 pt-0.5 text-[8.5px] font-bold uppercase leading-3 text-[color:var(--text-soft)] sm:text-[11px] sm:leading-4">
@@ -220,7 +221,7 @@ function PathwayContextCard({
     <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Navigation className="h-4 w-4" aria-hidden />
           </span>
           <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Decision context</h2>
@@ -228,7 +229,7 @@ function PathwayContextCard({
         <Info className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
       </div>
       <div className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold">
-        <span className="rounded-md bg-[color:var(--clinical-chat-teal)] px-3 py-2 text-center text-white">
+        <span className="rounded-md bg-[color:var(--clinical-accent)] px-3 py-2 text-center text-[color:var(--clinical-accent-contrast)]">
           Pathway
         </span>
         <span className="px-3 py-2 text-center text-[color:var(--text-muted)]">Source info</span>
@@ -246,14 +247,14 @@ function PathwayContextCard({
             </div>
           </div>
         </div>
-        <div className="relative rounded-lg border border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)]/35 p-3">
-          <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-teal)]" />
+        <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
+          <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
           <p className="mb-2 text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Current</p>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-[color:var(--clinical-chat-teal)]">{code}</span>
+            <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
             <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
-          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] px-2 text-[10px] font-bold text-[color:var(--clinical-chat-teal)]">
+          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-[10px] font-bold text-[color:var(--clinical-accent)]">
             You are here
           </span>
           <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
@@ -267,7 +268,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className="text-sm font-bold text-[color:var(--text-heading)]">{item.code}</span>
+                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -282,7 +283,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className="text-sm font-bold text-[color:var(--text-heading)]">{item.code}</span>
+                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -345,7 +346,7 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
           key={label}
           className="grid min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--border)] px-3 py-2 last:border-b-0"
         >
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Icon className="h-4 w-4" aria-hidden />
           </span>
           <p className="text-xs font-semibold text-[color:var(--text-heading)]">{label}</p>
@@ -393,7 +394,7 @@ function RailCard({ icon: Icon, title, children }: { icon: LucideIcon; title: st
   return (
     <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
       <div className="mb-3 flex items-center gap-2">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">{title}</h2>
@@ -405,8 +406,8 @@ function RailCard({ icon: Icon, title, children }: { icon: LucideIcon; title: st
 
 function InfoRow({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon: LucideIcon }) {
   return (
-    <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/25">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+    <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
         <Icon className="h-4 w-4" aria-hidden />
       </span>
       <div className="min-w-0">
@@ -512,7 +513,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             aria-label="Form breadcrumbs"
             className="hidden min-w-0 items-center gap-2 text-xs font-semibold sm:flex"
           >
-            <span className="text-[color:var(--clinical-chat-teal)]">Forms</span>
+            <span className="text-[color:var(--clinical-accent)]">Forms</span>
             <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
             <span className="truncate text-[color:var(--text-muted)]">
               {displayText(form.catalogueLabel, "Catalogue")}
@@ -526,7 +527,12 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl">
+                <div
+                  className={cn(
+                    "grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl",
+                    codeText,
+                  )}
+                >
                   {code}
                 </div>
                 <div className="min-w-0">
@@ -605,7 +611,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   href={form.source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-chat-teal)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
+                  className="hidden min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
                 >
                   Source
                   <ExternalLink className="h-4 w-4" aria-hidden />
@@ -714,10 +720,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         key={note}
                         className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
                       >
-                        <Info
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]"
-                          aria-hidden
-                        />
+                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
                         <span>{note}</span>
                       </li>
                     ))}
@@ -744,7 +747,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
                       >
                         <CheckCircle2
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]"
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
                           aria-hidden
                         />
                         <span>{note}</span>

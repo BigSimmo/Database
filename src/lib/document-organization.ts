@@ -269,7 +269,10 @@ const siteDefinitions: SiteDefinition[] = [
     canonical: "BMJ Best Practice",
     rawTags: ["bmj"],
     kind: "reference_collection",
-    evidence: [/\bbmj\b/i, /\bbest practice\b/i],
+    // Audit M7: require the "bmj" token. The generic phrase "best practice"
+    // appears in ordinary local policies ("in line with best practice…") and
+    // falsely attributed them to an external commercial reference.
+    evidence: [/\bbmj\b/i],
   },
 ];
 
@@ -948,7 +951,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "clinical-instruction",
     label_type: "document_intent",
-    strong: [/\b(?:guideline|procedure|protocol|qrg\b|quick reference|quick guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline|apheresis|biopsy|perfusion|ventilation|cardiac arrest|stemi activation|therapy recipients|micro alerts)\b/i],
+    strong: [
+      /\b(?:guideline|procedure|protocol|qrg\b|quick reference|quick guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline|apheresis|biopsy|perfusion|ventilation|cardiac arrest|stemi activation|therapy recipients|micro alerts)\b/i,
+    ],
   },
   {
     label: "decision-support",
@@ -958,12 +963,16 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "patient-information",
     label_type: "document_intent",
-    strong: [/\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|caring for your|living with|before surgery|tips for reducing|genetic cholesterol|for patients)\b/i],
+    strong: [
+      /\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|caring for your|living with|before surgery|tips for reducing|genetic cholesterol|for patients)\b/i,
+    ],
   },
   {
     label: "staff-guidance",
     label_type: "document_intent",
-    strong: [/\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|reflective practice|peer workforce|research nurse|orientation|training|education|competenc|whs\b|work health and safety)\b/i],
+    strong: [
+      /\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|reflective practice|peer workforce|research nurse|orientation|training|education|competenc|whs\b|work health and safety)\b/i,
+    ],
   },
   {
     label: "legal-governance",
@@ -973,7 +982,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "operational-process",
     label_type: "document_intent",
-    strong: [/\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|remote network access|my health record|medical records?|contingency plan|workloads|staffing|management sop|roles? and responsibilities)\b/i],
+    strong: [
+      /\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|remote network access|my health record|medical records?|contingency plan|workloads|staffing|management sop|roles? and responsibilities)\b/i,
+    ],
   },
   {
     label: "documentation-requirement",
@@ -983,7 +994,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "medication-instruction",
     label_type: "document_intent",
-    strong: [/\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|over the counter|complementary medicines|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium|permethrin)\b/i],
+    strong: [
+      /\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|over the counter|complementary medicines|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium|permethrin)\b/i,
+    ],
   },
 
   { label: "contains-table", label_type: "content_feature", strong: [/\b(?:table|matrix|schedule)\b/i] },
@@ -996,7 +1009,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "contains-dosage-guidance",
     label_type: "content_feature",
-    strong: [/\b(?:dose|dosing|dosage|nomogram|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?)\b/i],
+    strong: [
+      /\b(?:dose|dosing|dosage|nomogram|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?)\b/i,
+    ],
   },
   {
     label: "contains-quick-reference",
@@ -1522,10 +1537,27 @@ export function canonicalDocumentDisplayTitle(input: Pick<OrganizationDocumentIn
   return smartDocumentTitle(cleaned || input.title || input.file_name).replace(/\b([A-Z]{2,}) - ([A-Z])\b/g, "$1-$2");
 }
 
+// Bracketed segments are the raw-tag channel handled separately by
+// extractDocumentBracketTags; they must not leak into the corroborating
+// evidence haystack, or a bare "(FSH)" tag would confirm itself.
+function withoutBracketSegments(value: string) {
+  return value.replace(/[\[(][^\])(]{1,80}[\])]/g, " ");
+}
+
 function evidenceText(input: OrganizationDocumentInput) {
   const metadata = metadataRecord(input.metadata);
   return [
-    input.source_path ?? "",
+    // Audit M6: the title and file name are often the ONLY place a site is
+    // named in plain text (e.g. "Sir Charles Gairdner Hospital Sepsis
+    // Pathway"); omitting them left such documents site=null/needs_review.
+    // Bracket tags are stripped so an uncorroborated "(FSH)" stays a
+    // low-confidence candidate (needs_review) rather than self-confirming.
+    withoutBracketSegments(input.title ?? ""),
+    withoutBracketSegments(input.file_name ?? ""),
+    // source_path usually echoes the file name (e.g. "imports/[FSH] x.pdf"),
+    // so its bracket segments must be stripped too or a bare tag would
+    // self-confirm through this channel (diff-review hardening of M6).
+    withoutBracketSegments(input.source_path ?? ""),
     input.contentText ?? "",
     input.summaryText ?? "",
     metadataString(metadata, "publisher"),
@@ -1617,7 +1649,12 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
   const confirmedCandidates = candidates.filter((candidate) => candidate.confidence >= 0.75);
   const selected = selectSiteCandidate(confirmedCandidates) ?? null;
 
-  const referenceCollection = !selected && candidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
+  // Audit M5: gate the reference fallbacks on the absence of a CONFIRMED
+  // candidate, not on candidates.length — an unconfirmed bracket-tag guess
+  // (confidence 0.58, no corroborating evidence) used to suppress both
+  // fallbacks and leave an obvious clinical reference as site=null.
+  const referenceCollection =
+    !selected && confirmedCandidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
   if (referenceCollection) {
     return {
       label: referenceCollection.canonical,
@@ -1626,12 +1663,12 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
       kind: referenceCollection.kind,
       confidence: 0.86,
       evidence_sources: [`source:${referenceCollection.rawTags[0]}`],
-      candidates: [],
+      candidates,
     };
   }
 
-  if (!selected && candidates.length === 0 && hasGeneralClinicalReferenceEvidence(input)) {
-    return generalClinicalReferenceSite;
+  if (!selected && confirmedCandidates.length === 0 && hasGeneralClinicalReferenceEvidence(input)) {
+    return { ...generalClinicalReferenceSite, candidates };
   }
 
   return {

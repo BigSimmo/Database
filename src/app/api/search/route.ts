@@ -661,11 +661,15 @@ async function buildScopedSearchPayload(
     ownerId,
     queryMode: body.queryMode,
   });
-  const resultLimit =
-    isSourceLibrarySearchMode(body.mode)
-      ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
-      : (body.topK ?? 8);
-  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 4, true));
+  const resultLimit = isSourceLibrarySearchMode(body.mode)
+    ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
+    : (body.topK ?? 8);
+  // RC7: cap the search-results panel at 3 chunks per document (was 4) so one verbose document
+  // cannot crowd out sibling sources — the corpus has many near-duplicate guidelines (e.g. several
+  // "Safety Planning" / "Active Community Patients in ED" versions), and surfacing more distinct
+  // documents makes the panel more useful. diversifySearchResults backfills from remaining chunks
+  // when few documents match, so this never reduces the result count.
+  const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 3, true));
 
   const relatedDocuments = body.includeRelatedDocuments
     ? await fetchRelatedDocuments({
@@ -676,12 +680,15 @@ async function buildScopedSearchPayload(
         limit: isSourceLibrarySearchMode(body.mode) ? body.documentLimit : undefined,
       })
     : [];
-  const smartPanel = buildSmartPanel(searchFocusQuery, results);
+  // Audit L10: compute relevance/visual evidence ONCE and share with the
+  // smart panel — the panel's own recomputation was discarded by the spread
+  // at payload build time anyway.
   const relevance = buildEvidenceRelevance(searchFocusQuery, results);
-  const documentMatches =
-    isSourceLibrarySearchMode(body.mode)
-      ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
-      : [];
+  const visualEvidence = buildVisualEvidence(results);
+  const smartPanel = buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence });
+  const documentMatches = isSourceLibrarySearchMode(body.mode)
+    ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
+    : [];
   const smartApiPlan = buildSmartRagApiPlan({
     query: searchFocusQuery,
     queryClass: effectiveQueryClass,
@@ -704,7 +711,7 @@ async function buildScopedSearchPayload(
   const payload = {
     results: compactSearchResults(searchFocusQuery, results),
     facets: buildSearchFacets(results),
-    visualEvidence: buildVisualEvidence(results),
+    visualEvidence,
     relevance,
     relatedDocuments: relatedDocuments.map((document) => ({
       document_id: document.document_id,
@@ -818,20 +825,23 @@ export async function POST(request: Request) {
         demoSearch(body.query, body.topK ?? 8, body.documentId, body.documentIds),
       );
       const relevance = buildEvidenceRelevance(searchFocusQuery, results);
-      const documentMatches =
-        isSourceLibrarySearchMode(body.mode)
-          ? annotateDocumentMatches(
-              searchFocusQuery,
-              buildDocumentMatchesFromResults(results, body.documentLimit),
-              results,
-            )
-          : [];
+      const documentMatches = isSourceLibrarySearchMode(body.mode)
+        ? annotateDocumentMatches(
+            searchFocusQuery,
+            buildDocumentMatchesFromResults(results, body.documentLimit),
+            results,
+          )
+        : [];
+      const cachedVisualEvidence = buildVisualEvidence(results);
       return NextResponse.json({
         results: compactSearchResults(searchFocusQuery, results),
         facets: buildSearchFacets(results),
-        visualEvidence: buildVisualEvidence(results),
+        visualEvidence: cachedVisualEvidence,
         relevance,
-        smartPanel: { ...buildSmartPanel(searchFocusQuery, results), relevance },
+        smartPanel: {
+          ...buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence: cachedVisualEvidence }),
+          relevance,
+        },
         smartApiPlan: buildSmartRagApiPlan({
           query: searchFocusQuery,
           queryClass,

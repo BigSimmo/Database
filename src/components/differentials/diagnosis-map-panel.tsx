@@ -49,17 +49,18 @@ const mapPoints: MapPoint[] = [
 ];
 
 const likelihoodTone: Record<DifferentialLikelihood, string> = {
-  "most-likely": "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-white",
+  "most-likely":
+    "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
   possible:
-    "border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   "less-likely": "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   "must-not-miss":
     "border-[color:var(--danger)] bg-[color:var(--danger-soft)] text-[color:var(--danger)] ring-2 ring-[color:var(--danger)]/20",
 };
 
 const lineTone: Record<DifferentialLikelihood, string> = {
-  "most-likely": "var(--clinical-chat-teal)",
-  possible: "color-mix(in srgb, var(--clinical-chat-teal) 58%, transparent)",
+  "most-likely": "var(--clinical-accent)",
+  possible: "color-mix(in srgb, var(--clinical-accent) 58%, transparent)",
   "less-likely": "color-mix(in srgb, var(--text-soft) 58%, transparent)",
   "must-not-miss": "var(--danger)",
 };
@@ -116,7 +117,7 @@ function NodeBadge({ label, selected, className }: { label: string; selected?: b
       className={cn(
         "inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-bold",
         selected
-          ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
           : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
         className,
       )}
@@ -128,10 +129,10 @@ function NodeBadge({ label, selected, className }: { label: string; selected?: b
 
 function MapLegend({ compact = false }: { compact?: boolean }) {
   const entries: Array<{ label: string; className: string }> = [
-    { label: "Most likely", className: "bg-[color:var(--clinical-chat-teal)]" },
+    { label: "Most likely", className: "bg-[color:var(--clinical-accent)]" },
     {
       label: "Possible",
-      className: "bg-[color:var(--clinical-chat-teal-soft)] border border-[color:var(--clinical-chat-teal)]/20",
+      className: "bg-[color:var(--clinical-accent-soft)] border border-[color:var(--clinical-accent-border)]",
     },
     { label: "Less likely", className: "bg-[color:var(--surface-subtle)] border border-[color:var(--border)]" },
     { label: "Must-not-miss", className: "bg-[color:var(--danger)]" },
@@ -184,7 +185,7 @@ function MapGraph({
       data-testid={interactive ? "diagnosis-map-full-canvas" : "diagnosis-map-preview-canvas"}
       className={cn(
         "relative min-h-0 min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)]",
-        "bg-[radial-gradient(circle_at_50%_50%,color-mix(in_srgb,var(--clinical-chat-teal-soft)_34%,transparent)_0_7rem,transparent_18rem),linear-gradient(90deg,color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px),linear-gradient(color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px)] bg-[length:auto,28px_28px,28px_28px]",
+        "bg-[color:var(--surface)] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px),linear-gradient(color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px)] bg-[length:28px_28px,28px_28px]",
         interactive ? "h-full cursor-grab active:cursor-grabbing" : "h-40 sm:h-44 lg:h-48",
       )}
       style={{ touchAction: interactive ? "none" : "auto" }}
@@ -227,9 +228,9 @@ function MapGraph({
             onSelect("diagnosis");
           }}
           className={cn(
-            "absolute left-1/2 top-[52%] z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] p-3 text-center font-bold leading-tight text-white shadow-[var(--shadow-elevated)] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
+            "absolute left-1/2 top-[52%] z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[color:var(--clinical-accent)] p-3 text-center font-bold leading-tight text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
             interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-[10px] sm:h-16 sm:w-16 sm:text-[11px]",
-            selectedId === "diagnosis" && "ring-4 ring-[color:var(--clinical-chat-teal)]/25",
+            selectedId === "diagnosis" && "ring-4 ring-[color:var(--clinical-accent)]/25",
           )}
           aria-pressed={selectedId === "diagnosis"}
           aria-label={`Show details for ${record.title}`}
@@ -498,7 +499,7 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
           <NodeBadge label={`${record.related.length} nodes`} />
         </div>
 
-        <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)] p-2.5 sm:p-3">
+        <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2.5 sm:p-3">
           <MapGraph record={record} selectedId="diagnosis" onSelect={setSelected} scale={0.33} />
           <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
             <MapLegend compact />

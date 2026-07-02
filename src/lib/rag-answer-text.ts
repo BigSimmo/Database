@@ -192,6 +192,17 @@ function removeBadAnswerFragments(value: string) {
     .join(" ");
 }
 
+// Dense monitoring tables are sometimes flattened into run-ons where an inpatient schedule is
+// immediately followed by a community schedule with no sentence break (e.g. "...monitored daily
+// for inpatients for community patients weekly..."). The synthesis prompt handles most of these,
+// but this is a narrow deterministic safety-net for the clearest recurring pattern. It also
+// consumes the original comma so it cannot produce a double comma.
+function separateSettingRunOns(value: string): string {
+  return value
+    .replace(/\bfor inpatients,?\s+for community patients,?/gi, "for inpatients. For community patients,")
+    .replace(/\bfor community patients,?\s+for inpatients,?/gi, "for community patients. For inpatients,");
+}
+
 export function polishClinicalAnswerProse(value: string) {
   const cleaned = normalizeSectionText(value)
     .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -212,7 +223,9 @@ export function polishClinicalAnswerProse(value: string) {
     .replace(/\s+/g, " ")
     .trim();
 
-  return normalizeGenericMedicationCase(removeOrphanAnswerHeadings(removeBadAnswerFragments(cleaned)));
+  return normalizeGenericMedicationCase(
+    separateSettingRunOns(removeOrphanAnswerHeadings(removeBadAnswerFragments(cleaned))),
+  );
 }
 
 export function sanitizeAnswerText(value: string) {

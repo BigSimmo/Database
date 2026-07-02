@@ -65,6 +65,7 @@ import {
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { Sheet } from "@/components/ui/sheet";
 import {
   appModeDefinition,
@@ -124,7 +125,7 @@ function filterText(values?: string[]) {
 }
 
 function documentScopeTitle(document: ClinicalDocument) {
-  return document.title.replace(/^Synthetic /, "").replace(/\.pdf$/i, "");
+  return cleanDisplayTitle(document.title);
 }
 
 function documentScopeMeta(document: ClinicalDocument) {
@@ -770,7 +771,7 @@ export function MasterSearchHeader({
                       key={document.id}
                       type="button"
                       onClick={() => onToggleScope(document.id)}
-                      title={document.title}
+                      title={cleanDisplayTitle(document.title)}
                       className={cn(
                         "grid min-h-[44px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
                         selected
@@ -888,7 +889,10 @@ export function MasterSearchHeader({
             integrated={usesUniversalFooterStyle}
           />
 
-          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+          {/* The clear button is a flex sibling (not absolutely positioned): the
+              unlayered .answer-footer-search-input padding beats a conditional
+              pr-* utility, which let text run under an overlaid button. */}
+          <label className="flex min-w-0 flex-1 items-center overflow-hidden">
             <input
               ref={queryInputRef}
               data-testid="global-search-input"
@@ -906,14 +910,13 @@ export function MasterSearchHeader({
                 "w-full min-w-0",
                 usesUniversalFooterStyle && "answer-footer-search-input",
                 isDesktopHomeComposer && "desktop-home-search-input",
-                query ? "pr-11" : null,
               )}
             />
             {query && (
               <button
                 type="button"
                 onClick={onClearQuery}
-                className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                 aria-label="Clear search question"
               >
                 <X className="h-4 w-4" />
@@ -1053,7 +1056,7 @@ export function MasterSearchHeader({
             </button>
             {isStandaloneModeHomeHeader ? (
               <div className="hidden min-w-0 items-center gap-3 lg:flex">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                   <SelectedAppModeIcon className="h-5 w-5" aria-hidden />
                 </span>
                 <span className="min-w-0">
@@ -1098,7 +1101,7 @@ export function MasterSearchHeader({
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
@@ -1160,15 +1163,15 @@ export function MasterSearchHeader({
                       className={cn(
                         "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                         active
-                          ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                          ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
                           : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                       )}
                     >
                       <span
                         className={cn(
-                          "grid h-8 w-8 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+                          "grid h-8 w-8 place-items-center rounded-lg border",
                           active
-                            ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)]"
+                            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         )}
                       >
@@ -1180,7 +1183,7 @@ export function MasterSearchHeader({
                           {mode.description}
                         </span>
                       </span>
-                      {active ? <Check className="h-4 w-4" /> : null}
+                      {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
                     </button>
                   );
                 })}
@@ -1192,7 +1195,7 @@ export function MasterSearchHeader({
             {isWorkflowHeader ? (
               <>
                 <div className="hidden min-w-0 items-center gap-2 xl:flex">
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
                     Local only
                   </span>
@@ -1207,7 +1210,7 @@ export function MasterSearchHeader({
                 </div>
                 <button
                   type="button"
-                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open language and region settings"
                   title="Language and region"
                 >
@@ -1217,7 +1220,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onNewChat}
-                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Start a new comparison"
                   title="New comparison"
                 >
@@ -1228,23 +1231,26 @@ export function MasterSearchHeader({
                   onClick={() => {
                     if (workflowCopyText) void navigator.clipboard?.writeText(workflowCopyText);
                   }}
-                  className="hidden min-h-11 items-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-extrabold text-white shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-chat-teal-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:inline-flex"
+                  className="hidden min-h-11 items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:inline-flex"
                 >
                   <Copy className="h-4 w-4" aria-hidden />
                   Copy after review
                 </button>
               </>
             ) : isStandaloneModeHomeHeader ? (
-              <div className="hidden min-w-0 items-center gap-2 lg:flex">
+              /* min-[1400px]: below that the equal-thirds grid leaves the right
+                 column too narrow for these chips and they slide under the
+                 centered mode pill. */
+              <div className="hidden min-w-0 items-center gap-2 min-[1400px]:flex">
                 <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                  <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                  <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                   Local only
                 </span>
                 <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                  <CheckCircle2 className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                  <CheckCircle2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                   Saved
                 </span>
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-sm font-extrabold text-[color:var(--clinical-chat-teal)]">
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-extrabold text-[color:var(--clinical-accent)]">
                   AK
                 </span>
               </div>
@@ -1253,7 +1259,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={onNewChat}
-                className="universal-header-icon-control inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+                className="universal-header-icon-control inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
                 aria-label="Start a new chat"
                 title="New chat"
               >
@@ -1278,7 +1284,7 @@ export function MasterSearchHeader({
                     closeScope(false);
                     setUtilityMenuOpen((open) => !open);
                   }}
-                  className="universal-header-icon-control hidden h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
+                  className="universal-header-icon-control hidden h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
                   aria-haspopup="menu"
                   aria-expanded={utilityMenuOpen}
                   aria-controls={utilityMenuOpen ? "header-utility-menu" : undefined}

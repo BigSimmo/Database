@@ -9,8 +9,7 @@
  *
  * Radius usage rules:
  *   rounded-md  chips, inner elements, metadata pills
- *   rounded-lg  controls, inputs, buttons
- *   rounded-lg  cards, panels, drawers
+ *   rounded-lg  controls, inputs, buttons, cards, panels, drawers
  *   rounded-xl  bottom sheets, dialogs, large shells
  */
 @theme {
@@ -24,6 +23,12 @@
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
   --text-2xs--letter-spacing: 0.06em;
+
+  /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
+     faces (variables set on <html> by next/font). font-mono is used for
+     clinical codes and IDs (guideline refs, chunk/page numbers, versions). */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
@@ -52,6 +57,14 @@
   --color-primary: var(--primary);
   --color-primary-strong: var(--primary-strong);
   --color-primary-soft: var(--primary-soft);
+  --color-chrome: var(--surface-chrome);
+  --color-command: var(--command);
+  --color-command-hover: var(--command-hover);
+  --color-command-contrast: var(--command-contrast);
+  --color-clinical-accent: var(--clinical-accent);
+  --color-clinical-accent-hover: var(--clinical-accent-hover);
+  --color-clinical-accent-soft: var(--clinical-accent-soft);
+  --color-clinical-accent-border: var(--clinical-accent-border);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-danger: var(--danger);
@@ -65,82 +78,92 @@
 
 /* Theme tokens */
 :root {
-  /* Light mode: porcelain workspace, graphite ink, and restrained clinical teal. */
-  --neutral-0: #fbfbf8;
-  --neutral-50: #f5f5f1;
-  --neutral-100: #e9e9e3;
-  --neutral-200: #d9dbd3;
-  --neutral-300: #bfc6bc;
-  --neutral-400: #8d988e;
-  --neutral-500: #6a746c;
-  --neutral-600: #4e5851;
-  --neutral-700: #333d37;
-  --neutral-800: #1e2621;
-  --neutral-900: #111714;
-  --neutral-950: #090d0b;
+  /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
+  --neutral-0: #ffffff;
+  --neutral-50: #f7f8fa;
+  --neutral-100: #f1f4f6;
+  --neutral-200: #e5e7eb;
+  --neutral-300: #cdd5df;
+  --neutral-400: #98a2b3;
+  --neutral-500: #667085;
+  --neutral-600: #475467;
+  --neutral-700: #344054;
+  --neutral-800: #1d2939;
+  --neutral-900: #101418;
+  --neutral-950: #080b0f;
 
-  /* Primary accent is an instrument color, not the whole mood of light mode. */
-  --primary-50: #e7f2ef;
-  --primary-100: #d0e7e2;
-  --primary-200: #a5d0c8;
-  --primary-300: #73b6ab;
-  --primary-400: #3e9a8e;
-  --primary-500: #147b72;
-  --primary-600: #0d6861;
-  --primary-700: #0b554f;
-  --primary-800: #0b4541;
-  --primary-900: #093835;
+  /* Clinical accent (Aegean): cool blue-teal clinical identity ramp. */
+  --primary-50: #e7f6f8;
+  --primary-100: #c5e9ee;
+  --primary-200: #b9e4ea;
+  --primary-300: #7fcdd8;
+  --primary-400: #3ba7ba;
+  --primary-500: #0b6f86;
+  --primary-600: #0a6377;
+  --primary-700: #095d70;
+  --primary-800: #0b4a5a;
+  --primary-900: #0a3b47;
 
-  --background: #f7f7f4;
+  --background: #ffffff;
   --app-shell: #101a27;
-  --app-shell-muted: #182536;
-  --app-shell-accent: #147b72;
-  --surface: #ffffff;
-  --surface-raised: #fdfdfb;
-  --surface-subtle: #f2f2ef;
-  --surface-inset: #e8eae4;
-  --surface-glass: rgb(255 255 255 / 78%);
-  --surface-highlight: rgb(255 255 255 / 82%);
-  --surface-lux: color-mix(in srgb, var(--surface-raised) 94%, #ffffff 6%);
-  --surface-wash: #efefeb;
+  --surface: var(--neutral-0);
+  --surface-chrome: #f7f8fa;
+  --surface-raised: #fcfcfd;
+  --surface-subtle: #f7f8fa;
+  --surface-inset: #f1f4f6;
+  --surface-glass: rgb(255 255 255 / 82%);
+  --surface-highlight: color-mix(in srgb, var(--neutral-0) 64%, transparent);
+  --surface-lux: #ffffff;
+  --surface-wash: #f7f8fa;
   --text: var(--neutral-900);
-  --text-heading: var(--neutral-950);
-  --text-muted: var(--neutral-700);
-  --text-soft: var(--neutral-600);
-  --border: #deded8;
-  --border-strong: #c2c7bf;
-  --border-lux: rgb(70 80 72 / 20%);
+  --text-heading: #080b0f;
+  --text-muted: var(--neutral-600);
+  --text-soft: var(--neutral-500);
+  --border: #e5e7eb;
+  --border-strong: #cdd5df;
+  --border-lux: rgb(205 213 223 / 55%);
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
-  --primary-soft: #e7f2ef;
+  --primary-soft: #e7f6f8;
   --primary-contrast: #ffffff;
 
-  /* Clinical chat redesign aliases. These are intentionally conservative and
-     functional: teal for active/source/send, sand for clinical notes, blue-grey
-     for document/search surfaces, and tiny dots for source status. */
-  --clinical-chat-teal: #147b72;
-  --clinical-chat-teal-soft: #e7f2ef;
-  --clinical-chat-sand: #f8f2e8;
-  --clinical-chat-sand-border: #e8d8bd;
-  --clinical-chat-sand-border-strong: #d8c09a;
-  --clinical-chat-document: #f1f3f2;
-  --clinical-chat-table-header: #fbfbf9;
-  --clinical-chat-amber: #a96f12;
-  --clinical-chat-ready: #167a4b;
+  /* Command (graphite): primary actions — New chat, primary CTAs. */
+  --command: #111827;
+  --command-hover: #0b1220;
+  --command-contrast: #ffffff;
 
-  /* Semantic triads (text / background / border), AA on their own bg */
-  --info-text: #235f83;
-  --info-bg: #e7f1f8;
-  --info-border: #bdd4e5;
-  --success-text: #176b43;
-  --success-bg: #e7f3ec;
-  --success-border: #b8d7c5;
-  --warning-text: #8a5a0a;
-  --warning-bg: #fff3d8;
-  --warning-border: #d7b15c;
-  --danger-text: #a2353f;
-  --danger-bg: #fdebed;
-  --danger-border: #e4b8bd;
+  /* Clinical accent role tokens (Aegean). Selected · evidence · send · focus. */
+  --clinical-accent: var(--primary-500);
+  --clinical-accent-hover: var(--primary-700);
+  --clinical-accent-soft: var(--primary-soft);
+  --clinical-accent-border: #b9e4ea;
+  --clinical-accent-contrast: #ffffff;
+
+  /* Migration compat: existing teal/ready call-sites resolve to the new roles.
+     Remove once all call-sites reference the role tokens directly. */
+  --clinical-chat-teal: var(--clinical-accent);
+  --clinical-chat-teal-soft: var(--clinical-accent-soft);
+  --clinical-chat-sand: #f7f1e6;
+  --clinical-chat-sand-border: #eadcc7;
+  --clinical-chat-sand-border-strong: #ddc7a8;
+  --clinical-chat-document: #f1f4f6;
+  --clinical-chat-table-header: #f7f8fa;
+  --clinical-chat-amber: var(--warning);
+  --clinical-chat-ready: var(--success);
+
+  /* Semantic triads (text / background / border), on-white for light mode. */
+  --info-text: #2563eb;
+  --info-bg: #eff4ff;
+  --info-border: #b2ccff;
+  --success-text: #0f7a49;
+  --success-bg: #ecfdf3;
+  --success-border: #abefc6;
+  --warning-text: #a15c07;
+  --warning-bg: #fef7ec;
+  --warning-border: #f5d9a8;
+  --danger-text: #b42318;
+  --danger-bg: #fef3f2;
+  --danger-border: #fda29b;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -151,8 +174,8 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
-  --disabled: #9aa19a;
-  --focus: #147b72;
+  --disabled: #98a2b3;
+  --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
@@ -162,20 +185,17 @@
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
-  --glow-primary:
-    0 0 0 1px color-mix(in srgb, var(--primary) 15%, transparent),
-    0 10px 28px color-mix(in srgb, var(--primary) 16%, transparent);
-  --glow-soft:
-    0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),
-    0 8px 20px color-mix(in srgb, var(--primary) 10%, transparent);
+  /* Selection emphasis: crisp accent ring + neutral shadow (no colored halo). */
+  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 40%, transparent), 0 8px 20px rgb(16 24 40 / 8%);
+  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 28%, transparent), 0 4px 12px rgb(16 24 40 / 6%);
 
   /* Elevation: layered, small blur, low alpha */
-  --shadow-soft: 0 1px 2px rgb(25 28 24 / 4%), 0 10px 24px rgb(25 28 24 / 5%);
-  --shadow-tight: 0 1px 2px rgb(25 28 24 / 5%), 0 4px 10px rgb(25 28 24 / 4%);
-  --shadow-hover: 0 2px 4px rgb(25 28 24 / 6%), 0 14px 30px rgb(25 28 24 / 7%);
-  --shadow-elevated: 0 1px 2px rgb(25 28 24 / 7%), 0 12px 24px rgb(25 28 24 / 8%), 0 28px 60px rgb(25 28 24 / 9%);
-  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 86%), 0 14px 36px rgb(25 28 24 / 7%);
-  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 78%);
+  --shadow-soft: 0 1px 2px rgb(12 24 34 / 6%), 0 8px 20px rgb(12 24 34 / 6%);
+  --shadow-tight: 0 1px 2px rgb(12 24 34 / 7%), 0 3px 8px rgb(12 24 34 / 5%);
+  --shadow-hover: 0 2px 4px rgb(12 24 34 / 8%), 0 10px 26px rgb(12 24 34 / 8%);
+  --shadow-elevated: 0 1px 2px rgb(12 24 34 / 8%), 0 10px 20px rgb(12 24 34 / 9%), 0 24px 48px rgb(12 24 34 / 10%);
+  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -201,42 +221,43 @@
 }
 
 .dark {
+  /* Dark neutral ramp (inverted): black-polish canvas to near-white ink. */
   --neutral-0: #060708;
-  --neutral-50: #0c0d0f;
-  --neutral-100: #121417;
-  --neutral-200: #1b1d21;
-  --neutral-300: #24272d;
-  --neutral-400: #3c414a;
-  --neutral-500: #6a717f;
-  --neutral-600: #9ba2ae;
-  --neutral-700: #d0d4dc;
-  --neutral-800: #e4e6eb;
-  --neutral-900: #f2f3f5;
-  --neutral-950: #f8fafb;
+  --neutral-50: #0b0d0f;
+  --neutral-100: #101214;
+  --neutral-200: #171a1d;
+  --neutral-300: #23282c;
+  --neutral-400: #3b454b;
+  --neutral-500: #7f8987;
+  --neutral-600: #a7b0ad;
+  --neutral-700: #cdd3d1;
+  --neutral-800: #e6e9e8;
+  --neutral-900: #f5f7f7;
+  --neutral-950: #fbfcfc;
 
-  --primary-50: #092a2a;
-  --primary-100: #0a3434;
-  --primary-200: #0f4f4a;
-  --primary-300: #16756c;
-  --primary-400: #22a095;
-  --primary-500: #31bfb2;
-  --primary-600: #58cfd1;
-  --primary-700: #7ddfe1;
+  /* Clinical accent (Aegean), brightened + desaturated for dark surfaces. */
+  --primary-50: #04252a;
+  --primary-100: #0a3339;
+  --primary-200: #12383b;
+  --primary-300: #1c5a60;
+  --primary-400: #2f9ca0;
+  --primary-500: #4ccfd0;
+  --primary-600: #6fdada;
+  --primary-700: #6fdada;
   --primary-800: #a6ebe9;
   --primary-900: #d0f6f5;
 
   --background: #060708;
   --app-shell: #090a0c;
-  --app-shell-muted: #0e0f11;
-  --app-shell-accent: #33a69f;
-  --surface: #0e1012;
-  --surface-raised: #141619;
-  --surface-subtle: #090a0c;
+  --surface: #101214;
+  --surface-chrome: #0b0d0f;
+  --surface-raised: #171a1d;
+  --surface-subtle: #0b0d0f;
   --surface-inset: #040506;
   --surface-glass: rgb(6 7 8 / 78%);
   --surface-highlight: rgb(255 255 255 / 5%);
-  --surface-lux: rgb(11 12 14 / 93%);
-  --surface-wash: #0c0d0f;
+  --surface-lux: #101214;
+  --surface-wash: #0b0d0f;
   --text: var(--neutral-900);
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
@@ -247,18 +268,28 @@
 
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
-  --primary-soft: #0e3230;
-  --primary-contrast: #04111a;
+  --primary-soft: #12383b;
+  --primary-contrast: #04252a;
 
-  --clinical-chat-teal: #4ccfd0;
-  --clinical-chat-teal-soft: #14353a;
+  --command: #f5f7f7;
+  --command-hover: #e6e9e8;
+  --command-contrast: #060708;
+
+  --clinical-accent: var(--primary-500);
+  --clinical-accent-hover: var(--primary-700);
+  --clinical-accent-soft: var(--primary-soft);
+  --clinical-accent-border: #235b60;
+  --clinical-accent-contrast: #04252a;
+
+  --clinical-chat-teal: var(--clinical-accent);
+  --clinical-chat-teal-soft: var(--clinical-accent-soft);
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
   --clinical-chat-sand-border-strong: #806034;
   --clinical-chat-document: #101215;
   --clinical-chat-table-header: #141619;
-  --clinical-chat-amber: #d8ad48;
-  --clinical-chat-ready: #52d08d;
+  --clinical-chat-amber: var(--warning);
+  --clinical-chat-ready: var(--success);
 
   --info-text: #89c0f0;
   --info-bg: #122c4c;
@@ -283,14 +314,12 @@
   --danger-soft: var(--danger-bg);
 
   --disabled: #555e6b;
-  --focus: #74e0d4;
+  --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(0 0 0 / 72%);
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
-  --glow-primary:
-    0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),
-    0 8px 24px color-mix(in srgb, var(--primary) 8%, transparent);
-  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
+  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 45%, transparent), 0 8px 24px rgb(0 0 0 / 45%);
+  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
 
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 36%), 0 10px 26px rgb(0 0 0 / 40%);
   --shadow-tight: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 35%);
@@ -312,27 +341,13 @@ html {
   min-height: 100%;
   min-height: 100dvh;
   background-color: var(--background);
-  background: linear-gradient(
-    180deg,
-    #fbfbf9 0%,
-    var(--background) 42%,
-    color-mix(in srgb, var(--background) 88%, var(--surface-inset)) 100%
-  );
   overflow-x: clip;
 }
 
 body {
   min-height: 100%;
   min-height: 100dvh;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 68%) 0%, transparent 16rem),
-    linear-gradient(
-      90deg,
-      rgb(255 255 255 / 38%) 0%,
-      transparent 34%,
-      color-mix(in srgb, var(--surface-inset) 44%, transparent) 100%
-    ),
-    var(--background);
+  background: var(--background);
   color: var(--text);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   font-feature-settings:
@@ -417,33 +432,16 @@ summary::-webkit-details-marker {
 
 /* Layout utilities */
 .app-edge-backdrop {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 62%) 0%, transparent 22rem),
-    linear-gradient(
-      105deg,
-      color-mix(in srgb, var(--clinical-chat-teal-soft) 18%, transparent) 0%,
-      transparent 38%,
-      color-mix(in srgb, var(--surface-inset) 48%, transparent) 100%
-    ),
-    var(--background);
+  background: var(--background);
 }
 
 .edge-glass-header {
   isolation: isolate;
   padding-left: max(0.75rem, var(--safe-area-left));
   padding-right: max(0.75rem, var(--safe-area-right));
-  border-bottom-color: color-mix(in srgb, var(--border) 82%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      rgb(255 255 255 / 88%) 0%,
-      rgb(255 255 255 / 74%) 76%,
-      color-mix(in srgb, var(--background) 70%, transparent) 100%
-    ),
-    var(--background);
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 72%),
-    0 14px 28px rgb(25 28 24 / 3%);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .edge-glass-header::after {
@@ -458,264 +456,32 @@ summary::-webkit-details-marker {
 }
 
 .universal-header {
-  background:
-    linear-gradient(
-      180deg,
-      rgb(255 255 255 / 82%) 0%,
-      rgb(255 255 255 / 66%) 68%,
-      color-mix(in srgb, var(--background) 74%, transparent) 100%
-    ),
-    var(--background);
+  background: var(--surface);
 }
 
 .universal-header-mode-button {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 20%, var(--border-strong));
-  background:
-    linear-gradient(
-      180deg,
-      rgb(255 255 255 / 96%) 0%,
-      color-mix(in srgb, var(--surface) 88%, var(--surface-subtle)) 100%
-    ),
-    var(--surface-lux);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 92%),
-    0 8px 22px rgb(25 28 24 / 6%);
-}
-
-.universal-header-mode-button[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 44%, var(--border-lux));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 82%),
-    0 0 0 4px color-mix(in srgb, var(--clinical-chat-teal) 10%, transparent),
-    0 14px 30px rgb(15 31 38 / 9%);
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-tight);
 }
 
 .universal-header-icon-control {
-  border-color: color-mix(in srgb, var(--border-strong) 58%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      rgb(255 255 255 / 94%) 0%,
-      color-mix(in srgb, var(--surface) 86%, var(--surface-subtle)) 100%
-    ),
-    var(--surface-lux);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 86%),
-    0 6px 16px rgb(25 28 24 / 5%);
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .universal-header-icon-control:hover {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 22%, var(--border-strong));
-}
-
-.dark .edge-glass-header {
-  border-bottom-color: color-mix(in srgb, var(--border) 82%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-lux) 92%, transparent) 0%,
-      color-mix(in srgb, var(--surface-lux) 78%, transparent) 76%,
-      color-mix(in srgb, var(--background) 70%, transparent) 100%
-    ),
-    var(--background);
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 4%),
-    0 16px 34px rgb(0 0 0 / 32%);
-}
-
-.dark .edge-glass-header::after {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--background) 64%, transparent), transparent);
-}
-
-.dark .universal-header {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-lux) 92%, transparent) 0%,
-      color-mix(in srgb, var(--surface-lux) 80%, transparent) 68%,
-      color-mix(in srgb, var(--background) 74%, transparent) 100%
-    ),
-    var(--background);
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
 }
 
 .dark .universal-header-mode-button {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 18%, var(--border-lux));
-  background:
-    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--clinical-chat-teal) 10%, transparent), transparent 7rem),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-raised) 88%, var(--surface-highlight)) 0%,
-      var(--surface-lux) 100%
-    ),
-    var(--surface-lux);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    0 10px 24px rgb(0 0 0 / 24%);
-}
-
-.dark .universal-header-mode-button[aria-expanded="true"] {
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    0 0 0 4px color-mix(in srgb, var(--clinical-chat-teal) 14%, transparent),
-    0 14px 30px rgb(0 0 0 / 28%);
+  box-shadow: var(--shadow-tight);
 }
 
 .dark .universal-header-icon-control {
-  border-color: color-mix(in srgb, var(--border-lux) 74%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-raised) 86%, var(--surface-highlight)) 0%,
-      var(--surface-lux) 100%
-    ),
-    var(--surface-lux);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    0 8px 18px rgb(0 0 0 / 22%);
-}
-
-html:not(.dark) .clinical-sidebar-content {
-  color: var(--text);
-}
-
-html:not(.dark) .clinical-sidebar-primary {
-  background: linear-gradient(180deg, #202621 0%, #101511 100%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 12%),
-    0 12px 26px rgb(25 28 24 / 16%),
-    0 2px 6px rgb(25 28 24 / 10%);
-}
-
-html:not(.dark) .clinical-sidebar-primary:hover {
-  background: linear-gradient(180deg, #151b17 0%, #090d0b 100%);
-}
-
-html:not(.dark) .clinical-sidebar-search-input {
-  border-color: color-mix(in srgb, var(--border-strong) 56%, var(--surface));
-  background: linear-gradient(
-    180deg,
-    var(--surface) 0%,
-    color-mix(in srgb, var(--surface) 86%, var(--surface-subtle)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 84%),
-    0 5px 14px rgb(18 35 32 / 3%);
-}
-
-html:not(.dark) .clinical-sidebar-secondary {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 20%, var(--border));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 82%) 0%,
-    color-mix(in srgb, var(--clinical-chat-teal-soft) 42%, var(--surface)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 82%),
-    0 5px 14px rgb(25 28 24 / 4%);
-}
-
-html:not(.dark) .clinical-sidebar-tool-tile {
-  border-color: color-mix(in srgb, var(--border-strong) 56%, var(--surface));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 88%) 0%,
-    color-mix(in srgb, var(--surface) 86%, var(--surface-subtle)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 84%),
-    0 6px 16px rgb(25 28 24 / 4%);
-}
-
-html:not(.dark) .clinical-sidebar-tool-tile[aria-current="page"] {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 24%, var(--border-strong));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 90%) 0%,
-    color-mix(in srgb, var(--clinical-chat-teal-soft) 38%, var(--surface)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 8px 20px rgb(25 28 24 / 5%);
-}
-
-html:not(.dark) .answer-empty-state {
-  text-shadow: 0 1px 0 rgb(255 255 255 / 72%);
-}
-
-html:not(.dark) .mode-home-template {
-  text-shadow: 0 1px 0 rgb(255 255 255 / 72%);
-}
-
-html:not(.dark) .mode-home-icon {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 18%, var(--border));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 72%) 0%,
-    color-mix(in srgb, var(--clinical-chat-teal-soft) 64%, var(--surface)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 86%),
-    0 12px 26px rgb(25 28 24 / 5%);
-}
-
-html:not(.dark) .mode-home-action {
-  border-color: color-mix(in srgb, var(--border-strong) 58%, var(--surface));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 94%) 0%,
-    color-mix(in srgb, var(--surface) 88%, var(--surface-subtle)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 90%),
-    0 10px 24px rgb(25 28 24 / 5%);
-}
-
-html:not(.dark) .mode-home-action:hover {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 28%, var(--border-strong));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 96%) 0%,
-    color-mix(in srgb, var(--clinical-chat-teal-soft) 30%, var(--surface)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 14px 30px rgb(25 28 24 / 7%);
-}
-
-html:not(.dark) .answer-empty-icon {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 18%, var(--border));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 72%) 0%,
-    color-mix(in srgb, var(--clinical-chat-teal-soft) 64%, var(--surface)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 86%),
-    0 12px 26px rgb(25 28 24 / 5%);
-}
-
-html:not(.dark) .answer-empty-action {
-  border-color: color-mix(in srgb, var(--border-strong) 58%, var(--surface));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 94%) 0%,
-    color-mix(in srgb, var(--surface) 88%, var(--surface-subtle)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 90%),
-    0 10px 24px rgb(25 28 24 / 5%);
-}
-
-html:not(.dark) .answer-empty-action:hover {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 28%, var(--border-strong));
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 96%) 0%,
-    color-mix(in srgb, var(--clinical-chat-teal-soft) 30%, var(--surface)) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 14px 30px rgb(25 28 24 / 7%);
+  box-shadow: none;
 }
 
 .floating-composer-edge {
@@ -731,19 +497,12 @@ html:not(.dark) .answer-empty-action:hover {
 .answer-footer-search-pill {
   min-height: 3.8rem;
   gap: 0.25rem;
-  border-color: color-mix(in srgb, var(--border-strong) 60%, var(--surface));
-  background:
-    linear-gradient(
-      180deg,
-      rgb(255 255 255 / 96%) 0%,
-      color-mix(in srgb, var(--surface) 92%, var(--surface-subtle)) 100%
-    ),
-    var(--surface-lux);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
   padding-inline: 0.375rem;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 92%),
-    0 18px 38px rgb(25 28 24 / 12%),
-    0 3px 10px rgb(25 28 24 / 5%);
+    0 1px 2px rgb(16 24 40 / 5%),
+    0 8px 22px rgb(16 24 40 / 8%);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -751,23 +510,18 @@ html:not(.dark) .answer-empty-action:hover {
 }
 
 .answer-footer-search-pill:focus-within {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 34%, var(--border-lux));
+  border-color: var(--clinical-accent);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 0 0 3px color-mix(in srgb, var(--clinical-chat-teal) 11%, transparent),
-    0 16px 34px rgb(18 35 32 / 11%),
-    0 3px 10px rgb(18 35 32 / 6%);
+    0 0 0 3px color-mix(in srgb, var(--clinical-accent) 18%, transparent),
+    0 8px 22px rgb(16 24 40 / 10%);
 }
 
 .answer-footer-search-action {
   height: 2.75rem;
   width: 2.75rem;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 48%, transparent);
-  background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--surface) 84%, var(--surface-subtle)) 100%);
-  color: var(--text-heading);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 2px 8px rgb(25 28 24 / 4%);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
 }
 
 .answer-footer-search-input {
@@ -802,12 +556,13 @@ html:not(.dark) .answer-empty-action:hover {
 .answer-footer-search-send {
   height: 2.8rem;
   width: 2.8rem;
-  background:
-    radial-gradient(circle at 34% 25%, rgb(255 255 255 / 24%), transparent 42%),
-    linear-gradient(145deg, #6fb8ae, var(--clinical-chat-teal));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 30%),
-    0 8px 18px color-mix(in srgb, var(--clinical-chat-teal) 20%, transparent);
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--clinical-accent) 30%, transparent);
+}
+
+.answer-footer-search-send:hover {
+  background: var(--clinical-accent-hover);
 }
 
 .answer-footer-search-chip {
@@ -815,72 +570,25 @@ html:not(.dark) .answer-empty-action:hover {
   min-height: 1.9rem;
   align-items: center;
   gap: 0.35rem;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 56%, transparent);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: rgb(255 255 255 / 82%);
+  background: var(--surface);
   padding-inline: 0.65rem;
-  color: var(--text-heading);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 86%),
-    0 6px 16px rgb(25 28 24 / 5%);
-  backdrop-filter: blur(18px);
+  box-shadow: none;
 }
 
 .answer-footer-search-chip svg {
   height: 0.875rem;
   width: 0.875rem;
-  color: var(--clinical-chat-teal);
-}
-
-.dark .answer-footer-search-pill {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 20%, var(--border-lux));
-  background:
-    radial-gradient(
-      circle at 88% 50%,
-      color-mix(in srgb, var(--clinical-chat-teal) 12%, transparent),
-      transparent 8rem
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-raised) 86%, var(--surface-highlight)) 0%,
-      var(--surface-lux) 100%
-    ),
-    var(--surface-lux);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    0 16px 34px rgb(0 0 0 / 42%),
-    0 3px 10px rgb(0 0 0 / 34%);
-}
-
-.dark .answer-footer-search-pill:focus-within {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 38%, var(--border-lux));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 10%),
-    0 0 0 3px color-mix(in srgb, var(--clinical-chat-teal) 14%, transparent),
-    0 18px 38px rgb(0 0 0 / 46%),
-    0 3px 10px rgb(0 0 0 / 34%);
-}
-
-.dark .answer-footer-search-action {
-  border-color: color-mix(in srgb, var(--border-lux) 74%, transparent);
-  background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
-  color: var(--text-heading);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%);
-}
-
-.dark .answer-footer-search-chip {
-  border-color: color-mix(in srgb, var(--border-lux) 74%, transparent);
-  background: color-mix(in srgb, var(--surface-raised) 76%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    0 6px 16px rgb(0 0 0 / 26%);
+  color: var(--clinical-accent);
 }
 
 .dark .answer-footer-search-action,
 .dark .answer-footer-search-chip {
-  color: var(--text-heading);
+  color: var(--text-muted);
 }
 
 .mobile-app-shell {
@@ -913,58 +621,27 @@ html:not(.dark) .answer-empty-action:hover {
 .desktop-home-search-pill {
   min-height: 3.45rem;
   gap: 0.35rem;
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 18%, var(--border-lux));
-  background:
-    linear-gradient(
-      180deg,
-      rgb(255 255 255 / 96%) 0%,
-      color-mix(in srgb, var(--surface) 90%, var(--surface-subtle)) 100%
-    ),
-    var(--surface-lux);
+  border-color: var(--border-strong);
+  background: var(--surface);
   padding-inline: 0.45rem;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 92%),
-    0 16px 34px rgb(24 36 34 / 10%),
-    0 2px 8px rgb(24 36 34 / 5%);
+    0 1px 2px rgb(16 24 40 / 5%),
+    0 8px 22px rgb(16 24 40 / 8%);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease;
 }
 
 .desktop-home-search-pill:focus-within {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 36%, var(--border-lux));
+  border-color: var(--clinical-accent);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 88%),
-    0 0 0 3px color-mix(in srgb, var(--clinical-chat-teal) 10%, transparent),
-    0 16px 32px rgb(16 43 39 / 12%);
+    0 0 0 3px color-mix(in srgb, var(--clinical-accent) 18%, transparent),
+    0 8px 22px rgb(16 24 40 / 10%);
 }
 
 .desktop-home-search-input {
   font-size: 1rem;
   font-weight: 560;
-}
-
-.dark .desktop-home-search-pill {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 20%, var(--border-lux));
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-raised) 86%, var(--surface-highlight)) 0%,
-      var(--surface-lux) 100%
-    ),
-    var(--surface-lux);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    0 16px 34px rgb(0 0 0 / 38%),
-    0 3px 10px rgb(0 0 0 / 30%);
-}
-
-.dark .desktop-home-search-pill:focus-within {
-  border-color: color-mix(in srgb, var(--clinical-chat-teal) 40%, var(--border-lux));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 10%),
-    0 0 0 3px color-mix(in srgb, var(--clinical-chat-teal) 13%, transparent),
-    0 16px 34px rgb(0 0 0 / 42%);
 }
 
 .mobile-popover-scroll {
@@ -1063,34 +740,12 @@ html:not(.dark) .answer-empty-action:hover {
 
   .document-mobile-search-pill {
     min-height: 3.6rem;
-    border-color: color-mix(in srgb, var(--clinical-chat-teal) 18%, var(--border-strong));
-    background:
-      linear-gradient(
-        180deg,
-        rgb(255 255 255 / 96%) 0%,
-        color-mix(in srgb, var(--surface) 92%, var(--surface-subtle)) 100%
-      ),
-      var(--surface-lux);
+    border-color: var(--border-strong);
+    background: var(--surface);
     padding-inline: 0.375rem;
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 92%),
-      0 18px 38px rgb(25 28 24 / 12%),
-      0 3px 10px rgb(25 28 24 / 5%);
-  }
-
-  .dark .document-mobile-search-pill {
-    border-color: color-mix(in srgb, var(--clinical-chat-teal) 20%, var(--border-lux));
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--surface-raised) 86%, var(--surface-highlight)) 0%,
-        var(--surface-lux) 100%
-      ),
-      var(--surface-lux);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 8%),
-      0 16px 34px rgb(0 0 0 / 42%),
-      0 3px 10px rgb(0 0 0 / 34%);
+      0 1px 2px rgb(16 24 40 / 5%),
+      0 8px 22px rgb(16 24 40 / 8%);
   }
 }
 
@@ -1298,6 +953,15 @@ html:not(.dark) .answer-empty-action:hover {
     --primary-strong: LinkText;
     --primary-soft: Canvas;
     --primary-contrast: Canvas;
+    --surface-chrome: Canvas;
+    --command: ButtonText;
+    --command-hover: ButtonText;
+    --command-contrast: ButtonFace;
+    --clinical-accent: LinkText;
+    --clinical-accent-hover: LinkText;
+    --clinical-accent-soft: Canvas;
+    --clinical-accent-border: ButtonBorder;
+    --clinical-accent-contrast: Canvas;
     --info: LinkText;
     --info-soft: Canvas;
     --success: CanvasText;

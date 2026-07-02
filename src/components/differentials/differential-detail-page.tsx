@@ -37,8 +37,8 @@ const sectionTone: Record<DifferentialSection["tone"], string> = {
   warning: "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
   question: "border-[color:var(--info)]/25 bg-[color:var(--info-soft)] text-[color:var(--info)]",
   action:
-    "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
-  test: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+  test: "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
   overlap: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
@@ -67,12 +67,12 @@ const rowMeta: Record<DifferentialSection["tone"], { label: string; badge: strin
   action: {
     label: "Priority steps",
     badge: "2 pending",
-    badgeClassName: "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+    badgeClassName: "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   },
   test: {
     label: "Core tests",
     badge: "6",
-    badgeClassName: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
+    badgeClassName: "bg-[color:var(--info-soft)] text-[color:var(--info)]",
   },
   overlap: {
     label: "Consider",
@@ -139,7 +139,7 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
       ];
 
   return (
-    <section className="rounded-lg border border-[color:var(--danger)]/24 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--danger-soft)_72%,var(--surface)_28%),var(--surface)_76%)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50 p-3 shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--danger)]/20 bg-[color:var(--surface)] text-[color:var(--danger)] sm:h-9 sm:w-9">
           <ShieldAlert className="h-4 w-4" aria-hidden />
@@ -222,7 +222,7 @@ function RelatedDiagnoses({ record }: { record: DifferentialRecord }) {
       </ul>
       <Link
         href="#related"
-        className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[color:var(--clinical-chat-teal)]"
+        className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
       >
         View all related ({record.related.length + 8})
         <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -240,7 +240,7 @@ function CurrentPresentation({ record }: { record: DifferentialRecord }) {
       <ul className="mt-3 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
         {record.currentPresentation.map((item) => (
           <li key={item} className="flex gap-2">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             {item}
           </li>
         ))}
@@ -258,7 +258,7 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
         <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
           Compare basket ({items.length})
         </h2>
-        <button type="button" className="text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+        <button type="button" className="text-xs font-bold text-[color:var(--clinical-accent)]">
           Clear
         </button>
       </div>
@@ -280,7 +280,7 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
       </ul>
       <button
         type="button"
-        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-bold text-white shadow-[var(--shadow-soft)]"
+        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare selected ({items.length})
@@ -313,11 +313,11 @@ function FooterStatus() {
 function TopActions() {
   return (
     <div className="hidden items-center gap-3 lg:flex">
-      <button className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+      <button className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Add to compare
       </button>
-      <button className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+      <button className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
         <ClipboardCopy className="h-4 w-4" aria-hidden />
         Copy after review
       </button>
@@ -339,17 +339,17 @@ function TopActions() {
 
 function MobilePrimaryActions({ count = 3 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
+    <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
       <button
         type="button"
-        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-bold text-white shadow-[var(--shadow-tight)]"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare ({count})
       </button>
       <button
         type="button"
-        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--clinical-chat-teal)]"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
       >
         <ClipboardCopy className="h-4 w-4" aria-hidden />
         Copy
@@ -360,7 +360,7 @@ function MobilePrimaryActions({ count = 3 }: { count?: number }) {
 
 function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
   return (
-    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg text-[color:var(--clinical-chat-teal)]">
+    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)]">
       {record.slug === "delirium" ? (
         <BrainCircuit className="h-12 w-12 stroke-[1.7]" aria-hidden />
       ) : (
@@ -372,7 +372,7 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
 
 function HeaderChrome() {
   return (
-    <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/96 px-3 py-2 backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link
@@ -383,7 +383,7 @@ function HeaderChrome() {
             <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
           </Link>
           <div className="hidden items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)] sm:flex">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
               <GitCompareArrows className="h-4 w-4" aria-hidden />
             </span>
             <div className="leading-tight">
@@ -425,7 +425,7 @@ function Tabs() {
           className={cn(
             "min-h-11 flex-1 px-2 py-3 text-center sm:flex-none sm:px-4",
             index === 0
-              ? "border-b-2 border-[color:var(--clinical-chat-teal)] text-[color:var(--clinical-chat-teal)]"
+              ? "border-b-2 border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
               : "hover:text-[color:var(--text-heading)]",
             tab === "Source" && "hidden sm:block",
           )}
@@ -448,7 +448,7 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <nav aria-label="Differential breadcrumbs" className="mb-3 flex items-center gap-2 text-xs font-semibold">
-              <Link href="/differentials" className="text-[color:var(--clinical-chat-teal)]">
+              <Link href="/differentials" className="text-[color:var(--clinical-accent)]">
                 Differentials
               </Link>
               <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />

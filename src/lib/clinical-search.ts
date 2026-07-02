@@ -24,6 +24,43 @@ export type RagQueryClassification = {
   needsSynthesis: boolean;
 };
 
+// Shared signals for coloured-zone "next step" retrieval guards (ranking source
+// evidence here; text fast-path and coverage gates in rag.ts). The zone context
+// deliberately requires an explicit coloured-zone reference or "zone criteria" —
+// a bare "zone" (clean zone, time zone, zone 3) plus a common word like "review"
+// must not qualify as escalation evidence. The action group likewise requires a
+// real clinical instruction: bare "review\w*" would let document boilerplate
+// ("Review date: ...", "reviewed by ...") satisfy the guard, so "review" only
+// counts when attached to a clinical role or urgency (senior clinician review,
+// urgent medical officer review) or an escalation/MET phrase.
+export const zoneColourAlternatives = "red|amber|yellow|orange|purple|green|blue";
+export const riskZoneContextPattern = new RegExp(
+  `\\b(?:(?:${zoneColourAlternatives})[\\s-]*zones?|colou?red zones?|zone criteria)\\b`,
+  "i",
+);
+export const riskZoneActionPattern =
+  /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|immediate|medical|clinical|clinician|nursing|officer)\s+(?:clinician\s+|specialist\s+|nurse\s+|officer\s+)?review\w*)\b/i;
+
+// The zone colour a query names, if any ("red-zone risk" -> "red").
+export function queriedZoneColour(query: string) {
+  return query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1]?.toLowerCase() ?? null;
+}
+
+// Zone-context patterns scoped to the colour the query names (falling back to
+// any colour). `zonePhrasePattern` matches explicit zone phrases; `bareColourPattern`
+// is for risk-matrix / flowchart visual units, which store the cell colour as a
+// bare token ("... | Red | escalate ..."). Shared by the fast-path guard and
+// coverage gate in rag.ts and the ranking source check here so a red-zone
+// question is never satisfied (or boosted) by another colour's action evidence.
+export function zoneContextPatternsForQuery(query: string) {
+  const colour = queriedZoneColour(query);
+  const colourGroup = colour ?? `(?:${zoneColourAlternatives})`;
+  return {
+    zonePhrasePattern: new RegExp(`\\b${colourGroup}[\\s-]*zones?\\b|\\bcolou?red zones?\\b|\\bzone criteria\\b`, "i"),
+    bareColourPattern: new RegExp(`\\b${colourGroup}\\b`, "i"),
+  };
+}
+
 export const intentSignalWords = {
   dosing: [
     "dose",
@@ -304,8 +341,14 @@ const comparisonPattern =
   /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b|\bcombine\b.{0,100}\bwith\b/i;
 const tableThresholdPattern =
   /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b/i;
+// Note (8a): bare generic risk/workflow words (`risk`, `urgent`, `escalat*`) were removed from this
+// pattern. On their own — with no medication/dose/pharmacology signal — they mis-classified topical
+// queries like "suicide risk mitigation" or "urgent clinical escalation" as medication-dosing
+// queries, whose retrieval plan then buried the actual guideline under dose/threshold evidence. A
+// genuine medication_dose_risk query still matches via a drug name, dose/route term, or the
+// medication/pharmacology/agitation vocabulary retained below.
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
 const documentIncludePattern =
   /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
 const explicitDocumentLookupPattern =
@@ -551,8 +594,19 @@ function clamp(value: number) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
+// Audit M2: intent signal words match at word boundaries, not as bare
+// substrings — "time limit" used to trigger the "im" dosing signal and
+// "notable" the "table" visual signal, corrupting ranking boosts. Short
+// acronym-like tokens (im, po, mg, prn, mcg) must match as whole words, with
+// a digit-adjacent allowance so unit-attached doses ("100mg") still count;
+// longer entries keep deliberate prefix semantics ("escalat" → escalation,
+// "table" → tables).
 function containsAny(value: string, values: readonly string[]) {
-  return values.some((item) => value.includes(item));
+  return values.some((item) => {
+    const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = item.length <= 3 ? `(?:\\b|\\d)${escaped}\\b` : `\\b${escaped}`;
+    return new RegExp(pattern, "i").test(value);
+  });
 }
 
 function normalizeQueryTokenForLookups(value: string) {
@@ -750,18 +804,24 @@ function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string |
   return 0;
 }
 
+// Explicit dose vocabulary that must survive escalation-word cancellation
+// (audit M3): "clozapine dose review schedule" is a genuine dosing query even
+// though "review" is an escalation signal word.
+const explicitDoseTerms = ["dose", "dosage", "dosing", "titrat", "mg", "mcg"] as const;
+
 export function classifyQueryIntent(query: string): IntentSignals {
   const lowered = query.toLowerCase();
   const match = intentPatterns.find((entry) => entry.pattern.test(query));
   const hasDosingSignals = containsAny(lowered, intentSignalWords.dosing);
   const hasEscalationSignals = containsAny(lowered, intentSignalWords.escalation);
   const hasImageSignals = containsAny(lowered, intentSignalWords.visuals);
+  const hasExplicitDoseTerm = containsAny(lowered, explicitDoseTerms);
 
   return {
     intent: match?.intent ?? "general",
     imageEvidenceFocus: Boolean(match?.imageEvidenceFocus) || hasImageSignals,
     sectionedLookup: Boolean(match?.sectionedLookup),
-    hasDosingSignals: hasDosingSignals && !hasEscalationSignals,
+    hasDosingSignals: hasDosingSignals && (hasExplicitDoseTerm || !hasEscalationSignals),
   };
 }
 
@@ -1313,10 +1373,41 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const riskFlowchartQuery =
     queryClass === "document_lookup" &&
     /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|next step|step after)\b/i.test(query);
-  const riskFlowchartSource =
-    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
-    /\b(?:risk|red zone|red)\b/.test(haystack);
+    (/\b(?:risk|next step|step after)\b/i.test(query) || riskZoneContextPattern.test(query));
+  // Zone-action evidence ("red zone ... escalate / urgent review") answers a risk
+  // flowchart question even when the source never uses the word "flowchart" —
+  // escalation protocols express the flowchart's decision steps as text. Without
+  // this, the generic penalty demoted the documents that actually contain the
+  // red-zone next step while unrelated risk-assessment flowcharts kept the boost.
+  // Both term groups must hit: a bare "zone" or a lone "review" is not evidence.
+  // The patterns are scoped to the colour the query names, so a red-zone
+  // question is not boosted by an amber-zone cell's action; risk-matrix /
+  // flowchart visual units store the cell colour as a bare token
+  // ("... | Red | escalate ..."), so for those units the colour token counts as
+  // zone context.
+  const indexUnitText = result.index_unit
+    ? `${result.index_unit.title} ${result.index_unit.content}`.toLowerCase()
+    : "";
+  const riskFlowchartEvidenceText = `${haystack} ${indexUnitText}`;
+  const zonePatterns = zoneContextPatternsForQuery(query);
+  const zoneCellUnitEvidence =
+    ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
+    zonePatterns.bareColourPattern.test(riskFlowchartEvidenceText);
+  const riskFlowchartZoneActionSource =
+    (zonePatterns.zonePhrasePattern.test(riskFlowchartEvidenceText) || zoneCellUnitEvidence) &&
+    riskZoneActionPattern.test(riskFlowchartEvidenceText);
+  const riskFlowchartLexicalSource =
+    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(riskFlowchartEvidenceText) &&
+    /\b(?:risk|red zone|red)\b/.test(riskFlowchartEvidenceText);
+  // For next-step/action questions, a flowchart page that names the risk but
+  // carries no action instruction is exactly the false positive the retrieval
+  // gates defer past — it must not take the risk-flowchart boost (nor dodge the
+  // generic penalty) on lexical grounds alone; the action evidence must be on
+  // the same result.
+  const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
+  const riskFlowchartSource = nextStepActionQuery
+    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
+    : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
     /\b(?:flow|flowchart|flow chart|algorithm|pathway|matrix)\b/.test(titleTokenText) &&

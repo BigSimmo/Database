@@ -496,16 +496,24 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
+    // Audit M9: block deletion on PENDING jobs too, matching the reindex
+    // routes' checkIngestionMutationSafety predicate. A just-queued reindex
+    // job (status "pending") racing this DELETE let the worker upload a new
+    // generation of image objects after the storage paths were enumerated,
+    // orphaning them permanently.
     const { data: activeJobs, error: activeJobsError } = await supabase
       .from("ingestion_jobs")
       .select("id,status")
       .eq("document_id", id)
-      .eq("status", "processing")
+      .in("status", ["pending", "processing"])
       .limit(1);
 
     if (activeJobsError) throw new Error(activeJobsError.message);
     if ((activeJobs ?? []).length > 0) {
-      throw new PublicApiError("Document is currently indexing. Stop or wait for the worker before deleting.", 409);
+      throw new PublicApiError(
+        "Document has pending or processing indexing work. Stop or wait for the worker before deleting.",
+        409,
+      );
     }
 
     const [images, chunks] = await Promise.all([

@@ -188,6 +188,8 @@ export function DocumentManagementActions({
                 disabled={pending}
               />
             </label>
+            {/* Deliberately the RAW stored title: the confirmation input is compared
+                against document.title verbatim, so the user must see the exact string. */}
             <p className={cn("break-words text-xs font-semibold", textMuted)}>{document.title}</p>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={floatingControl} onClick={closeDialog} disabled={pending}>

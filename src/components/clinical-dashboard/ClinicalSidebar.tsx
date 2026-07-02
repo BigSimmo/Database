@@ -21,13 +21,7 @@ import {
   Sun,
   Wrench,
 } from "lucide-react";
-import {
-  cn,
-  sidebarItem,
-  sidebarToolTile,
-  statusDotReady,
-  textMuted,
-} from "@/components/ui-primitives";
+import { cn, sidebarItem, sidebarToolTile, statusDotReady, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { type AppModeId } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
@@ -65,9 +59,9 @@ const sidebarToolItems = [
 const collapsedSidebarButton =
   "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const collapsedSidebarActiveButton =
-  "border-[color:var(--clinical-chat-teal)]/22 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]";
+  "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
 const collapsedSidebarPrimaryButton =
-  "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--clinical-chat-teal)]";
+  "border-transparent bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:text-[color:var(--command-contrast)]";
 
 export function ClinicalSidebarContent({
   recentQueries,
@@ -112,7 +106,7 @@ export function ClinicalSidebarContent({
       {showHeader ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldAlert className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -138,7 +132,7 @@ export function ClinicalSidebarContent({
           onNewChat();
           onNavigate?.();
         }}
-        className="clinical-sidebar-primary inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
         <MessageSquarePlus className="h-4 w-4" />
         New chat
@@ -176,10 +170,12 @@ export function ClinicalSidebarContent({
                 className={cn(
                   sidebarItem,
                   index === 0 &&
-                    "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
+                    "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
                 )}
               >
-                <MessageSquare className="h-4 w-4 shrink-0" />
+                <MessageSquare
+                  className={cn("h-4 w-4 shrink-0", index === 0 && "text-[color:var(--clinical-accent)]")}
+                />
                 <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
               </button>
             ))
@@ -217,10 +213,15 @@ export function ClinicalSidebarContent({
                   sidebarToolTile,
                   "clinical-sidebar-tool-tile",
                   active &&
-                    "border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-tight)]",
+                    "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] shadow-[var(--shadow-tight)]",
                 )}
               >
-                <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                <Icon
+                  className={cn(
+                    "h-4 w-4",
+                    active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                  )}
+                />
                 <span>{item.label}</span>
               </Link>
             );
@@ -232,7 +233,7 @@ export function ClinicalSidebarContent({
           onFocus={onPrefetchApplications}
           onPointerEnter={onPrefetchApplications}
           onClick={onNavigate}
-          className="clinical-sidebar-secondary mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+          className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]"
         >
           View tools
           <ChevronDown className="-rotate-90 h-4 w-4" />
@@ -278,10 +279,10 @@ export function ClinicalSidebarContent({
             window.requestAnimationFrame(onOpenSettings);
           }}
           data-testid="sidebar-account-settings"
-          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/24 hover:bg-[color:var(--clinical-chat-teal-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)]">
             {identity.initials}
           </span>
           <span className="min-w-0 flex-1">
@@ -437,7 +438,7 @@ export function ClinicalDesktopSidebar({
           type="button"
           onClick={onOpenSettings}
           data-testid="collapsed-account-settings"
-          className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/14 bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--clinical-chat-teal-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           title={identity.detail}
           aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
         >

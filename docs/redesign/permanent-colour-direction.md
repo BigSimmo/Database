@@ -24,47 +24,47 @@ This keeps the app clean and crisp while preserving a clinical identity.
 
 ### Light mode
 
-| Role | Token | Hex | Purpose |
-| --- | --- | --- | --- |
-| Canvas | `--background` | `#FFFFFF` | Main app canvas; no cream tint |
-| Rail | `--surface-subtle` | `#F7F8FA` | Sidebar rail, header band, quiet nested areas |
-| Surface | `--surface` | `#FFFFFF` | Cards, menus, answer panels |
-| Raised surface | `--surface-raised` | `#FCFCFD` | Composer, floating controls |
-| Inset surface | `--surface-inset` | `#F1F4F6` | Inputs, recessed chips, skeletons |
-| Border | `--border` | `#E5E7EB` | Default hairline |
-| Strong border | `--border-strong` | `#CDD5DF` | Active/focused boundaries |
-| Text | `--text` | `#101418` | Body text |
-| Heading | `--text-heading` | `#080B0F` | High-emphasis headings |
-| Muted text | `--text-muted` | `#475467` | Secondary text |
-| Soft text | `--text-soft` | `#667085` | Metadata and placeholders |
-| Command | `--command` | `#111827` | Primary actions and high-emphasis command controls |
-| Command hover | `--command-hover` | `#0B1220` | Hover/pressed command state |
-| Clinical accent | `--clinical-accent` | `#0B6F86` | Evidence, selected mode, source confidence, send action |
-| Clinical accent hover | `--clinical-accent-hover` | `#095D70` | Hover/pressed clinical action |
-| Clinical accent soft | `--clinical-accent-soft` | `#E7F6F8` | Small evidence chips and icon tiles only |
-| Clinical accent border | `--clinical-accent-border` | `#B9E4EA` | Selected/evidence borders |
-| Info | `--info` | `#2563EB` | Document/search information where clinical confidence is not implied |
-| Success | `--success` | `#0F7A49` | Ready, complete, connected, passed |
-| Warning | `--warning` | `#A15C07` | Setup, caution, review required |
-| Danger | `--danger` | `#B42318` | Critical/safety states |
+| Role                   | Token                      | Hex       | Purpose                                                              |
+| ---------------------- | -------------------------- | --------- | -------------------------------------------------------------------- |
+| Canvas                 | `--background`             | `#FFFFFF` | Main app canvas; no cream tint                                       |
+| Rail                   | `--surface-subtle`         | `#F7F8FA` | Sidebar rail, header band, quiet nested areas                        |
+| Surface                | `--surface`                | `#FFFFFF` | Cards, menus, answer panels                                          |
+| Raised surface         | `--surface-raised`         | `#FCFCFD` | Composer, floating controls                                          |
+| Inset surface          | `--surface-inset`          | `#F1F4F6` | Inputs, recessed chips, skeletons                                    |
+| Border                 | `--border`                 | `#E5E7EB` | Default hairline                                                     |
+| Strong border          | `--border-strong`          | `#CDD5DF` | Active/focused boundaries                                            |
+| Text                   | `--text`                   | `#101418` | Body text                                                            |
+| Heading                | `--text-heading`           | `#080B0F` | High-emphasis headings                                               |
+| Muted text             | `--text-muted`             | `#475467` | Secondary text                                                       |
+| Soft text              | `--text-soft`              | `#667085` | Metadata and placeholders                                            |
+| Command                | `--command`                | `#111827` | Primary actions and high-emphasis command controls                   |
+| Command hover          | `--command-hover`          | `#0B1220` | Hover/pressed command state                                          |
+| Clinical accent        | `--clinical-accent`        | `#0B6F86` | Evidence, selected mode, source confidence, send action              |
+| Clinical accent hover  | `--clinical-accent-hover`  | `#095D70` | Hover/pressed clinical action                                        |
+| Clinical accent soft   | `--clinical-accent-soft`   | `#E7F6F8` | Small evidence chips and icon tiles only                             |
+| Clinical accent border | `--clinical-accent-border` | `#B9E4EA` | Selected/evidence borders                                            |
+| Info                   | `--info`                   | `#2563EB` | Document/search information where clinical confidence is not implied |
+| Success                | `--success`                | `#0F7A49` | Ready, complete, connected, passed                                   |
+| Warning                | `--warning`                | `#A15C07` | Setup, caution, review required                                      |
+| Danger                 | `--danger`                 | `#B42318` | Critical/safety states                                               |
 
 ### Dark mode
 
 Keep the black-polish direction and pair it with a brighter cyan-blue accent.
 
-| Role | Token | Hex |
-| --- | --- | --- |
-| Canvas | `--background` | `#060708` |
-| Surface | `--surface` | `#101214` |
-| Raised surface | `--surface-raised` | `#171A1D` |
-| Inset surface | `--surface-inset` | `#040506` |
-| Text | `--text` | `#F5F7F7` |
-| Muted text | `--text-muted` | `#A7B0AD` |
-| Clinical accent | `--clinical-accent` | `#4CCFD0` |
+| Role                 | Token                    | Hex       |
+| -------------------- | ------------------------ | --------- |
+| Canvas               | `--background`           | `#060708` |
+| Surface              | `--surface`              | `#101214` |
+| Raised surface       | `--surface-raised`       | `#171A1D` |
+| Inset surface        | `--surface-inset`        | `#040506` |
+| Text                 | `--text`                 | `#F5F7F7` |
+| Muted text           | `--text-muted`           | `#A7B0AD` |
+| Clinical accent      | `--clinical-accent`      | `#4CCFD0` |
 | Clinical accent soft | `--clinical-accent-soft` | `#12383B` |
-| Success | `--success` | `#7DE0A3` |
-| Warning | `--warning` | `#F0C15A` |
-| Danger | `--danger` | `#FF8D96` |
+| Success              | `--success`              | `#7DE0A3` |
+| Warning              | `--warning`              | `#F0C15A` |
+| Danger               | `--danger`               | `#FF8D96` |
 
 ## Role contract
 
@@ -72,14 +72,14 @@ Do not map every important UI element to the same accent colour.
 
 ```css
 --command: #111827;
---command-hover: #0B1220;
+--command-hover: #0b1220;
 
---clinical-accent: #0B6F86;
---clinical-accent-hover: #095D70;
---clinical-accent-soft: #E7F6F8;
---clinical-accent-border: #B9E4EA;
+--clinical-accent: #0b6f86;
+--clinical-accent-hover: #095d70;
+--clinical-accent-soft: #e7f6f8;
+--clinical-accent-border: #b9e4ea;
 
---success: #0F7A49;
+--success: #0f7a49;
 ```
 
 Mapping:
@@ -146,19 +146,19 @@ Mapping:
 
 Spot checks against the final palette:
 
-| Pair | Ratio |
-| --- | --- |
-| Ink on white | 18.50:1 |
-| Muted on white | 7.69:1 |
-| Soft on white | 4.97:1 |
-| White on graphite | 17.74:1 |
-| Clinical accent on white | 5.78:1 |
-| Clinical accent on soft accent | 5.21:1 |
-| Success on white | 5.38:1 |
-| Warning on white | 5.19:1 |
-| Danger on white | 6.57:1 |
-| Dark text on dark canvas | 18.75:1 |
-| Dark accent on dark surface | 9.96:1 |
+| Pair                           | Ratio   |
+| ------------------------------ | ------- |
+| Ink on white                   | 18.50:1 |
+| Muted on white                 | 7.69:1  |
+| Soft on white                  | 4.97:1  |
+| White on graphite              | 17.74:1 |
+| Clinical accent on white       | 5.78:1  |
+| Clinical accent on soft accent | 5.21:1  |
+| Success on white               | 5.38:1  |
+| Warning on white               | 5.19:1  |
+| Danger on white                | 6.57:1  |
+| Dark text on dark canvas       | 18.75:1 |
+| Dark accent on dark surface    | 9.96:1  |
 
 ## Rejected directions
 

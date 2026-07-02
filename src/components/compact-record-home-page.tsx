@@ -39,10 +39,10 @@ const pillToneClass: Record<CompactHomePillTone | "teal", string> = {
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
   neutral: "bg-[color:var(--text-soft)]",
-  primary: "bg-[color:var(--clinical-chat-teal)]",
+  primary: "bg-[color:var(--clinical-accent)]",
   purple: "bg-violet-600",
   success: "bg-[color:var(--success)]",
-  teal: "bg-[color:var(--clinical-chat-teal)]",
+  teal: "bg-[color:var(--clinical-accent)]",
 };
 
 export function CompactRecordHomePage({
@@ -70,7 +70,7 @@ export function CompactRecordHomePage({
         className="mx-auto flex w-full max-w-[58rem] flex-col items-center justify-center gap-5 text-center sm:gap-6 lg:gap-7"
       >
         <section className="grid justify-items-center gap-3 sm:gap-4" aria-labelledby={`${testId}-title`}>
-          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem] lg:rounded-[1.35rem]">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem] lg:rounded-[1.35rem]">
             <Icon className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10" aria-hidden />
           </span>
           <div className="grid gap-2">
@@ -105,7 +105,7 @@ export function CompactRecordHomePage({
                   index > 0 && "border-t border-[color:var(--border)]",
                 )}
               >
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11">
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11">
                   <CardIcon className="h-5 w-5" aria-hidden />
                 </span>
                 <span className="min-w-0">
@@ -117,7 +117,7 @@ export function CompactRecordHomePage({
                   </span>
                 </span>
                 <ArrowRight
-                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-chat-teal)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden
                 />
               </Link>
@@ -134,10 +134,10 @@ export function CompactRecordHomePage({
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="inline-flex min-h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
+                  className="inline-flex min-h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
                 >
                   {LinkIcon ? (
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                       <LinkIcon className="h-3.5 w-3.5" aria-hidden />
                     </span>
                   ) : (
@@ -151,7 +151,7 @@ export function CompactRecordHomePage({
         </section>
 
         <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
-          <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-chat-teal)]">
+          <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
             <ShieldCheck className="h-4 w-4" aria-hidden />
             {verificationLabel}
           </span>

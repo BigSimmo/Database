@@ -57,12 +57,12 @@ describe("differential records", () => {
     expect(acuteConfusionPresentationWorkflow.totalCount).toBe(8);
     expect(acuteConfusionPresentationWorkflow.candidates).toHaveLength(8);
     expect(acuteConfusionPresentationWorkflow.candidates.filter((candidate) => candidate.selected)).toHaveLength(6);
-    expect(acuteConfusionPresentationWorkflow.candidates.every((candidate) => getDifferentialRecord(candidate.slug))).toBe(
-      true,
-    );
-    expect(getDifferentialRecord("delirium")?.sections.some((section) => section.items.join(" ").includes("Placeholder"))).toBe(
-      false,
-    );
+    expect(
+      acuteConfusionPresentationWorkflow.candidates.every((candidate) => getDifferentialRecord(candidate.slug)),
+    ).toBe(true);
+    expect(
+      getDifferentialRecord("delirium")?.sections.some((section) => section.items.join(" ").includes("Placeholder")),
+    ).toBe(false);
     expect(
       getDifferentialRecord("substance-intoxication")?.sections.some((section) =>
         section.items.join(" ").includes("Placeholder information page"),

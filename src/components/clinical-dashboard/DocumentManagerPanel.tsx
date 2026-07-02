@@ -2,14 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import {
-  UploadCloud,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-  ShieldCheck,
-  ExternalLink,
-} from "lucide-react";
+import { UploadCloud, Loader2, RefreshCw, Sparkles, ShieldCheck, ExternalLink } from "lucide-react";
 import {
   cn,
   panelSubtle,
@@ -24,12 +17,10 @@ import {
   toneWarning,
   EmptyState,
 } from "@/components/ui-primitives";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
+import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
-import type {
-  ClinicalDocument,
-  IngestionJob,
-  ImportBatch,
-} from "@/lib/types";
+import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
 
 // Setup and quality types
 export type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
@@ -47,12 +38,7 @@ export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures
 export type IndexingMonitorFilter = "all" | "active" | "failed";
 
 export type IngestionQualityReviewType =
-  | "failed_ocr"
-  | "low_extraction_confidence"
-  | "missing_tables"
-  | "image_only_pages"
-  | "failed_job"
-  | "manual_review";
+  "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
 
 export type IngestionQualityReviewItem = {
   id: string;
@@ -207,7 +193,11 @@ export function UploadPanel({
     }
 
     setUploading(true);
-    changeStatus(files.length === 1 ? "Uploading private document to Supabase Storage..." : `Uploading 1 of ${files.length}: ${files[0].name}`);
+    changeStatus(
+      files.length === 1
+        ? "Uploading private document to Supabase Storage..."
+        : `Uploading 1 of ${files.length}: ${files[0].name}`,
+    );
 
     const failures: string[] = [];
     for (let index = 0; index < files.length; index++) {
@@ -222,12 +212,16 @@ export function UploadPanel({
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "Upload failed");
       } catch (error) {
-        failures.push(`${file.name}: ${error instanceof Error ? error.message : "Upload failed"}`);
+        failures.push(`${file.name}: ${error instanceof Error ? error.message : errorCopy.uploadFailed}`);
       }
     }
 
     if (failures.length === 0) {
-      changeStatus(files.length === 1 ? "Successfully uploaded private document to storage queue." : `Successfully uploaded ${files.length} private documents.`);
+      changeStatus(
+        files.length === 1
+          ? "Successfully uploaded private document to storage queue."
+          : `Successfully uploaded ${files.length} private documents.`,
+      );
       if (input) input.value = "";
       onUploaded();
     } else {
@@ -303,10 +297,10 @@ export function IndexingMonitor({
         icon={UploadCloud}
         title={
           filter === "failed"
-            ? "No failed indexing work"
+            ? emptyStates.ingestionJobs.noneFailed
             : filter === "active"
-              ? "No active indexing work"
-              : "No ingestion jobs"
+              ? emptyStates.ingestionJobs.noneActive
+              : emptyStates.ingestionJobs.none
         }
         body={
           filter === "failed"
@@ -440,8 +434,8 @@ export function IngestionQualityConsole({
     return (
       <EmptyState
         icon={ShieldCheck}
-        title="No ingestion quality issues"
-        body="Loaded documents have no current OCR, table, extraction, or failed-job review items."
+        title={emptyStates.ingestionQuality.title}
+        body={emptyStates.ingestionQuality.body}
       />
     );
   }
@@ -496,7 +490,9 @@ export function IngestionQualityConsole({
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">{item.documentTitle}</p>
+                  <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">
+                    {cleanDisplayTitle(item.documentTitle)}
+                  </p>
                   <p className={cn("mt-1 text-xs leading-5", textMuted)}>
                     {item.title}: {item.detail}
                   </p>

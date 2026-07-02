@@ -170,7 +170,8 @@ describe("RAG structured-output fallback", () => {
     ]);
 
     expect(answer.answer).toContain("1.5 x 10^9/L");
-    expect(answer.answer).toMatch(/withhold clozapine/i);
+    // Strip bold markers first: values-only bolding emphasises escalation verbs ("**withhold**").
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/withhold clozapine/i);
     expect(answer.answer).not.toContain("The relevant source is");
   });
 

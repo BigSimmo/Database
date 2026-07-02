@@ -81,7 +81,7 @@ function renderSummaryIcon(card: ServiceSummaryCard) {
 
 function renderRowIcon(label: string) {
   const normalized = label.toLowerCase();
-  const className = "h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)]";
+  const className = "h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]";
   if (normalized.includes("phone") || normalized.includes("route") || normalized.includes("contact")) {
     return <Phone className={className} aria-hidden />;
   }
@@ -242,7 +242,7 @@ function Section({
     <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
       <div className="border-b border-[color:var(--border)] px-3 py-3 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
             <Icon className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
@@ -259,9 +259,9 @@ function Section({
 
 function SummaryCard({ card }: { card: ServiceSummaryCard }) {
   return (
-    <article className="group min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/30 hover:bg-[color:var(--surface)]">
+    <article className="group min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface)]">
       <div className="mb-2 flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--surface-raised)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
           {renderSummaryIcon(card)}
         </span>
         <div className="min-w-0 flex-1">
@@ -270,7 +270,10 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
             {displayText(card.title)}
           </h3>
         </div>
-        <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-chat-teal)]" aria-hidden />
+        <ChevronRight
+          className="mt-2 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+          aria-hidden
+        />
       </div>
       <p className={cn("pl-[3.25rem] text-xs leading-5", textMuted)}>{displayText(card.detail)}</p>
     </article>
@@ -301,7 +304,7 @@ function ReferralTable({
             key={`${row.label}-${index}-mobile`}
             className={cn(
               "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-              index === 0 && "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)]/35",
+              index === 0 && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35",
               row.label.toLowerCase().includes("cost") && "bg-[color:var(--success-soft)]/25",
             )}
           >
@@ -318,7 +321,7 @@ function ReferralTable({
                 disabled={!hasText(row.value)}
                 onClick={() => onCopy(row.value, `${row.label} copied`)}
                 aria-label={`Copy ${row.label}`}
-                className="inline-grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Copy className="h-4 w-4" aria-hidden />
               </button>
@@ -354,13 +357,13 @@ function ReferralTable({
                 key={`${row.label}-${index}`}
                 className={cn(
                   "align-top transition-colors hover:bg-[color:var(--surface-subtle)]",
-                  index === 0 && "bg-[color:var(--clinical-chat-teal-soft)]/45",
+                  index === 0 && "bg-[color:var(--clinical-accent-soft)]/45",
                   row.label.toLowerCase().includes("cost") && "bg-[color:var(--success-soft)]/30",
                 )}
               >
                 <th scope="row" className="border-b border-[color:var(--border)] px-4 py-4">
                   <span className="flex min-w-0 items-start gap-2.5">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-chat-teal-soft)] shadow-[var(--shadow-inset)]">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]">
                       {renderRowIcon(row.label)}
                     </span>
                     <span className="min-w-0">
@@ -368,7 +371,7 @@ function ReferralTable({
                         {row.label}
                       </span>
                       {index === 0 ? (
-                        <span className="mt-0.5 block text-xs font-medium text-[color:var(--clinical-chat-teal)]">
+                        <span className="mt-0.5 block text-xs font-medium text-[color:var(--clinical-accent)]">
                           Primary access route
                         </span>
                       ) : null}
@@ -386,7 +389,7 @@ function ReferralTable({
                     disabled={!hasText(row.value)}
                     onClick={() => onCopy(row.value, `${row.label} copied`)}
                     aria-label={`Copy ${row.label}`}
-                    className="inline-grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:text-[color:var(--clinical-chat-teal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Copy className="h-4 w-4" aria-hidden />
                   </button>
@@ -441,9 +444,7 @@ function CriteriaGroup({
               <div key={item.label} className="flex min-h-10 items-center justify-between gap-3 py-2">
                 <div className="flex min-w-0 items-center gap-2.5">
                   {renderCriterionIcon(item.tone)}
-                  <p className="min-w-0 text-sm font-medium leading-5 text-[color:var(--text-heading)]">
-                    {item.label}
-                  </p>
+                  <p className="min-w-0 text-sm font-medium leading-5 text-[color:var(--text-heading)]">{item.label}</p>
                 </div>
                 <span
                   className={cn(
@@ -458,7 +459,12 @@ function CriteriaGroup({
           })}
         </div>
       ) : (
-        <p className={cn("rounded-lg border border-dashed border-[color:var(--border)] p-3 text-sm leading-6", textMuted)}>
+        <p
+          className={cn(
+            "rounded-lg border border-dashed border-[color:var(--border)] p-3 text-sm leading-6",
+            textMuted,
+          )}
+        >
           No items in this group.
         </p>
       )}
@@ -648,9 +654,9 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               </div>
             </section>
 
-            <section className="grid gap-3 rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)]">
+            <section className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)]">
               <div className="flex min-w-0 gap-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                   <Phone className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">
@@ -727,7 +733,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
                 <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                       <ShieldCheck className="h-5 w-5" aria-hidden />
                     </span>
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Verification</h2>
@@ -755,11 +761,14 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
                 <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                       <Tag className="h-5 w-5" aria-hidden />
                     </span>
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Tags & catchments</h2>
-                    <TagList items={[...(service.catchments ?? []), ...(service.tags ?? [])]} emptyLabel="No tags listed." />
+                    <TagList
+                      items={[...(service.catchments ?? []), ...(service.tags ?? [])]}
+                      emptyLabel="No tags listed."
+                    />
                   </div>
                 </section>
               </div>
@@ -804,7 +813,6 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               {service.catalogueLabel ?? "Catalogue service"}
             </p>
           </div>
-
         </div>
       </div>
     </main>

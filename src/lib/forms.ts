@@ -338,6 +338,9 @@ export function searchFormRecords(query: string, limit = formRecords.length): Fo
       return { service: form, score, reasons };
     })
     .filter((match) => match.score > 0)
-    .sort((left, right) => right.score - left.score || formRecords.indexOf(left.service) - formRecords.indexOf(right.service))
+    .sort(
+      (left, right) =>
+        right.score - left.score || formRecords.indexOf(left.service) - formRecords.indexOf(right.service),
+    )
     .slice(0, limit);
 }
