@@ -1968,7 +1968,7 @@ export function buildRetrievalQueryVariants(
     // response charts) that answer zone / next-step questions. Match the zone the
     // query actually names so an amber-zone question does not pull red-zone
     // chunks into its candidate pool.
-    const zoneColour = query.match(/\b(red|amber|yellow|orange|purple|green|blue)[\s-]*zones?\b/i)?.[1];
+    const zoneColour = query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1];
     if (zoneColour) {
       addVariant(`${zoneColour.toLowerCase()} zone`);
     }
