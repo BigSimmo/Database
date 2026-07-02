@@ -16,8 +16,11 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const maxPort = 65535;
 const identityPath = "/api/local-project-id";
 const logPath = path.join(projectRoot, "dev-server.log");
+const startupLockPath = path.join(projectRoot, "tmp", "ensure-local-server.lock");
 const printUrlOnly = process.argv.slice(2).includes("--print-url");
 const debugEnabled = process.env.ENSURE_DEBUG === "1";
+const startupLockStaleMs = 3 * 60 * 1000;
+const readyStableMs = 5 * 1000;
 
 function debug(message) {
   if (debugEnabled) console.error(`[ensure-local-server] ${message}`);
@@ -94,6 +97,36 @@ function requestJson(url, timeoutMs = 3500) {
   });
 }
 
+function requestOk(url, timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let request;
+
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fallback);
+      resolve(value);
+    };
+
+    const fallback = setTimeout(() => {
+      request?.destroy();
+      settle(false);
+    }, timeoutMs + 500);
+
+    request = http.get(url, { timeout: timeoutMs }, (response) => {
+      response.resume();
+      response.on("end", () => settle(response.statusCode >= 200 && response.statusCode < 400));
+    });
+
+    request.on("timeout", () => {
+      request.destroy();
+      settle(false);
+    });
+    request.on("error", () => settle(false));
+  });
+}
+
 async function isThisProject(port, attempts = 3) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const payload = await requestJson(`http://localhost:${port}${identityPath}`);
@@ -119,6 +152,41 @@ async function findStartPort(startPort) {
   throw new Error(`No free local port found from ${startPort} to ${maxPort}.`);
 }
 
+async function acquireStartupLock() {
+  fs.mkdirSync(path.dirname(startupLockPath), { recursive: true });
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < startupLockStaleMs) {
+    try {
+      const fd = fs.openSync(startupLockPath, "wx");
+      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }));
+      fs.closeSync(fd);
+      debug(`acquired startup lock ${startupLockPath}`);
+      return () => {
+        try {
+          fs.rmSync(startupLockPath, { force: true });
+          debug(`released startup lock ${startupLockPath}`);
+        } catch (error) {
+          debug(`failed to release startup lock: ${error?.message ?? error}`);
+        }
+      };
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+
+      const ageMs = Date.now() - (fs.statSync(startupLockPath, { throwIfNoEntry: false })?.mtimeMs ?? Date.now());
+      if (ageMs > startupLockStaleMs) {
+        debug(`removing stale startup lock after ${Math.round(ageMs)}ms`);
+        fs.rmSync(startupLockPath, { force: true });
+        continue;
+      }
+
+      await sleep(500);
+    }
+  }
+
+  throw new Error(`Timed out waiting for ${startupLockPath}. Another startup may be stuck.`);
+}
+
 function startDevServer(port) {
   debug(`starting dev server on ${port}`);
   const out = fs.openSync(logPath, "a");
@@ -139,8 +207,20 @@ function startDevServer(port) {
 }
 
 async function waitForProject(port) {
-  for (let attempt = 0; attempt < 90; attempt += 1) {
-    if (await isThisProject(port, 1)) return true;
+  let stableSince = null;
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    if (await isThisProject(port, 1)) {
+      stableSince ??= Date.now();
+      const stableForMs = Date.now() - stableSince;
+      if (stableForMs >= readyStableMs) {
+        const rootReady = await requestOk(localUrl(port));
+        debug(`root readiness on ${port}: ${rootReady}`);
+        if (rootReady && (await isPortBusy(port))) return true;
+        stableSince = null;
+      }
+    } else {
+      stableSince = null;
+    }
     debug(`waiting for project on ${port}: attempt ${attempt + 1}`);
     await sleep(500);
   }
@@ -154,34 +234,60 @@ async function main() {
   debug(`existing port ${existingPort ?? "none"}`);
 
   if (existingPort) {
-    console.log(printUrlOnly ? localUrl(existingPort) : `Clinical KB is already running at ${localUrl(existingPort)}`);
-    return 0;
+    if (await waitForProject(existingPort)) {
+      console.log(
+        printUrlOnly ? localUrl(existingPort) : `Clinical KB is already running at ${localUrl(existingPort)}`,
+      );
+      return 0;
+    }
   }
 
-  const target = await findStartPort(stablePort);
-  debug(`target ${target.port}, alreadyRunning=${target.alreadyRunning}`);
+  const releaseStartupLock = await acquireStartupLock();
 
-  if (target.alreadyRunning) {
-    console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is already running at ${localUrl(target.port)}`);
-    return 0;
+  try {
+    const lockedExistingPort = await findExistingProjectServer(stablePort);
+    debug(`locked existing port ${lockedExistingPort ?? "none"}`);
+
+    if (lockedExistingPort && (await waitForProject(lockedExistingPort))) {
+      console.log(
+        printUrlOnly
+          ? localUrl(lockedExistingPort)
+          : `Clinical KB is already running at ${localUrl(lockedExistingPort)}`,
+      );
+      return 0;
+    }
+
+    const target = await findStartPort(stablePort);
+    debug(`target ${target.port}, alreadyRunning=${target.alreadyRunning}`);
+
+    if (target.alreadyRunning) {
+      if (await waitForProject(target.port)) {
+        console.log(
+          printUrlOnly ? localUrl(target.port) : `Clinical KB is already running at ${localUrl(target.port)}`,
+        );
+        return 0;
+      }
+    }
+
+    if (target.port !== stablePort && !printUrlOnly) {
+      console.log(
+        `Stable project port ${stablePort} is serving another local project; starting Clinical KB at ${localUrl(target.port)}`,
+      );
+    }
+
+    startDevServer(target.port);
+
+    if (await waitForProject(target.port)) {
+      console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is running at ${localUrl(target.port)}`);
+      if (!printUrlOnly) console.log(`Server log: ${logPath}`);
+      return 0;
+    }
+
+    console.error(`Clinical KB did not become ready at ${localUrl(target.port)}. Check ${logPath}`);
+    return 1;
+  } finally {
+    releaseStartupLock();
   }
-
-  if (target.port !== stablePort && !printUrlOnly) {
-    console.log(
-      `Stable project port ${stablePort} is serving another local project; starting Clinical KB at ${localUrl(target.port)}`,
-    );
-  }
-
-  startDevServer(target.port);
-
-  if (await waitForProject(target.port)) {
-    console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is running at ${localUrl(target.port)}`);
-    if (!printUrlOnly) console.log(`Server log: ${logPath}`);
-    return 0;
-  }
-
-  console.error(`Clinical KB did not become ready at ${localUrl(target.port)}. Check ${logPath}`);
-  return 1;
 }
 
 process.exitCode = await main();

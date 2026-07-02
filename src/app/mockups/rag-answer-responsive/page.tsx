@@ -81,32 +81,30 @@ const toneClass: Record<Tone, string> = {
   blue: "border-sky-200 bg-sky-50 text-sky-800",
 };
 
-const noteTone: Record<
-  NoteTone,
-  { label: string; icon: typeof ShieldCheck; tone: Tone; dot: string; panel: string }
-> = {
-  monitor: {
-    label: "Monitor",
-    icon: Activity,
-    tone: "teal",
-    dot: "bg-teal-600",
-    panel: "border-teal-200 bg-teal-50/55",
-  },
-  caution: {
-    label: "Caution",
-    icon: AlertTriangle,
-    tone: "amber",
-    dot: "bg-amber-500",
-    panel: "border-amber-200 bg-amber-50/60",
-  },
-  escalate: {
-    label: "Escalate",
-    icon: ShieldAlert,
-    tone: "red",
-    dot: "bg-red-600",
-    panel: "border-red-200 bg-red-50/65",
-  },
-};
+const noteTone: Record<NoteTone, { label: string; icon: typeof ShieldCheck; tone: Tone; dot: string; panel: string }> =
+  {
+    monitor: {
+      label: "Monitor",
+      icon: Activity,
+      tone: "teal",
+      dot: "bg-teal-600",
+      panel: "border-teal-200 bg-teal-50/55",
+    },
+    caution: {
+      label: "Caution",
+      icon: AlertTriangle,
+      tone: "amber",
+      dot: "bg-amber-500",
+      panel: "border-amber-200 bg-amber-50/60",
+    },
+    escalate: {
+      label: "Escalate",
+      icon: ShieldAlert,
+      tone: "red",
+      dot: "bg-red-600",
+      panel: "border-red-200 bg-red-50/65",
+    },
+  };
 
 const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--clinical-chat-teal)]";
@@ -121,7 +119,9 @@ function Pill({
   children: ReactNode;
 }) {
   return (
-    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold ${toneClass[tone]}`}>
+    <span
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold ${toneClass[tone]}`}
+    >
       {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       {children}
     </span>
@@ -165,7 +165,8 @@ function PageIntro() {
       </h1>
       <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
         Each surface has two completed mockups: a mobile treatment and a desktop or larger-screen treatment. The system
-        keeps the answer readable while making provenance, clinical action, and audit detail available without competing.
+        keeps the answer readable while making provenance, clinical action, and audit detail available without
+        competing.
       </p>
     </header>
   );
@@ -227,7 +228,9 @@ function PhoneShell({ children }: { children: ReactNode }) {
       <div className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2">
         <div className="flex min-h-11 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)]">
           <Plus className="h-4 w-4 text-[color:var(--text-muted)]" />
-          <span className="min-w-0 flex-1 truncate text-sm text-[color:var(--text-muted)]">Ask a clinical question...</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-[color:var(--text-muted)]">
+            Ask a clinical question...
+          </span>
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[color:var(--primary)] text-[color:var(--primary-contrast)]">
             <ExternalLink className="h-4 w-4" />
           </span>
@@ -256,13 +259,25 @@ function AnswerBubble({ dense = false }: { dense?: boolean }) {
           <Stethoscope className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <p className={dense ? "text-[15px] font-medium leading-6 text-[color:var(--text-heading)]" : "text-base font-medium leading-7 text-[color:var(--text-heading)]"}>
+          <p
+            className={
+              dense
+                ? "text-[15px] font-medium leading-6 text-[color:var(--text-heading)]"
+                : "text-base font-medium leading-7 text-[color:var(--text-heading)]"
+            }
+          >
             {answerText}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Pill icon={BookOpen} tone="teal">3 sources</Pill>
-            <Pill icon={ClipboardCheck} tone="amber">3 clinical notes</Pill>
-            <Pill icon={Layers3} tone="blue">Evidence direct</Pill>
+            <Pill icon={BookOpen} tone="teal">
+              3 sources
+            </Pill>
+            <Pill icon={ClipboardCheck} tone="amber">
+              3 clinical notes
+            </Pill>
+            <Pill icon={Layers3} tone="blue">
+              Evidence direct
+            </Pill>
           </div>
         </div>
       </div>
@@ -275,7 +290,13 @@ function SourceRow({ source, compact = false }: { source: (typeof sources)[numbe
     <article className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
       <span className="mt-1 h-2.5 w-2.5 rounded-full bg-teal-600" />
       <div className="min-w-0">
-        <p className={compact ? "line-clamp-1 text-sm font-semibold text-[color:var(--text-heading)]" : "line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]"}>
+        <p
+          className={
+            compact
+              ? "line-clamp-1 text-sm font-semibold text-[color:var(--text-heading)]"
+              : "line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]"
+          }
+        >
           {source.title}
         </p>
         <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">{source.meta}</p>
@@ -298,7 +319,13 @@ function NoteRow({ note, compact = false }: { note: (typeof notes)[number]; comp
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">{note.title}</p>
-          <p className={compact ? "mt-1 line-clamp-1 text-xs text-[color:var(--text-muted)]" : "mt-1 text-xs leading-5 text-[color:var(--text-muted)]"}>
+          <p
+            className={
+              compact
+                ? "mt-1 line-clamp-1 text-xs text-[color:var(--text-muted)]"
+                : "mt-1 text-xs leading-5 text-[color:var(--text-muted)]"
+            }
+          >
             {note.detail}
           </p>
         </div>
@@ -316,7 +343,11 @@ function EvidenceMap({ compact = false }: { compact?: boolean }) {
       {evidenceRows.map(([section, support, citations, source]) => (
         <article
           key={section}
-          className={compact ? "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5" : "grid grid-cols-[minmax(0,1fr)_7rem_7rem_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"}
+          className={
+            compact
+              ? "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
+              : "grid grid-cols-[minmax(0,1fr)_7rem_7rem_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+          }
         >
           {compact ? (
             <>
@@ -324,7 +355,9 @@ function EvidenceMap({ compact = false }: { compact?: boolean }) {
                 <p className="text-sm font-semibold text-[color:var(--text-heading)]">{section}</p>
                 <Pill tone={support === "Direct" ? "teal" : "amber"}>{support}</Pill>
               </div>
-              <p className="mt-1 text-xs text-[color:var(--text-muted)]">{citations} - {source}</p>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                {citations} - {source}
+              </p>
             </>
           ) : (
             <>
@@ -362,8 +395,12 @@ function AnswerDesktop() {
       side={
         <div className="space-y-3">
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">Answer controls</p>
-          <Pill icon={BookOpen} tone="teal">Source-backed</Pill>
-          <Pill icon={Layers3} tone="blue">Direct evidence</Pill>
+          <Pill icon={BookOpen} tone="teal">
+            Source-backed
+          </Pill>
+          <Pill icon={Layers3} tone="blue">
+            Direct evidence
+          </Pill>
           <ActionButton icon={Copy}>Copy with sources</ActionButton>
         </div>
       }
@@ -374,7 +411,9 @@ function AnswerDesktop() {
         </div>
         <AnswerBubble />
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
-          <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Why this answer is structured this way</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Why this answer is structured this way
+          </h3>
           <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
             The answer stays readable and avoids source inventory language. Provenance, clinical actions, and audit
             detail are exposed as separate controls immediately below it.
@@ -394,13 +433,17 @@ function SourcesMobile() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Sources</h3>
-              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">Open the source document before relying on details.</p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                Open the source document before relying on details.
+              </p>
             </div>
             <Pill tone="teal">3</Pill>
           </div>
         </header>
         <div className="grid gap-2 p-3">
-          {sources.map((source) => <SourceRow key={source.title} source={source} />)}
+          {sources.map((source) => (
+            <SourceRow key={source.title} source={source} />
+          ))}
         </div>
       </div>
     </PhoneShell>
@@ -413,7 +456,9 @@ function SourcesDesktop() {
       side={
         <div className="space-y-3">
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">Source actions</p>
-          <ActionButton icon={ExternalLink} primary>Open primary source</ActionButton>
+          <ActionButton icon={ExternalLink} primary>
+            Open primary source
+          </ActionButton>
           <ActionButton icon={FileSearch}>Compare sources</ActionButton>
         </div>
       }
@@ -424,10 +469,14 @@ function SourcesDesktop() {
             <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Sources behind this answer</h3>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">Ranked by answer use and ready to open.</p>
           </div>
-          <Pill icon={BookOpen} tone="teal">3 sources</Pill>
+          <Pill icon={BookOpen} tone="teal">
+            3 sources
+          </Pill>
         </div>
         <div className="grid gap-2">
-          {sources.map((source) => <SourceRow key={source.title} source={source} />)}
+          {sources.map((source) => (
+            <SourceRow key={source.title} source={source} />
+          ))}
         </div>
       </section>
     </DesktopShell>
@@ -450,12 +499,20 @@ function NotesMobile() {
           </div>
         </header>
         <div className="flex gap-2 overflow-x-auto border-b border-[color:var(--border)] px-3 py-3">
-          <Pill icon={Activity} tone="teal">Monitor 1</Pill>
-          <Pill icon={AlertTriangle} tone="amber">Caution 1</Pill>
-          <Pill icon={ShieldAlert} tone="red">Escalate 1</Pill>
+          <Pill icon={Activity} tone="teal">
+            Monitor 1
+          </Pill>
+          <Pill icon={AlertTriangle} tone="amber">
+            Caution 1
+          </Pill>
+          <Pill icon={ShieldAlert} tone="red">
+            Escalate 1
+          </Pill>
         </div>
         <div className="grid gap-2 p-3">
-          {notes.map((note) => <NoteRow key={note.title} note={note} />)}
+          {notes.map((note) => (
+            <NoteRow key={note.title} note={note} />
+          ))}
         </div>
       </section>
     </PhoneShell>
@@ -471,7 +528,9 @@ function NotesDesktop() {
           <p className="text-sm leading-6 text-[color:var(--text-muted)]">
             Practical actions extracted from answer sections. Each item keeps its source label visible.
           </p>
-          <ActionButton icon={Plus} primary>Add all notes</ActionButton>
+          <ActionButton icon={Plus} primary>
+            Add all notes
+          </ActionButton>
         </div>
       }
     >
@@ -484,7 +543,9 @@ function NotesDesktop() {
           <ActionButton icon={Copy}>Copy notes</ActionButton>
         </div>
         <div className="grid gap-3 lg:grid-cols-3">
-          {notes.map((note) => <NoteRow key={note.title} note={note} />)}
+          {notes.map((note) => (
+            <NoteRow key={note.title} note={note} />
+          ))}
         </div>
       </section>
     </DesktopShell>
@@ -520,7 +581,9 @@ function SafetyDesktop() {
     <DesktopShell
       side={
         <div className="space-y-3">
-          <Pill icon={ShieldAlert} tone="red">Interrupt only when urgent</Pill>
+          <Pill icon={ShieldAlert} tone="red">
+            Interrupt only when urgent
+          </Pill>
           <p className="text-sm leading-6 text-[color:var(--text-muted)]">
             Normal safety content belongs inside Clinical notes as Caution or Escalate.
           </p>
@@ -560,7 +623,9 @@ function EvidenceMobile() {
               <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Evidence</h3>
               <p className="mt-1 text-sm text-[color:var(--text-muted)]">Audit support, tables, quotes, and gaps.</p>
             </div>
-            <Pill icon={ShieldCheck} tone="teal">Direct</Pill>
+            <Pill icon={ShieldCheck} tone="teal">
+              Direct
+            </Pill>
           </div>
         </header>
         <div className="grid grid-cols-3 border-b border-[color:var(--border)] text-center">
@@ -589,9 +654,15 @@ function EvidenceDesktop() {
       side={
         <div className="space-y-3">
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">Evidence sections</p>
-          <Pill icon={BookOpen} tone="teal">Sources</Pill>
-          <Pill icon={Table2} tone="blue">Tables</Pill>
-          <Pill icon={ListChecks} tone="amber">Gaps</Pill>
+          <Pill icon={BookOpen} tone="teal">
+            Sources
+          </Pill>
+          <Pill icon={Table2} tone="blue">
+            Tables
+          </Pill>
+          <Pill icon={ListChecks} tone="amber">
+            Gaps
+          </Pill>
         </div>
       }
     >
@@ -603,7 +674,9 @@ function EvidenceDesktop() {
               Detailed support map for review after reading the answer and checking sources.
             </p>
           </div>
-          <Pill icon={ShieldCheck} tone="teal">Direct support</Pill>
+          <Pill icon={ShieldCheck} tone="teal">
+            Direct support
+          </Pill>
         </div>
         <div className="mb-2 grid grid-cols-[minmax(0,1fr)_7rem_7rem_minmax(0,1fr)] gap-3 px-3 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
           <span>Answer section</span>

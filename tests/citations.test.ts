@@ -75,10 +75,18 @@ describe("citations", () => {
     // A real guideline keeps its distinguishing words rather than collapsing to
     // a hardcoded demo drug name.
     expect(
-      formatCompactCitationLabel({ title: "Maudsley Prescribing Guidelines", file_name: "maudsley.pdf", page_number: 5 }),
+      formatCompactCitationLabel({
+        title: "Maudsley Prescribing Guidelines",
+        file_name: "maudsley.pdf",
+        page_number: 5,
+      }),
     ).toBe("Maudsley Prescribing p.5");
     expect(
-      formatCompactCitationLabel({ title: "Haloperidol acute agitation protocol", file_name: "halo.pdf", page_number: 3 }),
+      formatCompactCitationLabel({
+        title: "Haloperidol acute agitation protocol",
+        file_name: "halo.pdf",
+        page_number: 3,
+      }),
     ).toBe("Haloperidol acute agitation p.3");
   });
 
@@ -86,7 +94,11 @@ describe("citations", () => {
     // Previously a lithium passage inside a clozapine-titled doc was labelled
     // "Clozapine"; the label now preserves both drugs.
     expect(
-      formatCompactCitationLabel({ title: "Clozapine and lithium co-prescribing", file_name: "cl.pdf", page_number: 8 }),
+      formatCompactCitationLabel({
+        title: "Clozapine and lithium co-prescribing",
+        file_name: "cl.pdf",
+        page_number: 8,
+      }),
     ).toBe("Clozapine lithium co-prescribing p.8");
   });
 

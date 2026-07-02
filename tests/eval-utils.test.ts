@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { expectedFileCoverage, isProviderRateLimitError, validateRagAnswer, withProviderBackoff } from "../scripts/eval-utils";
+import {
+  expectedFileCoverage,
+  isProviderRateLimitError,
+  validateRagAnswer,
+  withProviderBackoff,
+} from "../scripts/eval-utils";
 import type { RagEvalCase } from "../src/lib/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
 

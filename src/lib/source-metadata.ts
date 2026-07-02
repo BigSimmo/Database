@@ -48,7 +48,7 @@ export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
   if (status === "current") return "Current source";
   if (status === "review_due") return "Review due";
   if (status === "outdated") return "Outdated source";
-  return "Source status unknown";
+  return "Review status unknown";
 }
 
 export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) {
@@ -71,7 +71,7 @@ export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null
   const reviewDate = formatClinicalDate(source.review_date);
   // Publisher/jurisdiction/review segments are dropped when unknown — a run of
   // "unknown" fillers is noise. The status and validation labels are always
-  // kept: "Source status unknown" / "Not locally validated" are clinical
+  // kept: "Review status unknown" / "Not locally validated" are clinical
   // governance warnings, not filler.
   return [
     source.publisher,
@@ -86,12 +86,13 @@ export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null
 
 export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null) {
   const source = metadata ?? normalizeSourceMetadata(null);
+  // Copied provenance stays fully explicit (including "Unknown" values): the
+  // clipboard line is an audit artifact, unlike the visible summary above
+  // which drops unknown filler segments for readability.
   return [
-    `Source status: ${sourceStatusLabel(source)}`,
+    `Review status: ${sourceStatusLabel(source)}`,
     `Validation: ${validationStatusLabel(source)}`,
     `Review date: ${formatClinicalDate(source.review_date)}`,
-    source.jurisdiction ? `Jurisdiction: ${source.jurisdiction}` : null,
-  ]
-    .filter(Boolean)
-    .join(" | ");
+    `Jurisdiction: ${source.jurisdiction ?? "Unknown"}`,
+  ].join(" | ");
 }

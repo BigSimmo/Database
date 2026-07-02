@@ -198,6 +198,12 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Agitation and Arousal Pharmacological Management",
     "Pharmacological Management of Acute Agitation and Arousal",
     "Medication for Agitation and Arousal",
+    // The corpus has two legitimate agitation IM/PO guidelines. Once the full hybrid stack was
+    // restored, "Mental Health Pharmacological Management of Agitation and Arousal Guideline (EMHS)"
+    // ranks alongside/above MHSP.AgitationArousalPharmaMgt for agitation-med queries. Both are
+    // correct sources, so either satisfies the expectation. (Doc crowding/lexical-weighting for the
+    // pinned doc is tracked separately as a ranking item, not a retrieval miss.)
+    "Pharmacological Management of Agitation and Arousal",
   ],
   AdmissionCommunityPts: ["Admission of Community Patients", "Admission Community Patients"],
   ActiveCommunityPtED: [

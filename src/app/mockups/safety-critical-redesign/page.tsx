@@ -63,7 +63,9 @@ function Pill({
   children: ReactNode;
 }) {
   return (
-    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold ${toneClass[tone]}`}>
+    <span
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold ${toneClass[tone]}`}
+    >
       {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       {children}
     </span>
@@ -167,7 +169,9 @@ function PhoneShell({ children }: { children: ReactNode }) {
       <footer className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2">
         <div className="flex min-h-11 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)]">
           <Plus className="h-4 w-4 text-[color:var(--text-muted)]" />
-          <span className="min-w-0 flex-1 truncate text-sm text-[color:var(--text-muted)]">Ask a clinical question...</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-[color:var(--text-muted)]">
+            Ask a clinical question...
+          </span>
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[color:var(--primary)] text-[color:var(--primary-contrast)]">
             <ExternalLink className="h-4 w-4" />
           </span>
@@ -198,9 +202,15 @@ function AnswerCard() {
         <div className="min-w-0">
           <p className="text-base font-medium leading-7 text-[color:var(--text-heading)]">{answerText}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Pill icon={BookOpen} tone="teal">3 sources</Pill>
-            <Pill icon={ClipboardCheck} tone="amber">3 clinical notes</Pill>
-            <Pill icon={Layers3} tone="blue">Evidence direct</Pill>
+            <Pill icon={BookOpen} tone="teal">
+              3 sources
+            </Pill>
+            <Pill icon={ClipboardCheck} tone="amber">
+              3 clinical notes
+            </Pill>
+            <Pill icon={Layers3} tone="blue">
+              Evidence direct
+            </Pill>
           </div>
         </div>
       </div>
@@ -208,13 +218,7 @@ function AnswerCard() {
   );
 }
 
-function FindingCard({
-  finding,
-  compact = false,
-}: {
-  finding: (typeof safetyFindings)[number];
-  compact?: boolean;
-}) {
+function FindingCard({ finding, compact = false }: { finding: (typeof safetyFindings)[number]; compact?: boolean }) {
   const tone = finding.label === "Escalate" ? "red" : finding.label === "Caution" ? "amber" : "teal";
   const Icon = finding.label === "Escalate" ? ShieldAlert : finding.label === "Caution" ? AlertTriangle : Activity;
   return (
@@ -225,7 +229,13 @@ function FindingCard({
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">{finding.title}</p>
-          <p className={compact ? "mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)]" : "mt-1 text-xs leading-5 text-[color:var(--text-muted)]"}>
+          <p
+            className={
+              compact
+                ? "mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)]"
+                : "mt-1 text-xs leading-5 text-[color:var(--text-muted)]"
+            }
+          >
             {finding.detail}
           </p>
         </div>
@@ -257,7 +267,9 @@ function AnswerInterruptPhone() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <ActionButton icon={ExternalLink}>Open source</ActionButton>
-          <ActionButton icon={ClipboardCheck} primary>Add note</ActionButton>
+          <ActionButton icon={ClipboardCheck} primary>
+            Add note
+          </ActionButton>
         </div>
       </section>
       <AnswerCard />
@@ -270,11 +282,15 @@ function AnswerInterruptDesktop() {
     <DesktopShell
       side={
         <div className="space-y-3">
-          <Pill icon={ShieldAlert} tone="red">Interrupt only when urgent</Pill>
+          <Pill icon={ShieldAlert} tone="red">
+            Interrupt only when urgent
+          </Pill>
           <p className="text-sm leading-6 text-[color:var(--text-muted)]">
             This treatment belongs above the answer only when the finding changes immediate clinical handling.
           </p>
-          <ActionButton icon={ExternalLink} primary>Open primary source</ActionButton>
+          <ActionButton icon={ExternalLink} primary>
+            Open primary source
+          </ActionButton>
         </div>
       }
     >
@@ -290,7 +306,9 @@ function AnswerInterruptDesktop() {
                 Vomiting, diarrhoea, tremor, confusion, ataxia, or acute kidney injury should prompt urgent review.
               </p>
             </div>
-            <Pill icon={BookOpen} tone="red">Source 3</Pill>
+            <Pill icon={BookOpen} tone="red">
+              Source 3
+            </Pill>
           </div>
         </div>
         <AnswerCard />
@@ -344,9 +362,15 @@ function NotesTriageDesktop() {
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">Triage source-backed findings by action type.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Pill icon={ShieldAlert} tone="red">Escalate 1</Pill>
-            <Pill icon={AlertTriangle} tone="amber">Caution 1</Pill>
-            <Pill icon={Activity} tone="teal">Monitor 1</Pill>
+            <Pill icon={ShieldAlert} tone="red">
+              Escalate 1
+            </Pill>
+            <Pill icon={AlertTriangle} tone="amber">
+              Caution 1
+            </Pill>
+            <Pill icon={Activity} tone="teal">
+              Monitor 1
+            </Pill>
           </div>
         </div>
         <div className="grid gap-3">
@@ -369,18 +393,24 @@ function SourceReviewPhone() {
               <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Verify safety finding</h3>
               <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">Source-backed escalation review.</p>
             </div>
-            <Pill icon={ShieldAlert} tone="red">Urgent</Pill>
+            <Pill icon={ShieldAlert} tone="red">
+              Urgent
+            </Pill>
           </div>
         </header>
         <div className="grid gap-3 p-3">
           <FindingCard finding={safetyFindings[0]} />
           <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Source passage</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Source passage
+            </p>
             <p className="mt-2 text-sm leading-6 text-[color:var(--text-heading)]">
               Review for tremor, confusion, ataxia, gastrointestinal symptoms, dehydration, and renal deterioration.
             </p>
           </article>
-          <ActionButton icon={ExternalLink} primary>Open source document</ActionButton>
+          <ActionButton icon={ExternalLink} primary>
+            Open source document
+          </ActionButton>
         </div>
       </section>
     </PhoneShell>
@@ -392,9 +422,15 @@ function SourceReviewDesktop() {
     <DesktopShell
       side={
         <div className="space-y-3">
-          <Pill icon={BookOpen} tone="teal">Source 3</Pill>
-          <Pill icon={Layers3} tone="blue">Direct support</Pill>
-          <ActionButton icon={FileSearch} primary>Open source document</ActionButton>
+          <Pill icon={BookOpen} tone="teal">
+            Source 3
+          </Pill>
+          <Pill icon={Layers3} tone="blue">
+            Direct support
+          </Pill>
+          <ActionButton icon={FileSearch} primary>
+            Open source document
+          </ActionButton>
           <ActionButton icon={CheckCircle2}>Mark verified</ActionButton>
         </div>
       }
@@ -414,14 +450,20 @@ function SourceReviewDesktop() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <FindingCard finding={safetyFindings[0]} />
           <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Source passage</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Source passage
+            </p>
             <p className="mt-2 text-sm leading-6 text-[color:var(--text-heading)]">
-              Review for tremor, confusion, ataxia, gastrointestinal symptoms, dehydration, and renal deterioration.
-              If present, seek urgent clinical review and check renal function and serum lithium level.
+              Review for tremor, confusion, ataxia, gastrointestinal symptoms, dehydration, and renal deterioration. If
+              present, seek urgent clinical review and check renal function and serum lithium level.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Pill icon={BookOpen} tone="teal">p. 8</Pill>
-              <Pill icon={ShieldCheck} tone="blue">Direct match</Pill>
+              <Pill icon={BookOpen} tone="teal">
+                p. 8
+              </Pill>
+              <Pill icon={ShieldCheck} tone="blue">
+                Direct match
+              </Pill>
             </div>
           </article>
         </div>

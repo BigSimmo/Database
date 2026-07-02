@@ -2,14 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import {
-  UploadCloud,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-  ShieldCheck,
-  ExternalLink,
-} from "lucide-react";
+import { UploadCloud, Loader2, RefreshCw, Sparkles, ShieldCheck, ExternalLink } from "lucide-react";
 import {
   cn,
   panelSubtle,
@@ -27,11 +20,7 @@ import {
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
-import type {
-  ClinicalDocument,
-  IngestionJob,
-  ImportBatch,
-} from "@/lib/types";
+import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
 
 // Setup and quality types
 export type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
@@ -42,16 +31,14 @@ export type SetupCheck = {
   detail: string;
 };
 
+const demoUploadReadOnlyMessage =
+  "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files.";
+
 export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 export type IndexingMonitorFilter = "all" | "active" | "failed";
 
 export type IngestionQualityReviewType =
-  | "failed_ocr"
-  | "low_extraction_confidence"
-  | "missing_tables"
-  | "image_only_pages"
-  | "failed_job"
-  | "manual_review";
+  "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
 
 export type IngestionQualityReviewItem = {
   id: string;
@@ -190,7 +177,7 @@ export function UploadPanel({
   async function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (demoMode) {
-      changeStatus("Demo mode is serving seeded documents. Configure .env.local, run supabase/schema.sql, and start npm run worker to upload real files.");
+      changeStatus(demoUploadReadOnlyMessage);
       return;
     }
     if (!canUpload) {
@@ -206,7 +193,11 @@ export function UploadPanel({
     }
 
     setUploading(true);
-    changeStatus(files.length === 1 ? "Uploading private document to Supabase Storage..." : `Uploading 1 of ${files.length}: ${files[0].name}`);
+    changeStatus(
+      files.length === 1
+        ? "Uploading private document to Supabase Storage..."
+        : `Uploading 1 of ${files.length}: ${files[0].name}`,
+    );
 
     const failures: string[] = [];
     for (let index = 0; index < files.length; index++) {
@@ -226,7 +217,11 @@ export function UploadPanel({
     }
 
     if (failures.length === 0) {
-      changeStatus(files.length === 1 ? "Successfully uploaded private document to storage queue." : `Successfully uploaded ${files.length} private documents.`);
+      changeStatus(
+        files.length === 1
+          ? "Successfully uploaded private document to storage queue."
+          : `Successfully uploaded ${files.length} private documents.`,
+      );
       if (input) input.value = "";
       onUploaded();
     } else {
@@ -241,6 +236,7 @@ export function UploadPanel({
         Guideline PDF files
         <input
           ref={fileInputRef}
+          name="file"
           type="file"
           accept=".pdf,application/pdf"
           multiple
@@ -259,9 +255,9 @@ export function UploadPanel({
           Upload guidelines
         </button>
       </div>
-      {displayStatus && (
+      {(displayStatus || demoMode) && (
         <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]" data-testid="upload-status">
-          {displayStatus}
+          {displayStatus ?? demoUploadReadOnlyMessage}
         </p>
       )}
     </form>

@@ -1,7 +1,20 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
+import {
+  embedTextWithTelemetry,
+  generateStructuredTextResult,
+  type OpenAIReasoningEffort,
+  type OpenAITextResult,
+} from "@/lib/openai";
+import {
+  SOURCE_ONLY_EMBEDDING_SKIP_REASON,
+  allowsAutoDegrade,
+  classifyProviderFailure,
+  isSourceOnlyMode,
+  ragProviderMode,
+  sourceOnlyReason,
+} from "@/lib/rag-provider";
 import { compactCitations } from "@/lib/citations";
-import { VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
+import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
 import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
@@ -13,6 +26,7 @@ import {
   rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
@@ -277,6 +291,9 @@ export type SearchChunksArgs = {
   allowGlobalSearch?: boolean;
   skipCache?: boolean;
   queryMode?: ClinicalQueryMode;
+  // Internal: set when this call is a re-run on a trigram-corrected query, to prevent the
+  // unsupported-short-circuit typo-correction path from recursing more than once.
+  typoCorrected?: boolean;
 };
 
 export type AnswerProgressEvent = {
@@ -326,6 +343,10 @@ export type SearchTelemetry = {
   retrieval_layer_counts?: Record<string, number>;
   retrieval_layer_top_scores?: Record<string, number>;
   retrieval_layer_latencies_ms?: Record<string, number>;
+  // P0.1: per-RPC failure codes for the hybrid retrieval layers. A non-empty map means a hybrid
+  // layer errored (not merely returned zero matches) and the app silently degraded — the exact
+  // failure mode that hid the schema drift. Surfaced in telemetry + logged via logger.error.
+  hybrid_rpc_errors?: Record<string, string>;
   retrieval_provenance_counts?: Record<string, number>;
   retrieval_plan?: string;
   retrieval_intent?: RetrievalIntent;
@@ -428,6 +449,28 @@ function recordRetrievalLayer(
     telemetry.retrieval_layer_top_scores = {
       ...(telemetry.retrieval_layer_top_scores ?? {}),
       [layer]: Number(Math.max(0, options.topScore).toFixed(4)),
+    };
+  }
+}
+
+// P0.1: a hybrid RPC returning an error (vs zero rows) means the whole layer silently degraded.
+// Previously every call site did `if (error || !data?.length) return []` and dropped the error on
+// the floor, which is how the live schema drift (42702) went unnoticed. Log it structurally and,
+// where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
+type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
+
+function recordHybridRpcError(
+  telemetry: SearchTelemetry | undefined,
+  rpc: string,
+  error: SupabaseRpcError,
+) {
+  if (!error) return;
+  const code = error.code ?? "unknown";
+  logger.error("hybrid_rpc_failed", { rpc, code, message: error.message, hint: error.hint });
+  if (telemetry) {
+    telemetry.hybrid_rpc_errors = {
+      ...(telemetry.hybrid_rpc_errors ?? {}),
+      [rpc]: code,
     };
   }
 }
@@ -1950,6 +1993,26 @@ export function buildRetrievalQueryVariants(
   return variants.slice(0, maxRetrievalQueryVariants);
 }
 
+// P8b: websearch_to_tsquery ANDs every term, so a long multi-term query (e.g. "ciwa score threshold
+// drug treatment alcohol withdrawal") can match zero chunks even when the answer clearly exists —
+// no single chunk contains all seven terms. Relax the primary variant to a term-OR query so recall
+// is recovered; ts_rank_cd still ranks chunks matching more terms highest, so topical docs surface
+// on top rather than flooding with single-term matches. Only used as a fallback when the strict
+// AND variants returned nothing, so it never displaces a working precise match.
+export function relaxVariantToOrQuery(variant: string): string | null {
+  const tokens = Array.from(
+    new Set(
+      variant
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((token) => token.length > 1 && token !== "or"),
+    ),
+  );
+  if (tokens.length < 2) return null;
+  return tokens.join(" OR ");
+}
+
 async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
@@ -1957,20 +2020,55 @@ async function searchTextChunkCandidates(args: {
   documentIds?: string[];
   matchCount: number;
 }) {
+  const runChunkText = async (queryText: string, matchCount: number) => {
+    const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
+      query_text: queryText,
+      match_count: matchCount,
+      document_filters: args.documentIds ?? null,
+      owner_filter: args.ownerId ?? null,
+    });
+    return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
+  };
+
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
   const resultSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
-        query_text: variant,
-        match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 32),
-        document_filters: args.documentIds ?? null,
-        owner_filter: args.ownerId ?? null,
-      });
-      if (error || !data?.length) return [] as SearchResult[];
-      return data as SearchResult[];
-    }),
+    variants.map((variant, index) =>
+      runChunkText(variant, index === 0 ? args.matchCount : Math.min(args.matchCount, 32)),
+    ),
   );
-  return resultSets.reduce((merged, resultSet) => mergeSearchResults(resultSet, merged), [] as SearchResult[]);
+  const merged = resultSets.reduce(
+    (accumulated, resultSet) => mergeSearchResults(resultSet, accumulated),
+    [] as SearchResult[],
+  );
+  if (merged.length > 0) return merged;
+
+  // Strict AND variants matched nothing. Two fallbacks, in order:
+  //   (item 10, RC6) a typo the hard-coded map misses can block an otherwise-precise query — so first
+  //     trigram-correct against the known clinical-term vocabulary and retry the corrected query
+  //     STRICTLY. This must run before OR-relaxation: otherwise a query like "clozapin monitoring"
+  //     would OR-match generic "monitoring" docs and never surface the intended clozapine result.
+  //   (8b) then OR-relax the best query we have to recover recall for long multi-term queries.
+  // Both are reached only when every prior attempt was empty, so neither overrides a precise match.
+  const primary = variants[0] ?? "";
+  let effectivePrimary = primary;
+  if (primary) {
+    const { data: corrected } = await args.supabase.rpc("correct_clinical_query_terms", {
+      input_query: primary,
+      min_sim: 0.45,
+    });
+    if (typeof corrected === "string" && corrected && corrected !== primary) {
+      const correctedResults = await runChunkText(corrected, args.matchCount);
+      if (correctedResults.length > 0) return correctedResults;
+      effectivePrimary = corrected;
+    }
+  }
+
+  const relaxed = relaxVariantToOrQuery(effectivePrimary);
+  if (relaxed) {
+    const relaxedResults = await runChunkText(relaxed, args.matchCount);
+    if (relaxedResults.length > 0) return relaxedResults;
+  }
+  return merged;
 }
 
 type DocumentLookupRow = {
@@ -2578,6 +2676,7 @@ async function searchEmbeddingFieldCandidates(args: {
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }) {
   const { data, error } = await args.supabase.rpc("match_document_embedding_fields_hybrid", {
     query_embedding: args.queryEmbedding,
@@ -2587,6 +2686,7 @@ async function searchEmbeddingFieldCandidates(args: {
     document_filters: args.documentIds ?? null,
     owner_filter: args.ownerId ?? null,
   });
+  if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
   const matches = (
     data as Array<{
@@ -2626,6 +2726,7 @@ async function searchIndexUnitCandidates(args: {
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }) {
   const { data, error } = await args.supabase.rpc("match_document_index_units_hybrid", {
     query_embedding: args.queryEmbedding,
@@ -2635,6 +2736,7 @@ async function searchIndexUnitCandidates(args: {
     document_filters: args.documentIds ?? null,
     owner_filter: args.ownerId ?? null,
   });
+  if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
   const matches = (data as IndexUnitRpcRow[])
     .filter((row): row is IndexUnitRpcRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
@@ -3048,6 +3150,9 @@ export function decideTextFastPath(
   }
 
   if (queryClass === "document_lookup") {
+    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(results)) {
+      return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
+    }
     if (directTitleSupport && strongestScore >= 0.32) {
       return { returnFastPath: true, reason: "direct_title_text_match" };
     }
@@ -3139,6 +3244,28 @@ function topEvidenceText(results: SearchResult[], limit = 5) {
 
 function hasAnyTerm(text: string, pattern: RegExp) {
   return pattern.test(text);
+}
+
+function isRiskFlowchartNextStepQuery(query: string) {
+  return (
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
+    /\b(?:risk|red[\s-]*zone|red)\b/i.test(query) &&
+    /\b(?:next step|step after|after|action)\b/i.test(query)
+  );
+}
+
+function hasRiskFlowchartActionEvidence(results: SearchResult[], limit = 5) {
+  return results.slice(0, limit).some((result) => {
+    const evidenceText = evidenceTextForGate(result);
+    const hasFlowchartRiskContext =
+      hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|algorithm|pathway|matrix)\b/i) &&
+      hasAnyTerm(evidenceText, /\b(?:risk|red[\s-]*zone|red)\b/i);
+    const hasAction =
+      hasAnyTerm(evidenceText, /\b(?:escalat(?:e|ion|ed|ing)?|urgent|next step|senior)\b/i) ||
+      (visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? "") &&
+        hasAnyTerm(evidenceText, /\b(?:escalat(?:e|ion|ed|ing)?|urgent|next step|senior)\b/i));
+    return hasFlowchartRiskContext && hasAction;
+  });
 }
 
 function hasDoseAmountEvidenceForGate(result: SearchResult) {
@@ -3333,10 +3460,7 @@ export function evaluateEvidenceCoverageGate(
       };
     }
     if (/\b(?:flow\s*chart|flowchart|red\s*zone|risk matrix)\b/i.test(query)) {
-      const accepted =
-        hasVisualUnit ||
-        (hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|risk|red|zone|matrix)\b/i) &&
-          hasAnyTerm(evidenceText, /\b(?:escalat|urgent|review|action|next step|senior)\b/i));
+      const accepted = hasRiskFlowchartActionEvidence(results);
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",
@@ -4187,7 +4311,17 @@ function lowerFirst(value: string) {
   return `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
 }
 
-function completeExtractiveSentence(value: string, query: string) {
+function upperFirst(value: string) {
+  if (!value) return value;
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+// A clinical action clause: an imperative/directive verb that turns a bare conditional
+// ("if INR is high") into a complete, self-contained sentence ("if INR is high, withhold warfarin").
+const extractiveActionClausePattern =
+  /\b(?:withhold|cease|stop|discontinue|hold|monitor|check|repeat|review|refer|arrange|contact|escalate|seek|avoid|continue|commence|start|initiate|titrate|prescribe|administer|give|reduce|increase|document|consider|recheck|admit|transfer)\b/i;
+
+export function completeExtractiveSentence(value: string, query: string) {
   const cleaned = sanitizeAnswerText(value)
     .replace(/[.;,\s]+$/, "")
     .trim();
@@ -4197,6 +4331,18 @@ function completeExtractiveSentence(value: string, query: string) {
   if (hasCompleteOpeningSentence(sentence) && !isFragmentLikeClinicalAnswer(sentence, query)) return sentence;
 
   if (/^(?:when|if|where|after|before|during)\b/i.test(cleaned)) {
+    // A conditional clause that already carries its own action ("if INR is high, withhold warfarin")
+    // is a complete, natural sentence — present it directly instead of the stock "The guidance is
+    // that…" lead-in. Only when the condition has no action of its own do we add the wrapper so the
+    // fragment reads as a full sentence.
+    const conditionalAsSentence = `${upperFirst(cleaned)}.`;
+    if (
+      /,\s*\S/.test(cleaned) &&
+      extractiveActionClausePattern.test(cleaned) &&
+      !isFragmentLikeClinicalAnswer(conditionalAsSentence, query)
+    ) {
+      return conditionalAsSentence;
+    }
     return `The guidance is that ${lowerFirst(cleaned)}.`;
   }
 
@@ -4564,9 +4710,30 @@ function sourceBackedFallbackSubject(query: string) {
   return subject.length > 90 ? `${subject.slice(0, 87).trim()}...` : lowerFirst(subject);
 }
 
-function sourceBackedGenerationTimeoutAnswer(query: string) {
+export function sourceBackedGenerationTimeoutAnswer(query: string) {
   const subject = sourceBackedFallbackSubject(query);
-  return `Source support was found for ${subject}, but model synthesis did not complete in time. Treat this as source status only and review the cited passages before using the information clinically.`;
+  return `The uploaded documents contain relevant guidance on ${subject}, but a full written answer could not be completed just now. The key source passages are cited below — please review them directly.`;
+}
+
+const reasoningEffortRank: Record<OpenAIReasoningEffort, number> = {
+  none: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+  xhigh: 4,
+};
+
+// Strong-route reasoning effort by query class (P6). Safety-critical numeric/threshold classes keep
+// the full configured effort; routine retrieval classes are capped at "medium" so high-effort
+// reasoning over verbose context does not overrun the answer timeout and fail-closed on queries that
+// actually have good sources. Never raises effort above the configured value.
+export function strongReasoningEffortForQueryClass(
+  queryClass: RagQueryClass,
+  configured: OpenAIReasoningEffort,
+): OpenAIReasoningEffort {
+  const safetyCritical = queryClass === "medication_dose_risk" || queryClass === "table_threshold";
+  if (safetyCritical) return configured;
+  return reasoningEffortRank[configured] > reasoningEffortRank.medium ? "medium" : configured;
 }
 
 function isUnusableGeneratedAnswer(answer: Pick<RagAnswer, "answer" | "citations" | "routingReason">) {
@@ -4614,6 +4781,14 @@ function isSimpleDirectQuestion(query: string, queryClass: RagQueryClass) {
   }
   if (queryClass === "broad_summary" || queryClass === "document_lookup") return false;
   return simpleDirectQuestionPattern.test(normalized) && !simpleQuestionExpansionPattern.test(normalized);
+}
+
+// Bare definitional questions ("what is X", "define X", "who is X") legitimately get short answers
+// that refer back to the subject with anaphora ("It is …") without repeating the entity term, so
+// the lexical entity-overlap responsiveness check would false-fire on them. Detect and exempt them
+// when extending the overlap gate to synthesized model answers.
+export function isBareDefinitionQuestion(query: string) {
+  return /^(?:what(?:'s| is| are)|define|who\s+(?:is|are))\b/i.test(normalizeSectionText(query));
 }
 
 function wordCount(value: string) {
@@ -4700,6 +4875,13 @@ function isFragmentLikeClinicalAnswer(text: string, query: string) {
     !/\b(?:required|requirements?|dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor|renal|contraindicat|referral|pathway|procedure|process|protocol|workflow|steps?|ect|electroconvulsive|qtc|fbc|anc|wbc|level|levels)\b/i.test(
       query,
     ) &&
+    // "What is required/needed/involved/included…" and "what is the process/procedure/protocol…"
+    // are procedural questions, not definitions — their answers (and the source-pointer fallback)
+    // legitimately lack "X is a/an…" definition phrasing, so the definition-fragment gate must not
+    // fire for them (it otherwise fails good answers closed on a false positive — see P6).
+    !/^what\s+is\s+(?:required|needed|involved|included|expected|recommended|considered|the\s+(?:process|procedure|protocol|criteria|requirement|approach|guidance|recommendation|role|purpose|aim))\b/i.test(
+      query,
+    ) &&
     !/\b(?:is|are)\s+(?:a|an|the)\b|\b(?:defined\s+as|characteri[sz]ed\s+by|involves|refers\s+to|is\s+an?\s+eating\s+disorder)\b/i.test(
       normalized,
     )
@@ -4780,7 +4962,7 @@ function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReason">) {
   return /\binvalid_model_citation_ids\b/.test(answer.routingReason ?? "");
 }
 
-function generatedAnswerQualityFailureReason(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
+export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   if (!cleanedAnswer) return "empty_after_sanitize";
   if (!hasCompleteOpeningSentence(cleanedAnswer)) return "incomplete_opening_sentence";
@@ -4789,8 +4971,17 @@ function generatedAnswerQualityFailureReason(answer: RagAnswer, query: string, q
   if (isLowYieldClinicalText(cleanedAnswer)) return "low_yield_answer";
   if (isFragmentLikeClinicalAnswer(cleanedAnswer, query)) return "fragment_like_answer";
   if (isMissingCriticalQueryIntent(query, cleanedAnswer)) return "missing_query_intent";
+  // Core-term (entity/intent) overlap responsiveness check. For extractive/low-confidence answers
+  // it always applies. For synthesized model answers it is only safe on narrow simple direct
+  // questions that are not bare definitions (yes/no, when/where, "does X…") — there a well-targeted
+  // answer genuinely should carry the query entity terms, and anaphora is rare. Broad/comparison/
+  // summary answers legitimately paraphrase, so enforcing overlap there would reject good answers.
+  // A model-answer failure here only escalates fast→strong and is recovered for strongly
+  // source-backed answers, so the downside of enforcing it is a retry, not a wrongful gap.
+  const enforceModelAnswerOverlap =
+    isSimpleDirectQuestion(query, queryClass) && !isBareDefinitionQuestion(query);
   if (
-    (answer.routingMode === "extractive" || answer.confidence === "low") &&
+    (answer.routingMode === "extractive" || answer.confidence === "low" || enforceModelAnswerOverlap) &&
     !hasRelevantQueryOverlap(cleanedAnswer, query)
   ) {
     return "missing_query_overlap";
@@ -4877,7 +5068,30 @@ function cleanAnswerSectionHeading(heading: string, body: string) {
   return normalized;
 }
 
+function applyProviderLabels(answer: RagAnswer): RagAnswer {
+  const answerQualityTier: RagAnswer["answerQualityTier"] =
+    answer.answerQualityTier ??
+    (answer.modelUsed ? "model_synthesis" : answer.routingMode === "extractive" ? "source_only" : undefined);
+  const fallbackReason =
+    answer.fallbackReason ??
+    (answerQualityTier === "source_only"
+      ? (answer.routingReason?.match(/source_only_[a-z_]+/)?.[0] ?? "source_only")
+      : null);
+  return {
+    ...answer,
+    providerMode: answer.providerMode ?? ragProviderMode(),
+    answerQualityTier,
+    fallbackReason,
+  };
+}
+
+// Public wrapper: runs quality finalization, then stamps provider/quality labels so the UI can
+// disclose source-only (lower-quality) answers and verify-against-sources guidance.
 function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
+  return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass));
+}
+
+function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   const gapLikeAnswer =
     /could not find enough clean|no relevant clinical source|no current source|cannot provide a clinical answer|cannot provide a source-backed clinical answer|nearby indexed passages|not strong enough to support a reliable answer|no specific\b.*\bcan be confirmed|do not contain indexed guidance|do not contain (?:specific\s+)?information|do not provide specific|no\b.*\bguidance\b.*\bincluded|defer to other sources/i.test(
@@ -4956,6 +5170,9 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
   const supabase = createAdminClient();
+  // When the provider is source-only (offline mode, or auto mode without a usable key) we must
+  // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
+  const sourceOnlyRetrieval = isSourceOnlyMode();
   // A3: shared across every withMemoryBoostedCandidates call in this request so the same
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
@@ -5029,6 +5246,21 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   }
 
   if (shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
+    // Item 10 follow-up (RC6): a typo can make an on-topic query ("schizophrenai management") look
+    // unsupported and short-circuit before any layer runs. Before giving up, trigram-correct the
+    // query against the known clinical-term vocabulary; if it changes, re-run the whole retrieval
+    // once on the corrected text so classification + every layer benefits (not just the text fallback
+    // in searchTextChunkCandidates). Only reached for would-be-unsupported queries, so it adds no
+    // hot-path cost; `typoCorrected` guards against recursion.
+    if (!args.typoCorrected && !sourceOnlyRetrieval) {
+      const { data: corrected } = await supabase.rpc("correct_clinical_query_terms", {
+        input_query: retrievalQuery,
+        min_sim: 0.45,
+      });
+      if (typeof corrected === "string" && corrected && corrected.toLowerCase() !== retrievalQuery.toLowerCase()) {
+        return searchChunksWithTelemetry({ ...args, query: corrected, typoCorrected: true });
+      }
+    }
     telemetry.embedding_skipped = true;
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
@@ -5047,12 +5279,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const maxResultsPerDocument = queryClassification.queryClass === "comparison" ? 2 : 4;
   const minSimilarity = args.minSimilarity ?? 0.15;
   let embeddingStartedAt = 0;
-  const preloadedEmbedding = shouldPreloadEmbedding(queryAnalysis)
-    ? (() => {
-        embeddingStartedAt = Date.now();
-        return Promise.resolve(embedTextWithTelemetry(expandedQuery)).catch(() => null);
-      })()
-    : null;
+  const preloadedEmbedding =
+    !sourceOnlyRetrieval && shouldPreloadEmbedding(queryAnalysis)
+      ? (() => {
+          embeddingStartedAt = Date.now();
+          return Promise.resolve(embedTextWithTelemetry(expandedQuery)).catch(() => null);
+        })()
+      : null;
 
   let textFastResults: SearchResult[] = [];
   const textRpcStartedAt = Date.now();
@@ -5280,11 +5513,33 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
   }
 
+  if (sourceOnlyRetrieval) {
+    // Source-only retrieval: skip embeddings entirely and return the lexical candidates.
+    // The answer layer fails closed when this evidence is too weak.
+    telemetry.embedding_skipped = true;
+    telemetry.embedding_skip_reason = SOURCE_ONLY_EMBEDDING_SKIP_REASON;
+    telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
+    recordSearchScoreTelemetry(telemetry, textFastResults);
+    return { results: textFastResults, telemetry };
+  }
+
   if (!embeddingStartedAt) embeddingStartedAt = Date.now();
   let embeddingResult = await preloadedEmbedding;
   if (!embeddingResult) {
     embeddingStartedAt = Date.now();
-    embeddingResult = await embedTextWithTelemetry(expandedQuery);
+    try {
+      embeddingResult = await embedTextWithTelemetry(expandedQuery);
+    } catch (error) {
+      // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
+      // results already gathered rather than failing the whole search. "openai" mode rethrows.
+      if (!allowsAutoDegrade()) throw error;
+      telemetry.embedding_skipped = true;
+      telemetry.embedding_skip_reason = sourceOnlyReason(error);
+      telemetry.vector_skipped_reason = classifyProviderFailure(error);
+      telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
+      recordSearchScoreTelemetry(telemetry, textFastResults);
+      return { results: textFastResults, telemetry };
+    }
   }
   const { embedding, cacheHit } = embeddingResult;
   telemetry.embedding_latency_ms = Date.now() - embeddingStartedAt;
@@ -5308,6 +5563,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         ownerId: args.ownerId,
         documentIds: documentFilterList,
         matchCount: Math.min(candidateCount, 48),
+        telemetry,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -5320,6 +5576,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         ownerId: args.ownerId,
         documentIds: documentFilterList,
         matchCount: Math.min(candidateCount, 64),
+        telemetry,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -5363,6 +5620,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   });
 
   const { data: hybridData, error: hybridError } = hybridResult;
+  if (hybridError) recordHybridRpcError(telemetry, "match_document_chunks_hybrid", hybridError);
   telemetry.vector_candidate_count = hybridData?.length ?? 0;
   recordRetrievalLayer(telemetry, "hybrid_vector", hybridData?.length ?? 0, {
     latencyMs: hybridResult.latencyMs,
@@ -5503,10 +5761,28 @@ export async function searchChunks(args: SearchChunksArgs) {
   return results;
 }
 
+// Boundary-aware, number-safe truncation for text handed to the model (P7). A naive char-boundary
+// cut splits sentences and numbers (e.g. "150 mg" -> "...15"), feeding the model clipped clinical
+// facts. Prefer the last sentence boundary that still keeps most of the budget (end cleanly, no
+// ellipsis); otherwise cut on a word boundary and never strand a bare number whose unit/context was
+// cut off, so a dose or threshold can never be presented as a truncated figure.
+export function truncateForModel(text: string, limit: number) {
+  if (text.length <= limit) return text;
+  const window = text.slice(0, limit);
+  const sentenceEnd = Math.max(window.lastIndexOf(". "), window.lastIndexOf("! "), window.lastIndexOf("? "));
+  if (sentenceEnd >= Math.floor(limit * 0.6)) {
+    return window.slice(0, sentenceEnd + 1).trim();
+  }
+  const wordCut = window.lastIndexOf(" ");
+  const base = (wordCut > 0 ? window.slice(0, wordCut) : window.slice(0, limit - 1)).trim();
+  // Drop a trailing bare number (its unit/context was cut off) so we never present "…150" alone.
+  const numberSafe = base.replace(/[\s(]+[<>]?\d[\d.,:/xX×^*-]*$/, "").trim();
+  return `${numberSafe || base}...`;
+}
+
 function compactContextText(text: string, limit: number) {
   const compact = sourceTextForModel(text).replace(/\s+/g, " ").trim();
-  if (compact.length <= limit) return compact;
-  return `${compact.slice(0, limit - 3).trim()}...`;
+  return truncateForModel(compact, limit);
 }
 
 type RagSourceBlockOptions = {
@@ -5761,7 +6037,7 @@ function appendRoutingReason(reason: string | undefined, addition: string) {
   return reason ? `${reason}; ${addition}` : addition;
 }
 
-function applyNumericVerification(answer: RagAnswer): RagAnswer {
+export function applyNumericVerification(answer: RagAnswer): RagAnswer {
   const sources = answer.sources ?? [];
   const unverified = new Set<string>();
 
@@ -5788,13 +6064,29 @@ function applyNumericVerification(answer: RagAnswer): RagAnswer {
   const unverifiedTokens = [...unverified];
   answer.unverifiedNumericTokens = unverifiedTokens;
   answer.faithfulnessWarning = VERIFY_AGAINST_SOURCE_NOTE;
+  // P8: never bold a figure the system could not verify against the cited sources — bold emphasis
+  // must track verification, or an unverified dose/threshold reads as authoritative while its caveat
+  // sits in a separate block. Un-wrap **…** only around segments carrying an unverified token.
+  answer.answer = unboldUnverifiedNumbers(answer.answer, unverified);
+  if (answer.answerSections?.length) {
+    answer.answerSections = answer.answerSections.map((section) => ({
+      ...section,
+      body: unboldUnverifiedNumbers(section.body, unverified),
+    }));
+  }
   // Surface as a source gap so the UI's existing gap rendering shows it, and
   // never let an answer with unverified clinical numbers claim high confidence.
+  // This gate runs more than once on the model path (parse-time and finalize-time), so REPLACE any
+  // earlier faithfulness caveat rather than appending a duplicate "CRITICAL…" gap; the latest run
+  // carries the freshest token list.
   const caveat: ConflictOrGap = {
     type: "gap",
     message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${unverifiedTokens.join(", ")}.`,
   };
-  answer.conflictsOrGaps = [...(answer.conflictsOrGaps ?? []), caveat];
+  answer.conflictsOrGaps = [
+    ...(answer.conflictsOrGaps ?? []).filter((gap) => !gap.message.startsWith(VERIFY_AGAINST_SOURCE_NOTE)),
+    caveat,
+  ];
   if (hasActionableNumericContext(answer)) {
     answer.answer =
       "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the source passages directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.";
@@ -5811,13 +6103,43 @@ function applyNumericVerification(answer: RagAnswer): RagAnswer {
   return answer;
 }
 
+// Remove bold emphasis around any **…** segment that contains a numeric token the source-numeric
+// verification could not confirm, leaving the text intact (just un-emphasised). Verified bold stays.
+export function unboldUnverifiedNumbers(text: string, unverified: Set<string>): string {
+  if (!unverified.size || !text.includes("**")) return text;
+  return text.replace(/\*\*([^*]+)\*\*/g, (full, inner: string) =>
+    extractNumericTokens(inner).some((token) => unverified.has(token)) ? inner : full,
+  );
+}
+
+const maxContextChunksPerDocument = 3;
+
+// P9: keep one verbose document from dominating the sources the model sees. Cap each document to at
+// most `maxContextChunksPerDocument` chunks (order-preserving, no reranking/dedup), but only when the
+// result set spans multiple documents — a genuinely single-document answer must not be starved.
+export function capPerDocumentCrowding(results: SearchResult[], maxPerDocument = maxContextChunksPerDocument) {
+  if (results.length <= maxPerDocument) return results;
+  const distinctDocuments = new Set(results.map((result) => result.document_id)).size;
+  if (distinctDocuments < 2) return results;
+  const documentCounts = new Map<string, number>();
+  const capped: SearchResult[] = [];
+  for (const result of results) {
+    const count = documentCounts.get(result.document_id) ?? 0;
+    if (count >= maxPerDocument) continue;
+    documentCounts.set(result.document_id, count + 1);
+    capped.push(result);
+  }
+  return capped;
+}
+
 export function selectModelContextResults(args: {
   routeMode: RagAnswer["routingMode"];
   queryClass: RagQueryClass;
   crossDocument: boolean;
   results: SearchResult[];
 }) {
-  if (args.routeMode !== "fast") return args.results;
+  const results = capPerDocumentCrowding(args.results);
+  if (args.routeMode !== "fast") return results;
   if (
     args.crossDocument ||
     args.queryClass === "comparison" ||
@@ -5825,9 +6147,9 @@ export function selectModelContextResults(args: {
     args.queryClass === "medication_dose_risk" ||
     args.queryClass === "table_threshold"
   ) {
-    return args.results;
+    return results;
   }
-  return args.results.slice(0, fastRoutineModelContextLimit);
+  return results.slice(0, fastRoutineModelContextLimit);
 }
 
 export async function answerQuestion(query: string, documentId?: string) {
@@ -6015,7 +6337,15 @@ async function answerQuestionWithScopeUncoalesced(
     answerMode: routeFromRouting.mode,
   });
   const gatedRoute = applyConfidenceGate(routeFromRouting, queryClass, initialRetrievalDiagnostics);
-  const route = gatedRoute.route;
+  // In source-only mode (offline, or auto with no usable key) we never call the model. Route to
+  // the deterministic extractive path when evidence is usable, but preserve the confidence gate's
+  // "unsupported" decision so weak evidence still fails closed to a source-gap answer rather than
+  // producing a low-confidence source-only answer that looks authoritative.
+  const sourceOnlyAnswer = isSourceOnlyMode();
+  const route =
+    sourceOnlyAnswer && gatedRoute.route.mode !== "unsupported"
+      ? { ...gatedRoute.route, mode: "extractive" as const, reason: `${gatedRoute.route.reason}; ${sourceOnlyReason()}` }
+      : gatedRoute.route;
   const retrievalDiagnostics: RetrievalDiagnostics = {
     ...initialRetrievalDiagnostics,
     routeMode: route.mode,
@@ -6318,62 +6648,52 @@ async function answerQuestionWithScopeUncoalesced(
     return finalizedAnswer;
   }
 
-  const answerInstructions = `You are answering for a psychiatrist in Perth, Australia using only uploaded clinical document excerpts.
+  const answerInstructions = `You are an experienced psychiatrist in Perth, Australia, answering a colleague's clinical question using ONLY the uploaded clinical document excerpts provided below.
 
-Rules:
-- Answer directly from the provided excerpts only.
-- Compose a complete clinical answer. Do not summarize snippets, stitch fragments, or describe the retrieval results.
-- Use a layered response. The answer field is the first layer: write a short, high-yield clinical paragraph that can stand alone before any structured sections.
-- The answer field must be plain prose, usually 1-3 short sentences and 35-75 words. The first sentence must be complete and must directly answer the user's question. Do not use bullets, numbered lists, labels, icons, headings, or prefixes such as "Answer", "Summary", "Bottom line", "Required actions", or "Direct answer" inside the answer field.
-- Start the answer field with the direct clinical answer in the first sentence. Keep only the vital and most relevant information there.
-- First, silently interpret what the clinician is really asking: clinical task, population/scope, likely decision point, urgency/risk, and whether they need a pathway, threshold, comparison, or document lookup. Use that interpretation to shape the answer.
-- Write like a clinician who has read the source material and is explaining the logical clinical approach. Avoid template language, source-inventory wording, and generic phrases such as "the strongest retrieved sources support", "source-backed", "the source states", or "based on the provided excerpts".
-- Use polished sentence case in prose. Do not copy source title casing, all-caps headings, product catalogue lines, brand lists, imprest/formulary labels, or source section headings into the answer field.
-- For broad management, treatment, care, pathway, or approach questions, organize the synthesis naturally: immediate risk/specialist referral if supported, core first-line intervention, adjunctive medication or monitoring when supported, special populations, and important gaps. Do not dump every treatment option with equal weight.
-- For simple definition or direct fact questions, answer only the direct question. Do not broaden into management, treatment, monitoring, or pathway content unless the user explicitly asks for it. Return no answerSections unless one source-gap or safety caveat is essential.
-- Use model-generated clinical synthesis by default; do not stitch disconnected source quotes into the answer.
-- Treat retrieval as source selection, not the final answer. The final answer must be a coherent clinical synthesis of the supplied excerpts, never a concatenation of chunk fragments.
-- If the retrieved excerpts contain only headings, partial table fragments, or disconnected text that cannot support a logical response, state the source gap instead of filling from general knowledge.
-- Integrate all relevant retrieved sources intelligently: merge overlapping guidance, prioritize stronger/direct support, and call out weak, nearby, or missing support.
-- Put supporting detail, secondary caveats, thresholds, monitoring timing, actions, risks, comparisons, documentation, and source gaps into answerSections rather than the answer field.
-- Use answerSections as the second layer when they add scanability, decision support, or verification value. Good sections include Required actions, Monitoring/timing, Medication/dose details, Thresholds, Escalation/risk, Contraindications/cautions, Comparison, Documentation/forms, and Source gaps.
-- For simple questions, return zero or one answerSections item unless a safety or source-gap section is needed. For complex clinical, medication, threshold, comparison, or multi-document questions, return two to five distinct sections when supported.
-- Keep answerSections non-redundant with the answer field. Do not add a "Direct answer", "Bottom line", or "High-yield summary" section that merely repeats the top answer. Each section should contain one concise practical point or one compact synthesis of closely related points.
-- For each answerSections item, choose the most specific kind and supportLevel. A section is direct only when the cited chunks directly answer that section.
-- Every clinical claim in answerSections must include citation_chunk_ids for the retrieved chunks that support it. Omit unsupported section claims.
-- Use thresholds for numeric cutoffs, ranges, score boundaries, withhold/stop criteria, or table-like criteria. Use comparison for source differences, conflicting guidance, or when the query asks "compare", "versus", or "difference".
-- Omit sections that are not supported by the retrieved excerpts.
-- Do not include low-yield provenance in answer or answerSections: no document IDs, procedure codes, page labels, file names, chunk numbers, similarity scores, source metadata, headers, footers, review tables, or document-control text.
-- Do not include source footnote markers or trailing citation digits in prose, such as "Tests1" or "months.1"; citation links belong only in the structured citations.
-- Keep provenance only in citations and quoteCards via chunk IDs. If source titles or page numbers are useful, leave them to the UI citations rather than writing them in prose.
-- Be concise: usually 1-3 short sentences in the answer field and about 35-75 words. Use answerSections for extra detail instead of lengthening the answer field.
-- Prefer Australian or WA-specific guidance when present in the sources.
-- Do not provide patient-specific medical advice.
-- If the excerpts do not support a direct answer, say that the uploaded documents do not contain enough information.
-- Use practical clinical wording, but keep every claim tied to retrieved source content and valid evidence IDs.
-- Put the grounded synthesis first in the answer field. Then include supported detail sections only when they add clinically useful detail and do not merely repeat the answer.
-- Compare sources when several documents are relevant, and reconcile conflicts explicitly rather than choosing one silently.
-- Mention gaps, uncertainty, weak support, or nearby-only evidence when answer_plan.retrieval_quality is partial, weak, or conflicting.
-- Include clinically practical details and caveats only when supported by retrieved chunk IDs.
-- Use only the strongest 3-5 citations, not every source.
-- Use only citation_chunk_id values from the supplied source block. Do not invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence.
-- Do not include unsupported numbers, doses, frequencies, thresholds, routes, or medication names. If a number or dose is not clearly supported by the retrieved evidence, omit it or state the source gap.
-- Do not copy source headings as clinical content unless the heading itself answers the question.
-- Sources are ordered by answer relevance. Prioritize earlier sources unless a later source directly resolves a conflict or gap.
-- When sources come from multiple documents, synthesize by clinical theme/action. Do not list each document separately unless the question asks for a comparison.
-- For multi-document answers, merge overlapping guidance once, then call out document-specific differences, conflicts, or gaps only when supported.
-- Keep multi-document answers fast and focused: use the fused source brief and balanced source guide to cite at least two documents when the answer combines them.
-- Treat the fused source brief as an orientation layer only. Verify every claim against the raw source excerpts below it.
-- Structured memory lines are indexing-time source facts mapped back to source chunks. Use them to focus the answer, but cite the original chunks.
-- Start with the direct answer. Omit tangential background, administrative details, source titles, file names, page labels, and provenance from the answer field even when they appear in retrieved sources.
-- Never start an answer by listing available products or formulations unless the user specifically asks what formulations exist. If a formulation matters clinically, mention only the clinically relevant formulation in normal sentence case.
-- Bold only source-supported high-yield details using **bold**: medications, thresholds, timing, escalation triggers, required actions, contraindications, and terms central to the question.
-- Do not bold whole sentences or routine filler wording.
-- Do not use Markdown other than **bold** inside answer or answerSections.
-    - Include 1-3 short exact quotes in quoteCards; quotes must be copied from the retrieved source excerpts.
-    - Do not insert JSON-like fragments, key-value dumps, or objects in heading or body fields. Do not output strings containing keys such as answer, heading, citation_chunk_ids, or raw braces.
-- If a heading/body would include key-value pairs or JSON-like syntax, omit that section or return only concise natural language text.
-- Return data matching the supplied structured output schema.`;
+## Answer the exact question asked
+- First, silently work out what the clinician actually needs: the precise clinical task, the population/scope, the decision point, and the urgency — and whether they want a pathway, a threshold, a dose, a comparison, or a document. Then answer THAT, specifically, and nothing else.
+- If the question is narrow (a definition, one threshold, a single dose, a yes/no), answer only that. Do not broaden a narrow question into management, monitoring, or pathways unless it is explicitly asked. No generic filler, no adjacent-but-unasked content, no padding.
+- For broad "management / treatment / approach" questions, give the logical clinical shape and weight it: immediate risk or specialist referral if supported, then core first-line intervention, then adjuncts/monitoring, then special populations and important gaps. Do not dump every option with equal weight.
+
+## Voice
+- Write in plain, confident clinical prose, as if you had read the sources and were explaining the approach to a colleague who asked. Compose a real answer — never summarise the excerpts, describe the retrieval, or stitch fragments. The excerpts are your source material, not the answer itself. Avoid source-inventory phrasing such as "the strongest retrieved sources support", "source-backed", "the source states", or "based on the provided excerpts".
+
+## The answer field (first layer)
+- Plain prose, usually 1-3 short sentences, about 35-75 words. The FIRST sentence must be complete and must directly answer the question; lead with the answer, then only the vital supporting detail.
+- No bullets, numbered lists, labels, icons, headings, or prefixes such as "Answer", "Summary", "Bottom line", "Required actions", or "Direct answer".
+- Polished sentence case. Never copy source title casing, ALL-CAPS headings, product/brand/formulary/imprest lines, or source section headings into prose. Never open by listing available products or formulations unless the user asks what formulations exist; if a formulation matters, name only the clinically relevant one in normal sentence case.
+- SENTENCE HYGIENE (critical): retrieved excerpts often flatten monitoring tables into run-together text where an inpatient value is immediately followed by a community value (for example "...every 6 months for inpatients for community patients they are checked 6 months after initiation..."). Never reproduce this. For every parameter, finish the inpatient statement with a full stop before you start the community statement, and vice versa. Write short, separate sentences, e.g. "For inpatients, U&Es and LFTs are repeated every 6 months. For community patients, they are checked 6 months after initiation, at 12 months, then at least annually." Read each sentence back: if it joins two different schedules or settings without punctuation (such as "for inpatients for community patients", "daily for inpatients weekly", or two clauses jammed together), rewrite it into separate, grammatically complete sentences. Do the same for any dose/threshold/frequency table row: turn it into proper prose, never copy its run-together wording.
+
+## Answer sections (second layer, optional)
+- Put secondary detail into answerSections, not the answer field: required actions, monitoring/timing, medication/dose details, thresholds, escalation/risk, contraindications/cautions, comparison, documentation/forms, and source gaps.
+- Simple direct-fact questions: return zero or one section (only if a safety or source-gap point is essential). Complex clinical, medication, threshold, comparison, or multi-document questions: return two to five distinct sections when supported.
+- Each section is one concise practical point (or a compact synthesis of closely related points) and must NOT repeat the answer field. Never add a "Direct answer", "Bottom line", or "High-yield summary" section. Choose the most specific kind and supportLevel; use \`thresholds\` for numeric cutoffs/ranges/withhold-stop criteria and \`comparison\` for source differences, conflicts, or "compare / versus / difference" questions. Omit any section not supported by the excerpts.
+
+## Grounding (non-negotiable)
+- Every clinical claim — in the answer field and in every section — must be supported by the retrieved excerpts and carry citation_chunk_ids from the supplied source block. Omit, or convert to a source-gap statement, anything you cannot support.
+- Never state unsupported numbers, doses, frequencies, thresholds, routes, or medication names. If a number or dose is not clearly in the evidence, leave it out.
+- Copy every dose, level, threshold, cut-off, frequency, and duration EXACTLY as written in a cited excerpt — digit for digit, with its unit. Never supply a number from general clinical knowledge (including "typical" therapeutic levels or well-known reference ranges) that is not verbatim in the excerpts, and never round, infer, or complete a partial figure.
+- Do not merge separate values into a range. If the excerpts list discrete dose steps (for example 0.25 mg, 0.5 mg, 1 mg), present them as discrete steps — never as "0.25–1 mg" or any range the excerpt does not itself state.
+- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite only the strongest 3-5, not every source.
+- If the excerpts contain only headings, partial table fragments, or disconnected text that cannot support a logical answer, say the uploaded documents do not contain enough information — do not fill from general knowledge.
+- Integrate relevant sources: merge overlapping guidance once; when several documents are relevant, synthesise by clinical theme/action and reconcile conflicts explicitly rather than silently choosing one; call out weak, nearby-only, or missing support when the evidence is partial or conflicting. Prefer Australian or WA-specific guidance when present. Sources are ordered by relevance — prioritise earlier ones unless a later source resolves a conflict or gap. The fused source brief and structured memory lines are orientation only; verify every claim against the raw excerpts below them and cite the original chunks.
+- Do not give patient-specific medical advice.
+
+## Formatting
+- Bold only source-supported high-yield details with **bold**: doses, thresholds, timings, escalation/stop triggers, required actions, contraindications. Never bold whole sentences or routine filler. Use no Markdown other than **bold**.
+- Never write provenance in prose: no document IDs, procedure/form codes, file names, page/chunk labels, similarity scores, source metadata, headers/footers, review tables, document-control text, or trailing citation digits/footnote markers such as "Tests1" or "months.1". Provenance belongs only in citations and quoteCards.
+- Include 1-3 short EXACT quotes in quoteCards, copied verbatim from the retrieved excerpts.
+- Never output JSON-like fragments, key-value dumps, or raw braces, and never write keys such as answer, heading, or citation_chunk_ids in any heading/body. If a section body would contain key-value or JSON-like syntax, omit it or return only concise natural-language text.
+
+## Style examples (illustrating target voice and structure ONLY — never reuse these specific values; always use the actual retrieved excerpt content)
+Direct-fact question -> single targeted sentence, no sections:
+  answer: "The maximum recommended dose is **X mg** daily in divided doses, reduced in older or frail patients and titrated to response."
+Threshold/decision question -> targeted lead sentence plus a couple of tight sections:
+  answer: "**Withhold** the medication when the result falls into the red range and arrange **urgent** repeat testing and specialist review before the next dose."
+  section [thresholds] "Red-range action": "A result below **<threshold>** is the red result — stop and do not give further doses until reviewed."
+  section [required_actions] "Escalation": "Arrange an **urgent** repeat and specialist review; do not restart without specialist advice."
+
+Return data matching the supplied structured output schema.`;
 
   function buildAnswerInput(contextResults: SearchResult[]) {
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
@@ -6433,7 +6753,6 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
 
   let generationLatencyMs = 0;
   let modelUsed = route.model;
-  let modelTierUsed: "fast" | "strong" = route.mode === "strong" ? "strong" : "fast";
   let routingReason = route.reason;
   let retriedWithStrong = false;
   let openAIUsage: OpenAITokenUsage = {};
@@ -6466,9 +6785,12 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   async function generateWithModel(
     model: string,
     contextResults: SearchResult[],
-    qualityRetryInstruction?: string,
-    reasoningTier: "fast" | "strong" = "fast",
+    options?: { strong?: boolean; qualityRetryInstruction?: string },
   ): Promise<OpenAITextResult> {
+    const qualityRetryInstruction = options?.qualityRetryInstruction;
+    // Fast vs strong is differentiated by reasoning effort, not model identity, so the
+    // fast->strong escalation still works when both tiers share a model (e.g. both gpt-5.5).
+    const useStrongReasoning = options?.strong ?? false;
     const input = qualityRetryInstruction
       ? `${buildAnswerInput(contextResults)}
 
@@ -6483,10 +6805,11 @@ ${qualityRetryInstruction}`
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
-        promptCacheKey: "clinical-rag-answer-v13",
+        promptCacheKey: "clinical-rag-answer-v17",
         timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
-        reasoningEffort:
-          reasoningTier === "strong" ? env.OPENAI_STRONG_REASONING_EFFORT : env.OPENAI_FAST_REASONING_EFFORT,
+        reasoningEffort: useStrongReasoning
+          ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
+          : env.OPENAI_FAST_REASONING_EFFORT,
         signal: args.signal,
       });
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
@@ -6613,20 +6936,18 @@ ${qualityRetryInstruction}`
       reason: route.reason,
     });
     let packedContextResults = await packContextForGeneration(modelContextResults);
-    let generated = await generateWithModel(
-      route.model!,
-      packedContextResults,
-      undefined,
-      route.mode === "strong" ? "strong" : "fast",
-    );
+    let generated = await generateWithModel(route.model!, packedContextResults, {
+      strong: route.mode === "strong",
+    });
+    // Adopted from main: retry truncation once for BOTH fast- and strong-routed first attempts
+    // (previously fast-only), keyed on route.mode rather than model identity so it stays correct
+    // when the tiers share a model.
     if (generated.truncated && !retriedWithStrong) {
-      const retryPrefix =
-        route.mode === "fast" ? "fast" : modelUsed === env.OPENAI_STRONG_ANSWER_MODEL ? "strong" : "generation";
+      const retryPrefix = route.mode === "fast" ? "fast" : "strong";
       const retryReason = `${generationRetryReason(retryPrefix, generated)}_retry_strong`;
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
-      modelTierUsed = "strong";
       routingReason = `${route.reason}; ${retryReason}`;
       retriedWithStrong = true;
       await args.onProgress?.({
@@ -6636,8 +6957,10 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      packedContextResults = await packContextForGeneration(answerInputResults);
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, undefined, "strong");
+      // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
+      // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
+      packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
       retrievalDiagnostics.routeMode = "strong";
     }
     if (generated.truncated) {
@@ -6686,7 +7009,6 @@ ${qualityRetryInstruction}`
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
-      modelTierUsed = "strong";
       routingReason = `${route.reason}; ${retryReason}`;
       retriedWithStrong = true;
       await args.onProgress?.({
@@ -6707,8 +7029,9 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      packedContextResults = await packContextForGeneration(answerInputResults);
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, undefined, "strong");
+      // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
+      packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
         const truncatedReason = generationRetryReason("strong", generated);
@@ -6721,9 +7044,14 @@ ${qualityRetryInstruction}`
         retrievalDiagnostics,
       );
     }
-    const strongQualityFailureReason =
-      modelTierUsed === "strong" ? generatedAnswerQualityFailureReason(answer, args.query, queryClass) : null;
-    const answerNeedsStrongQualityRepair = modelTierUsed === "strong" && Boolean(strongQualityFailureReason);
+    // Whether the answer was produced by the strong path (either routed strong from the
+    // start or escalated via retry). Tracked by flag rather than model identity so it stays
+    // correct when fast and strong tiers share a model.
+    const usedStrongModel = route.mode === "strong" || retriedWithStrong;
+    const strongQualityFailureReason = usedStrongModel
+      ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
+      : null;
+    const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
     if (answerNeedsStrongQualityRepair) {
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
@@ -6735,12 +7063,10 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      generated = await generateWithModel(
-        env.OPENAI_STRONG_ANSWER_MODEL,
-        packedContextResults,
-        `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
-        "strong",
-      );
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
+        strong: true,
+        qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
+      });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
         const truncatedReason = generationRetryReason("strong_quality_retry", generated);
@@ -6788,7 +7114,7 @@ ${qualityRetryInstruction}`
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
     const canRecoverExtractively =
-      modelTierUsed !== "strong" && (answer.citations.length > 0 || answerInputResults.length > 0);
+      !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,

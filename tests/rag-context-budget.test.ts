@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { packedContextCacheKey, selectModelContextResults } from "../src/lib/rag";
+import { capPerDocumentCrowding, packedContextCacheKey, selectModelContextResults } from "../src/lib/rag";
 import type { RagQueryClass, SearchResult } from "../src/lib/types";
 
 function source(index: number): SearchResult {
@@ -52,6 +52,40 @@ describe("RAG model context budgeting", () => {
     expect(select({ routeMode: "strong", queryClass: "document_lookup" })).toHaveLength(12);
     expect(select({ routeMode: "extractive", queryClass: "document_lookup" })).toHaveLength(12);
     expect(select({ routeMode: "unsupported", queryClass: "unsupported_or_general" })).toHaveLength(12);
+  });
+
+  it("caps a crowding document to three chunks in the model context but keeps other docs (P9)", () => {
+    const crowded: SearchResult[] = [
+      source(1), // doc-1
+      { ...source(2), document_id: "doc-1", id: "a2" },
+      { ...source(3), document_id: "doc-1", id: "a3" },
+      { ...source(4), document_id: "doc-1", id: "a4" }, // 4th from doc-1 → dropped
+      { ...source(5), document_id: "doc-1", id: "a5" }, // 5th from doc-1 → dropped
+      { ...source(6), document_id: "doc-2", id: "b1" },
+    ];
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "broad_summary",
+      crossDocument: false,
+      results: crowded,
+    });
+    const perDoc = selected.reduce<Record<string, number>>((acc, r) => {
+      acc[r.document_id] = (acc[r.document_id] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(perDoc["doc-1"]).toBe(3);
+    expect(perDoc["doc-2"]).toBe(1);
+    // Order preserved, no reranking.
+    expect(selected.map((r) => r.id)).toEqual(["chunk-1", "a2", "a3", "b1"]);
+  });
+
+  it("never starves a genuinely single-document answer", () => {
+    const singleDoc: SearchResult[] = Array.from({ length: 6 }, (_, index) => ({
+      ...source(index + 1),
+      document_id: "doc-only",
+      id: `only-${index + 1}`,
+    }));
+    expect(capPerDocumentCrowding(singleDoc)).toHaveLength(6);
   });
 
   it("uses a stable context pack cache key for matching retry inputs", () => {

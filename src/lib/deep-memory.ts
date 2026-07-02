@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import { logger } from "@/lib/logger";
 import {
   buildDocumentIndexUnitInputs,
   countDocumentIndexUnitsByType,
@@ -809,6 +810,17 @@ export async function fetchMemoryCardsForQuery(args: {
         document_filters: args.documentIds?.length ? args.documentIds : null,
         owner_filter: args.ownerId ?? null,
       });
+
+      if (error) {
+        // P0.1: surface the hybrid RPC failure instead of silently dropping to the lexical
+        // fallback below — this is the failure mode that hid the live schema drift.
+        logger.error("hybrid_rpc_failed", {
+          rpc: "match_document_memory_cards_hybrid",
+          code: (error as { code?: string }).code ?? "unknown",
+          message: error.message,
+          hint: (error as { hint?: string }).hint,
+        });
+      }
 
       if (!error && data?.length) {
         return (

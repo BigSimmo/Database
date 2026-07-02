@@ -170,6 +170,10 @@ create table if not exists public.document_labels (
       'workflow',
       'population',
       'service',
+      'clinical_action',
+      'care_phase',
+      'document_intent',
+      'content_feature',
       'custom'
     )),
   source text not null default 'generated'
@@ -362,7 +366,7 @@ create table if not exists public.ingestion_jobs (
 
 create table if not exists public.ingestion_job_stages (
   id uuid primary key default gen_random_uuid(),
-  job_id uuid not null,
+  job_id uuid not null references public.ingestion_jobs(id) on delete cascade,
   document_id uuid not null references public.documents(id) on delete cascade,
   stage_name text not null,
   stage_status text not null default 'started'
@@ -374,9 +378,6 @@ create table if not exists public.ingestion_job_stages (
   finished_at timestamptz,
   created_at timestamptz not null default now()
 );
-
-alter table if exists public.ingestion_job_stages
-  drop constraint if exists ingestion_job_stages_job_id_fkey;
 
 create table if not exists public.rag_queries (
   id uuid primary key default gen_random_uuid(),
@@ -611,16 +612,20 @@ create index if not exists document_table_facts_source_image_idx
   where source_image_id is not null;
 create index if not exists document_embedding_fields_document_idx
   on public.document_embedding_fields(document_id, field_type);
-create index if not exists document_embedding_fields_owner_idx
+create index if not exists document_embedding_fields_owner_id_idx
   on public.document_embedding_fields(owner_id);
 create index if not exists document_embedding_fields_owner_chunk_idx
   on public.document_embedding_fields(owner_id, source_chunk_id)
   where source_chunk_id is not null;
-create index if not exists document_embedding_fields_chunk_idx
-  on public.document_embedding_fields(source_chunk_id)
+create index if not exists document_embedding_fields_owner_document_created_idx
+  on public.document_embedding_fields(owner_id, document_id, created_at desc);
+create index if not exists document_embedding_fields_source_chunk_id_idx
+  on public.document_embedding_fields(source_chunk_id);
+create index if not exists document_embedding_fields_meta_rag_indexing_version_idx
+  on public.document_embedding_fields((metadata->>'rag_indexing_version'));
+create index if not exists document_embedding_fields_search_tsv_chunk_gin_idx
+  on public.document_embedding_fields using gin(search_tsv)
   where source_chunk_id is not null;
-create index if not exists document_embedding_fields_search_idx
-  on public.document_embedding_fields using gin(search_tsv);
 create index if not exists document_embedding_fields_embedding_hnsw_idx
   on public.document_embedding_fields using hnsw (embedding vector_cosine_ops)
   with (m = 24, ef_construction = 128);
@@ -1838,7 +1843,7 @@ as $$
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
     order by c.embedding <=> query_embedding
-    limit least(greatest(match_count * 2, 48), 128)
+    limit greatest(match_count * 6, 48)
   ),
   text_ranked as (
     select
@@ -1877,12 +1882,12 @@ as $$
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
-      and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
+      and c.search_tsv @@ query.tsq
     order by (
       ts_rank_cd(c.search_tsv, query.tsq) +
       (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
     ) desc
-    limit least(greatest(match_count * 2, 48), 128)
+    limit greatest(match_count * 6, 48)
   ),
   combined as (
     select * from vector_ranked
@@ -1981,7 +1986,7 @@ as $$
   limit match_count;
 $$;
 
-create or replace function public.match_document_memory_cards_hybrid(
+create or replace function public.match_document_memory_cards_hybrid_v2(
   query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 32,
@@ -2018,7 +2023,7 @@ as $$
   vector_ranked as (
     select
       m.*,
-      1 - (m.embedding <=> query_embedding) as similarity,
+      (1 - (m.embedding <=> query_embedding))::double precision as similarity,
       ts_rank_cd(m.search_tsv, query.tsq)::double precision as text_rank,
       row_number() over (order by m.embedding <=> query_embedding) as vector_rank,
       null::bigint as text_match_rank
@@ -2029,14 +2034,14 @@ as $$
       and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
-      and 1 - (m.embedding <=> query_embedding) >= min_similarity
+      and (1 - (m.embedding <=> query_embedding)) >= min_similarity
     order by m.embedding <=> query_embedding
-    limit greatest(match_count * 4, 64)
+    limit greatest(match_count * 6, 96)
   ),
   text_ranked as (
     select
       m.*,
-      1 - (m.embedding <=> query_embedding) as similarity,
+      (1 - (m.embedding <=> query_embedding))::double precision as similarity,
       ts_rank_cd(m.search_tsv, query.tsq)::double precision as text_rank,
       null::bigint as vector_rank,
       row_number() over (
@@ -2051,7 +2056,7 @@ as $$
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and m.search_tsv @@ query.tsq
     order by ts_rank_cd(m.search_tsv, query.tsq) desc
-    limit greatest(match_count * 4, 64)
+    limit greatest(match_count * 6, 96)
   ),
   combined as (
     select * from vector_ranked
@@ -2060,63 +2065,83 @@ as $$
   ),
   scored as (
     select
-      id,
-      document_id,
-      owner_id,
-      section_id,
-      card_type,
-      title,
-      content,
-      normalized_terms,
-      page_number,
-      source_chunk_ids,
-      source_image_ids,
-      confidence,
-      metadata,
+      id, document_id, owner_id, section_id, card_type, title, content, normalized_terms,
+      page_number, source_chunk_ids, source_image_ids, confidence, metadata,
       max(similarity)::double precision as similarity,
       max(text_rank)::double precision as text_rank,
       min(vector_rank) as vector_rank,
       min(text_match_rank) as text_match_rank
     from combined
     group by
-      id,
-      document_id,
-      owner_id,
-      section_id,
-      card_type,
-      title,
-      content,
-      normalized_terms,
-      page_number,
-      source_chunk_ids,
-      source_image_ids,
-      confidence,
-      metadata
+      id, document_id, owner_id, section_id, card_type, title, content, normalized_terms,
+      page_number, source_chunk_ids, source_image_ids, confidence, metadata
   )
   select
-    id,
-    document_id,
-    owner_id,
-    section_id,
-    card_type,
-    title,
-    content,
-    normalized_terms,
-    page_number,
-    source_chunk_ids,
-    source_image_ids,
-    confidence,
-    metadata,
-    similarity,
-    text_rank,
-    ((similarity * 0.65) + (least(text_rank, 1) * 0.25) + (confidence * 0.10))::double precision as hybrid_score,
+    id, document_id, owner_id, section_id, card_type, title, content, normalized_terms,
+    page_number, source_chunk_ids, source_image_ids, confidence, metadata, similarity, text_rank,
     (
-      coalesce(1.0 / (60 + vector_rank), 0) +
-      coalesce(1.0 / (60 + text_match_rank), 0)
+      (similarity * 0.62)
+      + (least(text_rank, 1) * 0.24)
+      + (confidence * 0.10)
+      + (
+        coalesce(1.0 / (60 + vector_rank), 0)
+        + coalesce(1.0 / (60 + text_match_rank), 0)
+      ) * 0.04
+    )::double precision as hybrid_score,
+    (
+      coalesce(1.0 / (60 + vector_rank), 0)
+      + coalesce(1.0 / (60 + text_match_rank), 0)
     )::double precision as rrf_score
   from scored
   order by hybrid_score desc, similarity desc, text_rank desc, confidence desc
   limit match_count;
+$$;
+
+-- plpgsql wrapper: raise HNSW ef_search for recall depth, then delegate to _v2.
+create or replace function public.match_document_memory_cards_hybrid(
+  query_embedding extensions.vector(1536),
+  query_text text,
+  match_count integer default 32,
+  min_similarity double precision default 0.1,
+  document_filters uuid[] default null,
+  owner_filter uuid default null
+)
+returns table (
+  id uuid,
+  document_id uuid,
+  owner_id uuid,
+  section_id uuid,
+  card_type text,
+  title text,
+  content text,
+  normalized_terms text[],
+  page_number integer,
+  source_chunk_ids uuid[],
+  source_image_ids uuid[],
+  confidence real,
+  metadata jsonb,
+  similarity double precision,
+  text_rank double precision,
+  hybrid_score double precision,
+  rrf_score double precision
+)
+language plpgsql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  perform set_config('hnsw.ef_search', '100', true);
+  return query
+  select *
+  from public.match_document_memory_cards_hybrid_v2(
+    query_embedding,
+    query_text,
+    match_count,
+    min_similarity,
+    document_filters,
+    owner_filter
+  );
+end
 $$;
 
 create or replace function public.detect_legacy_ivfflat_indexes()
@@ -2149,7 +2174,8 @@ create or replace function public.search_schema_health()
 returns jsonb
 language plpgsql
 stable
-set search_path = public, extensions, pg_temp
+security definer
+set search_path = public, extensions, pg_catalog, pg_temp
 as $$
 declare
   missing text[] := array[]::text[];
@@ -2157,14 +2183,23 @@ declare
   vector_schema text;
   index_name text;
   legacy_ivfflat_indexes text[];
+  zero_vec extensions.vector(1536);
+  probe_text text := 'schema health probe zzznomatch';
+  hybrid_rpcs text[] := array[
+    'match_document_chunks_hybrid',
+    'match_document_index_units_hybrid',
+    'match_document_embedding_fields_hybrid',
+    'match_document_memory_cards_hybrid'
+  ];
+  rpc_name text;
   required_indexes constant text[] := array[
     'documents_title_trgm_idx',
     'document_chunks_content_trgm_idx',
     'document_labels_label_trgm_idx',
     'document_summaries_summary_trgm_idx',
-    'document_index_units_embedding_hnsw_idx',
     'document_chunks_embedding_hnsw_idx',
     'document_embedding_fields_embedding_hnsw_idx',
+    'document_memory_cards_embedding_hnsw_idx',
     'documents_indexed_owner_title_idx',
     'document_table_facts_owner_document_page_idx',
     'document_embedding_fields_owner_chunk_idx',
@@ -2209,6 +2244,9 @@ begin
   if to_regprocedure('public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_memory_cards_hybrid.extensions_vector_signature');
   end if;
+  if to_regprocedure('public.match_document_memory_cards_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
+    missing := array_append(missing, 'match_document_memory_cards_hybrid_v2.extensions_vector_signature');
+  end if;
   if to_regprocedure('public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)') is null then
     missing := array_append(missing, 'match_document_index_units_hybrid.extensions_vector_signature');
   end if;
@@ -2240,6 +2278,28 @@ begin
       missing := array_append(missing, index_name);
     end if;
   end loop;
+
+  -- Execution smoke: invoke each hybrid RPC with a zero vector so silent runtime
+  -- breaks (e.g. the historical 42702 ambiguous-id plpgsql regression) surface as
+  -- `<rpc>.execution:<sqlstate>` instead of passing a signature-only check. Only
+  -- runs when the vector type resolved, so a missing extension is not double
+  -- reported; each RPC gets its own sub-block so one failure does not mask others.
+  if vector_type_oid is not null then
+    zero_vec := (select ('[' || string_agg('0', ',') || ']') from generate_series(1, 1536))::extensions.vector(1536);
+    foreach rpc_name in array hybrid_rpcs loop
+      begin
+        execute format(
+          'select 1 from public.%I($1, $2, 1, 0.1, null::uuid[], null::uuid) limit 1',
+          rpc_name
+        ) using zero_vec, probe_text;
+      exception
+        when undefined_function then
+          missing := array_append(missing, rpc_name || '.execution_signature');
+        when others then
+          missing := array_append(missing, rpc_name || '.execution:' || SQLSTATE);
+      end;
+    end loop;
+  end if;
 
   select public.detect_legacy_ivfflat_indexes() into legacy_ivfflat_indexes;
 
@@ -2699,7 +2759,7 @@ create or replace function public.match_document_embedding_fields_hybrid(
   query_embedding extensions.vector(1536),
   query_text text,
   match_count integer default 16,
-  min_similarity double precision default 0.1,
+  min_similarity double precision default 0.5,
   document_filters uuid[] default null,
   owner_filter uuid default null
 )
@@ -2720,39 +2780,49 @@ as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
   ),
-  ranked as (
-    select
-      f.id,
-      f.document_id,
-      f.source_chunk_id,
-      f.field_type,
-      f.content,
-      (1 - (f.embedding <=> query_embedding))::double precision as similarity,
-      ts_rank_cd(f.search_tsv, query.tsq)::double precision as text_rank
+  vector_hits as (
+    select f.id
+    from public.document_embedding_fields f
+    join public.documents d on d.id = f.document_id
+    where (document_filters is null or f.document_id = any(document_filters))
+      and (owner_filter is null or d.owner_id = owner_filter)
+      and d.status = 'indexed'
+      and public.is_committed_artifact_generation(f.metadata, d.metadata)
+      and f.source_chunk_id is not null
+      and 1 - (f.embedding <=> query_embedding) >= min_similarity
+    order by f.embedding <=> query_embedding
+    limit greatest(match_count * 3, 32)
+  ),
+  text_hits as (
+    select f.id
     from public.document_embedding_fields f
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or f.owner_id = owner_filter)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
-      and (
-        1 - (f.embedding <=> query_embedding) >= min_similarity
-        or f.search_tsv @@ query.tsq
-      )
-    order by
-      ((1 - (f.embedding <=> query_embedding)) * 0.7 + least(ts_rank_cd(f.search_tsv, query.tsq), 1) * 0.3) desc
-    limit least(greatest(match_count * 2, 24), 96)
+      and f.search_tsv @@ query.tsq
+    order by ts_rank_cd(f.search_tsv, query.tsq) desc
+    limit greatest(match_count * 3, 32)
+  ),
+  candidate_ids as (
+    select id from vector_hits
+    union
+    select id from text_hits
+  ),
+  ranked as (
+    select
+      f.id, f.document_id, f.source_chunk_id, f.field_type, f.content,
+      (1 - (f.embedding <=> query_embedding))::double precision as similarity,
+      ts_rank_cd(f.search_tsv, query.tsq)::double precision as text_rank
+    from public.document_embedding_fields f
+    join candidate_ids ci on ci.id = f.id
+    cross join query
   )
   select
-    id,
-    document_id,
-    source_chunk_id,
-    field_type,
-    content,
-    similarity,
-    text_rank,
+    id, document_id, source_chunk_id, field_type, content, similarity, text_rank,
     ((similarity * 0.7) + (least(text_rank, 1) * 0.3))::double precision as hybrid_score
   from ranked
   order by hybrid_score desc, similarity desc, text_rank desc
@@ -3497,7 +3567,10 @@ create index if not exists document_index_units_image_idx on public.document_ind
 create index if not exists document_index_units_terms_idx on public.document_index_units using gin(normalized_terms);
 create index if not exists document_index_units_heading_path_idx on public.document_index_units using gin(heading_path);
 create index if not exists document_index_units_search_idx on public.document_index_units using gin(search_tsv);
-create index if not exists document_index_units_embedding_hnsw_idx on public.document_index_units using hnsw (embedding vector_cosine_ops) with (m = 24, ef_construction = 128);
+-- Intentionally no HNSW index on document_index_units.embedding: the hybrid RPC is
+-- text-candidate-gated so the vector path never used it (0 lifetime scans; dropped
+-- live 2026-07-02 by the drop_legacy_vector_indexes migration). Re-add only if the
+-- RPC is rewritten to take a vector-first candidate path.
 
 drop trigger if exists document_index_units_updated_at on public.document_index_units;
 create trigger document_index_units_updated_at
@@ -3556,12 +3629,12 @@ as $$
     cross join query
     where d.status = 'indexed'
       and (document_filters is null or u.document_id = any(document_filters))
-      and (owner_filter is null or u.owner_id = owner_filter)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and public.is_committed_artifact_generation(u.metadata, d.metadata)
       and u.source_chunk_id is not null
       and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)
-    order by text_rank desc, similarity desc
-    limit least(greatest(match_count * 2, 32), 96)
+    order by text_rank desc
+    limit greatest(match_count * 3, 48)
   )
   select id, document_id, source_chunk_id, source_image_id, unit_type, title, content, page_start, page_end, heading_path,
     normalized_terms, source_span, quality_score, extraction_mode, similarity, text_rank,

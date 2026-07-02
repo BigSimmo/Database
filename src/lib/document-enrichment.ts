@@ -139,6 +139,10 @@ const summarySchema = {
               "workflow",
               "population",
               "service",
+              "clinical_action",
+              "care_phase",
+              "document_intent",
+              "content_feature",
               "custom",
             ],
           },
@@ -199,7 +203,7 @@ function normalizeGeneratedLabels(labels: unknown): GeneratedLabel[] {
     if (seen.has(key)) continue;
     seen.add(key);
     normalized.push(label);
-    if (normalized.length >= 20) break;
+    if (normalized.length >= 32) break;
   }
 
   return normalized;
@@ -459,7 +463,7 @@ Return strict JSON.
 - Use "source_quality_notes" only for extraction/OCR/coverage caveats visible from the provided evidence.
 - Keep legacy clinical_specifics arrays populated from the same high-yield facts for backwards-compatible search.
 - Labels should be clean source-supported search tags: short keywords, usually 1-4 words.
-- Prefer clinical topics, hospital/service sites, medications, risks, workflows, populations, settings, services, and document types.
+- Prefer clinical topics, hospital/service sites, medications, risks, clinical actions, care phases, document intents, content features, populations, settings, services, and document types.
 - Do not include filenames, page numbers, document-control text, copyright/version phrases, broad words like "guideline", "policy", "procedure", "document", or full sentences.
 - Avoid duplicates and near-duplicates.
 
