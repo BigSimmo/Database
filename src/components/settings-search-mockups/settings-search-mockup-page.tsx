@@ -375,7 +375,7 @@ function DesktopProfileStrip({ tone }: { tone: Concept["tone"] }) {
         )}
       >
         DS
-        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--surface)] bg-emerald-600" />
+        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">Dr Simpson</span>
@@ -543,7 +543,7 @@ function PhoneProfileRow({ tone }: { tone: Concept["tone"] }) {
     >
       <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/10 bg-[color:var(--clinical-chat-teal-soft)] text-sm font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
         DS
-        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-emerald-600" />
+        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">Dr Simpson</span>
