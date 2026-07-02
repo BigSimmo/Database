@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
+  BrainCircuit,
   ChevronDown,
   ClipboardList,
   FileText,
@@ -52,6 +53,7 @@ const sidebarToolItems = [
   { id: "services", label: "Services", icon: ClipboardList, href: "/services" },
   { id: "forms", label: "Forms", icon: FileText, href: "/forms" },
   { id: "favourites", label: "Faves", icon: Heart, href: "/favourites" },
+  { id: "differentials", label: "Diffs", icon: BrainCircuit, href: "/differentials" },
   { id: "prescribing", label: "Meds", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
@@ -390,6 +392,15 @@ export function ClinicalDesktopSidebar({
             aria-current={activeMode === "favourites" ? "page" : undefined}
           >
             <Heart className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/differentials"
+            className={cn(collapsedSidebarButton, activeMode === "differentials" && collapsedSidebarActiveButton)}
+            aria-label="Differentials"
+            title="Differentials"
+            aria-current={activeMode === "differentials" ? "page" : undefined}
+          >
+            <BrainCircuit className="h-4 w-4" />
           </Link>
           <Link
             href="/?mode=tools"
