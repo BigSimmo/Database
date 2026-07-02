@@ -265,7 +265,7 @@ export type ChunkImage = {
   storage_path: string;
   signed_url?: string;
   caption: string;
-  bbox?: unknown;
+  bbox?: [number, number, number, number] | null;
   image_type?: ImageEvidenceCategory;
   searchable?: boolean;
   clinical_relevance_score?: number;
@@ -354,7 +354,7 @@ export type DocumentIndexUnitMatch = {
   normalized_terms: string[];
   source_span?: Record<string, unknown> | null;
   quality_score: number | null;
-  extraction_mode: "deterministic" | "model_heavy" | "hybrid" | string;
+  extraction_mode: "deterministic" | "model_heavy" | "hybrid";
   similarity?: number | null;
   text_rank?: number | null;
   hybrid_score?: number | null;
@@ -544,8 +544,8 @@ export type ClinicalDocumentSummaryProfile = {
 export type RagIndexingVersion = "rag-universal-v1" | "rag-deep-memory-v1";
 
 export type DocumentIndexQuality = {
-  indexingVersion?: RagIndexingVersion | string | null;
-  memoryVersion?: RagIndexingVersion | string | null;
+  indexingVersion?: RagIndexingVersion | null;
+  memoryVersion?: RagIndexingVersion | null;
   extractionQuality?: ClinicalSourceMetadata["extraction_quality"];
   sectionCount?: number;
   memoryCardCount?: number;
@@ -893,7 +893,7 @@ export type RagAnswer = {
   relatedDocuments?: RelatedDocument[];
   relevance?: EvidenceRelevance;
   memoryCardsUsed?: DocumentMemoryCard[];
-  indexingVersion?: RagIndexingVersion | string | null;
+  indexingVersion?: RagIndexingVersion | null;
   indexingQuality?: DocumentIndexQuality;
   smartApiPlan?: SmartRagApiPlan;
   scoreExplanations?: Array<{

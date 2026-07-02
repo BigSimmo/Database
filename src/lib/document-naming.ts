@@ -1,15 +1,5 @@
-export type SupabaseLike = {
-  from: (table: string) => {
-    select: (columns?: string) => {
-      eq: (
-        column: string,
-        value: unknown,
-      ) => {
-        limit: (count: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-      };
-    };
-  };
-};
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 
 export type DocumentNamePlan = {
   title: string;
@@ -163,7 +153,7 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase?: SupabaseLike;
+  supabase?: SupabaseClient<Database>;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;
