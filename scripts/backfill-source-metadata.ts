@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import type { Json } from "@/lib/supabase/database.types";
 
 loadEnvConfig(process.cwd());
 
@@ -658,7 +659,10 @@ async function main() {
   if (!APPLY) return;
 
   for (const item of changed) {
-    const { error } = await supabase.from("documents").update({ metadata: item.metadata }).eq("id", item.document.id);
+    const { error } = await supabase
+      .from("documents")
+      .update({ metadata: item.metadata as Json })
+      .eq("id", item.document.id);
     if (error) throw new Error(`Failed to update ${item.document.file_name}: ${error.message}`);
   }
   console.log(`Applied source metadata backfill to ${changed.length} documents.`);

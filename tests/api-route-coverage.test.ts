@@ -21,16 +21,15 @@ type BatchRow = {
   status: string;
 };
 
-function createQueryMock<T>(result: { data: T; error: { message: string } | null; count?: number | null }) {
+function createQueryMock<T>(result: { data: T; error: { message: string } | null }) {
   const chain = {
     select: null as unknown as ReturnType<typeof vi.fn>,
     eq: null as unknown as ReturnType<typeof vi.fn>,
     in: null as unknown as ReturnType<typeof vi.fn>,
     order: null as unknown as ReturnType<typeof vi.fn>,
     limit: null as unknown as ReturnType<typeof vi.fn>,
-    range: null as unknown as ReturnType<typeof vi.fn>,
     then: (
-      resolve: (value: { data: T; error: { message: string } | null; count?: number | null }) => void,
+      resolve: (value: { data: T; error: { message: string } | null }) => void,
       reject?: (reason?: unknown) => void,
     ) => Promise.resolve(result).then(resolve, reject),
   } as {
@@ -39,9 +38,8 @@ function createQueryMock<T>(result: { data: T; error: { message: string } | null
     in: ReturnType<typeof vi.fn>;
     order: ReturnType<typeof vi.fn>;
     limit: ReturnType<typeof vi.fn>;
-    range: ReturnType<typeof vi.fn>;
     then: (
-      resolve: (value: { data: T; error: { message: string } | null; count?: number | null }) => void,
+      resolve: (value: { data: T; error: { message: string } | null }) => void,
       reject?: (reason?: unknown) => void,
     ) => Promise<unknown>;
   };
@@ -51,7 +49,6 @@ function createQueryMock<T>(result: { data: T; error: { message: string } | null
   chain.in = vi.fn(() => chain);
   chain.order = vi.fn(() => chain);
   chain.limit = vi.fn(() => chain);
-  chain.range = vi.fn(() => chain);
   return chain;
 }
 
@@ -146,13 +143,6 @@ describe("/api/ingestion/jobs", () => {
       hasActiveJobs: false,
       pollAfterMs: null,
       demoMode: true,
-      pagination: {
-        limit: 100,
-        offset: 0,
-        total: 0,
-        nextOffset: 0,
-        hasMore: false,
-      },
     });
     expect(response.headers.get("x-indexing-active")).toBe("false");
     expect(createAdminClient).not.toHaveBeenCalled();

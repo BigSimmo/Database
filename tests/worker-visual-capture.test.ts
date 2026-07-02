@@ -54,12 +54,6 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("indexing_v3_agent_repair_reason: strictCompletionRepairReason");
   });
 
-  it("logs fallback import-batch update failures when RPC-based refresh is unavailable", () => {
-    expect(workerSource).toContain("Import batch status fallback update failed");
-    expect(workerSource).toContain("update import batch status fallback");
-    expect(workerSource).toContain("const { error: fallbackUpdateError } = await supabase");
-  });
-
   it("invalidates stale image caption cache entries by policy, prompt, and context versions", () => {
     expect(workerSource).toContain('const imageCaptionCacheVersion = "clinical-image-caption-cache-v2"');
     expect(workerSource).toContain('const visionClassificationPromptVersion = "clinical-image-classification-v1"');

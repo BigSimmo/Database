@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
 import { demoSearch } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
@@ -10,6 +11,7 @@ import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { searchChunksWithTelemetry } from "@/lib/rag";
 import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
+import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
@@ -292,6 +294,17 @@ function compactSearchResults(query: string, results: SearchResult[]) {
   return results.map((result) => compactSearchResult(query, result));
 }
 
+function searchDegradedModeSignal(telemetry?: { embedding_skip_reason?: string | null }) {
+  const reason = telemetry?.embedding_skip_reason ?? null;
+  const active =
+    reason === SOURCE_ONLY_EMBEDDING_SKIP_REASON ||
+    (typeof reason === "string" && reason.startsWith("source_only_"));
+  return {
+    active,
+    reason: active ? reason ?? "source_only" : null,
+  };
+}
+
 function facetCounts(values: Array<string | null | undefined>, limit = 12) {
   const counts = new Map<string, number>();
   for (const raw of values) {
@@ -539,7 +552,8 @@ function logRetrievalDiagnostics(args: {
           relevance_score: args.relevance.score,
           latency_bucket: latencyBucket(latencyMs),
           ...retrievalDecisionTelemetry(args.telemetry),
-        },
+          // Telemetry values are JSON-serializable; some are typed wider than Json.
+        } as unknown as Json,
       });
     } catch (error) {
       retrievalLogWriteMetrics.failures += 1;
@@ -599,7 +613,7 @@ function logSearchObservation(args: {
           search_cache_hit: telemetry.search_cache_hit ?? null,
           embedding_skipped: telemetry.embedding_skipped ?? null,
           ...retrievalDecisionTelemetry(telemetry),
-        },
+        } as unknown as Json,
       });
     } catch {
       // Search telemetry must not affect the user-facing search path.
@@ -641,12 +655,15 @@ async function buildScopedSearchPayload(
       }),
       scope: { ...scope, queryMode: body.queryMode },
       sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [], relevance }),
+      degradedMode: searchDegradedModeSignal(),
       telemetry: {
         query_class: effectiveQueryClass,
         relevance_verdict: relevance.verdict,
         relevance_score: relevance.score,
         direct_source_count: 0,
         weak_source_count: 0,
+        shared_cache_status: "miss",
+        shared_cache_miss_reason: "no_entry",
       },
     };
     logSearchObservation({ supabase, ownerId, query: body.query, results: [], payload });
@@ -731,6 +748,7 @@ async function buildScopedSearchPayload(
     smartApiPlan,
     scope: { ...scope, queryMode: body.queryMode },
     sourceGovernanceWarnings: sourceGovernanceWarnings({ results, relevance }),
+    degradedMode: searchDegradedModeSignal(search.telemetry),
     telemetry: {
       query_class: effectiveQueryClass,
       relevance_verdict: relevance.verdict,
@@ -744,6 +762,9 @@ async function buildScopedSearchPayload(
       smart_api_display_mode: smartApiPlan.displayMode,
       smart_api_source_link_count: smartApiPlan.sourceLinkCount,
       search_cache_hit: search.telemetry.search_cache_hit,
+      shared_cache_hit: search.telemetry.shared_cache_hit,
+      shared_cache_status: search.telemetry.shared_cache_status,
+      shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
       embedding_skipped: search.telemetry.embedding_skipped,
       embedding_skip_reason: search.telemetry.embedding_skip_reason,
       embedding_cache_hit: search.telemetry.embedding_cache_hit,
@@ -853,6 +874,7 @@ export async function POST(request: Request) {
         relatedDocuments: [],
         documentMatches,
         demoMode: true,
+        degradedMode: searchDegradedModeSignal(),
       });
     }
 
