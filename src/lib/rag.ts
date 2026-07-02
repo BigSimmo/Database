@@ -1790,11 +1790,11 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
   void (async () => {
     try {
-      const deletion = createAdminClient().from("rag_response_cache").delete();
-      await (sharedCacheOwnerId ? deletion.eq("owner_id", sharedCacheOwnerId) : deletion.is("owner_id", null)).in(
-        "cache_kind",
-        ["search", "answer"],
-      );
+      const deleteQuery = createAdminClient().from("rag_response_cache").delete();
+      const scopedQuery = sharedCacheOwnerId
+        ? deleteQuery.eq("owner_id", sharedCacheOwnerId)
+        : deleteQuery.is("owner_id", null);
+      await scopedQuery.in("cache_kind", ["search", "answer"]);
     } catch (error) {
       // Shared cache invalidation is best effort.
       console.warn("Shared cache invalidation failed for owner:", error);

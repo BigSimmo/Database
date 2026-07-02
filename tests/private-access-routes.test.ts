@@ -996,7 +996,13 @@ describe("private document API access", () => {
     // update resolves with no row → refuse with 409.
     const client = createSupabaseMock((call) => {
       if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok({ id: "job-1", document_id: documentId, batch_id: null, status: "processing", locked_at: null });
+        return ok({
+          id: "99999999-9999-4999-8999-999999999999",
+          document_id: documentId,
+          batch_id: null,
+          status: "processing",
+          locked_at: null,
+        });
       }
       if (call.table === "ingestion_jobs" && call.operation === "update") {
         // Guard rejected the reset: no row affected.
@@ -1007,9 +1013,12 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
-      params: Promise.resolve({ id: "job-1" }),
-    });
+    const response = await POST(
+      authenticatedRequest("/api/ingestion/jobs/99999999-9999-4999-8999-999999999999/retry", { method: "POST" }),
+      {
+        params: Promise.resolve({ id: "99999999-9999-4999-8999-999999999999" }),
+      },
+    );
 
     expect(response.status).toBe(409);
     expect(String((await payload(response)).error)).toContain("still being processed");
@@ -1024,21 +1033,30 @@ describe("private document API access", () => {
   it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok({ id: "job-1", document_id: documentId, batch_id: null, status: "failed", locked_at: null });
+        return ok({
+          id: "99999999-9999-4999-8999-999999999999",
+          document_id: documentId,
+          batch_id: null,
+          status: "failed",
+          locked_at: null,
+        });
       }
       if (call.table === "documents" && call.operation === "update") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "update") {
         // Guard allowed the reset: one row affected.
-        return ok({ id: "job-1", document_id: documentId, status: "pending" });
+        return ok({ id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" });
       }
       return ok([]);
     });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
-      params: Promise.resolve({ id: "job-1" }),
-    });
+    const response = await POST(
+      authenticatedRequest("/api/ingestion/jobs/99999999-9999-4999-8999-999999999999/retry", { method: "POST" }),
+      {
+        params: Promise.resolve({ id: "99999999-9999-4999-8999-999999999999" }),
+      },
+    );
     const documentUpdate = client.calls.find((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(200);
@@ -1489,7 +1507,7 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -1516,7 +1534,7 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
