@@ -64,6 +64,19 @@ function activeJobMessage(documentCount: number, staleCount: number) {
     : "One or more selected documents already have pending or processing indexing work.";
 }
 
+// Rollback fence: a timestamptz value unique to this request. Queue-state
+// writes stamp the row with it so the compensating rollback can run as a
+// single conditional UPDATE (`.eq` on the stamp) — atomic server-side. If a
+// competing request re-writes the row between our write and our rollback, the
+// stamp no longer matches and the rollback affects zero rows instead of
+// clobbering the newer queue state. JS Date carries only millisecond
+// precision while timestamptz stores microseconds, so random microsecond
+// digits keep two same-millisecond requests distinct.
+export function ingestionRollbackFenceStamp(now = new Date()) {
+  const microseconds = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+  return now.toISOString().replace("Z", `${microseconds}Z`);
+}
+
 export async function checkIngestionMutationSafety(args: {
   supabase: SupabaseAdminClient;
   documentIds: string[];

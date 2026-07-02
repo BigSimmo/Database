@@ -1068,7 +1068,12 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(200);
     // IDX-H1: only re-queue; never zero the chunk/page counts here (the worker resets at start).
-    expect(documentUpdate?.updatePayload).toEqual({ status: "queued", error_message: null });
+    // updated_at is the rollback-fence stamp shared with the reindex routes.
+    expect(documentUpdate?.updatePayload).toEqual({
+      status: "queued",
+      error_message: null,
+      updated_at: expect.any(String),
+    });
     expect(client.rpc).not.toHaveBeenCalled();
   });
 
@@ -1128,6 +1133,12 @@ describe("private document API access", () => {
       next_run_at: previousJob.next_run_at,
       completed_at: previousJob.completed_at,
     });
+    // Rollback fence: the rollback must be conditional on the exact
+    // next_run_at this reset wrote, so it cannot revert a concurrent retry's
+    // newer reset that re-wrote the same generic pending/queued fields.
+    const resetNextRunAt = (jobUpdates[0]?.updatePayload as { next_run_at?: string }).next_run_at;
+    expect(typeof resetNextRunAt).toBe("string");
+    expect(jobUpdates[1]?.filters).toContainEqual({ column: "next_run_at", value: resetNextRunAt });
   });
 
   it("runs enrichment-only reindex for owned indexed documents using generic metadata", async () => {
@@ -1600,6 +1611,7 @@ describe("private document API access", () => {
       page_count: 0,
       chunk_count: 0,
       image_count: 0,
+      updated_at: expect.any(String),
     });
     expect(documentUpdates[1]?.updatePayload).toEqual({
       status: "failed",
@@ -1608,6 +1620,11 @@ describe("private document API access", () => {
       chunk_count: 34,
       image_count: 2,
     });
+    // Rollback fence: the rollback must be conditional on the updated_at
+    // stamp the queue-state write set, so it is a single atomic UPDATE that
+    // cannot revert a newer queue state written by an overlapping request.
+    const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
+    expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
   });
 
   it("skips single-document rollback when a competing active job appears after the safety check", async () => {
@@ -1658,6 +1675,7 @@ describe("private document API access", () => {
       page_count: 0,
       chunk_count: 0,
       image_count: 0,
+      updated_at: expect.any(String),
     });
   });
 
@@ -1715,6 +1733,7 @@ describe("private document API access", () => {
       page_count: 0,
       chunk_count: 0,
       image_count: 0,
+      updated_at: expect.any(String),
     });
     expect(documentUpdates[1]?.updatePayload).toEqual({
       status: "failed",
@@ -1723,6 +1742,10 @@ describe("private document API access", () => {
       chunk_count: 8,
       image_count: 1,
     });
+    // Rollback fence: same atomic-conditional guard as the single-document
+    // reindex route — the rollback matches on the stamp this request wrote.
+    const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
+    expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
   });
 
   it("skips bulk rollback when a competing active job appears after the safety check", async () => {
@@ -1782,6 +1805,7 @@ describe("private document API access", () => {
       page_count: 0,
       chunk_count: 0,
       image_count: 0,
+      updated_at: expect.any(String),
     });
   });
 

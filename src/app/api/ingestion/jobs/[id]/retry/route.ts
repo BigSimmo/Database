@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { ingestionRollbackFenceStamp } from "@/lib/ingestion-mutation-safety";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRouteParams } from "@/lib/validation/params";
@@ -43,6 +44,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // job is NOT processing, OR its lock is already stale, OR it has no lock.
     const staleThreshold = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
 
+    // Rollback fence: next_run_at doubles as a per-request stamp. Two
+    // overlapping retries write generically identical resets (pending/queued/
+    // attempt 0), so the rollback below additionally matches on this exact
+    // value — a stale rollback from the losing request affects zero rows
+    // instead of reverting the winning request's reset.
+    const resetNextRunAt = ingestionRollbackFenceStamp();
+
     const { data, error } = await supabase
       .from("ingestion_jobs")
       .update({
@@ -54,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         max_attempts: env.WORKER_MAX_ATTEMPTS,
         locked_at: null,
         locked_by: null,
-        next_run_at: new Date().toISOString(),
+        next_run_at: resetNextRunAt,
         completed_at: null,
       })
       .eq("id", id)
@@ -78,9 +86,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // job start (worker/main.ts), so resetting before enqueue would leave a previously-good
     // clinical document with zero index if the worker never runs or fails permanently. We
     // only re-queue; the prior index stays live until the worker commits a fresh one.
+    // updated_at is stamped so the reindex routes' rollback fences (which
+    // match on documents.updated_at) can see this competing queue-state write.
     const { error: documentError } = await supabase
       .from("documents")
-      .update({ status: "queued", error_message: null })
+      .update({ status: "queued", error_message: null, updated_at: ingestionRollbackFenceStamp() })
       .eq("id", job.document_id)
       .eq("owner_id", user.id);
     if (documentError) {
@@ -104,7 +114,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .eq("progress", 0)
         .eq("attempt_count", 0)
         .is("locked_at", null)
-        .is("locked_by", null);
+        .is("locked_by", null)
+        .eq("next_run_at", resetNextRunAt);
       if (rollbackError) {
         throw new Error(`${documentError.message}; failed to roll back retried job state: ${rollbackError.message}`);
       }

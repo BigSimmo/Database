@@ -5,7 +5,11 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { checkIngestionMutationSafety, ingestionMutationSafetyPayload } from "@/lib/ingestion-mutation-safety";
+import {
+  checkIngestionMutationSafety,
+  ingestionMutationSafetyPayload,
+  ingestionRollbackFenceStamp,
+} from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import {
@@ -172,6 +176,12 @@ export async function POST(request: Request) {
         }
 
         const atomicReindex = isAtomicReindexCandidate(document);
+        // Rollback fence: same pattern as the single-document reindex route —
+        // the queue-state write stamps updated_at and the rollback matches on
+        // the stamp, so a stale rollback cannot revert a newer queue state
+        // written by an overlapping reindex/retry. The competing-job SELECT is
+        // only a fast path; the fence closes the check-then-write race.
+        const rollbackFence = ingestionRollbackFenceStamp();
         const rollbackDocumentPayload = atomicReindex
           ? { error_message: document.error_message ?? null }
           : {
@@ -185,8 +195,15 @@ export async function POST(request: Request) {
           .from("documents")
           .update(
             atomicReindex
-              ? { error_message: null }
-              : { status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 },
+              ? { error_message: null, updated_at: rollbackFence }
+              : {
+                  status: "queued",
+                  error_message: null,
+                  page_count: 0,
+                  chunk_count: 0,
+                  image_count: 0,
+                  updated_at: rollbackFence,
+                },
           )
           .eq("id", document.id)
           .eq("owner_id", user.id);
@@ -220,7 +237,8 @@ export async function POST(request: Request) {
               .from("documents")
               .update(rollbackDocumentPayload)
               .eq("id", document.id)
-              .eq("owner_id", user.id);
+              .eq("owner_id", user.id)
+              .eq("updated_at", rollbackFence);
             if (rollbackError) {
               throw new Error(`Failed to enqueue bulk reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
             }
