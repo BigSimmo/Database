@@ -1691,12 +1691,12 @@ function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
     <a href="#pdf-preview-section" className="group grid min-w-0 justify-items-center gap-2 text-center">
       <span className="grid aspect-[0.76] min-h-[86px] w-full max-w-[7.5rem] place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)] transition group-hover:border-[color:var(--border-strong)] group-hover:bg-[color:var(--surface-subtle)] sm:max-w-[5.5rem]">
         <span className="grid w-full gap-1.5">
-          <span className="h-2 rounded bg-[color:var(--clinical-chat-teal-soft)]" />
+          <span className="h-2 rounded bg-[color:var(--clinical-accent-soft)]" />
           <span className="h-1 rounded bg-[color:var(--border-strong)]/55" />
           <span className="h-1 rounded bg-[color:var(--border-strong)]/45" />
           <span className="h-1 rounded bg-[color:var(--border-strong)]/35" />
           <span className="mt-1 grid grid-cols-2 gap-1">
-            <span className="h-8 rounded bg-[color:var(--clinical-chat-teal-soft)]/75" />
+            <span className="h-8 rounded bg-[color:var(--clinical-accent-soft)]/75" />
             <span className="grid gap-1">
               <span className="h-1 rounded bg-[color:var(--border-strong)]/35" />
               <span className="h-1 rounded bg-[color:var(--border-strong)]/30" />
@@ -1743,7 +1743,7 @@ function DocumentOverviewLanding({
     <section className="grid gap-4">
       <Link
         href="/?mode=documents"
-        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)]"
+        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]"
       >
         <ChevronLeft className="h-4 w-4" />
         Documents
@@ -1823,7 +1823,7 @@ function DocumentOverviewLanding({
 
       <section id="document-overview" className={cn(sourceCard, "scroll-mt-24 p-4")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <FileText className="h-6 w-6" />
           </span>
           <div className="min-w-0">
@@ -1836,7 +1836,7 @@ function DocumentOverviewLanding({
 
       <section className={cn(sourceCard, "p-4")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Tag className="h-5 w-5" />
           </span>
           <div className="min-w-0">
@@ -1845,7 +1845,7 @@ function DocumentOverviewLanding({
               {(keySections.length ? keySections : ["Overview", "Useful pages", "Source PDF"]).map((section) => (
                 <span
                   key={section}
-                  className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-sm font-medium text-[color:var(--clinical-chat-teal)]"
+                  className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--clinical-accent)]"
                 >
                   {section}
                 </span>
@@ -1858,7 +1858,7 @@ function DocumentOverviewLanding({
 
       <section className={cn(sourceCard, "p-4")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <FileText className="h-6 w-6" />
           </span>
           <div className="min-w-0">
@@ -2380,7 +2380,7 @@ export function DocumentViewer({
             </Link>
             <Link
               href="/?mode=documents"
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-chat-teal)] px-3 text-xs font-semibold text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] sm:text-sm"
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-3 text-xs font-semibold text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] sm:text-sm"
             >
               Documents
             </Link>
@@ -2975,7 +2975,7 @@ export function DocumentViewer({
           <button
             type="submit"
             disabled={!canSummarizeDocument}
-            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Answer from this document"
           >
             {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

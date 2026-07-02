@@ -140,10 +140,8 @@
   --clinical-accent-border: #b9e4ea;
   --clinical-accent-contrast: #ffffff;
 
-  /* Migration compat: existing teal/ready call-sites resolve to the new roles.
+  /* Migration compat: existing ready call-sites resolve to the new roles.
      Remove once all call-sites reference the role tokens directly. */
-  --clinical-chat-teal: var(--clinical-accent);
-  --clinical-chat-teal-soft: var(--clinical-accent-soft);
   --clinical-chat-sand: #f7f1e6;
   --clinical-chat-sand-border: #eadcc7;
   --clinical-chat-sand-border-strong: #ddc7a8;
@@ -282,8 +280,6 @@
   --clinical-accent-border: #235b60;
   --clinical-accent-contrast: #04252a;
 
-  --clinical-chat-teal: var(--clinical-accent);
-  --clinical-chat-teal-soft: var(--clinical-accent-soft);
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
   --clinical-chat-sand-border-strong: #806034;
@@ -476,9 +472,9 @@ summary::-webkit-details-marker {
   align-items: center;
   min-height: 1.75rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--clinical-chat-teal-soft) 72%, transparent);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, transparent);
   padding-inline: 0.55rem;
-  color: var(--clinical-chat-teal);
+  color: var(--clinical-accent);
   font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0;
