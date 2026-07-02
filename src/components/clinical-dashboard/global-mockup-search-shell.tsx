@@ -114,6 +114,10 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  // True when on a sub-route of a mode home (e.g. /forms/transport-crisis-form,
+  // /services/13yarn) rather than the mode home itself (/forms, /services).
+  const isDetailPage =
+    /^\/(forms|services|favourites|differentials)\/.+/.test(pathname) && !isDifferentialPresentationWorkflow;
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -127,13 +131,25 @@ function GlobalMockupSearchShellClient({
           : initialSearchMode;
       setSearchMode(nextMode);
 
-      const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
-      setQuery(requestedQuery ?? "");
+      const urlHasQuery = params.has("q") || params.has("query");
+      if (urlHasQuery) {
+        // Sync the controlled query state from the URL query param.
+        const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
+        setQuery(requestedQuery ?? "");
+      } else if (!isDetailPage) {
+        // On a mode home route (no query param, no sub-path) clear any stale
+        // query state so the input reflects the URL. On detail pages (e.g.
+        // /forms/transport-crisis-form) we intentionally skip this so that a
+        // programmatic fill is not wiped by this deferred frame — fixing the
+        // requestAnimationFrame race that caused CI WebKit to leave the input
+        // empty and the submit button disabled.
+        setQuery("");
+      }
 
       if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [availableModeIds, initialSearchMode, pathname, searchParamString]);
+  }, [availableModeIds, initialSearchMode, isDetailPage, pathname, searchParamString]);
 
   useEffect(() => {
     let cancelled = false;
