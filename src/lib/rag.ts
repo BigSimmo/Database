@@ -3475,7 +3475,7 @@ export function evaluateEvidenceCoverageGate(
         sourceImageSatisfied,
       };
     }
-    if (/\b(?:flow\s*chart|flowchart|red[\s-]*zone|risk matrix)\b/i.test(query)) {
+    if (/\b(?:flow\s*chart|flowchart|risk matrix)\b/i.test(query) || riskZoneContextPattern.test(query)) {
       const accepted = hasRiskFlowchartActionEvidence(results);
       return {
         accepted,
