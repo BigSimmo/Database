@@ -45,10 +45,13 @@ export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
   return (
     <Suspense
       fallback={
+        // A neutral placeholder — do NOT render props.children here. The client
+        // body below also renders {children} inside `#main-content`, and echoing
+        // them in the fallback duplicated the page subtree (two `#main-content`
+        // and two `data-testid` on medication/forms/services pages) whenever the
+        // fallback and resolved content briefly coexisted.
         <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-          <div id="main-content" className="min-h-[calc(100dvh-4rem)] overflow-x-hidden pb-8">
-            {props.children}
-          </div>
+          <div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden pb-8" />
         </div>
       }
     >
