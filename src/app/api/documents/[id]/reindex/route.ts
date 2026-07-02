@@ -73,9 +73,12 @@ async function selectReindexRowsInPages<T>(args: {
   searchableOnly?: boolean;
 }) {
   const rows: T[] = [];
+  if (args.searchableOnly && args.table !== "document_images") {
+    throw new Error("searchableOnly is only supported for document_images");
+  }
   for (let offset = 0; ; offset += reindexPageSize) {
     const query =
-      args.table === "document_images" && args.searchableOnly
+      args.searchableOnly
         ? args.supabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
         : args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);
     const { data, error } = await query.range(offset, offset + reindexPageSize - 1);

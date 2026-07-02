@@ -111,11 +111,8 @@ function supabaseStageError(
   return wrapped;
 }
 
-async function updateJob(jobId: string, patch: Record<string, unknown>) {
-  const { error } = await supabase
-    .from("ingestion_jobs")
-    .update(patch as Database["public"]["Tables"]["ingestion_jobs"]["Update"])
-    .eq("id", jobId);
+async function updateJob(jobId: string, patch: Database["public"]["Tables"]["ingestion_jobs"]["Update"]) {
+  const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
   if (error) throw supabaseStageError("update ingestion job", error);
   if (typeof patch.progress === "number" || typeof patch.stage === "string") {
     progressUpdateState.set(jobId, {
@@ -146,12 +143,11 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
   progressUpdateState.set(jobId, { updatedAt: now, progress: patch.progress, stage: patch.stage });
 }
 
-async function updateDocument(documentId: string, patch: Record<string, unknown>) {
-  const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
-  const { error } = await supabase
-    .from("documents")
-    .update(sanitized as Database["public"]["Tables"]["documents"]["Update"])
-    .eq("id", documentId);
+async function updateDocument(documentId: string, patch: Database["public"]["Tables"]["documents"]["Update"]) {
+  const sanitized: Database["public"]["Tables"]["documents"]["Update"] = patch.metadata
+    ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) }
+    : patch;
+  const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
   if (error) throw supabaseStageError("update document", error);
 }
 

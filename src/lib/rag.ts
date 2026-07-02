@@ -1899,12 +1899,7 @@ async function fetchEnabledRagAliases(
       .eq("enabled", true)
       .order("weight", { ascending: false })
       .limit(maxRagAliasesPerScope);
-    const nullableQuery = query as typeof query & { is?: (column: string, value: null) => typeof query };
-    query = scopeOwnerId
-      ? query.eq("owner_id", scopeOwnerId)
-      : nullableQuery.is
-        ? nullableQuery.is("owner_id", null)
-        : query;
+    query = scopeOwnerId ? query.eq("owner_id", scopeOwnerId) : query.is("owner_id", null);
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as RagAliasInput[];
