@@ -171,7 +171,10 @@ function DesktopTopBar({ onSearch }: { onSearch: (query: string) => void }) {
           <ShieldCheck className="h-6 w-6 text-[color:var(--text-heading)]" />
           Verified
         </div>
-        <button type="button" className="relative grid h-11 w-11 place-items-center rounded-full hover:bg-[color:var(--surface-subtle)]">
+        <button
+          type="button"
+          className="relative grid h-11 w-11 place-items-center rounded-full hover:bg-[color:var(--surface-subtle)]"
+        >
           <Bell className="h-6 w-6" />
           <span className="absolute right-1 top-0 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[10px] font-extrabold text-[color:var(--clinical-accent-contrast)]">
             2
@@ -314,8 +317,14 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
           )}
         >
           {label}
-          {count ? <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-xs text-[color:var(--text)]">{count}</span> : null}
-          {index === 0 ? <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" /> : null}
+          {count ? (
+            <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-xs text-[color:var(--text)]">
+              {count}
+            </span>
+          ) : null}
+          {index === 0 ? (
+            <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" />
+          ) : null}
         </button>
       ))}
     </nav>
@@ -352,7 +361,9 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                 {resultCode(index)}
               </div>
               <div>
-                <h3 className="max-w-[21rem] text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{form.title}</h3>
+                <h3 className="max-w-[21rem] text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">
+                  {form.title}
+                </h3>
               </div>
               <div className="flex flex-wrap gap-2">
                 {(form.statusChips ?? []).slice(0, 2).map((chip, chipIndex) => {
@@ -367,7 +378,9 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                   );
                 })}
               </div>
-              <p className="text-sm font-medium leading-relaxed text-[color:var(--text-muted)]">{compactMatchReason(match)}</p>
+              <p className="text-sm font-medium leading-relaxed text-[color:var(--text-muted)]">
+                {compactMatchReason(match)}
+              </p>
               <Link
                 href={`/forms/${form.slug}`}
                 aria-label={`Open ${form.title}`}
@@ -381,7 +394,10 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
         })}
       </div>
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
-        <button type="button" className="inline-flex items-center gap-2 text-sm font-extrabold text-[color:var(--clinical-accent)]">
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+        >
           View all forms ({matches.length})
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -410,7 +426,12 @@ function ToggleRow({
         <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</p>
         <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</p>
       </div>
-      <span className={cn("relative h-6 w-10 rounded-full transition", enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]")}>
+      <span
+        className={cn(
+          "relative h-6 w-10 rounded-full transition",
+          enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+        )}
+      >
         <span
           className={cn(
             "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
@@ -503,7 +524,8 @@ function PathwayPanel() {
   return (
     <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[var(--shadow-soft)]">
       <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
-        Related pathway <span className="ml-2 text-sm font-medium text-[color:var(--text-muted)]">( PSOLIS Transport Pathway )</span>
+        Related pathway{" "}
+        <span className="ml-2 text-sm font-medium text-[color:var(--text-muted)]">( PSOLIS Transport Pathway )</span>
       </h2>
       <div className="mt-5 grid grid-cols-[1fr_24px_1fr_24px_1.4fr_24px_1fr] items-center gap-3">
         <PathwayNode label="Before" code="1A" title="Referral for examination" />
@@ -521,7 +543,10 @@ function PathwayPanel() {
         <PathwayNode label="After" code="" title="Examination at destination" />
       </div>
       <div className="mt-5 flex justify-center">
-        <button type="button" className="inline-flex items-center gap-3 text-sm font-extrabold text-[color:var(--clinical-accent)]">
+        <button
+          type="button"
+          className="inline-flex items-center gap-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+        >
           <Workflow className="h-5 w-5" />
           View full pathway
           <ExternalLink className="h-4 w-4" />
@@ -552,10 +577,14 @@ function PathwayNode({
       <div
         className={cn(
           "min-h-[112px] rounded-lg border p-4",
-          active ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]" : "border-[color:var(--border)] bg-[color:var(--surface)]",
+          active
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface)]",
         )}
       >
-        {code ? <p className={cn("text-2xl font-black text-[color:var(--clinical-accent)]", codeText)}>{code}</p> : null}
+        {code ? (
+          <p className={cn("text-2xl font-black text-[color:var(--clinical-accent)]", codeText)}>{code}</p>
+        ) : null}
         <p className="mt-2 text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{title}</p>
         {active ? (
           <span className="mt-3 inline-flex rounded-full bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-[11px] font-extrabold text-[color:var(--clinical-accent)]">
@@ -603,11 +632,18 @@ function MobileTabs({ formsCount }: { formsCount: number }) {
         <button
           key={label}
           type="button"
-          className={cn("relative flex min-h-11 items-center gap-2 whitespace-nowrap", index === 0 && "text-[color:var(--clinical-accent)]")}
+          className={cn(
+            "relative flex min-h-11 items-center gap-2 whitespace-nowrap",
+            index === 0 && "text-[color:var(--clinical-accent)]",
+          )}
         >
           {label}
-          {count ? <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-xs">{count}</span> : null}
-          {index === 0 ? <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" /> : null}
+          {count ? (
+            <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-xs">{count}</span>
+          ) : null}
+          {index === 0 ? (
+            <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" />
+          ) : null}
         </button>
       ))}
     </nav>
@@ -635,7 +671,9 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
-                  <h3 className="min-w-0 text-[12.5px] font-extrabold leading-[1.15] text-[color:var(--text-heading)]">{form.title}</h3>
+                  <h3 className="min-w-0 text-[12.5px] font-extrabold leading-[1.15] text-[color:var(--text-heading)]">
+                    {form.title}
+                  </h3>
                   <Link
                     href={`/forms/${form.slug}`}
                     aria-label={`Open ${form.title}`}
@@ -697,10 +735,16 @@ function MobilePathway() {
             <div
               className={cn(
                 "min-w-[55px] rounded-md border p-1 text-center",
-                index === 1 ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]" : "border-[color:var(--border)] bg-[color:var(--surface)]",
+                index === 1
+                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)]",
               )}
             >
-              {code ? <p className={cn("text-sm font-black leading-none text-[color:var(--clinical-accent)]", codeText)}>{code}</p> : null}
+              {code ? (
+                <p className={cn("text-sm font-black leading-none text-[color:var(--clinical-accent)]", codeText)}>
+                  {code}
+                </p>
+              ) : null}
               <p className="mt-0.5 text-[7.5px] font-bold leading-[10px] text-[color:var(--text-muted)]">{label}</p>
               {index === 1 ? (
                 <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-[7.5px] font-black leading-[10px] text-[color:var(--clinical-accent)]">

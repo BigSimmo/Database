@@ -578,9 +578,7 @@ export function searchServiceRecords(query: string, limit = serviceRecords.lengt
 
   const compactQuery = normalizedQuery.replace(/\s+/g, "");
   const terms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
-  const broadServicesQuery = terms.some((term) =>
-    ["service", "services", "pathway", "pathways"].includes(term),
-  );
+  const broadServicesQuery = terms.some((term) => ["service", "services", "pathway", "pathways"].includes(term));
 
   return serviceRecords
     .map((service) => {

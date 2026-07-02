@@ -323,8 +323,7 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
     if (
       hasActionSignal &&
       metadata?.document_status === "current" &&
-      (metadata.clinical_validation_status === "approved" ||
-        metadata.clinical_validation_status === "locally_reviewed")
+      (metadata.clinical_validation_status === "approved" || metadata.clinical_validation_status === "locally_reviewed")
     ) {
       boost += 0.05;
     }

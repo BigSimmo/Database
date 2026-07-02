@@ -25,7 +25,9 @@ function IconTile({ children, tone = "teal" }: { children: ReactNode; tone?: "te
           : "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]";
 
   return (
-    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] ${toneClass}`}>
+    <span
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -42,7 +44,9 @@ function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neu
           : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]";
 
   return (
-    <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none ${toneClass}`}>
+    <span
+      className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -242,7 +246,9 @@ function ClinicalNotesPanel({ compact = false }: { compact?: boolean }) {
                 {label === "Monitor" ? "planned" : "review"}
               </span>
             </div>
-            <p className={`${compact ? "line-clamp-2" : ""} mt-2 text-sm leading-5 text-[color:var(--text-muted)]`}>{body}</p>
+            <p className={`${compact ? "line-clamp-2" : ""} mt-2 text-sm leading-5 text-[color:var(--text-muted)]`}>
+              {body}
+            </p>
           </div>
         ))}
       </div>
@@ -313,7 +319,9 @@ function DesktopChrome({ children, split = false }: { children: ReactNode; split
           <ActionButton primary>New chat</ActionButton>
         </div>
       </header>
-      <div className={split ? "grid min-h-[calc(48rem-4rem)] grid-cols-[minmax(0,1fr)_19rem]" : "mx-auto max-w-4xl p-6"}>
+      <div
+        className={split ? "grid min-h-[calc(48rem-4rem)] grid-cols-[minmax(0,1fr)_19rem]" : "mx-auto max-w-4xl p-6"}
+      >
         {children}
       </div>
     </div>
@@ -449,7 +457,9 @@ function MockupTwoPhone() {
           <div className="mt-3 grid gap-2">
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
               <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Claim map</p>
-              <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">Timing and toxicity claims map to Sources 1-2.</p>
+              <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
+                Timing and toxicity claims map to Sources 1-2.
+              </p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
               <p className="text-sm font-semibold text-[color:var(--text-heading)]">Gap</p>
@@ -493,7 +503,9 @@ export default function FinalRagStructureMockupsPage() {
             <MockupOneDesktop />
           </div>
           <div className="min-w-0">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Small phone</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Small phone
+            </p>
             <MockupOnePhone />
           </div>
         </MockupSection>
@@ -507,7 +519,9 @@ export default function FinalRagStructureMockupsPage() {
             <MockupTwoDesktop />
           </div>
           <div className="min-w-0">
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Small phone</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Small phone
+            </p>
             <MockupTwoPhone />
           </div>
         </MockupSection>

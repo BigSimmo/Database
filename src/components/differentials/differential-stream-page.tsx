@@ -50,9 +50,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
             {copy.description}
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-[color:var(--text-muted)]">{copy.intro}</p>
-          {query ? (
-            <p className="mt-2 text-sm font-bold text-[color:var(--clinical-accent)]">Query: {query}</p>
-          ) : null}
+          {query ? <p className="mt-2 text-sm font-bold text-[color:var(--clinical-accent)]">Query: {query}</p> : null}
         </section>
 
         <section className="grid gap-3">

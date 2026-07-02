@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  defaultFormSlug,
-  formRecords,
-  formStaticParams,
-  getFormRecord,
-  searchFormRecords,
-} from "@/lib/forms";
+import { defaultFormSlug, formRecords, formStaticParams, getFormRecord, searchFormRecords } from "@/lib/forms";
 
 describe("psychiatry form records", () => {
   it("keeps the forms catalogue limited to psychiatry form workflows", () => {

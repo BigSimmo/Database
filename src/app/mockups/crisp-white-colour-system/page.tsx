@@ -1304,8 +1304,8 @@ export default function CrispWhiteColourSystemPage() {
         <h1>Clinical White: crisp white canvas, graphite command, precise teal signals.</h1>
         <p className="cw-hero-copy">
           This direction removes the cream background entirely. The UI becomes a true white workspace with cool nickel
-          borders, low graphite elevation, and a clinical focus rail so teal communicates evidence instead of tinting the
-          whole product.
+          borders, low graphite elevation, and a clinical focus rail so teal communicates evidence instead of tinting
+          the whole product.
         </p>
         <div className="cw-principles">
           <div>

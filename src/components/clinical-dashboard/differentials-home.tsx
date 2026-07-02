@@ -119,7 +119,8 @@ function statusLabel(status: DifferentialRecord["status"]) {
 }
 
 function statusTone(status: DifferentialRecord["status"]) {
-  if (status === "emergent") return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  if (status === "emergent")
+    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
   if (status === "urgent") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
@@ -200,7 +201,12 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 }
 
 function MatchBadge({ label }: { label: string }) {
-  const tone = label === "Best match" ? "text-[color:var(--danger)]" : label === "High match" ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--warning)]";
+  const tone =
+    label === "Best match"
+      ? "text-[color:var(--danger)]"
+      : label === "High match"
+        ? "text-[color:var(--clinical-accent)]"
+        : "text-[color:var(--warning)]";
   return <span className={cn("text-[11px] font-extrabold", tone)}>{label}</span>;
 }
 
@@ -436,7 +442,9 @@ function SafetyCard() {
           <ShieldAlert className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-extrabold uppercase tracking-[0.05em] text-[color:var(--danger)]">Safety first</h2>
+          <h2 className="text-sm font-extrabold uppercase tracking-[0.05em] text-[color:var(--danger)]">
+            Safety first
+          </h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">
             {workflow.safetySnapshot.summary}
           </p>
@@ -634,11 +642,7 @@ function SearchResultsView({
           </div>
 
           <div className="grid gap-2 lg:hidden">
-            <BestAnswerCard
-              best={best}
-              selected={selectedIds.has(best.id)}
-              onToggle={() => toggleSelected(best.id)}
-            />
+            <BestAnswerCard best={best} selected={selectedIds.has(best.id)} onToggle={() => toggleSelected(best.id)} />
             <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
               {[
                 { label: "All (8)", compact: "All" },

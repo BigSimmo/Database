@@ -62,8 +62,6 @@ describe("service records", () => {
     expect(searchServiceRecords("139276")[0]?.service.slug).toBe("13yarn");
     expect(searchServiceRecords("services")).toHaveLength(serviceRecords.length);
     expect(searchServiceRecords("forms")).toHaveLength(0);
-    expect(searchServiceRecords("Great Southern Aboriginal")[0]?.service.slug).toBe(
-      "wachs-aboriginal-mental-health",
-    );
+    expect(searchServiceRecords("Great Southern Aboriginal")[0]?.service.slug).toBe("wachs-aboriginal-mental-health");
   });
 });

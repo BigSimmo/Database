@@ -2,14 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import {
-  UploadCloud,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-  ShieldCheck,
-  ExternalLink,
-} from "lucide-react";
+import { UploadCloud, Loader2, RefreshCw, Sparkles, ShieldCheck, ExternalLink } from "lucide-react";
 import {
   cn,
   panelSubtle,
@@ -25,11 +18,7 @@ import {
   EmptyState,
 } from "@/components/ui-primitives";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
-import type {
-  ClinicalDocument,
-  IngestionJob,
-  ImportBatch,
-} from "@/lib/types";
+import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
 
 // Setup and quality types
 export type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
@@ -47,12 +36,7 @@ export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures
 export type IndexingMonitorFilter = "all" | "active" | "failed";
 
 export type IngestionQualityReviewType =
-  | "failed_ocr"
-  | "low_extraction_confidence"
-  | "missing_tables"
-  | "image_only_pages"
-  | "failed_job"
-  | "manual_review";
+  "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
 
 export type IngestionQualityReviewItem = {
   id: string;
@@ -207,7 +191,11 @@ export function UploadPanel({
     }
 
     setUploading(true);
-    changeStatus(files.length === 1 ? "Uploading private document to Supabase Storage..." : `Uploading 1 of ${files.length}: ${files[0].name}`);
+    changeStatus(
+      files.length === 1
+        ? "Uploading private document to Supabase Storage..."
+        : `Uploading 1 of ${files.length}: ${files[0].name}`,
+    );
 
     const failures: string[] = [];
     for (let index = 0; index < files.length; index++) {
@@ -227,7 +215,11 @@ export function UploadPanel({
     }
 
     if (failures.length === 0) {
-      changeStatus(files.length === 1 ? "Successfully uploaded private document to storage queue." : `Successfully uploaded ${files.length} private documents.`);
+      changeStatus(
+        files.length === 1
+          ? "Successfully uploaded private document to storage queue."
+          : `Successfully uploaded ${files.length} private documents.`,
+      );
       if (input) input.value = "";
       onUploaded();
     } else {

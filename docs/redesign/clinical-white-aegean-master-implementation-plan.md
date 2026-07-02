@@ -20,50 +20,50 @@ No further palette pivot is recommended. The final perfection is architectural: 
 
 ### Light Mode
 
-| Role | Token | Value | Use |
-| --- | --- | --- | --- |
-| Canvas | `--background` | `#FFFFFF` | Main page background |
-| Chrome | `--surface-chrome` | `#F7F8FA` | Sidebar, header bands, secondary app frame |
-| Raised surface | `--surface-raised` | `#FCFCFD` | Cards, popovers, menus |
-| Inset surface | `--surface-inset` | `#F1F4F6` | Inputs, inactive chips, recessed controls |
-| Border | `--border` | `#E5E7EB` | Default lines |
-| Strong border | `--border-strong` | `#CDD5DF` | Focused panels, active boundaries |
-| Ink | `--foreground` | `#101418` | Body text |
-| Heading | `--heading` | `#080B0F` | High-emphasis headings |
-| Muted text | `--muted-foreground` | `#475467` | Secondary copy |
-| Soft text | `--soft-foreground` | `#667085` | Captions and quiet metadata |
-| Command | `--command` | `#111827` | Primary command buttons |
-| Command hover | `--command-hover` | `#0B1220` | Primary command hover |
-| Clinical accent | `--clinical-accent` | `#0B6F86` | Clinical identity, selected state, send action, evidence rail |
-| Accent hover | `--clinical-accent-hover` | `#095D70` | Accent hover |
-| Accent soft | `--clinical-accent-soft` | `#E7F6F8` | Tiny chips, icon wells, selected hints |
-| Accent border | `--clinical-accent-border` | `#B9E4EA` | Subtle selected borders |
-| Info | `--info` | `#2563EB` | Informational status |
-| Success | `--success` | `#0F7A49` | Ready, connected, passed, complete |
-| Warning | `--warning` | `#A15C07` | Caution and missing setup |
-| Danger | `--destructive` | `#B42318` | Errors and destructive actions |
+| Role            | Token                      | Value     | Use                                                           |
+| --------------- | -------------------------- | --------- | ------------------------------------------------------------- |
+| Canvas          | `--background`             | `#FFFFFF` | Main page background                                          |
+| Chrome          | `--surface-chrome`         | `#F7F8FA` | Sidebar, header bands, secondary app frame                    |
+| Raised surface  | `--surface-raised`         | `#FCFCFD` | Cards, popovers, menus                                        |
+| Inset surface   | `--surface-inset`          | `#F1F4F6` | Inputs, inactive chips, recessed controls                     |
+| Border          | `--border`                 | `#E5E7EB` | Default lines                                                 |
+| Strong border   | `--border-strong`          | `#CDD5DF` | Focused panels, active boundaries                             |
+| Ink             | `--foreground`             | `#101418` | Body text                                                     |
+| Heading         | `--heading`                | `#080B0F` | High-emphasis headings                                        |
+| Muted text      | `--muted-foreground`       | `#475467` | Secondary copy                                                |
+| Soft text       | `--soft-foreground`        | `#667085` | Captions and quiet metadata                                   |
+| Command         | `--command`                | `#111827` | Primary command buttons                                       |
+| Command hover   | `--command-hover`          | `#0B1220` | Primary command hover                                         |
+| Clinical accent | `--clinical-accent`        | `#0B6F86` | Clinical identity, selected state, send action, evidence rail |
+| Accent hover    | `--clinical-accent-hover`  | `#095D70` | Accent hover                                                  |
+| Accent soft     | `--clinical-accent-soft`   | `#E7F6F8` | Tiny chips, icon wells, selected hints                        |
+| Accent border   | `--clinical-accent-border` | `#B9E4EA` | Subtle selected borders                                       |
+| Info            | `--info`                   | `#2563EB` | Informational status                                          |
+| Success         | `--success`                | `#0F7A49` | Ready, connected, passed, complete                            |
+| Warning         | `--warning`                | `#A15C07` | Caution and missing setup                                     |
+| Danger          | `--destructive`            | `#B42318` | Errors and destructive actions                                |
 
 ### Dark Mode
 
-| Role | Token | Value | Use |
-| --- | --- | --- | --- |
-| Canvas | `--background` | `#060708` | Main dark canvas |
-| Chrome | `--surface-chrome` | `#0B0D0F` | Sidebar and header frame |
-| Surface | `--surface` | `#101214` | Default panels |
-| Raised surface | `--surface-raised` | `#171A1D` | Popovers and cards |
-| Inset surface | `--surface-inset` | `#040506` | Inputs and composer body |
-| Border | `--border` | `#23282C` | Default dark lines |
-| Strong border | `--border-strong` | `#3B454B` | Active/focused dark lines |
-| Ink | `--foreground` | `#F5F7F7` | Primary text |
-| Muted text | `--muted-foreground` | `#A7B0AD` | Secondary text |
-| Soft text | `--soft-foreground` | `#7F8987` | Captions |
-| Command | `--command` | `#F5F7F7` | Dark primary command text/surfaces where needed |
-| Clinical accent | `--clinical-accent` | `#4CCFD0` | Dark selected/send/evidence identity |
-| Accent soft | `--clinical-accent-soft` | `#12383B` | Dark accent wash |
-| Accent border | `--clinical-accent-border` | `#235B60` | Dark selected borders |
-| Success | `--success` | `#7DE0A3` | Success status |
-| Warning | `--warning` | `#F0C15A` | Warning status |
-| Danger | `--destructive` | `#FF8D96` | Error/destructive status |
+| Role            | Token                      | Value     | Use                                             |
+| --------------- | -------------------------- | --------- | ----------------------------------------------- |
+| Canvas          | `--background`             | `#060708` | Main dark canvas                                |
+| Chrome          | `--surface-chrome`         | `#0B0D0F` | Sidebar and header frame                        |
+| Surface         | `--surface`                | `#101214` | Default panels                                  |
+| Raised surface  | `--surface-raised`         | `#171A1D` | Popovers and cards                              |
+| Inset surface   | `--surface-inset`          | `#040506` | Inputs and composer body                        |
+| Border          | `--border`                 | `#23282C` | Default dark lines                              |
+| Strong border   | `--border-strong`          | `#3B454B` | Active/focused dark lines                       |
+| Ink             | `--foreground`             | `#F5F7F7` | Primary text                                    |
+| Muted text      | `--muted-foreground`       | `#A7B0AD` | Secondary text                                  |
+| Soft text       | `--soft-foreground`        | `#7F8987` | Captions                                        |
+| Command         | `--command`                | `#F5F7F7` | Dark primary command text/surfaces where needed |
+| Clinical accent | `--clinical-accent`        | `#4CCFD0` | Dark selected/send/evidence identity            |
+| Accent soft     | `--clinical-accent-soft`   | `#12383B` | Dark accent wash                                |
+| Accent border   | `--clinical-accent-border` | `#235B60` | Dark selected borders                           |
+| Success         | `--success`                | `#7DE0A3` | Success status                                  |
+| Warning         | `--warning`                | `#F0C15A` | Warning status                                  |
+| Danger          | `--destructive`            | `#FF8D96` | Error/destructive status                        |
 
 ## Final Design Rules
 

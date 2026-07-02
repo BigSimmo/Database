@@ -59,7 +59,9 @@ async function openScopeControl(page: Page) {
 
   await expect(async () => {
     await scopeTrigger.click();
-    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
+      timeout: uiAssertionTimeoutMs,
+    });
   }).toPass({ timeout: 10_000 });
 }
 

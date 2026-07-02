@@ -1,0 +1,37 @@
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 verify:ui
+> npm run check:runtime && npm run test:e2e:chromium
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:runtime
+> tsx scripts/check-runtime.ts
+
+[Runtime Check] PASS: Node runtime 24.15.0 matches required Node 24.x.
+[Runtime Check] PASS: npm runtime 11.17.0 matches required npm 11.x.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 test:e2e:chromium
+> node scripts/run-playwright.mjs --project=chromium
+
+Using existing Clinical KB server at http://localhost:3210
+
+Running 54 tests using 1 worker
+
+  ok  1 [chromium] › tests\ui-accessibility.spec.ts:69:7 › Clinical KB accessibility media smoke › dashboard remains usable with reduced motion (2.5s)
+  ok  2 [chromium] › tests\ui-accessibility.spec.ts:80:7 › Clinical KB accessibility media smoke › dashboard remains usable with forced colors (2.3s)
+  ok  3 [chromium] › tests\ui-smoke.spec.ts:563:9 › Clinical KB UI smoke coverage › dashboard loads without page overflow at small-mobile (2.5s)
+  ok  4 [chromium] › tests\ui-smoke.spec.ts:563:9 › Clinical KB UI smoke coverage › dashboard loads without page overflow at standard-mobile (2.8s)
+  ok  5 [chromium] › tests\ui-smoke.spec.ts:563:9 › Clinical KB UI smoke coverage › dashboard loads without page overflow at large-mobile (2.6s)
+  ok  6 [chromium] › tests\ui-smoke.spec.ts:563:9 › Clinical KB UI smoke coverage › dashboard loads without page overflow at tablet (2.4s)
+  ok  7 [chromium] › tests\ui-smoke.spec.ts:563:9 › Clinical KB UI smoke coverage › dashboard loads without page overflow at laptop (2.3s)
+  ok  8 [chromium] › tests\ui-smoke.spec.ts:563:9 › Clinical KB UI smoke coverage › dashboard loads without page overflow at mobile-landscape (2.3s)
+  ok  9 [chromium] › tests\ui-smoke.spec.ts:601:7 › Clinical KB UI smoke coverage › account settings opens from desktop sidebar and collapsed avatar (3.2s)
+  ok 10 [chromium] › tests\ui-smoke.spec.ts:622:7 › Clinical KB UI smoke coverage › account settings uses a fullscreen settings page below desktop and closes from X and Escape (3.8s)
+  ok 11 [chromium] › tests\ui-smoke.spec.ts:659:7 › Clinical KB UI smoke coverage › private mode unauthenticated dashboard gates real-mode search (2.2s)
+  ok 12 [chromium] › tests\ui-smoke.spec.ts:698:7 › Clinical KB UI smoke coverage › desktop mode options close when clicking outside or opening scope (3.8s)
+  ok 13 [chromium] › tests\ui-smoke.spec.ts:739:7 › Clinical KB UI smoke coverage › demo answer flow reaches a source-backed answer (7.0s)
+  ok 14 [chromium] › tests\ui-smoke.spec.ts:988:9 › Clinical KB UI smoke coverage › clinical table mobile expansion at 320px mobile (3.2s)
+  ok 15 [chromium] › tests\ui-smoke.spec.ts:988:9 › Clinical KB UI smoke coverage › clinical table mobile expansion at 390px mobile (3.1s)
+  ok 16 [chromium] › tests\ui-smoke.spec.ts:988:9 › Clinical KB UI smoke coverage › clinical table mobile expansion at 1280px desktop (2.6s)
+  ok 17 [chromium] › tests\ui-smoke.spec.ts:1053:7 › Clinical KB UI smoke coverage › favourites route opens the favourites home (2.4s)
+  ok 18 [chromium] › tests\ui-smoke.spec.ts:1071:7 › Clinical KB UI smoke coverage › app mode menu supports keyboard navigation without removed prototype modes (2.7s)
+  ok 19 [chromium] › tests\ui-smoke.spec.ts:1103:7 › Clinical KB UI smoke coverage › prescribing workflow uses in-app medication routes (10.1s)

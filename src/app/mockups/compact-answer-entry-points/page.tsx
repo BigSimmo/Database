@@ -26,7 +26,9 @@ function IconTile({ children, tone = "teal" }: { children: ReactNode; tone?: "te
           : "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]";
 
   return (
-    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] ${toneClass}`}>
+    <span
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -43,7 +45,9 @@ function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neu
           : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]";
 
   return (
-    <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none ${toneClass}`}>
+    <span
+      className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -117,7 +121,9 @@ function AnswerContent({ compact = false }: { compact?: boolean }) {
           <ShieldCheck className="h-4 w-4" />
         </IconTile>
         <div className="min-w-0 space-y-4">
-          <p className={`${compact ? "text-[15px] leading-7" : "text-base leading-7"} text-[color:var(--text-heading)]`}>
+          <p
+            className={`${compact ? "text-[15px] leading-7" : "text-base leading-7"} text-[color:var(--text-heading)]`}
+          >
             For lithium, twice daily dosing is usually spaced by 12 hours. Dose and target level should be adjusted to
             indication, serum-level timing, renal function, interacting medicines, and local protocol.
           </p>
@@ -183,7 +189,10 @@ function SourcesPopover() {
           ["Lithium Therapy Guideline", "p.5 · direct · 84%"],
           ["Bipolar disorder in adults", "p.87 · related · 76%"],
         ].map(([title, meta]) => (
-          <div key={title} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
+          <div
+            key={title}
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
+          >
             <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--clinical-chat-teal)]" />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{title}</span>
@@ -211,7 +220,11 @@ function ClinicalNotesSheet() {
             <p className="text-sm text-[color:var(--text-muted)]">Safety is triaged here</p>
           </div>
         </div>
-        <button type="button" aria-label="Close clinical notes" className={`grid h-10 w-10 place-items-center rounded-md border border-[color:var(--border)] ${focusRing}`}>
+        <button
+          type="button"
+          aria-label="Close clinical notes"
+          className={`grid h-10 w-10 place-items-center rounded-md border border-[color:var(--border)] ${focusRing}`}
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -223,15 +236,23 @@ function ClinicalNotesSheet() {
       <div className="mt-4 grid gap-2">
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-red-700">Escalate</p>
-          <p className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">Possible lithium toxicity or AKI</p>
+          <p className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">
+            Possible lithium toxicity or AKI
+          </p>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-amber-700">Caution</p>
-          <p className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">Renal impairment, dehydration, interacting medicines</p>
+          <p className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">
+            Renal impairment, dehydration, interacting medicines
+          </p>
         </div>
         <div className="rounded-lg border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">Monitor</p>
-          <p className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">Level timing, renal function, thyroid function</p>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
+            Monitor
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">
+            Level timing, renal function, thyroid function
+          </p>
         </div>
       </div>
     </div>
@@ -260,9 +281,12 @@ function DesktopMockup() {
         <aside className="border-l border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
           <SourcesPopover />
           <div className="mt-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Open panel behavior</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Open panel behavior
+            </p>
             <p className="mt-2 text-sm leading-5 text-[color:var(--text-muted)]">
-              Sources opens as this compact popover/drawer. Clinical notes and Evidence open separately, not as chat tabs.
+              Sources opens as this compact popover/drawer. Clinical notes and Evidence open separately, not as chat
+              tabs.
             </p>
           </div>
         </aside>
@@ -313,7 +337,9 @@ function PageHeader() {
           </p>
         </div>
         <div className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Safety-critical decision</p>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            Safety-critical decision
+          </p>
           <div className="flex flex-wrap gap-1.5">
             <Pill tone="amber">Urgent banner</Pill>
             <Pill tone="red">Escalate in notes</Pill>
@@ -352,8 +378,8 @@ export default function CompactAnswerEntryPointsPage() {
               <Pill tone="teal">No top-level mobile tabs</Pill>
             </div>
             <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-              The chat stream stays linear and compact. Tabs/segmented controls only appear inside opened sheets, such as
-              Clinical notes triage or Evidence audit.
+              The chat stream stays linear and compact. Tabs/segmented controls only appear inside opened sheets, such
+              as Clinical notes triage or Evidence audit.
             </p>
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_23rem]">

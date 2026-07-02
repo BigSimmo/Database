@@ -944,7 +944,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "clinical-instruction",
     label_type: "document_intent",
-    strong: [/\b(?:guideline|procedure|protocol|qrg\b|quick reference guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline)\b/i],
+    strong: [
+      /\b(?:guideline|procedure|protocol|qrg\b|quick reference guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline)\b/i,
+    ],
   },
   {
     label: "decision-support",
@@ -954,12 +956,16 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "patient-information",
     label_type: "document_intent",
-    strong: [/\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|for patients)\b/i],
+    strong: [
+      /\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|for patients)\b/i,
+    ],
   },
   {
     label: "staff-guidance",
     label_type: "document_intent",
-    strong: [/\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|orientation|training|education|competenc|whs\b|work health and safety)\b/i],
+    strong: [
+      /\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|orientation|training|education|competenc|whs\b|work health and safety)\b/i,
+    ],
   },
   {
     label: "legal-governance",
@@ -969,7 +975,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "operational-process",
     label_type: "document_intent",
-    strong: [/\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|management sop|roles? and responsibilities)\b/i],
+    strong: [
+      /\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|management sop|roles? and responsibilities)\b/i,
+    ],
   },
   {
     label: "documentation-requirement",
@@ -979,7 +987,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "medication-instruction",
     label_type: "document_intent",
-    strong: [/\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|permethrin)\b/i],
+    strong: [
+      /\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|permethrin)\b/i,
+    ],
   },
 
   { label: "contains-table", label_type: "content_feature", strong: [/\b(?:table|matrix|schedule)\b/i] },
@@ -992,7 +1002,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "contains-dosage-guidance",
     label_type: "content_feature",
-    strong: [/\b(?:dose|dosing|dosage|nomogram|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?)\b/i],
+    strong: [
+      /\b(?:dose|dosing|dosage|nomogram|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?)\b/i,
+    ],
   },
   {
     label: "contains-monitoring-schedule",

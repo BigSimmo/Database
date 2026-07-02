@@ -21,13 +21,7 @@ import {
   Sun,
   Wrench,
 } from "lucide-react";
-import {
-  cn,
-  sidebarItem,
-  sidebarToolTile,
-  statusDotReady,
-  textMuted,
-} from "@/components/ui-primitives";
+import { cn, sidebarItem, sidebarToolTile, statusDotReady, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { type AppModeId } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
@@ -180,10 +174,7 @@ export function ClinicalSidebarContent({
                 )}
               >
                 <MessageSquare
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    index === 0 && "text-[color:var(--clinical-accent)]",
-                  )}
+                  className={cn("h-4 w-4 shrink-0", index === 0 && "text-[color:var(--clinical-accent)]")}
                 />
                 <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
               </button>

@@ -270,7 +270,10 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
             {displayText(card.title)}
           </h3>
         </div>
-        <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]" aria-hidden />
+        <ChevronRight
+          className="mt-2 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+          aria-hidden
+        />
       </div>
       <p className={cn("pl-[3.25rem] text-xs leading-5", textMuted)}>{displayText(card.detail)}</p>
     </article>
@@ -441,9 +444,7 @@ function CriteriaGroup({
               <div key={item.label} className="flex min-h-10 items-center justify-between gap-3 py-2">
                 <div className="flex min-w-0 items-center gap-2.5">
                   {renderCriterionIcon(item.tone)}
-                  <p className="min-w-0 text-sm font-medium leading-5 text-[color:var(--text-heading)]">
-                    {item.label}
-                  </p>
+                  <p className="min-w-0 text-sm font-medium leading-5 text-[color:var(--text-heading)]">{item.label}</p>
                 </div>
                 <span
                   className={cn(
@@ -458,7 +459,12 @@ function CriteriaGroup({
           })}
         </div>
       ) : (
-        <p className={cn("rounded-lg border border-dashed border-[color:var(--border)] p-3 text-sm leading-6", textMuted)}>
+        <p
+          className={cn(
+            "rounded-lg border border-dashed border-[color:var(--border)] p-3 text-sm leading-6",
+            textMuted,
+          )}
+        >
           No items in this group.
         </p>
       )}
@@ -759,7 +765,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                       <Tag className="h-5 w-5" aria-hidden />
                     </span>
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Tags & catchments</h2>
-                    <TagList items={[...(service.catchments ?? []), ...(service.tags ?? [])]} emptyLabel="No tags listed." />
+                    <TagList
+                      items={[...(service.catchments ?? []), ...(service.tags ?? [])]}
+                      emptyLabel="No tags listed."
+                    />
                   </div>
                 </section>
               </div>
@@ -804,7 +813,6 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               {service.catalogueLabel ?? "Catalogue service"}
             </p>
           </div>
-
         </div>
       </div>
     </main>

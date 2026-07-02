@@ -1,14 +1,7 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 
 export type AppModeId =
-  | "answer"
-  | "documents"
-  | "services"
-  | "forms"
-  | "favourites"
-  | "differentials"
-  | "prescribing"
-  | "tools";
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
 export type SearchableAppModeId = AppModeId;
 
 export type AppModeSearchKind = "answer" | "documents" | "favourites" | "differentials" | "tools";
@@ -282,7 +275,9 @@ export function appModeQueryMode(modeId: AppModeId, queryMode: ClinicalQueryMode
   return queryMode === "auto" && defaultQueryMode ? defaultQueryMode : queryMode;
 }
 
-export function appModeSourceLibrarySearchMode(modeId: AppModeId): Extract<AppModeSearchKind, "documents" | "differentials"> {
+export function appModeSourceLibrarySearchMode(
+  modeId: AppModeId,
+): Extract<AppModeSearchKind, "documents" | "differentials"> {
   return appModeSearchConfig(modeId).kind === "differentials" ? "differentials" : "documents";
 }
 
@@ -295,5 +290,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
   const mode = appModeDefinitions.find((definition) => definition.id === modeId);
   if (!mode) return false;
   const kind = mode.search.kind;
-  return kind === "answer" || kind === "documents" || kind === "favourites" || kind === "differentials" || kind === "tools";
+  return (
+    kind === "answer" || kind === "documents" || kind === "favourites" || kind === "differentials" || kind === "tools"
+  );
 }

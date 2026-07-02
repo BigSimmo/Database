@@ -661,10 +661,9 @@ async function buildScopedSearchPayload(
     ownerId,
     queryMode: body.queryMode,
   });
-  const resultLimit =
-    isSourceLibrarySearchMode(body.mode)
-      ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
-      : (body.topK ?? 8);
+  const resultLimit = isSourceLibrarySearchMode(body.mode)
+    ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
+    : (body.topK ?? 8);
   const results = annotateSearchResults(searchFocusQuery, diversifySearchResults(search.results, resultLimit, 4, true));
 
   const relatedDocuments = body.includeRelatedDocuments
@@ -678,10 +677,9 @@ async function buildScopedSearchPayload(
     : [];
   const smartPanel = buildSmartPanel(searchFocusQuery, results);
   const relevance = buildEvidenceRelevance(searchFocusQuery, results);
-  const documentMatches =
-    isSourceLibrarySearchMode(body.mode)
-      ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
-      : [];
+  const documentMatches = isSourceLibrarySearchMode(body.mode)
+    ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
+    : [];
   const smartApiPlan = buildSmartRagApiPlan({
     query: searchFocusQuery,
     queryClass: effectiveQueryClass,
@@ -818,14 +816,13 @@ export async function POST(request: Request) {
         demoSearch(body.query, body.topK ?? 8, body.documentId, body.documentIds),
       );
       const relevance = buildEvidenceRelevance(searchFocusQuery, results);
-      const documentMatches =
-        isSourceLibrarySearchMode(body.mode)
-          ? annotateDocumentMatches(
-              searchFocusQuery,
-              buildDocumentMatchesFromResults(results, body.documentLimit),
-              results,
-            )
-          : [];
+      const documentMatches = isSourceLibrarySearchMode(body.mode)
+        ? annotateDocumentMatches(
+            searchFocusQuery,
+            buildDocumentMatchesFromResults(results, body.documentLimit),
+            results,
+          )
+        : [];
       return NextResponse.json({
         results: compactSearchResults(searchFocusQuery, results),
         facets: buildSearchFacets(results),

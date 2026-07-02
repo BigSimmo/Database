@@ -11,52 +11,64 @@ The product context is Clinical Guide: a source-backed clinical workspace used f
 ### Medium: light mode is still too dependent on teal/mint
 
 Evidence:
+
 - `src/app/globals.css` defines the global light tokens and currently makes `--clinical-chat-teal-soft`, sidebar active states, empty-state cards, mode controls, and composer accents all read from the same teal family.
 - `src/components/clinical-dashboard/ClinicalSidebar.tsx` and `src/components/clinical-dashboard/answer-status.tsx` now expose styling hooks, but the system still needs a more disciplined token contract.
 
 Why it matters:
+
 - When the background, active controls, icon tiles, and status chips all share the same green-teal family, light mode reads themed rather than premium.
 - Teal should signal clinical action, evidence, and source state. It should not be the whole environment.
 
 Fix:
+
 - Move light mode to a neutral porcelain/graphite foundation.
 - Keep teal as an instrument accent for selected mode, source state, send, and clinical evidence.
 - Use amber/red only for setup/safety/escalation states.
 
 Verification:
+
 - Desktop and mobile screenshots should read as white/graphite first, teal second.
 
 ### Medium: light surfaces need clearer material hierarchy
 
 Evidence:
+
 - The main hierarchy is shared between `globals.css`, `ui-primitives.tsx`, and dashboard-specific overrides in `master-search-header.tsx`, `ClinicalSidebar.tsx`, and `answer-status.tsx`.
 - Existing cards, composer, and header use similar borders and shadows, so light mode can look flat or generically frosted.
 
 Why it matters:
+
 - Premium light UIs depend on precise separation: canvas, paper, floating glass, selected control, and warning state need distinct surface rules.
 
 Fix:
+
 - Define four light surfaces: canvas, paper, glass, elevated, and inset.
 - Use low-alpha graphite shadows, not teal shadows, for normal elevation.
 - Reserve colored shadows for focused/selected controls only.
 
 Verification:
+
 - Empty-state cards should sit above the canvas without looking boxed-in.
 - The composer should feel like a floating white glass tool, not a bright pill or a heavy panel.
 
 ### Low: dark mode can regress when base header/composer rules are changed
 
 Evidence:
+
 - `globals.css` has shared `.edge-glass-header`, `.universal-header`, and `.answer-footer-search-*` selectors plus `.dark` overrides.
 
 Why it matters:
+
 - Light-mode improvements can accidentally bleed into dark mode if base selectors are changed without matching `.dark` overrides.
 
 Fix:
+
 - Every material-level change to global base selectors must have a paired `.dark` review.
 - Add a final dark screenshot after applying the light scheme.
 
 Verification:
+
 - Dark desktop screenshot: header remains black glass, composer remains black-polished, no white glare.
 
 ## Proposed colour system
@@ -76,6 +88,7 @@ Verification:
 - Optional cool info: `#2F6F91`
 
 Design role:
+
 - Graphite primary CTA and text give the Apple/ChatGPT-style premium feel.
 - Teal is used for clinical/source affordances only.
 - Warm porcelain prevents the app from reading as hospital-mint or generic SaaS blue-grey.
@@ -94,6 +107,7 @@ Design role:
 - Critical red: `#FF8D96`
 
 Design role:
+
 - Dark remains the black-polished system.
 - The same semantic accents are preserved, but lifted for contrast.
 
@@ -107,6 +121,7 @@ Design role:
 ## Signature element
 
 Use a “frosted clinical tray” for the composer and header controls:
+
 - White/dark glass surface.
 - Single hairline border.
 - Soft graphite elevation.
