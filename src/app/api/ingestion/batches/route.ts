@@ -46,7 +46,11 @@ function batchesResponse(batches: BatchRow[], extra: Record<string, unknown> = {
 
 export async function GET(request: Request) {
   try {
-    const { limit, offset } = parseRequestQuery(request, ingestionBatchesQuerySchema, "Invalid ingestion batches query.");
+    const { limit, offset } = parseRequestQuery(
+      request,
+      ingestionBatchesQuerySchema,
+      "Invalid ingestion batches query.",
+    );
     if (isDemoMode()) {
       return batchesResponse([], {
         demoMode: true,

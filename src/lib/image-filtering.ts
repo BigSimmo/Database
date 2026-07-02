@@ -274,10 +274,22 @@ export function isClinicalImageEvidence(image: {
   return assessment.clinical_use_class === "clinical_evidence";
 }
 
+// Accept numbers and numeric strings, but not null/booleans/empty strings — bare
+// Number(...) coercion would turn those into a plausible-looking 0 coordinate
+// instead of rejecting the malformed row.
+function bboxCoordinate(entry: unknown): number | null {
+  if (typeof entry === "number") return Number.isFinite(entry) ? entry : null;
+  if (typeof entry === "string" && entry.trim()) {
+    const numeric = Number(entry);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+}
+
 export function normalizeImageBbox(value: unknown): [number, number, number, number] | null {
   if (!Array.isArray(value) || value.length !== 4) return null;
-  const coords = value.map((entry) => Number(entry));
-  return coords.every(Number.isFinite) ? (coords as [number, number, number, number]) : null;
+  const coords = value.map(bboxCoordinate);
+  return coords.every((coord): coord is number => coord !== null) ? (coords as [number, number, number, number]) : null;
 }
 
 function bboxLooksLikeHeaderOrFooter(bbox: unknown) {
