@@ -19,10 +19,11 @@ function redactLogValue(value: unknown): unknown {
   const htmlTitle = value.match(/<title>\s*([^<]+?)\s*<\/title>/i)?.[1]?.trim();
   const normalizedValue = htmlTitle ? `HTML response: ${htmlTitle}` : value;
   return normalizedValue
-    .replace(/\b[A-Za-z]:\\[^\s'")]+/g, "[path]")
-    .replace(/\/(?:[^\s'")]+\/)+[^\s'")]+/g, "[path]")
-    .replace(/https?:\/\/[^\s'")]+/g, "[url]")
-    .replace(/\b(?:sk|pk|sbp|eyJ)[A-Za-z0-9._-]{12,}\b/g, "[secret]")
+    .replace(/\b[A-Za-z]:\\[^\s'\")]+/g, "[path]")
+    .replace(/\/(?:[^\s'\")]+\/)+[^\s'\")]+/g, "[path]")
+    .replace(/https?:\/\/[^\s'\")]+/g, "[url]")
+    // Redact common secret/token formats, including modern Supabase keys like sb_secret_ and sb_publishable_
+    .replace(/\b(?:sk|pk|sbp|sb_secret_|sb_publishable_|eyJ)[A-Za-z0-9._-]{8,}\b/g, "[secret]")
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[email]")
     .slice(0, 500);
 }

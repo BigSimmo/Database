@@ -21,6 +21,21 @@ describe("privacy-safe logging helpers", () => {
     expect(JSON.stringify(details)).not.toContain("source.pdf");
   });
 
+  it("redacts modern supabase keys in error messages and details", () => {
+    const e1 = new Error("found key sb_secret_abcdef1234567890 and sb_publishable_123abcDEF456");
+    const d1 = safeErrorLogDetails(e1);
+
+    expect(JSON.stringify(d1)).not.toContain("sb_secret_");
+    expect(JSON.stringify(d1)).not.toContain("sb_publishable_");
+    expect(JSON.stringify(d1)).toContain("[secret]");
+
+    const e2 = { message: "connection error", details: "token=sb_secret_live_ABCD1234efgh" };
+    const d2 = safeErrorLogDetails(e2);
+
+    expect(JSON.stringify(d2)).not.toContain("sb_secret_live_");
+    expect(JSON.stringify(d2)).toContain("[secret]");
+  });
+
   it("summarizes HTML error responses by title", () => {
     const error = {
       message: "<!DOCTYPE html><html><head><title>supabase.co | 522: Connection timed out</title></head></html>",
