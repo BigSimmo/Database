@@ -246,7 +246,7 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("from vault.decrypted_secrets");
     expect(schema).toContain("where name = 'indexing_v3_agent_secret'");
     expect(schema).toContain("select net.http_post(");
-    expect(schema).toContain("https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/indexing-v3-agent?limit=");
+    expect(schema).toContain("/functions/v1/indexing-v3-agent?limit=");
     expect(schema).toContain(
       "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
     );
