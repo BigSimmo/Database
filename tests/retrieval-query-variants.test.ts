@@ -315,6 +315,22 @@ describe("retrieval query variants", () => {
     ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
   });
 
+  it("applies the zone-action guard to hyphenated risk-matrix queries", () => {
+    // "risk-matrix" phrasing must trigger the same guard as "risk matrix".
+    expect(
+      decideTextFastPath(
+        "In the risk-matrix, what is the next step after the red zone?",
+        [
+          result({
+            content: "Risk-matrix overview of procedural exposure categories.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+  });
+
   it("matches the queried zone colour before fast-pathing", () => {
     // A red-zone question must not fast-path on an amber-zone action chunk.
     expect(
