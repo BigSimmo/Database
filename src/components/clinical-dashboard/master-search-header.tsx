@@ -1237,7 +1237,10 @@ export function MasterSearchHeader({
                 </button>
               </>
             ) : isStandaloneModeHomeHeader ? (
-              <div className="hidden min-w-0 items-center gap-2 lg:flex">
+              /* min-[1400px]: below that the equal-thirds grid leaves the right
+                 column too narrow for these chips and they slide under the
+                 centered mode pill. */
+              <div className="hidden min-w-0 items-center gap-2 min-[1400px]:flex">
                 <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                   <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                   Local only
