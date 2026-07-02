@@ -254,15 +254,74 @@ describe("eval quality reporting", () => {
 
   it("treats danger warnings as failures only for delivered grounded answers", () => {
     // Grounded answer delivered on dangerous sourcing: a governance failure.
-    expect(
-      sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 1 }),
-    ).toEqual(["danger source governance warning present"]);
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 1 })).toEqual([
+      "danger source governance warning present",
+    ]);
     // Declined answer (grounded=false): the danger warning is the expected
     // refusal signal, not a failure -- regardless of the preserved routingMode,
     // so evidence-gap refusals converted from fast/strong routes are exempt too.
     expect(sourceGovernanceDangerFailuresForAnswer({ grounded: false, sourceDangerWarningCount: 1 })).toEqual([]);
     // Grounded answer with no danger warning: clean.
     expect(sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 0 })).toEqual([]);
+  });
+
+  it("flags refusals that drop an expected danger warning, regardless of grounded", () => {
+    // Refusal expected to surface a danger warning but missing it: a
+    // refusal-safety regression, failing even though grounded=false.
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        grounded: false,
+        sourceDangerWarningCount: 0,
+        expectsDangerWarning: true,
+      }),
+    ).toEqual(["expected danger source governance warning missing"]);
+    // Refusal that still carries its expected danger warning: clean (the warning
+    // is the expected refusal signal, not a failure).
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        grounded: false,
+        sourceDangerWarningCount: 1,
+        expectsDangerWarning: true,
+      }),
+    ).toEqual([]);
+    // No expectation set: unchanged behavior (ungrounded, no warning => clean).
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: false, sourceDangerWarningCount: 0 })).toEqual([]);
+    // The failure is categorized under source governance for reporting.
+    expect(qualityFailureCategory("expected danger source governance warning missing")).toBe("source_governance");
+  });
+
+  it("hard-blocks release when a refusal drops an expected danger warning (not waivable by debt)", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-02T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        ragResult({
+          id: "refusal-missing-expected-danger",
+          supported: false,
+          grounded: false,
+          route: "unsupported",
+          citations: 0,
+          failures: ["expected danger source governance warning missing"],
+        }),
+      ],
+      // A permissive debt acceptance must NOT waive this refusal-safety failure.
+      sourceMetadataDebtAcceptance: {
+        accepted_by: "release owner",
+        accepted_at: "2026-07-02T00:00:00.000Z",
+        expires_at: "2099-01-01T00:00:00.000Z",
+        reason: "Broad metadata debt acceptance for the test.",
+        max_stale_rate: 1,
+        max_review_required_rate: 1,
+        max_outdated_top_results: 0,
+        max_poor_extraction_top_results: 0,
+        max_source_governance_danger_failure_rate: 0,
+      },
+    });
+    expect(report.rag.summary.expected_danger_warning_missing_count).toBe(1);
+    const blocker = "RAG expected_danger_warning_missing_count 1 above 0";
+    expect(report.threshold_failures).toContain(blocker);
+    expect(report.blocking_threshold_failures).toContain(blocker);
+    expect(report.accepted_threshold_failures).not.toContain(blocker);
   });
 
   it("excludes declined answers from the danger failure rate regardless of route", () => {

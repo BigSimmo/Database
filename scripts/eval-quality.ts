@@ -217,7 +217,9 @@ export function qualityFailureCategory(message: string): QualityFailureCategory 
 export function sourceGovernanceDangerFailuresForAnswer(args: {
   grounded: boolean;
   sourceDangerWarningCount: number;
+  expectsDangerWarning?: boolean;
 }): string[] {
+  const failures: string[] = [];
   // A danger warning is a governance failure only when a grounded answer was
   // actually delivered on that sourcing. Declined answers carry the danger
   // warning as the expected refusal signal, not a failure. `grounded` is the
@@ -225,9 +227,19 @@ export function sourceGovernanceDangerFailuresForAnswer(args: {
   // routes and answers that a fast/strong/extractive route converted into an
   // evidence-gap refusal (finalizeRagAnswerQualityCore sets grounded=false
   // while preserving the original routingMode).
-  return args.grounded && args.sourceDangerWarningCount > 0
-    ? ["danger source governance warning present"]
-    : [];
+  if (args.grounded && args.sourceDangerWarningCount > 0) {
+    failures.push("danger source governance warning present");
+  }
+  // Refusal-safety guard: exempting ungrounded answers above must not let a
+  // refusal that is *expected* to surface a danger warning pass as clean when it
+  // silently drops that warning. For cases flagged expectsSourceDangerWarning,
+  // a missing danger warning is a failure regardless of grounded — otherwise a
+  // regression that stops emitting the warning would keep the danger failure
+  // rate at 0 and go undetected.
+  if (args.expectsDangerWarning && args.sourceDangerWarningCount === 0) {
+    failures.push("expected danger source governance warning missing");
+  }
+  return failures;
 }
 
 function rate(numerator: number, denominator: number) {
@@ -386,6 +398,9 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   const sourceGovernanceDangerFailures = results.filter(
     (result) => result.grounded && result.sourceDangerWarningCount > 0,
   );
+  const expectedDangerWarningMissing = results.filter((result) =>
+    result.failures.includes("expected danger source governance warning missing"),
+  ).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -413,6 +428,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     source_warning_count: results.reduce((sum, result) => sum + result.sourceWarningCount, 0),
     source_governance_warning_rate: rate(sourceGovernanceWarnings.length, results.length),
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
+    expected_danger_warning_missing_count: expectedDangerWarningMissing,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -484,6 +500,14 @@ export function buildEvalQualityReport(args: {
     if (ragSummary.source_governance_danger_failure_rate > 0) {
       thresholdFailures.push(
         `RAG source_governance_danger_failure_rate ${ragSummary.source_governance_danger_failure_rate} above 0`,
+      );
+    }
+    if (ragSummary.expected_danger_warning_missing_count > 0) {
+      // A refusal that was expected to surface a danger warning dropped it. This
+      // is a refusal-safety regression and hard-blocks release — it is never
+      // waivable via the source-metadata debt acceptance below.
+      thresholdFailures.push(
+        `RAG expected_danger_warning_missing_count ${ragSummary.expected_danger_warning_missing_count} above 0`,
       );
     }
     if (ragSummary.p95_latency_ms > qualityThresholds.ragP95LatencyMs) {
@@ -774,6 +798,7 @@ async function runRagQualityCases(args: {
       ...sourceGovernanceDangerFailuresForAnswer({
         grounded: answer.grounded,
         sourceDangerWarningCount,
+        expectsDangerWarning: testCase.expectsSourceDangerWarning,
       }),
     );
 

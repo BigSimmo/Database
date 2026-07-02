@@ -27,6 +27,15 @@ export type RagEvalCase = {
   minCitations: number;
   latencyTargetMs: number;
   requireVisualEvidence?: boolean;
+  /**
+   * Set on refusal cases whose sourcing must surface a `danger`-severity source
+   * governance warning (e.g. an outdated / weak-evidence / poor-extraction source
+   * that the answer correctly declines on). The release eval fails if the danger
+   * warning is missing even when the answer is an ungrounded refusal, so a refusal
+   * silently dropping its expected safety warning is caught as a regression rather
+   * than passing as "clean". Leave unset when no danger warning is expected.
+   */
+  expectsSourceDangerWarning?: boolean;
 };
 
 export type AnswerQualityEvalCase = RagEvalCase & {
