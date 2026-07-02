@@ -1168,6 +1168,11 @@ function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) 
 
 async function analyzeQueryWithClassifierFallback(query: string, analysis: ClinicalQueryAnalysis) {
   if (
+    // Fail closed before any generative model call: an adversarial-manipulation
+    // query is routed to "unsupported" downstream, so never send its text to the
+    // LLM query classifier. (Embedding-based retrieval is non-generative and not
+    // an injection surface.)
+    hasAdversarialManipulationIntent(query) ||
     unavailableDocumentNoisePattern.test(query) ||
     (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0)
   ) {
