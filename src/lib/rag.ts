@@ -3476,7 +3476,7 @@ export function evaluateEvidenceCoverageGate(
       };
     }
     if (/\b(?:flow\s*chart|flowchart|risk matrix)\b/i.test(query) || riskZoneContextPattern.test(query)) {
-      const accepted = hasRiskFlowchartActionEvidence(query, results);
+      const accepted = hasRiskFlowchartActionEvidence(results);
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",
