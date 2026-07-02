@@ -3727,15 +3727,15 @@ grant execute on function public.is_committed_document_generation(uuid, jsonb) t
 revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
--- Typed overload: compares uuid directly against document committed id stored in metadata
+-- Typed overload: NULL keeps legacy artifacts visible; otherwise compare to committed id
 create or replace function public.is_committed_artifact_generation(p_artifact_gen_id uuid, p_document_metadata jsonb)
 returns boolean
 language sql
 stable
 set search_path = public, extensions, pg_temp
 as $$
-  select p_artifact_gen_id is not null
-    and p_artifact_gen_id::text = nullif(coalesce(p_document_metadata, '{}'::jsonb)->>'index_generation_id', '');
+  select p_artifact_gen_id is null
+    or p_artifact_gen_id::text = nullif(coalesce(p_document_metadata, '{}'::jsonb)->>'index_generation_id', '');
 $$;
 
 revoke execute on function public.is_committed_artifact_generation(uuid, jsonb) from public, anon, authenticated;
