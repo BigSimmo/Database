@@ -172,6 +172,12 @@ describe("Supabase schema Data API grants", () => {
 
   it("preserves NULL-generation artifacts until replacements exist", () => {
     for (const sql of [schema, preserveLegacyArtifactCommitMigration]) {
+      expect(sql).toContain(
+        "index_generation_id is null and exists ( select 1 from public.document_chunks replacement",
+      );
+      expect(sql).toContain(
+        "nullif(metadata->>'index_generation_id', '') is null and exists ( select 1 from public.document_images replacement",
+      );
       expect(sql).toContain("from public.document_chunks replacement");
       expect(sql).toContain("from public.document_images replacement");
       expect(sql).toContain("from public.document_table_facts replacement");
@@ -179,9 +185,6 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("from public.document_index_units replacement");
       expect(sql).toContain("from public.document_memory_cards replacement");
       expect(sql).toContain("from public.document_sections replacement");
-      expect(sql).not.toContain(
-        "delete from public.document_images where document_id = p_document_id and ( nullif(metadata->>'index_generation_id', '') is null or metadata->>'index_generation_id' <> p_index_generation_id::text );",
-      );
     }
   });
 
