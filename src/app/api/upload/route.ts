@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { assertAllowedFile, assertFileContentSignature, jsonError } from "@/lib/http";
+import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
-import { planDocumentName } from "@/lib/document-naming";
+import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
@@ -29,8 +29,15 @@ export async function POST(request: Request) {
 
   try {
     supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
-    const formData = await request.formData();
+    const adminSupabase = supabase;
+    const user = await requireAuthenticatedUser(request, adminSupabase);
+    const formData = await request.formData().catch((cause) => {
+      throw new PublicApiError("Invalid upload form data.", 400, {
+        code: "invalid_form_data",
+        causeName: cause instanceof Error ? cause.name : null,
+        causeMessage: cause instanceof Error ? cause.message : null,
+      });
+    });
     const file = formData.get("file");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing file field." }, { status: 400 });
@@ -53,7 +60,7 @@ export async function POST(request: Request) {
     assertFileContentSignature(file.type, buffer);
     const contentHash = createHash("sha256").update(buffer).digest("hex");
 
-    const { data: duplicate, error: duplicateError } = await supabase
+    const { data: duplicate, error: duplicateError } = await adminSupabase
       .from("documents")
       .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
       .eq("owner_id", user.id)
@@ -70,10 +77,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const health = await probeSupabaseHealth(supabase);
+    const health = await probeSupabaseHealth(adminSupabase);
     if (!health.ok) return NextResponse.json({ error: `Upload is paused. ${health.message}` }, { status: 503 });
 
-    const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
+    const upload = await adminSupabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
       contentType: file.type,
       upsert: false,
     });
@@ -81,8 +88,11 @@ export async function POST(request: Request) {
     if (upload.error) throw new Error(upload.error.message);
     uploadedPath = storagePath;
 
+    const namingSupabase: DocumentNameSupabase = {
+      from: ((table) => adminSupabase.from(table)) as DocumentNameSupabase["from"],
+    };
     const namePlan = await planDocumentName({
-      supabase,
+      supabase: namingSupabase,
       ownerId: user.id,
       fileName: file.name,
       requestedTitle: uploadMetadata.title,
@@ -219,6 +229,6 @@ export async function POST(request: Request) {
       return unauthorizedResponse();
     }
 
-    return jsonError(error, 400);
+    return jsonError(error);
   }
 }

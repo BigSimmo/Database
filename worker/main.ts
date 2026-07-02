@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -37,8 +36,8 @@ import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai
 import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
+import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkPythonPdfPrerequisites } from "./prerequisites";
@@ -80,6 +79,23 @@ type OptionalIndexWriteIssue = {
   stage: string;
   message: string;
   code?: string | null;
+};
+
+type GenerationTableResult = {
+  data: unknown[] | null;
+  error: { message?: string; code?: string; details?: string; hint?: string } | null;
+};
+
+type GenerationTableFilter = PromiseLike<GenerationTableResult> & {
+  eq: (column: string, value: string) => GenerationTableFilter;
+  neq: (column: string, value: string) => PromiseLike<GenerationTableResult>;
+  is: (column: string, value: null) => PromiseLike<GenerationTableResult>;
+  limit: (count: number) => GenerationTableFilter;
+};
+
+type GenerationTableQuery = {
+  select: (columns: string) => GenerationTableFilter;
+  delete: () => GenerationTableFilter;
 };
 
 function supabaseStageError(
@@ -262,8 +278,7 @@ async function failOrRetryJob(args: {
     p_document_status: args.documentStatus,
     p_stage: args.stage,
     p_error_message: args.errorMessage,
-    // SQL default is null; omitting the key matches the old explicit null.
-    p_next_run_at: args.nextRunAt,
+    p_next_run_at: args.nextRunAt ?? undefined,
   });
   if (!error) return;
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
@@ -459,12 +474,12 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // fields, index units) cascade with their legacy chunks regardless — the
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
-  // Dynamic table names and `metadata->>` JSON-path filters are outside what
-  // the generated Database types can express; scope an untyped client to
-  // these generation-cleanup helpers only.
-  const dynamicTables = supabase as unknown as SupabaseClient;
+  // The generated Supabase client only types known table literals. This cleanup
+  // path selects among a small runtime-known set of tables, so use a minimal
+  // adapter at the dynamic boundary instead of widening the whole admin client.
+  const fromGenerationTable = supabase.from.bind(supabase) as unknown as (table: string) => GenerationTableQuery;
   const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = dynamicTables.from(table).select("id").eq("document_id", documentId).limit(1);
+    let query = fromGenerationTable(table).select("id").eq("document_id", documentId).limit(1);
     query = direct
       ? query.eq("index_generation_id", indexGenerationId)
       : query.eq("metadata->>index_generation_id", indexGenerationId);
@@ -473,30 +488,23 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
     return (data ?? []).length > 0;
   };
   const deleteDirectGenerationRows = async (table: string) => {
-    const stale = await dynamicTables
-      .from(table)
+    const stale = await fromGenerationTable(table)
       .delete()
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await dynamicTables
-      .from(table)
-      .delete()
-      .eq("document_id", documentId)
-      .is("index_generation_id", null);
+    const missing = await fromGenerationTable(table).delete().eq("document_id", documentId).is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
-    const stale = await dynamicTables
-      .from(table)
+    const stale = await fromGenerationTable(table)
       .delete()
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, false))) return;
-    const missing = await dynamicTables
-      .from(table)
+    const missing = await fromGenerationTable(table)
       .delete()
       .eq("document_id", documentId)
       .is("metadata->>index_generation_id", null);
@@ -1123,7 +1131,9 @@ async function uploadAndCaptionImages(
         id: data.id,
         caption: data.caption,
         pageNumber: data.page_number,
-        imageType: data.image_type as ImageEvidenceCategory,
+        imageType: imageEvidenceCategories.has(data.image_type as ImageEvidenceCategory)
+          ? (data.image_type as ImageEvidenceCategory)
+          : "unclear",
         sourceKind: image.sourceKind ?? "embedded",
         labels: data.labels ?? [],
         tableLabel: tableMetadata.tableLabel,

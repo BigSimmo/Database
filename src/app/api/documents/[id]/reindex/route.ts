@@ -74,13 +74,14 @@ async function selectReindexRowsInPages<T>(args: {
   searchableOnly?: boolean;
 }) {
   const rows: T[] = [];
+  if (args.searchableOnly && args.table !== "document_images") {
+    throw new Error("searchableOnly reindex paging only supports the document_images table.");
+  }
   for (let offset = 0; ; offset += reindexPageSize) {
-    // Dynamic table/select strings need the untyped client surface.
-    let query = (args.supabase as unknown as SupabaseClient)
-      .from(args.table)
-      .select(args.select)
-      .eq("document_id", args.documentId);
-    if (args.searchableOnly) query = query.eq("searchable", true);
+    const dynamicSupabase = args.supabase as unknown as SupabaseClient;
+    const query = args.searchableOnly
+      ? dynamicSupabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
+      : dynamicSupabase.from(args.table).select(args.select).eq("document_id", args.documentId);
     const { data, error } = await query.range(offset, offset + reindexPageSize - 1);
     if (error) throw new Error(error.message);
 
@@ -233,6 +234,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    return jsonError(error);
   }
 }

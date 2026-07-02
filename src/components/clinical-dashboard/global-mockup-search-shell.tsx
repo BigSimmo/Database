@@ -1,34 +1,25 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  BrainCircuit,
-  ClipboardList,
-  FileText,
-  Heart,
-  Pill,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  Wrench,
-} from "lucide-react";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
-import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
-import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
-import { Sheet } from "@/components/ui/sheet";
-import { cn, sidebarItem } from "@/components/ui-primitives";
+import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
 import {
-  appModeDefinition,
-  appModeHomeHref,
-  isAppModeId,
-  isAppModeVisible,
-  visibleAppModeDefinitions,
-  type AppModeId,
-} from "@/lib/app-modes";
+  ClinicalDesktopSidebar,
+  ClinicalMobileSidebar,
+  deriveSidebarIdentity,
+} from "@/components/clinical-dashboard/ClinicalSidebar";
+import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
+import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
+import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
+import { cn } from "@/components/ui-primitives";
+import { appModeHomeHref, isAppModeId, isAppModeVisible, visibleAppModeDefinitions, type AppModeId } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import type { SearchScopeFilters } from "@/lib/search-scope";
+import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
@@ -41,22 +32,13 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
   { value: "compare_guidance", label: "Compare" },
 ];
 
-const appModeIcons: Record<AppModeId, typeof Search> = {
-  answer: Sparkles,
-  documents: FileText,
-  services: ShieldCheck,
-  forms: ClipboardList,
-  favourites: Heart,
-  differentials: BrainCircuit,
-  prescribing: Pill,
-  tools: Wrench,
-};
-
 type GlobalMockupSearchShellProps = {
   children: ReactNode;
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
+  /** Hide the shared search composer on routes that provide their own search surface. */
+  searchComposerVisible?: boolean;
 };
 
 export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
@@ -80,6 +62,7 @@ function GlobalMockupSearchShellClient({
   initialMode = "answer",
   availableModeIds,
   desktopSearchPlacement = "default",
+  searchComposerVisible = true,
 }: GlobalMockupSearchShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -103,6 +86,13 @@ function GlobalMockupSearchShellClient({
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const { theme, toggleTheme } = useTheme();
+  const auth = useAuthSession();
+  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const dashboardSearchMode =
     isAppModeId(requestedMode) &&
     isAppModeVisible(requestedMode) &&
@@ -139,6 +129,44 @@ function GlobalMockupSearchShellClient({
     return () => window.cancelAnimationFrame(frame);
   }, [availableModeIds, initialSearchMode, pathname, searchParamString]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const stored = JSON.parse(window.localStorage.getItem(recentQueryStorageKey) ?? "[]");
+        if (Array.isArray(stored) && !cancelled) {
+          setRecentQueries(
+            stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5),
+          );
+        }
+      } catch {
+        if (!cancelled) setRecentQueries([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  function prefetchApplications() {
+    router.prefetch("/?mode=tools");
+    router.prefetch("/favourites");
+    router.prefetch("/differentials");
+  }
+
+  function openGuide() {
+    setSettingsOpen(false);
+    setMobileMenuOpen(false);
+    setGuideOpen(true);
+  }
+
+  function openSettings() {
+    setGuideOpen(false);
+    setMobileMenuOpen(false);
+    setSettingsOpen(true);
+  }
+
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
     router.push(appModeHomeHref(mode, options));
   }
@@ -166,6 +194,17 @@ function GlobalMockupSearchShellClient({
     navigateToMode(fallbackMode, { focus: true });
   }
 
+  function startNewAnswerChat() {
+    setQuery("");
+    setMobileMenuOpen(false);
+    navigateToMode("answer", { focus: true });
+  }
+
+  function pickRecentQuery(recentQuery: string) {
+    setMobileMenuOpen(false);
+    navigateToMode("answer", { query: recentQuery, focus: true });
+  }
+
   if (shouldRenderDashboardSearch && dashboardSearchMode === "forms" && isFormsOnlyShell) {
     return <FormsSearchResultsPage query={requestedQuery} focusSearch={searchParams.get("focus") === "1"} />;
   }
@@ -183,107 +222,120 @@ function GlobalMockupSearchShellClient({
 
   return (
     <div
-      className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]"
-      style={{ "--clinical-sidebar-width": "0rem" } as CSSProperties}
+      className={cn(
+        "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] lg:grid",
+        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+      )}
+      style={
+        {
+          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+        } as CSSProperties
+      }
     >
-      <MasterSearchHeader
-        documents={[]}
-        documentTotal={0}
-        query={query}
-        searchMode={searchMode}
-        loading={false}
-        selectedDocumentIds={[]}
-        queryMode={queryMode}
-        scopeFilters={scopeFilters}
-        realDataReady
-        onQueryChange={setQuery}
-        onSearchModeChange={changeMode}
-        onAsk={submitSearch}
-        onClearQuery={() => setQuery("")}
-        onClearScope={() => undefined}
-        onQueryModeChange={setQueryMode}
-        onScopeFiltersChange={setScopeFilters}
-        onToggleScope={() => undefined}
-        onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
-        onOpenEvidence={() => navigateToMode("answer", { focus: true })}
-        onNewChat={startNewChat}
-        onOpenMobileSidebar={() => setMobileMenuOpen(true)}
-        mobileLeadingAction={
-          pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
-        }
-        onMobileBack={() => {
-          setQuery("");
-          navigateToMode(searchMode, { focus: true });
-        }}
-        queryModeOptions={mockupQueryModeOptions}
-        queryInputRef={inputRef}
-        headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
-        modeAlignment={isDifferentialPresentationWorkflow ? "default" : "center"}
-        mobileSearchPlacement="bottom"
-        desktopSearchPlacement={
-          (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
-        }
-        searchComposerVisible={!isDifferentialPresentationWorkflow}
-        workflowCopyText={
-          isDifferentialPresentationWorkflow
-            ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
-            : undefined
-        }
-        desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-      />
-
-      <div
-        id="main-content"
-        className={cn(
-          "min-h-[calc(100dvh-4rem)] overflow-x-hidden",
-          searchMode === "answer"
-            ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
-            : "pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-8",
-        )}
-      >
-        {children}
+      <div className="hidden lg:block">
+        <div className="sticky top-0 flex h-dvh min-h-0">
+          <ClinicalDesktopSidebar
+            collapsed={sidebarCollapsed}
+            recentQueries={recentQueries}
+            identity={sidebarIdentity}
+            activeMode={searchMode}
+            onCollapsedChange={setSidebarCollapsed}
+            onNewChat={startNewAnswerChat}
+            onPickRecent={pickRecentQuery}
+            onOpenGuide={openGuide}
+            onOpenSettings={openSettings}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onPrefetchApplications={prefetchApplications}
+          />
+        </div>
       </div>
 
-      <Sheet
+      <div className="flex min-h-dvh min-w-0 flex-col">
+        <MasterSearchHeader
+          documents={[]}
+          documentTotal={0}
+          query={query}
+          searchMode={searchMode}
+          loading={false}
+          selectedDocumentIds={[]}
+          queryMode={queryMode}
+          scopeFilters={scopeFilters}
+          realDataReady
+          onQueryChange={setQuery}
+          onSearchModeChange={changeMode}
+          onAsk={submitSearch}
+          onClearQuery={() => setQuery("")}
+          onClearScope={() => undefined}
+          onQueryModeChange={setQueryMode}
+          onScopeFiltersChange={setScopeFilters}
+          onToggleScope={() => undefined}
+          onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
+          onOpenEvidence={() => navigateToMode("answer", { focus: true })}
+          onNewChat={startNewChat}
+          onOpenMobileSidebar={() => setMobileMenuOpen(true)}
+          mobileLeadingAction={
+            pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
+          }
+          onMobileBack={() => {
+            setQuery("");
+            navigateToMode(searchMode, { focus: true });
+          }}
+          queryModeOptions={mockupQueryModeOptions}
+          queryInputRef={inputRef}
+          headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
+          mobileSearchPlacement="bottom"
+          desktopSearchPlacement={
+            (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
+          }
+          searchComposerVisible={searchComposerVisible && !isDifferentialPresentationWorkflow}
+          workflowCopyText={
+            isDifferentialPresentationWorkflow
+              ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
+              : undefined
+          }
+          desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+        />
+
+        <div
+          id="main-content"
+          className={cn(
+            "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
+            !searchComposerVisible
+              ? "pb-8"
+              : searchMode === "answer"
+                ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+          )}
+        >
+          {children}
+        </div>
+      </div>
+
+      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        identity={sidebarIdentity}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onSignOut={auth.signOut}
+        onOpenGuide={openGuide}
+      />
+      <ClinicalMobileSidebar
         open={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        title="Clinical Guide"
-        description="Choose the search workspace."
-        closeLabel="Close Clinical Guide menu"
-        placement="left"
-        contentClassName="max-w-[min(20rem,calc(100vw-1rem))]"
-      >
-        <nav aria-label="Clinical Guide workspaces" className="grid gap-1">
-          {visibleShellModes.map((mode) => {
-            const Icon = appModeIcons[mode.id];
-            const active = mode.id === searchMode;
-            const modeDefinition = appModeDefinition(mode.id);
-            return (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => changeMode(mode.id)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  sidebarItem,
-                  "grid grid-cols-[2rem_minmax(0,1fr)] px-2.5 py-2 text-left",
-                  active && "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-                )}
-              >
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{modeDefinition.label}</span>
-                  <span className="block truncate text-xs font-medium text-[color:var(--text-soft)]">
-                    {modeDefinition.description}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-      </Sheet>
+        recentQueries={recentQueries}
+        identity={sidebarIdentity}
+        activeMode={searchMode}
+        onOpenChange={setMobileMenuOpen}
+        onNewChat={startNewAnswerChat}
+        onPickRecent={pickRecentQuery}
+        onOpenGuide={openGuide}
+        onOpenSettings={openSettings}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onPrefetchApplications={prefetchApplications}
+      />
     </div>
   );
 }

@@ -131,7 +131,12 @@ async function loadEnrichmentCoverage(supabase: SupabaseAdmin, documentIds: stri
   return coverage;
 }
 
-async function loadRowsForDocuments(supabase: SupabaseAdmin, table: string, select: string, documentIds: string[]) {
+async function loadRowsForDocuments(
+  supabase: SupabaseAdmin,
+  table: "document_sections" | "document_memory_cards",
+  select: string,
+  documentIds: string[],
+) {
   const rows: MetadataRow[] = [];
   for (let start = 0; start < documentIds.length; start += 5) {
     const ids = documentIds.slice(start, start + 5);
@@ -173,8 +178,28 @@ async function loadDeepMemoryCoverage(supabase: SupabaseAdmin, documentIds: stri
 }
 
 async function loadEvidence(supabase: SupabaseAdmin, documentId: string) {
-  const chunks = [];
-  const images = [];
+  const chunks: Array<{
+    id: string;
+    document_id: string;
+    page_number: number | null;
+    chunk_index: number;
+    section_heading: string | null;
+    section_path: string[];
+    anchor_id: string | null;
+    content: string;
+    image_ids: string[];
+    metadata: Record<string, unknown> | null;
+  }> = [];
+  const images: Array<{
+    id: string;
+    page_number: number | null;
+    caption: string;
+    image_type: string;
+    labels: string[];
+    source_kind: string;
+    clinical_relevance_score: number;
+    metadata: Record<string, unknown> | null;
+  }> = [];
 
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
@@ -268,6 +293,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       classifiedImageSkipReason,
       clinicalImagePolicyVersion,
       lightweightPerceptualHash,
+      normalizeImageBbox,
     },
     { classifyAndCaptionImageFromBase64 },
   ] = await Promise.all([import("@/lib/env"), import("@/lib/image-filtering"), import("@/lib/openai")]);
@@ -311,7 +337,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       imageHash,
       seenHashes,
       image: {
-        bbox: image.bbox as [number, number, number, number] | null,
+        bbox: normalizeImageBbox(image.bbox),
         width: image.width,
         height: image.height,
         sourceKind: image.source_kind as

@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseRouteParams } from "@/lib/validation/params";
 
 export const runtime = "nodejs";
+
+const ingestionRetryRouteParamsSchema = z.object({
+  id: z.string().uuid(),
+});
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Retry is unavailable in demo mode." }, { status: 400 });
 
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, ingestionRetryRouteParamsSchema, "Invalid ingestion job id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
 
@@ -107,6 +114,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ job: data });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    return jsonError(error);
   }
 }

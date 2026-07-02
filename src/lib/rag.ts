@@ -35,7 +35,7 @@ import { logger } from "@/lib/logger";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
-import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
 import { chooseAnswerRoute, hasDirectTitleSupport, shouldRetryWithStrongAfterFast } from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
@@ -325,6 +325,8 @@ type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
 export type SearchTelemetry = {
   search_cache_hit: boolean;
   shared_cache_hit?: boolean;
+  shared_cache_status?: "hit" | "miss";
+  shared_cache_miss_reason?: string | null;
   query_class?: RagQueryClass;
   vector_candidate_count?: number;
   text_candidate_count?: number;
@@ -1074,7 +1076,9 @@ function fallbackReasonFromRouting(reason?: string | null) {
       .split(";")
       .map((part) => part.trim())
       .find((part) =>
-        /fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(part),
+        /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(
+          part,
+        ),
       ) ?? null
   );
 }
@@ -1415,6 +1419,15 @@ function cloneSearchResults(results: SearchResult[]) {
   return structuredClone(results);
 }
 
+function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {
+  return {
+    ...telemetry,
+    shared_cache_hit: false,
+    shared_cache_status: undefined,
+    shared_cache_miss_reason: null,
+  };
+}
+
 function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
@@ -1440,6 +1453,9 @@ function getCachedSearch(
       embedding_latency_ms: 0,
       supabase_rpc_latency_ms: 0,
       rerank_latency_ms: 0,
+      shared_cache_hit: false,
+      shared_cache_status: undefined,
+      shared_cache_miss_reason: null,
     },
   };
 }
@@ -1451,12 +1467,13 @@ function setCachedSearch(
   queryVariants: string[] = [],
 ) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
+  const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: cloneSearchResults(results),
-    telemetry: { ...telemetry },
+    telemetry: { ...cacheTelemetry },
   });
 
   while (searchCache.size > env.RAG_SEARCH_CACHE_SIZE) {
@@ -1464,10 +1481,19 @@ function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, telemetry, queryVariants);
+  setSharedCachedSearch(args, results, cacheTelemetry, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
+type SharedCacheMissReason =
+  | "cache_lookup_error"
+  | "cache_lookup_exception"
+  | "cache_payload_invalid"
+  | "no_entry"
+  | "expired"
+  | "indexing_version_mismatch"
+  | "dependency_version_mismatch"
+  | "unknown_filter_miss";
 
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
@@ -1532,25 +1558,69 @@ async function getSharedCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
-): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
+): Promise<
+  | { kind: "hit"; results: SearchResult[]; telemetry: SearchTelemetry }
+  | { kind: "miss"; reason: SharedCacheMissReason }
+  | null
+> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
+  const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
+  const indexingVersion = await cacheIndexingVersion(args);
+  async function probeSharedCacheMissReason(
+    reasonFromLookup?: SharedCacheMissReason,
+  ): Promise<SharedCacheMissReason> {
+    if (reasonFromLookup) return reasonFromLookup;
+    try {
+      const supabase = createAdminClient();
+      let probeQuery = supabase
+        .from("rag_response_cache")
+        .select("indexing_version,dependency_version,expires_at")
+        .eq("cache_kind", "search")
+        .eq("scope_key", scopeKey(args))
+        .eq("normalized_query", normalizedQuery)
+        .order("expires_at", { ascending: false })
+        .limit(5);
+      probeQuery = args.ownerId ? probeQuery.eq("owner_id", args.ownerId) : probeQuery.is("owner_id", null);
+      const { data, error } = await probeQuery;
+      if (error) return "cache_lookup_error";
+      if (!data?.length) return "no_entry";
+      const now = Date.now();
+      const nonExpired = data.find((entry) => {
+        const expiresAt = Date.parse(String(entry.expires_at ?? ""));
+        return Number.isFinite(expiresAt) && expiresAt > now;
+      });
+      if (!nonExpired) return "expired";
+      if (String(nonExpired.indexing_version ?? "") !== indexingVersion) return "indexing_version_mismatch";
+      if (String(nonExpired.dependency_version ?? "") !== ragCacheDependencyVersion) {
+        return "dependency_version_mismatch";
+      }
+      return "unknown_filter_miss";
+    } catch {
+      return "cache_lookup_exception";
+    }
+  }
   try {
-    const indexingVersion = await cacheIndexingVersion(args);
     const { data, error } = await sharedCacheSelector(
       createAdminClient(),
       "search",
       args,
       indexingVersion,
-      retrievalPlanCacheQuery(args, queryClass, queryVariants),
+      normalizedQuery,
     ).maybeSingle();
-    if (error || !data?.payload) return null;
+    if (error) return { kind: "miss", reason: await probeSharedCacheMissReason("cache_lookup_error") };
+    if (!data?.payload) return { kind: "miss", reason: await probeSharedCacheMissReason() };
     const payload = data.payload as { results?: SearchResult[]; telemetry?: Partial<SearchTelemetry> };
-    if (!Array.isArray(payload.results)) return null;
+    if (!Array.isArray(payload.results)) {
+      return { kind: "miss", reason: await probeSharedCacheMissReason("cache_payload_invalid") };
+    }
     return {
+      kind: "hit",
       results: cloneSearchResults(payload.results),
       telemetry: {
         search_cache_hit: true,
         shared_cache_hit: true,
+        shared_cache_status: "hit",
+        shared_cache_miss_reason: null,
         query_class: payload.telemetry?.query_class,
         vector_candidate_count: payload.telemetry?.vector_candidate_count,
         text_candidate_count: payload.telemetry?.text_candidate_count,
@@ -1590,7 +1660,7 @@ async function getSharedCachedSearch(
       },
     };
   } catch {
-    return null;
+    return { kind: "miss", reason: "cache_lookup_exception" };
   }
 }
 
@@ -1615,6 +1685,9 @@ async function getSharedCachedAnswer(
     answer.latencyTimings = {
       ...answer.latencyTimings,
       search_cache_hit: true,
+      shared_cache_hit: true,
+      shared_cache_status: "hit",
+      shared_cache_miss_reason: null,
       total_latency_ms: Date.now() - startedAt,
     };
     return answer;
@@ -1717,11 +1790,11 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
   void (async () => {
     try {
-      const deletion = createAdminClient().from("rag_response_cache").delete();
-      await (sharedCacheOwnerId ? deletion.eq("owner_id", sharedCacheOwnerId) : deletion.is("owner_id", null)).in(
-        "cache_kind",
-        ["search", "answer"],
-      );
+      const deleteQuery = createAdminClient().from("rag_response_cache").delete();
+      const scopedQuery = sharedCacheOwnerId
+        ? deleteQuery.eq("owner_id", sharedCacheOwnerId)
+        : deleteQuery.is("owner_id", null);
+      await scopedQuery.in("cache_kind", ["search", "answer"]);
     } catch (error) {
       // Shared cache invalidation is best effort.
       console.warn("Shared cache invalidation failed for owner:", error);
@@ -3092,7 +3165,7 @@ async function attachPageVisualEvidence(
       page_number: image.page_number,
       storage_path: image.storage_path,
       caption: image.caption,
-      bbox: image.bbox as ChunkImage["bbox"],
+      bbox: normalizeImageBbox(image.bbox),
       image_type: image.image_type as ChunkImage["image_type"],
       searchable: image.searchable,
       clinical_relevance_score: image.clinical_relevance_score,
@@ -5128,19 +5201,27 @@ function cleanAnswerSectionHeading(heading: string, body: string) {
 }
 
 function applyProviderLabels(answer: RagAnswer): RagAnswer {
+  const inferredSourceOnlyFallback =
+    answer.routingMode === "extractive" ||
+    /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
   const answerQualityTier: RagAnswer["answerQualityTier"] =
     answer.answerQualityTier ??
-    (answer.modelUsed ? "model_synthesis" : answer.routingMode === "extractive" ? "source_only" : undefined);
+    (answer.modelUsed ? "model_synthesis" : inferredSourceOnlyFallback ? "source_only" : undefined);
   const fallbackReason =
     answer.fallbackReason ??
     (answerQualityTier === "source_only"
-      ? (answer.routingReason?.match(/source_only_[a-z_]+/)?.[0] ?? "source_only")
+      ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only")
       : null);
+  const degradedActive = answerQualityTier === "source_only";
   return {
     ...answer,
     providerMode: answer.providerMode ?? ragProviderMode(),
     answerQualityTier,
     fallbackReason,
+    degradedMode: answer.degradedMode ?? {
+      active: degradedActive,
+      reason: degradedActive ? fallbackReason : null,
+    },
   };
 }
 
@@ -5299,9 +5380,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const cached = getCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (cached) return cached;
   const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
-  if (sharedCached) {
+  if (sharedCached?.kind === "hit") {
     setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
-    return sharedCached;
+    return { results: sharedCached.results, telemetry: sharedCached.telemetry };
+  }
+  if (sharedCached?.kind === "miss") {
+    telemetry.shared_cache_status = "miss";
+    telemetry.shared_cache_miss_reason = sharedCached.reason;
   }
 
   if (shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
@@ -6517,6 +6602,9 @@ async function answerQuestionWithScopeUncoalesced(
         responseMode: smartApiPlan.displayMode,
         latencyTimings: {
           search_cache_hit: search.telemetry.search_cache_hit,
+          shared_cache_hit: search.telemetry.shared_cache_hit,
+          shared_cache_status: search.telemetry.shared_cache_status,
+          shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_skip_reason: search.telemetry.embedding_skip_reason,
@@ -6630,6 +6718,9 @@ async function answerQuestionWithScopeUncoalesced(
         routeReason: route.reason,
         timings: {
           search_cache_hit: search.telemetry.search_cache_hit,
+          shared_cache_hit: search.telemetry.shared_cache_hit,
+          shared_cache_status: search.telemetry.shared_cache_status,
+          shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_skip_reason: search.telemetry.embedding_skip_reason,
@@ -6942,6 +7033,9 @@ ${qualityRetryInstruction}`
       responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`).displayMode,
       latencyTimings: {
         search_cache_hit: search.telemetry.search_cache_hit,
+        shared_cache_hit: search.telemetry.shared_cache_hit,
+        shared_cache_status: search.telemetry.shared_cache_status,
+        shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
         text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
         embedding_skipped: search.telemetry.embedding_skipped,
         embedding_skip_reason: search.telemetry.embedding_skip_reason,
@@ -7147,6 +7241,9 @@ ${qualityRetryInstruction}`
     const relatedDocuments = await relatedDocumentsPromise;
     const answerTimings = {
       search_cache_hit: search.telemetry.search_cache_hit,
+      shared_cache_hit: search.telemetry.shared_cache_hit,
+      shared_cache_status: search.telemetry.shared_cache_status,
+      shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
       text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
       embedding_skipped: search.telemetry.embedding_skipped,
       embedding_skip_reason: search.telemetry.embedding_skip_reason,

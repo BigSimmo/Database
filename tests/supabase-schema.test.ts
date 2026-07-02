@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
@@ -48,6 +48,24 @@ const abandonedReindexRecoveryMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const auditLogsServiceRolePolicyMigration = readFileSync(
   new URL("../supabase/migrations/20260630090000_audit_logs_service_role_policy.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const migrationDirectoryUrl = new URL("../supabase/migrations/", import.meta.url);
+
+function parseMigrationStem(fileName: string) {
+  const stem = fileName.match(/^\d+_(.+)\.sql$/)?.[1];
+  return stem ?? null;
+}
+const preserveLegacyArtifactCommitMigration = readFileSync(
+  new URL("../supabase/migrations/20260702000000_commit_generation_preserve_legacy_artifacts.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const promoteIndexGenerationIdMigration = readFileSync(
+  new URL("../supabase/migrations/20260702180000_promote_index_generation_id_columns.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const indexingV3AgentJobsMigration = readFileSync(
+  new URL("../supabase/migrations/20260702190000_indexing_v3_agent_jobs_table.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -166,6 +184,42 @@ describe("Supabase schema Data API grants", () => {
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_index_units_hybrid");
   });
 
+  it("preserves NULL-generation artifacts until replacements exist", () => {
+    for (const sql of [preserveLegacyArtifactCommitMigration]) {
+      expect(sql).toContain(
+        "index_generation_id is null and exists ( select 1 from public.document_chunks replacement",
+      );
+      expect(sql).toContain(
+        "nullif(metadata->>'index_generation_id', '') is null and exists ( select 1 from public.document_images replacement",
+      );
+      expect(sql).toContain("from public.document_chunks replacement");
+      expect(sql).toContain("from public.document_images replacement");
+      expect(sql).toContain("from public.document_table_facts replacement");
+      expect(sql).toContain("from public.document_embedding_fields replacement");
+      expect(sql).toContain("from public.document_index_units replacement");
+      expect(sql).toContain("from public.document_memory_cards replacement");
+      expect(sql).toContain("from public.document_sections replacement");
+    }
+
+    for (const sql of [schema, promoteIndexGenerationIdMigration]) {
+      expect(sql).toContain(
+        "index_generation_id is null and exists ( select 1 from public.document_chunks replacement",
+      );
+      expect(sql).toContain("(metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id");
+      expect(sql).toContain("replacement.index_generation_id = p_index_generation_id");
+      expect(sql).toContain(
+        "replacement.index_generation_id is null and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id",
+      );
+      expect(sql).toContain("from public.document_chunks replacement");
+      expect(sql).toContain("from public.document_images replacement");
+      expect(sql).toContain("from public.document_table_facts replacement");
+      expect(sql).toContain("from public.document_embedding_fields replacement");
+      expect(sql).toContain("from public.document_index_units replacement");
+      expect(sql).toContain("from public.document_memory_cards replacement");
+      expect(sql).toContain("from public.document_sections replacement");
+    }
+  });
+
   it("can identify and clean abandoned staged reindex generations", () => {
     for (const sql of [schema, abandonedReindexRecoveryMigration]) {
       expect(sql).toContain("create or replace function public.cleanup_abandoned_document_index_generations");
@@ -196,18 +250,31 @@ describe("Supabase schema Data API grants", () => {
     );
     expect(schema).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
     expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
-    expect(schema).toContain("create or replace function public.claim_indexing_v3_agent_jobs");
-    expect(schema).toContain("where d.status = 'indexed'");
-    expect(schema).toContain("state.enrichment_status in ('pending', 'failed', 'processing')");
-    expect(schema).toContain("'indexing_v3_agent_locked_by', p_worker_id");
-    expect(schema).toContain("'indexing_v3_agent_attempt_count', e.attempt_count + 1");
+    for (const sql of [schema, indexingV3AgentJobsMigration]) {
+      expect(sql).toContain("create table if not exists public.indexing_v3_agent_jobs");
+      expect(sql).toContain("document_id uuid not null references public.documents(id) on delete cascade");
+      expect(sql).toContain("create index if not exists indexing_v3_agent_jobs_claim_idx");
+      expect(sql).toContain("create or replace function public.claim_indexing_v3_agent_jobs");
+      expect(sql).toContain("from public.indexing_v3_agent_jobs j");
+      expect(sql).toContain("j.enrichment_status in ('pending', 'failed', 'processing')");
+      expect(sql).toContain("update public.indexing_v3_agent_jobs j");
+      expect(sql).toContain("'indexing_v3_agent_locked_by', p_worker_id");
+      expect(sql).toContain("'indexing_v3_agent_attempt_count', cj.attempt_count");
+      expect(sql).toContain("create or replace function public.update_indexing_v3_agent_job_status");
+      expect(sql).toContain(
+        "grant execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) to service_role",
+      );
+    }
     expect(schema).toContain(
       "grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role",
     );
     expect(schema).toContain("alter table public.ingestion_job_stages enable row level security");
     expect(schema).toContain('create policy "ingestion job stages service role all" on public.ingestion_job_stages');
+    expect(schema).toContain("alter table public.indexing_v3_agent_jobs enable row level security");
+    expect(schema).toContain('create policy "indexing v3 agent jobs service role all" on public.indexing_v3_agent_jobs');
     const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
     expect(authenticatedSelectGrant).not.toContain("public.ingestion_job_stages");
+    expect(authenticatedSelectGrant).not.toContain("public.indexing_v3_agent_jobs");
   });
 
   it("keeps the cron indexing-v3 invoker in the schema snapshot with service-role-only execute grants", () => {
@@ -217,8 +284,12 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("set search_path = public, extensions, vault, pg_temp");
     expect(schema).toContain("from vault.decrypted_secrets");
     expect(schema).toContain("where name = 'indexing_v3_agent_secret'");
+    expect(schema).toContain("set app.indexing_v3_agent_base_url = 'https://sjrfecxgysukkwxsowpy.supabase.co';");
+    expect(schema).toContain("nullif(current_setting('app.indexing_v3_agent_base_url', true), '')");
     expect(schema).toContain("select net.http_post(");
-    expect(schema).toContain("https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/indexing-v3-agent?limit=");
+    expect(schema).toContain("v_base_url || '/functions/v1/indexing-v3-agent?limit='");
+    expect(schema).toContain("'https://sjrfecxgysukkwxsowpy.supabase.co'");
+    expect(schema).toContain("/functions/v1/indexing-v3-agent?limit=");
     expect(schema).toContain(
       "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
     );
@@ -251,6 +322,9 @@ describe("Supabase schema Data API grants", () => {
       );
       expect(sql).toContain("'indexing_v3_agent_status', 'completed'");
       expect(sql).toContain("'indexing_v3_agent_status', 'deferred'");
+      expect(sql).toContain("coalesce(d.metadata->>'indexing_v3_agent_status', '') = 'processing'");
+      expect(sql).toContain("then (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz");
+      expect(sql).toContain("'enrichment_status', 'processing'");
       expect(sql).toContain("stage = 'strict_gate_deferred'");
       expect(sql).toContain("'strict_gate_repair'");
       expect(sql).toContain("extraction_quality = 'good'");
@@ -311,6 +385,26 @@ describe("Supabase schema Data API grants", () => {
     }
     expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to anon;/);
+  });
+
+  it("does not introduce new duplicate migration stems", () => {
+    const duplicateStemAllowlist = new Map<string, number>([
+      ["api_rate_limits", 2],
+      ["audit_logs", 2],
+      ["audit_logs_service_role_policy", 2],
+      ["indexing_reliability_recovery", 2],
+      ["rag_queries_retention", 2],
+    ]);
+    const stemCounts = new Map<string, number>();
+
+    for (const fileName of readdirSync(migrationDirectoryUrl)) {
+      const stem = parseMigrationStem(fileName);
+      if (!stem) continue;
+      stemCounts.set(stem, (stemCounts.get(stem) ?? 0) + 1);
+    }
+
+    const duplicateStems = new Map([...stemCounts.entries()].filter(([, count]) => count > 1));
+    expect(duplicateStems).toEqual(duplicateStemAllowlist);
   });
 
   it("stores deep structured memory privately for source-backed answers", () => {
