@@ -109,6 +109,16 @@ export function sourceWarningsForRagQualityAnswer(
   );
 }
 
+export function deliveredGroundedAfterSourceGovernancePolicy(
+  answer: Pick<RagAnswer, "grounded" | "confidence" | "responseMode">,
+  warnings: Array<{ severity: string }>,
+) {
+  const shouldUseSourceGovernanceRefusal =
+    answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
+  if (shouldUseSourceGovernanceRefusal && warnings.some((warning) => warning.severity === "danger")) return false;
+  return answer.grounded;
+}
+
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
@@ -794,9 +804,10 @@ async function runRagQualityCases(args: {
     const failures = [...validation.failures];
     const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
     const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
+    const deliveredGrounded = deliveredGroundedAfterSourceGovernancePolicy(answer, sourceWarnings);
     failures.push(
       ...sourceGovernanceDangerFailuresForAnswer({
-        grounded: answer.grounded,
+        grounded: deliveredGrounded,
         sourceDangerWarningCount,
         expectsDangerWarning: testCase.expectsSourceDangerWarning,
       }),
@@ -812,7 +823,7 @@ async function runRagQualityCases(args: {
       missingFiles: validation.expectedCoverage.missingFiles,
       topFiles: answer.sources.slice(0, 5).map((source) => source.file_name),
       expectedHit: validation.expectedHit,
-      grounded: answer.grounded,
+      grounded: deliveredGrounded,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
       route: answer.routingMode ?? "none",
       model: answer.modelUsed ?? null,

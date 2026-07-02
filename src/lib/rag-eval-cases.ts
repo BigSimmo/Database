@@ -165,6 +165,40 @@ function uniqueNonEmpty(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 }
 
+function metadataBoolean(metadata: unknown, keys: string[]) {
+  if (typeof metadata !== "object" || metadata === null) return false;
+  return keys.some((key) => (metadata as Record<string, unknown>)[key] === true);
+}
+
+function metadataNumber(metadata: unknown, keys: string[]) {
+  if (typeof metadata !== "object" || metadata === null) return 0;
+  for (const key of keys) {
+    const value = (metadata as Record<string, unknown>)[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return 0;
+}
+
+function metadataWarnings(metadata: unknown) {
+  if (typeof metadata !== "object" || metadata === null) return [];
+  const record = metadata as Record<string, unknown>;
+  const warnings = record.sourceGovernanceWarnings ?? record.source_governance_warnings ?? record.sourceWarnings;
+  return Array.isArray(warnings) ? warnings : [];
+}
+
+function capturedCaseExpectsSourceDangerWarning(row: CapturedEvalCaseRow) {
+  if (
+    metadataBoolean(row.metadata, ["expectsSourceDangerWarning", "expects_source_danger_warning"]) ||
+    metadataNumber(row.metadata, ["sourceDangerWarningCount", "source_danger_warning_count"]) > 0
+  ) {
+    return true;
+  }
+  return metadataWarnings(row.metadata).some(
+    (warning) =>
+      typeof warning === "object" && warning !== null && (warning as { severity?: unknown }).severity === "danger",
+  );
+}
+
 function expectedFilesForCapturedCase(row: CapturedEvalCaseRow, rating: "good" | "needs_fixing") {
   const explicit = uniqueNonEmpty([row.expected_file]);
   if (explicit.length > 0) return explicit;
@@ -193,6 +227,7 @@ export function mapCapturedEvalCase(row: CapturedEvalCaseRow): RagEvalCase {
     allowedRoutes: unsupportedFeedback ? ["unsupported"] : ["extractive", "fast", "strong"],
     minCitations: rating === "good" || (feedbackType && !unsupportedFeedback) ? 1 : 0,
     latencyTargetMs: unsupportedFeedback ? 2000 : rating === "good" ? 5000 : 20000,
+    expectsSourceDangerWarning: unsupportedFeedback && capturedCaseExpectsSourceDangerWarning(row) ? true : undefined,
   };
 }
 

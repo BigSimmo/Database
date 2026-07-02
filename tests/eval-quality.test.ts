@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildEvalQualityReport,
+  deliveredGroundedAfterSourceGovernancePolicy,
   qualityFailureCategory,
   renderEvalQualityMarkdown,
   sourceGovernanceDangerFailuresForAnswer,
@@ -263,6 +264,27 @@ describe("eval quality reporting", () => {
     expect(sourceGovernanceDangerFailuresForAnswer({ grounded: false, sourceDangerWarningCount: 1 })).toEqual([]);
     // Grounded answer with no danger warning: clean.
     expect(sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 0 })).toEqual([]);
+  });
+
+  it("mirrors API source-governance refusals before delivery accounting", () => {
+    expect(
+      deliveredGroundedAfterSourceGovernancePolicy(
+        { grounded: true, confidence: "high", responseMode: "clinical_pathway" },
+        [{ severity: "danger" }],
+      ),
+    ).toBe(false);
+    expect(
+      deliveredGroundedAfterSourceGovernancePolicy(
+        { grounded: true, confidence: "high", responseMode: "clinical_pathway" },
+        [{ severity: "warning" }],
+      ),
+    ).toBe(true);
+    expect(
+      deliveredGroundedAfterSourceGovernancePolicy(
+        { grounded: false, confidence: "unsupported", responseMode: "evidence_gap" },
+        [{ severity: "danger" }],
+      ),
+    ).toBe(false);
   });
 
   it("flags refusals that drop an expected danger warning, regardless of grounded", () => {
