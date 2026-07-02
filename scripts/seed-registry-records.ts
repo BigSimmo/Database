@@ -97,7 +97,38 @@ async function main() {
   }
 
   const supabase = await loadAdminClient();
-  const { error } = await supabase.from("clinical_registry_records").upsert(rows, { onConflict: "owner_id,kind,slug" });
+
+  // Preserve governance that was reviewed after seeding: a reseed for fixture
+  // copy changes must not downgrade source_status / validation_status /
+  // last_reviewed_at / review_due_at back to the fixture-derived defaults.
+  const { data: existing, error: existingError } = await supabase
+    .from("clinical_registry_records")
+    .select("kind, slug, source_status, validation_status, last_reviewed_at, review_due_at")
+    .eq("owner_id", args.ownerId);
+  if (existingError) {
+    throw new Error(`Could not read existing governance: ${existingError.message}`);
+  }
+  const governanceByKey = new Map((existing ?? []).map((row) => [`${row.kind}:${row.slug}`, row] as const));
+  let preserved = 0;
+  const upsertRows = rows.map((row) => {
+    const prior = governanceByKey.get(`${row.kind}:${row.slug}`);
+    if (!prior) return row;
+    preserved += 1;
+    return {
+      ...row,
+      source_status: prior.source_status,
+      validation_status: prior.validation_status,
+      last_reviewed_at: prior.last_reviewed_at,
+      review_due_at: prior.review_due_at,
+    };
+  });
+  if (preserved > 0) {
+    console.log(`[registry:seed] Preserving reviewed governance on ${preserved} existing record(s).`);
+  }
+
+  const { error } = await supabase
+    .from("clinical_registry_records")
+    .upsert(upsertRows, { onConflict: "owner_id,kind,slug" });
   if (error) {
     throw new Error(`Upsert failed: ${error.message}`);
   }
