@@ -25,6 +25,7 @@ import {
   queryPrivacyMetadata,
   queryTextForStorage,
 } from "@/lib/query-privacy";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -297,11 +298,10 @@ function compactSearchResults(query: string, results: SearchResult[]) {
 function searchDegradedModeSignal(telemetry?: { embedding_skip_reason?: string | null }) {
   const reason = telemetry?.embedding_skip_reason ?? null;
   const active =
-    reason === SOURCE_ONLY_EMBEDDING_SKIP_REASON ||
-    (typeof reason === "string" && reason.startsWith("source_only_"));
+    reason === SOURCE_ONLY_EMBEDDING_SKIP_REASON || (typeof reason === "string" && reason.startsWith("source_only_"));
   return {
     active,
-    reason: active ? reason ?? "source_only" : null,
+    reason: active ? (reason ?? "source_only") : null,
   };
 }
 
@@ -558,8 +558,9 @@ function logRetrievalDiagnostics(args: {
     } catch (error) {
       retrievalLogWriteMetrics.failures += 1;
       retrievalLogWriteMetrics.lastFailureAt = new Date().toISOString();
+      const safe = safeErrorLogDetails(error);
       retrievalLogWriteMetrics.lastFailureMessage =
-        error instanceof Error ? `${error.name}: ${error.message}` : "Unknown retrieval logging error";
+        typeof safe.message === "string" ? safe.message : "Unknown retrieval logging error";
       if (retrievalLogWriteMetrics.failures <= 3 || retrievalLogWriteMetrics.failures % 25 === 0) {
         console.warn("rag_retrieval_logs insert failed", {
           ...retrievalLogWriteMetrics,

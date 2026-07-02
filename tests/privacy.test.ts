@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
+import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -19,6 +19,21 @@ describe("privacy-safe logging helpers", () => {
 
     expect(details).toMatchObject({ name: "Error", message: "secret storage path [path]" });
     expect(JSON.stringify(details)).not.toContain("source.pdf");
+  });
+
+  it("redacts modern supabase keys in error messages and details", () => {
+    const e1 = new Error("found key sb_secret_abcdef1234567890 and sb_publishable_123abcDEF456");
+    const d1 = safeErrorLogDetails(e1);
+
+    expect(JSON.stringify(d1)).not.toContain("sb_secret_");
+    expect(JSON.stringify(d1)).not.toContain("sb_publishable_");
+    expect(JSON.stringify(d1)).toContain("[secret]");
+
+    const e2 = { message: "connection error", details: `token=${"sb_secret_live_" + "ABCD1234efgh"}` };
+    const d2 = safeErrorLogDetails(e2);
+
+    expect(JSON.stringify(d2)).not.toContain("sb_secret_live_");
+    expect(JSON.stringify(d2)).toContain("[secret]");
   });
 
   it("summarizes HTML error responses by title", () => {
@@ -44,6 +59,42 @@ describe("privacy-safe logging helpers", () => {
     expect(details).toMatchObject({ name: "SupabaseRecoveryError", message: "<!DOCTYPE html>" });
     expect(details.stack).not.toContain("<!DOCTYPE html>");
     expect(details.stack).not.toContain("<!--[if");
+  });
+
+  it("redacts identifiers in captions while preserving clinical context", () => {
+    const input = "Patient Jane Citizen MRN 123456 email jane@example.com phone 0400 123 456 has lithium level note.";
+    const output = redactCaptionIdentifiers(input);
+
+    expect(output).toContain("has lithium level note.");
+    expect(output).not.toContain("jane@example.com");
+    expect(output).not.toContain("123456");
+    expect(output).not.toContain("0400 123 456");
+  });
+
+  it("preserves clinical numeric ranges while still redacting likely phone numbers", () => {
+    const input = "Lithium therapeutic range 0.6 - 1.0 mmol/L. Ward contact: +61 400 123 456.";
+    const output = redactCaptionIdentifiers(input);
+
+    expect(output).toContain("0.6 - 1.0 mmol/L");
+    expect(output).not.toContain("+61 400 123 456");
+    expect(output).toContain("[phone]");
+  });
+
+  it("redacts spaced/grouped labeled MRN and NHS identifiers", () => {
+    const cases = [
+      "Patient MRN 12 3456 had an image.",
+      "Patient MRN: 12-3456 had an image.",
+      "Patient NHS 123 456 7890 had an image.",
+    ];
+
+    for (const input of cases) {
+      const out = redactCaptionIdentifiers(input);
+      expect(out).toContain("had an image.");
+      expect(out).toContain("[id]");
+      // Ensure raw labeled identifiers and grouped digits are removed
+      expect(out).not.toMatch(/\bMRN\b|\bNHS\b/i);
+      expect(out).not.toMatch(/\d{2,}/);
+    }
   });
 });
 

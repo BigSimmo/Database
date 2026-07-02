@@ -69,8 +69,12 @@ function readSavedForms() {
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // Fall through to the legacy selection path for restricted browser contexts.
+    }
   }
 
   const textArea = document.createElement("textarea");
@@ -80,9 +84,12 @@ async function copyText(value: string) {
   textArea.style.opacity = "0";
   document.body.appendChild(textArea);
   textArea.select();
-  const copied = document.execCommand?.("copy");
-  document.body.removeChild(textArea);
-  if (copied === false) throw new Error("copy command rejected");
+  try {
+    const copied = document.execCommand?.("copy");
+    if (copied === false) throw new Error("copy command rejected");
+  } finally {
+    document.body.removeChild(textArea);
+  }
 }
 
 function chipToneClass(tone: ServiceChipTone | null | undefined) {
