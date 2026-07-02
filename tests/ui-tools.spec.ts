@@ -14,12 +14,7 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-async function expectVerticalSeparation(
-  page: Page,
-  upperSelector: string,
-  lowerSelector: string,
-  minimumGap = 8,
-) {
+async function expectVerticalSeparation(page: Page, upperSelector: string, lowerSelector: string, minimumGap = 8) {
   const metrics = await page.evaluate(
     ({ upperSelector, lowerSelector }) => {
       const upper = document.querySelector(upperSelector)?.getBoundingClientRect();
@@ -104,7 +99,11 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.locator('a[aria-label="Launch Documents"]').first()).toHaveAttribute("href", "/?mode=documents");
     await expect(page.locator('a[aria-label="Launch Services"]').first()).toHaveAttribute("href", "/services");
     await expect(page.locator('a[aria-label="Launch Forms"]').first()).toHaveAttribute("href", "/forms");
-    await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveCount(0);
+    await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveAttribute("href", "/favourites");
+    await expect(page.locator('a[aria-label="Launch Differentials"]').first()).toHaveAttribute(
+      "href",
+      "/differentials",
+    );
     await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
       "href",
       "/?mode=answer",
@@ -121,7 +120,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-row-documents")).toBeHidden();
-    await expect(page.getByText("Showing 1 to 1 of 5 applications")).toBeVisible();
+    await expect(page.getByText("Showing 1 to 1 of 7 applications")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -134,19 +133,18 @@ test.describe("Clinical KB applications launcher", () => {
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
-    await expect(toolsHub.getByRole("region", { name: "Pinned tools" })).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { name: "Tools command center" })).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
-    await expect(toolsHub.getByText("Showing 1 to 1 of 5 tools")).toBeVisible();
-    await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
+    await expect(toolsHub.getByText("Showing 1 of 7")).toBeVisible();
+    await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    const launchLink = toolsHub
-      .getByTestId("application-row-medication-prescribing")
-      .getByLabel("Launch Medication Prescribing");
-    await expect(launchLink).toHaveAttribute("href", "/?mode=prescribing");
+    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+      "href",
+      "/?mode=prescribing",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -241,6 +239,33 @@ test.describe("Clinical KB applications launcher", () => {
       expect(headingBox).not.toBeNull();
       expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+      await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
+  test("mode home routes lift the shared search into the hero on tablet", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+
+    for (const home of [
+      { path: "/services", testId: "services-home", heading: "Find a service" },
+      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
+      { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
+    ] as const) {
+      await gotoLauncher(page, home.path);
+      await expect(page.getByTestId(home.testId)).toBeVisible();
+      await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+
+      // From the tablet breakpoint up the composer is portaled into the hero
+      // (inside the mode-home container) rather than floated over the heading.
+      const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
+      await expect(heroSearch).toBeVisible();
+
+      const searchBox = await heroSearch.boundingBox();
+      const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
+      expect(searchBox).not.toBeNull();
+      expect(headingBox).not.toBeNull();
+      // Search sits below the heading with no overlap.
+      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThanOrEqual(searchBox?.y ?? 0);
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -557,23 +582,16 @@ test.describe("Clinical KB applications launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("tools mode opens the selected tool slide-up on mobile", async ({ page }) => {
+  test("tools mode opens tools directly on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/?mode=tools");
 
     const toolsHub = page.getByTestId("tools-hub");
-    await expect(toolsHub.getByTestId("selected-application-panel")).toBeHidden();
-    await toolsHub.getByTestId("mobile-application-row-medication-prescribing").click();
-
-    const selectedSheet = page.getByRole("dialog", { name: "Selected tool" });
-    await expect(selectedSheet).toBeVisible();
-    await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Medication Prescribing");
-    const mobileLaunchLink = page
-      .getByTestId("selected-application-sheet-panel")
-      .getByLabel("Launch Medication Prescribing");
-    await expect(mobileLaunchLink).toHaveAttribute("href", "/?mode=prescribing");
-    await page.getByLabel("Close selected tool").click();
-    await expect(selectedSheet).toBeHidden();
+    await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
+    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+      "href",
+      "/?mode=prescribing",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 });

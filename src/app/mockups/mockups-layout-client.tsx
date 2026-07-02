@@ -8,11 +8,12 @@ import { GlobalMockupSearchShell } from "@/components/clinical-dashboard/global-
 export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isToolsPageMockup = pathname.startsWith("/mockups/tools-");
+  const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
 
   return (
     <GlobalMockupSearchShell
-      initialMode={isToolsPageMockup ? "tools" : "answer"}
-      searchComposerVisible={!isToolsPageMockup}
+      initialMode={isToolsPageMockup ? "tools" : isFavouritesPageMockup ? "favourites" : "answer"}
+      searchComposerVisible={!isToolsPageMockup && !isFavouritesPageMockup}
     >
       {children}
     </GlobalMockupSearchShell>

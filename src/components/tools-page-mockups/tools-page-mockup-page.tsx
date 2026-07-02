@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowRight,
@@ -5,155 +7,45 @@ import {
   Brain,
   ClipboardList,
   Clock3,
-  FileCheck2,
   FileText,
   Filter,
   Grid2X2,
   HeartPulse,
   History,
   LayoutDashboard,
-  Pill,
   Pin,
   Search,
+  SearchX,
   Settings2,
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Star,
   Stethoscope,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
+import {
+  areaLabels,
+  pinnedToolIds,
+  statusLabels,
+  statusStyles,
+  toolById,
+  tools,
+  type ToolFixture,
+  type ToolStatus,
+} from "./tool-fixtures";
+import { useToolFilter, type ToolFilterId } from "./use-tool-filter";
+
 export type ToolsPageMockupVariant = "command-center" | "workflow-board" | "split-pane";
-
-type ToolStatus = "ready" | "review_due" | "recent";
-type ToolArea = "reference" | "assessment" | "care" | "coordination" | "personal";
-
-type ToolFixture = {
-  id: string;
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-  area: ToolArea;
-  status: ToolStatus;
-  lastUsed: string;
-  primaryAction: string;
-  secondary: string;
-};
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const tools: ToolFixture[] = [
-  {
-    id: "clinical-kb-search",
-    title: "Clinical KB Search",
-    description: "Ask source-backed clinical questions and move straight to evidence.",
-    href: "/?mode=answer",
-    icon: Search,
-    area: "reference",
-    status: "ready",
-    lastUsed: "Today, 7:30 AM",
-    primaryAction: "Ask",
-    secondary: "Guidance, answers, source checks",
-  },
-  {
-    id: "documents",
-    title: "Documents",
-    description: "Search indexed PDFs, policies, guidelines, pages, tables, and images.",
-    href: "/?mode=documents",
-    icon: FileText,
-    area: "reference",
-    status: "ready",
-    lastUsed: "May 10, 2025",
-    primaryAction: "Search",
-    secondary: "Library, source PDF, index health",
-  },
-  {
-    id: "differentials",
-    title: "Differentials",
-    description: "Build and compare diagnostic possibilities with source-aware prompts.",
-    href: "/differentials",
-    icon: Brain,
-    area: "assessment",
-    status: "recent",
-    lastUsed: "Today, 8:40 AM",
-    primaryAction: "Compare",
-    secondary: "Assessment, risks, presentation view",
-  },
-  {
-    id: "medication-prescribing",
-    title: "Medication Prescribing",
-    description: "Review prescribing context, monitoring, interactions, and cautions.",
-    href: "/?mode=prescribing",
-    icon: Pill,
-    area: "care",
-    status: "review_due",
-    lastUsed: "May 12, 2025",
-    primaryAction: "Prescribe",
-    secondary: "Monitoring, interactions, templates",
-  },
-  {
-    id: "services",
-    title: "Services",
-    description: "Open source-backed service records, referral routes, and eligibility.",
-    href: "/services",
-    icon: ClipboardList,
-    area: "coordination",
-    status: "review_due",
-    lastUsed: "Today, 8:15 AM",
-    primaryAction: "Refer",
-    secondary: "Access pathways, criteria, contacts",
-  },
-  {
-    id: "forms",
-    title: "Forms",
-    description: "Find clinical forms and source-backed readiness pathways.",
-    href: "/forms",
-    icon: FileCheck2,
-    area: "coordination",
-    status: "ready",
-    lastUsed: "Today, 8:05 AM",
-    primaryAction: "Open",
-    secondary: "Forms, tasks, pathway checks",
-  },
-  {
-    id: "favourites",
-    title: "Favourites",
-    description: "Return to saved clinical work, sources, and repeated workflows.",
-    href: "/favourites",
-    icon: Star,
-    area: "personal",
-    status: "recent",
-    lastUsed: "Today, 8:45 AM",
-    primaryAction: "Resume",
-    secondary: "Saved items, recent work, pins",
-  },
-];
-
-const areaLabels: Record<ToolArea, string> = {
-  assessment: "Assess",
-  care: "Treat",
-  coordination: "Coordinate",
-  personal: "Resume",
-  reference: "Reference",
-};
-
-const statusLabels: Record<ToolStatus, string> = {
-  ready: "Ready",
-  recent: "Recent",
-  review_due: "Review due",
-};
-
-const statusStyles: Record<ToolStatus, string> = {
-  ready: "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
-  recent: "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
-  review_due: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
-};
+const DEFAULT_SEARCH_PLACEHOLDER = "Search tools by name, task, or source";
 
 const variantCopy: Record<
   ToolsPageMockupVariant,
@@ -184,19 +76,24 @@ const variantCopy: Record<
   },
 };
 
-function toolById(id: string) {
-  return tools.find((tool) => tool.id === id) ?? tools[0];
-}
-
 function StatusPill({ status }: { status: ToolStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[11px] font-bold",
+        "inline-flex min-h-6 w-fit shrink-0 items-center rounded-md border px-2 text-2xs font-bold",
         statusStyles[status],
       )}
     >
       {statusLabels[status]}
+    </span>
+  );
+}
+
+function SuggestedBadge() {
+  return (
+    <span className="inline-flex min-h-6 w-fit shrink-0 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
+      <Sparkles className="h-3 w-3" aria-hidden="true" />
+      Suggested
     </span>
   );
 }
@@ -214,6 +111,36 @@ function ToolIcon({ tool, quiet = false }: { tool: ToolFixture; quiet?: boolean 
       )}
     >
       <Icon className="h-5 w-5" aria-hidden="true" />
+    </span>
+  );
+}
+
+function AccentIconTile({
+  icon: Icon,
+  className,
+  iconClassName = "h-4 w-4",
+}: {
+  icon: LucideIcon;
+  className?: string;
+  iconClassName?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "grid place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+        className,
+      )}
+    >
+      <Icon className={iconClassName} aria-hidden="true" />
+    </span>
+  );
+}
+
+function PrimaryActionChip({ label, arrowClassName = "h-4 w-4" }: { label: string; arrowClassName?: string }) {
+  return (
+    <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      {label}
+      <ArrowRight className={arrowClassName} aria-hidden="true" />
     </span>
   );
 }
@@ -247,51 +174,105 @@ function ShellHeader({ variant, children }: { variant: ToolsPageMockupVariant; c
 }
 
 function SearchControl({
-  placeholder = "Search tools by clinical job, source, or workflow",
+  value,
+  onChange,
+  onClear,
+  placeholder = DEFAULT_SEARCH_PLACEHOLDER,
+  label = "Search tools",
 }: {
+  value: string;
+  onChange: (value: string) => void;
+  onClear: () => void;
   placeholder?: string;
+  label?: string;
 }) {
   return (
-    <form className="grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)]">
+    <form
+      role="search"
+      onSubmit={(event) => event.preventDefault()}
+      className="grid min-h-[3.25rem] min-w-0 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)] focus-within:border-[color:var(--clinical-accent-border)]"
+    >
       <Search className="ml-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden="true" />
-      <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text-soft)]">{placeholder}</span>
-      <button
-        type="button"
-        aria-label="Search tools"
-        className={cn(
-          "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
-          focusRing,
-        )}
-      >
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </button>
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label={label}
+        className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text)] placeholder:font-semibold placeholder:text-[color:var(--text-soft)] focus:outline-none"
+      />
+      <div className="flex items-center gap-1">
+        {value ? (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={onClear}
+            className={cn(
+              "grid h-9 w-9 shrink-0 place-items-center rounded-full text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+              focusRing,
+            )}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
+        <button
+          type="submit"
+          aria-label={label}
+          className={cn(
+            "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
+            focusRing,
+          )}
+        >
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
     </form>
   );
 }
 
-function ActionButton({ children, icon: Icon }: { children: ReactNode; icon?: LucideIcon }) {
+function FilterChip({
+  label,
+  icon: Icon,
+  count,
+  pressed,
+  onClick,
+}: {
+  label: string;
+  icon?: LucideIcon;
+  count?: number;
+  pressed: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
+        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold shadow-[var(--shadow-inset)]",
+        pressed
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
         focusRing,
       )}
     >
       {Icon ? <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" /> : null}
-      {children}
+      {label}
+      {typeof count === "number" ? (
+        <span className="nums text-xs font-semibold text-[color:var(--text-muted)]">{count}</span>
+      ) : null}
     </button>
   );
 }
 
-function ToolCard({ tool, selected = false }: { tool: ToolFixture; selected?: boolean }) {
+function ToolCard({ tool, suggested = false }: { tool: ToolFixture; suggested?: boolean }) {
   return (
     <Link
       href={tool.href}
-      aria-label={`Open ${tool.title}`}
+      aria-label={`Open ${tool.title}${suggested ? " (suggested)" : ""}`}
       className={cn(
-        "block rounded-md border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
-        selected
+        "block min-w-0 max-w-full rounded-md border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
+        suggested
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
           : "border-[color:var(--border)]",
         focusRing,
@@ -300,11 +281,12 @@ function ToolCard({ tool, selected = false }: { tool: ToolFixture; selected?: bo
       <div className="flex items-start gap-3">
         <ToolIcon tool={tool} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-2 sm:items-center">
-            <h3 className="min-w-0 flex-1 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
-              {tool.title}
-            </h3>
-            <StatusPill status={tool.status} />
+          <div className="grid gap-2">
+            <h3 className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{tool.title}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {suggested ? <SuggestedBadge /> : null}
+              <StatusPill status={tool.status} />
+            </div>
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
             {tool.description}
@@ -314,10 +296,7 @@ function ToolCard({ tool, selected = false }: { tool: ToolFixture; selected?: bo
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <span className="nums truncate text-xs font-semibold text-[color:var(--text-muted)]">{tool.lastUsed}</span>
-        <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-          {tool.primaryAction}
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </span>
+        <PrimaryActionChip label={tool.primaryAction} />
       </div>
     </Link>
   );
@@ -339,9 +318,7 @@ function StatsStrip() {
             key={item.label}
             className="grid min-h-20 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-inset)]"
           >
-            <span className="grid h-9 w-9 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-              <Icon className="h-4 w-4" aria-hidden="true" />
-            </span>
+            <AccentIconTile icon={Icon} className="h-9 w-9" />
             <span>
               <span className="nums block text-xl font-extrabold text-[color:var(--text-heading)]">{item.value}</span>
               <span className="text-xs font-bold text-[color:var(--text-muted)]">{item.label}</span>
@@ -382,7 +359,13 @@ function RecentWorkList({ compact = false, title = "Recent work" }: { compact?: 
     <section className="overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
       <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--border)] px-3">
         <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</h2>
-        <Link href="/favourites" className={cn("text-xs font-bold text-[color:var(--clinical-accent)]", focusRing)}>
+        <Link
+          href="/favourites"
+          className={cn(
+            "inline-flex min-h-10 items-center rounded-md px-1 text-xs font-bold text-[color:var(--clinical-accent)]",
+            focusRing,
+          )}
+        >
           View all
         </Link>
       </div>
@@ -398,9 +381,7 @@ function RecentWorkList({ compact = false, title = "Recent work" }: { compact?: 
                 focusRing,
               )}
             >
-              <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <Icon className="h-4 w-4" aria-hidden="true" />
-              </span>
+              <AccentIconTile icon={Icon} className="h-8 w-8" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">{item.title}</span>
                 <span className="block truncate text-xs font-semibold text-[color:var(--text-soft)]">{item.area}</span>
@@ -425,20 +406,20 @@ function RecentWorkList({ compact = false, title = "Recent work" }: { compact?: 
 
 function WideToolTile({
   tool,
-  selected = false,
+  suggested = false,
   compact = false,
 }: {
   tool: ToolFixture;
-  selected?: boolean;
+  suggested?: boolean;
   compact?: boolean;
 }) {
   return (
     <Link
       href={tool.href}
-      aria-label={`Open ${tool.title}`}
+      aria-label={`Open ${tool.title}${suggested ? " (suggested)" : ""}`}
       className={cn(
-        "group grid min-h-[9rem] rounded-md border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
-        selected
+        "group grid min-h-[9rem] min-w-0 max-w-full rounded-md border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+        suggested
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
           : "border-[color:var(--border)]",
         compact && "min-h-[7.75rem]",
@@ -446,12 +427,13 @@ function WideToolTile({
       )}
     >
       <div className="flex items-start gap-3">
-        <ToolIcon tool={tool} quiet={!selected} />
+        <ToolIcon tool={tool} quiet={!suggested} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="min-w-0 flex-1 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
               {tool.title}
             </h3>
+            {suggested ? <SuggestedBadge /> : null}
             <StatusPill status={tool.status} />
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
@@ -467,22 +449,53 @@ function WideToolTile({
           </p>
           <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">{tool.secondary}</p>
         </div>
-        <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-          {tool.primaryAction}
-          <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden="true" />
-        </span>
+        <PrimaryActionChip label={tool.primaryAction} arrowClassName="h-4 w-4 transition group-hover:translate-x-0.5" />
       </div>
     </Link>
   );
 }
 
+function AllToolsEmptyState({ query, onClear }: { query: string; onClear: () => void }) {
+  return (
+    <div className="mt-4 grid place-items-center gap-3 rounded-md border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-6 py-10 text-center">
+      <AccentIconTile icon={SearchX} className="h-11 w-11" iconClassName="h-5 w-5" />
+      <div className="grid gap-1">
+        <p className="text-sm font-extrabold text-[color:var(--text-heading)]">
+          {query.trim() ? `No tools match “${query.trim()}”` : "No tools match this filter"}
+        </p>
+        <p className="max-w-sm text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+          Try a different term or clear the filters to see every tool again.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onClear}
+        className={cn(
+          "inline-flex min-h-10 items-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
+          focusRing,
+        )}
+      >
+        Clear filters
+      </button>
+    </div>
+  );
+}
+
 function WideAllToolsSection({
-  selectedId,
+  visibleTools,
+  totalCount,
+  query,
+  onClearFilters,
+  suggestedId,
   title = "All tools",
   body = "Every tool opens directly. Pick by task, status, or last-used context.",
   compact = false,
 }: {
-  selectedId?: string;
+  visibleTools: ToolFixture[];
+  totalCount: number;
+  query: string;
+  onClearFilters: () => void;
+  suggestedId?: string;
   title?: string;
   body?: string;
   compact?: boolean;
@@ -497,17 +510,23 @@ function WideAllToolsSection({
           </div>
           <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)]">{body}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <ActionButton icon={Sparkles}>Sort by next action</ActionButton>
-          <ActionButton icon={ShieldCheck}>Source-backed</ActionButton>
-        </div>
+        <p
+          aria-live="polite"
+          className="nums inline-flex min-h-8 items-center self-start rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] lg:self-auto"
+        >
+          Showing {visibleTools.length} of {totalCount}
+        </p>
       </div>
 
-      <div className="grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
-        {tools.map((tool) => (
-          <WideToolTile key={tool.id} tool={tool} selected={tool.id === selectedId} compact={compact} />
-        ))}
-      </div>
+      {visibleTools.length > 0 ? (
+        <div className="grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleTools.map((tool) => (
+            <WideToolTile key={tool.id} tool={tool} suggested={tool.id === suggestedId} compact={compact} />
+          ))}
+        </div>
+      ) : (
+        <AllToolsEmptyState query={query} onClear={onClearFilters} />
+      )}
     </section>
   );
 }
@@ -580,14 +599,12 @@ function PhoneBrowserPreview({
                       focusRing,
                     )}
                   >
-                    <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
+                    <AccentIconTile icon={Icon} className="h-8 w-8" />
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-extrabold text-[color:var(--text-heading)]">
                         {tool.title}
                       </span>
-                      <span className="block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
+                      <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                         {areaLabels[tool.area]}
                       </span>
                     </span>
@@ -599,10 +616,10 @@ function PhoneBrowserPreview({
 
             <div className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)]">
               <div className="flex min-h-8 items-center justify-between border-b border-[color:var(--border)] px-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
                   Recents
                 </span>
-                <span className="text-[11px] font-bold text-[color:var(--clinical-accent)]">View</span>
+                <span className="text-2xs font-bold text-[color:var(--clinical-accent)]">View</span>
               </div>
               <div className="divide-y divide-[color:var(--border)]">
                 {recentWork.slice(0, 2).map((item) => {
@@ -618,10 +635,10 @@ function PhoneBrowserPreview({
                     >
                       <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                       <span className="min-w-0">
-                        <span className="block truncate text-[11px] font-extrabold text-[color:var(--text-heading)]">
+                        <span className="block truncate text-2xs font-extrabold text-[color:var(--text-heading)]">
                           {item.title}
                         </span>
-                        <span className="block truncate text-[10px] font-semibold text-[color:var(--text-soft)]">
+                        <span className="block truncate text-3xs font-semibold text-[color:var(--text-soft)]">
                           {item.area}
                         </span>
                       </span>
@@ -638,9 +655,17 @@ function PhoneBrowserPreview({
   );
 }
 
+const commandCenterFilters: { id: ToolFilterId; label: string; icon: LucideIcon }[] = [
+  { id: "all", label: "All tools", icon: Filter },
+  { id: "pinned", label: "Pinned", icon: Pin },
+  { id: "review_due", label: "Review due", icon: Clock3 },
+  { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
+];
+
 function CommandCenterMockup() {
-  const selected = toolById("clinical-kb-search");
-  const pinned = ["clinical-kb-search", "documents", "medication-prescribing", "services"].map(toolById);
+  const filter = useToolFilter(tools);
+  const suggestedId = "clinical-kb-search";
+  const pinned = pinnedToolIds.map(toolById);
 
   return (
     <>
@@ -649,17 +674,23 @@ function CommandCenterMockup() {
       </ShellHeader>
       <main className="mx-auto grid max-w-7xl gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
         <section className="grid gap-3">
-          <SearchControl />
+          <SearchControl value={filter.query} onChange={filter.setQuery} onClear={() => filter.setQuery("")} />
           <div className="flex flex-wrap gap-2">
-            <ActionButton icon={Filter}>All tools</ActionButton>
-            <ActionButton icon={Pin}>Pinned</ActionButton>
-            <ActionButton icon={Clock3}>Review due</ActionButton>
-            <ActionButton icon={ShieldCheck}>Source-backed</ActionButton>
+            {commandCenterFilters.map((chip) => (
+              <FilterChip
+                key={chip.id}
+                label={chip.label}
+                icon={chip.icon}
+                count={filter.counts[chip.id]}
+                pressed={filter.filterId === chip.id}
+                onClick={() => filter.toggleFilter(chip.id)}
+              />
+            ))}
           </div>
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <section className="grid gap-3">
+          <section className="grid content-start gap-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Start here</h2>
@@ -669,19 +700,25 @@ function CommandCenterMockup() {
               </div>
             </div>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-              {pinned.map((tool, index) => (
-                <ToolCard key={tool.id} tool={tool} selected={index === 0} />
+              {pinned.map((tool) => (
+                <ToolCard key={tool.id} tool={tool} suggested={tool.id === suggestedId} />
               ))}
             </div>
           </section>
 
           <PhoneBrowserPreview
             title="Direct launch layout"
-            toolIds={[selected.id, "documents", "medication-prescribing", "services", "favourites"]}
+            toolIds={[suggestedId, "documents", "medication-prescribing", "services", "favourites"]}
           />
         </section>
 
-        <WideAllToolsSection selectedId={selected.id} />
+        <WideAllToolsSection
+          visibleTools={filter.filtered}
+          totalCount={tools.length}
+          query={filter.query}
+          onClearFilters={filter.reset}
+          suggestedId={suggestedId}
+        />
 
         <RecentWorkList title="Recents" />
       </main>
@@ -701,11 +738,9 @@ function WorkflowLane({
   toolIds: string[];
 }) {
   return (
-    <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
+    <section className="min-w-0 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
       <div className="grid min-h-[6.5rem] grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[color:var(--border)] p-4">
-        <span className="grid h-10 w-10 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
+        <AccentIconTile icon={Icon} className="h-10 w-10" iconClassName="h-5 w-5" />
         <div className="min-w-0">
           <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{title}</h2>
           <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">{body}</p>
@@ -713,7 +748,7 @@ function WorkflowLane({
       </div>
       <div className="grid gap-3 p-3">
         {toolIds.map((id) => (
-          <ToolCard key={id} tool={toolById(id)} selected={id === "differentials"} />
+          <ToolCard key={id} tool={toolById(id)} suggested={id === "differentials"} />
         ))}
       </div>
     </section>
@@ -721,16 +756,23 @@ function WorkflowLane({
 }
 
 function WorkflowBoardMockup() {
+  const filter = useToolFilter(tools);
+
   return (
     <>
       <ShellHeader variant="workflow-board">
         <div className="w-full lg:w-[28rem]">
-          <SearchControl placeholder="Search tools, workflows, source status" />
+          <SearchControl
+            value={filter.query}
+            onChange={filter.setQuery}
+            onClear={() => filter.setQuery("")}
+            placeholder="Search tools, workflows, or source status"
+          />
         </div>
       </ShellHeader>
       <main className="mx-auto grid max-w-7xl gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <div className="grid gap-4 md:grid-cols-2">
+        <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
             <WorkflowLane
               title="Assess"
               body="Start or refine a clinical view before acting."
@@ -757,7 +799,7 @@ function WorkflowBoardMockup() {
             />
           </div>
 
-          <aside className="space-y-4">
+          <aside className="min-w-0 space-y-4">
             <PhoneBrowserPreview
               title="Workflow picker"
               toolIds={["differentials", "clinical-kb-search", "documents", "medication-prescribing"]}
@@ -824,7 +866,11 @@ function WorkflowBoardMockup() {
         </section>
 
         <WideAllToolsSection
-          selectedId="differentials"
+          visibleTools={filter.filtered}
+          totalCount={tools.length}
+          query={filter.query}
+          onClearFilters={filter.reset}
+          suggestedId="differentials"
           title="All tools"
           body="A spacious launch surface below the workflow board, so every tool remains visible without a cramped side rail."
         />
@@ -835,15 +881,17 @@ function WorkflowBoardMockup() {
   );
 }
 
+const splitPaneFilters: { id: ToolFilterId; label: string; icon: LucideIcon }[] = [
+  { id: "all", label: "All", icon: Grid2X2 },
+  { id: "clinical", label: "Clinical", icon: Stethoscope },
+  { id: "admin", label: "Admin", icon: Settings2 },
+  { id: "recent", label: "Recent", icon: History },
+  { id: "review_due", label: "Review due", icon: Clock3 },
+];
+
 function SplitPaneMockup() {
-  const selected = toolById("services");
-  const navItems = [
-    { label: "All", count: 7, icon: Grid2X2 },
-    { label: "Clinical", count: 4, icon: Stethoscope },
-    { label: "Admin", count: 3, icon: Settings2 },
-    { label: "Recent", count: 3, icon: History },
-    { label: "Review due", count: 2, icon: Clock3 },
-  ];
+  const filter = useToolFilter(tools);
+  const suggestedId = "services";
 
   return (
     <>
@@ -851,24 +899,31 @@ function SplitPaneMockup() {
         <StatsStrip />
       </ShellHeader>
       <main className="mx-auto grid max-w-7xl gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
-            <aside className="space-y-4">
-              <SearchControl placeholder="Search tools" />
+        <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
+            <aside className="min-w-0 space-y-4">
+              <SearchControl
+                value={filter.query}
+                onChange={filter.setQuery}
+                onClear={filter.reset}
+                placeholder="Search tools"
+              />
               <nav
                 aria-label="Tool filters"
                 className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-inset)]"
               >
-                {navItems.map((item, index) => {
+                {splitPaneFilters.map((item) => {
                   const Icon = item.icon;
+                  const pressed = filter.filterId === item.id;
                   return (
                     <button
-                      key={item.label}
+                      key={item.id}
                       type="button"
-                      aria-pressed={index === 0}
+                      aria-pressed={pressed}
+                      onClick={() => filter.toggleFilter(item.id)}
                       className={cn(
                         "grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 text-left text-sm font-bold",
-                        index === 0
+                        pressed
                           ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                           : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                         focusRing,
@@ -876,14 +931,14 @@ function SplitPaneMockup() {
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       <span>{item.label}</span>
-                      <span className="nums text-xs">{item.count}</span>
+                      <span className="nums text-xs">{filter.counts[item.id]}</span>
                     </button>
                   );
                 })}
               </nav>
             </aside>
 
-            <section className="grid content-start gap-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
+            <section className="grid min-w-0 content-start gap-3 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
               <div className="flex items-center gap-2">
                 <LayoutDashboard className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Launcher overview</h2>
@@ -893,8 +948,8 @@ function SplitPaneMockup() {
                 weight.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {["clinical-kb-search", selected.id, "medication-prescribing", "favourites"].map((id) => (
-                  <ToolCard key={id} tool={toolById(id)} selected={id === selected.id} />
+                {["clinical-kb-search", suggestedId, "medication-prescribing", "favourites"].map((id) => (
+                  <ToolCard key={id} tool={toolById(id)} suggested={id === suggestedId} />
                 ))}
               </div>
             </section>
@@ -902,13 +957,17 @@ function SplitPaneMockup() {
 
           <PhoneBrowserPreview
             title="Pocket directory"
-            toolIds={["clinical-kb-search", "documents", "differentials", selected.id, "forms", "favourites"]}
+            toolIds={["clinical-kb-search", "documents", "differentials", suggestedId, "forms", "favourites"]}
             mode="directory"
           />
         </section>
 
         <WideAllToolsSection
-          selectedId={selected.id}
+          visibleTools={filter.filtered}
+          totalCount={tools.length}
+          query={filter.query}
+          onClearFilters={filter.reset}
+          suggestedId={suggestedId}
           title="All tools"
           body="The directory is intentionally wide here: spacious cards, direct actions, and clear task grouping across the page."
           compact

@@ -385,7 +385,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
               <button
                 type="button"
                 onClick={retryImage}
-                className="mt-2 inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3"
+                className="mt-2 inline-flex min-h-11 items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3"
               >
                 Retry
               </button>
@@ -1258,7 +1258,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           <ChevronLeft className="h-4 w-4" />
         </button>
         {pagesReady ? (
-          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
+          <label className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
             <span className="hidden sm:inline">Page</span>
             <input
               aria-label="PDF page number"
@@ -1270,12 +1270,12 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
                 if (event.key === "Enter") jumpToPage(Number(pageInput) || page);
               }}
               inputMode="numeric"
-              className="nums h-[44px] w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14"
+              className="nums h-11 w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14"
             />
             <span className="nums text-sm-minus font-semibold sm:text-sm">of {totalPages}</span>
           </label>
         ) : (
-          <div className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:px-3">
+          <div className="flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:px-3">
             <Loader2 className="h-4 w-4 animate-spin text-[color:var(--primary)]" />
             <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
             <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>
@@ -1306,7 +1306,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             disabled={!pagesReady}
             aria-label="Fit page width and enter fullscreen"
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 text-xs font-semibold transition",
+              "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
               fitWidth || fullscreenActive
                 ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
@@ -1362,7 +1362,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--primary)]"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source PDF
@@ -1557,7 +1557,7 @@ function DocumentManualTagEditor({
         <button
           type="submit"
           disabled={!canManage || busyAction !== null || !draftLabel.trim()}
-          className={cn(primaryButton, "min-h-[44px] px-3 text-xs")}
+          className={cn(primaryButton, "min-h-11 px-3 text-xs")}
         >
           {busyAction === "add" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Add
@@ -1603,9 +1603,7 @@ function DocumentManualTagEditor({
                 ) : (
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[color:var(--text)]">{label.label}</p>
-                    <p className={cn("text-2xs font-semibold", textMuted)}>
-                      {manualLabelTypeLabel(label.label_type)}
-                    </p>
+                    <p className={cn("text-2xs font-semibold", textMuted)}>{manualLabelTypeLabel(label.label_type)}</p>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5">
@@ -2959,7 +2957,7 @@ export function DocumentViewer({
           <button
             type="button"
             onClick={() => setMobileActionsOpen(true)}
-            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Open document actions"
           >
             <Plus className="h-5 w-5" />
@@ -2970,13 +2968,13 @@ export function DocumentViewer({
               value={sourceSearch}
               onChange={(event) => setSourceSearch(event.target.value)}
               placeholder="Search or answer from this document..."
-              className="min-h-[44px] min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+              className="min-h-11 min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
             />
           </label>
           <button
             type="submit"
             disabled={!canSummarizeDocument}
-            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Answer from this document"
           >
             {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

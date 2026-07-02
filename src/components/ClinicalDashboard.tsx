@@ -610,7 +610,7 @@ const SourceImage = memo(function SourceImage({
           <button
             type="button"
             onClick={retryImage}
-            className="mt-3 inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
           >
             Retry image
           </button>
@@ -1264,7 +1264,9 @@ function KeyClinicalItems({
 
   return (
     <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
-      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-base-minus">Key monitoring items</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-base-minus">
+        Key monitoring items
+      </h3>
       <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-base-minus">
         {items.map((item) => (
           <li key={item.id} className="pl-0.5">
@@ -2030,7 +2032,7 @@ function ClinicalNotesChecklistPanel({
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
               style={{ minHeight: 48, minWidth: 48 }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -2038,7 +2040,7 @@ function ClinicalNotesChecklistPanel({
             </Link>
           ) : (
             <span
-              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]"
               style={{ minHeight: 48, minWidth: 48 }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -2048,7 +2050,7 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
             style={{ minHeight: 48, minWidth: 48 }}
           >
             <Copy className="h-3.5 w-3.5" />
@@ -2057,7 +2059,7 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
             style={{ minHeight: 48, minWidth: 48 }}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -2101,7 +2103,7 @@ function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extract
                 href={finding.href}
                 className={cn(
                   raisedCard,
-                  "inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
+                  "inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
                 )}
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
@@ -2173,7 +2175,7 @@ function EvidenceGapPanel({
                 <Link
                   key={source.id}
                   href={sourceResultHref(source)}
-                  className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+                  className={cn(floatingControl, "min-h-11 px-3 text-xs")}
                   aria-label={`Open closest source ${cleanDisplayTitle(source.title)}`}
                 >
                   <ExternalLink className="h-4 w-4" />
@@ -2363,7 +2365,7 @@ function EvidenceSummaryCard({
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href={bestSource.viewer_href}
-              className={cn(primaryControl, "min-h-[44px] px-3 text-xs")}
+              className={cn(primaryControl, "min-h-11 px-3 text-xs")}
               aria-label={`Open ${sourceLabel.toLowerCase()}: ${formatCitationLabel(bestSource)}`}
             >
               Open source
@@ -2372,7 +2374,7 @@ function EvidenceSummaryCard({
             <button
               type="button"
               onClick={() => onScopeDocument(bestSource.document_id)}
-              className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+              className={cn(floatingControl, "min-h-11 px-3 text-xs")}
               aria-label={`Search only ${bestSource.title}`}
             >
               <Filter className="h-4 w-4" />
@@ -2792,7 +2794,7 @@ function RenderModelSourceList({
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
             <Link
               href={source.href}
-              className="block min-h-[44px] px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="block min-h-11 px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               aria-label={openLabel}
             >
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
@@ -2976,7 +2978,7 @@ function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
               data-testid="evidence-map-open-source"
               className={cn(
                 sourceCard,
-                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                "grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
               aria-label={`Open source for ${row.section}: ${row.bestSourceLabel}`}
             >
@@ -3078,7 +3080,9 @@ function QuoteCards({
                   </span>
                   <StrengthBadge strength={quote.source_strength} />
                 </div>
-                <blockquote className={cn(proseMeasure, "text-base-minus font-medium leading-6 text-[color:var(--text)]")}>
+                <blockquote
+                  className={cn(proseMeasure, "text-base-minus font-medium leading-6 text-[color:var(--text)]")}
+                >
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
                 <div
@@ -3336,7 +3340,7 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
 
   return (
     <details data-testid="why-this-matched" className={cn("group rounded-lg", panelSubtle)}>
-      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
             <Search className="h-4 w-4" />
@@ -3531,7 +3535,7 @@ function VisualEvidenceStrip({
                     </span>
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
-                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
+                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-11 px-4 text-xs")}>
                     <ExternalLink className="h-4 w-4" />
                     Open source
                   </Link>
@@ -3872,7 +3876,7 @@ function MobileEvidenceSheetContent({
           {primarySourceHref ? (
             <Link
               href={primarySourceHref}
-              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
               style={{ minHeight: 48, minWidth: 48 }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -3880,7 +3884,7 @@ function MobileEvidenceSheetContent({
             </Link>
           ) : (
             <span
-              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]"
+              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]"
               style={{ minHeight: 48, minWidth: 48 }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -3890,7 +3894,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => void copyEvidence()}
-            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
             style={{ minHeight: 48, minWidth: 48 }}
           >
             <Copy className="h-3.5 w-3.5" />
@@ -3899,7 +3903,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
             style={{ minHeight: 48, minWidth: 48 }}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -4144,7 +4148,7 @@ function RelatedDocumentsPanel({
               <div className="min-w-0">
                 <Link
                   href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                 >
                   <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                 </Link>
@@ -4157,7 +4161,7 @@ function RelatedDocumentsPanel({
               <button
                 type="button"
                 onClick={() => onScopeDocument(document.document_id)}
-                className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+                className={cn(floatingControl, "min-h-11 px-3 text-xs")}
               >
                 Scope
               </button>
@@ -4503,9 +4507,7 @@ function StagedAnswerResultSurface({
             onClose={closeEvidenceReview}
             title="Evidence"
             description="Review by evidence type."
-            titleAccessory={
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs")}>{evidenceTrustLabel}</span>
-            }
+            titleAccessory={<span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs")}>{evidenceTrustLabel}</span>}
             closeLabel="Close evidence"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
@@ -5568,7 +5570,7 @@ function DocumentDrawer({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
-                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
@@ -5607,7 +5609,7 @@ function DocumentDrawer({
                     type="button"
                     onClick={() => onToggleScope(document.id)}
                     className={cn(
-                      "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
+                      "inline-flex min-h-11 items-center rounded-lg border px-3 text-xs font-semibold transition",
                       selected
                         ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -5909,7 +5911,7 @@ function SettingsSummaryTile({
           : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
       )}
     >
-      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-[44px] lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
+      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-11 lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
@@ -6051,8 +6053,7 @@ function serviceFitLabel(service: ServiceRecord) {
 function serviceChipClassName(tone?: string | null) {
   if (tone === "danger")
     return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
-  if (tone === "info")
-    return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
+  if (tone === "info") return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
   if (tone === "warning")
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   if (tone === "success")
@@ -6097,16 +6098,12 @@ function ServiceMetric({
     <div className="grid min-h-[4.25rem] grid-cols-[1.55rem_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 shadow-[var(--shadow-inset)] sm:grid-cols-[1.85rem_minmax(0,1fr)] sm:px-3 max-sm:min-h-[3.35rem] max-sm:px-2 max-sm:py-1.5">
       <Icon className="h-[1.125rem] w-[1.125rem] text-[color:var(--clinical-accent)] sm:h-5 sm:w-5" aria-hidden />
       <div className="min-w-0">
-        <p className="truncate text-3xs font-bold uppercase leading-4 text-[color:var(--text-soft)]">
-          {label}
-        </p>
+        <p className="truncate text-3xs font-bold uppercase leading-4 text-[color:var(--text-soft)]">{label}</p>
         <p className="truncate text-xs font-bold leading-5 text-[color:var(--text-heading)] sm:text-sm">
           {value || "Confirm locally"}
         </p>
         {detail ? (
-          <p className="truncate text-3xs font-semibold text-[color:var(--text-muted)] sm:text-2xs">
-            {detail}
-          </p>
+          <p className="truncate text-3xs font-semibold text-[color:var(--text-muted)] sm:text-2xs">{detail}</p>
         ) : null}
       </div>
     </div>
@@ -6367,7 +6364,9 @@ function ServicesHub({ query, onQueryChange }: { query: string; onQueryChange: (
           <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
-              <span className="text-xs font-bold text-[color:var(--clinical-accent)]">{selectedServices.length} selected</span>
+              <span className="text-xs font-bold text-[color:var(--clinical-accent)]">
+                {selectedServices.length} selected
+              </span>
             </div>
             <div className="mt-3 grid gap-2">
               {selectedServices.map((service, index) => (
@@ -6418,7 +6417,10 @@ function ServicesHub({ query, onQueryChange }: { query: string; onQueryChange: (
                 </div>
               ))}
             </div>
-            <button className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]" type="button">
+            <button
+              className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]"
+              type="button"
+            >
               Review details
               <ArrowRight className="h-4 w-4" aria-hidden />
             </button>
@@ -6806,10 +6808,7 @@ function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p
-                id={labelId}
-                className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
-              >
+              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -8647,40 +8646,40 @@ export function ClinicalDashboard({
             ? query.trim()
               ? "Filtered services"
               : "Referral services"
-          : activeModeResultKind === "favourites"
-            ? query.trim()
-              ? "Filtered favourites"
-              : "Browse favourites"
-            : activeModeResultKind === "answer"
-              ? answer
-                ? weakEvidence
-                  ? "Read synthesis carefully"
-                  : "Clinical synthesis"
-                : activeModeSearch.nextStep
-              : documentMatches.length
-                ? "Document results"
-                : activeModeSearch.readyTitle,
+            : activeModeResultKind === "favourites"
+              ? query.trim()
+                ? "Filtered favourites"
+                : "Browse favourites"
+              : activeModeResultKind === "answer"
+                ? answer
+                  ? weakEvidence
+                    ? "Read synthesis carefully"
+                    : "Clinical synthesis"
+                  : activeModeSearch.nextStep
+                : documentMatches.length
+                  ? "Document results"
+                  : activeModeSearch.readyTitle,
       icon:
         activeModeResultKind === "tools"
           ? Wrench
           : activeModeResultKind === "services"
             ? ShieldCheck
-          : activeModeResultKind === "favourites"
-            ? Heart
-            : activeModeResultKind === "answer"
-              ? Search
-              : FileText,
+            : activeModeResultKind === "favourites"
+              ? Heart
+              : activeModeResultKind === "answer"
+                ? Search
+                : FileText,
       href: "#search",
       count:
         activeModeResultKind === "tools"
           ? applicationsLauncherItemCount
           : activeModeResultKind === "services"
             ? serviceNavigatorResultCount
-          : activeModeResultKind === "favourites"
-            ? null
-            : activeModeResultKind === "documents"
-              ? documentMatches.length
-              : null,
+            : activeModeResultKind === "favourites"
+              ? null
+              : activeModeResultKind === "documents"
+                ? documentMatches.length
+                : null,
       empty:
         (activeModeResultKind === "documents" && documentMatches.length === 0) ||
         (activeModeResultKind === "services" && serviceNavigatorResultCount === 0),
@@ -8988,10 +8987,10 @@ export function ClinicalDashboard({
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"
-                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "documents"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                      : activeModeResultKind === "documents"
+                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
               )}
             >
               <h2 data-testid="answer-section-heading" className="sr-only">
@@ -9010,7 +9009,7 @@ export function ClinicalDashboard({
               {loading && answerProgress && searchMode !== "prescribing" && (
                 <div
                   role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className="flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                 >
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
                   <span className="min-w-0 truncate">{answerProgress}</span>
@@ -9251,9 +9250,7 @@ export function ClinicalDashboard({
                               <Icon className="h-3.5 w-3.5" />
                               {tab.label}
                             </span>
-                            <span className="mt-1 block truncate text-2xs font-semibold opacity-80">
-                              {tab.summary}
-                            </span>
+                            <span className="mt-1 block truncate text-2xs font-semibold opacity-80">{tab.summary}</span>
                           </button>
                         );
                       })}

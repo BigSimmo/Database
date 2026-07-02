@@ -834,7 +834,7 @@ export function MasterSearchHeader({
                       onClick={() => onToggleScope(document.id)}
                       title={cleanDisplayTitle(document.title)}
                       className={cn(
-                        "grid min-h-[44px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
+                        "grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
                         selected
                           ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
                           : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
@@ -979,7 +979,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={onClearQuery}
-                className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                 aria-label="Clear search question"
               >
                 <X className="h-4 w-4" />

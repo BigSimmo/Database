@@ -667,9 +667,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
-                    <span className={cn(metadataPill, "rounded-full text-3xs uppercase", toneWarning)}>
-                      Governance
-                    </span>
+                    <span className={cn(metadataPill, "rounded-full text-3xs uppercase", toneWarning)}>Governance</span>
                   </div>
                   <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {displayText(

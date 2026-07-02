@@ -24,7 +24,7 @@ export function SourceActionRow({
 }) {
   return (
     <div className={cn("flex flex-wrap gap-2", divider && "border-t border-[color:var(--border)] pt-3")}>
-      <Link href={viewerHref} className={cn(primaryControl, "min-h-[44px] px-4 text-xs")}>
+      <Link href={viewerHref} className={cn(primaryControl, "min-h-11 px-4 text-xs")}>
         <FileText className="h-4 w-4" />
         Open source
       </Link>
@@ -51,7 +51,7 @@ export function SourceActionRow({
         <span className="hidden sm:inline">Add scope</span>
       </button>
       {imageCount > 0 && (
-        <span className={cn(metadataPill, "min-h-[44px] rounded-lg px-3")}>
+        <span className={cn(metadataPill, "min-h-11 rounded-lg px-3")}>
           {imageCount} indexed image{imageCount === 1 ? "" : "s"}
         </span>
       )}

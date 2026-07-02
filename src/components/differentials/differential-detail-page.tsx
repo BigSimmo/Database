@@ -178,9 +178,7 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
                     <Icon className="h-3.5 w-3.5 text-[color:var(--danger)] sm:h-4 sm:w-4" aria-hidden />
                     <span>{fact.label}</span>
                   </p>
-                  <p className="mt-1 text-3xs font-semibold text-[color:var(--text-muted)] sm:text-xs">
-                    {fact.value}
-                  </p>
+                  <p className="mt-1 text-3xs font-semibold text-[color:var(--text-muted)] sm:text-xs">{fact.value}</p>
                 </div>
               );
             })}

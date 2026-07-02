@@ -398,7 +398,7 @@ function SettingRow({ row, tone }: { row: SettingsRow; tone: Concept["tone"] }) 
       type="button"
       className={cn(
         "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] text-left last:border-b-0",
-        tone === "compact" ? "min-h-[46px] py-1.5" : "min-h-[48px] py-1.5",
+        tone === "compact" ? "min-h-[46px] py-1.5" : "min-h-12 py-1.5",
       )}
     >
       {Icon ? <IconFrame icon={Icon} /> : <span className="h-8 w-8" />}

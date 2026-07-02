@@ -148,11 +148,7 @@ function DocumentTagFacetRail({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className={cn(floatingControl, "min-h-11 px-2 text-2xs sm:min-h-8")}
-          >
+          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-11 px-2 text-2xs sm:min-h-8")}>
             <X className="h-3.5 w-3.5" />
             Clear
           </button>
@@ -689,11 +685,7 @@ function DocumentResultsOverview({
             </DocumentBadge>
           ) : null}
           {trimmedQuery ? (
-            <DocumentBadge
-              variant="neutral"
-              icon={BookOpen}
-              className="min-h-7 max-w-full rounded-lg px-2.5 text-2xs"
-            >
+            <DocumentBadge variant="neutral" icon={BookOpen} className="min-h-7 max-w-full rounded-lg px-2.5 text-2xs">
               <span className="truncate">{trimmedQuery}</span>
             </DocumentBadge>
           ) : null}

@@ -336,7 +336,10 @@ function appById(id: string) {
 function StatusPill({ status }: { status: LauncherStatus }) {
   return (
     <span
-      className={cn("inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-bold", statusStyles[status])}
+      className={cn(
+        "inline-flex min-h-6 w-fit shrink-0 items-center rounded-md border px-2 text-2xs font-bold",
+        statusStyles[status],
+      )}
     >
       {statusLabels[status]}
     </span>
@@ -867,7 +870,7 @@ function DashboardWideToolTile({ app, selected = false }: { app: LauncherApp; se
       aria-label={`Open ${app.title}`}
       data-testid={`application-row-${app.id}`}
       className={cn(
-        "group grid min-h-[8.75rem] rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+        "group grid min-h-[8.75rem] min-w-0 rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
         selected
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
           : "border-[color:var(--border)]",
@@ -1093,7 +1096,7 @@ function DashboardToolsCommandCenter({
         <DashboardStatsStrip apps={launcherApps} />
       </section>
 
-      <main className="grid gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
+      <main className="grid grid-cols-[minmax(0,1fr)] gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
         {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="hidden" /> : null}
 
         <section className="grid gap-3">
@@ -1119,7 +1122,7 @@ function DashboardToolsCommandCenter({
 
         <section
           aria-label="All tools"
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-4"
+          className="min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-4"
         >
           <div className="grid gap-3 border-b border-[color:var(--border)] pb-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div className="min-w-0">
@@ -1137,7 +1140,7 @@ function DashboardToolsCommandCenter({
           </div>
 
           {filteredApps.length ? (
-            <div className="grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid min-w-0 gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredApps.map((app) => (
                 <DashboardWideToolTile key={app.id} app={app} selected={app.id === selectedId} />
               ))}

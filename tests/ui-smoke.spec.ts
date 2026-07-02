@@ -1396,15 +1396,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
       "Medication Prescribing",
     );
-    await expect(page.getByTestId("tools-hub").getByTestId("selected-application-panel")).toContainText(
-      "Selected tool",
+    await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
+    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+      "href",
+      "/?mode=prescribing",
     );
-    await expect(
-      page
-        .getByTestId("tools-hub")
-        .getByTestId("application-row-medication-prescribing")
-        .getByLabel("Launch Medication Prescribing"),
-    ).toHaveAttribute("href", "/?mode=prescribing");
     await expectNoPageHorizontalOverflow(page);
   });
 

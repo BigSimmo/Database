@@ -133,7 +133,7 @@ export function ClinicalSidebarContent({
           onNewChat();
           onNavigate?.();
         }}
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
         <MessageSquarePlus className="h-4 w-4" />
         New chat
@@ -153,9 +153,7 @@ export function ClinicalSidebarContent({
 
       <section className="min-w-0">
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Recent chats
-          </p>
+          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Recent chats</p>
         </div>
         <div className="grid gap-1">
           {visibleRecentQueries.length ? (

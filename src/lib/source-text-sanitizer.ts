@@ -388,6 +388,40 @@ export function sourceTextForModel(text: string) {
   );
 }
 
+export function neutralizePromptInstructions(text: string): string {
+  let cleaned = text;
+  cleaned = cleaned.replace(
+    /\b(?:ignore|disregard|override|forget)\s+(?:all\s+)?(?:(?:previous|prior|above)\s+)?instructions?(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
+    "[neutralized-instruction: source instruction removed]",
+  );
+  cleaned = cleaned.replace(
+    /\byou\s+are\s+now\s+an?\s+(?:unrestricted|jailbroken|assistant)(?:\s+\w+){0,3}/gi,
+    "[neutralized-instruction: source role-change removed]",
+  );
+  cleaned = cleaned.replace(
+    /\b(?:system|developer)\s+(?:prompt|message|instruction)s?\b/gi,
+    "[neutralized-instruction: privileged instruction reference removed]",
+  );
+  cleaned = cleaned.replace(
+    /\b(?:reveal|print|expose|show|leak|return)\s+(?:the\s+)?(?:api\s+key|secret|token|system\s+prompt|developer\s+message|developer\s+instructions?)\b/gi,
+    "[neutralized-instruction: secret-exfiltration request removed]",
+  );
+  cleaned = cleaned.replace(
+    /\bfollow\s+(?:these|the|this)\s+instructions?\b/gi,
+    "[neutralized-instruction: source instruction removed]",
+  );
+  cleaned = cleaned.replace(/\bdo\s+not\s+answer\b/gi, "[neutralized-instruction: answer-suppression request removed]");
+  return cleaned;
+}
+
+export function sourceTextForModelEvidence(text: string) {
+  return neutralizePromptInstructions(sourceTextForModel(text));
+}
+
+export function fenceSourceEvidence(text: string, kind = "SOURCE_EXCERPT") {
+  return `<<<${kind}>>>\n${text}\n<<<END_${kind}>>>`;
+}
+
 export function sourceTextForDisplay(text: string) {
   return readableWhitespace(stripLowYieldSourceNoise(stripInternalImageDataBlocks(text)));
 }
