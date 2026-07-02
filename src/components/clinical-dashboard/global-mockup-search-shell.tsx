@@ -302,8 +302,8 @@ function GlobalMockupSearchShellClient({
           className={cn(
             "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
             searchMode === "answer"
-              ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
-              : "pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-8",
+              ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
+              : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           {children}

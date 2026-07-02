@@ -101,7 +101,7 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        "grid min-h-[calc(100dvh-4rem)] place-items-center bg-[color:var(--background)] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:px-6 sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8 lg:pb-[clamp(1.75rem,5vh,3.25rem)]",
+        "grid min-h-[calc(100dvh-4rem)] place-items-center bg-[color:var(--background)] px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:px-6 sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8 lg:pb-[clamp(1.75rem,5vh,3.25rem)]",
         className,
       )}
     >

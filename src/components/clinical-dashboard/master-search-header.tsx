@@ -939,7 +939,7 @@ export function MasterSearchHeader({
             <span className="sr-only">{submitLabel}</span>
           </button>
         </div>
-        {usesAnswerFooterStyle ? (
+        {usesUniversalFooterStyle ? (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
             <button
               type="button"
