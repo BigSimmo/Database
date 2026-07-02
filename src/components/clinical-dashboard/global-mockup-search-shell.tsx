@@ -84,10 +84,12 @@ function GlobalMockupSearchShellClient({
   const initialSearchMode =
     availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
   const requestedRun = searchParams.get("run") === "1";
+  const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const requestedMode = searchParams.get("mode");
   const searchParamString = searchParams.toString();
   const [query, setQuery] = useState(requestedQuery);
+  const previousUrlHadQueryRef = useRef(currentUrlHasQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
@@ -117,7 +119,7 @@ function GlobalMockupSearchShellClient({
   // True when on a sub-route of a mode home (e.g. /forms/transport-crisis-form,
   // /services/13yarn) rather than the mode home itself (/forms, /services).
   const isDetailPage =
-    /^\/(forms|services|favourites|differentials)\/.+/.test(pathname) && !isDifferentialPresentationWorkflow;
+    /^\/(forms|services|favourites)\/.+/.test(pathname) || /^\/differentials\/diagnoses\/.+/.test(pathname);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -132,17 +134,16 @@ function GlobalMockupSearchShellClient({
       setSearchMode(nextMode);
 
       const urlHasQuery = params.has("q") || params.has("query");
+      const hadQueryBeforeThisSync = previousUrlHadQueryRef.current;
+      previousUrlHadQueryRef.current = urlHasQuery;
       if (urlHasQuery) {
         // Sync the controlled query state from the URL query param.
         const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
         setQuery(requestedQuery ?? "");
-      } else if (!isDetailPage) {
-        // On a mode home route (no query param, no sub-path) clear any stale
-        // query state so the input reflects the URL. On detail pages (e.g.
-        // /forms/transport-crisis-form) we intentionally skip this so that a
-        // programmatic fill is not wiped by this deferred frame — fixing the
-        // requestAnimationFrame race that caused CI WebKit to leave the input
-        // empty and the submit button disabled.
+      } else if (!isDetailPage || hadQueryBeforeThisSync) {
+        // On no-query routes, clear any stale URL-derived query. Initial detail
+        // page mounts still skip the deferred clear so programmatic fills are
+        // not wiped by the WebKit requestAnimationFrame race.
         setQuery("");
       }
 
