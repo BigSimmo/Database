@@ -1364,14 +1364,19 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // Risk-matrix / flowchart visual units store the cell colour as a bare token
   // ("... | Red | escalate ..."), so for those units the colour token counts as
   // zone context.
+  const indexUnitText = result.index_unit
+    ? `${result.index_unit.title} ${result.index_unit.content}`.toLowerCase()
+    : "";
+  const riskFlowchartEvidenceText = `${haystack} ${indexUnitText}`;
   const zoneCellUnitEvidence =
     ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
-    /\b(?:red|amber|yellow|orange|purple|green|blue)\b/.test(haystack);
+    /\b(?:red|amber|yellow|orange|purple|green|blue)\b/.test(riskFlowchartEvidenceText);
   const riskFlowchartZoneActionSource =
-    (riskZoneContextPattern.test(haystack) || zoneCellUnitEvidence) && riskZoneActionPattern.test(haystack);
+    (riskZoneContextPattern.test(riskFlowchartEvidenceText) || zoneCellUnitEvidence) &&
+    riskZoneActionPattern.test(riskFlowchartEvidenceText);
   const riskFlowchartLexicalSource =
-    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
-    /\b(?:risk|red zone|red)\b/.test(haystack);
+    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(riskFlowchartEvidenceText) &&
+    /\b(?:risk|red zone|red)\b/.test(riskFlowchartEvidenceText);
   // For next-step/action questions, a flowchart page that names the risk but
   // carries no action instruction is exactly the false positive the retrieval
   // gates defer past — it must not take the risk-flowchart boost (nor dodge the
@@ -1379,7 +1384,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // the same result.
   const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
   const riskFlowchartSource = nextStepActionQuery
-    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(haystack))
+    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
     : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
