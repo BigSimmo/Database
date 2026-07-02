@@ -57,6 +57,33 @@ export type DeferralDecision = {
   };
 };
 
+export type JobStatusRpcResult = {
+  ok: boolean;
+  gate_passed: boolean;
+  missing: string[] | null;
+  status: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+export function parseJobStatusRpcResult(row: unknown, rpcName: string): JobStatusRpcResult | null {
+  const direct = asRecord(row);
+  const nested = asRecord(direct?.[rpcName]);
+  const candidate = direct?.ok !== undefined ? direct : nested;
+  if (!candidate) return null;
+
+  const ok = candidate.ok === true;
+  const gatePassed = candidate.gate_passed === true;
+  const status = typeof candidate.status === "string" ? candidate.status : "missing_result";
+  const missing = Array.isArray(candidate.missing)
+    ? candidate.missing.map((item) => String(item))
+    : ["completion_rpc_failed"];
+
+  return { ok, gate_passed: gatePassed, status, missing };
+}
+
 export function completionGateFromRow(row: CompletionGateRow): CompletionGate {
   return {
     counts: {
