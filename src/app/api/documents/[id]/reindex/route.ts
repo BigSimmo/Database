@@ -84,7 +84,11 @@ async function selectReindexRowsInPages<T>(args: {
   for (let offset = 0; ; offset += reindexPageSize) {
     const dynamicSupabase = args.supabase as unknown as SupabaseClient;
     const query = args.searchableOnly
-      ? dynamicSupabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
+      ? dynamicSupabase
+          .from("document_images")
+          .select(args.select)
+          .eq("document_id", args.documentId)
+          .eq("searchable", true)
       : dynamicSupabase.from(args.table).select(args.select).eq("document_id", args.documentId);
     const { data, error } = await query.range(offset, offset + reindexPageSize - 1);
     if (error) throw new Error(error.message);

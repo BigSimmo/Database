@@ -519,7 +519,10 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await fromGenerationTable(table).delete().eq("document_id", documentId).is("index_generation_id", null);
+    const missing = await fromGenerationTable(table)
+      .delete()
+      .eq("document_id", documentId)
+      .is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
