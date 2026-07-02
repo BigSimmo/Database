@@ -585,7 +585,7 @@ function SearchResultsView({
   );
   const best = results[0];
   const selectedCount = selectedIds.size;
-  const reviewedSourceCount = documentCount && documentCount > 0 ? documentCount : documentMatches?.length || 2065;
+  const reviewedSourceCount = documentCount && documentCount > 0 ? documentCount : (documentMatches?.length ?? 0);
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -811,7 +811,10 @@ export function DifferentialsHome({
     runSearch(action.query);
   }
 
-  if (trimmedQuery) {
+  // Differential results are only presented once a source-backed search has
+  // returned document evidence; a bare query (no run, failed setup, or an
+  // empty API response) must not surface ranked diagnoses as reviewed results.
+  if (trimmedQuery && hasEvidenceMatches) {
     return (
       <SearchResultsView
         query={trimmedQuery}
@@ -823,8 +826,20 @@ export function DifferentialsHome({
     );
   }
 
+  const showNoEvidenceNotice = Boolean(trimmedQuery) && !loading && !hasEvidenceMatches;
+
   return (
     <div data-testid="differentials-home" className="mx-auto w-full max-w-6xl overflow-x-hidden px-1">
+      {showNoEvidenceNotice ? (
+        <p
+          data-testid="differentials-no-evidence-notice"
+          className="mx-auto mb-3 flex max-w-2xl items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 px-3 py-2 text-sm font-semibold text-[color:var(--warning)]"
+        >
+          <Info className="h-4 w-4 shrink-0" aria-hidden />
+          No source-backed matches for &ldquo;{trimmedQuery}&rdquo; yet. Run the search or refine the presentation to
+          see reviewed differentials.
+        </p>
+      ) : null}
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"

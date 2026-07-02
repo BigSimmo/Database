@@ -825,6 +825,14 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
   const router = useRouter();
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
+  // Keep the desktop draft in sync when the route query changes (e.g. a new
+  // search submitted from the top bar) so refinements start from the term the
+  // results actually reflect, not the first render's query.
+  const [lastSyncedQuery, setLastSyncedQuery] = useState(query);
+  if (lastSyncedQuery !== query) {
+    setLastSyncedQuery(query);
+    setDraftQuery(query);
+  }
   const matches = useMemo(() => searchFormRecords(query), [query]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
