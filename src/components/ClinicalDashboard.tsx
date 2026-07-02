@@ -80,6 +80,7 @@ import {
   chatActionRow,
   chatAnswerText,
   chatMicroAction,
+  codeText,
   clinicalDivider,
   clinicalNotesRow,
   cn,
@@ -789,7 +790,8 @@ function SourcePreviewContent({
                 {source.title}
               </span>
               <span className={cn("block truncate text-xs", textMuted)}>
-                p.{source.pageNumber ?? "n/a"} · {sourceStatusLabel(source.metadata)}
+                <span className="font-mono tabular-nums">p.{source.pageNumber ?? "n/a"}</span> ·{" "}
+                {sourceStatusLabel(source.metadata)}
               </span>
             </span>
             <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
@@ -2716,7 +2718,9 @@ function QuoteCards({
           {quotes.map((quote, index) => (
             <article key={`${quote.chunk_id}:${quote.quote}`} className={cn(sourceCard, "p-3 sm:p-4")}>
               <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
-                <span className={cn(iconTilePremium, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>{index + 1}</span>
+                <span className={cn(iconTilePremium, codeText, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>
+                  {index + 1}
+                </span>
                 <StrengthBadge strength={quote.source_strength} />
               </div>
               <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
@@ -2997,8 +3001,9 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">{source.title}</p>
-                <p className={cn("nums mt-1 text-xs leading-5", textMuted)}>
-                  page {source.page_number ?? "n/a"} · chunk {source.chunk_index}
+                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                  <span className="font-mono tabular-nums">page {source.page_number ?? "n/a"}</span> ·{" "}
+                  <span className="font-mono tabular-nums">chunk {source.chunk_index}</span>
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -5393,8 +5398,8 @@ function MobileSectionFab({
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--primary)]/25 bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[var(--glow-soft)] ring-1 ring-[color:var(--border-strong)]/20 transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--primary-strong)] active:translate-y-px dark:ring-[color:var(--border-strong)]/10",
-          open && "bg-[color:var(--primary-strong)] shadow-[var(--glow-primary)]",
+          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
+          open && "bg-[color:var(--command-hover)]",
         )}
         style={{
           right: "max(0.75rem, env(safe-area-inset-right))",

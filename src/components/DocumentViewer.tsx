@@ -2808,7 +2808,7 @@ export function DocumentViewer({
                   </div>
                   <div>
                     <dt>Index version</dt>
-                    <dd className="mt-0.5 truncate text-[color:var(--text)]">
+                    <dd className="mt-0.5 truncate font-mono tabular-nums text-[color:var(--text)]">
                       {indexHealth.indexVersion ?? "unknown"}
                     </dd>
                   </div>

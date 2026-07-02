@@ -124,7 +124,7 @@ export function ClinicalSidebarContent({
           onNewChat();
           onNavigate?.();
         }}
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
         <Plus className="h-4 w-4" />
         New chat
@@ -162,10 +162,15 @@ export function ClinicalSidebarContent({
                 className={cn(
                   sidebarItem,
                   index === 0 &&
-                    "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]",
+                    "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
                 )}
               >
-                <MessageSquare className="h-4 w-4 shrink-0" />
+                <MessageSquare
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    index === 0 && "text-[color:var(--clinical-accent)]",
+                  )}
+                />
                 <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
               </button>
             ))
@@ -202,10 +207,15 @@ export function ClinicalSidebarContent({
                 className={cn(
                   sidebarToolTile,
                   active &&
-                    "border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-tight)]",
+                    "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] shadow-[var(--shadow-tight)]",
                 )}
               >
-                <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                <Icon
+                  className={cn(
+                    "h-4 w-4",
+                    active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                  )}
+                />
                 <span>{item.label}</span>
               </Link>
             );
@@ -217,7 +227,7 @@ export function ClinicalSidebarContent({
           onFocus={onPrefetchApplications}
           onPointerEnter={onPrefetchApplications}
           onClick={onNavigate}
-          className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--clinical-chat-teal-soft)]/70 px-3 text-sm font-semibold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+          className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]"
         >
           View tools
           <ChevronDown className="-rotate-90 h-4 w-4" />
