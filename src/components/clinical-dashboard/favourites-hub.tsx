@@ -3,6 +3,7 @@
 import { ArrowUpDown, ChevronDown, Filter, Folder, FolderInput, Heart, Plus, Search, X } from "lucide-react";
 import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { ModeHomeHero } from "@/components/mode-home-template";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
 import {
   favouriteItems,
@@ -28,10 +29,14 @@ export function FavouritesHub({
   query,
   onClearQuery,
   onAddFavourite,
+  desktopComposerSlotId,
+  headingLevel = 2,
 }: {
   query: string;
   onClearQuery: () => void;
   onAddFavourite: () => void;
+  desktopComposerSlotId?: string;
+  headingLevel?: 1 | 2;
 }) {
   const [selectedTab, setSelectedTab] = useState<FavouriteTabId>("all");
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
@@ -113,22 +118,20 @@ export function FavouritesHub({
 
   return (
     <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
-      <div className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div className="grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-left">
-          <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/15 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-            <Heart className="h-6 w-6 sm:h-7 sm:w-7" />
-          </span>
-          <div className="max-w-2xl space-y-2">
-            <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
-              Favourites
-            </h2>
-            <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">
-              Keep trusted notes, sources, medication pages, and clinical sets ready for reuse.
-            </p>
-          </div>
-        </div>
+      <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-5 pt-4 text-center sm:gap-6 sm:pt-7">
+        <ModeHomeHero
+          testId="favourites-home"
+          title="Favourites"
+          subtitle="Keep trusted notes, sources, medication pages, and clinical sets ready for reuse."
+          icon={Heart}
+          headingLevel={headingLevel}
+        />
 
-        <div className="grid grid-cols-3 gap-2 text-left sm:mx-auto sm:w-full sm:max-w-md lg:mx-0 lg:w-[24rem]">
+        {desktopComposerSlotId ? (
+          <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
+        ) : null}
+
+        <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
           {[
             { label: "Items", value: itemCount, icon: Heart },
             { label: "Sets", value: setCount, icon: Folder },

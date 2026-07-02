@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
+import { ModeHomeHero } from "@/components/mode-home-template";
 import { Sheet } from "@/components/ui/sheet";
 import {
   appBackdrop,
@@ -1002,18 +1003,16 @@ export function ApplicationsLauncherWorkspace({
     <>
       {isDashboardTools ? (
         <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7">
-          <div className="grid justify-items-center gap-3 text-center">
-            <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/15 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-              <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
-            </span>
-            <div className="max-w-2xl space-y-2">
-              <h2 className="text-3xl font-bold tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
-                {copy.heading}
-              </h2>
-              <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">{copy.description}</p>
-            </div>
+          <div className="grid justify-items-center gap-5 text-center sm:gap-6">
+            <ModeHomeHero
+              testId="tools-home"
+              title={copy.heading}
+              subtitle={copy.description}
+              icon={Grid2X2}
+              headingLevel={2}
+            />
             {desktopComposerSlotId ? (
-              <div id={desktopComposerSlotId} className="mt-2 hidden w-full max-w-3xl lg:block" />
+              <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
             ) : null}
           </div>
 

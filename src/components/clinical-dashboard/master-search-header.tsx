@@ -308,26 +308,10 @@ export function MasterSearchHeader({
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const isStandaloneModeHomeHeader = Boolean(desktopHomeComposerSlotId);
   const useMobileBackControl = mobileLeadingAction === "back";
-  const homeHeaderTitle =
-    searchMode === "services"
-      ? "Services Navigator"
-      : searchMode === "forms"
-        ? "Forms Navigator"
-        : searchMode === "favourites"
-          ? "Favourites"
-          : searchMode === "differentials"
-            ? "Differentials Navigator"
-            : "Clinical Guide";
-  const homeHeaderDescription =
-    searchMode === "services"
-      ? "Psychiatry referral directory"
-      : searchMode === "forms"
-        ? "Mental Health Act forms"
-        : searchMode === "favourites"
-          ? "Saved clinical items and sets"
-          : searchMode === "differentials"
-            ? "Differential diagnosis workspace"
-            : selectedAppMode.description;
+  // Every mode home shares the same header identity; only the mode description
+  // varies, matching the dashboard shell.
+  const homeHeaderTitle = "Clinical Guide";
+  const homeHeaderDescription = selectedAppMode.description;
 
   function currentUsesScopeSheet() {
     return window.matchMedia(mobileSheetMediaQuery).matches;

@@ -1,15 +1,17 @@
 import { FileSearch, MapPinned, Route, Users } from "lucide-react";
 
 import {
-  CompactRecordHomePage,
-  type CompactHomeAction,
-  type CompactHomePill,
-} from "@/components/compact-record-home-page";
+  ModeHomeMain,
+  ModeHomeTemplate,
+  ModeHomeVerificationFooter,
+  type ModeHomeAction,
+  type ModeHomePill,
+} from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { defaultServiceSlug, serviceRecords } from "@/lib/services";
 
-const taskCards: CompactHomeAction[] = [
+const taskCards: ModeHomeAction[] = [
   {
     title: "Find a service",
     description: "Search by need, catchment, provider, or keyword.",
@@ -34,7 +36,7 @@ const taskCards: CompactHomeAction[] = [
   },
 ];
 
-const commonPathways: CompactHomePill[] = [
+const commonPathways: ModeHomePill[] = [
   {
     label: "Crisis",
     tone: "danger",
@@ -77,20 +79,26 @@ function verifiedCount() {
 
 export function ServicesHomePage() {
   return (
-    <CompactRecordHomePage
-      testId="services-home"
-      title="Find a service"
-      subtitle="Search by need, catchment, referral route, or provider."
-      icon={Users}
-      tasksLabel="Service tasks"
-      taskCards={taskCards}
-      quickLinksTitle="Common pathways"
-      quickLinks={commonPathways}
-      verificationLabel="Catalogue service data"
-      verificationBody="Confirm locally before use"
-      verifiedCount={verifiedCount()}
-      totalCount={serviceRecords.length}
-      desktopComposerSlotId={modeHomeDesktopComposerSlotId}
-    />
+    <ModeHomeMain testId="services-home">
+      <ModeHomeTemplate
+        testId="services-home-template"
+        title="Find a service"
+        subtitle="Search by need, catchment, referral route, or provider."
+        icon={Users}
+        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
+        actionsLabel="Service tasks"
+        actions={taskCards}
+        pillsTitle="Common pathways"
+        pills={commonPathways}
+        footer={
+          <ModeHomeVerificationFooter
+            label="Catalogue service data"
+            body="Confirm locally before use"
+            verifiedCount={verifiedCount()}
+            totalCount={serviceRecords.length}
+          />
+        }
+      />
+    </ModeHomeMain>
   );
 }

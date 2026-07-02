@@ -1,4 +1,5 @@
 import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
+import { ModeHomeMain } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 type DifferentialsHomePageProps = {
@@ -7,8 +8,8 @@ type DifferentialsHomePageProps = {
 
 export function DifferentialsHomePage({ query = "" }: DifferentialsHomePageProps) {
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] text-[color:var(--text)]">
+    <ModeHomeMain>
       <DifferentialsHome query={query} loading={false} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />
-    </main>
+    </ModeHomeMain>
   );
 }
