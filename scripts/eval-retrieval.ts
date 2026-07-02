@@ -5,7 +5,7 @@ import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
 import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { findOwnerIdByEmail, loadAdminClient, percentile } from "./eval-utils";
+import { findOwnerIdByEmail, loadAdminClient, percentile, withProviderBackoff } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -44,6 +44,10 @@ export type GoldenRetrievalResult = {
   query: string;
   expectedQueryClass: string;
   actualQueryClass: string | null;
+  expectedDocumentSubstrings: string[];
+  missingDocumentSubstrings: string[];
+  expectedContentTerms: string[];
+  missingContentTerms: string[];
   documentRecallAt5: number;
   contentRecallAt5: number;
   hitAtK: boolean;
@@ -456,6 +460,10 @@ export function evaluateGoldenRetrievalCase(args: {
     query: args.testCase.query,
     expectedQueryClass: args.testCase.expectedQueryClass,
     actualQueryClass,
+    expectedDocumentSubstrings: args.testCase.expectedDocumentSubstrings,
+    missingDocumentSubstrings: documentHits.missing,
+    expectedContentTerms: args.testCase.expectedContentTerms.map(contentExpectationLabel),
+    missingContentTerms: contentHits.missing,
     documentRecallAt5,
     contentRecallAt5,
     hitAtK,
@@ -707,13 +715,15 @@ async function main() {
 
   for (const testCase of cases) {
     const startedAt = Date.now();
-    const searchPromise = searchChunksWithTelemetry({
-      query: testCase.query,
-      ownerId,
-      topK: testCase.topK,
-      minSimilarity: 0.12,
-      skipCache: args.mode !== "latency",
-    });
+    const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
+      searchChunksWithTelemetry({
+        query: testCase.query,
+        ownerId,
+        topK: testCase.topK,
+        minSimilarity: 0.12,
+        skipCache: args.mode !== "latency",
+      }),
+    );
     const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
     const search = searchOutcome.timedOut
       ? {

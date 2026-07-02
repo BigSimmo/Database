@@ -15,6 +15,8 @@ const routeIdSchema = z.string().uuid();
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const requestUrl = new URL(_request.url);
+    const shouldDownload = ["1", "true"].includes((requestUrl.searchParams.get("download") ?? "").toLowerCase());
     if (isDemoMode()) {
       const document = getDemoDocument(id);
       if (!document) return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
@@ -40,9 +42,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (error) throw new Error(error.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
-    const signed = await supabase.storage
-      .from(env.SUPABASE_DOCUMENT_BUCKET)
-      .createSignedUrl(document.storage_path, signedUrlTtlSeconds);
+    const storage = supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET);
+    const signed = shouldDownload
+      ? await storage.createSignedUrl(document.storage_path, signedUrlTtlSeconds, { download: true })
+      : await storage.createSignedUrl(document.storage_path, signedUrlTtlSeconds);
 
     if (signed.error) throw new Error(signed.error.message);
     return NextResponse.json({

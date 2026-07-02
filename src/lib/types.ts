@@ -31,12 +31,7 @@ export type DocumentLabelType =
   | "custom";
 
 export type DocumentOrganizationSiteKind =
-  | "hospital"
-  | "health_service"
-  | "program"
-  | "unit"
-  | "reference_collection"
-  | "unknown";
+  "hospital" | "health_service" | "program" | "unit" | "reference_collection" | "unknown";
 export type DocumentOrganizationReviewStatus = "confident" | "needs_review" | "manual_override";
 export type DocumentOrganizationType =
   | "policy"

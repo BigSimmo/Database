@@ -98,25 +98,25 @@ export function AnswerEmptyState({
 export function AnswerSkeleton() {
   return (
     <div className="space-y-4" aria-label="Loading answer">
-      <div className="space-y-3 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/45 p-4">
-        <div className="h-4 w-10/12 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-        <div className="h-4 w-full animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-        <div className="h-4 w-8/12 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
+      <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
+        <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+        <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+        <div className="h-4 w-8/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
         <div className={cn(sourceCard, "mt-4 flex min-h-[60px] items-center justify-between gap-3 p-3")}>
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-24 animate-pulse rounded bg-[color:var(--surface-subtle)]" />
-            <div className="h-4 w-48 max-w-full animate-pulse rounded bg-[color:var(--surface-subtle)]" />
+            <div className="h-3 w-24 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+            <div className="h-4 w-48 max-w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
           </div>
-          <div className="h-[44px] w-20 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
+          <div className="h-[44px] w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="h-[44px] w-48 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
-        <div className="h-[44px] w-40 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
+        <div className="h-[44px] w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <div className="h-[44px] w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="h-28 animate-pulse rounded-lg bg-[color:var(--surface-subtle)]" />
-        <div className="hidden h-28 animate-pulse rounded-lg bg-[color:var(--surface-subtle)] sm:block" />
+        <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <div className="hidden h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)] sm:block" />
       </div>
     </div>
   );

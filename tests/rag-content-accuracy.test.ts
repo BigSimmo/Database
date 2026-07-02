@@ -60,31 +60,31 @@ describe("unboldUnverifiedNumbers — emphasis tracks verification (P8)", () => 
 });
 
 describe("applyNumericVerification — single faithfulness caveat even when the gate runs twice", () => {
-  function unverifiedAnswer(): RagAnswer {
+  function unverifiedAnswer(answerText: string): RagAnswer {
     const source: SearchResult = {
       id: "c1",
       document_id: "d1",
-      title: "Clozapine Monitoring",
-      file_name: "clozapine.pdf",
+      title: "Service Overview",
+      file_name: "service-overview.pdf",
       page_number: 1,
       chunk_index: 0,
-      section_heading: "Monitoring",
-      content: "Withhold clozapine for red-range results and contact the monitoring service.",
+      section_heading: "Overview",
+      content: "The service supports patients through their recovery journey with structured input.",
       image_ids: [],
       similarity: 0.9,
       hybrid_score: 0.9,
       images: [],
     };
     return {
-      answer: "The usual therapeutic level is **500 mg** daily.",
+      answer: answerText,
       grounded: true,
       confidence: "high",
       citations: [
         {
           chunk_id: "c1",
           document_id: "d1",
-          title: "Clozapine Monitoring",
-          file_name: "clozapine.pdf",
+          title: "Service Overview",
+          file_name: "service-overview.pdf",
           page_number: 1,
           chunk_index: 0,
           similarity: 0.9,
@@ -96,10 +96,12 @@ describe("applyNumericVerification — single faithfulness caveat even when the 
   }
 
   it("flags, un-bolds, downgrades — and never duplicates the caveat on the second (finalize-time) run", () => {
-    // The gate runs at parse-time AND finalize-time on the model path; the caveat must not stack.
-    const once = applyNumericVerification(unverifiedAnswer());
-    expect(once.unverifiedNumericTokens).toContain("500mg");
-    expect(once.answer).not.toContain("**500 mg**");
+    // Non-actionable context (no dose/threshold/monitoring wording), so the caveat path applies
+    // rather than the hard numeric fail-closed gate. The gate runs at parse-time AND finalize-time
+    // on the model path; the caveat must not stack.
+    const once = applyNumericVerification(unverifiedAnswer("Symptoms usually settle within **18 weeks** of starting."));
+    expect(once.unverifiedNumericTokens).toContain("18weeks");
+    expect(once.answer).not.toContain("**18 weeks**");
     expect(once.confidence).toBe("medium");
 
     const twice = applyNumericVerification(once);
@@ -107,5 +109,15 @@ describe("applyNumericVerification — single faithfulness caveat even when the 
       gap.message.startsWith(VERIFY_AGAINST_SOURCE_NOTE),
     );
     expect(faithfulnessGaps).toHaveLength(1);
+  });
+
+  it("fails closed entirely when the unverified number sits in actionable dose/threshold context", () => {
+    // Merged policy from main: an unverified figure in actionable clinical context must not reach
+    // the clinician at all — the whole answer is replaced with a source-gap review message.
+    const gated = applyNumericVerification(unverifiedAnswer("The usual therapeutic dose is **500 mg** daily."));
+    expect(gated.grounded).toBe(false);
+    expect(gated.confidence).toBe("unsupported");
+    expect(gated.routingReason).toContain("numeric_faithfulness_gate_source_gap");
+    expect(gated.answer).not.toContain("500 mg");
   });
 });

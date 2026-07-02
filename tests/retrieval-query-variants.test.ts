@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { analyzeClinicalQuery, buildClinicalTextSearchQuery } from "../src/lib/clinical-search";
+import { analyzeClinicalQuery, buildClinicalTextSearchQuery, rankClinicalResults } from "../src/lib/clinical-search";
+import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import {
   buildRetrievalQueryVariants,
   decideTextFastPath,
@@ -365,6 +366,158 @@ describe("retrieval query variants", () => {
     expect(textQuery).toContain("step");
     expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone risk flow"]));
     expect(variants.length).toBeLessThanOrEqual(4);
+  });
+
+  it("keeps agitation route queries focused on the canonical agitation and arousal source", () => {
+    const query = "What IM or PO options are listed for agitation?";
+    const textQuery = buildClinicalTextSearchQuery(query);
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "generic-icu",
+        document_id: "generic-doc",
+        title: "Ventilated ICU Patients Bundle",
+        file_name: "Ventilated ICU Patients Bundle.pdf",
+        content: "Fentanyl bolus 50 microg/hr and oral medication options are listed.",
+        similarity: 0.88,
+      }),
+      result({
+        id: "agitation-source",
+        document_id: "agitation-doc",
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        content: "Agitation medication chart: lorazepam 1 mg IM or PO with monitoring.",
+        similarity: 0.54,
+      }),
+    ]);
+    const selected = selectRetrievalEvidence({
+      query,
+      queryClass: "medication_dose_risk",
+      results: ranked,
+      topK: 1,
+      maxResultsPerDocument: 2,
+    });
+
+    expect(textQuery).toContain("arousal");
+    expect(textQuery).toContain("pharmacological");
+    expect(textQuery).toContain("im");
+    expect(textQuery).toContain("po");
+    expect(ranked[0].file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
+    expect(selected.results[0]?.file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
+  });
+
+  it("keeps typo-heavy agitation dosing queries above generic infusion dosing sources", () => {
+    const query = "What agitaton and arousl dosing guidance applies to psychiatric inpatients?";
+    const textQuery = buildClinicalTextSearchQuery(query);
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "smart-pump",
+        document_id: "smart-pump-doc",
+        title: "Smart Infusion Pumps and Dose Error Reduction Software Policy",
+        file_name: "Smart Infusion Pumps and Dose Error Reduction Software (DERS) Policy (RPBG).pdf",
+        content: "Infusion pump dose limits, infusion medication safety, and inpatient medication guidance.",
+        similarity: 0.91,
+      }),
+      result({
+        id: "dopamine",
+        document_id: "dopamine-doc",
+        title: "Dopamine Intravenous Infusion Management",
+        file_name: "Dopamine Intravenous Infusion Management (RPBG).pdf",
+        content: "Dopamine intravenous infusion dosing and monitoring guidance for clinical deterioration.",
+        similarity: 0.87,
+      }),
+      result({
+        id: "agitation-source",
+        document_id: "agitation-doc",
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        content:
+          "Medication chart for agitation and arousal pharmacological management in psychiatric inpatients, including IM and PO dose options.",
+        similarity: 0.55,
+        table_facts: [
+          tableFact({
+            table_title: "Agitation and arousal medication chart",
+            row_label: "Lorazepam",
+            threshold_value: "1 mg IM or PO",
+            action: "Monitor response before repeat dosing.",
+          }),
+        ],
+      }),
+    ]);
+    const selected = selectRetrievalEvidence({
+      query,
+      queryClass: "medication_dose_risk",
+      results: ranked,
+      topK: 1,
+      maxResultsPerDocument: 2,
+    });
+
+    expect(textQuery).toBe("agitation arousal pharmacological management medication chart dose route im po");
+    expect(ranked[0].file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
+    expect(selected.results[0]?.file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
+  });
+
+  it("promotes active-community ED source identity over generic ED management documents", () => {
+    const query = "How are active community patients in ED managed?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "generic-ed",
+        document_id: "generic-ed-doc",
+        title: "Patient Management in ED",
+        file_name: "Patient Management in ED (FSH).pdf",
+        content: "Management plan in ED and consultation liaison review.",
+        similarity: 0.88,
+      }),
+      result({
+        id: "active-community",
+        document_id: "active-community-doc",
+        title: "Active Community Pt ED",
+        file_name: "MHSP.ActiveCommunityPtED.pdf",
+        content: "Active community patients in ED are managed with community team liaison.",
+        similarity: 0.52,
+      }),
+    ]);
+    const selected = selectRetrievalEvidence({
+      query,
+      queryClass: "document_lookup",
+      results: ranked,
+      topK: 1,
+      maxResultsPerDocument: 2,
+    });
+
+    expect(ranked[0].file_name).toBe("MHSP.ActiveCommunityPtED.pdf");
+    expect(selected.results[0]?.file_name).toBe("MHSP.ActiveCommunityPtED.pdf");
+  });
+
+  it("promotes red-zone risk flowchart evidence over generic red-flag deterioration documents", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "generic-red-flags",
+        document_id: "generic-red-flags-doc",
+        title: "Secondary Assessment of Undiagnosed Patient in ED",
+        file_name: "Secondary Assessment of Undiagnosed Patient in ED.pdf",
+        content: "Identify red flags and escalate deterioration concerns.",
+        similarity: 0.82,
+      }),
+      result({
+        id: "risk-flowchart",
+        document_id: "risk-flowchart-doc",
+        title: "Risk Flowchart Red Zone",
+        file_name: "Clinical Risk Flowchart.pdf",
+        content: "Risk flowchart: after red-zone risk, urgent senior review is the next step.",
+        similarity: 0.51,
+      }),
+    ]);
+    const selected = selectRetrievalEvidence({
+      query,
+      queryClass: "document_lookup",
+      results: ranked,
+      topK: 1,
+      maxResultsPerDocument: 2,
+    });
+
+    expect(ranked[0].file_name).toBe("Clinical Risk Flowchart.pdf");
+    expect(selected.results[0]?.file_name).toBe("Clinical Risk Flowchart.pdf");
   });
 
   it("redacts retrieval cache keys while preserving query class and variant uniqueness", () => {

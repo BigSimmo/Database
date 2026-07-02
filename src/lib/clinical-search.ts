@@ -1038,10 +1038,13 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\bdose\b/i.test(correctedQueryText);
   const hasAgitationArousalTypo = /\b(?:agitaton|arousl|arrousal)\b/i.test(query);
   const wantsAgitationArousal =
-    hasAgitationArousalTypo &&
-    /\bagitation\b/i.test(correctedQueryText) &&
-    /\barousal\b/i.test(correctedQueryText) &&
-    /\b(?:dose|dosing|guidance|inpatient|psychiatric)\b/i.test(correctedQueryText);
+    ((hasAgitationArousalTypo &&
+      /\bagitation\b/i.test(correctedQueryText) &&
+      /\barousal\b/i.test(correctedQueryText)) ||
+      /\bagitation\b/i.test(correctedQueryText)) &&
+    /\b(?:dose|dosing|guidance|inpatient|psychiatric|route|oral|intramuscular|\bim\b|\bpo\b|chart|table|pharmacolog)/i.test(
+      correctedQueryText,
+    );
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
@@ -1054,7 +1057,20 @@ export function buildClinicalTextSearchQuery(query: string) {
   } else if (wantsClozapineBloodMonitoring) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationArousal) {
-    normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "dosing");
+    normalizedTokens.splice(
+      0,
+      normalizedTokens.length,
+      "agitation",
+      "arousal",
+      "pharmacological",
+      "management",
+      "medication",
+      "chart",
+      "dose",
+      "route",
+      "im",
+      "po",
+    );
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
     normalizedTokens.unshift("admission", "community", "pts");
   } else if (/\bdischarge\b/i.test(query) && /\b(?:summari[sz]e|summary|guidance|documentation?)\b/i.test(query)) {
@@ -1121,6 +1137,7 @@ function roundScore(value: number) {
 export function clinicalRankExplanation(query: string, result: SearchResult): SearchScoreExplanation {
   const analysis = analyzeClinicalQuery(query);
   const queryTokens = tokens(query);
+  const correctedQueryText = correctedTokens(query).join(" ");
   const querySignal = classifyQueryIntent(query);
   const queryClass = analysis.queryClass;
   const normalizedTokens = normalizedClinicalQueryTokens(query);
@@ -1264,6 +1281,51 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     /\b(?:criteria led discharge|against medical advice|opcl|summary discharge|discharge ready)\b/.test(titleTokenText)
       ? -0.18
       : 0;
+  const agitationArousalQuery =
+    queryClass === "medication_dose_risk" &&
+    /\bagitation\b/i.test(correctedQueryText) &&
+    /\b(?:arousal|route|oral|intramuscular|\bim\b|\bpo\b|dose|dosing|guidance|inpatient|psychiatric|chart|table|pharmacolog)/i.test(
+      correctedQueryText,
+    );
+  const agitationArousalSource =
+    /\bagitation\b/.test(haystack) &&
+    (/\barousal\b/.test(haystack) ||
+      /\bpharmacological management\b/.test(haystack) ||
+      /\bpharma mgt\b/.test(titleTokenText));
+  const agitationArousalCanonicalTitle =
+    agitationArousalQuery &&
+    /\bagitation\b/.test(titleTokenText) &&
+    (/\barousal\b/.test(titleTokenText) || /\bpharma mgt\b/.test(titleTokenText));
+  const agitationArousalCanonicalBoost = agitationArousalCanonicalTitle ? 0.34 : agitationArousalQuery && agitationArousalSource ? 0.18 : 0;
+  const agitationArousalGenericPenalty = agitationArousalQuery && !agitationArousalSource ? -0.32 : 0;
+  const activeCommunityEdQuery =
+    queryClass === "document_lookup" &&
+    /\bactive\b/i.test(query) &&
+    /\bcommunity\b/i.test(query) &&
+    /\b(?:ed|emergency department)\b/i.test(query);
+  const activeCommunityEdSource =
+    /\bactive\b/.test(haystack) &&
+    /\bcommunity\b/.test(haystack) &&
+    /\b(?:ed|emergency department)\b/.test(haystack);
+  const activeCommunityCanonicalTitle =
+    activeCommunityEdQuery &&
+    /\bactive\b/.test(titleTokenText) &&
+    /\bcommunity\b/.test(titleTokenText) &&
+    /\b(?:ed|emergency department)\b/.test(titleTokenText);
+  const activeCommunityCanonicalBoost = activeCommunityCanonicalTitle ? 0.38 : activeCommunityEdQuery && activeCommunityEdSource ? 0.18 : 0;
+  const activeCommunityGenericPenalty = activeCommunityEdQuery && !activeCommunityEdSource ? -0.22 : 0;
+  const riskFlowchartQuery =
+    queryClass === "document_lookup" &&
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
+    /\b(?:risk|red\s*zone|red|next step|step after)\b/i.test(query);
+  const riskFlowchartSource =
+    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) && /\b(?:risk|red zone|red)\b/.test(haystack);
+  const riskFlowchartCanonicalTitle =
+    riskFlowchartQuery &&
+    /\b(?:flow|flowchart|flow chart|algorithm|pathway|matrix)\b/.test(titleTokenText) &&
+    /\brisk\b/.test(titleTokenText);
+  const riskFlowchartCanonicalBoost = riskFlowchartCanonicalTitle ? 0.32 : riskFlowchartQuery && riskFlowchartSource ? 0.16 : 0;
+  const riskFlowchartGenericPenalty = riskFlowchartQuery && !riskFlowchartSource ? -0.18 : 0;
   const structuredTableBoost =
     (queryClass === "table_threshold" || queryClass === "medication_dose_risk") && (result.table_facts?.length ?? 0) > 0
       ? 0.12
@@ -1347,6 +1409,9 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     clozapineSpecificBoost +
     clozapinePrescribingAdminBoost +
     mentalHealthDischargeBoost +
+    agitationArousalCanonicalBoost +
+    activeCommunityCanonicalBoost +
+    riskFlowchartCanonicalBoost +
     directAnswerBoost +
     comparisonCoverageBoost +
     sectionDepth +
@@ -1357,7 +1422,10 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     administrativeDoseQueryPenalty +
     coreConceptPenalty +
     clozapineSpecificPenalty +
-    genericDischargePenalty;
+    genericDischargePenalty +
+    agitationArousalGenericPenalty +
+    activeCommunityGenericPenalty +
+    riskFlowchartGenericPenalty;
   const penalty = Math.max(rawPenalty, -0.35);
   const finalScore = clamp(clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty);
 
@@ -1389,6 +1457,7 @@ export function clinicalRankScore(query: string, result: SearchResult) {
 function rankingTieBreakScore(query: string, result: SearchResult, explanation: SearchScoreExplanation) {
   const analysis = analyzeClinicalQuery(query);
   const queryClass = analysis.queryClass;
+  const correctedQueryText = correctedTokens(query).join(" ");
   const queryTokens = normalizedClinicalSearchTokens(query);
   const titleText = normalizeQueryTokenForLookups(`${result.title} ${result.file_name}`);
   const sectionText = normalizeQueryTokenForLookups(
@@ -1444,6 +1513,26 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
   if (queryClass === "medication_dose_risk" && hasDoseEvidence) score += 0.08;
   if (queryClass === "medication_dose_risk" && hasDoseAmountEvidence) score += 0.14;
   if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && hasStructuredTable) score += 0.04;
+  if (
+    queryClass === "medication_dose_risk" &&
+    /\bagitation\b/i.test(correctedQueryText) &&
+    /\b(?:arousal|route|oral|intramuscular|\bim\b|\bpo\b|dose|dosing|guidance|inpatient|psychiatric|chart|table|pharmacolog)/i.test(
+      correctedQueryText,
+    )
+  ) {
+    const agitationSource =
+      /\bagitation\b/.test(haystack) &&
+      (/\barousal\b/.test(haystack) ||
+        /\bpharmacological management\b/.test(haystack) ||
+        /\bpharma mgt\b/.test(titleText));
+    if (/\bagitation\b/.test(titleText) && (/\barousal\b/.test(titleText) || /\bpharma mgt\b/.test(titleText))) {
+      score += 0.24;
+    } else if (agitationSource) {
+      score += 0.1;
+    } else {
+      score -= 0.08;
+    }
+  }
   if (hasImageEvidenceNeed(query) && (result.images ?? []).some((image) => isClinicalImageEvidence(image)))
     score += 0.05;
   if (wantsSourceImage && hasSourceImageEvidence) score += 0.14;

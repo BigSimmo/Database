@@ -46,15 +46,6 @@ describe("app mode search contract", () => {
     expect(appModeQueryMode("prescribing", "monitoring_schedule")).toBe("monitoring_schedule");
   });
 
-  it("keeps favourites searchable inside the dashboard composer", () => {
-    const config = appModeSearchConfig("favourites");
-
-    expect(isSearchableAppMode("favourites")).toBe(true);
-    expect(config.kind).toBe("favourites");
-    expect(config.resultKind).toBe("favourites");
-    expect(config.placeholder.toLowerCase()).toContain("favourites");
-  });
-
   it("keeps tools searchable inside the dashboard composer", () => {
     const config = appModeSearchConfig("tools");
 
@@ -72,31 +63,33 @@ describe("app mode search contract", () => {
     expect(appModeHomeHref("prescribing", { query: "  acamprosate renal dose  " })).toBe(
       "/?mode=prescribing&q=acamprosate+renal+dose",
     );
-    expect(appModeHomeHref("favourites")).toBe("/?mode=favourites");
     expect(appModeHomeHref("tools", { query: "  medications  ", run: true, focus: true })).toBe(
       "/?mode=tools&q=medications&focus=1&run=1",
     );
   });
 
-  it("keeps evidence and tools while keeping the removed profile mockup out of app mode routing", () => {
+  it("keeps active production modes and excludes removed prototype modes from app routing", () => {
     expect(isAppModeId("profile")).toBe(false);
     expect(appModeDefinitions.map((mode) => mode.id)).not.toContain("profile");
     expect(appModeDefinitions.map((mode) => mode.id)).toEqual(
-      expect.arrayContaining(["answer", "documents", "prescribing", "evidence", "favourites", "tools"]),
+      expect.arrayContaining(["answer", "documents", "prescribing", "tools"]),
     );
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).not.toContain("profile");
   });
 
   it("keeps medication visible while mock-backed modes stay out of production navigation", () => {
-    const productionModes = visibleAppModeDefinitions("production").map((mode) => mode.id);
     const developmentModes = visibleAppModeDefinitions("development").map((mode) => mode.id);
+    const productionModes = visibleAppModeDefinitions("production").map((mode) => mode.id);
 
-    expect(isAppModeVisible("favourites", "production")).toBe(false);
+    expect(isAppModeVisible("evidence", "production")).toBe(false);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
+    expect(productionModes).not.toContain("evidence");
     expect(productionModes).not.toContain("favourites");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
-    expect(developmentModes).toEqual(expect.arrayContaining(["evidence", "favourites", "prescribing", "tools"]));
+    expect(developmentModes).toEqual(expect.arrayContaining(["answer", "documents", "prescribing", "tools"]));
+    expect(developmentModes).not.toContain("favourites");
+    expect(developmentModes).not.toContain("evidence");
   });
 });

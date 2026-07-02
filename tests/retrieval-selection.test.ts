@@ -24,6 +24,26 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
   };
 }
 
+function sourceMetadata(
+  overrides: Partial<NonNullable<SearchResult["source_metadata"]>> = {},
+): NonNullable<SearchResult["source_metadata"]> {
+  return {
+    source_title: null,
+    publisher: null,
+    jurisdiction: null,
+    version: null,
+    publication_date: null,
+    review_date: null,
+    uploaded_at: null,
+    indexed_at: null,
+    uploaded_by: null,
+    document_status: "current",
+    clinical_validation_status: "locally_reviewed",
+    extraction_quality: "good",
+    ...overrides,
+  };
+}
+
 describe("retrieval source selection", () => {
   it("rescues active-community ED document evidence above generic community hits", () => {
     const selection = selectRetrievalEvidence({
@@ -256,6 +276,68 @@ describe("retrieval source selection", () => {
     expect(selection.summary.matchedSignals).toEqual(
       expect.arrayContaining(["source_image", "visual_table", "table", "clozapine", "anc"]),
     );
+  });
+
+  it("prefers current locally reviewed clozapine threshold evidence over close review-required sources", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What ANC or FBC threshold should withhold clozapine?",
+      queryClass: "table_threshold",
+      topK: 5,
+      maxResultsPerDocument: 1,
+      results: [
+        source({
+          id: "review-due-shared-care",
+          document_id: "review-due-doc",
+          title: "Clozapine GP Shared Care",
+          file_name: "Clozapine GP Shared Care (FSH).pdf",
+          content: "Clozapine FBC and ANC blood count monitoring threshold information.",
+          hybrid_score: 0.99,
+          source_metadata: sourceMetadata({
+            document_status: "review_due",
+            clinical_validation_status: "unverified",
+          }),
+        }),
+        source({
+          id: "current-unverified-bmj",
+          document_id: "bmj-doc",
+          title: "Schizophrenia",
+          file_name: "Schizophrenia.pdf",
+          content: "Clozapine ANC and FBC monitoring for neutrophil thresholds.",
+          hybrid_score: 0.98,
+          source_metadata: sourceMetadata({
+            publisher: "BMJ Best Practice",
+            jurisdiction: "International",
+            clinical_validation_status: "unverified",
+          }),
+        }),
+        ...["fsh", "nmhs", "akg", "camhs", "smhs"].map((site, index) =>
+          source({
+            id: `current-local-${site}`,
+            document_id: `current-local-${site}-doc`,
+            title: "Clozapine Prescribing Administration Monitoring",
+            file_name: `Clozapine Prescribing Administration Monitoring (${site.toUpperCase()}).pdf`,
+            content: "Clozapine ANC and FBC threshold table: withhold clozapine and review blood results.",
+            hybrid_score: 0.94 - index * 0.01,
+            source_metadata: sourceMetadata({
+              publisher: "WA Health",
+              jurisdiction: "Australia/WA",
+            }),
+          }),
+        ),
+      ],
+    });
+
+    expect(selection.results).toHaveLength(5);
+    expect(selection.results.map((result) => result.id)).toEqual([
+      "current-local-fsh",
+      "current-local-nmhs",
+      "current-local-akg",
+      "current-local-camhs",
+      "current-local-smhs",
+    ]);
+    expect(
+      selection.results.every((result) => result.source_metadata?.clinical_validation_status === "locally_reviewed"),
+    ).toBe(true);
   });
 
   it("prefers risk/red-zone flowchart evidence over generic flowchart evidence", () => {

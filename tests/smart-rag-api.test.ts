@@ -21,6 +21,64 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe("smart RAG API plan", () => {
+  const answerPlanContract = {
+    intent: new Set(["clinical_synthesis", "source_lookup", "document_lookup", "unsupported"]),
+    routeMode: new Set(["unsupported", "extractive", "fast", "strong"]),
+    modelStrategy: new Set([
+      "fast_model_then_quality_gate",
+      "strong_model_then_quality_gate",
+      "extractive_lookup",
+      "source_gap",
+    ]),
+    retrievalQuality: new Set(["strong", "partial", "weak", "conflicting"]),
+    fallbackBehavior: new Set(["retry_strong_then_source_gap", "source_gap", "extractive_lookup_only"]),
+    sourcePolicy: new Set(["required_citations", "nearby_sources_allowed", "exact_source_links"]),
+  };
+
+  function expectContractAnswerPlan(plan: ReturnType<typeof buildSmartRagApiPlan>) {
+    expect(answerPlanContract.intent.has(plan.answerPlan.intent)).toBe(true);
+    expect(answerPlanContract.routeMode.has(plan.answerPlan.routeMode)).toBe(true);
+    expect(answerPlanContract.modelStrategy.has(plan.answerPlan.modelStrategy)).toBe(true);
+    expect(answerPlanContract.retrievalQuality.has(plan.answerPlan.retrievalQuality)).toBe(true);
+    expect(answerPlanContract.fallbackBehavior.has(plan.answerPlan.fallbackBehavior)).toBe(true);
+    expect(answerPlanContract.sourcePolicy.has(plan.answerPlan.sourcePolicy)).toBe(true);
+  }
+
+  it("keeps generated answer-plan values inside the central contract", () => {
+    const plans = [
+      buildSmartRagApiPlan({
+        query: "What monitoring escalation is required?",
+        queryClass: "medication_dose_risk",
+        results: [source()],
+        routeMode: "fast",
+        retrievalStrategy: "hybrid",
+      }),
+      buildSmartRagApiPlan({
+        query: "What ANC threshold should stop clozapine?",
+        queryClass: "table_threshold",
+        results: [source()],
+        routeMode: "strong",
+        retrievalStrategy: "text_fast_path",
+      }),
+      buildSmartRagApiPlan({
+        query: "agitation guideline source",
+        queryClass: "unsupported_or_general",
+        results: [source()],
+        preferredResponseMode: "document_lookup",
+        retrievalStrategy: "document_lookup_fast_path",
+      }),
+      buildSmartRagApiPlan({
+        query: "unsupported clinical question",
+        queryClass: "unsupported_or_general",
+        results: [],
+        routeMode: "unsupported",
+        retrievalStrategy: "unsupported_short_circuit",
+      }),
+    ];
+
+    for (const plan of plans) expectContractAnswerPlan(plan);
+  });
+
   it("builds clickable core source links for answer responses", () => {
     const plan = buildSmartRagApiPlan({
       query: "What monitoring escalation is required?",

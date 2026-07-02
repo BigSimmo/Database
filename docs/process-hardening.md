@@ -36,6 +36,7 @@ This document turns the current process review into phased, durable repo practic
 - `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 24.x or npm 11.x when run through npm.
 - CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 24.
 - `npm run check:edge:functions` is the Deno type gate for the Supabase `indexing-v3-agent` Edge Function.
+- `npm run check:document-label-coverage` is the live Supabase generated-label coverage gate. Run it after ingestion batches, document reclassification, or generated-label migrations; zero indexed documents may be missing generated `site` or `document_type` labels.
 - Tune the full-browser CI cadence if release branches or weekly schedules prove too slow or too sparse.
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.
@@ -47,3 +48,4 @@ This document turns the current process review into phased, durable repo practic
 - The format gate intentionally ignores `.tmp-visual/` and `scratch/`; those folders are local investigation output, not release source.
 - Process scripts do not commit, push, deploy, mutate Supabase data, or run dependency updates.
 - `npm run check:indexing` includes local OCR prerequisites (`fitz`/PyMuPDF, `pytesseract`, and the Tesseract binary). A failure at that prerequisite step is local machine setup debt, not evidence that indexed production data or search behavior regressed.
+- Supabase performance-advisor `unused_index` INFO items are monitored, not automatically fixed. Do not remove search/RAG support indexes until live query evidence, local explain/verification, and rollback planning show the index is safe to drop.

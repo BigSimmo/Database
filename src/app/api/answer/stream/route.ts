@@ -17,6 +17,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -205,7 +206,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
 
 export async function POST(request: Request) {
   try {
-    const body = answerSchema.parse(await request.json());
+    const body = await parseJsonBody(request, answerSchema, "Invalid answer request.");
     if (isDemoMode()) return streamAnswer(body, undefined, request.signal);
 
     const supabase = createAdminClient();

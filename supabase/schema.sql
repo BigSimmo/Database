@@ -491,6 +491,17 @@ create table if not exists public.api_rate_limits (
   constraint api_rate_limits_bucket_nonempty check (btrim(bucket) <> '')
 );
 
+create table if not exists public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  action text not null,
+  resource_type text,
+  resource_id text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint audit_logs_action_nonempty check (btrim(action) <> '')
+);
+
 create table if not exists public.storage_cleanup_jobs (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -710,6 +721,10 @@ create index if not exists rag_retrieval_logs_strategy_idx
   on public.rag_retrieval_logs(retrieval_strategy, created_at desc);
 create index if not exists api_rate_limits_bucket_updated_idx
   on public.api_rate_limits(bucket, updated_at desc);
+create index if not exists audit_logs_owner_created_idx
+  on public.audit_logs(owner_id, created_at desc);
+create index if not exists audit_logs_action_created_idx
+  on public.audit_logs(action, created_at desc);
 
 -- Redundant single-column FK indexes removed (covered by composite indexes
 -- with the same leading column, e.g. document_chunks_document_idx).
@@ -3278,9 +3293,13 @@ grant select, insert, update, delete on table
   public.rag_aliases,
   public.rag_response_cache,
   public.api_rate_limits,
+  public.audit_logs,
   public.storage_cleanup_jobs,
   public.rag_retrieval_logs
 to service_role;
+
+revoke all on public.audit_logs from anon, authenticated;
+grant select, insert, update, delete on table public.audit_logs to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
@@ -3330,6 +3349,7 @@ alter table public.rag_query_misses enable row level security;
 alter table public.rag_aliases enable row level security;
 alter table public.rag_response_cache enable row level security;
 alter table public.api_rate_limits enable row level security;
+alter table public.audit_logs enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
 alter table public.rag_retrieval_logs enable row level security;
 
@@ -3424,6 +3444,11 @@ create policy "rag response cache service role all" on public.rag_response_cache
   with check (true);
 
 create policy "api rate limits service role all" on public.api_rate_limits
+  for all to service_role
+  using (true)
+  with check (true);
+
+create policy "audit logs service role all" on public.audit_logs
   for all to service_role
   using (true)
   with check (true);

@@ -6,6 +6,7 @@ import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
@@ -111,12 +112,11 @@ export async function POST(request: Request) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Bulk edits are unavailable in demo mode." }, { status: 400 });
 
-    const parsed = bulkMetadataSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) throw new PublicApiError("Bulk edit payload is invalid.");
+    const parsed = await parseJsonBody(request, bulkMetadataSchema, "Bulk edit payload is invalid.");
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const ids = Array.from(new Set(parsed.data.documentIds));
+    const ids = Array.from(new Set(parsed.documentIds));
 
     const { data: documents, error: documentsError } = await supabase
       .from("documents")
@@ -134,20 +134,20 @@ export async function POST(request: Request) {
     for (const document of documents) {
       try {
         const metadata = metadataRecord(document.metadata);
-        setMetadataValue(metadata, "document_status", parsed.data.metadata.sourceStatus);
-        setMetadataValue(metadata, "clinical_validation_status", parsed.data.metadata.validationStatus);
-        setMetadataValue(metadata, "extraction_quality", parsed.data.metadata.extractionQuality);
-        setMetadataValue(metadata, "review_date", parsed.data.metadata.reviewDate);
-        setMetadataValue(metadata, "publication_date", parsed.data.metadata.publicationDate);
-        setMetadataValue(metadata, "jurisdiction", parsed.data.metadata.jurisdiction);
-        setMetadataValue(metadata, "publisher", parsed.data.metadata.publisher);
-        setMetadataValue(metadata, "source_type", parsed.data.metadata.sourceType);
-        setMetadataValue(metadata, "collection", parsed.data.metadata.collection);
-        setMetadataValue(metadata, "category", parsed.data.metadata.category);
+        setMetadataValue(metadata, "document_status", parsed.metadata.sourceStatus);
+        setMetadataValue(metadata, "clinical_validation_status", parsed.metadata.validationStatus);
+        setMetadataValue(metadata, "extraction_quality", parsed.metadata.extractionQuality);
+        setMetadataValue(metadata, "review_date", parsed.metadata.reviewDate);
+        setMetadataValue(metadata, "publication_date", parsed.metadata.publicationDate);
+        setMetadataValue(metadata, "jurisdiction", parsed.metadata.jurisdiction);
+        setMetadataValue(metadata, "publisher", parsed.metadata.publisher);
+        setMetadataValue(metadata, "source_type", parsed.metadata.sourceType);
+        setMetadataValue(metadata, "collection", parsed.metadata.collection);
+        setMetadataValue(metadata, "category", parsed.metadata.category);
         metadata.bulk_metadata_updated_at = now;
         metadata.bulk_metadata_updated_by = user.id;
 
-        const nextTitle = editTitle(document.title, parsed.data.titleEdit);
+        const nextTitle = editTitle(document.title, parsed.titleEdit);
         const updatePayload: Record<string, unknown> = { metadata };
         if (nextTitle && nextTitle !== document.title) updatePayload.title = nextTitle;
 
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const labelsToAdd = parsed.data.labels.add
+    const labelsToAdd = parsed.labels.add
       .map((label) => normalizeDocumentLabelForStorage({ ...label, source: "manual" }))
       .filter((label): label is NonNullable<typeof label> => Boolean(label));
     if (labelsToAdd.length) {
@@ -188,7 +188,7 @@ export async function POST(request: Request) {
       if (labelError) throw new Error(labelError.message);
     }
 
-    for (const label of parsed.data.labels.remove) {
+    for (const label of parsed.labels.remove) {
       const normalized = normalizeDocumentLabelForStorage({ ...label, source: "manual" });
       if (!normalized) continue;
       const { error: removeError } = await supabase
@@ -213,6 +213,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    if (error instanceof PublicApiError) return jsonError(error, error.status);
+    return jsonError(error, 500);
   }
 }

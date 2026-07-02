@@ -194,6 +194,38 @@ describe("answer render policy", () => {
     expect(model.allowedBlocks).toEqual(expect.arrayContaining(["quoteCards", "visualEvidence", "relatedDocuments"]));
   });
 
+  it("promotes smartApiPlan core source links into canonical primary sources", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        smartApiPlan: {
+          coreSourceLinks: [
+            {
+              id: "core-chunk",
+              label: "Core source, page 8",
+              href: "/documents/doc-core?page=8&chunk=core-chunk",
+              document_id: "doc-core",
+              chunk_id: "core-chunk",
+              title: "Canonical Source Packet",
+              file_name: "canonical-source.pdf",
+              page_number: 8,
+              source_strength: "strong",
+              reason: "Selected by the answer plan.",
+              snippet: "Canonical answer-plan source text.",
+            },
+          ],
+        } as RagAnswer["smartApiPlan"],
+      }),
+    );
+
+    expect(model.primarySources[0]).toMatchObject({
+      chunk_id: "core-chunk",
+      document_id: "doc-core",
+      href: "/documents/doc-core?page=8&chunk=core-chunk",
+      reason: "Selected by the answer plan.",
+    });
+    expect(model.copyText).toContain("/documents/doc-core?page=8&chunk=core-chunk");
+  });
+
   it("deduplicates conflicting section evidence by source rather than rendering duplicate rows", () => {
     const model = buildAnswerRenderModel(
       answer({

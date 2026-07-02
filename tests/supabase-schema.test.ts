@@ -42,6 +42,10 @@ const abandonedReindexRecoveryMigration = readFileSync(
   new URL("../supabase/migrations/20260629000000_abandoned_reindex_generation_recovery.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const auditLogsServiceRolePolicyMigration = readFileSync(
+  new URL("../supabase/migrations/20260630090000_audit_logs_service_role_policy.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -285,6 +289,18 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("alter table public.api_rate_limits enable row level security");
     expect(schema).toContain('create policy "api rate limits service role all"');
     expect(schema).not.toMatch(/grant [^;]*public\.api_rate_limits[^;]* to authenticated;/);
+  });
+
+  it("keeps audit logs service-role-only with an explicit RLS policy", () => {
+    for (const sql of [schema, auditLogsServiceRolePolicyMigration]) {
+      expect(sql).toContain("alter table public.audit_logs enable row level security");
+      expect(sql).toContain("revoke all on public.audit_logs from anon, authenticated");
+      expect(sql).toContain("grant select, insert, update, delete on table public.audit_logs to service_role");
+      expect(sql).toContain('create policy "audit logs service role all" on public.audit_logs');
+      expect(sql).toContain("for all to service_role");
+    }
+    expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to authenticated;/);
+    expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to anon;/);
   });
 
   it("stores deep structured memory privately for source-backed answers", () => {

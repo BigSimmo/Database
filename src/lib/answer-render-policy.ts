@@ -34,6 +34,7 @@ export type SourceLink = {
   label: string;
   sourceStrength: SourceStrength | "none";
   reason: string;
+  sourceMetadata?: Citation["source_metadata"] | null;
   snippet?: string;
   score?: number;
 };
@@ -74,10 +75,14 @@ type SourceCandidate = {
   citation: Citation;
   reason: string;
   triggerField: string;
+  href?: string;
+  sourceMetadata?: Citation["source_metadata"] | null;
   snippet?: string;
   score?: number;
   sourceStrength?: SourceStrength | "none";
 };
+
+type CoreSourceLink = NonNullable<NonNullable<RagAnswer["smartApiPlan"]>["coreSourceLinks"]>[number];
 
 type BuildAnswerRenderModelOptions = {
   sources?: SearchResult[];
@@ -151,10 +156,11 @@ function sourceLinkFromCandidate(candidate: SourceCandidate): SourceLink {
     title: citation.title || citation.file_name || "Source",
     file_name: citation.file_name,
     page_number: citation.page_number,
-    href: documentCitationHref(citation),
+    href: candidate.href ?? documentCitationHref(citation),
     label: formatCitationLabel(citation),
     sourceStrength: sourceStrengthFor(candidate),
     reason: candidate.reason,
+    sourceMetadata: candidate.sourceMetadata ?? citation.source_metadata ?? null,
     snippet: candidate.snippet,
     score: candidate.score,
   };
@@ -168,6 +174,7 @@ function candidateFromBestSource(source: BestSourceRecommendation, triggerField:
     snippet: source.quote || source.snippet,
     score: source.score,
     sourceStrength: source.source_strength,
+    sourceMetadata: source.source_metadata,
   };
 }
 
@@ -179,6 +186,7 @@ function candidateFromSearchResult(source: SearchResult, triggerField: string): 
     snippet: source.retrieval_synopsis ?? source.content,
     score: source.hybrid_score ?? source.similarity,
     sourceStrength: source.source_strength,
+    sourceMetadata: source.source_metadata,
   };
 }
 
@@ -188,11 +196,43 @@ function candidateFromCitation(citation: Citation, triggerField: string): Source
     reason: "Cited by the generated answer.",
     triggerField,
     score: citation.similarity,
+    sourceMetadata: citation.source_metadata,
+  };
+}
+
+function candidateFromCoreSourceLink(link: CoreSourceLink, triggerField: string): SourceCandidate | null {
+  const linkRecord = link as CoreSourceLink & {
+    source_strength?: SourceStrength | "none";
+    sourceStrength?: SourceStrength | "none";
+  };
+  const chunkId = link.chunk_id || link.id;
+  if (!chunkId || !link.document_id) return null;
+
+  const title = link.title || link.file_name || link.label || "Source";
+  const citation = {
+    chunk_id: chunkId,
+    document_id: link.document_id,
+    title,
+    file_name: link.file_name || title,
+    page_number: link.page_number ?? null,
+  } as Citation;
+
+  return {
+    citation,
+    reason: link.reason || "Selected by the canonical answer source plan.",
+    triggerField,
+    href: link.href,
+    snippet: link.snippet,
+    sourceStrength: linkRecord.source_strength ?? linkRecord.sourceStrength ?? "none",
   };
 }
 
 function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
   const candidates: SourceCandidate[] = [];
+  for (const link of answer.smartApiPlan?.coreSourceLinks ?? []) {
+    const candidate = candidateFromCoreSourceLink(link, "smartApiPlan.coreSourceLinks");
+    if (candidate) candidates.push(candidate);
+  }
   const bestSource = answer.bestSource ?? answer.smartPanel?.bestSource ?? null;
   if (bestSource) candidates.push(candidateFromBestSource(bestSource, "bestSource"));
   for (const citation of answer.citations ?? []) candidates.push(candidateFromCitation(citation, "citations"));
