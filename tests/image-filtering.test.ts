@@ -5,6 +5,7 @@ import {
   classifiedImageSkipReason,
   isClinicalImageEvidence,
   lightweightPerceptualHash,
+  normalizeImageBbox,
 } from "../src/lib/image-filtering";
 
 describe("smart image filtering", () => {
@@ -40,6 +41,33 @@ describe("smart image filtering", () => {
         image: { sourceKind: "table_crop", width: 720, height: 180, bbox: [20, 20, 740, 200] },
       }),
     ).toBeNull();
+  });
+
+  it("ignores object-shaped bbox jsonb instead of crashing", () => {
+    expect(
+      cheapImageSkipReason({
+        bytesLength: 20_000,
+        imageHash: "obj",
+        seenHashes: new Set(),
+        image: {
+          sourceKind: "embedded",
+          width: 600,
+          height: 400,
+          bbox: { x0: 20, y0: 20, x1: 180, y1: 80 } as unknown as [number, number, number, number],
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it("normalizes bbox jsonb to a four-number tuple or null", () => {
+    expect(normalizeImageBbox([20, 20, 180, 80])).toEqual([20, 20, 180, 80]);
+    expect(normalizeImageBbox(["20", "20", "180", "80"])).toEqual([20, 20, 180, 80]);
+    expect(normalizeImageBbox({ x0: 20, y0: 20, x1: 180, y1: 80 })).toBeNull();
+    expect(normalizeImageBbox([20, 20, 180])).toBeNull();
+    expect(normalizeImageBbox([20, 20, 180, "wide"])).toBeNull();
+    expect(normalizeImageBbox([20, 20, 180, Number.NaN])).toBeNull();
+    expect(normalizeImageBbox("20,20,180,80")).toBeNull();
+    expect(normalizeImageBbox(null)).toBeNull();
   });
 
   it("keeps relevant clinical classifications searchable", () => {
