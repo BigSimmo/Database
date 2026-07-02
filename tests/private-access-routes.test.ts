@@ -1066,10 +1066,11 @@ describe("private document API access", () => {
   });
 
   it("rolls back retry reset only when this retry's next_run_at is still current", async () => {
+    const jobId = "11111111-1111-4111-8111-111111111111";
     const client = createSupabaseMock((call) => {
       if (call.table === "ingestion_jobs" && call.operation === "select") {
         return ok({
-          id: "job-1",
+          id: jobId,
           document_id: documentId,
           batch_id: null,
           status: "failed",
@@ -1085,7 +1086,7 @@ describe("private document API access", () => {
         });
       }
       if (call.table === "ingestion_jobs" && call.operation === "update") {
-        return ok({ id: "job-1", ...(call.updatePayload as Record<string, unknown>) });
+        return ok({ id: jobId, ...(call.updatePayload as Record<string, unknown>) });
       }
       if (call.table === "documents" && call.operation === "update") return fail("document update failed");
       return ok([]);
@@ -1093,16 +1094,16 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
-      params: Promise.resolve({ id: "job-1" }),
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/${jobId}/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: jobId }),
     });
     const jobUpdates = client.calls.filter((call) => call.table === "ingestion_jobs" && call.operation === "update");
     const resetUpdate = jobUpdates[0];
     const rollbackUpdate = jobUpdates[1];
     const nextRunAt = (resetUpdate?.updatePayload as { next_run_at?: string } | undefined)?.next_run_at;
 
-    expect(response.status).toBe(400);
-    expect(await payload(response)).toEqual({ error: "Request could not be completed." });
+    expect(response.status).toBe(500);
+    expect(await payload(response)).toEqual({ error: "Request failed." });
     expect(jobUpdates).toHaveLength(2);
     expect(rollbackUpdate?.filters).toContainEqual({ column: "status", value: "pending" });
     expect(rollbackUpdate?.filters).toContainEqual({ column: "stage", value: "queued" });
@@ -1570,8 +1571,8 @@ describe("private document API access", () => {
     const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
     const rollbackUpdate = documentUpdates[1];
 
-    expect(response.status).toBe(400);
-    expect(await payload(response)).toEqual({ error: "Request could not be completed." });
+    expect(response.status).toBe(500);
+    expect(await payload(response)).toEqual({ error: "Request failed." });
     expect(documentUpdates).toHaveLength(2);
     expect(rollbackUpdate?.filters).toContainEqual({ column: "status", value: "queued" });
     expect(rollbackUpdate?.filters).toContainEqual({ column: "page_count", value: 0 });
