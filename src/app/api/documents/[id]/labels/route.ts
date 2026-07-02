@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
 import { parseJsonBody } from "@/lib/validation/body";
+import { parseRouteParams } from "@/lib/validation/params";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,9 @@ const manualLabelUpdateSchema = manualLabelSchema.extend({
 
 const manualLabelDeleteSchema = z.object({
   labelId: z.string().uuid(),
+});
+const labelsRouteParamsSchema = z.object({
+  id: z.string().uuid(),
 });
 
 function parseManualLabel(input: z.infer<typeof manualLabelSchema>) {
@@ -84,7 +88,8 @@ async function selectLabels(supabase: ReturnType<typeof createAdminClient>, docu
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, labelsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }
@@ -141,7 +146,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, labelsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }
@@ -206,7 +212,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, labelsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
       return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
     }

@@ -203,6 +203,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    return jsonError(error);
   }
 }
