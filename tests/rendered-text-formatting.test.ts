@@ -20,7 +20,8 @@ describe("document-derived text must route through a formatter", () => {
   // the code as it moves out — assertions check the combined dashboard surfaces.
   const answerContent = componentSource("clinical-dashboard/answer-content.tsx");
   const evidenceContent = componentSource("clinical-dashboard/evidence-panels.tsx");
-  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}`;
+  const outputPanel = componentSource("clinical-dashboard/output-panel.tsx");
+  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${outputPanel}`;
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);
