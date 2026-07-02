@@ -1,0 +1,20 @@
+{
+  "name": "clinical-kb-api-local",
+  "interface": {
+    "displayName": "Clinical KB local"
+  },
+  "plugins": [
+    {
+      "name": "clinical-kb",
+      "source": {
+        "source": "local",
+        "path": "./plugins/clinical-kb"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

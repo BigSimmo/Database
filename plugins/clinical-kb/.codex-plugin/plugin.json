@@ -1,0 +1,27 @@
+{
+  "name": "clinical-kb",
+  "version": "0.1.0",
+  "description": "Repo guidance for Clinical KB, a Next.js clinical reference RAG app.",
+  "author": {
+    "name": "Clinical KB maintainers",
+    "url": "https://github.com/BigSimmo"
+  },
+  "repository": "https://github.com/BigSimmo/Database",
+  "keywords": ["clinical-kb", "nextjs", "rag", "supabase", "clinical-safety", "local-development"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Clinical KB",
+    "shortDescription": "Work safely in the Clinical KB Next.js and Supabase RAG repo.",
+    "longDescription": "Clinical KB provides repo-specific Codex guidance for local server safety, Next.js 16 conventions, Supabase project safety, no-API verification, clinical governance checks, and focused verification choices.",
+    "developerName": "Clinical KB maintainers",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/BigSimmo/Database",
+    "defaultPrompt": [
+      "Run the safe Clinical KB local server.",
+      "Verify my Clinical KB change without API calls.",
+      "Review this Clinical KB RAG change."
+    ],
+    "brandColor": "#0B6F86"
+  }
+}
