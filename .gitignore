@@ -19,7 +19,10 @@
 /.playwright-cli/
 /playwright/.auth/
 /.codex/
-/.agents/
+/.agents/*
+!/.agents/plugins/
+!/.agents/plugins/marketplace.json
+!/.agents/plugins/api_marketplace.json
 /skills-lock.json
 
 # next.js

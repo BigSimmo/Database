@@ -13,6 +13,9 @@ were removed in July 2026 so stale palettes do not mislead future design review 
 
 - Medication prescribing now lives in the app at `/?mode=prescribing` and `/medications/acamprosate`.
 - `answer-evidence-popups/page.tsx` - copied from `src/app/mockups/answer-evidence-popups/page.tsx`
+- `document-search-command` - runnable mockup only, in `src/app/mockups/document-search-command/page.tsx`
+- `document-search-evidence-lens` - runnable mockup only, in `src/app/mockups/document-search-evidence-lens/page.tsx`
+- `document-search-triage-board` - runnable mockup only, in `src/app/mockups/document-search-triage-board/page.tsx`
 - `mode-dropdown` - runnable mockup only, in `src/app/mockups/mode-dropdown/page.tsx`
 - `recent-searches-bottom` - runnable mockup only, in `src/app/mockups/recent-searches-bottom/page.tsx`
 - `settings-search-general` - runnable mockup only, in `src/app/mockups/settings-search-general/page.tsx`
@@ -26,6 +29,9 @@ The runnable versions remain in the Next.js app route tree:
 - `/?mode=prescribing`
 - `/medications/acamprosate`
 - `/mockups/answer-evidence-popups`
+- `/mockups/document-search-command?mode=documents`
+- `/mockups/document-search-evidence-lens?mode=documents`
+- `/mockups/document-search-triage-board?mode=documents`
 - `/mockups/mode-dropdown`
 - `/mockups/recent-searches-bottom`
 - `/mockups/settings-search-general`
@@ -43,3 +49,9 @@ New runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB he
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
+
+## Synthetic document-search assets
+
+The document-search mockups use generated non-patient bitmap assets in `public/mockups/document-search/`. These images are
+abstract UI/document textures only: they must not be treated as source screenshots, hospital-branded material, or clinical
+content.

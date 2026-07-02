@@ -1937,6 +1937,130 @@ describe("private document API access", () => {
     expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
   });
 
+  it.each([
+    ["approve", "approved", false],
+    ["hide", "hidden", true],
+    ["restore", "new", false],
+  ] as const)("reviews owned document labels with %s", async (action, reviewStatus, hidden) => {
+    const labelId = "99999999-9999-4999-8999-999999999999";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) {
+        return ok({ id: labelId, metadata: { source_rule: "generated-labels", review_status: "new" } });
+      }
+      if (call.table === "document_labels" && call.operation === "update") {
+        return ok({ id: labelId, ...(call.updatePayload as Record<string, unknown>) });
+      }
+      if (call.table === "document_labels" && call.operation === "select") {
+        return ok([{ id: labelId, document_id: documentId, label: "lithium", label_type: "medication" }]);
+      }
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { PATCH } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "PATCH",
+        body: JSON.stringify({ labelId, action }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const selectExisting = client.calls.find(
+      (call) => call.table === "document_labels" && call.operation === "select" && call.maybeSingle,
+    );
+    const update = client.calls.find((call) => call.table === "document_labels" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(body.label).toMatchObject({
+      metadata: expect.objectContaining({ review_status: reviewStatus, hidden, source_rule: "generated-labels" }),
+    });
+    expect(selectExisting?.filters).toEqual(
+      expect.arrayContaining([
+        { column: "id", value: labelId },
+        { column: "document_id", value: documentId },
+        { column: "owner_id", value: userId },
+      ]),
+    );
+    expect(update?.filters).toEqual(
+      expect.arrayContaining([
+        { column: "id", value: labelId },
+        { column: "document_id", value: documentId },
+        { column: "owner_id", value: userId },
+      ]),
+    );
+    expect(update?.updatePayload).toMatchObject({
+      metadata: expect.objectContaining({ review_status: reviewStatus, hidden, reviewed_by: "label-review-admin" }),
+    });
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+  });
+
+  it("does not review labels that are not owned by the authenticated user", async () => {
+    const labelId = "99999999-9999-4999-8999-999999999998";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) return ok(null);
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { PATCH } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "PATCH",
+        body: JSON.stringify({ labelId, action: "hide" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const selectExisting = client.calls.find(
+      (call) => call.table === "document_labels" && call.operation === "select" && call.maybeSingle,
+    );
+
+    expect(response.status).toBe(404);
+    expect(await payload(response)).toEqual({ error: "Tag not found." });
+    expect(selectExisting?.filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(client.calls.some((call) => call.table === "document_labels" && call.operation === "update")).toBe(false);
+    expect(invalidateRagCachesForDocumentMutation).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when a reviewed label does not belong to the selected document", async () => {
+    const labelId = "99999999-9999-4999-8999-999999999997";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok({ id: documentId, owner_id: userId });
+      if (call.table === "document_labels" && call.operation === "select" && call.maybeSingle) return ok(null);
+      return ok([]);
+    });
+    const invalidateRagCachesForDocumentMutation = vi.fn();
+    mockRuntime(client, { invalidateRagCachesForDocumentMutation });
+    const { PATCH } = await import("../src/app/api/documents/[id]/labels/route");
+
+    const response = await PATCH(
+      authenticatedRequest(`/api/documents/${documentId}/labels`, {
+        method: "PATCH",
+        body: JSON.stringify({ labelId, action: "approve" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const selectExisting = client.calls.find(
+      (call) => call.table === "document_labels" && call.operation === "select" && call.maybeSingle,
+    );
+
+    expect(response.status).toBe(404);
+    expect(await payload(response)).toEqual({ error: "Tag not found." });
+    expect(selectExisting?.filters).toEqual(
+      expect.arrayContaining([
+        { column: "id", value: labelId },
+        { column: "document_id", value: documentId },
+        { column: "owner_id", value: userId },
+      ]),
+    );
+    expect(client.calls.some((call) => call.table === "document_labels" && call.operation === "update")).toBe(false);
+    expect(invalidateRagCachesForDocumentMutation).not.toHaveBeenCalled();
+  });
+
   it("refuses to mutate generated document labels", async () => {
     const generatedLabelId = "77777777-7777-4777-8777-777777777777";
     const client = createSupabaseMock((call) => {

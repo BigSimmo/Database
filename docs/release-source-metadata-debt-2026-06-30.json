@@ -3,33 +3,40 @@
   "accepted_by": "repository owner",
   "accepted_at": "2026-07-02T00:00:00.000+08:00",
   "expires_at": "2026-07-31T23:59:59.000+08:00",
-  "reason": "Bounded release metadata debt acceptance for residual corpus-state governance values after required source metadata key coverage was completed. This accepts review_due, unknown, and unverified states as tracked backend debt only; it does not mark any source current, locally reviewed, or approved.",
-  "scope": "eval-quality retrieval source metadata thresholds only",
-  "source_report": "output/evals/retrieval-quality-2026-07-02T04-58-43-365Z.json",
+  "reason": "Bounded release metadata debt for the existing corpus after required source metadata and clinical validation evidence were backfilled. This does not mark review-due, unknown, or unverified sources as current or approved, and it does not permit outdated or poor-extraction top results.",
+  "scope": "eval-quality retrieval source metadata thresholds and read-only source governance audit only",
+  "source_report": "output/evals/retrieval-quality-2026-07-02T06-55-32-323Z.json",
   "observed_live_corpus": {
-    "observed_at": "2026-07-02T00:00:00.000+08:00",
     "indexed_documents": 2065,
     "missing_required_source_metadata": 0,
     "review_due_documents": 481,
     "unknown_status_documents": 132,
-    "unverified_documents": 130,
+    "unverified_validation_documents": 130,
     "poor_extraction_documents": 0,
-    "missing_smart_v2_labels": 0
+    "missing_smart_v2_label_documents": 0
   },
   "observed_retrieval_eval": {
+    "total_top_results": 23,
     "stale_top_results": 0,
-    "review_due_top_results": 5,
+    "review_due_top_results": 4,
+    "unknown_status_top_results": 0,
     "unverified_top_results": 6,
-    "review_required_top_results": 7,
+    "explicit_non_local_unverified_top_results": 6,
+    "unknown_extraction_top_results": 0,
+    "poor_extraction_top_results": 0,
     "stale_rate": 0,
-    "review_required_rate": 0.14
+    "stale_review_unknown_rate": 0.1739,
+    "review_required_top_results": 4,
+    "review_required_rate": 0.1739,
+    "supporting_top5_total_results": 113,
+    "supporting_top5_review_required_results": 30,
+    "supporting_top5_review_required_rate": 0.2655
   },
   "required_follow_up": [
-    "Review high-frequency review_due, unknown, and unverified documents first.",
-    "Keep required source metadata key coverage at zero missing fields.",
-    "Backfill documents.metadata.document_status only after confirming source currentness.",
-    "Backfill documents.metadata.clinical_validation_status only after local clinical review.",
-    "Replace this debt file with stricter ceilings or remove it before expiry."
+    "Review eval top-result review_due documents first.",
+    "Review eval top-result unverified documents next.",
+    "Use high-frequency search/query logs to order the remaining corpus review.",
+    "Lower max_review_required_rate to 0.1, then 0.05, then remove this debt file once top-result debt is near zero."
   ],
   "ceilings": {
     "max_stale_rate": 0,

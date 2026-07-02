@@ -43,8 +43,8 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import {
-  buildSmartDocumentTagFacets,
-  filterDocumentsBySmartTagFacets,
+  buildSmartDocumentTagFacetIndex,
+  filterDocumentsBySmartTagFacetIndex,
   smartDocumentFacetGroups,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
@@ -719,10 +719,11 @@ export function DocumentSearchResultsPanel({
     () => (activeFacetState.query === query ? activeFacetState.keys : []),
     [activeFacetState, query],
   );
-  const tagFacetGroups = useMemo(() => buildSmartDocumentTagFacets(matches, { query }), [matches, query]);
+  const tagFacetIndex = useMemo(() => buildSmartDocumentTagFacetIndex(matches, { query }), [matches, query]);
+  const tagFacetGroups = tagFacetIndex.groups;
   const visibleMatches = useMemo(
-    () => filterDocumentsBySmartTagFacets(matches, activeFacetKeys),
-    [matches, activeFacetKeys],
+    () => filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeFacetKeys),
+    [tagFacetIndex, activeFacetKeys],
   );
   const resultTabs = useMemo(() => resultTypeTabs(visibleMatches), [visibleMatches]);
   const effectiveResultType = resultTabs.some((tab) => tab.key === activeResultType) ? activeResultType : "all";

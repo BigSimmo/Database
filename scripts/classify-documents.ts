@@ -1,5 +1,5 @@
 import * as nextEnv from "@next/env";
-import { documentLabelTier } from "@/lib/document-tags";
+import { documentLabelTier, normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -17,6 +17,7 @@ type ClassifyArgs = {
   write: boolean;
   confirm: boolean;
   help: boolean;
+  onlyMissingSmartV2: boolean;
 };
 
 type SupabaseAdmin = Awaited<ReturnType<typeof loadAdminClient>>;
@@ -43,8 +44,8 @@ type GeneratedLabelRow = {
     generated_by: "document-organization-classifier";
     organization_profile_version: "document-organization-v1";
     classified_at: string;
-    label_tier: ReturnType<typeof documentLabelTier>;
-    review_status: Classification["profile"]["review_status"];
+    label_tier: string;
+    review_status: "new";
   };
 };
 
@@ -68,6 +69,8 @@ const generatedLabelTypes = [
   "content_feature",
 ] as const;
 
+const smartV2GeneratedLabelTypes = new Set(["clinical_action", "care_phase", "document_intent", "content_feature"]);
+
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
@@ -82,6 +85,7 @@ function parseArgs(argv: string[]): ClassifyArgs {
     write: false,
     confirm: false,
     help: false,
+    onlyMissingSmartV2: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -100,6 +104,10 @@ function parseArgs(argv: string[]): ClassifyArgs {
     }
     if (token === "--help" || token === "-h") {
       args.help = true;
+      continue;
+    }
+    if (token === "--only-missing-smart-v2") {
+      args.onlyMissingSmartV2 = true;
       continue;
     }
 
@@ -135,6 +143,7 @@ function usage() {
     "Options:",
     "  --limit <count>        Batch size for scoped runs. Default: 100.",
     "  --offset <count>       Skip this many indexed documents before the batch. Default: 0.",
+    "  --only-missing-smart-v2  Classify only loaded documents missing smart-v2 generated labels.",
     "  --write --confirm      Persist reviewed classifications. Dry-run is the default.",
     "  --help, -h             Show this help.",
   ].join("\n");
@@ -213,6 +222,27 @@ async function loadDocuments(supabase: SupabaseAdmin, args: ClassifyArgs) {
   return documents;
 }
 
+async function filterDocumentsMissingSmartV2(supabase: SupabaseAdmin, documents: DocumentRow[]) {
+  const smartV2LabelTypes = ["clinical_action", "care_phase", "document_intent", "content_feature"];
+  const documentIds = documents.map((document) => document.id);
+  const documentsWithSmartV2 = new Set<string>();
+
+  for (const ids of chunkArray(documentIds, 100)) {
+    const { data, error } = await supabase
+      .from("document_labels")
+      .select("document_id")
+      .in("document_id", ids)
+      .eq("source", "generated")
+      .in("label_type", smartV2LabelTypes);
+    if (error) throw new Error(error.message);
+    for (const label of data ?? []) {
+      if (typeof label.document_id === "string") documentsWithSmartV2.add(label.document_id);
+    }
+  }
+
+  return documents.filter((document) => !documentsWithSmartV2.has(document.id));
+}
+
 async function loadEvidenceText(supabase: SupabaseAdmin, documentId: string) {
   const [{ data: chunks, error: chunkError }, { data: summary, error: summaryError }] = await Promise.all([
     supabase
@@ -255,21 +285,61 @@ function generatedLabelsForPlan(plan: ClassificationPlan, stampedAt: string): Ge
       ].includes(label.label_type) && label.confidence >= 0.5,
   );
 
-  return [...siteLabels, ...typeLabels, ...secondaryLabels].map((label) => ({
-    document_id: plan.document.id,
-    owner_id: plan.document.owner_id,
-    label: label.label,
-    label_type: label.label_type,
-    confidence: label.confidence,
-    source: "generated",
-    metadata: {
-      generated_by: "document-organization-classifier",
-      organization_profile_version: "document-organization-v1",
-      classified_at: stampedAt,
-      label_tier: documentLabelTier(label.label, label.label_type),
-      review_status: plan.classification.profile.review_status,
-    },
-  }));
+  const rows = [...siteLabels, ...typeLabels, ...secondaryLabels].flatMap((label) => {
+    const normalized = normalizeDocumentLabelForStorage({
+      label: label.label,
+      label_type: label.label_type,
+      confidence: label.confidence,
+      source: "generated",
+    });
+    if (!normalized) return [];
+
+    return [
+      {
+        document_id: plan.document.id,
+        owner_id: plan.document.owner_id,
+        label: normalized.label,
+        label_type: normalized.label_type,
+        confidence: normalized.confidence,
+        source: "generated" as const,
+        metadata: {
+          generated_by: "document-organization-classifier" as const,
+          organization_profile_version: "document-organization-v1" as const,
+          classified_at: stampedAt,
+          label_tier: documentLabelTier(normalized.label, normalized.label_type),
+          review_status: "new" as const,
+        },
+      },
+    ];
+  });
+  if (!rows.some((row) => smartV2GeneratedLabelTypes.has(row.label_type))) {
+    const fallbackIntent =
+      plan.classification.profile.document_type.label === "form" ? "documentation-requirement" : "staff-guidance";
+    const normalized = normalizeDocumentLabelForStorage({
+      label: fallbackIntent,
+      label_type: "document_intent",
+      confidence: 0.55,
+      source: "generated",
+    });
+    if (normalized) {
+      rows.push({
+        document_id: plan.document.id,
+        owner_id: plan.document.owner_id,
+        label: normalized.label,
+        label_type: normalized.label_type,
+        confidence: normalized.confidence,
+        source: "generated",
+        metadata: {
+          generated_by: "document-organization-classifier",
+          organization_profile_version: "document-organization-v1",
+          classified_at: stampedAt,
+          label_tier: documentLabelTier(normalized.label, normalized.label_type),
+          review_status: "new",
+        },
+      });
+    }
+  }
+  return rows;
 }
 
 async function writeClassifications(supabase: SupabaseAdmin, plans: ClassificationPlan[]) {
@@ -410,6 +480,16 @@ function printPlan(plans: ClassificationPlan[], write: boolean) {
     console.log(`  site: ${site}; type: ${profile.document_type.label}; review: ${profile.review_status}`);
     if (profile.raw_bracket_tags.length) console.log(`  bracket tags: ${profile.raw_bracket_tags.join(", ")}`);
   }
+  const needsReviewPlans = plans.filter((plan) => plan.classification.profile.review_status === "needs_review");
+  if (needsReviewPlans.length > 0) {
+    console.log("\nNeeds review before write:");
+    for (const plan of needsReviewPlans.slice(0, 25)) {
+      const profile = plan.classification.profile;
+      const site =
+        profile.site.label ?? (profile.site.candidates.map((candidate) => candidate.label).join(", ") || "none");
+      console.log(`- ${plan.document.title}: site=${site}; type=${profile.document_type.label}`);
+    }
+  }
   if (!write) console.log("\nNo writes performed. Re-run with --write --confirm after reviewing this output.");
 }
 
@@ -420,7 +500,10 @@ async function main() {
     return;
   }
   const supabase = await loadAdminClient();
-  const documents = await loadDocuments(supabase, args);
+  const loadedDocuments = await loadDocuments(supabase, args);
+  const documents = args.onlyMissingSmartV2
+    ? await filterDocumentsMissingSmartV2(supabase, loadedDocuments)
+    : loadedDocuments;
   const plans = [];
 
   for (const document of documents) {

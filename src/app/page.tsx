@@ -1,10 +1,5 @@
-import dynamic from "next/dynamic";
+import { ClinicalDashboardClient } from "@/components/clinical-dashboard-client";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
-
-const ClinicalDashboard = dynamic(
-  () => import("@/components/clinical-dashboard").then((m) => m.ClinicalDashboard),
-  { ssr: false },
-);
 
 type HomeProps = {
   searchParams?: Promise<{
@@ -29,7 +24,7 @@ export default async function Home({ searchParams }: HomeProps) {
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
   return (
-    <ClinicalDashboard
+    <ClinicalDashboardClient
       initialSearchMode={initialSearchMode}
       initialQuery={requestedQuery}
       focusSearch={requestedFocus === "1"}

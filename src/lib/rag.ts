@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Database } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
   generateStructuredTextResult,
@@ -580,8 +579,8 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
   if (tableVisualEvidenceUnitTypes.has(unitType)) score += 0.08;
   else if (visualEvidenceUnitTypes.has(unitType)) score += 0.04;
   if (source === "visual_intelligence") score += Math.min(0.035, Math.max(0, sourceQuality - 0.55) * 0.08);
-  if (result.source_metadata?.document_status === "outdated") score -= 0.04;
-  if (result.source_metadata?.extraction_quality === "poor") score -= 0.05;
+  if (result.source_metadata?.document_status === "outdated") score -= 0.035;
+  if (result.source_metadata?.extraction_quality === "poor") score -= 0.035;
   if (result.indexing_quality?.quality_score !== undefined && result.indexing_quality.quality_score < 0.55)
     score -= 0.035;
   return score;
@@ -1748,16 +1747,7 @@ export function invalidateRagCachesForDocumentMutation(ownerId: string) {
   invalidateAnonymousSharedRagCaches();
 }
 
-interface RagQueryInsert {
-  owner_id?: string | null;
-  query: string;
-  answer?: string | null;
-  source_chunk_ids?: string[] | null;
-  model?: string | null;
-  metadata?: Record<string, unknown>;
-}
-
-async function insertRagQuery(row: RagQueryInsert) {
+async function insertRagQuery(row: Record<string, unknown>) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
@@ -1769,12 +1759,10 @@ async function insertRagQuery(row: RagQueryInsert) {
     query: queryTextForStorage(rawQuery),
     metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
   };
-  await supabase
-    .from("rag_queries")
-    .insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
+  await supabase.from("rag_queries").insert(safeRow);
 }
 
-async function logRagQuery(row: RagQueryInsert) {
+async function logRagQuery(row: Record<string, unknown>) {
   if (env.RAG_AWAIT_QUERY_LOGS) {
     await insertRagQuery(row);
     return;
@@ -3320,10 +3308,7 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
     const evidenceText = evidenceTextForGate(result);
     if (!riskZoneActionPattern.test(evidenceText)) return false;
     if (zonePhrasePattern.test(evidenceText)) return true;
-    return (
-      ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
-      bareColourPattern.test(evidenceText)
-    );
+    return ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
   });
 }
 

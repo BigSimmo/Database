@@ -1,6 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
-
 export type DocumentNamePlan = {
   title: string;
   baseTitle: string;
@@ -17,6 +14,16 @@ export type ExistingDocumentName = {
   file_name?: string | null;
   content_hash?: string | null;
   metadata?: unknown;
+};
+
+type DocumentNameSupabase = {
+  from: (table: "documents") => {
+    select: (columns: string) => {
+      eq: (column: "owner_id", value: string) => {
+        limit: (count: number) => PromiseLike<{ data: unknown[] | null; error: { message?: string } | null }>;
+      };
+    };
+  };
 };
 
 const titleAbbreviations = new Map<string, string>([
@@ -153,7 +160,7 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase?: SupabaseClient<Database>;
+  supabase?: unknown;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;
@@ -169,7 +176,8 @@ export async function planDocumentName(args: {
     documents = args.existingDocs;
   } else {
     if (!args.supabase) throw new Error("supabase client or existingDocs is required");
-    const { data, error } = await args.supabase
+    const supabase = args.supabase as DocumentNameSupabase;
+    const { data, error } = await supabase
       .from("documents")
       .select("id,title,file_name,content_hash")
       .eq("owner_id", args.ownerId)

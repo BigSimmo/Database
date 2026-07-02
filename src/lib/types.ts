@@ -96,6 +96,7 @@ export type DocumentOrganizationProfile = {
 export type ClinicalSourceMetadata = {
   source_title: string | null;
   publisher: string | null;
+  publisher_code?: string | null;
   jurisdiction: string | null;
   version: string | null;
   publication_date: string | null;
@@ -105,6 +106,7 @@ export type ClinicalSourceMetadata = {
   uploaded_by: string | null;
   document_status: "current" | "review_due" | "outdated" | "unknown";
   clinical_validation_status: "unverified" | "locally_reviewed" | "approved";
+  clinical_validation_evidence?: Record<string, unknown> | null;
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
 
@@ -486,7 +488,7 @@ export type DocumentLabel = {
   label_type: DocumentLabelType;
   source: "generated" | "manual";
   confidence: number;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | null;
   created_at?: string;
   updated_at?: string;
 };
