@@ -459,7 +459,7 @@ function DocumentSearchHome({
         {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="mt-5 hidden lg:block" /> : null}
       </section>
 
-      <section aria-label="Start here" className="grid gap-3 md:grid-cols-3">
+      <section aria-label="Start here" className="grid grid-cols-3 gap-2 md:gap-3">
         {startItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -467,18 +467,20 @@ function DocumentSearchHome({
               key={item.label}
               type="button"
               onClick={item.action}
-              className="grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="grid min-h-[5.25rem] grid-cols-1 place-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-center shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:grid-cols-[auto_minmax(0,1fr)_auto] md:p-3 md:text-left"
             >
               <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">{item.label}</span>
-                <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                <span className="block text-xs font-extrabold leading-4 text-[color:var(--text-heading)] sm:text-sm">
+                  {item.label}
+                </span>
+                <span className="mt-1 hidden text-xs font-medium leading-5 text-[color:var(--text-muted)] md:block">
                   {item.description}
                 </span>
               </span>
-              <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
+              <ChevronDown className="hidden -rotate-90 h-4 w-4 text-[color:var(--text-soft)] md:block" aria-hidden="true" />
             </button>
           );
         })}
@@ -491,20 +493,20 @@ function DocumentSearchHome({
             <DocumentHomeLane title="Review states" count={reviewDueCount} icon={AlertCircle} tone="warning" />
             <DocumentHomeLane title="Tables and forms" count={tableLikeCount} icon={ListChecks} tone="info" />
           </div>
-          {facets.length ? (
-            <section
-              aria-label="Smart facets"
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Smart facets</h3>
-                <button type="button" onClick={onOpenLibrary} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
-                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                  Browse
-                </button>
-              </div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-                {facets.map((facet) => {
+          <section
+            aria-label="Smart facets"
+            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Smart facets</h3>
+              <button type="button" onClick={onOpenLibrary} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
+                <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                Browse
+              </button>
+            </div>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              {facets.length ? (
+                facets.map((facet) => {
                   const Icon = documentFacetIcons[facet.group] ?? Tag;
                   return (
                     <button
@@ -518,10 +520,14 @@ function DocumentSearchHome({
                       <span className="nums text-[color:var(--text-soft)]">{facet.count}</span>
                     </button>
                   );
-                })}
-              </div>
-            </section>
-          ) : null}
+                })
+              ) : (
+                <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                  Facets appear after labels are loaded for indexed documents.
+                </p>
+              )}
+            </div>
+          </section>
         </div>
 
         <section

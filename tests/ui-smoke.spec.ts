@@ -1284,7 +1284,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: /Recent documents/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Browse library/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Open a source PDF/i })).toBeVisible();
+    await page.getByRole("region", { name: "Smart facets" }).scrollIntoViewIfNeeded();
     await expect(page.getByRole("region", { name: "Smart facets" })).toBeVisible();
+    await page.getByRole("region", { name: "Recent documents" }).scrollIntoViewIfNeeded();
     await expect(page.getByRole("region", { name: "Recent documents" })).toBeVisible();
     await expect(page.locator('a[href^="/documents/"]').first()).toBeVisible();
     await expect(page.getByText("Source library workspace")).toHaveCount(0);

@@ -4224,6 +4224,15 @@ function StagedAnswerResultSurface({
     setClinicalNotesOpen(false);
     setActiveReviewPanel("clinical");
   }
+  function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
+    window.requestAnimationFrame(() => {
+      if (ref.current?.isConnected) ref.current.focus({ preventScroll: true });
+    });
+  }
+  function closeClinicalNotesReview() {
+    setClinicalNotesOpen(false);
+    restoreFocusToTrigger(clinicalNotesTriggerRef);
+  }
   function openEvidence(initialTab: EvidenceTabName | null = null) {
     setClinicalNotesOpen(false);
     setEvidenceInitialTab(initialTab);
@@ -4234,6 +4243,16 @@ function StagedAnswerResultSurface({
     }
     setEvidenceOpen(false);
     setActiveReviewPanel("evidence");
+  }
+  function closeEvidenceReview() {
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    restoreFocusToTrigger(evidenceTriggerRef);
+  }
+  function closeDesktopReviewPanel() {
+    const triggerRef = activeReviewPanel === "clinical" ? clinicalNotesTriggerRef : evidenceTriggerRef;
+    setActiveReviewPanel(null);
+    restoreFocusToTrigger(triggerRef);
   }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
@@ -4337,7 +4356,7 @@ function StagedAnswerResultSurface({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setActiveReviewPanel(null)}
+                  onClick={closeDesktopReviewPanel}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label={`Close ${activeReviewPanel === "clinical" ? "clinical notes" : "evidence"}`}
                 >
@@ -4383,7 +4402,7 @@ function StagedAnswerResultSurface({
         {showClinicalNotes ? (
           <Sheet
             open={clinicalNotesOpen}
-            onClose={() => setClinicalNotesOpen(false)}
+            onClose={closeClinicalNotesReview}
             title="Clinical notes"
             description="Source-backed points from this answer."
             closeLabel="Close clinical notes"
@@ -4432,10 +4451,7 @@ function StagedAnswerResultSurface({
         {showEvidenceDrawer ? (
           <Sheet
             open={evidenceOpen}
-            onClose={() => {
-              setEvidenceOpen(false);
-              setEvidenceInitialTab(null);
-            }}
+            onClose={closeEvidenceReview}
             title="Evidence"
             description="Review by evidence type."
             titleAccessory={<span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>Supported</span>}

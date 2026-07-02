@@ -38,8 +38,11 @@ type OverlapReport = { count: number; overlaps: string[] };
 
 async function collectHeaderOverlaps(page: Page): Promise<OverlapReport> {
   return page.evaluate(() => {
-    const header = document.querySelector("header#search");
-    if (!header) return { count: 0, overlaps: ["header#search not found"] };
+    const header = Array.from(document.querySelectorAll("header#search, header, [role='banner']")).find((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    if (!header) return { count: 0, overlaps: ["visible header not found"] };
     // Interactive controls plus the styled status chips (spans) that sit
     // alongside them; nested elements are excluded via the contains() check.
     const candidates = Array.from(
