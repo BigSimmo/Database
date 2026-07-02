@@ -19,7 +19,6 @@ import {
   Maximize2,
   Menu,
   Minimize2,
-  Mic,
   Minus,
   Plus,
   Quote,
@@ -2967,13 +2966,6 @@ export function DocumentViewer({
               className="min-h-[44px] min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
             />
           </label>
-          <button
-            type="button"
-            className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            aria-label="Voice input"
-          >
-            <Mic className="h-4.5 w-4.5" />
-          </button>
           <button
             type="submit"
             disabled={!canSummarizeDocument}
