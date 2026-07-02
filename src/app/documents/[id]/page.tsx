@@ -1,9 +1,4 @@
-import dynamic from "next/dynamic";
-
-const DocumentViewer = dynamic(
-  () => import("@/components/DocumentViewer").then((m) => m.DocumentViewer),
-  { ssr: false },
-);
+import { DocumentViewer } from "@/components/DocumentViewerLazy";
 
 export default async function DocumentPage({
   params,
