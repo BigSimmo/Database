@@ -79,9 +79,11 @@ const adversarialManipulationPatterns: RegExp[] = [
   // Instruction override / jailbreak
   /\b(?:ignore|disregard|override|forget|bypass)\s+(?:all\s+|any\s+)?(?:(?:previous|prior|above|earlier|these|those|the|your)\s+)?(?:instructions?|messages?|prompts?|rules?|guardrails?)\b/i,
   // Negated-follow overrides ("do not follow prior instructions", "stop following your
-  // guardrails"). Objects are system-instruction terms only — never clinical "protocol"/
-  // "guideline", so "when should you not follow the standard protocol?" is unaffected.
-  /\b(?:do\s+not|don't|stop|cease|quit|no\s+longer)\s+(?:follow(?:ing)?|obey(?:ing)?|adher(?:e|ing))\b[^.?!]{0,25}\b(?:instructions?|rules?|guardrails?|prompts?)\b/i,
+  // guardrails"). The instruction object must be privileged (prior/system-scoped) or a
+  // rule/guardrail/prompt — never a bare "instructions", so clinical wording like "do not
+  // follow discharge/medication instructions" and "not follow the standard protocol" is
+  // unaffected.
+  /\b(?:do\s+not|don't|stop|cease|quit|no\s+longer)\s+(?:follow(?:ing)?|obey(?:ing)?|adher(?:e|ing))\b[^.?!]{0,25}\b(?:(?:your|prior|previous|above|these|those|system)\s+instructions?|rules?|guardrails?|prompts?)\b/i,
   // Persona jailbreak — requires a jailbreak object, not a bare "you are now a ..."
   /\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|roleplay\s+as)\s+(?:a\s+|an\s+|the\s+)?(?:unrestricted|unfiltered|uncensored|jailbroken|jailbreak|developer[-\s]?mode|do[-\s]?anything|dan\b|god[-\s]?mode|sudo|root)\b/i,
   // Fabricate evidence/citations — fabrication verbs incl. gerunds ("forging") and
@@ -94,17 +96,21 @@ const adversarialManipulationPatterns: RegExp[] = [
   // "a patient gives a false ID" is an identity document, not citation fraud.
   /\b(?:fake|bogus|false|forged|fabricated|made[-\s]?up|placeholder|dummy)\s+(?:citations?|chunks?|references?|sources?|evidence|quotes?)\b/i,
   /\bcitation_chunk_id\b/i,
-  // pretend / assume / treat-as the evidence is complete/sufficient/supports (tight
-  // objects: evidence/sources/citations/data, so patient-state assumptions are unaffected).
-  /\b(?:pretend|assume|treat)\b[^.?!]{0,30}\b(?:evidence|sources?|citations?|data)\b[^.?!]{0,25}\b(?:complete|sufficient|conclusive|enough|available|supports?|proves?|confirms?)\b/i,
+  // pretend / assume / treat-as the evidence is complete/sufficient/supports. Objects are
+  // evidence/sources/citations only — "data" is excluded because clinical scenarios say
+  // "assume the ANC data confirms..." / "treat the lab data as...".
+  /\b(?:pretend|assume|treat)\b[^.?!]{0,30}\b(?:evidence|sources?|citations?)\b[^.?!]{0,25}\b(?:complete|sufficient|conclusive|enough|available|supports?|proves?|confirms?)\b/i,
   // Answer "as if" the evidence/source/protocol supports *this request/claim*
   /\bas\s+if\b[^.?!]{0,40}\b(?:evidence|sources?|protocol|guideline|documents?|citations?)\b[^.?!]{0,30}\b(?:support|prove|confirm|allow|approve|establish)\w*\b[^.?!]{0,25}\b(?:this|the)\s+(?:request|claim|answer|query|response|prompt)\b/i,
   // Secret exfiltration by verb (incl. provide/list/output/dump; system message/
   // instructions and access tokens). "credentials" is intentionally excluded — clinical
   // "prescriber credentials" means professional qualifications, not secrets.
   /\b(?:reveal|expose|print|show|leak|return|disclose|tell|give|send|share|provide|list|output|dump|divulge|repeat)\b[^.?!]{0,50}\b(?:system\s+(?:prompt|message|instructions?)|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|access\s+tokens?|secret\s+(?:keys?|tokens?))\b/i,
-  // Direct interrogative / possessive requests for the system prompt / keys (no verb).
-  /\b(?:what(?:'s|\s+is|\s+are)?|your|any|the)\b[^.?!]{0,20}\b(?:hidden\s+)?(?:system\s+(?:prompt|message|instructions?)|developer\s+(?:prompt|message|instructions?)|api\s+keys?|access\s+tokens?)\b/i,
+  // Direct interrogative / possessive requests (no verb) — only *inherently* privileged
+  // objects. "system message"/"system instructions" are intentionally excluded here (they
+  // appear in clinical/operational noun phrases like "patient monitoring system
+  // instructions"); those are still caught by the verb-based exfiltration rule above.
+  /\b(?:what(?:'s|\s+is|\s+are)?|your|any|the)\b[^.?!]{0,20}\b(?:hidden\s+)?(?:system\s+prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|access\s+tokens?)\b/i,
 ];
 
 export function hasAdversarialManipulationIntent(query: string): boolean {

@@ -376,6 +376,12 @@ describe("adversarial-manipulation query guard", () => {
       "Assume the patient is stable; what monitoring continues?",
       "Treat the agitation with the recommended protocol.",
       "Do not stop the medication abruptly; what is the taper schedule?",
+      // Fourth review round: clinical instruction documents, patient/lab data assumptions,
+      // and operational "system instructions" noun phrases must not be refused.
+      "Do not follow discharge instructions if symptoms worsen; what does the protocol say to do?",
+      "Do not follow medication instructions from an old leaflet; what is current guidance?",
+      "Assume the ANC data confirms red-range neutropenia; what action is required?",
+      "What patient monitoring system instructions apply when red-range blood results occur?",
     ];
     for (const query of legit) {
       expect(hasAdversarialManipulationIntent(query), query).toBe(false);
