@@ -5,12 +5,15 @@ import {
   isLowYieldClinicalText,
   lowYieldSourceNoiseScore,
   normalizeExtractedGlyphs,
+  repairTruncatedCompactTail,
   sourceTextForClinicalProse,
+  sourceTextForCompactDisplay,
   sourceTextForDisplay,
   sourceTextForDocumentViewer,
   sourceTextForIndexedPage,
   sourceTextForModel,
   sourceTextForVerbatimQuote,
+  stripClassificationBanner,
 } from "../src/lib/source-text-sanitizer";
 
 describe("source text sanitizer", () => {
@@ -223,5 +226,104 @@ describe("sourceTextForVerbatimQuote", () => {
     expect(cleaned).not.toContain("IMAGE_DATA_OMITTED");
     expect(sourceTextForDisplay(quote)).not.toContain("IMAGE_DATA_OMITTED");
     expect(sourceTextForDocumentViewer(quote)).not.toContain("IMAGE_DATA_OMITTED");
+  });
+
+  it("keeps protective-marking banners verbatim in exact quotes", () => {
+    // Quotes must never be rewritten — even for boilerplate. Banner removal is
+    // a display/synopsis concern only.
+    const quote = "OFFICIAL: OFFICIAL Lithium Therapy - Initiation and Continuation • NSAIDs can reduce clearance.";
+
+    const cleaned = sourceTextForVerbatimQuote(quote);
+
+    expect(cleaned).toContain("OFFICIAL: OFFICIAL");
+    expect(cleaned).toContain("•");
+  });
+});
+
+describe("stripClassificationBanner", () => {
+  it("strips a leading PSPF marking, including the doubled extraction form", () => {
+    expect(stripClassificationBanner("OFFICIAL: Lithium Therapy - Initiation and Continuation")).toBe(
+      "Lithium Therapy - Initiation and Continuation",
+    );
+    expect(stripClassificationBanner("OFFICIAL: OFFICIAL Lithium Therapy - Initiation and Continuation")).toBe(
+      "Lithium Therapy - Initiation and Continuation",
+    );
+    expect(stripClassificationBanner("OFFICIAL: Sensitive Withhold lithium and recheck the level.")).toBe(
+      "Withhold lithium and recheck the level.",
+    );
+  });
+
+  it("removes banner-only lines from multi-line text", () => {
+    expect(stripClassificationBanner("OFFICIAL\nMonitor lithium levels weekly.")).toBe(
+      "Monitor lithium levels weekly.",
+    );
+    expect(stripClassificationBanner("OFFICIAL: Sensitive\nCheck renal function.")).toBe("Check renal function.");
+  });
+
+  it("never touches the marker words in prose, title case, or as a prefix of longer words", () => {
+    expect(stripClassificationBanner("the official guideline recommends monitoring")).toBe(
+      "the official guideline recommends monitoring",
+    );
+    expect(stripClassificationBanner("Official Visitors Scheme referral process")).toBe(
+      "Official Visitors Scheme referral process",
+    );
+    expect(stripClassificationBanner("OFFICIALLY sanctioned pathway")).toBe("OFFICIALLY sanctioned pathway");
+  });
+
+  it("is idempotent", () => {
+    const once = stripClassificationBanner("OFFICIAL: OFFICIAL Lithium Therapy - dose guidance");
+    expect(stripClassificationBanner(once)).toBe(once);
+  });
+});
+
+describe("repairTruncatedCompactTail", () => {
+  it("drops the presumed-partial final token behind a glued ellipsis", () => {
+    expect(repairTruncatedCompactTail("Avoid the combination where poss...")).toBe("Avoid the combination …");
+    expect(repairTruncatedCompactTail("check the level as soon as possible from th…")).toBe(
+      "check the level as soon as possible …",
+    );
+  });
+
+  it("never leaves a meaning-inverting or dangling stub before the ellipsis", () => {
+    expect(repairTruncatedCompactTail("withhold lithium and do not...")).toBe("withhold lithium …");
+    expect(repairTruncatedCompactTail("keep the dose below 1.5...")).toBe("keep the dose …");
+    expect(repairTruncatedCompactTail("do not...")).toBe("");
+  });
+
+  it("leaves text without a trailing ellipsis unchanged and is idempotent", () => {
+    expect(repairTruncatedCompactTail("Avoid the combination where possible.")).toBe(
+      "Avoid the combination where possible.",
+    );
+    const once = repairTruncatedCompactTail("Avoid the combination where poss...");
+    expect(repairTruncatedCompactTail(once)).toBe(once);
+  });
+});
+
+describe("sourceTextForCompactDisplay snippet polish", () => {
+  it("cleans the banner + glued-title + bullet + truncated-tail artifact end to end", () => {
+    const stored =
+      "OFFICIAL: OFFICIAL Lithium Therapy - Initiation and Continuation • NSAIDs: (e.g. ibuprofen) can reduce lithium clearance and therefore increase lithium levels and the risk of toxicity. Avoid the combination where poss...";
+
+    const cleaned = sourceTextForCompactDisplay(stored);
+
+    expect(cleaned).not.toContain("OFFICIAL");
+    expect(cleaned).toContain("Continuation; NSAIDs:");
+    expect(cleaned).toContain("can reduce lithium clearance");
+    expect(cleaned).not.toContain("poss");
+    expect(cleaned).toMatch(/combination …$/);
+  });
+
+  it("converts inline bullets and the PDF sub-bullet 'o' glyph into readable separators", () => {
+    const stored =
+      "combination with lithium may lead to serotonin toxicity • Concurrent antipsychotic medications o Rapid dose increase of lithium and antipsychotics";
+
+    expect(sourceTextForCompactDisplay(stored)).toBe(
+      "combination with lithium may lead to serotonin toxicity; Concurrent antipsychotic medications; Rapid dose increase of lithium and antipsychotics",
+    );
+  });
+
+  it("leaves a temperature-style ' o ' glyph and lowercase follow-ons untouched", () => {
+    expect(sourceTextForCompactDisplay("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
+    expect(sourceTextForCompactDisplay("blood group o positive result")).toBe("blood group o positive result");
   });
 });

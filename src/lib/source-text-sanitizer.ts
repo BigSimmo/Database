@@ -24,6 +24,18 @@ const sourceTitleWithCodePattern = new RegExp(
 );
 const sourceControlLinePattern =
   /\b(?:uncontrolled when printed|document control|document owner|authoris(?:ed|ation)|authorised by|published date|effective from|review date|version\s+\d+|amendment|supporting information|relevant standards|references)\b/i;
+// PSPF protective-marking banners stamped on WA Health PDFs ("OFFICIAL",
+// "OFFICIAL: Sensitive"). Case-sensitive ALL-CAPS tokens only, anchored to a
+// line start, so clinical prose ("the official guideline") and title-case
+// names ("Official Visitors Scheme") can never match. Extraction often glues
+// the running header onto body text, sometimes twice ("OFFICIAL: OFFICIAL …"),
+// hence the {1,3} repetition.
+const classificationMarkerSource = String.raw`(?:UNOFFICIAL|OFFICIAL(?:\s*:\s*Sensitive)?|SENSITIVE|PROTECTED)`;
+const classificationBannerLinePattern = new RegExp(String.raw`^\s*(?:${classificationMarkerSource}\s*:?\s*){1,3}$`);
+const leadingClassificationBannerPattern = new RegExp(
+  String.raw`^(?:[ \t]*${classificationMarkerSource}(?=[\s:])(?:[ \t]*:[ \t]*|[ \t]+)){1,3}`,
+  "gm",
+);
 const clinicalSignalPattern =
   /\b(?:administer|anc|assess|baseline|blood|cease|contraindicat|dose|dosing|ecg|escalat|fbc|level|mg|mcg|mmol|monitor|neutrophil|prescrib|review|risk|symptom|threshold|titrate|toxicity|urgent|withhold|wbc)\b/i;
 const provenancePhrasePattern =
@@ -86,6 +98,19 @@ export function normalizeExtractedGlyphs(value: string) {
     .replace(whitespaceControlPattern, "\n")
     .replace(controlCharacterPattern, "");
   return out;
+}
+
+// Removes PSPF protective-marking banners: lines that are nothing but the
+// marking ("OFFICIAL", "OFFICIAL: OFFICIAL") and line-leading marking prefixes
+// glued onto content ("OFFICIAL: OFFICIAL Lithium Therapy - …" → "Lithium
+// Therapy - …"). Never touches the marker words mid-sentence. Idempotent.
+export function stripClassificationBanner(value: string) {
+  if (!value) return value;
+  return value
+    .split("\n")
+    .filter((line) => !classificationBannerLinePattern.test(line))
+    .join("\n")
+    .replace(leadingClassificationBannerPattern, "");
 }
 
 function compactWhitespace(value: string) {
@@ -189,6 +214,7 @@ function stripLowYieldLines(value: string) {
     .filter((line) => {
       const normalized = compactWhitespace(line);
       if (!normalized) return true;
+      if (classificationBannerLinePattern.test(normalized)) return false;
       const isControlLine = sourceControlLinePattern.test(normalized);
       const hasSourceMarker =
         sourceDocumentCodeTestPattern.test(normalized) || pageBoilerplateTestPattern.test(normalized);
@@ -202,6 +228,7 @@ function stripLowYieldLines(value: string) {
 
 export function stripLowYieldSourceNoise(text: string) {
   return stripLowYieldLines(text)
+    .replace(leadingClassificationBannerPattern, "")
     .replace(internalImageTokenPattern, " ")
     .replace(sourceTitleWithCodePattern, " ")
     .replace(sourceDocumentCodePattern, " ")
@@ -211,7 +238,11 @@ export function stripLowYieldSourceNoise(text: string) {
     .replace(genericReferencePattern, "")
     .replace(/\b(?:chunk|similarity)\s+\d+(?:\.\d+)?\b/gi, " ")
     .replace(/\s+([,.;:])/g, "$1")
-    .replace(/(?:\.\s*){2,}/g, ". ");
+    // Collapse doubled dots mid-text, but keep a trailing "..." — that is a
+    // stored truncation marker repairTruncatedCompactTail needs to see. The
+    // lookahead excludes dots so backtracking can't shave a trailing ellipsis
+    // down to ".." and still match.
+    .replace(/(?:\.\s*){2,}(?=[^.\s])/g, ". ");
 }
 
 export function lowYieldSourceNoiseScore(text: string) {
@@ -373,18 +404,64 @@ export function sourceTextForDisplayPreservingBreaks(text: string) {
   );
 }
 
+// Words that must not be left dangling before an ellipsis: connectors,
+// subordinators, and meaning-inverting auxiliaries/negations ("do not…" must
+// never become "do…"). Broader than truncateWords' connector list because here
+// the preceding token was presumed partial and already dropped.
+const unsafeTruncationTailPattern =
+  /^(?:or|and|to|with|of|for|the|a|an|until|than|in|on|at|by|not|no|never|nor|do|does|did|is|are|was|were|be|been|being|has|have|had|if|unless|except|without|must|should|shall|may|might|can|cannot|could|will|would|that|which|who|whom|whose|where|when|while|because|since|but|so|then|as|per|via|from|into|onto|during|before|after|between|below|above|under|over|their|its|this|these|those|any|all|each)$/i;
+
+// Repairs text whose stored form was cut mid-word before an ellipsis was glued
+// on (the pre-fix retrieval_synopsis truncation: "where poss..."). The final
+// token is presumed partial and dropped unless it ends at a natural boundary,
+// then the tail walks back past connectors/negations and bare numbers so the
+// preview never ends on a misleading stub. Emits " …" (space + ellipsis) —
+// which is also the already-repaired marker that keeps this idempotent.
+export function repairTruncatedCompactTail(value: string) {
+  if (!value || /\s…$/.test(value)) return value;
+  const match = value.match(/^([\s\S]*?)\s*(?:\.{3}|…)\s*$/);
+  if (!match) return value;
+  const words = match[1].trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  const last = words[words.length - 1];
+  if (/[A-Za-z0-9]$/.test(last)) words.pop();
+  // Draining to empty is deliberate: an all-function-word stub ("do not…")
+  // is worse than no preview at all.
+  while (
+    words.length > 0 &&
+    (unsafeTruncationTailPattern.test(words[words.length - 1]) ||
+      /^[<>≤≥~]?\d[\d.,–—-]*$/.test(words[words.length - 1]))
+  ) {
+    words.pop();
+  }
+  return words.length ? `${words.join(" ")} …` : "";
+}
+
 export function sourceTextForCompactDisplay(text: string) {
-  return readableWhitespace(
-    sourceTextForDisplayPreservingBreaks(text)
-      .replace(
-        /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
-        " ",
-      )
-      .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
-      .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
-      .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
-      .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " ")
-      .replace(/\s+([,.;:])/g, "$1"),
+  return repairTruncatedCompactTail(
+    readableWhitespace(
+      sourceTextForDisplayPreservingBreaks(text)
+        .replace(
+          /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
+          " ",
+        )
+        .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
+        .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
+        .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
+        .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " ")
+        // Bullet glyphs in a compact one-line preview become "; " separators
+        // (the same joiner readableTableRows uses); a leading bullet is
+        // dropped outright. Hyphen bullets are left alone — indistinguishable
+        // from compound hyphens and ranges.
+        .replace(/^\s*[•◦▪‣●]+\s*/, "")
+        .replace(/\s*[•◦▪‣●]+\s*/g, "; ")
+        // PDF sub-bullet glyph rendered as a bare lowercase "o" between words:
+        // only when whitespace-delimited, not after a digit ("37 o C" stays),
+        // and followed by a capitalized token of 2+ chars ("o C" stays).
+        .replace(/(?<=[^\d\s]\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g, ";")
+        .replace(/\s+([,.;:])/g, "$1")
+        .replace(/;(?:\s*;)+/g, ";"),
+    ),
   );
 }
 

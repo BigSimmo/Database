@@ -267,6 +267,45 @@ describe("section-aware chunking groundwork", () => {
     expect(content).toContain("Review lithium levels");
   });
 
+  it("drops protective-marking banner lines from chunk content", () => {
+    const chunks = buildChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: "OFFICIAL: Sensitive\n\nLithium Monitoring\n\nCheck renal function before starting lithium therapy.",
+        metadata: {},
+      },
+    ]);
+
+    const content = chunks.map((chunk) => chunk.content).join("\n");
+    expect(content).not.toContain("OFFICIAL");
+    expect(content).toContain("Check renal function");
+  });
+
+  it("keeps the retrieval synopsis banner-free and never cut mid-word", () => {
+    const longSentence =
+      "Monitor lithium dose thresholds carefully and escalate abnormal results quickly because delayed review of toxicity increases the risk of renal impairment and neurotoxicity across the whole treatment pathway for every patient cohort.";
+    const pageText = [
+      "OFFICIAL: OFFICIAL Lithium Therapy - dose guidance requires monitoring.",
+      longSentence,
+      longSentence.replace("cohort", "cohort again"),
+      longSentence.replace("cohort", "cohort as well"),
+    ].join(" ");
+
+    const chunks = buildChunks([{ documentId: "doc-1", pageNumber: 1, pageText, metadata: {} }]);
+    const synopsis = chunks[0]?.retrieval_synopsis ?? "";
+
+    expect(synopsis).not.toContain("OFFICIAL");
+    expect(synopsis).toContain("Lithium Therapy - dose guidance requires monitoring");
+    // The 720-char cap must land on a word boundary: the token before the
+    // ellipsis has to be a complete word from the source text.
+    expect(synopsis.endsWith("...")).toBe(true);
+    const lastWord = (synopsis.slice(0, -3).trim().split(/\s+/).pop() ?? "").replace(/[.,;:]+$/, "");
+    const sourceWords = new Set(pageText.split(/\s+/).map((word) => word.replace(/[.,;:]+$/, "")));
+    expect(lastWord.length).toBeGreaterThan(0);
+    expect(sourceWords.has(lastWord)).toBe(true);
+  });
+
   it("keeps repeated clinical chunks on different pages instead of document-wide deduping them", () => {
     const repeatedMonitoringText =
       "Clozapine monitoring table\n\nANC threshold 0.5 x 10^9/L: withhold clozapine and repeat FBC daily.";
