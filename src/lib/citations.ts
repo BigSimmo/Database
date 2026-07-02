@@ -1,12 +1,13 @@
-import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
+import { normalizeExtractedGlyphs, stripClassificationBanner } from "@/lib/source-text-sanitizer";
 import type { Citation, SearchResult } from "@/lib/types";
 
 // Citation titles come straight from document extraction, so repair glyph
-// artifacts (ligatures, soft hyphens, control chars) and drop the synthetic
-// prefix before they reach any label — keeps mobile/compact labels consistent
-// with the cleaned titles rendered elsewhere (cleanDisplayTitle).
+// artifacts (ligatures, soft hyphens, control chars), drop protective-marking
+// banners ("OFFICIAL:"), and drop the synthetic prefix before they reach any
+// label — keeps mobile/compact labels consistent with the cleaned titles
+// rendered elsewhere (cleanDisplayTitle).
 function cleanCitationTitle(value: string) {
-  return normalizeExtractedGlyphs(value)
+  return stripClassificationBanner(normalizeExtractedGlyphs(value))
     .replace(/^Synthetic\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();

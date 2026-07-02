@@ -732,9 +732,16 @@ function buildRetrievalDiagnostics(args: {
   const distinctDocuments = new Set(args.results.map((result) => result.document_id)).size;
   const scoreSpread = Number(Math.max(0, topScore - secondScore).toFixed(4));
   const clinicallySensitiveQuery = /table_threshold|medication_dose_risk/.test(args.queryClass);
+  // A small score spread only signals weak/ambiguous retrieval when few documents
+  // are involved. When several distinct documents cluster at a moderate score, that
+  // is a topic with rich coverage (e.g. clozapine, which has many policy documents),
+  // not weak evidence — the tight spread is expected and answering is correct. Gating
+  // those would refuse answerable clinical questions; generation still validates
+  // grounding downstream, so passing the gate here does not lower the answer bar.
+  const lowDiversity = distinctDocuments <= 2;
   const weakSignal =
     topScore < 0.5 ||
-    (args.results.length > 1 && scoreSpread < 0.05 && topScore < 0.72) ||
+    (args.results.length > 1 && scoreSpread < 0.05 && topScore < 0.72 && lowDiversity) ||
     (args.results.length > 0 && distinctDocuments === 1 && clinicallySensitiveQuery && topScore < 0.68);
   const gateStatus: RetrievalConfidenceGateStatus = weakSignal ? "blocked" : "passed";
   return {

@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 import { sourceSpanForText } from "@/lib/source-spans";
-import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
+import { normalizeExtractedGlyphs, stripClassificationBanner } from "@/lib/source-text-sanitizer";
 import type { ChunkInput, DocumentChunk } from "@/lib/types";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
@@ -52,9 +52,16 @@ function normalizeLookupText(value: string) {
     .trim();
 }
 
+// A line that is nothing but a PSPF protective marking ("OFFICIAL",
+// "OFFICIAL: Sensitive") — running headers stamped on every page.
+function isClassificationBannerLine(line: string) {
+  return Boolean(line.trim()) && !stripClassificationBanner(line).trim();
+}
+
 function looksLikeMetadataNoise(line: string) {
   if (!line || line.length <= 2) return true;
   if (/^\d+$/.test(line)) return true;
+  if (isClassificationBannerLine(line)) return true;
   if (metadataNoisePatterns.some((pattern) => pattern.test(line))) return true;
   if (lineNoisePatterns.some((pattern) => pattern.test(line))) return true;
   return false;
@@ -337,12 +344,29 @@ function chunkTextBySentence(clean: string, chunkSize: number, overlap: number) 
   return chunks;
 }
 
+// Word-safe truncation for stored display text (synopses, caption snippets).
+// A raw slice cut mid-word ("where poss...") and every surface downstream
+// inherited the artifact; cutting at a clause boundary when one lands late
+// enough, otherwise at the last word boundary, keeps the stored tail readable.
+function truncateAtWordBoundary(value: string, limit: number) {
+  if (value.length <= limit) return value;
+  const window = value.slice(0, limit - 3);
+  const clauseCut = Math.max(window.lastIndexOf(". "), window.lastIndexOf("; "), window.lastIndexOf(": "));
+  const wordCut = window.lastIndexOf(" ");
+  const cut = clauseCut >= limit * 0.6 ? clauseCut + 1 : wordCut > 0 ? wordCut : window.length;
+  const trimmed = window
+    .slice(0, cut)
+    .replace(/[\s,;:([{\-–—]+$/, "")
+    .trim();
+  return trimmed ? `${trimmed}...` : `${window.trim()}...`;
+}
+
 function compactImageText(value: string | null | undefined, limit = 420) {
   const text = String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();
   if (!text) return "";
-  return text.length > limit ? `${text.slice(0, limit - 3).trim()}...` : text;
+  return truncateAtWordBoundary(text, limit);
 }
 
 function compactSynopsisText(value: string | null | undefined, limit = 720) {
@@ -351,13 +375,16 @@ function compactSynopsisText(value: string | null | undefined, limit = 720) {
     .replace(/\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g, " ");
   const sentences = withoutImageTags
     .split(/(?<=[.!?])\s+|\n+/)
-    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    // Extraction glues the protective-marking header onto body sentences
+    // ("OFFICIAL: OFFICIAL Lithium Therapy …"); shed the banner prefix so it
+    // never enters the stored synopsis.
+    .map((sentence) => stripClassificationBanner(sentence.replace(/\s+/g, " ").trim()).trim())
     .filter((sentence) => sentence.length >= 12 && !boilerplateSynopsisPattern.test(sentence));
   const highYieldSentences = sentences.filter((sentence) => highYieldSectionPattern.test(sentence));
   const selected = (highYieldSentences.length ? highYieldSentences : sentences).slice(0, 4).join(" ");
   const compact = selected.replace(/\s+/g, " ").trim();
   if (!compact) return "";
-  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
+  return truncateAtWordBoundary(compact, limit);
 }
 
 function buildRetrievalSynopsis(args: {
@@ -376,7 +403,7 @@ function buildRetrievalSynopsis(args: {
     .filter(Boolean)
     .join(" | ");
   const facts = compactSynopsisText(args.content);
-  return [prefix, facts].filter(Boolean).join(" | ").slice(0, 900);
+  return truncateAtWordBoundary([prefix, facts].filter(Boolean).join(" | "), 900);
 }
 
 export function buildImageTag(image: {
