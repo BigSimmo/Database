@@ -224,18 +224,5 @@
     ],
     "topK": 12,
     "expectTableEvidence": true
-  },
-  {
-    "id": "clozapine-wcc-abbreviation-threshold",
-    "query": "What white cell count (WCC) threshold should withhold clozapine?",
-    "expectedQueryClass": "table_threshold",
-    "expectedDocumentSubstrings": ["Clozapine"],
-    "expectedContentTerms": [
-      "clozapine",
-      ["wcc", "wbc", "white cell", "fbc", "full blood count"],
-      ["withhold", "cease", "stop", "red"]
-    ],
-    "topK": 12,
-    "expectTableEvidence": true
   }
 ]

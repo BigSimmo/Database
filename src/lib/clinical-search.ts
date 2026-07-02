@@ -1079,7 +1079,7 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query);
   const wantsClozapineBloodMonitoring =
     /\bclozapine\b/i.test(correctedQueryText) &&
-    /\b(?:blood|bloods|fbc|full blood count|observation|observations|monitor|monitoring)\b/i.test(correctedQueryText);
+    /\b(?:blood|bloods|fbc|wcc|full blood count|white cell|observation|observations|monitor|monitoring)\b/i.test(correctedQueryText);
   const wantsClozapineMissedDose =
     /\bclozapine\b/i.test(correctedQueryText) &&
     /\bmissed\b/i.test(correctedQueryText) &&

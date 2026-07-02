@@ -3541,10 +3541,10 @@ export function evaluateEvidenceCoverageGate(
   if (queryClass === "table_threshold") {
     if (
       /\bclozapine\b/i.test(query) &&
-      /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i.test(query) &&
+      /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i.test(query) &&
       /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i.test(query)
     ) {
-      const hasBlood = hasAnyTerm(evidenceText, /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i);
+      const hasBlood = hasAnyTerm(evidenceText, /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i);
       const hasAction = hasAnyTerm(
         evidenceText,
         /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i,
