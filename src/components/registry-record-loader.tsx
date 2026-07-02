@@ -79,17 +79,9 @@ export function RegistryRecordLoader({
     );
   }
 
-  if (status === "not_found" || !record) {
-    return (
-      <StatePanel
-        kind={kind}
-        icon={<FileQuestion className="h-5 w-5" aria-hidden />}
-        title={`No ${copy.noun} found`}
-        body={`"${slug}" is not in your registry. It may not be seeded yet, or the link may be out of date.`}
-      />
-    );
-  }
-
+  // Error before not-found: a failed request (registry not migrated yet,
+  // Supabase down, network error) leaves record null, and must surface as a
+  // retryable load error rather than the misleading "not seeded" copy.
   if (status === "error") {
     return (
       <StatePanel
@@ -97,6 +89,17 @@ export function RegistryRecordLoader({
         icon={<ShieldAlert className="h-5 w-5" aria-hidden />}
         title="Could not load the record"
         body="Something went wrong fetching this registry record. Try again shortly."
+      />
+    );
+  }
+
+  if (status === "not_found" || !record) {
+    return (
+      <StatePanel
+        kind={kind}
+        icon={<FileQuestion className="h-5 w-5" aria-hidden />}
+        title={`No ${copy.noun} found`}
+        body={`"${slug}" is not in your registry. It may not be seeded yet, or the link may be out of date.`}
       />
     );
   }

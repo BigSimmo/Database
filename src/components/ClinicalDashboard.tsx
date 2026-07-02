@@ -8343,7 +8343,6 @@ export function ClinicalDashboard({
                   query={query}
                   loading={loading}
                   documentMatches={documentMatches}
-                  documentCount={indexedDocumentTotal}
                   realDataReady={canRunSearch}
                   authUnavailable={!clientDemoMode && !canUsePrivateApis}
                   apiUnavailable={apiUnavailable}

@@ -22,6 +22,10 @@ export type RegistryRecordState = {
   demoMode: boolean;
 };
 
+const recordsLoading: RegistryRecordsState = { status: "loading", records: [], total: 0, demoMode: false };
+const recordLoading: RegistryRecordState = { status: "loading", record: null, linkedDocuments: [], demoMode: false };
+type RegistryRecordsKeyedState = RegistryRecordsState & { kind: RegistryRecordKind };
+
 /** Owner-scoped registry list (Services/Forms home and search surfaces). The
  *  API serves mock fixtures in demo mode, so callers never branch on demo
  *  themselves. Pass enabled:false to skip fetching until the mode is active. */
@@ -30,27 +34,26 @@ export function useRegistryRecords(
   options: { enabled?: boolean } = {},
 ): RegistryRecordsState {
   const enabled = options.enabled ?? true;
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
-  const [state, setState] = useState<RegistryRecordsState>({
-    status: "loading",
-    records: [],
-    total: 0,
-    demoMode: false,
-  });
+  const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
+  const [state, setState] = useState<RegistryRecordsKeyedState>({ ...recordsLoading, kind });
+  const visibleState: RegistryRecordsState = state.kind === kind ? state : recordsLoading;
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    // Wait for the auth provider to resolve the session before fetching, so a
+    // still-loading `authorizationHeader` ({}) does not cause a spurious 401
+    // that clobbers a valid session via markSessionExpired().
+    if (!enabled || authStatus === "loading") return undefined;
     let active = true;
     fetch(`/api/registry/records?kind=${kind}`, { headers: authorizationHeader })
       .then(async (response) => {
         if (!active) return;
         if (response.status === 401) {
-          markSessionExpired();
-          setState({ status: "unauthorized", records: [], total: 0, demoMode: false });
+          if (authStatus === "authenticated") markSessionExpired();
+          setState({ status: "unauthorized", records: [], total: 0, demoMode: false, kind });
           return;
         }
         if (!response.ok) {
-          setState({ status: "error", records: [], total: 0, demoMode: false });
+          setState({ status: "error", records: [], total: 0, demoMode: false, kind });
           return;
         }
         const payload = (await response.json()) as {
@@ -63,44 +66,41 @@ export function useRegistryRecords(
           records: payload.records ?? [],
           total: payload.total ?? payload.records?.length ?? 0,
           demoMode: Boolean(payload.demoMode),
+          kind,
         });
       })
       .catch(() => {
-        if (active) setState({ status: "error", records: [], total: 0, demoMode: false });
+        if (active) setState({ status: "error", records: [], total: 0, demoMode: false, kind });
       });
     return () => {
       active = false;
     };
-  }, [enabled, kind, authorizationHeader, markSessionExpired]);
+  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired]);
 
-  return state;
+  return visibleState;
 }
 
 /** Single owner-scoped registry record (detail pages). */
 export function useRegistryRecord(kind: RegistryRecordKind, slug: string): RegistryRecordState {
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
+  const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
   const requestKey = `${kind}:${slug}`;
-  const [state, setState] = useState<RegistryRecordState>({
-    status: "loading",
-    record: null,
-    linkedDocuments: [],
-    demoMode: false,
-  });
+  const [state, setState] = useState<RegistryRecordState>(recordLoading);
   // Reset to loading during render when the target record changes, instead of
   // synchronously inside the effect (react-hooks/set-state-in-effect).
   const [lastRequestKey, setLastRequestKey] = useState(requestKey);
   if (lastRequestKey !== requestKey) {
     setLastRequestKey(requestKey);
-    setState({ status: "loading", record: null, linkedDocuments: [], demoMode: false });
+    setState(recordLoading);
   }
 
   useEffect(() => {
+    if (authStatus === "loading") return undefined;
     let active = true;
     fetch(`/api/registry/records/${encodeURIComponent(slug)}?kind=${kind}`, { headers: authorizationHeader })
       .then(async (response) => {
         if (!active) return;
         if (response.status === 401) {
-          markSessionExpired();
+          if (authStatus === "authenticated") markSessionExpired();
           setState({ status: "unauthorized", record: null, linkedDocuments: [], demoMode: false });
           return;
         }
@@ -134,7 +134,7 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
     return () => {
       active = false;
     };
-  }, [kind, slug, authorizationHeader, markSessionExpired]);
+  }, [kind, slug, authStatus, authorizationHeader, markSessionExpired]);
 
   return state;
 }

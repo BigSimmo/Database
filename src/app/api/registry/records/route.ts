@@ -18,6 +18,13 @@ import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
+// The list is a small curated per-owner set that clients fetch in full and
+// rank client-side, so the whole set must be returned (never truncated) or
+// rows past the cap become invisible to Services/Forms search and undercount
+// the home footers. This ceiling is a defensive bound well above realistic
+// registry sizes; `limit` only bounds the ranked `matches` for a `q` query.
+const REGISTRY_MAX_RECORDS = 500;
+
 const registryListQuerySchema = z.object({
   kind: z.enum(["service", "form"]),
   q: z
@@ -48,7 +55,7 @@ export async function GET(request: Request) {
     if (isDemoMode()) {
       const records = kind === "form" ? formRecords : serviceRecords;
       return registryResponse({
-        records: records.slice(0, limit),
+        records,
         matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
         total: records.length,
         demoMode: true,
@@ -73,7 +80,8 @@ export async function GET(request: Request) {
       .select("*")
       .eq("owner_id", user.id)
       .eq("kind", kind)
-      .order("title");
+      .order("title")
+      .limit(REGISTRY_MAX_RECORDS);
     if (error) throw new Error(error.message);
 
     const rows = (data ?? []) as RegistryRecordRow[];
@@ -100,7 +108,7 @@ export async function GET(request: Request) {
     );
 
     return registryResponse({
-      records: records.slice(0, limit),
+      records,
       matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
       total: rows.length,
       governance: governanceBySlug,

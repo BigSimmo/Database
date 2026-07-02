@@ -79,6 +79,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  limit() {
+    return this;
+  }
+
   maybeSingle() {
     this.call.maybeSingle = true;
     return Promise.resolve(this.resolver(this.call));
@@ -212,6 +216,22 @@ describe("registry records API", () => {
     for (const call of client.calls) {
       expect(call.filters).toContainEqual({ column: "owner_id", value: userId });
     }
+  });
+
+  it("returns the full record set for client-side ranking, not just the first `limit`", async () => {
+    const many = Array.from({ length: 150 }, (_, i) => registryRow({ id: `id-${i}`, slug: `service-${i}` }));
+    const client = createSupabaseMock((call) => (call.table === "clinical_registry_records" ? ok(many) : ok([])));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    // No `q`: the client hook fetches the whole list and ranks locally, so a
+    // small default `limit` must NOT truncate the returned records.
+    const response = await GET(authedRequest("/api/registry/records?kind=service&limit=10"));
+    const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
+
+    expect(response.status).toBe(200);
+    expect(payload.records).toHaveLength(150);
+    expect(payload.total).toBe(150);
   });
 
   it("returns 429 when the registry rate limit is exhausted", async () => {

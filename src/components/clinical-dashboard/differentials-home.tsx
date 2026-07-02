@@ -573,13 +573,11 @@ function SearchResultsView({
   query,
   loading,
   documentMatches,
-  documentCount,
   onRunSearch,
 }: {
   query: string;
   loading: boolean;
   documentMatches?: DocumentMatch[];
-  documentCount?: number;
   onRunSearch?: (query: string) => void;
 }) {
   const results = useMemo(() => buildDifferentialResults(), []);
@@ -588,7 +586,9 @@ function SearchResultsView({
   );
   const best = results[0];
   const selectedCount = selectedIds.size;
-  const reviewedSourceCount = documentCount && documentCount > 0 ? documentCount : (documentMatches?.length ?? 0);
+  // Count the sources that actually matched this search, never the whole
+  // indexed library — the surrounding copy states these reflect real matches.
+  const reviewedSourceCount = documentMatches?.length ?? 0;
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -764,7 +764,6 @@ export function DifferentialsHome({
   query,
   loading,
   documentMatches,
-  documentCount,
   onQueryChange,
   onSuggestedSearch,
   onRunSearch,
@@ -775,7 +774,6 @@ export function DifferentialsHome({
   query: string;
   loading: boolean;
   documentMatches?: DocumentMatch[];
-  documentCount?: number;
   realDataReady?: boolean;
   authUnavailable?: boolean;
   apiUnavailable?: boolean;
@@ -833,7 +831,6 @@ export function DifferentialsHome({
         query={trimmedQuery}
         loading={loading}
         documentMatches={documentMatches}
-        documentCount={documentCount}
         onRunSearch={onRunSearch}
       />
     );
