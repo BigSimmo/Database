@@ -279,6 +279,7 @@ const clinicalActionLabels = new Set([
   "observe",
   "notify",
   "review",
+  "document",
   "de-escalate",
 ]);
 

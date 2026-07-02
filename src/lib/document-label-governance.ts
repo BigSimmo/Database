@@ -242,7 +242,9 @@ export function goldLabelsForDocument(document: LabelGovernanceDocument) {
 }
 
 export function missingGoldLabelsForDocument(document: LabelGovernanceDocument) {
-  const existing = new Set((document.labels ?? []).map(labelKey));
+  const existing = new Set(
+    (document.labels ?? []).filter((label) => documentLabelReviewStatus(label) !== "hidden").map(labelKey),
+  );
   return goldLabelsForDocument(document).filter((label) => {
     const normalized = normalizeGoldLabel(label);
     return normalized ? !existing.has(`${normalized.label_type}:${normalized.label}`) : false;
