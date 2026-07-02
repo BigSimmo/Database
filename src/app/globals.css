@@ -171,6 +171,9 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
+  /* Categorical dot accent with no semantic triad (e.g. Youth service pathway). */
+  --tone-purple: #7c3aed;
+
   --disabled: #98a2b3;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
@@ -306,6 +309,9 @@
   --warning-soft: var(--warning-bg);
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
+
+  /* Categorical dot accent, brightened for dark surfaces. */
+  --tone-purple: #a78bfa;
 
   --disabled: #555e6b;
   --focus: var(--clinical-accent);
@@ -1016,6 +1022,7 @@ summary::-webkit-details-marker {
     --warning-soft: Canvas;
     --danger: Mark;
     --danger-soft: Canvas;
+    --tone-purple: CanvasText;
     --focus: Highlight;
     --surface-lux: Canvas;
     --surface-wash: Canvas;

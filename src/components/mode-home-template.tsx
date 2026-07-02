@@ -43,7 +43,7 @@ const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
   info: "bg-[color:var(--info)]",
   neutral: "bg-[color:var(--text-soft)]",
   primary: "bg-[color:var(--clinical-accent)]",
-  purple: "bg-violet-600",
+  purple: "bg-[color:var(--tone-purple)]",
   success: "bg-[color:var(--success)]",
   teal: "bg-[color:var(--clinical-accent)]",
 };
