@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CircleHelp, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 import { appModeHomeHref } from "@/lib/app-modes";
 
 import {
@@ -67,9 +67,9 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
               >
                 <h3 className="text-sm font-bold text-[color:var(--text-heading)]">{card.title}</h3>
                 <p className="mt-1 text-sm text-[color:var(--text-muted)]">{card.description}</p>
-                <ul className="mt-2 space-y-1 text-xs leading-6 text-[color:var(--text-soft)]">
+                <ul className="mt-2 flex flex-col gap-1 text-xs leading-6 text-[color:var(--text-soft)]">
                   {card.examples.map((example) => (
-                    <li key={example} className="inline-flex items-start gap-2">
+                    <li key={example} className="flex items-start gap-2">
                       <FileText className="mt-0.5 h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
                       {example}
                     </li>
@@ -82,14 +82,10 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
 
         <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 sm:grid-cols-[1fr_auto] sm:grid">
           <div className="grid gap-2">
-            <h2 className="text-sm font-bold text-[color:var(--text-heading)]">Stream helper</h2>
+            <h2 className="text-sm font-bold text-[color:var(--text-heading)]">Keep exploring</h2>
             <p className="text-sm leading-6 text-[color:var(--text-muted)]">
-              This stream contains differential diagnosis content only. Use it to move from presentation clues to
-              diagnosis detail pages without mixing in service or referral records.
-            </p>
-            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-              <CircleHelp className="h-4 w-4" aria-hidden />
-              Use for workflow verification only
+              Return to the differentials home to start from a different presentation, or open search to look up another
+              differential.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

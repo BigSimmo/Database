@@ -82,7 +82,7 @@ export const serviceRecords: ServiceRecord[] = [
     subtitle: "Urgent contact, crisis response, or acute support pathway.",
     statusChips: [
       { label: "Crisis / urgent", tone: "danger" },
-      { label: "ATSI-specific", tone: "info" },
+      { label: "Aboriginal and Torres Strait Islander", tone: "info" },
       { label: "Local confirmation", tone: "warning" },
     ],
     primaryContact: {
@@ -106,7 +106,7 @@ export const serviceRecords: ServiceRecord[] = [
       },
     ],
     route: "Self phone referral",
-    eligibility: "ATSI callers",
+    eligibility: "Aboriginal and Torres Strait Islander callers",
     cost: "Free",
     referral: "Self referral by phone. Escalate emergency medical danger through emergency services.",
     location: "Statewide / national",
@@ -120,7 +120,7 @@ export const serviceRecords: ServiceRecord[] = [
       {
         id: "eligibility",
         label: "Eligibility",
-        title: "ATSI callers",
+        title: "Aboriginal and Torres Strait Islander callers",
         detail: "See details",
       },
       {
@@ -140,7 +140,7 @@ export const serviceRecords: ServiceRecord[] = [
       { label: "Primary route", value: "Contact: 13 92 76\nSelf phone referral" },
       { label: "Phone", value: "13 92 76" },
       { label: "Email", value: "None listed" },
-      { label: "Provider", value: "ATSI crisis support service referenced by WACHS" },
+      { label: "Provider", value: "Aboriginal and Torres Strait Islander crisis support service referenced by WACHS" },
       { label: "Region", value: "Statewide / national" },
       { label: "Patient group", value: "Aboriginal and Torres Strait Islander people" },
       { label: "Hours", value: "Not publicly stated" },
@@ -148,7 +148,7 @@ export const serviceRecords: ServiceRecord[] = [
     ],
     bestUse: "Culturally safe crisis phone support; escalate emergency danger elsewhere.",
     criteria: [
-      { label: "ATSI support need", tone: "meet" },
+      { label: "Aboriginal and Torres Strait Islander support need", tone: "meet" },
       { label: "Crisis support pathway appropriate", tone: "meet" },
       { label: "Phone referral available", tone: "meet" },
       { label: "Emergency medical danger present", tone: "reject" },
@@ -411,7 +411,7 @@ export const serviceRecords: ServiceRecord[] = [
     title: "State-wide Specialist Aboriginal Mental Health Service",
     subtitle: "Great Southern WACHS service combining cultural and clinical mental health expertise.",
     statusChips: [
-      { label: "ATSI-specific", tone: "info" },
+      { label: "Aboriginal and Torres Strait Islander", tone: "info" },
       { label: "Regional WA", tone: "success" },
       { label: "Local confirmation", tone: "warning" },
     ],
