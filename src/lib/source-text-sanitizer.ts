@@ -227,22 +227,24 @@ function stripLowYieldLines(value: string) {
 }
 
 export function stripLowYieldSourceNoise(text: string) {
-  return stripLowYieldLines(text)
-    .replace(leadingClassificationBannerPattern, "")
-    .replace(internalImageTokenPattern, " ")
-    .replace(sourceTitleWithCodePattern, " ")
-    .replace(sourceDocumentCodePattern, " ")
-    .replace(pageBoilerplatePattern, " ")
-    .replace(provenancePhrasePattern, " ")
-    .replace(evidenceLabelPattern, " ")
-    .replace(genericReferencePattern, "")
-    .replace(/\b(?:chunk|similarity)\s+\d+(?:\.\d+)?\b/gi, " ")
-    .replace(/\s+([,.;:])/g, "$1")
-    // Collapse doubled dots mid-text, but keep a trailing "..." — that is a
-    // stored truncation marker repairTruncatedCompactTail needs to see. The
-    // lookahead excludes dots so backtracking can't shave a trailing ellipsis
-    // down to ".." and still match.
-    .replace(/(?:\.\s*){2,}(?=[^.\s])/g, ". ");
+  return (
+    stripLowYieldLines(text)
+      .replace(leadingClassificationBannerPattern, "")
+      .replace(internalImageTokenPattern, " ")
+      .replace(sourceTitleWithCodePattern, " ")
+      .replace(sourceDocumentCodePattern, " ")
+      .replace(pageBoilerplatePattern, " ")
+      .replace(provenancePhrasePattern, " ")
+      .replace(evidenceLabelPattern, " ")
+      .replace(genericReferencePattern, "")
+      .replace(/\b(?:chunk|similarity)\s+\d+(?:\.\d+)?\b/gi, " ")
+      .replace(/\s+([,.;:])/g, "$1")
+      // Collapse doubled dots mid-text, but keep a trailing "..." — that is a
+      // stored truncation marker repairTruncatedCompactTail needs to see. The
+      // lookahead excludes dots so backtracking can't shave a trailing ellipsis
+      // down to ".." and still match.
+      .replace(/(?:\.\s*){2,}(?=[^.\s])/g, ". ")
+  );
 }
 
 export function lowYieldSourceNoiseScore(text: string) {

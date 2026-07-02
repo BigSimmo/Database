@@ -216,15 +216,17 @@ export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSan
 }
 
 export function cleanDisplayTitle(title: string) {
-  return stripClassificationBanner(normalizeExtractedGlyphs(title ?? ""))
-    .replace(/^Synthetic /, "")
-    .replace(/\.pdf$/i, "")
-    // Missing space before an acronym-like parenthetical: "Guideline(EMHS)" →
-    // "Guideline (EMHS)". Requires 2+ leading capitals inside the parens so
-    // "guideline(s)" and "dose(mg)" stay untouched.
-    .replace(/([A-Za-z])\((?=[A-Z]{2}[^)]*\))/g, "$1 (")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    stripClassificationBanner(normalizeExtractedGlyphs(title ?? ""))
+      .replace(/^Synthetic /, "")
+      .replace(/\.pdf$/i, "")
+      // Missing space before an acronym-like parenthetical: "Guideline(EMHS)" →
+      // "Guideline (EMHS)". Requires 2+ leading capitals inside the parens so
+      // "guideline(s)" and "dose(mg)" stay untouched.
+      .replace(/([A-Za-z])\((?=[A-Z]{2}[^)]*\))/g, "$1 (")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 export function sourceDisplayTitle(source: SearchResult) {

@@ -113,13 +113,17 @@ const PAGE_SIZE = 1000;
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  const [{ requireServerEnv }, { createAdminClient }, { normalizeExtractedGlyphs, polishStoredSynopsis }, projectModule] =
-    await Promise.all([
-      import("@/lib/env"),
-      import("@/lib/supabase/admin"),
-      import("@/lib/source-text-sanitizer"),
-      import("@/lib/supabase/project"),
-    ]);
+  const [
+    { requireServerEnv },
+    { createAdminClient },
+    { normalizeExtractedGlyphs, polishStoredSynopsis },
+    projectModule,
+  ] = await Promise.all([
+    import("@/lib/env"),
+    import("@/lib/supabase/admin"),
+    import("@/lib/source-text-sanitizer"),
+    import("@/lib/supabase/project"),
+  ]);
   requireServerEnv();
 
   const { checkSupabaseProjectConfig, expectedSupabaseProject, formatSupabaseProjectCheck } = projectModule;

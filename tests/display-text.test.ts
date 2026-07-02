@@ -62,9 +62,9 @@ describe("clinical dashboard display text", () => {
     });
 
     it("sheds a mid-list ordinal at the snippet head but keeps a genuine list start", () => {
-      expect(compactSourceSnippet("2) MO to check the serum lithium level and renal function as soon as possible")).toBe(
-        "MO to check the serum lithium level and renal function as soon as possible",
-      );
+      expect(
+        compactSourceSnippet("2) MO to check the serum lithium level and renal function as soon as possible"),
+      ).toBe("MO to check the serum lithium level and renal function as soon as possible");
       expect(compactSourceSnippet("1) Confirm baseline ECG before starting lithium therapy")).toBe(
         "1) Confirm baseline ECG before starting lithium therapy",
       );
