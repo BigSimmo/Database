@@ -171,6 +171,9 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
+  /* Categorical dot accent with no semantic triad (e.g. Youth service pathway). */
+  --tone-purple: #7c3aed;
+
   --disabled: #98a2b3;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
@@ -307,6 +310,9 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
+  /* Categorical dot accent, brightened for dark surfaces. */
+  --tone-purple: #a78bfa;
+
   --disabled: #555e6b;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(0 0 0 / 72%);
@@ -425,58 +431,85 @@ summary::-webkit-details-marker {
 }
 
 /*
- * Layout chrome — INTENTIONALLY UNLAYERED: these classes beat Tailwind
- * utilities on the same element (unlayered CSS wins over all layers). Their
- * call sites stack utilities that set the same properties and rely on the
- * class winning; the conflict-free helpers live in @layer components below.
+ * Header chrome — LAYERED. These classes live in @layer components so
+ * Tailwind utilities on the same element win (the header/mode-pill was the
+ * source of the recurring overlap/shadow bugs). Call-site shadow utilities
+ * were reconciled to the class values (verified byte-identical via
+ * scripts/capture-chrome-parity.ts). Responsive padding overrides are nested
+ * here so the whole class stays in one layer.
+ *
+ * The COMPOSER chrome further below (answer-footer-search-*,
+ * desktop-home-search-*, document-mobile-search-pill) stays INTENTIONALLY
+ * UNLAYERED: its call sites stack utilities from shared ui-primitives
+ * constants that rely on the class winning, and PR #171's frosted rework
+ * left ~40 value conflicts there. Reconciling those is tracked in
+ * docs/process-hardening.md ("CSS cascade layering").
  */
-.edge-glass-header {
-  isolation: isolate;
-  padding-left: max(0.75rem, var(--safe-area-left));
-  padding-right: max(0.75rem, var(--safe-area-right));
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: none;
-}
+@layer components {
+  .edge-glass-header {
+    isolation: isolate;
+    padding-left: max(0.75rem, var(--safe-area-left));
+    padding-right: max(0.75rem, var(--safe-area-right));
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: none;
+  }
 
-.edge-glass-header::after {
-  pointer-events: none;
-  position: absolute;
-  inset-inline: 0;
-  bottom: -1.25rem;
-  z-index: -1;
-  height: 1.25rem;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--background) 54%, transparent), transparent);
-  content: "";
-}
+  .edge-glass-header::after {
+    pointer-events: none;
+    position: absolute;
+    inset-inline: 0;
+    bottom: -1.25rem;
+    z-index: -1;
+    height: 1.25rem;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--background) 54%, transparent), transparent);
+    content: "";
+  }
 
-.universal-header {
-  background: var(--surface);
-}
+  .universal-header {
+    background: var(--surface);
+  }
 
-.universal-header-mode-button {
-  border-color: var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-tight);
-}
+  .universal-header-mode-button {
+    border-color: var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-tight);
+  }
 
-.universal-header-icon-control {
-  border-color: var(--border);
-  background: var(--surface);
-  box-shadow: none;
-}
+  .universal-header-icon-control {
+    border-color: var(--border);
+    background: var(--surface);
+    box-shadow: none;
+  }
 
-.universal-header-icon-control:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-subtle);
-}
+  .universal-header-icon-control:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-subtle);
+  }
 
-.dark .universal-header-mode-button {
-  box-shadow: var(--shadow-tight);
-}
+  .dark .universal-header-mode-button {
+    box-shadow: var(--shadow-tight);
+  }
 
-.dark .universal-header-icon-control {
-  box-shadow: none;
+  .dark .universal-header-icon-control {
+    box-shadow: none;
+  }
+
+  /* Responsive header padding (moved in from the shared @media blocks below so
+   the whole .edge-glass-header class is layered together). */
+  @media (min-width: 640px) {
+    .edge-glass-header {
+      padding-left: max(1rem, var(--safe-area-left));
+      padding-right: max(1rem, var(--safe-area-right));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .edge-glass-header {
+      padding-left: max(1.5rem, var(--safe-area-left));
+      padding-right: max(1.5rem, var(--safe-area-right));
+    }
+  }
 }
 
 .floating-composer-edge {
@@ -675,11 +708,6 @@ summary::-webkit-details-marker {
 }
 
 @media (min-width: 640px) {
-  .edge-glass-header {
-    padding-left: max(1rem, var(--safe-area-left));
-    padding-right: max(1rem, var(--safe-area-right));
-  }
-
   .floating-composer-edge {
     bottom: max(1rem, var(--safe-area-bottom));
   }
@@ -760,11 +788,6 @@ summary::-webkit-details-marker {
 }
 
 @media (min-width: 1024px) {
-  .edge-glass-header {
-    padding-left: max(1.5rem, var(--safe-area-left));
-    padding-right: max(1.5rem, var(--safe-area-right));
-  }
-
   .dashboard-composer-edge {
     left: calc(var(--clinical-sidebar-width, 20rem) + 2rem);
     right: max(2rem, var(--safe-area-right));
@@ -1016,6 +1039,7 @@ summary::-webkit-details-marker {
     --warning-soft: Canvas;
     --danger: Mark;
     --danger-soft: Canvas;
+    --tone-purple: CanvasText;
     --focus: Highlight;
     --surface-lux: Canvas;
     --surface-wash: Canvas;
