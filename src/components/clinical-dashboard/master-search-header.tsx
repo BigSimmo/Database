@@ -161,7 +161,6 @@ export function MasterSearchHeader({
   queryInputRef,
   queryInputAutoFocus = false,
   headerVariant = "default",
-  modeAlignment = "default",
   mobileSearchPlacement = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
@@ -199,7 +198,6 @@ export function MasterSearchHeader({
   queryInputRef?: Ref<HTMLInputElement>;
   queryInputAutoFocus?: boolean;
   headerVariant?: "default" | "workflow";
-  modeAlignment?: "default" | "center";
   mobileSearchPlacement?: "default" | "bottom";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
@@ -1010,14 +1008,7 @@ export function MasterSearchHeader({
 
           <div
             ref={modeMenuRef}
-            className={cn(
-              "relative z-40 min-w-0",
-              isWorkflowHeader ? "justify-self-start" : "justify-self-center",
-              modeAlignment === "center" &&
-                !isStandaloneModeHomeHeader &&
-                !isWorkflowHeader &&
-                "lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2",
-            )}
+            className={cn("relative z-40 min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
             <button
               ref={modeButtonRef}
@@ -1029,7 +1020,7 @@ export function MasterSearchHeader({
               }}
               onKeyDown={handleModeTriggerKeyDown}
               className={cn(
-                "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]",
+                "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
                 isWorkflowHeader && "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
               )}
               aria-haspopup="menu"
@@ -1041,26 +1032,11 @@ export function MasterSearchHeader({
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span
-                  className={cn(
-                    "hidden truncate text-[10px] font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block",
-                    !isStandaloneModeHomeHeader && !isWorkflowHeader && "sr-only",
-                  )}
-                >
+                <span className="hidden truncate text-[10px] font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
                   {selectedAppMode.label}
-                </span>
-                <span
-                  className={cn(
-                    isWorkflowHeader
-                      ? "hidden"
-                      : "hidden truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)] sm:block",
-                    isStandaloneModeHomeHeader && "lg:hidden",
-                  )}
-                >
-                  {selectedAppMode.description}
                 </span>
               </span>
               <ChevronDown
@@ -1182,14 +1158,8 @@ export function MasterSearchHeader({
                 aria-label="Start a new chat"
                 title="New chat"
               >
-                {isStandaloneModeHomeHeader ? (
-                  <Plus className="h-5 w-5 xl:h-4 xl:w-4" />
-                ) : (
-                  <MessageSquarePlus className="h-5 w-5 xl:h-4 xl:w-4" />
-                )}
-                {isStandaloneModeHomeHeader ? null : (
-                  <span className="hidden whitespace-nowrap xl:inline">New chat</span>
-                )}
+                <MessageSquarePlus className="h-5 w-5 xl:h-4 xl:w-4" />
+                <span className="hidden whitespace-nowrap xl:inline">New chat</span>
               </button>
             ) : null}
           </div>

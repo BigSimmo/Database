@@ -37,6 +37,8 @@ type GlobalMockupSearchShellProps = {
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
+  /** Hide the shared search composer on routes that provide their own search surface. */
+  searchComposerVisible?: boolean;
 };
 
 export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
@@ -60,6 +62,7 @@ function GlobalMockupSearchShellClient({
   initialMode = "answer",
   availableModeIds,
   desktopSearchPlacement = "default",
+  searchComposerVisible = true,
 }: GlobalMockupSearchShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -281,12 +284,11 @@ function GlobalMockupSearchShellClient({
           queryModeOptions={mockupQueryModeOptions}
           queryInputRef={inputRef}
           headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
-          modeAlignment={isDifferentialPresentationWorkflow ? "default" : "center"}
           mobileSearchPlacement="bottom"
           desktopSearchPlacement={
             (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
           }
-          searchComposerVisible={!isDifferentialPresentationWorkflow}
+          searchComposerVisible={searchComposerVisible && !isDifferentialPresentationWorkflow}
           workflowCopyText={
             isDifferentialPresentationWorkflow
               ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
@@ -299,9 +301,11 @@ function GlobalMockupSearchShellClient({
           id="main-content"
           className={cn(
             "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
-            searchMode === "answer"
-              ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
-              : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+            !searchComposerVisible
+              ? "pb-8"
+              : searchMode === "answer"
+                ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           {children}

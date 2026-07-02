@@ -64,7 +64,7 @@ test.describe("Clinical KB applications launcher", () => {
         await expect(desktopLaunchLink).toBeVisible();
         await expect(desktopLaunchLink).toHaveAttribute("href", "/?mode=answer");
       }
-      await expect(page.getByLabel("Current app mode: Applications")).toBeVisible();
+      await expect(page.getByLabel("Current app mode: Tools")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
       await expect(page.getByLabel("Open selected application")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
