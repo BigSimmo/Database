@@ -3308,7 +3308,7 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
     const evidenceText = evidenceTextForGate(result);
     if (!riskZoneActionPattern.test(evidenceText)) return false;
     if (zonePhrasePattern.test(evidenceText)) return true;
-    return visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
+    return ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
   });
 }
 
