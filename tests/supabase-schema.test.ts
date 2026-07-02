@@ -279,6 +279,9 @@ describe("Supabase schema Data API grants", () => {
       );
       expect(sql).toContain("'indexing_v3_agent_status', 'completed'");
       expect(sql).toContain("'indexing_v3_agent_status', 'deferred'");
+      expect(sql).toContain("coalesce(d.metadata->>'indexing_v3_agent_status', '') = 'processing'");
+      expect(sql).toContain("then (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz");
+      expect(sql).toContain("'enrichment_status', 'processing'");
       expect(sql).toContain("stage = 'strict_gate_deferred'");
       expect(sql).toContain("'strict_gate_repair'");
       expect(sql).toContain("extraction_quality = 'good'");
