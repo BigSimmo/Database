@@ -1,10 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
-import { env, requireServerEnv } from "@/lib/env";
+import { requireServerEnv } from "@/lib/env";
+import type { Database } from "./database.types";
 
 export function createAdminClient() {
-  requireServerEnv();
+  const { NEXT_PUBLIC_SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key } = requireServerEnv();
 
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return createClient<Database>(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

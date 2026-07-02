@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
 import { demoSearch } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
@@ -551,7 +552,8 @@ function logRetrievalDiagnostics(args: {
           relevance_score: args.relevance.score,
           latency_bucket: latencyBucket(latencyMs),
           ...retrievalDecisionTelemetry(args.telemetry),
-        },
+          // Telemetry values are JSON-serializable; some are typed wider than Json.
+        } as unknown as Json,
       });
     } catch (error) {
       retrievalLogWriteMetrics.failures += 1;
@@ -611,7 +613,7 @@ function logSearchObservation(args: {
           search_cache_hit: telemetry.search_cache_hit ?? null,
           embedding_skipped: telemetry.embedding_skipped ?? null,
           ...retrievalDecisionTelemetry(telemetry),
-        },
+        } as unknown as Json,
       });
     } catch {
       // Search telemetry must not affect the user-facing search path.

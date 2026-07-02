@@ -60,7 +60,7 @@ async function main() {
   assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Abandoned reindex generation cleanup");
 
   const { data, error } = await supabase.rpc("cleanup_abandoned_document_index_generations", {
-    p_document_id: args.documentId,
+    p_document_id: args.documentId ?? undefined,
     p_limit: limit,
     p_dry_run: true,
   });
@@ -93,7 +93,7 @@ async function main() {
   }
 
   const applied = await supabase.rpc("cleanup_abandoned_document_index_generations", {
-    p_document_id: args.documentId,
+    p_document_id: args.documentId ?? undefined,
     p_limit: limit,
     p_dry_run: false,
   });
