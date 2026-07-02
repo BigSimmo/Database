@@ -98,7 +98,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           next_run_at: job.next_run_at,
           completed_at: job.completed_at,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("status", "pending")
+        .eq("stage", "queued")
+        .eq("progress", 0)
+        .eq("attempt_count", 0)
+        .is("locked_at", null)
+        .is("locked_by", null);
       if (rollbackError) {
         throw new Error(`${documentError.message}; failed to roll back retried job state: ${rollbackError.message}`);
       }

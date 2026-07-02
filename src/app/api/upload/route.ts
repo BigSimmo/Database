@@ -175,7 +175,18 @@ export async function POST(request: Request) {
   } catch (error) {
     if (insertedDocumentId && insertedDocumentOwnerId && supabase) {
       try {
-        await supabase.from("documents").delete().eq("id", insertedDocumentId).eq("owner_id", insertedDocumentOwnerId);
+        const { error: cleanupDeleteError } = await supabase
+          .from("documents")
+          .delete()
+          .eq("id", insertedDocumentId)
+          .eq("owner_id", insertedDocumentOwnerId);
+        if (cleanupDeleteError) {
+          logger.error("Upload cleanup failed; document row may be orphaned", {
+            documentId: insertedDocumentId,
+            ownerId: insertedDocumentOwnerId,
+            message: cleanupDeleteError.message,
+          });
+        }
       } catch (cleanupError) {
         logger.error("Upload cleanup failed; document row may be orphaned", {
           documentId: insertedDocumentId,
@@ -187,7 +198,13 @@ export async function POST(request: Request) {
 
     if (uploadedPath && supabase) {
       try {
-        await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([uploadedPath]);
+        const { error: cleanupStorageError } = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([uploadedPath]);
+        if (cleanupStorageError) {
+          logger.error("Upload cleanup failed; storage object may be orphaned", {
+            storagePath: uploadedPath,
+            message: cleanupStorageError.message,
+          });
+        }
       } catch (cleanupError) {
         // Cleanup is best-effort, but a silent failure leaves an orphaned storage
         // object. Record the path so it can be reconciled instead of dropping it.

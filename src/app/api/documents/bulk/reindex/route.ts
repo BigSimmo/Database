@@ -203,13 +203,26 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         if (jobError) {
-          const { error: rollbackError } = await supabase
-            .from("documents")
-            .update(rollbackDocumentPayload)
-            .eq("id", document.id)
-            .eq("owner_id", user.id);
-          if (rollbackError) {
-            throw new Error(`Failed to enqueue bulk reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
+          const { data: competingJobs, error: competingJobsError } = await supabase
+            .from("ingestion_jobs")
+            .select("id")
+            .eq("document_id", document.id)
+            .in("status", ["pending", "processing"])
+            .limit(1);
+          if (competingJobsError) {
+            throw new Error(
+              `Failed to enqueue bulk reindex job: ${jobError.message}; competing-job check failed: ${competingJobsError.message}`,
+            );
+          }
+          if ((competingJobs?.length ?? 0) === 0) {
+            const { error: rollbackError } = await supabase
+              .from("documents")
+              .update(rollbackDocumentPayload)
+              .eq("id", document.id)
+              .eq("owner_id", user.id);
+            if (rollbackError) {
+              throw new Error(`Failed to enqueue bulk reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
+            }
           }
           throw new Error(jobError.message);
         }
