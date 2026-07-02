@@ -8,7 +8,7 @@ describe("form detail clipboard fallback", () => {
     expect(source).toContain("if (navigator.clipboard?.writeText)");
     expect(source).toContain("await navigator.clipboard.writeText(value)");
     expect(source).toContain("Fall through to the legacy selection path for restricted browser contexts.");
-    expect(source).toContain("document.execCommand?.(\"copy\")");
+    expect(source).toContain('document.execCommand?.("copy")');
     expect(source).toContain("finally {\n    document.body.removeChild(textArea);\n  }");
   });
 });

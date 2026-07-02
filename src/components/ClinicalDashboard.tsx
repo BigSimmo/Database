@@ -6540,8 +6540,7 @@ export function ClinicalDashboard({
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePrivateApis =
-    localProjectReady &&
-    (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
+    localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "mobileSidebar" | "documents" | "upload") => {

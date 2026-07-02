@@ -22,7 +22,9 @@ describe("strict embedding dimension guard", () => {
     const { EXPECTED_EMBED_DIM, assertEmbeddingDim } = await import("../src/lib/embedding-dimensions");
 
     expect(() => assertEmbeddingDim("not-a-vector", "test_vector")).toThrow(/must be an array/);
-    expect(() => assertEmbeddingDim([0.1, 0.2], "test_vector")).toThrow(new RegExp(`2 dimensions; expected ${EXPECTED_EMBED_DIM}`));
+    expect(() => assertEmbeddingDim([0.1, 0.2], "test_vector")).toThrow(
+      new RegExp(`2 dimensions; expected ${EXPECTED_EMBED_DIM}`),
+    );
     expect(() =>
       assertEmbeddingDim([...Array.from({ length: EXPECTED_EMBED_DIM - 1 }, () => 0), Infinity], "test_vector"),
     ).toThrow(new RegExp(`non-finite value at index ${EXPECTED_EMBED_DIM - 1}`));
