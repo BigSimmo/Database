@@ -21,6 +21,10 @@ const labelTypeSchema = z.enum([
   "workflow",
   "population",
   "service",
+  "clinical_action",
+  "care_phase",
+  "document_intent",
+  "content_feature",
   "custom",
 ] satisfies [DocumentLabelType, ...DocumentLabelType[]]);
 

@@ -15,7 +15,13 @@
 
 ### Verification
 
-- `npm run typecheck` passes; dev server serves 200 with 0 console errors; light/dark desktop + light mobile screenshots confirm the direction; contrast spot-checks pass (Aegean-on-white ≈5.8:1, command ≈16:1, semantics ≥4.5:1). `npm run verify:ui`/`verify:release` not yet run in this pass.
+- `npm run typecheck` and `npm run lint` pass; vitest 688 passed / 2 skipped; `tests/ui-smoke.spec.ts` 29/29 and `tests/ui-accessibility.spec.ts` 2/2 pass on Chromium; dev server serves 200 with 0 console errors; light/dark desktop + light mobile screenshots confirm the direction; contrast spot-checks pass (Aegean-on-white ≈5.8:1, command ≈16:1, semantics ≥4.5:1). `npm run verify:release` (full build + e2e + eval) not run.
+
+### Polish (follow-up pass)
+
+- **Glow tokens de-halo'd:** `--glow-primary`/`--glow-soft` retuned to a crisp accent ring + neutral shadow (no colored ambient halo) in both schemes — fixes the last glassy selection states (launcher active tile, selected chips, viewer citation highlight).
+- **Answer skeleton neutralised:** loading panel moved off the accent wash onto neutral raised surface; shimmer bones stepped to `--surface-inset` so they stay visible on the true-white canvas.
+- **Stale meta theme-color** fixed to `#ffffff` (was old blue-grey).
 
 ## June 23 process hardening pass
 

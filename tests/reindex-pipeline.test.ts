@@ -76,6 +76,12 @@ describe("reindex pipeline queue state", () => {
         committedGeneration: "generation-a",
       }),
     ).toBe(true);
+    expect(
+      isCommittedGenerationMetadata({
+        rowMetadata: { index_generation_id: "legacy-generation" },
+        committedGeneration: null,
+      }),
+    ).toBe(true);
   });
 
   it("identifies abandoned staged generation rows without flagging legacy generationless rows", () => {

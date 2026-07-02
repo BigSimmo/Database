@@ -93,5 +93,122 @@
     "expectedContentTerms": ["monitoring", "threshold", ["anc", "fbc", "wbc"]],
     "topK": 12,
     "expectTableEvidence": true
+  },
+  {
+    "id": "alcohol-withdrawal-management",
+    "query": "What is the recommended management of alcohol withdrawal?",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Alcohol withdrawal"],
+    "expectedContentTerms": ["alcohol", "withdrawal"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "opioid-use-disorder-management",
+    "query": "How is opioid use disorder managed?",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Opioid use disorder"],
+    "expectedContentTerms": ["opioid", "disorder"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "insomnia-assessment-management",
+    "query": "How should insomnia be assessed and managed?",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Insomnia"],
+    "expectedContentTerms": ["insomnia", "sleep"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "suicide-risk-mitigation-guidance",
+    "query": "Summarise strategies to reduce inpatient suicide",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Suicide risk mitigation"],
+    "expectedContentTerms": ["suicide"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "schizophrenia-overview",
+    "query": "Give an overview of schizophrenia assessment and treatment",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Schizophrenia"],
+    "expectedContentTerms": ["schizophrenia", ["treatment", "antipsychotic", "management"]],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "bipolar-management-summary",
+    "query": "Summarise the management of bipolar disorder in adults",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Bipolar disorder in adults"],
+    "expectedContentTerms": ["bipolar", ["lithium", "mood", "treatment"]],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "depression-adults-vs-children",
+    "query": "Compare depression in adults versus depression in children",
+    "expectedQueryClass": "comparison",
+    "expectedDocumentSubstrings": ["Depression in adults", "Depression in children"],
+    "expectedContentTerms": ["depression"],
+    "topK": 12,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "alcohol-ciwa-scoring",
+    "query": "Explain the CIWA-Ar scoring used in alcohol withdrawal",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Alcohol withdrawal"],
+    "expectedContentTerms": ["alcohol", ["ciwa", "withdrawal", "score"]],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "opioid-withdrawal-doses",
+    "query": "What medication doses are used for opioid withdrawal?",
+    "expectedQueryClass": "medication_dose_risk",
+    "expectedDocumentSubstrings": ["Opioid use disorder"],
+    "expectedContentTerms": ["opioid", "withdrawal", ["buprenorphine", "methadone", "dose"]],
+    "topK": 12,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "postnatal-depression-treatment",
+    "query": "How is postnatal depression treated?",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Postnatal depression"],
+    "expectedContentTerms": ["postnatal", "depression"],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "bipolar-vs-schizoaffective",
+    "query": "Compare bipolar disorder and schizoaffective disorder",
+    "expectedQueryClass": "comparison",
+    "expectedDocumentSubstrings": ["Bipolar disorder in adults", "Schizoaffective disorder"],
+    "expectedContentTerms": ["bipolar", "schizoaffective"],
+    "topK": 12,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "lithium-therapy-monitoring",
+    "query": "What monitoring is required for lithium therapy?",
+    "expectedQueryClass": "medication_dose_risk",
+    "expectedDocumentSubstrings": [],
+    "expectedContentTerms": ["lithium", ["monitor", "level", "thyroid", "renal", "tsh"]],
+    "topK": 12,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "alcohol-ciwa-threshold",
+    "query": "What CIWA-Ar score threshold requires drug treatment in alcohol withdrawal?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["Alcohol withdrawal"],
+    "expectedContentTerms": ["alcohol", "withdrawal", ["ciwa", "score", "threshold"]],
+    "topK": 12,
+    "expectTableEvidence": false
   }
 ]

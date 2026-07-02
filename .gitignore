@@ -62,3 +62,9 @@ supabase/.temp/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent/QA artifacts
+.codex-screenshots/
+.qa-smoke/
+*.pid
+tmp_output.txt

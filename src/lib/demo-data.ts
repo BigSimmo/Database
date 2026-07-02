@@ -347,8 +347,7 @@ export function demoSearch(query: string, topK = 8, documentId?: string, documen
 export function demoAnswer(query: string, documentId?: string, documentIds?: string[]): RagAnswer {
   const lowered = query.toLowerCase();
   const mentionsLithium = lowered.includes("lithium") || lowered.includes("toxicity");
-  const mentionsClozapine =
-    lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image");
+  const mentionsClozapine = lowered.includes("clozapine") || lowered.includes("table") || lowered.includes("image");
   // The bare word "risk" is far too common to anchor a confident acute-risk
   // answer (e.g. "bleeding risk with aspirin"); require genuine escalation/triage
   // context so an incidental mention doesn't trigger a wrong-topic answer.

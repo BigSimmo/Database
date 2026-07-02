@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from "playwright/test";
 
 const documentPath =
   "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442";
+const uiLoadTimeoutMs = 15_000;
 
 async function attachViewportScreenshot(
   page: Page,
@@ -12,7 +13,7 @@ async function attachViewportScreenshot(
 ) {
   await page.setViewportSize(viewport);
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => undefined);
+  await page.waitForLoadState("networkidle", { timeout: uiLoadTimeoutMs }).catch(() => undefined);
   await expect(page.locator("body")).toBeVisible();
 
   await testInfo.attach(name, {

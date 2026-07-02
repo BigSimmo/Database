@@ -3,34 +3,33 @@
 import { useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   BadgeCheck,
-  ChevronRight,
   Clock3,
   ExternalLink,
   FileText,
   Filter,
   FolderOpen,
   GitBranch,
+  Heart,
   ListChecks,
   Plus,
+  Quote,
   Search,
   ShieldCheck,
   Sparkles,
   Table2,
   UploadCloud,
   Wrench,
-  X,
   type LucideIcon,
 } from "lucide-react";
 
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, chatComposerIconButton } from "@/components/ui-primitives";
 
-export type ModeActionSetId = "answer" | "documents" | "tools" | "differentials";
+export type ModeActionSetId = "answer" | "documents" | "services" | "favourites" | "tools" | "differentials";
 
 export type ModeActionId =
-  | "answer-clinical"
-  | "answer-documents"
-  | "answer-evidence"
+  | "answer-quotes"
+  | "answer-evidence-map"
   | "answer-new"
   | "documents-search"
   | "documents-upload"
@@ -40,6 +39,11 @@ export type ModeActionId =
   | "documents-status"
   | "documents-collections"
   | "documents-viewer"
+  | "services-search"
+  | "services-pathways"
+  | "services-records"
+  | "favourites-browse"
+  | "favourites-sets"
   | "medication-dose"
   | "medication-safety"
   | "medication-monitoring"
@@ -63,16 +67,42 @@ export type ModeActionItem = {
 const modeActionSets = {
   answer: [
     {
-      id: "answer-clinical",
-      label: "Answer mode",
-      shortLabel: "Answer",
-      description: "Ask a clinical question",
-      icon: Sparkles,
-      primary: true,
+      id: "documents-upload",
+      label: "Add document",
+      description: "Upload a source",
+      icon: FileText,
     },
-    { id: "answer-documents", label: "Docs", description: "Search and manage sources", icon: FileText },
-    { id: "answer-evidence", label: "Evidence", description: "Review answer sources", icon: ListChecks },
-    { id: "answer-new", label: "New answer", shortLabel: "New", description: "Clear the current thread", icon: Plus },
+    {
+      id: "documents-search",
+      label: "Search library",
+      shortLabel: "Search",
+      description: "Find indexed sources",
+      icon: Search,
+    },
+    {
+      id: "documents-scope",
+      label: "Scope sources",
+      shortLabel: "Scope",
+      description: "Limit source scope",
+      icon: Filter,
+    },
+    { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
+    { id: "documents-viewer", label: "PDFs", description: "Open source PDFs", icon: FileText },
+    { id: "answer-quotes", label: "Quotes", description: "Review cited passages", icon: Quote },
+    {
+      id: "answer-evidence-map",
+      label: "Evidence map",
+      shortLabel: "Evidence map",
+      description: "Trace source support",
+      icon: ListChecks,
+    },
+    {
+      id: "tools-browse",
+      label: "Clinical tools",
+      shortLabel: "Tools",
+      description: "Open clinical tools",
+      icon: Wrench,
+    },
   ],
   documents: [
     {
@@ -102,6 +132,45 @@ const modeActionSets = {
     { id: "documents-status", label: "Status", icon: BadgeCheck },
     { id: "documents-collections", label: "Collections", shortLabel: "Folders", icon: FolderOpen },
     { id: "documents-viewer", label: "Open source", shortLabel: "Open", icon: ExternalLink },
+  ],
+  services: [
+    {
+      id: "services-search",
+      label: "Search services",
+      shortLabel: "Search",
+      description: "Find service records",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "services-pathways",
+      label: "Pathways",
+      description: "Find referral pathways",
+      icon: ListChecks,
+    },
+    {
+      id: "services-records",
+      label: "Records",
+      description: "Browse verified services",
+      icon: FileText,
+    },
+  ],
+  favourites: [
+    {
+      id: "favourites-browse",
+      label: "Browse favourites",
+      shortLabel: "Browse",
+      description: "Open saved clinical items",
+      icon: Heart,
+      primary: true,
+    },
+    {
+      id: "favourites-sets",
+      label: "Saved sets",
+      shortLabel: "Sets",
+      description: "Review grouped favourites",
+      icon: FolderOpen,
+    },
   ],
   tools: [
     {
@@ -166,6 +235,7 @@ export function ModeActionPopup({
   onBeforeOpen,
   onAction,
   triggerClassName,
+  integrated = false,
 }: {
   open: boolean;
   title: string;
@@ -176,6 +246,7 @@ export function ModeActionPopup({
   onBeforeOpen?: () => void;
   onAction: (actionId: ModeActionId) => void;
   triggerClassName?: string;
+  integrated?: boolean;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -235,15 +306,16 @@ export function ModeActionPopup({
     onAction(actionId);
   }
 
-  const primaryAction = items[0];
-  const PrimaryActionIcon = primaryAction?.icon;
-  const secondaryActions = items.slice(1);
-  const secondaryGridClass =
-    secondaryActions.length >= 6
-      ? "grid-cols-4 max-[360px]:grid-cols-3"
-      : secondaryActions.length >= 3
-        ? "grid-cols-3"
+  const actionGridClass =
+    items.length >= 6
+      ? "grid-cols-2 min-[560px]:grid-cols-4"
+      : items.length >= 3
+        ? "grid-cols-2 sm:grid-cols-3"
         : "grid-cols-2";
+  const headerSubtitle =
+    title.toLowerCase() === "answer"
+      ? "Source-backed mode"
+      : items.find((item) => item.primary)?.description || items[0]?.description || "Mode actions";
 
   function assignActionRef(element: HTMLButtonElement | null, index: number) {
     itemRefs.current[index] = element;
@@ -255,30 +327,39 @@ export function ModeActionPopup({
         <div
           ref={surfaceRef}
           className={cn(
-            "absolute inset-x-0 bottom-[calc(100%+0.7rem)] z-50 text-[color:var(--text)] motion-safe:animate-action-tray-in sm:inset-x-auto sm:left-0",
-            items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]",
+            "absolute z-50 text-[color:var(--text)] motion-safe:animate-action-tray-in",
+            integrated
+              ? "inset-x-0 bottom-[calc(100%+0.65rem)]"
+              : "inset-x-0 bottom-[calc(100%+0.7rem)] sm:bottom-auto sm:top-[calc(100%+0.7rem)] sm:inset-x-auto sm:left-0",
+            !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
           )}
         >
-          <div className="overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10">
-            <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3 py-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
-                  <TitleIcon className="h-3.5 w-3.5" />
+          <div
+            className={cn(
+              "overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
+              integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
+            )}
+          >
+            <div className="grid min-h-[4.1rem] grid-cols-[minmax(8.5rem,0.38fr)_minmax(0,1fr)_3.75rem] overflow-hidden border-b border-[color:var(--border)]/70 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--clinical-chat-teal-soft)_42%,var(--surface)_58%)_0%,color-mix(in_srgb,var(--surface-raised)_92%,var(--clinical-chat-teal-soft)_8%)_100%)]">
+              <div className="flex min-w-0 items-center gap-3 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--clinical-chat-teal)_82%,#ffffff_18%)_0%,color-mix(in_srgb,var(--clinical-chat-teal)_68%,var(--primary-strong)_32%)_100%)] px-3.5 text-[color:var(--primary-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255_/_22%)] sm:px-4">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/25 bg-white/10 text-white shadow-[var(--shadow-inset)]">
+                  <TitleIcon className="h-4.5 w-4.5" />
                 </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                    Options
-                  </span>
-                  <span className="block truncate text-[13px] font-bold text-[color:var(--text-heading)]">{title}</span>
+                <span className="truncate text-base font-bold leading-none sm:text-lg">{title}</span>
+              </div>
+              <div className="flex min-w-0 items-center gap-3 border-l border-[color:var(--border)]/45 px-3 sm:px-5">
+                <span aria-hidden="true" className="hidden h-7 w-px bg-[color:var(--border)]/80 sm:block" />
+                <span className="truncate text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
+                  {headerSubtitle}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={closeAndRestoreFocus}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="m-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label={`Close ${title.toLowerCase()} options`}
               >
-                <X className="h-4 w-4" />
+                <BadgeCheck className="h-4.5 w-4.5" />
               </button>
             </div>
             <div
@@ -286,77 +367,49 @@ export function ModeActionPopup({
               data-testid="daily-actions-menu"
               role="menu"
               aria-label={title}
-              className="p-2.5"
+              className={cn("p-2.5", integrated && "p-3 sm:p-3.5")}
             >
-              {primaryAction && PrimaryActionIcon ? (
-                <button
-                  key={primaryAction.id}
-                  ref={(element) => assignActionRef(element, 0)}
-                  type="button"
-                  role="menuitem"
-                  onKeyDown={(event) => handleItemKeyDown(event, 0)}
-                  onClick={() => runActionAndClose(primaryAction.id)}
-                  className={cn(
-                    "group grid min-h-[4.25rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition motion-safe:duration-150",
-                    "hover:border-[color:var(--clinical-chat-teal)]/45 hover:bg-[color:var(--clinical-chat-teal-soft)]/35 active:scale-[0.995]",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  )}
-                >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] transition group-hover:bg-[color:var(--surface)]">
-                    <PrimaryActionIcon className="h-4.5 w-4.5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[14px] font-bold leading-5 text-[color:var(--text-heading)]">
-                      <span className="sm:hidden">{primaryAction.shortLabel ?? primaryAction.label}</span>
-                      <span className="hidden sm:inline">{primaryAction.label}</span>
-                    </span>
-                    {primaryAction.description ? (
-                      <span className="mt-0.5 block truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)]">
-                        {primaryAction.description}
+              <div className={cn("grid gap-2", actionGridClass)}>
+                {items.map((item, index) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      ref={(element) => assignActionRef(element, index)}
+                      type="button"
+                      role="menuitem"
+                      onKeyDown={(event) => handleItemKeyDown(event, index)}
+                      onClick={() => runActionAndClose(item.id)}
+                      className={cn(
+                        "group grid min-h-[4.6rem] place-items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center shadow-[var(--shadow-inset)] transition motion-safe:duration-150 sm:min-h-[4.85rem]",
+                        "hover:border-[color:var(--clinical-chat-teal)]/32 hover:bg-[color:var(--clinical-chat-teal-soft)]/24 active:scale-[0.985]",
+                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                      )}
+                    >
+                      <span className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-chat-teal)]">
+                        <Icon className="h-5 w-5" />
                       </span>
-                    ) : null}
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--clinical-chat-teal)] transition group-hover:translate-x-0.5 motion-reduce:transition-none" />
-                </button>
-              ) : null}
-              {secondaryActions.length ? (
-                <div
-                  className={cn("mt-2 grid gap-1.5 border-t border-[color:var(--border)]/75 pt-2", secondaryGridClass)}
-                >
-                  {secondaryActions.map((item, secondaryIndex) => {
-                    const index = secondaryIndex + 1;
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        ref={(element) => assignActionRef(element, index)}
-                        type="button"
-                        role="menuitem"
-                        onKeyDown={(event) => handleItemKeyDown(event, index)}
-                        onClick={() => runActionAndClose(item.id)}
-                        className={cn(
-                          "group grid min-h-[4.15rem] place-items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-2 text-center shadow-[var(--shadow-inset)] transition motion-safe:duration-150",
-                          "hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] active:scale-[0.985]",
-                          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        )}
-                      >
-                        <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition group-hover:border-[color:var(--clinical-chat-teal)]/25 group-hover:text-[color:var(--clinical-chat-teal)]">
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        <span className="max-w-full truncate text-[11px] font-bold leading-3 text-[color:var(--text-muted)] group-hover:text-[color:var(--text)]">
-                          {item.shortLabel ?? item.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
+                      <span className="max-w-full text-balance text-[12px] font-bold leading-4 text-[color:var(--text-heading)]">
+                        {item.shortLabel ?? item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
-          />
+          {!integrated ? (
+            <>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)] sm:hidden"
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-[6px] left-8 hidden h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)] sm:block"
+              />
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -367,7 +420,7 @@ export function ModeActionPopup({
           className={cn(
             chatComposerIconButton,
             triggerClassName,
-            open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)]",
+            open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)] motion-safe:rotate-45",
           )}
           aria-label={buttonLabel}
           aria-controls={open ? "daily-actions-sheet" : undefined}

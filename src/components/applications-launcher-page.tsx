@@ -83,6 +83,8 @@ const filterOptions = [
 const sidebarApplicationItems = [
   { label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { label: "Documents", icon: FileText, href: "/?mode=documents" },
+  { label: "Services", icon: ClipboardList, href: "/services" },
+  { label: "Forms", icon: FileText, href: "/forms" },
   { label: "Meds", icon: Pill, href: "/?mode=prescribing" },
 ] as const;
 
@@ -101,7 +103,7 @@ const launcherApps: LauncherApp[] = [
     lastUsed: "May 12, 2025",
     status: "review_due",
     sourceToolId: "medications",
-    relatedIds: ["documents", "clinical-kb-search"],
+    relatedIds: ["documents", "services", "clinical-kb-search"],
     quickActions: ["Create new prescription", "Browse formulary", "Review interactions", "Medication templates"],
     recentWorkflows: [
       { title: "Medication review - Sam T.", date: "May 12, 2025" },
@@ -121,12 +123,53 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "May 10, 2025",
     status: "ready",
-    relatedIds: ["clinical-kb-search", "medication-prescribing"],
+    relatedIds: ["clinical-kb-search", "services", "medication-prescribing"],
     quickActions: ["Search documents", "Browse library", "Open source PDF", "Review indexed documents"],
     recentWorkflows: [
       { title: "Lithium monitoring guideline", date: "May 10, 2025" },
       { title: "Safety plan source review", date: "May 9, 2025" },
       { title: "Clozapine monitoring protocol", date: "May 7, 2025" },
+    ],
+  },
+  {
+    id: "services",
+    title: "Services",
+    description: "Review source-backed service records and access pathways.",
+    detail:
+      "Open service records with contact routes, eligibility, cost, referral criteria, verification, and source status.",
+    href: "/services",
+    external: false,
+    icon: ClipboardList,
+    category: "clinical",
+    workflow: "Referral",
+    lastUsed: "Today, 8:15 AM",
+    status: "review_due",
+    relatedIds: ["clinical-kb-search", "documents", "medication-prescribing"],
+    quickActions: ["Open services home", "Review referral criteria", "Copy contact pathway", "Check source status"],
+    recentWorkflows: [
+      { title: "13YARN referral pathway", date: "Today, 8:15 AM" },
+      { title: "Regional mental health service check", date: "May 12, 2025" },
+      { title: "Crisis support contact review", date: "May 10, 2025" },
+    ],
+  },
+  {
+    id: "forms",
+    title: "Forms",
+    description: "Find clinical forms and source-backed form pathways.",
+    detail: "Open the forms home for form search, readiness checks, pathway tasks, and source-backed records.",
+    href: "/forms",
+    external: false,
+    icon: FileText,
+    category: "admin",
+    workflow: "Forms",
+    lastUsed: "Today, 8:05 AM",
+    status: "ready",
+    relatedIds: ["services", "documents", "clinical-kb-search"],
+    quickActions: ["Open forms home", "Search forms", "Review readiness checks", "Browse form pathways"],
+    recentWorkflows: [
+      { title: "Assessment form pathway", date: "Today, 8:05 AM" },
+      { title: "Transfer form check", date: "May 12, 2025" },
+      { title: "Treatment form source review", date: "May 10, 2025" },
     ],
   },
   {
@@ -141,7 +184,7 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "Today, 7:30 AM",
     status: "ready",
-    relatedIds: ["documents", "medication-prescribing"],
+    relatedIds: ["documents", "services", "medication-prescribing"],
     quickActions: ["Ask clinical question", "Search indexed guidelines", "Open document scope", "Review sources"],
     recentWorkflows: [
       { title: "Lithium monitoring search", date: "Today, 7:30 AM" },
@@ -151,10 +194,11 @@ const launcherApps: LauncherApp[] = [
   },
 ];
 
-const seedPinnedIds = ["clinical-kb-search", "medication-prescribing", "documents"];
+const seedPinnedIds = ["clinical-kb-search", "services", "medication-prescribing", "documents"];
 
 const recentActivity = [
   { id: "clinical-kb-search", label: "Clinical KB Search opened", date: "Today, 7:30 AM", icon: Search },
+  { id: "services", label: "13YARN referral pathway reviewed", date: "Today, 8:15 AM", icon: ClipboardList },
   { id: "medication-prescribing", label: "Medication Prescribing reviewed", date: "May 12, 2025", icon: Pill },
   { id: "documents", label: "Documents opened", date: "May 10, 2025", icon: FileText },
   { id: "documents", label: "Saved items reviewed", date: "Today, 8:45 AM", icon: Star },
@@ -516,9 +560,11 @@ function DetailPanel({
             <button
               type="button"
               aria-label={copy.optionsAriaLabel}
-              className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
+              className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled
             >
               <MoreVertical className="h-4 w-4" />
+              <span className="sr-only">Options unavailable</span>
             </button>
           )}
         </div>
@@ -549,7 +595,9 @@ function DetailPanel({
             <button
               key={action}
               type="button"
-              className="grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 text-left text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+              disabled
+              aria-label={`${action} coming soon`}
+              className="grid min-h-11 w-full cursor-not-allowed grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 text-left text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ClipboardList className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
               <span>{action}</span>
@@ -562,9 +610,7 @@ function DetailPanel({
       <section className="mt-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Recent workflows</h3>
-          <button type="button" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
-            View all
-          </button>
+          <span className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">View all</span>
         </div>
         <div className="mt-2 space-y-2">
           {app.recentWorkflows.slice(0, 4).map((workflow) => (
@@ -579,9 +625,7 @@ function DetailPanel({
       <section className="mt-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Recent activity</h3>
-          <button type="button" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
-            View all
-          </button>
+          <span className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">View all</span>
         </div>
         <div className="mt-2 space-y-2">
           {recentActivity.map((item) => {
@@ -694,7 +738,13 @@ function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenC
             <BookOpen className="h-4 w-4 shrink-0" />
             <span>Guide & help</span>
           </button>
-          <button type="button" className={sidebarItem}>
+          <button
+            type="button"
+            className={cn(sidebarItem, "disabled:cursor-not-allowed disabled:opacity-60")}
+            disabled
+            aria-label="Settings coming soon"
+            title="Settings coming soon"
+          >
             <Settings className="h-4 w-4 shrink-0" />
             <span>Settings</span>
           </button>
@@ -726,6 +776,20 @@ function ApplicationsModeMenu({ open, onOpenChange }: { open: boolean; onOpenCha
       label: "Documents",
       description: "Search indexed PDFs and notes",
       href: "/?mode=documents",
+      icon: FileText,
+      active: false,
+    },
+    {
+      label: "Services",
+      description: "Service records and referral pathways",
+      href: "/services",
+      icon: ClipboardList,
+      active: false,
+    },
+    {
+      label: "Forms",
+      description: "Clinical forms and pathways",
+      href: "/forms",
       icon: FileText,
       active: false,
     },
@@ -801,7 +865,7 @@ function ApplicationsHeader({
       id="search"
       className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
     >
-      <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
+      <div className="mx-auto flex h-12 min-w-0 max-w-7xl items-center gap-2">
         <button
           type="button"
           onClick={() => onMobileMenuOpenChange(true)}
@@ -812,11 +876,11 @@ function ApplicationsHeader({
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="relative z-40 mx-auto sm:mx-0">
+        <div className="relative z-40 mx-auto min-w-0 flex-1 sm:mx-0 sm:flex-none">
           <button
             type="button"
             onClick={() => onModeMenuOpenChange(!modeMenuOpen)}
-            className="inline-grid h-11 min-w-[10rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-[14rem]"
+            className="inline-grid h-11 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[14rem]"
             aria-haspopup="true"
             aria-expanded={modeMenuOpen}
             aria-label="Current app mode: Applications"
@@ -869,6 +933,7 @@ type ApplicationsLauncherWorkspaceProps = {
   variant?: LauncherVariant;
   query?: string;
   onQueryChange?: (query: string) => void;
+  desktopComposerSlotId?: string;
   className?: string;
 };
 
@@ -876,6 +941,7 @@ export function ApplicationsLauncherWorkspace({
   variant = "standalone",
   query: controlledQuery,
   onQueryChange,
+  desktopComposerSlotId,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
@@ -936,8 +1002,8 @@ export function ApplicationsLauncherWorkspace({
   const workspace = (
     <>
       {isDashboardTools ? (
-        <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-left">
+        <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7">
+          <div className="grid justify-items-center gap-3 text-center">
             <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
               <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
             </span>
@@ -947,9 +1013,12 @@ export function ApplicationsLauncherWorkspace({
               </h2>
               <p className="text-sm leading-6 text-[color:var(--text-muted)] sm:text-[15px]">{copy.description}</p>
             </div>
+            {desktopComposerSlotId ? (
+              <div id={desktopComposerSlotId} className="mt-2 hidden w-full max-w-3xl lg:block" />
+            ) : null}
           </div>
 
-          <div className="flex flex-col items-center gap-3 lg:items-end">
+          <div className="flex flex-col items-center gap-3">
             <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
             {normalizedQuery ? (
               <button
@@ -980,9 +1049,10 @@ export function ApplicationsLauncherWorkspace({
           <form onSubmit={submitFooterSearch} className={cn(chatComposerShell, "mt-5 w-full max-w-2xl")}>
             <button
               type="button"
-              className={chatComposerIconButton}
+              className={cn(chatComposerIconButton, "disabled:cursor-not-allowed")}
               aria-label={copy.actionsAriaLabel}
               title={copy.actionsAriaLabel}
+              disabled
             >
               <Plus className="h-5 w-5" />
             </button>
@@ -995,7 +1065,13 @@ export function ApplicationsLauncherWorkspace({
                 className={cn(chatComposerInput, "w-full min-w-0")}
               />
             </label>
-            <button type="button" className={chatComposerIconButton} aria-label="Voice input" title="Voice input">
+            <button
+              type="button"
+              className={cn(chatComposerIconButton, "disabled:cursor-not-allowed")}
+              aria-label="Voice input unavailable"
+              title="Voice input unavailable"
+              disabled
+            >
               <Mic className="h-4.5 w-4.5" />
             </button>
             <button
@@ -1087,9 +1163,7 @@ export function ApplicationsLauncherWorkspace({
           <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Recent activity</h2>
-              <button type="button" className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">
-                View all
-              </button>
+              <span className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">View all</span>
             </div>
             <div className="grid gap-2 md:grid-cols-3">
               {recentActivity.slice(0, 3).map((item) => {

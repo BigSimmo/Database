@@ -271,16 +271,13 @@ function TriageChips() {
   return (
     <div className="grid grid-cols-3 gap-1.5">
       <Pill tone="escalate">
-        <ShieldAlert />
-        1 urgent
+        <ShieldAlert />1 urgent
       </Pill>
       <Pill tone="caution">
-        <AlertTriangle />
-        1 caution
+        <AlertTriangle />1 caution
       </Pill>
       <Pill tone="monitor">
-        <Activity />
-        1 monitor
+        <Activity />1 monitor
       </Pill>
     </div>
   );
@@ -309,7 +306,9 @@ function FindingCard({ finding, dense = false }: { finding: (typeof findings)[nu
           {finding.source}
         </span>
       </div>
-      <p className={`${dense ? "line-clamp-2" : ""} text-sm leading-5 text-[color:var(--text-muted)]`}>{finding.body}</p>
+      <p className={`${dense ? "line-clamp-2" : ""} text-sm leading-5 text-[color:var(--text-muted)]`}>
+        {finding.body}
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ActionButton primary={finding.tone === "escalate"}>{finding.action}</ActionButton>
         <button
@@ -350,13 +349,19 @@ function VariantOnePhone() {
         ))}
       </div>
       <footer className="sticky bottom-0 -mx-3 mt-4 grid grid-cols-3 border-t border-[color:var(--border)] bg-[color:var(--surface-lux)]">
-        <button className={`min-h-12 text-xs font-semibold text-[color:var(--clinical-chat-teal)] ${focusRing}`} type="button">
+        <button
+          className={`min-h-12 text-xs font-semibold text-[color:var(--clinical-chat-teal)] ${focusRing}`}
+          type="button"
+        >
           Source
         </button>
         <button className={`min-h-12 text-xs font-semibold text-[color:var(--text)] ${focusRing}`} type="button">
           Copy
         </button>
-        <button className={`min-h-12 text-xs font-semibold text-[color:var(--clinical-chat-teal)] ${focusRing}`} type="button">
+        <button
+          className={`min-h-12 text-xs font-semibold text-[color:var(--clinical-chat-teal)] ${focusRing}`}
+          type="button"
+        >
           Add
         </button>
       </footer>
@@ -373,7 +378,9 @@ function VariantOneDesktop() {
           <div className="mt-4 space-y-3">
             <TriageChips />
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Design change</p>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                Design change
+              </p>
               <p className="mt-2 text-sm leading-5 text-[color:var(--text-muted)]">
                 The panel now separates urgent escalation, cautions, and routine monitoring before showing individual
                 notes.
@@ -386,7 +393,9 @@ function VariantOneDesktop() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Safety notes from answer</h3>
-                <p className="text-sm text-[color:var(--text-muted)]">3 prioritised findings, each linked to a source.</p>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  3 prioritised findings, each linked to a source.
+                </p>
               </div>
               <ActionButton primary>
                 <Plus />
@@ -429,7 +438,9 @@ function VariantTwoPhone() {
                 <span className={`grid h-9 w-9 place-items-center rounded-full ${style.accent}`}>
                   <Icon className="h-4 w-4" />
                 </span>
-                {index < findings.length - 1 ? <span className="mt-1 h-full min-h-10 w-px bg-[color:var(--border)]" /> : null}
+                {index < findings.length - 1 ? (
+                  <span className="mt-1 h-full min-h-10 w-px bg-[color:var(--border)]" />
+                ) : null}
               </div>
               <div className={`rounded-lg border ${style.border} ${style.soft} p-3`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -460,7 +471,9 @@ function VariantTwoDesktop() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Escalation ladder</h3>
-                <p className="text-sm text-[color:var(--text-muted)]">Read from top to bottom: urgent, caution, monitor.</p>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  Read from top to bottom: urgent, caution, monitor.
+                </p>
               </div>
               <Pill tone="escalate">Urgent path visible</Pill>
             </div>
@@ -498,7 +511,9 @@ function VariantTwoDesktop() {
             </div>
           </section>
           <aside className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Why this improves it</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              Why this improves it
+            </p>
             <div className="mt-3 space-y-3 text-sm leading-5 text-[color:var(--text-muted)]">
               <p>It avoids a flat checklist by making clinical priority visible.</p>
               <p>It keeps sources available without letting source inventory dominate the safety task.</p>
@@ -516,12 +531,16 @@ function MatrixCell({ finding }: { finding: (typeof findings)[number] }) {
   const Icon = style.icon;
 
   return (
-    <article className={`rounded-lg border ${style.border} bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]`}>
+    <article
+      className={`rounded-lg border ${style.border} bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]`}
+    >
       <div className="flex items-start justify-between gap-2">
         <span className={`grid h-9 w-9 place-items-center rounded-md ${style.accent}`}>
           <Icon className="h-4 w-4" />
         </span>
-        <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${style.soft} ${style.text}`}>{finding.label}</span>
+        <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${style.soft} ${style.text}`}>
+          {finding.label}
+        </span>
       </div>
       <h4 className="mt-3 text-sm font-semibold text-[color:var(--text-heading)]">{finding.title}</h4>
       <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">{finding.body}</p>

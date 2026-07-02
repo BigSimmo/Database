@@ -134,7 +134,9 @@ function IconPill({
             ? "border-sky-200 bg-sky-50 text-sky-800"
             : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)]";
   return (
-    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold ${toneClass}`}>
+    <span
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold ${toneClass}`}
+    >
       <Icon className="h-3.5 w-3.5" />
       {children}
     </span>
@@ -158,7 +160,11 @@ function SurfaceFrame({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h2>
-            {recommended ? <IconPill icon={CheckCircle2} tone="teal">Recommended</IconPill> : null}
+            {recommended ? (
+              <IconPill icon={CheckCircle2} tone="teal">
+                Recommended
+              </IconPill>
+            ) : null}
           </div>
           <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">{subtitle}</p>
         </div>
@@ -170,7 +176,15 @@ function SurfaceFrame({
   );
 }
 
-function ActionButton({ icon: Icon, children, primary = false }: { icon: typeof ShieldCheck; children: ReactNode; primary?: boolean }) {
+function ActionButton({
+  icon: Icon,
+  children,
+  primary = false,
+}: {
+  icon: typeof ShieldCheck;
+  children: ReactNode;
+  primary?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -198,7 +212,13 @@ function SourceList({ compact = false }: { compact?: boolean }) {
         >
           <span className="mt-1 h-2.5 w-2.5 rounded-full bg-teal-600" />
           <div className="min-w-0">
-            <p className={compact ? "line-clamp-1 text-sm font-semibold text-[color:var(--text-heading)]" : "line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]"}>
+            <p
+              className={
+                compact
+                  ? "line-clamp-1 text-sm font-semibold text-[color:var(--text-heading)]"
+                  : "line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]"
+              }
+            >
               {source.title}
             </p>
             <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">{source.meta}</p>
@@ -232,7 +252,13 @@ function ClinicalNoteRows({ dense = false }: { dense?: boolean }) {
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[color:var(--text-heading)]">{note.title}</p>
-                <p className={dense ? "mt-1 line-clamp-1 text-xs text-[color:var(--text-muted)]" : "mt-1 text-xs leading-5 text-[color:var(--text-muted)]"}>
+                <p
+                  className={
+                    dense
+                      ? "mt-1 line-clamp-1 text-xs text-[color:var(--text-muted)]"
+                      : "mt-1 text-xs leading-5 text-[color:var(--text-muted)]"
+                  }
+                >
                   {note.detail}
                 </p>
               </div>
@@ -265,9 +291,15 @@ function AnswerCard({ safetyBanner = false }: { safetyBanner?: boolean }) {
             documented clinical response. Use lower or slower dosing when renal risk or toxicity risk is present.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <IconPill icon={BookOpen} tone="teal">3 sources</IconPill>
-            <IconPill icon={ClipboardCheck} tone="amber">3 clinical notes</IconPill>
-            <IconPill icon={Layers3} tone="blue">Evidence: direct</IconPill>
+            <IconPill icon={BookOpen} tone="teal">
+              3 sources
+            </IconPill>
+            <IconPill icon={ClipboardCheck} tone="amber">
+              3 clinical notes
+            </IconPill>
+            <IconPill icon={Layers3} tone="blue">
+              Evidence: direct
+            </IconPill>
           </div>
         </div>
       </div>
@@ -283,7 +315,9 @@ function EvidenceMini() {
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">Evidence audit</p>
           <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">Support map, quotes, tables, gaps</p>
         </div>
-        <IconPill icon={ShieldCheck} tone="teal">Good support</IconPill>
+        <IconPill icon={ShieldCheck} tone="teal">
+          Good support
+        </IconPill>
       </div>
       <div className="mt-3 grid gap-1.5">
         {evidenceRows.map(([section, support, citations, source]) => (
@@ -339,8 +373,12 @@ function RecommendedStack() {
               <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">Monitor, caution, escalation</p>
             </div>
             <div className="flex gap-1.5">
-              <IconPill icon={Activity} tone="teal">Monitor</IconPill>
-              <IconPill icon={AlertTriangle} tone="amber">Caution</IconPill>
+              <IconPill icon={Activity} tone="teal">
+                Monitor
+              </IconPill>
+              <IconPill icon={AlertTriangle} tone="amber">
+                Caution
+              </IconPill>
             </div>
           </div>
           <ClinicalNoteRows dense />
@@ -351,7 +389,9 @@ function RecommendedStack() {
         </div>
         <footer className="sticky bottom-0 mt-3 grid grid-cols-2 gap-2 border-t border-[color:var(--border)] bg-[color:var(--surface-raised)] py-3">
           <ActionButton icon={Copy}>Copy answer</ActionButton>
-          <ActionButton icon={Plus} primary>Add notes</ActionButton>
+          <ActionButton icon={Plus} primary>
+            Add notes
+          </ActionButton>
         </footer>
       </div>
     </SurfaceFrame>
@@ -376,8 +416,12 @@ function SourceReviewDesk() {
           <SourceList compact />
         </section>
         <div className="mb-3 flex flex-wrap gap-2">
-          <IconPill icon={BookOpen} tone="teal">Source-backed</IconPill>
-          <IconPill icon={Layers3} tone="blue">Moderate-high support</IconPill>
+          <IconPill icon={BookOpen} tone="teal">
+            Source-backed
+          </IconPill>
+          <IconPill icon={Layers3} tone="blue">
+            Moderate-high support
+          </IconPill>
         </div>
         <div className="min-w-0">
           <AnswerCard />
@@ -464,7 +508,9 @@ function PlanTable() {
         </span>
         <div>
           <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Recommended RAG answer structure</h2>
-          <p className="text-sm text-[color:var(--text-muted)]">Order the UI by user intent, not by internal model output.</p>
+          <p className="text-sm text-[color:var(--text-muted)]">
+            Order the UI by user intent, not by internal model output.
+          </p>
         </div>
       </div>
       <div className="grid gap-2">
