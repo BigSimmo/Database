@@ -268,6 +268,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       classifiedImageSkipReason,
       clinicalImagePolicyVersion,
       lightweightPerceptualHash,
+      normalizeImageBbox,
     },
     { classifyAndCaptionImageFromBase64 },
   ] = await Promise.all([import("@/lib/env"), import("@/lib/image-filtering"), import("@/lib/openai")]);
@@ -311,7 +312,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       imageHash,
       seenHashes,
       image: {
-        bbox: image.bbox as [number, number, number, number] | null,
+        bbox: normalizeImageBbox(image.bbox),
         width: image.width,
         height: image.height,
         sourceKind: image.source_kind as

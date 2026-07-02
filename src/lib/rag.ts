@@ -35,7 +35,7 @@ import { logger } from "@/lib/logger";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
-import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
 import { chooseAnswerRoute, hasDirectTitleSupport, shouldRetryWithStrongAfterFast } from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
@@ -3092,7 +3092,7 @@ async function attachPageVisualEvidence(
       page_number: image.page_number,
       storage_path: image.storage_path,
       caption: image.caption,
-      bbox: image.bbox as ChunkImage["bbox"],
+      bbox: normalizeImageBbox(image.bbox),
       image_type: image.image_type as ChunkImage["image_type"],
       searchable: image.searchable,
       clinical_relevance_score: image.clinical_relevance_score,
