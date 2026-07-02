@@ -4,6 +4,7 @@ import { Clipboard, ClipboardCheck, MessageSquareText, Search, Sparkles, UploadC
 
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
+import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -26,8 +27,8 @@ export function CopyButton({
       className={cn(floatingControl, "px-3 text-xs")}
     >
       {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
-      <span className="sm:hidden">{copied ? "Copied" : (shortLabel ?? label)}</span>
-      <span className="hidden sm:inline">{copied ? "Copied" : label}</span>
+      <span className="sm:hidden">{copied ? copyButton.copied : (shortLabel ?? label)}</span>
+      <span className="hidden sm:inline">{copied ? copyButton.copied : label}</span>
     </button>
   );
 }
@@ -46,29 +47,28 @@ export function AnswerEmptyState({
   return (
     <ModeHomeTemplate
       testId="answer-empty-state"
-      title="How can I help?"
-      subtitle="Ask a clinical question or search your documents."
+      title={answerEmptyState.heading}
+      subtitle={answerEmptyState.subheading}
       icon={MessageSquareText}
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
-      actionsLabel="Starter actions"
+      actionsLabel={answerEmptyState.starterActionsLabel}
       actions={[
         {
-          title: "Ask a question",
-          description: "Start a source-backed clinical answer.",
+          title: answerEmptyState.starters.ask.title,
+          description: answerEmptyState.starters.ask.description,
           icon: Sparkles,
-          onClick: () =>
-            onPickSample("What monitoring and escalation issues should I consider across these documents?"),
+          onClick: () => onPickSample(answerEmptyState.starters.ask.samplePrompt),
         },
         {
-          title: "Search documents",
-          description: "Browse matching files and source sections.",
+          title: answerEmptyState.starters.searchDocuments.title,
+          description: answerEmptyState.starters.searchDocuments.description,
           icon: Search,
           onClick: onSearchDocuments,
         },
         {
-          title: "Upload document",
-          description: "Add a guideline, PDF, or local source.",
+          title: answerEmptyState.starters.uploadDocument.title,
+          description: answerEmptyState.starters.uploadDocument.description,
           icon: UploadCloud,
           onClick: onUploadDocument,
         },
@@ -79,7 +79,7 @@ export function AnswerEmptyState({
 
 export function AnswerSkeleton() {
   return (
-    <div className="space-y-4" aria-label="Loading answer">
+    <div className="space-y-4" aria-label={answerLoading.ariaLabel}>
       <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
         <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
         <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />

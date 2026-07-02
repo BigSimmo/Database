@@ -1,6 +1,11 @@
 const completeImageDataBlockPattern = /\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g;
 const trailingImageDataBlockPattern = /\[\[IMAGE_DATA_START\]\][\s\S]*$/g;
 const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g;
+// "N additional image/table blocks on this page" markers emitted by
+// buildPageImageContext when a page exceeds the indexed-image cap; internal
+// bookkeeping that must never render or be copied.
+const omittedImageDataBlockPattern = /\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
+const omittedImageDataMarkerPattern = /\[\[\/?IMAGE_DATA_OMITTED\]\]/g;
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;
@@ -45,12 +50,50 @@ const concreteClinicalActionPattern =
 const clinicalThresholdSignalPattern =
   /\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|micrograms?|μg|µg|g|kg|ml|mmol|mol|units?|iu|hours?|hrs?|mins?|minutes?|days?|weeks?|months?|years?|mmhg|bpm|°c)\b|\b\d+(?:[.,]\d+)?\s*%|\b\d+(?:[.,]\d+)?\s*(?:[-–—]|to)\s*\d+(?:[.,]\d+)?\b|(?<![a-z0-9])(?:×|x)10\^?\d*|\b(?:below|above|under|over|at\s+least|at\s+most|more\s+than|less\s+than|greater\s+than|fewer\s+than)\s+\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s+or\s+(?:below|above|less|more|lower|higher|greater|fewer)\b|(?<![vV])\b\d+\.\d+\b/i;
 
+// Typographic ligatures produced by PDF text extraction → plain ASCII letters.
+const ligatureReplacements: Array<[RegExp, string]> = [
+  [/ﬀ/g, "ff"],
+  [/ﬁ/g, "fi"],
+  [/ﬂ/g, "fl"],
+  [/ﬃ/g, "ffi"],
+  [/ﬄ/g, "ffl"],
+  [/ﬅ/g, "st"],
+  [/ﬆ/g, "st"],
+];
+// Zero-width / invisible formatting characters that survive extraction.
+const invisibleCharacterPattern = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+// Whitespace-like controls (vertical tab, form feed, C1 NEL): these represent
+// line/page breaks in extracted PDF text, so they become newlines rather than
+// being deleted - deleting would fuse words ("dose\\fmonitoring").
+const whitespaceControlPattern = /[\u000B\u000C\u0085]/g;
+// Remaining C0/C1 control characters, excluding tab (\u0009) and newline (\u000A).
+const controlCharacterPattern = /[\u0000-\u0008\u000E-\u001F\u007F-\u0084\u0086-\u009F]/g;
+
+// Conservative, lossless repair of PDF-extraction glyph artifacts. Must NEVER
+// remove clinical meaning: numbers, units, dose strings, comparison symbols
+// (≥ ≤ < > → %), and legitimate bullet structure are all left untouched.
+// Line-break hyphenation ("inter-\nvention") is deliberately NOT rejoined: a soft-wrap
+// hyphen is indistinguishable from a real compound hyphen (low-dose, twice-daily), so
+// fusing would corrupt clinical compounds and verbatim quotes.
+// Idempotent — running it twice yields the same result.
+export function normalizeExtractedGlyphs(value: string) {
+  if (!value) return value;
+  let out = value.normalize("NFC").replace(/\r\n?/g, "\n");
+  for (const [pattern, replacement] of ligatureReplacements) out = out.replace(pattern, replacement);
+  out = out
+    .replace(/\u00AD/g, "") // soft hyphen
+    .replace(invisibleCharacterPattern, "")
+    .replace(whitespaceControlPattern, "\n")
+    .replace(controlCharacterPattern, "");
+  return out;
+}
+
 function compactWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+  return normalizeExtractedGlyphs(value).replace(/\s+/g, " ").trim();
 }
 
 function readableWhitespace(value: string) {
-  return value
+  return normalizeExtractedGlyphs(value)
     .replace(/[ \t]+/g, " ")
     .replace(/[ \t]*\n[ \t]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -281,8 +324,21 @@ export function stripInternalImageDataBlocks(text: string) {
       .replace(completeImageDataBlockPattern, " ")
       .replace(trailingImageDataBlockPattern, " ")
       .replace(leadingImageDataBlockRemainderPattern, " ")
+      .replace(omittedImageDataBlockPattern, " ")
+      .replace(omittedImageDataMarkerPattern, " ")
       .replace(internalImageMetadataPattern, " "),
   );
+}
+
+// Exact source quotes keep their WORDING verbatim — no prose-polishing or
+// noise-stripping that could add, drop, or reorder words — but they are not
+// byte-verbatim: internal image-data blocks are removed, glyph artifacts
+// (ligatures, soft hyphens, control chars) are repaired, and whitespace is
+// collapsed to single spaces via compactWhitespace (quotes render as one
+// continuous quotation, so newline collapse is presentational only; every
+// word, hyphen, and punctuation mark is preserved).
+export function sourceTextForVerbatimQuote(text: string) {
+  return stripInternalImageDataBlocks(text);
 }
 
 export function sourceTextForModel(text: string) {
@@ -292,6 +348,8 @@ export function sourceTextForModel(text: string) {
         .replace(completeImageDataBlockPattern, (block) => readableImageBlock(block))
         .replace(trailingImageDataBlockPattern, " ")
         .replace(leadingImageDataBlockRemainderPattern, " ")
+        .replace(omittedImageDataBlockPattern, " ")
+        .replace(omittedImageDataMarkerPattern, " ")
         .replace(internalImageMetadataPattern, " "),
     ),
   );
@@ -308,6 +366,8 @@ export function sourceTextForDisplayPreservingBreaks(text: string) {
         .replace(completeImageDataBlockPattern, " ")
         .replace(trailingImageDataBlockPattern, " ")
         .replace(leadingImageDataBlockRemainderPattern, " ")
+        .replace(omittedImageDataBlockPattern, " ")
+        .replace(omittedImageDataMarkerPattern, " ")
         .replace(internalImageMetadataPattern, " "),
     ),
   );
@@ -334,6 +394,8 @@ export function sourceTextForDocumentViewer(text: string) {
       .replace(completeImageDataBlockPattern, (block) => readableImageBlockForViewer(block))
       .replace(trailingImageDataBlockPattern, " ")
       .replace(leadingImageDataBlockRemainderPattern, " ")
+      .replace(omittedImageDataBlockPattern, " ")
+      .replace(omittedImageDataMarkerPattern, " ")
       .replace(internalImageMetadataPattern, " "),
   );
 }
@@ -344,6 +406,8 @@ export function sourceTextForIndexedPage(text: string) {
     .replace(completeImageDataBlockPattern, (block) => readableImageBlockForViewer(block))
     .replace(trailingImageDataBlockPattern, " ")
     .replace(leadingImageDataBlockRemainderPattern, " ")
+    .replace(omittedImageDataBlockPattern, " ")
+    .replace(omittedImageDataMarkerPattern, " ")
     .replace(internalImageMetadataPattern, " ")
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{4,}/g, "\n\n\n")

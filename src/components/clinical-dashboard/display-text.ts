@@ -1,4 +1,5 @@
 import {
+  normalizeExtractedGlyphs,
   sourceTextForCompactDisplay,
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
@@ -147,11 +148,16 @@ export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSan
   return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
 }
 
-export function sourceDisplayTitle(source: SearchResult) {
-  return source.title
+export function cleanDisplayTitle(title: string) {
+  return normalizeExtractedGlyphs(title ?? "")
     .replace(/^Synthetic /, "")
     .replace(/\.pdf$/i, "")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+export function sourceDisplayTitle(source: SearchResult) {
+  return cleanDisplayTitle(source.title);
 }
 
 export function sourceDisplayMeta(source: SearchResult, title: string) {
