@@ -49,6 +49,29 @@ const queryStopWords = new Set([
   "guideline",
 ]);
 
+// Query-side adversarial-manipulation guard. Neutralizing injected instructions
+// embedded in retrieved *source* text is handled separately (neutralizeInstructions
+// in rag.ts); this catches manipulation intent in the *user query* itself — asking
+// the model to ignore its instructions, fabricate citations/evidence, pretend the
+// evidence supports a claim, or exfiltrate a system prompt / secrets. Such a query
+// often mentions a real clinical term (e.g. "clozapine protocol"), so it retrieves
+// genuine sources and would otherwise be answered. The patterns are deliberately
+// tight — each requires an explicit manipulation verb next to its object — and are
+// validated to match zero legitimate clinical questions in the golden eval set.
+const adversarialManipulationPatterns: RegExp[] = [
+  /\b(?:ignore|disregard|override|forget|bypass)\s+(?:all\s+|any\s+)?(?:(?:previous|prior|above|earlier|these|those|the|your)\s+)?(?:instructions?|rules?|guardrails?)\b/i,
+  /\byou\s+are\s+now\s+an?\b/i,
+  /\b(?:fabricat|forge|invent|manufactur)\w*\b[^.?!]{0,50}\b(?:citation|chunk|reference|source|evidence|id|ids|value|values|data)\b/i,
+  /\bmake\s+up\b[^.?!]{0,50}\b(?:citation|chunk|reference|source|evidence)\b/i,
+  /\bpretend\b[^.?!]{0,50}\b(?:evidence|source|sources|citation|citations|protocol|guideline|complete|answer)\b/i,
+  /\b(?:answer|respond|reply|act|proceed)\s+as\s+if\b[^.?!]{0,80}\b(?:support|complete|confirm|prove|allow|approve|explicit)\w*/i,
+  /\b(?:reveal|expose|print|show|leak|return|disclose)\b[^.?!]{0,50}\b(?:system\s+prompt|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|secret\s+(?:keys?|tokens?)|credentials?)\b/i,
+];
+
+export function hasAdversarialManipulationIntent(query: string): boolean {
+  return adversarialManipulationPatterns.some((pattern) => pattern.test(query));
+}
+
 export function strongestRetrievalScore(results: SearchResult[]) {
   return results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
 }
@@ -240,6 +263,20 @@ export function chooseAnswerRoute(args: {
   const directTitleSupport = hasDirectTitleSupport(args.query, args.results);
   const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
   const topTextRank = Math.max(0, ...args.results.map((result) => result.text_rank ?? 0));
+
+  // Refuse queries whose intent is to manipulate the model (fabricate citations,
+  // pretend the evidence supports a claim, override instructions, exfiltrate
+  // secrets). This fires before any retrieval-score routing so a query that
+  // happens to surface real sources still fails closed.
+  if (hasAdversarialManipulationIntent(args.query)) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "adversarial_manipulation_refused",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
 
   if (args.results.length === 0) {
     return {
