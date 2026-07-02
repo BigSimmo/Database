@@ -28,10 +28,15 @@ export type RagQueryClassification = {
 // evidence here; text fast-path and coverage gates in rag.ts). The zone context
 // deliberately requires an explicit coloured-zone reference or "zone criteria" —
 // a bare "zone" (clean zone, time zone, zone 3) plus a common word like "review"
-// must not qualify as escalation evidence.
+// must not qualify as escalation evidence. The action group likewise requires a
+// real clinical instruction: bare "review\w*" would let document boilerplate
+// ("Review date: ...", "reviewed by ...") satisfy the guard, so "review" only
+// counts when attached to a clinical role or urgency (senior clinician review,
+// urgent medical officer review) or an escalation/MET phrase.
 export const riskZoneContextPattern =
   /\b(?:(?:red|amber|yellow|orange|purple|green|blue)[\s-]*zones?|colou?red zones?|zone criteria)\b/i;
-export const riskZoneActionPattern = /\b(?:escalat\w+|urgent|review\w*|respond\w*|actions?\s+required)\b/i;
+export const riskZoneActionPattern =
+  /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|medical|clinician|clinical|nursing|officer)\s+(?:\w+\s+){0,2}review\w*)\b/i;
 
 export const intentSignalWords = {
   dosing: [
@@ -1347,10 +1352,18 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     /\b(?:red|amber|yellow|orange|purple|green|blue)\b/.test(haystack);
   const riskFlowchartZoneActionSource =
     (riskZoneContextPattern.test(haystack) || zoneCellUnitEvidence) && riskZoneActionPattern.test(haystack);
-  const riskFlowchartSource =
-    (/\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
-      /\b(?:risk|red zone|red)\b/.test(haystack)) ||
-    riskFlowchartZoneActionSource;
+  const riskFlowchartLexicalSource =
+    /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
+    /\b(?:risk|red zone|red)\b/.test(haystack);
+  // For next-step/action questions, a flowchart page that names the risk but
+  // carries no action instruction is exactly the false positive the retrieval
+  // gates defer past — it must not take the risk-flowchart boost (nor dodge the
+  // generic penalty) on lexical grounds alone; the action evidence must be on
+  // the same result.
+  const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
+  const riskFlowchartSource = nextStepActionQuery
+    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(haystack))
+    : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&
     /\b(?:flow|flowchart|flow chart|algorithm|pathway|matrix)\b/.test(titleTokenText) &&

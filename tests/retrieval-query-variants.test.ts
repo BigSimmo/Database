@@ -285,6 +285,21 @@ describe("retrieval query variants", () => {
       ),
     ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
 
+    // Document "review" boilerplate (review date / reviewed by) on a zone chunk
+    // is not an action instruction and must not satisfy the guard.
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content: "Red Zone criteria table. Review date: March 2026. Reviewed by the policy committee.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
     expect(
       decideTextFastPath(
         query,
@@ -795,6 +810,24 @@ describe("retrieval query variants", () => {
 
     expect(ranked[0].file_name).toBe("Clinical Risk Flowchart.pdf");
     expect(selected.results[0]?.file_name).toBe("Clinical Risk Flowchart.pdf");
+  });
+
+  it("penalizes action-free risk flowcharts for next-step queries", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "action-free-flowchart",
+        document_id: "action-free-doc",
+        title: "Infection Control Policy",
+        file_name: "Infection Control Policy.pdf",
+        content: "Risk assessment flow chart covering red-zone procedural risk categories.",
+        similarity: 0.62,
+      }),
+    ]);
+
+    // Naming the risk without any action instruction must not earn the
+    // risk-flowchart boost (or dodge the generic penalty) for a next-step query.
+    expect(ranked[0]?.score_explanation?.rawPenalty).toBeLessThanOrEqual(-0.18);
   });
 
   it("treats zone-action escalation text as risk-flowchart evidence even without the word flowchart", () => {
