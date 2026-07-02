@@ -16,7 +16,7 @@ export type ExistingDocumentName = {
   metadata?: unknown;
 };
 
-type DocumentNameSupabase = {
+export type DocumentNameSupabase = {
   from: (table: "documents") => {
     select: (columns: string) => {
       eq: (column: "owner_id", value: string) => {
@@ -160,7 +160,7 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase?: unknown;
+  supabase?: DocumentNameSupabase;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;
@@ -176,8 +176,7 @@ export async function planDocumentName(args: {
     documents = args.existingDocs;
   } else {
     if (!args.supabase) throw new Error("supabase client or existingDocs is required");
-    const supabase = args.supabase as DocumentNameSupabase;
-    const { data, error } = await supabase
+    const { data, error } = await args.supabase
       .from("documents")
       .select("id,title,file_name,content_hash")
       .eq("owner_id", args.ownerId)

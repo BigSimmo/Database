@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
-import { planDocumentName } from "@/lib/document-naming";
+import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     uploadedPath = storagePath;
 
     const namePlan = await planDocumentName({
-      supabase,
+      supabase: supabase as unknown as DocumentNameSupabase,
       ownerId: user.id,
       fileName: file.name,
       requestedTitle: uploadMetadata.title,

@@ -86,17 +86,18 @@ type GenerationTableResult = {
   error: { message?: string; code?: string; details?: string; hint?: string } | null;
 };
 
-type GenerationTableMutation = PromiseLike<GenerationTableResult> & {
-  eq: (column: string, value: string) => GenerationTableMutation;
+type GenerationTableFilter = PromiseLike<GenerationTableResult> & {
+  eq: (column: string, value: string) => GenerationTableFilter;
   neq: (column: string, value: string) => PromiseLike<GenerationTableResult>;
   is: (column: string, value: null) => PromiseLike<GenerationTableResult>;
-  limit: (count: number) => GenerationTableMutation;
-  select: (columns: string) => GenerationTableMutation;
-  delete: () => GenerationTableMutation;
+  limit: (count: number) => GenerationTableFilter;
 };
 
 type GenerationTableClient = {
-  from: (table: string) => GenerationTableMutation;
+  from: (table: string) => {
+    select: (columns: string) => GenerationTableFilter;
+    delete: () => GenerationTableFilter;
+  };
 };
 
 function supabaseStageError(
@@ -479,7 +480,7 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // fields, index units) cascade with their legacy chunks regardless — the
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
-  const mutationClient = supabase as unknown as GenerationTableClient;
+  const mutationClient = { from: supabase.from.bind(supabase) as unknown as GenerationTableClient["from"] };
   const hasReplacementRows = async (table: string, direct: boolean) => {
     let query = mutationClient.from(table).select("id").eq("document_id", documentId).limit(1);
     query = direct
