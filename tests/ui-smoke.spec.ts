@@ -26,6 +26,18 @@ async function gotoApp(page: Page, path: string) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
+async function expectSingleMedicationPage(page: Page) {
+  // The medication route renders inside GlobalMockupSearchShell, whose Suspense
+  // fallback and resolved client subtree both render `children`. During a
+  // navigation/hydration overlap the shared data-testid can transiently resolve
+  // to two <main> elements and trip Playwright strict mode. Wait for it to settle
+  // to exactly one before asserting visibility — a genuine permanent double-render
+  // still fails toHaveCount(1), so this does not mask a real regression.
+  const medicationPage = page.getByTestId("acamprosate-medication-page");
+  await expect(medicationPage).toHaveCount(1);
+  await expect(medicationPage).toBeVisible();
+}
+
 function visibleQuestionInput(page: Page) {
   return page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
 }
@@ -1114,11 +1126,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(acamprosateResult).toHaveAttribute("href", "/medications/acamprosate");
     await acamprosateResult.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
-    await expect(page.getByTestId("acamprosate-medication-page")).toBeVisible();
+    await expectSingleMedicationPage(page);
 
     await gotoApp(page, "/mockups/medication-prescribing");
     await expect(page).toHaveURL(/\/medications\/acamprosate$/);
-    await expect(page.getByTestId("acamprosate-medication-page")).toBeVisible();
+    await expectSingleMedicationPage(page);
   });
 
   test("document search mode lists matching documents and scope actions", async ({ page }) => {
