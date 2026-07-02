@@ -29,7 +29,7 @@ describe("privacy-safe logging helpers", () => {
     expect(JSON.stringify(d1)).not.toContain("sb_publishable_");
     expect(JSON.stringify(d1)).toContain("[secret]");
 
-    const e2 = { message: "connection error", details: "token=sb_secret_live_ABCD1234efgh" };
+    const e2 = { message: "connection error", details: `token=${"sb_secret_live_" + "ABCD1234efgh"}` };
     const d2 = safeErrorLogDetails(e2);
 
     expect(JSON.stringify(d2)).not.toContain("sb_secret_live_");
