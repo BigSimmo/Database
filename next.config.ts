@@ -42,6 +42,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   experimental: {
     cpus: 1,
+    optimizePackageImports: ["lucide-react"],
   },
   poweredByHeader: false,
   turbopack: {

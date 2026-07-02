@@ -69,6 +69,13 @@ This document turns the current process review into phased, durable repo practic
   - Live migration history has duplicate-version churn (two each of `api_rate_limits`, `audit_logs`, `rag_queries_retention`, `audit_logs_service_role_policy`, `indexing_reliability_recovery`) from the same raw-apply habit. Do not rewrite history; treat as a caution for future applies.
   - Auth server is capped at 10 absolute DB connections (Supabase advisor); switch to percentage-based allocation in the dashboard before scaling instance size (not settable via SQL/MCP).
 
+## PR merge gate: tiered CI + required checks (2026-07-02)
+
+- CI is now two parallel PR jobs instead of one serial 6-7 minute job: `verify` (runtime alignment, edge typecheck, CI-safe production readiness, lint, typecheck, unit tests with coverage gate, build — ~3 min) and `ui-smoke` (Chromium Playwright smoke against its own dev server — ~4.5 min). Wall-clock PR feedback drops to the slower of the two, and a flaky smoke rerun no longer repeats lint/typecheck/tests/build.
+- The deployment boot smoke and full browser matrix remain gated to `main`, `release/*`, manual dispatch, and the weekly schedule — they are deliberately not PR gates.
+- **Required-check debt (the reason #131/#133 merged red): `main` has no branch protection.** The intended configuration is a ruleset/branch protection on `main` requiring `verify`, `ui-smoke`, and `Gitleaks`, with "require branches up to date" left OFF (strict up-to-dateness would force constant rebases across the many concurrent agent branches). Until that is applied in repo settings, CI remains advisory. Note: once applied, direct pushes to `main` are blocked; all work must land via PR.
+- If `ui-smoke` proves flaky as a required check, demote it to advisory (remove from required contexts) rather than tolerating red merges — the deterministic `verify` gate stays required regardless.
+
 ## CSS cascade layering (2026-07-02)
 
 - The custom component classes in `src/app/globals.css` predate cascade layers, so they sat unlayered and silently beat Tailwind v4 utilities (which live in `@layer utilities`) on the same element. This caused three shipped UI bugs: the header source ledger ignoring responsive `hidden`, the composer clear button covering typed text (`pr-*` defeated), and the standalone-home status chips sliding under the mode pill.

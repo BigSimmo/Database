@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { env, isDemoMode } from "@/lib/env";
@@ -451,7 +452,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           renamed_at: new Date().toISOString(),
           previous_title: document.title,
           original_file_name: metadata.original_file_name ?? document.file_name,
-        },
+          // JSON-serializable; the inferred literal type is wider than Json.
+        } as unknown as Json,
       })
       .eq("id", id)
       .eq("owner_id", user.id)
