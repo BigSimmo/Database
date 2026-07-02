@@ -128,6 +128,27 @@ describe("source governance warnings", () => {
     expect(hasDangerSourceGovernanceWarning(warnings.filter((warning) => warning.severity !== "danger"))).toBe(false);
   });
 
+  it("does not danger-refuse usable content just because review metadata is missing", () => {
+    const warnings = sourceGovernanceWarnings({
+      results: [
+        result({
+          source_metadata: undefined,
+          indexing_quality: {
+            document_id: "doc-1",
+            quality_score: 0.92,
+            extraction_quality: "good",
+            metrics: {},
+            issues: [],
+          },
+          table_facts: [],
+        }),
+      ],
+    });
+
+    expect(warnings).toEqual([expect.objectContaining({ code: "unverified_source", severity: "warning" })]);
+    expect(hasDangerSourceGovernanceWarning(warnings)).toBe(false);
+  });
+
   it("keeps the refusal message free of backend and source-backed wording", () => {
     expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin|need review/i);
     expect(sourceGovernanceRefusalAnswer).toContain("matched documents are not suitable for clinical use yet");

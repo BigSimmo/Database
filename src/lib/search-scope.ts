@@ -3,7 +3,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalSourceMetadata, DocumentLabelType } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
-const labelTypes = ["site", "medication", "topic", "document_type"] as const satisfies readonly DocumentLabelType[];
+const labelTypes = [
+  "site",
+  "medication",
+  "topic",
+  "document_type",
+  "service",
+  "setting",
+  "population",
+  "risk",
+  "workflow",
+  "clinical_action",
+  "care_phase",
+  "document_intent",
+  "content_feature",
+] as const satisfies readonly DocumentLabelType[];
 const sourceStatusValues = ["current", "review_due", "outdated", "unknown"] as const;
 const validationStatusValues = ["unverified", "locally_reviewed", "approved"] as const;
 const documentScopeQueryPageSize = 1000;
@@ -14,6 +28,15 @@ export const searchScopeFiltersSchema = z
     topics: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     documentTypes: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     sites: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+    services: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    settings: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    populations: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    risks: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    workflows: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    clinicalActions: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    carePhases: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    documentIntents: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    contentFeatures: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     sourceStatuses: z
       .array(z.enum(["current", "review_due", "outdated", "unknown"]))
       .max(4)
@@ -56,7 +79,14 @@ type ScopeLabelRow = {
 };
 
 function normalizeFilterText(value: string) {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9/+ ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function unique(values: string[]) {
@@ -97,6 +127,15 @@ export function activeScopeFilterCount(filters: SearchScopeFilters) {
     filters.topics,
     filters.documentTypes,
     filters.sites,
+    filters.services,
+    filters.settings,
+    filters.populations,
+    filters.risks,
+    filters.workflows,
+    filters.clinicalActions,
+    filters.carePhases,
+    filters.documentIntents,
+    filters.contentFeatures,
     filters.sourceStatuses,
     filters.validationStatuses,
     filters.extractionQualities,
@@ -244,7 +283,16 @@ export async function resolveSearchScope(args: {
     hasValues(filters.medications) ||
     hasValues(filters.topics) ||
     hasValues(filters.documentTypes) ||
-    hasValues(filters.sites);
+    hasValues(filters.sites) ||
+    hasValues(filters.services) ||
+    hasValues(filters.settings) ||
+    hasValues(filters.populations) ||
+    hasValues(filters.risks) ||
+    hasValues(filters.workflows) ||
+    hasValues(filters.clinicalActions) ||
+    hasValues(filters.carePhases) ||
+    hasValues(filters.documentIntents) ||
+    hasValues(filters.contentFeatures);
   let labelsByDocument = new Map<string, ScopeLabelRow[]>();
   if (needsLabels) {
     const { data: labelRows, error: labelError } = await args.supabase
@@ -265,7 +313,16 @@ export async function resolveSearchScope(args: {
       labelMatches(labels, "medication", filters.medications) &&
       labelMatches(labels, "topic", filters.topics) &&
       labelMatches(labels, "document_type", filters.documentTypes) &&
-      labelMatches(labels, "site", filters.sites)
+      labelMatches(labels, "site", filters.sites) &&
+      labelMatches(labels, "service", filters.services) &&
+      labelMatches(labels, "setting", filters.settings) &&
+      labelMatches(labels, "population", filters.populations) &&
+      labelMatches(labels, "risk", filters.risks) &&
+      labelMatches(labels, "workflow", filters.workflows) &&
+      labelMatches(labels, "clinical_action", filters.clinicalActions) &&
+      labelMatches(labels, "care_phase", filters.carePhases) &&
+      labelMatches(labels, "document_intent", filters.documentIntents) &&
+      labelMatches(labels, "content_feature", filters.contentFeatures)
     );
   });
 

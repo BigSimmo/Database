@@ -10,27 +10,37 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   Activity,
+  BrainCircuit,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
+  Cloud,
+  Copy,
   FileText,
   Filter,
   Globe2,
+  Heart,
   Loader2,
   Menu,
+  MessageSquarePlus,
   Mic,
   Moon,
+  MoreHorizontal,
   Pill,
   Plus,
   Search,
   Send,
+  Settings,
   ShieldCheck,
   Sparkles,
   Sun,
+  AlertCircle,
+  ArrowLeft,
   X,
   Lock,
   Wrench,
@@ -66,14 +76,19 @@ import {
 } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
-import { activeScopeFilterCount, type SearchScopeFilters } from "@/lib/search-scope";
+import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
-const visibleAppModeOptions = visibleAppModeDefinitions();
+const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
+const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
   documents: FileText,
+  services: ShieldCheck,
+  forms: FileText,
+  favourites: Heart,
+  differentials: BrainCircuit,
   prescribing: Pill,
   tools: Wrench,
 };
@@ -120,13 +135,6 @@ function documentScopeMeta(document: ClinicalDocument) {
   return `${fileName} · ${document.page_count ?? "?"} pages`;
 }
 
-type HeaderIdentity = {
-  displayName: string;
-  initials: string;
-  detail: string;
-  signedIn: boolean;
-};
-
 export function MasterSearchHeader({
   documents,
   documentTotal,
@@ -137,7 +145,6 @@ export function MasterSearchHeader({
   queryMode,
   scopeFilters,
   realDataReady,
-  theme,
   onQueryChange,
   onSearchModeChange,
   onAsk,
@@ -155,13 +162,20 @@ export function MasterSearchHeader({
   onNewChat,
   onOpenMobileSidebar,
   onOpenSettings,
-  identity,
+  theme,
   onToggleTheme,
   queryModeOptions,
-  scopeVariant = "full",
   queryInputRef,
   queryInputAutoFocus = false,
+  headerVariant = "default",
   modeAlignment = "default",
+  mobileSearchPlacement = "default",
+  desktopSearchPlacement = "default",
+  searchComposerVisible = true,
+  workflowCopyText,
+  desktopHomeComposerSlotId,
+  mobileLeadingAction = "menu",
+  onMobileBack,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -172,7 +186,6 @@ export function MasterSearchHeader({
   queryMode: ClinicalQueryMode;
   scopeFilters: SearchScopeFilters;
   realDataReady: boolean;
-  theme: ResolvedTheme;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
   onAsk: () => void;
@@ -189,22 +202,32 @@ export function MasterSearchHeader({
   onOpenSourcePdf?: () => void;
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
-  onOpenSettings: () => void;
-  identity: HeaderIdentity;
-  onToggleTheme: () => void;
+  onOpenSettings?: () => void;
+  theme?: ResolvedTheme;
+  onToggleTheme?: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
-  scopeVariant?: "full" | "placeholder";
   queryInputRef?: Ref<HTMLInputElement>;
   queryInputAutoFocus?: boolean;
+  headerVariant?: "default" | "workflow";
   modeAlignment?: "default" | "center";
+  mobileSearchPlacement?: "default" | "bottom";
+  desktopSearchPlacement?: "default" | "hero";
+  searchComposerVisible?: boolean;
+  workflowCopyText?: string;
+  desktopHomeComposerSlotId?: string;
+  mobileLeadingAction?: "menu" | "back";
+  onMobileBack?: () => void;
 }) {
+  const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
   const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
-  const scopeIsPlaceholder = scopeVariant === "placeholder";
-  const canRunLocalSearch = selectedSearch.kind === "tools";
+  const isWorkflowHeader = headerVariant === "workflow";
+  const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
+  const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
+  const canRunLocalSearch = selectedSearch.kind === "tools" || selectedSearch.kind === "favourites";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -216,24 +239,26 @@ export function MasterSearchHeader({
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [utilityMenuOpen, setUtilityMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
+  const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
+  const [desktopHomeComposerTarget, setDesktopHomeComposerTarget] = useState<HTMLElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const scopeDetailsRef = useRef<HTMLDetailsElement | null>(null);
-  const scopeSummaryRef = useRef<HTMLElement | null>(null);
+  const utilityMenuRef = useRef<HTMLDivElement | null>(null);
+  const utilityButtonRef = useRef<HTMLButtonElement | null>(null);
+  const scopePopoverRef = useRef<HTMLDivElement | null>(null);
+  const scopeSummaryRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
+  const hasUtilityActions = Boolean(onOpenSettings || (theme && onToggleTheme));
+  const UtilityThemeIcon = theme === "dark" ? Sun : Moon;
+  const utilityThemeLabel = theme === "dark" ? "Light mode" : "Dark mode";
   const selectedDocuments = selectedDocumentIds
     .map((id) => documents.find((document) => document.id === id))
     .filter((document): document is ClinicalDocument => Boolean(document));
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
   const footerScopeLabel = selectedDocumentIds.length === 0 ? "All sources" : `${selectedDocumentIds.length} scoped`;
-  const headerSourceSummary =
-    selectedDocumentIds.length === 0
-      ? `${indexedDocumentTotal.toLocaleString()} indexed source${indexedDocumentTotal === 1 ? "" : "s"}`
-      : `${selectedDocumentIds.length.toLocaleString()} scoped source${selectedDocumentIds.length === 1 ? "" : "s"}`;
-  const headerReadinessLabel = realDataReady ? "Ready" : "Setup needed";
-  const headerAccountLabel = identity.signedIn ? identity.displayName : "Guest";
   const scopePreview = selectedDocuments
     .slice(0, 2)
     .map((document) => document?.title.replace(/^Synthetic /, ""))
@@ -265,11 +290,43 @@ export function MasterSearchHeader({
   const queryPlaceholder = isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
   const actionMenuSetId: ModeActionSetId =
-    searchMode === "documents" ? "documents" : searchMode === "tools" ? "tools" : "answer";
+    searchMode === "services"
+      ? "services"
+      : searchMode === "documents" || searchMode === "forms"
+        ? "documents"
+        : searchMode === "favourites"
+          ? "favourites"
+          : searchMode === "differentials"
+            ? "differentials"
+            : searchMode === "tools"
+              ? "tools"
+              : "answer";
   const actionMenuItems =
     searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
+  const isStandaloneModeHomeHeader = Boolean(desktopHomeComposerSlotId);
+  const useMobileBackControl = mobileLeadingAction === "back";
+  const homeHeaderTitle =
+    searchMode === "services"
+      ? "Services Navigator"
+      : searchMode === "forms"
+        ? "Forms Navigator"
+        : searchMode === "favourites"
+          ? "Favourites"
+          : searchMode === "differentials"
+            ? "Differentials Navigator"
+            : "Clinical Guide";
+  const homeHeaderDescription =
+    searchMode === "services"
+      ? "Psychiatry referral directory"
+      : searchMode === "forms"
+        ? "Mental Health Act forms"
+        : searchMode === "favourites"
+          ? "Saved clinical items and sets"
+          : searchMode === "differentials"
+            ? "Differential diagnosis workspace"
+            : selectedAppMode.description;
 
   function currentUsesScopeSheet() {
     return window.matchMedia(mobileSheetMediaQuery).matches;
@@ -312,7 +369,7 @@ export function MasterSearchHeader({
       return;
     }
 
-    if (actionId === "documents-search" || actionId === "answer-documents") {
+    if (actionId === "documents-search") {
       onSearchModeChange("documents");
       return;
     }
@@ -324,7 +381,7 @@ export function MasterSearchHeader({
       openScopePicker();
       return;
     }
-    if (actionId === "answer-evidence") {
+    if (actionId === "answer-quotes" || actionId === "answer-evidence-map") {
       onOpenEvidence?.();
       return;
     }
@@ -348,16 +405,56 @@ export function MasterSearchHeader({
       onOpenSourcePdf?.();
       return;
     }
+    if (actionId === "services-search") {
+      onSearchModeChange("services");
+      return;
+    }
+    if (actionId === "services-pathways") {
+      onSearchModeChange("services");
+      onQueryChange(trimmedQuery || "crisis support referral pathway");
+      return;
+    }
+    if (actionId === "services-records") {
+      onSearchModeChange("services");
+      onQueryChange("");
+      return;
+    }
+    if (actionId === "favourites-browse") {
+      onSearchModeChange("favourites");
+      onQueryChange("");
+      return;
+    }
+    if (actionId === "favourites-sets") {
+      onSearchModeChange("favourites");
+      onQueryChange("set");
+      return;
+    }
     if (actionId === "answer-new" || actionId === "tools-new") {
       onNewChat?.();
       return;
     }
-    if (actionId === "answer-clinical") {
-      onSearchModeChange("answer");
-      return;
-    }
     if (actionId === "tools-browse") {
       onSearchModeChange("tools");
+      return;
+    }
+    if (actionId === "differentials-build") {
+      onSearchModeChange("differentials");
+      onQueryChange(trimmedQuery || "acute confusion differential diagnosis");
+      return;
+    }
+    if (actionId === "differentials-criteria") {
+      onSearchModeChange("differentials");
+      onQueryModeChange("compare_guidance");
+      onQueryChange(trimmedQuery || "delirium vs dementia differential diagnosis");
+      return;
+    }
+    if (actionId === "differentials-documents") {
+      onSearchModeChange("documents");
+      onQueryChange(trimmedQuery || "differential diagnosis");
+      return;
+    }
+    if (actionId === "differentials-evidence") {
+      onOpenEvidence?.();
       return;
     }
   }
@@ -432,9 +529,6 @@ export function MasterSearchHeader({
   }, [documents]);
 
   const closeScope = useCallback((restoreFocus = false) => {
-    const details = scopeDetailsRef.current;
-    if (!details?.open) return;
-    details.open = false;
     setScopeOpen(false);
     if (restoreFocus) scopeSummaryRef.current?.focus();
   }, []);
@@ -446,7 +540,10 @@ export function MasterSearchHeader({
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(mobileSheetMediaQuery);
-    const sync = () => setUsesScopeSheet(mediaQuery.matches);
+    const sync = () => {
+      setUsesScopeSheet(mediaQuery.matches);
+      setUsesPhoneSearchLayout(mediaQuery.matches);
+    };
     sync();
     mediaQuery.addEventListener("change", sync);
     return () => mediaQuery.removeEventListener("change", sync);
@@ -456,7 +553,45 @@ export function MasterSearchHeader({
     onScopeOpenChange?.(scopeOpen || scopeSheetOpen);
   }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
 
+  useEffect(() => {
+    if (!desktopHomeComposerSlotId) {
+      const frame = window.requestAnimationFrame(() => setDesktopHomeComposerTarget(null));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const mediaQuery = window.matchMedia(desktopHomeComposerMediaQuery);
+    let frame: number | null = null;
+    let retryTimeout: number | null = null;
+    const syncTarget = () => {
+      if (retryTimeout !== null) {
+        window.clearTimeout(retryTimeout);
+        retryTimeout = null;
+      }
+      const target = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
+      setDesktopHomeComposerTarget((current) => (current === target ? current : target));
+      if (mediaQuery.matches && !target) {
+        retryTimeout = window.setTimeout(syncTarget, 50);
+      }
+    };
+    const scheduleSync = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(syncTarget);
+    };
+
+    const observer = new MutationObserver(scheduleSync);
+    observer.observe(document.body, { childList: true, subtree: true });
+    scheduleSync();
+    mediaQuery.addEventListener("change", scheduleSync);
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      if (retryTimeout !== null) window.clearTimeout(retryTimeout);
+      observer.disconnect();
+      mediaQuery.removeEventListener("change", scheduleSync);
+    };
+  }, [desktopHomeComposerSlotId]);
+
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
+  const dismissUtilityMenu = useCallback(() => setUtilityMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
     closeScope(reason === "escape");
   }
@@ -469,8 +604,15 @@ export function MasterSearchHeader({
   });
 
   useDismissableLayer({
+    enabled: utilityMenuOpen,
+    refs: [utilityMenuRef, utilityButtonRef],
+    restoreFocusRef: utilityButtonRef,
+    onDismiss: dismissUtilityMenu,
+  });
+
+  useDismissableLayer({
     enabled: scopeOpen,
-    refs: [scopeDetailsRef],
+    refs: [scopePopoverRef, scopeSummaryRef],
     restoreFocusRef: scopeSummaryRef,
     onDismiss: dismissScope,
   });
@@ -478,6 +620,7 @@ export function MasterSearchHeader({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setActionMenuOpen(false);
+    setUtilityMenuOpen(false);
     onAsk();
   }
 
@@ -688,49 +831,251 @@ export function MasterSearchHeader({
     );
   }
 
+  function renderSearchComposer(placement: "default" | "desktop-home") {
+    const isDesktopHomeComposer = placement === "desktop-home";
+    const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
+    const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
+    const usesUniversalFooterStyle = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
+    const usesSendAffordance = usesAnswerFooterStyle || (isStandaloneModeHomeHeader && searchMode === "differentials");
+    const composerPlaceholder =
+      usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
+
+    return (
+      <form
+        onSubmit={submit}
+        className={cn(
+          isDesktopHomeComposer
+            ? "mx-auto w-full max-w-2xl lg:max-w-3xl"
+            : usesAnswerFooterStyle
+              ? "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl"
+              : usesMobileBottomStyle
+                ? cn(
+                    "document-mobile-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                    isHeroDesktopComposer
+                      ? "forms-hero-search-edge sm:absolute"
+                      : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                  )
+                : "sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto w-full max-w-3xl px-3 py-3 sm:px-4 lg:max-w-4xl",
+          usesUniversalFooterStyle && "answer-footer-search-edge flex flex-col items-center gap-2.5",
+        )}
+      >
+        <div
+          className={cn(
+            usesUniversalFooterStyle
+              ? cn(chatComposerShell, "answer-footer-search-pill relative w-full")
+              : cn(
+                  chatComposerShell,
+                  "relative w-full",
+                  isDesktopHomeComposer && "desktop-home-search-pill",
+                  usesMobileBottomStyle && "document-mobile-search-pill",
+                ),
+          )}
+        >
+          <ModeActionPopup
+            open={actionMenuOpen}
+            title={actionMenuTitle}
+            titleIcon={SelectedAppModeIcon}
+            buttonLabel={actionMenuButtonLabel}
+            items={actionMenuItems}
+            onOpenChange={setActionMenuOpen}
+            onBeforeOpen={() => {
+              setUsesScopeSheet(currentUsesScopeSheet());
+              setModeMenuOpen(false);
+              setScopeOpen(false);
+            }}
+            onAction={runModeAction}
+            triggerClassName={usesUniversalFooterStyle ? "answer-footer-search-action" : undefined}
+            integrated={usesUniversalFooterStyle}
+          />
+
+          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+            <input
+              ref={queryInputRef}
+              data-testid="global-search-input"
+              autoFocus={queryInputAutoFocus}
+              value={query}
+              onInput={(event) => onQueryChange(event.currentTarget.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
+              }}
+              aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
+              placeholder={composerPlaceholder}
+              className={cn(
+                chatComposerInput,
+                "w-full min-w-0",
+                usesUniversalFooterStyle && "answer-footer-search-input",
+                isDesktopHomeComposer && "desktop-home-search-input",
+                query ? "pr-11" : null,
+              )}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={onClearQuery}
+                className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                aria-label="Clear search question"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+          <button
+            type="button"
+            className={cn(chatComposerIconButton, usesUniversalFooterStyle && "answer-footer-search-mic")}
+            aria-label="Voice input"
+            title="Voice input"
+          >
+            <Mic className="h-4.5 w-4.5" />
+          </button>
+          {usesUniversalFooterStyle ? <span className="answer-footer-search-divider" aria-hidden="true" /> : null}
+          <button
+            type="submit"
+            disabled={!canAsk}
+            title={
+              !realDataReady
+                ? "Search setup not ready"
+                : trimmedQuery.length < 1
+                  ? selectedSearch.emptyTitle
+                  : selectedSearch.readyTitle
+            }
+            className={cn(chatSendButton, usesUniversalFooterStyle && "answer-footer-search-send")}
+            aria-label={selectedSearch.submitAriaLabel}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : usesSendAffordance ? (
+              <Send className="h-4 w-4" />
+            ) : (
+              <Search className="h-4.5 w-4.5" />
+            )}
+            <span className="sr-only">{submitLabel}</span>
+          </button>
+        </div>
+        {usesAnswerFooterStyle ? (
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
+            <button
+              type="button"
+              onClick={() => onOpenEvidence?.()}
+              className="answer-footer-search-chip"
+              aria-label="Open evidence-backed answer sources"
+            >
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <span className="sm:hidden">Evidence</span>
+              <span className="hidden sm:inline">Evidence-based</span>
+            </button>
+            <button
+              type="button"
+              ref={scopeSummaryRef}
+              data-testid="scope-trigger"
+              onClick={openScopePicker}
+              className="answer-footer-search-chip"
+              aria-expanded={usesScopeSheet ? scopeSheetOpen : scopeOpen}
+              aria-label="Open source scope"
+            >
+              <Filter className="h-4 w-4" aria-hidden="true" />
+              <span className="sm:hidden">{selectedDocumentIds.length === 0 ? "Sources" : footerScopeLabel}</span>
+              <span className="hidden sm:inline">{footerScopeLabel}</span>
+            </button>
+            {!usesScopeSheet && scopeOpen ? (
+              <div
+                ref={scopePopoverRef}
+                data-testid="scope-command-popover"
+                className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-50 max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
+              >
+                <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                  <span>Document scope</span>
+                  <span className="nums">{scopeSummary}</span>
+                </div>
+                {scopePreview ? (
+                  <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+                ) : null}
+                {renderScopeRows()}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <Sheet
+          open={usesScopeSheet && scopeSheetOpen}
+          onClose={closeScopeSheet}
+          title="Document scope"
+          description="Choose documents and filters for the next search."
+          closeLabel="Close document scope"
+          initialFocusRef={scopeFilterInputRef}
+        >
+          <div
+            data-testid={usesScopeSheet ? "scope-command-popover" : undefined}
+            className="polished-scroll max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain pr-1"
+          >
+            <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
+              <span>Document scope</span>
+              <span className="nums">{scopeSummary}</span>
+            </div>
+            {scopePreview ? (
+              <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+            ) : null}
+            {renderScopeRows()}
+          </div>
+        </Sheet>
+      </form>
+    );
+  }
+
   return (
     <>
       <header
         id="search"
-        className="edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
+        className={cn(
+          "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl",
+          isStandaloneModeHomeHeader && "lg:py-4",
+        )}
       >
-        <div className="relative mx-auto grid min-h-14 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div
+          className={cn(
+            "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
+            isWorkflowHeader
+              ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
+              : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
+            isStandaloneModeHomeHeader && "lg:min-h-16 lg:px-6",
+          )}
+        >
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={onOpenMobileSidebar}
-              className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:hidden"
-              aria-label="Open Clinical Guide menu"
+              onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
+              className={cn(
+                "universal-header-icon-control h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                isWorkflowHeader ? "grid" : "grid lg:hidden",
+              )}
+              aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
             >
-              <Menu className="h-5 w-5" />
+              {useMobileBackControl ? <ArrowLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-
-            <div className="universal-header-ledger hidden min-w-0 items-center gap-1 md:inline-flex">
-              <span className="universal-header-ledger-label">Sources</span>
-              <span className="universal-header-ledger-item">
-                <span
-                  className={cn(
-                    "universal-header-status-dot",
-                    realDataReady ? "bg-[color:var(--clinical-chat-ready)]" : "bg-[color:var(--clinical-chat-amber)]",
-                  )}
-                  aria-hidden="true"
-                />
-                <span>{headerReadinessLabel}</span>
-              </span>
-              <span className="universal-header-ledger-separator" aria-hidden="true" />
-              <span className="universal-header-ledger-item nums">{headerSourceSummary}</span>
-              <span className="universal-header-ledger-separator hidden xl:inline-block" aria-hidden="true" />
-              <span className="universal-header-ledger-item hidden max-w-[9rem] truncate xl:inline-flex">
-                {headerAccountLabel}
-              </span>
-            </div>
+            {isStandaloneModeHomeHeader ? (
+              <div className="hidden min-w-0 items-center gap-3 lg:flex">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+                  <SelectedAppModeIcon className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xl font-extrabold leading-6 text-[color:var(--text-heading)]">
+                    {homeHeaderTitle}
+                  </span>
+                  <span className="block truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                    {homeHeaderDescription}
+                  </span>
+                </span>
+              </div>
+            ) : null}
           </div>
 
           <div
             ref={modeMenuRef}
             className={cn(
-              "relative z-40 min-w-0 justify-self-center",
+              "relative z-40 min-w-0",
+              isWorkflowHeader ? "justify-self-start" : "justify-self-center",
               modeAlignment === "center" &&
+                !isStandaloneModeHomeHeader &&
+                !isWorkflowHeader &&
                 "lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2",
             )}
           >
@@ -739,24 +1084,43 @@ export function MasterSearchHeader({
               type="button"
               onClick={() => {
                 setActionMenuOpen(false);
+                setUtilityMenuOpen(false);
                 closeScope(false);
                 setModeMenuOpen((open) => !open);
               }}
               onKeyDown={handleModeTriggerKeyDown}
-              className="universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]"
+              className={cn(
+                "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]",
+                isWorkflowHeader && "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
+              )}
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                <span
+                  className={cn(
+                    "hidden truncate text-[10px] font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block",
+                    !isStandaloneModeHomeHeader && !isWorkflowHeader && "sr-only",
+                  )}
+                >
+                  Mode
+                </span>
+                <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
                   {selectedAppMode.label}
                 </span>
-                <span className="hidden truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)] sm:block">
+                <span
+                  className={cn(
+                    isWorkflowHeader
+                      ? "hidden"
+                      : "hidden truncate text-[11px] font-semibold leading-4 text-[color:var(--text-soft)] sm:block",
+                    isStandaloneModeHomeHeader && "lg:hidden",
+                  )}
+                >
                   {selectedAppMode.description}
                 </span>
               </span>
@@ -824,266 +1188,157 @@ export function MasterSearchHeader({
             ) : null}
           </div>
 
-          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
-            {scopeIsPlaceholder ? (
-              <button
-                type="button"
-                data-testid="scope-trigger"
-                aria-disabled="true"
-                aria-label="Document scope placeholder"
-                title="Document scope"
-                className="universal-header-icon-control flex h-11 w-11 shrink-0 cursor-default items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-0 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:min-h-10 sm:w-auto sm:px-3"
-              >
-                <Globe2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Scope</span>
-              </button>
-            ) : usesScopeSheet ? (
-              <button
-                type="button"
-                ref={(element) => {
-                  scopeSummaryRef.current = element;
-                }}
-                data-testid="scope-trigger"
-                onClick={() => {
-                  setActionMenuOpen(false);
-                  setModeMenuOpen(false);
-                  setScopeSheetOpen(true);
-                }}
-                className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label="Open document scope"
-                aria-expanded={scopeSheetOpen}
-                title="Document scope"
-              >
-                <Globe2 className="h-5 w-5" />
-                {selectedDocumentIds.length || activeScopeFilterCount(scopeFilters) > 0 ? (
-                  <span className="absolute mt-7 rounded-md bg-[color:var(--clinical-chat-teal-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[color:var(--clinical-chat-teal)]">
-                    {selectedDocumentIds.length || `F:${activeScopeFilterCount(scopeFilters)}`}
+          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+            {isWorkflowHeader ? (
+              <>
+                <div className="hidden min-w-0 items-center gap-2 xl:flex">
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden />
+                    Local only
                   </span>
-                ) : null}
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                    <Cloud className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
+                    Offline ready
+                  </span>
+                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 text-xs font-extrabold text-[color:var(--clinical-chat-amber)] shadow-[var(--shadow-inset)]">
+                    <AlertCircle className="h-4 w-4" aria-hidden />
+                    Source pending review
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  aria-label="Open language and region settings"
+                  title="Language and region"
+                >
+                  <Globe2 className="h-5 w-5" aria-hidden />
+                </button>
+                <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
+                <button
+                  type="button"
+                  onClick={onNewChat}
+                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  aria-label="Start a new comparison"
+                  title="New comparison"
+                >
+                  <Plus className="h-5 w-5" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (workflowCopyText) void navigator.clipboard?.writeText(workflowCopyText);
+                  }}
+                  className="hidden min-h-11 items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:inline-flex"
+                >
+                  <Copy className="h-4 w-4" aria-hidden />
+                  Copy after review
+                </button>
+              </>
+            ) : isStandaloneModeHomeHeader ? (
+              <div className="hidden min-w-0 items-center gap-2 lg:flex">
+                <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                  <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+                  Local only
+                </span>
+                <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                  <CheckCircle2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+                  Saved
+                </span>
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-extrabold text-[color:var(--clinical-accent)]">
+                  AK
+                </span>
+              </div>
+            ) : null}
+            {!isWorkflowHeader ? (
+              <button
+                type="button"
+                onClick={onNewChat}
+                className="universal-header-icon-control inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+                aria-label="Start a new chat"
+                title="New chat"
+              >
+                {isStandaloneModeHomeHeader ? (
+                  <Plus className="h-5 w-5 xl:h-4 xl:w-4" />
+                ) : (
+                  <MessageSquarePlus className="h-5 w-5 xl:h-4 xl:w-4" />
+                )}
+                {isStandaloneModeHomeHeader ? null : (
+                  <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+                )}
               </button>
-            ) : (
-              <details
-                ref={scopeDetailsRef}
-                open={scopeOpen}
-                onToggle={(event) => {
-                  const open = event.currentTarget.open;
-                  if (open) {
+            ) : null}
+            {!isWorkflowHeader && hasUtilityActions ? (
+              <>
+                <button
+                  ref={utilityButtonRef}
+                  type="button"
+                  onClick={() => {
                     setActionMenuOpen(false);
                     setModeMenuOpen(false);
-                  }
-                  setScopeOpen(open);
-                  if (open) window.setTimeout(() => scopeFilterInputRef.current?.focus(), 0);
-                }}
-                className="group relative"
-              >
-                <summary
-                  ref={(element) => {
-                    scopeSummaryRef.current = element;
+                    closeScope(false);
+                    setUtilityMenuOpen((open) => !open);
                   }}
-                  data-testid="scope-trigger"
-                  className="universal-header-icon-control flex h-11 w-11 cursor-pointer list-none items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-0 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:w-auto sm:px-3"
-                  aria-label="Open document scope"
-                  aria-expanded={scopeOpen}
+                  className="universal-header-icon-control hidden h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
+                  aria-haspopup="menu"
+                  aria-expanded={utilityMenuOpen}
+                  aria-controls={utilityMenuOpen ? "header-utility-menu" : undefined}
+                  aria-label="Open display and account actions"
+                  title="More actions"
                 >
-                  <Globe2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {selectedDocumentIds.length ? `${selectedDocumentIds.length} scoped` : "All sources"}
-                  </span>
-                  {activeScopeFilterCount(scopeFilters) > 0 ? (
-                    <span className="ml-1.5 rounded-full bg-[color:var(--clinical-chat-teal)] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
-                      {activeScopeFilterCount(scopeFilters)}
-                    </span>
-                  ) : null}
-                </summary>
-                <div
-                  data-testid="scope-command-popover"
-                  className="polished-scroll absolute right-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(70dvh,28rem)] w-[28rem] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
-                >
-                  <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    <span>Document scope</span>
-                    <span className="nums">{scopeSummary}</span>
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
+                {utilityMenuOpen ? (
+                  <div
+                    ref={utilityMenuRef}
+                    id="header-utility-menu"
+                    role="menu"
+                    aria-label="Display and account actions"
+                    className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10"
+                  >
+                    {theme && onToggleTheme ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          onToggleTheme();
+                          setUtilityMenuOpen(false);
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <UtilityThemeIcon className="h-4 w-4 shrink-0" />
+                        <span>{utilityThemeLabel}</span>
+                      </button>
+                    ) : null}
+                    {onOpenSettings ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setUtilityMenuOpen(false);
+                          window.requestAnimationFrame(onOpenSettings);
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <Settings className="h-4 w-4 shrink-0" />
+                        <span>Settings</span>
+                      </button>
+                    ) : null}
                   </div>
-                  {scopePreview ? (
-                    <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
-                  ) : null}
-                  {renderScopeRows()}
-                </div>
-              </details>
-            )}
-            <button
-              type="button"
-              onClick={onNewChat}
-              className="hidden min-h-10 items-center gap-1.5 rounded-full bg-[color:var(--command)] px-3.5 text-xs font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
-              aria-label="Start a new chat"
-            >
-              <Plus className="h-4 w-4" />
-              New chat
-            </button>
-            <button
-              type="button"
-              onClick={onNewChat}
-              className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
-              aria-label="Start a new chat"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              className="universal-header-icon-control hidden h-10 w-10 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)] sm:grid"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              data-testid="header-account-settings"
-              className="universal-header-avatar relative hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
-              aria-label={identity.signedIn ? `Open settings for ${identity.detail}` : "Open account settings"}
-              title={identity.detail}
-            >
-              {identity.initials}
-              {identity.signedIn ? (
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
-              ) : null}
-            </button>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </div>
       </header>
 
-      <form
-        onSubmit={submit}
-        className={cn(
-          "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl",
-          isAnswerFooterComposer ? "answer-footer-search-edge flex flex-col items-center gap-2.5" : chatComposerShell,
-        )}
-      >
-        <div
-          className={cn(
-            isAnswerFooterComposer ? cn(chatComposerShell, "answer-footer-search-pill w-full") : "contents",
-          )}
-        >
-          <ModeActionPopup
-            open={actionMenuOpen}
-            title={actionMenuTitle}
-            titleIcon={SelectedAppModeIcon}
-            buttonLabel={actionMenuButtonLabel}
-            items={actionMenuItems}
-            onOpenChange={setActionMenuOpen}
-            onBeforeOpen={() => {
-              setUsesScopeSheet(currentUsesScopeSheet());
-              setModeMenuOpen(false);
-              closeScope(false);
-            }}
-            onAction={runModeAction}
-            triggerClassName={isAnswerFooterComposer ? "answer-footer-search-action" : undefined}
-          />
-
-          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-            <input
-              ref={queryInputRef}
-              data-testid="global-search-input"
-              autoFocus={queryInputAutoFocus}
-              value={query}
-              onInput={(event) => onQueryChange(event.currentTarget.value)}
-              onChange={(event) => onQueryChange(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
-              }}
-              aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
-              placeholder={queryPlaceholder}
-              className={cn(
-                chatComposerInput,
-                "w-full min-w-0",
-                isAnswerFooterComposer && "answer-footer-search-input",
-                query ? "pr-11" : null,
-              )}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={onClearQuery}
-                className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                aria-label="Clear search question"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </label>
-          <button
-            type="button"
-            className={cn(chatComposerIconButton, isAnswerFooterComposer && "answer-footer-search-mic")}
-            aria-label="Voice input"
-            title="Voice input"
-          >
-            <Mic className="h-4.5 w-4.5" />
-          </button>
-          {isAnswerFooterComposer ? <span className="answer-footer-search-divider" aria-hidden="true" /> : null}
-          <button
-            type="submit"
-            disabled={!canAsk}
-            title={
-              !realDataReady
-                ? "Search setup not ready"
-                : trimmedQuery.length < 1
-                  ? selectedSearch.emptyTitle
-                  : selectedSearch.readyTitle
-            }
-            className={cn(chatSendButton, isAnswerFooterComposer && "answer-footer-search-send")}
-            aria-label={selectedSearch.submitAriaLabel}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            <span className="sr-only">{submitLabel}</span>
-          </button>
-        </div>
-        {isAnswerFooterComposer ? (
-          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
-            <button
-              type="button"
-              onClick={() => onOpenEvidence?.()}
-              className="answer-footer-search-chip"
-              aria-label="Open evidence-backed answer sources"
-            >
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              <span className="sm:hidden">Evidence</span>
-              <span className="hidden sm:inline">Evidence-based</span>
-            </button>
-            <button
-              type="button"
-              onClick={openScopePicker}
-              className="answer-footer-search-chip"
-              aria-label="Open source scope"
-            >
-              <Filter className="h-4 w-4" aria-hidden="true" />
-              <span className="sm:hidden">{selectedDocumentIds.length === 0 ? "Sources" : footerScopeLabel}</span>
-              <span className="hidden sm:inline">{footerScopeLabel}</span>
-            </button>
-          </div>
-        ) : null}
-        <Sheet
-          open={usesScopeSheet && scopeSheetOpen}
-          onClose={closeScopeSheet}
-          title="Document scope"
-          description="Choose documents and filters for the next search."
-          closeLabel="Close document scope"
-          initialFocusRef={scopeFilterInputRef}
-        >
-          <div
-            data-testid={usesScopeSheet ? "scope-command-popover" : undefined}
-            className="polished-scroll max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain pr-1"
-          >
-            <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>Document scope</span>
-              <span className="nums">{scopeSummary}</span>
-            </div>
-            {scopePreview ? (
-              <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
-            ) : null}
-            {renderScopeRows()}
-          </div>
-        </Sheet>
-      </form>
+      {searchComposerVisible ? (
+        <>
+          {desktopHomeComposerTarget ? null : renderSearchComposer("default")}
+          {desktopHomeComposerTarget
+            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerTarget)
+            : null}
+        </>
+      ) : null}
     </>
   );
 }

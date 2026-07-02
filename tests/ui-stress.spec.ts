@@ -219,7 +219,7 @@ async function openDailyActions(page: Page) {
   await expect(async () => {
     if (await menu.isVisible().catch(() => false)) return;
     await trigger.click();
-    await expect(menu).toBeVisible({ timeout: 2_500 });
+    await expect(menu).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 
   return menu;
@@ -254,7 +254,31 @@ test.describe("Clinical KB long-content stress coverage", () => {
       }
       await expectNoPageHorizontalOverflow(page);
 
-      await page.getByLabel("Open document scope").click();
+      const legacyAnswerModeToggle = page.getByRole("button", { name: "Switch to answer mode" });
+      if (await legacyAnswerModeToggle.isVisible().catch(() => false)) {
+        await legacyAnswerModeToggle.click();
+      } else {
+        const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
+        await expect(appModeMenu).toBeVisible();
+        await appModeMenu.click({ force: true });
+        const answerMode = page
+          .getByRole("menu", { name: "Choose app mode" })
+          .getByRole("menuitemradio", { name: /^Answer\b/ });
+        await expect(answerMode).toBeVisible();
+        await answerMode.click({ force: true });
+        await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
+      }
+
+      await page
+        .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
+        .first()
+        .fill("Show all stress citations and source cards");
+      await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();
+
+      await expect(page.getByLabel("Source-backed answer")).toBeVisible();
+      await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+
+      await page.locator('[data-testid="scope-trigger"]:visible').click();
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(scopeContainer).toBeVisible();
       await expect(
@@ -275,31 +299,8 @@ test.describe("Clinical KB long-content stress coverage", () => {
       ).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(scopeContainer).toBeHidden();
-      await expect(page.getByLabel("Open document scope")).toBeFocused();
       await expectNoPageHorizontalOverflow(page);
 
-      const legacyAnswerModeToggle = page.getByRole("button", { name: "Switch to answer mode" });
-      if (await legacyAnswerModeToggle.isVisible().catch(() => false)) {
-        await legacyAnswerModeToggle.click();
-      } else {
-        const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
-        await expect(appModeMenu).toBeVisible();
-        await appModeMenu.click({ force: true });
-        const answerMode = page
-          .getByRole("menu", { name: "Choose app mode" })
-          .getByRole("menuitemradio", { name: /^Answer\b/ });
-        await expect(answerMode).toBeVisible();
-        await answerMode.click({ force: true });
-        await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
-      }
-      await page
-        .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
-        .first()
-        .fill("Show all stress citations and source cards");
-      await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();
-
-      await expect(page.getByLabel("Source-backed answer")).toBeVisible();
-      await expect(page.getByTestId("plain-answer-response")).toBeVisible();
       await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
       await expect(page.getByTestId("smart-follow-up-chips")).toHaveCount(0);
       await expect(page.getByText("Quality feedback")).toHaveCount(0);

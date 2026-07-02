@@ -28,6 +28,10 @@ export type DocumentLabelType =
   | "workflow"
   | "population"
   | "service"
+  | "clinical_action"
+  | "care_phase"
+  | "document_intent"
+  | "content_feature"
   | "custom";
 
 export type DocumentOrganizationSiteKind =
@@ -81,6 +85,10 @@ export type DocumentOrganizationProfile = {
     workflow: string[];
     medication: string[];
     risk: string[];
+    clinical_action: string[];
+    care_phase: string[];
+    document_intent: string[];
+    content_feature: string[];
   };
   review_status: DocumentOrganizationReviewStatus;
 };

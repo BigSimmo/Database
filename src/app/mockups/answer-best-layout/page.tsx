@@ -30,7 +30,9 @@ function IconTile({ children, tone = "teal" }: { children: ReactNode; tone?: "te
           : "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]";
 
   return (
-    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] ${toneClass}`}>
+    <span
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)] ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -47,7 +49,9 @@ function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neu
           : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]";
 
   return (
-    <span className={`inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none ${toneClass}`}>
+    <span
+      className={`inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -73,7 +77,11 @@ function ActionRow() {
         <Copy className="h-4 w-4" />
         Copy with sources
       </button>
-      <button type="button" aria-label="More answer actions" className={`grid h-9 w-9 place-items-center rounded-md ${focusRing}`}>
+      <button
+        type="button"
+        aria-label="More answer actions"
+        className={`grid h-9 w-9 place-items-center rounded-md ${focusRing}`}
+      >
         <MoreHorizontal className="h-4 w-4" />
       </button>
     </div>
@@ -113,16 +121,13 @@ function ClinicalTriageSummary() {
   return (
     <div className="mt-3 flex flex-wrap gap-1.5">
       <Pill tone="red">
-        <ShieldAlert className="h-3.5 w-3.5" />
-        1 urgent
+        <ShieldAlert className="h-3.5 w-3.5" />1 urgent
       </Pill>
       <Pill tone="amber">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        2 caution
+        <AlertTriangle className="h-3.5 w-3.5" />2 caution
       </Pill>
       <Pill tone="teal">
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        3 monitor
+        <CheckCircle2 className="h-3.5 w-3.5" />3 monitor
       </Pill>
     </div>
   );
@@ -136,7 +141,9 @@ function SafetyInlineNotice() {
           <AlertTriangle className="h-4 w-4" />
         </IconTile>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Safety check needed before applying this.</p>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+            Safety check needed before applying this.
+          </p>
           <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
             Dose and frequency should be checked against renal function, serum level timing, and local protocol.
           </p>
@@ -162,8 +169,8 @@ function AnswerContent({ compact = false }: { compact?: boolean }) {
           <div className="min-w-0">
             <p className="text-base leading-7 text-[color:var(--text-heading)]">
               For lithium, twice daily dosing is usually spaced by 12 hours. In acute mania, guidance commonly targets
-              0.8-1.2 mmol/L; dose and frequency should be adjusted to response, serum level timing, renal function,
-              and local protocol.
+              0.8-1.2 mmol/L; dose and frequency should be adjusted to response, serum level timing, renal function, and
+              local protocol.
             </p>
             <div className="mt-4">
               <SourcePill />
@@ -187,7 +194,11 @@ function AnswerContent({ compact = false }: { compact?: boolean }) {
           >
             <ClinicalTriageSummary />
           </PanelCard>
-          <PanelCard icon={<Layers className="h-4 w-4" />} title="Evidence" meta="4 sources - quotes - source map - gaps" />
+          <PanelCard
+            icon={<Layers className="h-4 w-4" />}
+            title="Evidence"
+            meta="4 sources - quotes - source map - gaps"
+          />
         </div>
       </section>
     </div>
@@ -236,10 +247,16 @@ function DesktopMockup() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" className={`rounded-full border border-[color:var(--border)] px-3 py-2 text-sm font-semibold ${focusRing}`}>
+          <button
+            type="button"
+            className={`rounded-full border border-[color:var(--border)] px-3 py-2 text-sm font-semibold ${focusRing}`}
+          >
             Scope
           </button>
-          <button type="button" className={`rounded-full bg-[color:var(--primary)] px-3 py-2 text-sm font-semibold text-white ${focusRing}`}>
+          <button
+            type="button"
+            className={`rounded-full bg-[color:var(--primary)] px-3 py-2 text-sm font-semibold text-white ${focusRing}`}
+          >
             New chat
           </button>
         </div>
@@ -256,15 +273,21 @@ function RecommendationStrip() {
     <div className="grid gap-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] md:grid-cols-3">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Answer</p>
-        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">Direct clinical text, source pill, and actions only.</p>
+        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
+          Direct clinical text, source pill, and actions only.
+        </p>
       </div>
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Clinical notes</p>
-        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">Monitoring plus safety triage: urgent, caution, monitor.</p>
+        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
+          Monitoring plus safety triage: urgent, caution, monitor.
+        </p>
       </div>
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Evidence</p>
-        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">Detailed source audit, quotes, gaps, and governance checks.</p>
+        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
+          Detailed source audit, quotes, gaps, and governance checks.
+        </p>
       </div>
     </div>
   );
@@ -320,7 +343,9 @@ export default function AnswerBestLayoutPage() {
               <PhoneMockup />
             </div>
             <div className="hidden min-w-0 md:block">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Desktop</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                Desktop
+              </p>
               <DesktopMockup />
             </div>
           </div>

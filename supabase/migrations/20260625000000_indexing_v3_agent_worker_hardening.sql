@@ -15,6 +15,15 @@ create table if not exists public.ingestion_job_stages (
 
 alter table if exists public.ingestion_job_stages
   drop constraint if exists ingestion_job_stages_job_id_fkey;
+delete from public.ingestion_job_stages s
+where not exists (
+  select 1
+  from public.ingestion_jobs j
+  where j.id = s.job_id
+);
+alter table if exists public.ingestion_job_stages
+  add constraint ingestion_job_stages_job_id_fkey
+  foreign key (job_id) references public.ingestion_jobs(id) on delete cascade;
 
 drop index if exists public.ingestion_job_stages_doc_idx;
 create index if not exists ingestion_job_stages_document_started_idx
