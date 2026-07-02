@@ -140,16 +140,19 @@ describe("answer evidence ranking", () => {
 });
 
 describe("high-yield answer bolding", () => {
-  it("bolds high-yield clinical details without double-bolding existing markdown", () => {
+  it("bolds only values and actions, not topic nouns or query terms", () => {
     const formatted = boldHighYieldClinicalText(
       "Withhold clozapine when FBC is unsafe and repeat review after 4 hours. Existing **ANC** stays stable.",
       "What FBC threshold should withhold clozapine?",
     );
 
+    // Decision-critical detail stays bolded: the stop action and the timing value.
     expect(formatted).toContain("**Withhold**");
-    expect(formatted).toContain("**clozapine**");
-    expect(formatted).toContain("**FBC**");
     expect(formatted).toContain("**4 hours**");
+    // Topic nouns (and query terms) are no longer bolded — they read as keyword noise.
+    expect(formatted).not.toContain("**clozapine**");
+    expect(formatted).not.toContain("**FBC**");
+    // Pre-existing markdown is preserved and not double-bolded.
     expect(formatted).toContain("Existing **ANC** stays stable.");
     expect(formatted).not.toContain("****ANC****");
   });
@@ -182,8 +185,8 @@ describe("high-yield answer bolding", () => {
     );
 
     expect(answer.answer).toContain("**Withhold**");
-    expect(answer.answer).toContain("**clozapine**");
-    expect(answer.answer).toContain("**FBC**");
+    expect(answer.answer).not.toContain("**clozapine**");
+    expect(answer.answer).not.toContain("**FBC**");
     expect(answer.answerSections?.[0]?.body).toContain("**4 hours**");
   });
 
