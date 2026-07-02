@@ -37,6 +37,8 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
   { value: "required_documentation", label: "Documentation" },
   { value: "compare_guidance", label: "Compare" },
 ];
+// Re-apply focus shortly after the first frame to survive initial hydration remounts.
+const focusHydrationRetryDelayMs = 300;
 
 type GlobalMockupSearchShellProps = {
   children: ReactNode;
@@ -163,7 +165,7 @@ function GlobalMockupSearchShellClient({
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);
-    const timeout = window.setTimeout(focusInput, 300);
+    const timeout = window.setTimeout(focusInput, focusHydrationRetryDelayMs);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
