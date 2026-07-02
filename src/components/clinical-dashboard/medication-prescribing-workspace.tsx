@@ -365,10 +365,12 @@ function IconTile({
         "grid shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
         tone === "teal" &&
           "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-        tone === "blue" && "border-blue-500/15 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
+        tone === "blue" &&
+          "border-[color:var(--info-border)]/60 bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
         tone === "slate" &&
           "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-        tone === "danger" && "border-red-500/25 bg-red-50 text-red-600 dark:bg-red-950/25 dark:text-red-300",
+        tone === "danger" &&
+          "border-[color:var(--danger-border)]/70 bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]",
         className,
       )}
     >
@@ -592,7 +594,7 @@ function DoseCeiling({ value }: { value: string }) {
       <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
         Ceiling
       </span>
-      <span className="text-[color:var(--text-heading)]">{value}</span>
+      <span className="whitespace-nowrap nums text-[color:var(--text-heading)]">{value}</span>
     </span>
   );
 }
@@ -789,7 +791,7 @@ function DetailTile({
     <div
       className={cn(
         "min-h-[4.05rem] rounded-lg border bg-[color:var(--surface-raised)] px-2.5 py-2.5 shadow-[var(--shadow-inset)] sm:min-h-[4.2rem] sm:px-3 sm:py-3",
-        danger ? "border-red-500/35 bg-red-50/30 dark:bg-red-950/10" : "border-[color:var(--border)]",
+        danger ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)]/40" : "border-[color:var(--border)]",
       )}
     >
       <div className="flex items-start gap-2">
@@ -798,7 +800,7 @@ function DetailTile({
           <p
             className={cn(
               "text-[11px] font-semibold leading-4",
-              danger ? "text-red-600 dark:text-red-300" : "text-[color:var(--text-heading)]",
+              danger ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
             )}
           >
             {label}
@@ -829,7 +831,7 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
         <p
           className={cn(
             "text-[13px] font-semibold sm:text-sm",
-            row.tone === "danger" ? "text-red-600 dark:text-red-300" : "text-[color:var(--text-heading)]",
+            row.tone === "danger" ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
           )}
         >
           {row.label}
@@ -864,7 +866,10 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
           <ul className="grid gap-1.5">
             {body.map((item) => (
               <li key={item} className="flex gap-3">
-                <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+                <span
+                  className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]"
+                  aria-hidden="true"
+                />
                 <span>{item}</span>
               </li>
             ))}
@@ -1116,7 +1121,7 @@ function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: 
         <p
           className={cn(
             "text-[13px] font-semibold leading-4",
-            row.tone === "danger" ? "text-red-600 dark:text-red-300" : "text-[color:var(--text-heading)]",
+            row.tone === "danger" ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
           )}
         >
           {row.label}
@@ -1155,7 +1160,10 @@ function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: 
             {body.map((item) => (
               <p key={item} className={cn(row.tone === "danger" && "flex gap-2")}>
                 {row.tone === "danger" ? (
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+                  <span
+                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]"
+                    aria-hidden="true"
+                  />
                 ) : null}
                 <span>{item}</span>
               </p>

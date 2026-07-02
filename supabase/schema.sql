@@ -1171,50 +1171,122 @@ begin
       updated_at = excluded.updated_at;
   end if;
 
+  -- M13 (audit 2026-07-01): superseded-generation rows always go; legacy
+  -- NULL-generation rows go only when this generation wrote replacement rows
+  -- into the same table (see 20260702000000_commit_generation_preserve_legacy_artifacts).
+  -- Guarantee scope: fully protects document_images/document_memory_cards/
+  -- document_sections; chunk-anchored artifacts (table facts, embedding
+  -- fields, index units) cascade with their legacy chunks via
+  -- source_chunk_id ON DELETE CASCADE when chunks are replaced.
   delete from public.document_chunks
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and exists (
+          select 1
+          from public.document_chunks replacement
+          where replacement.document_id = p_document_id
+            and replacement.index_generation_id = p_index_generation_id
+        )
+      )
+    );
 
   delete from public.document_images
   where document_id = p_document_id
     and (
-      nullif(metadata->>'index_generation_id', '') is null
-      or metadata->>'index_generation_id' <> p_index_generation_id::text
+      (nullif(metadata->>'index_generation_id', '') is not null
+        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      or (
+        nullif(metadata->>'index_generation_id', '') is null
+        and exists (
+          select 1
+          from public.document_images replacement
+          where replacement.document_id = p_document_id
+            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+        )
+      )
     );
 
   delete from public.document_table_facts
   where document_id = p_document_id
     and (
-      nullif(metadata->>'index_generation_id', '') is null
-      or metadata->>'index_generation_id' <> p_index_generation_id::text
+      (nullif(metadata->>'index_generation_id', '') is not null
+        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      or (
+        nullif(metadata->>'index_generation_id', '') is null
+        and exists (
+          select 1
+          from public.document_table_facts replacement
+          where replacement.document_id = p_document_id
+            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+        )
+      )
     );
 
   delete from public.document_embedding_fields
   where document_id = p_document_id
     and (
-      nullif(metadata->>'index_generation_id', '') is null
-      or metadata->>'index_generation_id' <> p_index_generation_id::text
+      (nullif(metadata->>'index_generation_id', '') is not null
+        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      or (
+        nullif(metadata->>'index_generation_id', '') is null
+        and exists (
+          select 1
+          from public.document_embedding_fields replacement
+          where replacement.document_id = p_document_id
+            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+        )
+      )
     );
 
   delete from public.document_index_units
   where document_id = p_document_id
     and (
-      nullif(metadata->>'index_generation_id', '') is null
-      or metadata->>'index_generation_id' <> p_index_generation_id::text
+      (nullif(metadata->>'index_generation_id', '') is not null
+        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      or (
+        nullif(metadata->>'index_generation_id', '') is null
+        and exists (
+          select 1
+          from public.document_index_units replacement
+          where replacement.document_id = p_document_id
+            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+        )
+      )
     );
 
   delete from public.document_memory_cards
   where document_id = p_document_id
     and (
-      nullif(metadata->>'index_generation_id', '') is null
-      or metadata->>'index_generation_id' <> p_index_generation_id::text
+      (nullif(metadata->>'index_generation_id', '') is not null
+        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      or (
+        nullif(metadata->>'index_generation_id', '') is null
+        and exists (
+          select 1
+          from public.document_memory_cards replacement
+          where replacement.document_id = p_document_id
+            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+        )
+      )
     );
 
   delete from public.document_sections
   where document_id = p_document_id
     and (
-      nullif(metadata->>'index_generation_id', '') is null
-      or metadata->>'index_generation_id' <> p_index_generation_id::text
+      (nullif(metadata->>'index_generation_id', '') is not null
+        and metadata->>'index_generation_id' <> p_index_generation_id::text)
+      or (
+        nullif(metadata->>'index_generation_id', '') is null
+        and exists (
+          select 1
+          from public.document_sections replacement
+          where replacement.document_id = p_document_id
+            and replacement.metadata->>'index_generation_id' = p_index_generation_id::text
+        )
+      )
     );
 
   return jsonb_build_object(

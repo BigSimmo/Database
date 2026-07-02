@@ -9,8 +9,7 @@
  *
  * Radius usage rules:
  *   rounded-md  chips, inner elements, metadata pills
- *   rounded-lg  controls, inputs, buttons
- *   rounded-lg  cards, panels, drawers
+ *   rounded-lg  controls, inputs, buttons, cards, panels, drawers
  *   rounded-xl  bottom sheets, dialogs, large shells
  */
 @theme {
@@ -456,58 +455,6 @@ summary::-webkit-details-marker {
   background: var(--surface);
 }
 
-.universal-header-ledger {
-  min-height: 2.5rem;
-  max-width: min(100%, 27rem);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-raised);
-  padding: 0.25rem 0.55rem 0.25rem 0.7rem;
-  color: var(--text-muted);
-  box-shadow: none;
-}
-
-.universal-header-ledger-label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.75rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, transparent);
-  padding-inline: 0.55rem;
-  color: var(--clinical-accent);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.universal-header-ledger-item {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.35rem;
-  padding-inline: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.universal-header-ledger-separator {
-  height: 1.25rem;
-  width: 1px;
-  flex: 0 0 auto;
-  background: color-mix(in srgb, var(--border-strong) 38%, transparent);
-}
-
-.universal-header-status-dot {
-  display: inline-block;
-  height: 0.5rem;
-  width: 0.5rem;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
-}
-
 .universal-header-mode-button {
   border-color: var(--border);
   background: var(--surface);
@@ -525,17 +472,11 @@ summary::-webkit-details-marker {
   background: var(--surface-subtle);
 }
 
-.universal-header-avatar {
-  box-shadow: var(--shadow-tight);
-}
-
-.dark .universal-header-ledger,
 .dark .universal-header-mode-button {
   box-shadow: var(--shadow-tight);
 }
 
-.dark .universal-header-icon-control,
-.dark .universal-header-avatar {
+.dark .universal-header-icon-control {
   box-shadow: none;
 }
 

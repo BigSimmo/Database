@@ -301,7 +301,7 @@ function AppIcon({ app, compact = false }: { app: LauncherApp; compact?: boolean
 function LaunchLink({ app, compact = false, className }: { app: LauncherApp; compact?: boolean; className?: string }) {
   const label = `Launch ${app.title}`;
   const classes = cn(
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
     compact && "min-h-9 px-3 text-xs",
     className,
   );
@@ -343,7 +343,7 @@ function HeaderFilter({
             className={cn(
               "min-h-11 px-4 text-xs font-semibold transition sm:min-w-[5.25rem]",
               active
-                ? "bg-[color:var(--clinical-accent)] text-white shadow-[var(--shadow-tight)]"
+                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                 : "border-l border-[color:var(--border)] text-[color:var(--text-muted)] first:border-l-0 hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
@@ -682,7 +682,7 @@ function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenC
         <Link
           href="/"
           onClick={() => onOpenChange(false)}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-white shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]"
         >
           <Plus className="h-4 w-4" />
           New chat
@@ -885,7 +885,7 @@ function ApplicationsHeader({
             aria-expanded={modeMenuOpen}
             aria-label="Current app mode: Applications"
           >
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white shadow-[var(--shadow-tight)]">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
               <Grid2X2 className="h-3.5 w-3.5" />
             </span>
             <span className="min-w-0">

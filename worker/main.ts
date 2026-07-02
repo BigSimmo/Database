@@ -438,7 +438,25 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
   await insertPageRows(pages);
 }
 
+// Audit M13 (mirrors 20260702000000_commit_generation_preserve_legacy_artifacts):
+// this client-side fallback (used only when the commit RPC is missing) must
+// apply the same preservation rule as the RPC — legacy generationless rows are
+// purged only when this generation wrote replacement rows into the same
+// table, so a transient artifact-write failure cannot destroy the
+// previously-good legacy artifacts. Rows tagged with a DIFFERENT generation
+// are always removed. Note: chunk-anchored artifacts (table facts, embedding
+// fields, index units) cascade with their legacy chunks regardless — the
+// guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
+  const hasReplacementRows = async (table: string, direct: boolean) => {
+    let query = supabase.from(table).select("id").eq("document_id", documentId).limit(1);
+    query = direct
+      ? query.eq("index_generation_id", indexGenerationId)
+      : query.eq("metadata->>index_generation_id", indexGenerationId);
+    const { data, error } = await query;
+    if (error) throw supabaseStageError(`check replacement ${table}`, error);
+    return (data ?? []).length > 0;
+  };
   const deleteDirectGenerationRows = async (table: string) => {
     const stale = await supabase
       .from(table)
@@ -446,6 +464,7 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
+    if (!(await hasReplacementRows(table, true))) return;
     const missing = await supabase.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
@@ -456,6 +475,7 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
+    if (!(await hasReplacementRows(table, false))) return;
     const missing = await supabase
       .from(table)
       .delete()
@@ -783,6 +803,11 @@ async function uploadAndCaptionImages(
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
   const imageTypeCounts = new Map<string, number>();
+  // Deliberate trade-off (audit L11): image bytes are re-read from disk at
+  // each stage (hash here, caption on cache miss, upload) instead of being
+  // cached, because holding every extracted image Buffer for a large document
+  // (hundreds of multi-MB page images) would multiply the worker's peak
+  // memory. Disk I/O is the cheaper resource for this background pipeline.
   const preparedImages: Array<{ imageHash: string; bytesLength: number; perceptualHash: string }> = [];
   for (const image of extracted.images) {
     const bytes = await readFile(image.path);

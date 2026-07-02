@@ -1,6 +1,11 @@
 const completeImageDataBlockPattern = /\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g;
 const trailingImageDataBlockPattern = /\[\[IMAGE_DATA_START\]\][\s\S]*$/g;
 const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g;
+// "N additional image/table blocks on this page" markers emitted by
+// buildPageImageContext when a page exceeds the indexed-image cap; internal
+// bookkeeping that must never render or be copied.
+const omittedImageDataBlockPattern = /\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
+const omittedImageDataMarkerPattern = /\[\[\/?IMAGE_DATA_OMITTED\]\]/g;
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;
@@ -34,13 +39,61 @@ const provenanceNoiseTermPattern =
   /\b(?:guideline|procedure|protocol|policy|appendix|source|evidence|document|file|page|scale|lunsers|liverpool university|rating scale|retrieved|excerpt|passage)\b/gi;
 const concreteClinicalActionPattern =
   /\b(?:administer|arrange|assess|cease|check|complete|contact|document|escalat|follow\s*up|monitor|notify|record|refer|report|review|stop|withhold|dose|prescrib|titrate)\b/i;
+// Audit H2: threshold-bearing numerics (unit-bearing figures, ranges,
+// comparatives like "8 or below", decimals) mark a fragment as carrying
+// clinical VALUES. The noise heuristics below must never drop such a fragment:
+// sourceTitleFragmentPattern greedily consumes up to 180 chars after a title
+// keyword ("… Scale ranges from 3 to 15 …"), which silently deleted threshold
+// sentences. Bare integers ("Appendix 1") deliberately do NOT match, so real
+// title noise is still dropped. Falsely keeping noise is cosmetic; falsely
+// dropping a threshold is a clinical-safety failure, so this leans generous.
+const clinicalThresholdSignalPattern =
+  /\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|micrograms?|μg|µg|g|kg|ml|mmol|mol|units?|iu|hours?|hrs?|mins?|minutes?|days?|weeks?|months?|years?|mmhg|bpm|°c)\b|\b\d+(?:[.,]\d+)?\s*%|\b\d+(?:[.,]\d+)?\s*(?:[-–—]|to)\s*\d+(?:[.,]\d+)?\b|(?<![a-z0-9])(?:×|x)10\^?\d*|\b(?:below|above|under|over|at\s+least|at\s+most|more\s+than|less\s+than|greater\s+than|fewer\s+than)\s+\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s+or\s+(?:below|above|less|more|lower|higher|greater|fewer)\b|(?<![vV])\b\d+\.\d+\b/i;
+
+// Typographic ligatures produced by PDF text extraction → plain ASCII letters.
+const ligatureReplacements: Array<[RegExp, string]> = [
+  [/ﬀ/g, "ff"],
+  [/ﬁ/g, "fi"],
+  [/ﬂ/g, "fl"],
+  [/ﬃ/g, "ffi"],
+  [/ﬄ/g, "ffl"],
+  [/ﬅ/g, "st"],
+  [/ﬆ/g, "st"],
+];
+// Zero-width / invisible formatting characters that survive extraction.
+const invisibleCharacterPattern = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+// Whitespace-like controls (vertical tab, form feed, C1 NEL): these represent
+// line/page breaks in extracted PDF text, so they become newlines rather than
+// being deleted - deleting would fuse words ("dose\\fmonitoring").
+const whitespaceControlPattern = /[\u000B\u000C\u0085]/g;
+// Remaining C0/C1 control characters, excluding tab (\u0009) and newline (\u000A).
+const controlCharacterPattern = /[\u0000-\u0008\u000E-\u001F\u007F-\u0084\u0086-\u009F]/g;
+
+// Conservative, lossless repair of PDF-extraction glyph artifacts. Must NEVER
+// remove clinical meaning: numbers, units, dose strings, comparison symbols
+// (≥ ≤ < > → %), and legitimate bullet structure are all left untouched.
+// Line-break hyphenation ("inter-\nvention") is deliberately NOT rejoined: a soft-wrap
+// hyphen is indistinguishable from a real compound hyphen (low-dose, twice-daily), so
+// fusing would corrupt clinical compounds and verbatim quotes.
+// Idempotent — running it twice yields the same result.
+export function normalizeExtractedGlyphs(value: string) {
+  if (!value) return value;
+  let out = value.normalize("NFC").replace(/\r\n?/g, "\n");
+  for (const [pattern, replacement] of ligatureReplacements) out = out.replace(pattern, replacement);
+  out = out
+    .replace(/\u00AD/g, "") // soft hyphen
+    .replace(invisibleCharacterPattern, "")
+    .replace(whitespaceControlPattern, "\n")
+    .replace(controlCharacterPattern, "");
+  return out;
+}
 
 function compactWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+  return normalizeExtractedGlyphs(value).replace(/\s+/g, " ").trim();
 }
 
 function readableWhitespace(value: string) {
-  return value
+  return normalizeExtractedGlyphs(value)
     .replace(/[ \t]+/g, " ")
     .replace(/[ \t]*\n[ \t]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -219,24 +272,44 @@ function isMostlySourceTitleFragment(text: string) {
 
 export function clinicalProseUsefulness(text: string) {
   const cleaned = sourceTextForClinicalProse(text);
-  const fragments = sentenceFragments(cleaned).filter((fragment) => {
-    if (!fragment) return false;
-    if (tokenCount(fragment) < 3) return false;
-    if (/^the\s+(?:retrieved|supplied|provided|indexed)\s+/i.test(fragment)) return false;
+  const keptFragments: string[] = [];
+  const baselineKeptFragments: string[] = [];
+  for (const fragment of sentenceFragments(cleaned)) {
+    if (!fragment) continue;
+    if (tokenCount(fragment) < 3) continue;
+    if (/^the\s+(?:retrieved|supplied|provided|indexed)\s+/i.test(fragment)) continue;
     const hasClinicalSignal = clinicalSignalPattern.test(fragment);
     const hasConcreteClinicalAction = concreteClinicalActionPattern.test(fragment);
+    // H2: a fragment carrying threshold-bearing numerics is never dropped by
+    // the title/noise heuristics — deleting clinical values is worse than
+    // keeping a little provenance noise.
+    const hasClinicalThresholdSignal = clinicalThresholdSignalPattern.test(fragment);
     const noiseRatio = provenanceNoiseRatio(fragment);
     const mostlySourceTitle = isMostlySourceTitleFragment(fragment);
-    if (mostlySourceTitle && !hasConcreteClinicalAction) return false;
-    if (noiseRatio >= 0.28 && !hasConcreteClinicalAction) return false;
-    if (isLowYieldClinicalText(fragment) && !hasConcreteClinicalAction) return false;
-    return hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16;
-  });
-  const textWithoutNoise = readableWhitespace(fragments.join(" "));
+    const droppedByBaseline =
+      (mostlySourceTitle && !hasConcreteClinicalAction) ||
+      (noiseRatio >= 0.28 && !hasConcreteClinicalAction) ||
+      (isLowYieldClinicalText(fragment) && !hasConcreteClinicalAction);
+    const keptByBaseline = !droppedByBaseline && (hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16);
+    if (!keptByBaseline && !hasClinicalThresholdSignal) continue;
+    keptFragments.push(fragment);
+    if (keptByBaseline) baselineKeptFragments.push(fragment);
+  }
+  const textWithoutNoise = readableWhitespace(keptFragments.join(" "));
   const clinicalSignalScore =
     (textWithoutNoise.match(clinicalSignalPattern) ? 1 : 0) +
-    (textWithoutNoise.match(concreteClinicalActionPattern) ? 1 : 0);
-  const provenanceScore = provenanceNoiseRatio(textWithoutNoise || cleaned);
+    (textWithoutNoise.match(concreteClinicalActionPattern) ? 1 : 0) +
+    // H2: threshold values ARE clinical signal — text kept purely for its
+    // thresholds must still be classifiable as useful.
+    (textWithoutNoise.match(clinicalThresholdSignalPattern) ? 1 : 0);
+  // Diff-review hardening of H2: the provenance score is computed over the
+  // fragments the BASELINE criteria kept. A noise-dense fragment rescued only
+  // for its threshold values must not inflate the score past the 0.42
+  // usefulness gate — that flipped `useful` to false and made downstream
+  // callers (rag-answer-text, ward-output) discard text that previously
+  // survived, including its clean actionable sentences.
+  const baselineText = readableWhitespace(baselineKeptFragments.join(" "));
+  const provenanceScore = provenanceNoiseRatio(baselineText || textWithoutNoise || cleaned);
   return {
     text: textWithoutNoise,
     useful: Boolean(textWithoutNoise && clinicalSignalScore > 0 && provenanceScore < 0.42),
@@ -251,8 +324,21 @@ export function stripInternalImageDataBlocks(text: string) {
       .replace(completeImageDataBlockPattern, " ")
       .replace(trailingImageDataBlockPattern, " ")
       .replace(leadingImageDataBlockRemainderPattern, " ")
+      .replace(omittedImageDataBlockPattern, " ")
+      .replace(omittedImageDataMarkerPattern, " ")
       .replace(internalImageMetadataPattern, " "),
   );
+}
+
+// Exact source quotes keep their WORDING verbatim — no prose-polishing or
+// noise-stripping that could add, drop, or reorder words — but they are not
+// byte-verbatim: internal image-data blocks are removed, glyph artifacts
+// (ligatures, soft hyphens, control chars) are repaired, and whitespace is
+// collapsed to single spaces via compactWhitespace (quotes render as one
+// continuous quotation, so newline collapse is presentational only; every
+// word, hyphen, and punctuation mark is preserved).
+export function sourceTextForVerbatimQuote(text: string) {
+  return stripInternalImageDataBlocks(text);
 }
 
 export function sourceTextForModel(text: string) {
@@ -262,6 +348,8 @@ export function sourceTextForModel(text: string) {
         .replace(completeImageDataBlockPattern, (block) => readableImageBlock(block))
         .replace(trailingImageDataBlockPattern, " ")
         .replace(leadingImageDataBlockRemainderPattern, " ")
+        .replace(omittedImageDataBlockPattern, " ")
+        .replace(omittedImageDataMarkerPattern, " ")
         .replace(internalImageMetadataPattern, " "),
     ),
   );
@@ -278,6 +366,8 @@ export function sourceTextForDisplayPreservingBreaks(text: string) {
         .replace(completeImageDataBlockPattern, " ")
         .replace(trailingImageDataBlockPattern, " ")
         .replace(leadingImageDataBlockRemainderPattern, " ")
+        .replace(omittedImageDataBlockPattern, " ")
+        .replace(omittedImageDataMarkerPattern, " ")
         .replace(internalImageMetadataPattern, " "),
     ),
   );
@@ -304,16 +394,21 @@ export function sourceTextForDocumentViewer(text: string) {
       .replace(completeImageDataBlockPattern, (block) => readableImageBlockForViewer(block))
       .replace(trailingImageDataBlockPattern, " ")
       .replace(leadingImageDataBlockRemainderPattern, " ")
+      .replace(omittedImageDataBlockPattern, " ")
+      .replace(omittedImageDataMarkerPattern, " ")
       .replace(internalImageMetadataPattern, " "),
   );
 }
 
 export function sourceTextForIndexedPage(text: string) {
-  return text
-    .replace(/\r/g, "\n")
+  // normalizeExtractedGlyphs preserves spaces/tabs/newlines, so the fixed-width
+  // spacing this viewer path relies on for table parsing survives the repair.
+  return normalizeExtractedGlyphs(text)
     .replace(completeImageDataBlockPattern, (block) => readableImageBlockForViewer(block))
     .replace(trailingImageDataBlockPattern, " ")
     .replace(leadingImageDataBlockRemainderPattern, " ")
+    .replace(omittedImageDataBlockPattern, " ")
+    .replace(omittedImageDataMarkerPattern, " ")
     .replace(internalImageMetadataPattern, " ")
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{4,}/g, "\n\n\n")

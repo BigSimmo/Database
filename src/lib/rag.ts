@@ -24,6 +24,10 @@ import {
   hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
+  queriedZoneColour,
+  riskZoneActionPattern,
+  riskZoneContextPattern,
+  zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -459,11 +463,7 @@ function recordRetrievalLayer(
 // where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
 type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
 
-function recordHybridRpcError(
-  telemetry: SearchTelemetry | undefined,
-  rpc: string,
-  error: SupabaseRpcError,
-) {
+function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: string, error: SupabaseRpcError) {
   if (!error) return;
   const code = error.code ?? "unknown";
   logger.error("hybrid_rpc_failed", { rpc, code, message: error.message, hint: error.hint });
@@ -685,10 +685,20 @@ function allowedChunkMap(results: SearchResult[]) {
   return new Map(results.map((result) => [result.id, result]));
 }
 
-function deriveConfidence(results: SearchResult[], acceptedCitationCount: number): RagAnswer["confidence"] {
-  if (acceptedCitationCount === 0 || results.length === 0) return "unsupported";
-  const strongest = results.reduce((max, result) => Math.max(max, result.similarity), 0);
-  if (strongest >= 0.82 && acceptedCitationCount >= 2) return "high";
+// Audit M1: confidence must reflect the strength of the evidence the answer
+// actually CITES. Taking the max similarity over ALL retrieved results let an
+// uncited high-similarity chunk grant "high" confidence to an answer built on
+// weak citations, so the strongest-score scan is scoped to the cited subset.
+// A citation that maps to no known chunk contributes nothing (fail low).
+function deriveConfidence(
+  results: SearchResult[],
+  acceptedCitations: Array<Pick<Citation, "chunk_id">>,
+): RagAnswer["confidence"] {
+  if (acceptedCitations.length === 0 || results.length === 0) return "unsupported";
+  const citedIds = new Set(acceptedCitations.map((citation) => citation.chunk_id));
+  const citedResults = results.filter((result) => citedIds.has(result.id));
+  const strongest = citedResults.reduce((max, result) => Math.max(max, result.similarity), 0);
+  if (strongest >= 0.82 && acceptedCitations.length >= 2) return "high";
   if (strongest >= 0.64) return "medium";
   return "low";
 }
@@ -915,7 +925,22 @@ function normalizeQuoteVerificationText(text: string) {
 }
 
 function tableFactQuoteText(fact: NonNullable<SearchResult["table_facts"]>[number]) {
-  return [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+  // Mirrors tableFactText in answer-verification.ts: include the fact-metadata
+  // snippet fields that rich-mode prompts show the model (tableSnippetForFact),
+  // so quotes drawn from them verify as exact.
+  const metadata = safeRecord(fact.metadata);
+  const metadataString = (key: string) => (typeof metadata[key] === "string" ? (metadata[key] as string) : "");
+  const metadataCells = Array.isArray(metadata.cells) ? (metadata.cells as unknown[]).map(String).join(" ") : "";
+  return [
+    fact.table_title,
+    fact.row_label,
+    fact.clinical_parameter,
+    fact.threshold_value,
+    fact.action,
+    metadataString("accessible_table_markdown"),
+    metadataString("table_text_snippet"),
+    metadataCells,
+  ]
     .filter(Boolean)
     .join(" ");
 }
@@ -1934,12 +1959,21 @@ export function buildRetrievalQueryVariants(
     addVariant("admission discharge");
   }
   if (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
   ) {
     addVariant("risk flow");
-    addVariant("red zone risk flow");
-    addVariant("risk flow review urgent escalation");
+    // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"
+    // and "risk flow review urgent escalation" variants required all terms in one
+    // chunk and did not reliably contribute candidates to the pool. A "<colour> zone" variant retrieves the small,
+    // precise set of zone-action chunks (escalation protocols, observation and
+    // response charts, risk-matrix cells) that answer zone / next-step questions.
+    // Match the zone the query actually names so an amber-zone question does not
+    // pull red-zone chunks into its candidate pool.
+    const zoneColour = queriedZoneColour(query);
+    if (zoneColour) {
+      addVariant(`${zoneColour} zone`);
+    }
   }
   addVariant(analysis.queryRewrite.searchQuery);
 
@@ -3150,7 +3184,10 @@ export function decideTextFastPath(
   }
 
   if (queryClass === "document_lookup") {
-    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(results)) {
+    // Flowchart/zone "next step" questions need the zone-action evidence (red
+    // zone -> escalate / urgent review), not just a lexically matching flowchart
+    // page; otherwise fall through to structured/vector retrieval.
+    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(query, results)) {
       return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
     }
     if (directTitleSupport && strongestScore >= 0.32) {
@@ -3248,23 +3285,30 @@ function hasAnyTerm(text: string, pattern: RegExp) {
 
 function isRiskFlowchartNextStepQuery(query: string) {
   return (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
-    /\b(?:risk|red[\s-]*zone|red)\b/i.test(query) &&
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
+    riskZoneContextPattern.test(query) &&
     /\b(?:next step|step after|after|action)\b/i.test(query)
   );
 }
 
-function hasRiskFlowchartActionEvidence(results: SearchResult[], limit = 5) {
+function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], limit = 5) {
+  // A single result must carry BOTH the zone context and the action language
+  // (escalate / urgent review): scattering the two term groups across different
+  // results (or their image captions) let unrelated risk-assessment flowcharts
+  // pass. Deliberately does NOT require a flowchart word in the evidence — the
+  // escalation protocols that answer a red-zone question express the flowchart's
+  // decision steps as prose ("has any Purple or Red Zone criteria ... escalate
+  // for Senior Clinician Review") without ever saying "flowchart".
+  //
+  // The shared patterns are scoped to the colour the query names (a red-zone
+  // question must not fast-path on an amber-zone chunk); for risk-matrix /
+  // flowchart visual units the bare cell colour token counts as zone context.
+  const { zonePhrasePattern, bareColourPattern } = zoneContextPatternsForQuery(query);
   return results.slice(0, limit).some((result) => {
     const evidenceText = evidenceTextForGate(result);
-    const hasFlowchartRiskContext =
-      hasAnyTerm(evidenceText, /\b(?:flow\s*chart|flowchart|algorithm|pathway|matrix)\b/i) &&
-      hasAnyTerm(evidenceText, /\b(?:risk|red[\s-]*zone|red)\b/i);
-    const hasAction =
-      hasAnyTerm(evidenceText, /\b(?:escalat(?:e|ion|ed|ing)?|urgent|next step|senior)\b/i) ||
-      (visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? "") &&
-        hasAnyTerm(evidenceText, /\b(?:escalat(?:e|ion|ed|ing)?|urgent|next step|senior)\b/i));
-    return hasFlowchartRiskContext && hasAction;
+    if (!riskZoneActionPattern.test(evidenceText)) return false;
+    if (zonePhrasePattern.test(evidenceText)) return true;
+    return ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") && bareColourPattern.test(evidenceText);
   });
 }
 
@@ -3459,8 +3503,12 @@ export function evaluateEvidenceCoverageGate(
         sourceImageSatisfied,
       };
     }
-    if (/\b(?:flow\s*chart|flowchart|red\s*zone|risk matrix)\b/i.test(query)) {
-      const accepted = hasRiskFlowchartActionEvidence(results);
+    // Only zone/next-step flowchart questions need the zone-action evidence
+    // gate; a plain flowchart document lookup ("which procedure flowchart
+    // covers X?") falls through to the ordinary title gate below so a direct
+    // title hit is not rejected for lacking zone evidence.
+    if (isRiskFlowchartNextStepQuery(query)) {
+      const accepted = hasRiskFlowchartActionEvidence(query, results);
       return {
         accepted,
         reason: accepted ? "visual_flowchart_risk_gate" : "missing_visual_flowchart_risk_evidence",
@@ -4666,7 +4714,7 @@ function buildExtractiveAnswer(args: {
   return {
     answer: naturalAnswer.answer,
     grounded: hasExtractedAnswer && citations.length > 0,
-    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "unsupported",
+    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations) : "unsupported",
     citations: citations.slice(0, 5),
     sources: args.results,
     modelUsed: null,
@@ -4978,8 +5026,7 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   // summary answers legitimately paraphrase, so enforcing overlap there would reject good answers.
   // A model-answer failure here only escalates fast→strong and is recovered for strongly
   // source-backed answers, so the downside of enforcing it is a retry, not a wrongful gap.
-  const enforceModelAnswerOverlap =
-    isSimpleDirectQuestion(query, queryClass) && !isBareDefinitionQuestion(query);
+  const enforceModelAnswerOverlap = isSimpleDirectQuestion(query, queryClass) && !isBareDefinitionQuestion(query);
   if (
     (answer.routingMode === "extractive" || answer.confidence === "low" || enforceModelAnswerOverlap) &&
     !hasRelevantQueryOverlap(cleanedAnswer, query)
@@ -5944,7 +5991,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
   try {
     const parsed = answerJsonSchema.parse(JSON.parse(raw));
     const { citations, modelCited, proposedCount, invalidCount } = sanitizeCitations(parsed.citations, results);
-    const derivedConfidence = modelCited ? deriveConfidence(results, citations.length) : "unsupported";
+    const derivedConfidence = modelCited ? deriveConfidence(results, citations) : "unsupported";
     const confidence = modelCited ? clampConfidence(parsed.confidence, derivedConfidence) : "unsupported";
     const parsedAnswer = parsed.answer ?? "";
     const nonArtifactParsedAnswer = parsedAnswer.trim() && !looksLikeJsonArtifact(parsedAnswer) ? parsedAnswer : "";
@@ -6344,7 +6391,11 @@ async function answerQuestionWithScopeUncoalesced(
   const sourceOnlyAnswer = isSourceOnlyMode();
   const route =
     sourceOnlyAnswer && gatedRoute.route.mode !== "unsupported"
-      ? { ...gatedRoute.route, mode: "extractive" as const, reason: `${gatedRoute.route.reason}; ${sourceOnlyReason()}` }
+      ? {
+          ...gatedRoute.route,
+          mode: "extractive" as const,
+          reason: `${gatedRoute.route.reason}; ${sourceOnlyReason()}`,
+        }
       : gatedRoute.route;
   const retrievalDiagnostics: RetrievalDiagnostics = {
     ...initialRetrievalDiagnostics,
@@ -6866,7 +6917,7 @@ ${qualityRetryInstruction}`
         args.query,
       ),
       grounded: false,
-      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations.length) : "unsupported",
+      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations) : "unsupported",
       citations: hasSources ? fallbackCitations : [],
       sources: answerInputResults,
       modelUsed: null,
@@ -7113,8 +7164,7 @@ ${qualityRetryInstruction}`
     // answer's citations. buildExtractiveAnswer derives its own source-backed
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
-    const canRecoverExtractively =
-      !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
+    const canRecoverExtractively = !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
@@ -7303,7 +7353,7 @@ ${qualityRetryInstruction}`
               ...baseFallbackAnswer,
               answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
               grounded: true,
-              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations.length),
+              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations),
               routingMode: "extractive",
               routingReason: reviewRouteReason,
               queryAnalysis,

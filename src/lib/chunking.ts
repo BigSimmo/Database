@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { sourceSpanForText } from "@/lib/source-spans";
+import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 import type { ChunkInput, DocumentChunk } from "@/lib/types";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
@@ -9,7 +10,11 @@ const metadataNoisePatterns: RegExp[] = [
   /\b(?:version|revision)\s+\d+\s*$/i,
 ];
 const lineNoisePatterns: RegExp[] = [
-  /\b(page|p\.?)\s*\d+\s*(?:\/\s*\d+)?\b/i,
+  // Audit M14: anchored to the WHOLE line. The previous unanchored form
+  // matched an inline page reference anywhere in a sentence ("refer to p 3
+  // for dosing", "titrate p 20 micrograms") and removePageNoise then deleted
+  // the entire clinical line. Only a standalone page footer counts as noise.
+  /^\s*(?:page|p\.?)\s*\d+\s*(?:(?:\/|of)\s*\d+)?\s*$/i,
   /^\s*[-*_]{3,}\s*$/,
   /^\s*[\u25cf\u25e6\u2022]\s*$/,
 ];
@@ -76,8 +81,11 @@ function looksLikeRepeatingBoilerplate(line: string) {
 function buildRepeatedBoilerplateLines(inputs: ChunkInput[]) {
   const counts = new Map<string, number>();
   for (const input of inputs) {
+    // Keys must be built from the SAME normalized text that removePageNoise
+    // later compares against, or a ligature/soft-hyphen in a repeated header
+    // ("Conﬁdential") would produce a mismatched key and survive filtering.
     const pageLines = new Set(
-      input.pageText
+      normalizeExtractedGlyphs(input.pageText)
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(looksLikeRepeatingBoilerplate)
@@ -189,7 +197,7 @@ function adaptiveChunkProfile(text: string, sectionPath: string[]) {
 }
 
 export function chunkTextWithOverlap(text: string, chunkSize = env.CHUNK_SIZE, overlap = env.CHUNK_OVERLAP) {
-  const clean = removePageNoise(text)
+  const clean = removePageNoise(normalizeExtractedGlyphs(text))
     .replace(/[ \t]+\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .trim();
@@ -317,7 +325,13 @@ function chunkTextBySentence(clean: string, chunkSize: number, overlap: number) 
     const chunk = clean.slice(start, end).trim();
     if (chunk) chunks.push(chunk);
     if (end >= clean.length) break;
-    start = readableOverlapStart(clean, end, overlap);
+    // Audit M17: when overlap >= chunkSize, readableOverlapStart can return a
+    // position at or before the current start and the loop never advances,
+    // hanging the ingestion worker on that document. Force strict forward
+    // progress: if the overlap window does not move us forward, continue from
+    // the end of the current chunk instead.
+    const nextStart = readableOverlapStart(clean, end, overlap);
+    start = nextStart > start ? nextStart : end;
   }
 
   return chunks;
@@ -414,12 +428,16 @@ export function buildChunks(inputs: ChunkInput[]) {
   for (const input of inputs) {
     const pageImages = input.images ?? [];
     const imageContext = buildPageImageContext(pageImages);
-    const cleanedPageText = removePageNoise(input.pageText, repeatedBoilerplateLines);
+    // Normalize glyph artifacts once so chunk content, the heading lookup, and the
+    // source-span excerpt all derive from the same text. Otherwise the normalized
+    // excerpt cannot be located in the raw page and span offsets drop to null.
+    const normalizedPageText = normalizeExtractedGlyphs(input.pageText);
+    const cleanedPageText = removePageNoise(normalizedPageText, repeatedBoilerplateLines);
     const pageSectionPath = extractSectionHeadings(cleanedPageText);
     if (pageSectionPath.length > 0) activeSectionPath = pageSectionPath;
     const sectionPath = activeSectionPath;
     const pageText = [cleanedPageText, imageContext].filter(Boolean).join("\n\n");
-    const pageLookupText = normalizeLookupText(input.pageText);
+    const pageLookupText = normalizeLookupText(normalizedPageText);
     const chunkProfile = adaptiveChunkProfile(cleanedPageText, sectionPath);
     const pageChunks = chunkTextWithOverlap(pageText, chunkProfile.chunkSize, chunkProfile.overlap);
 
@@ -492,7 +510,7 @@ export function buildChunks(inputs: ChunkInput[]) {
           source_spans: [
             sourceSpanForText({
               pageNumber: input.pageNumber,
-              pageText: input.pageText,
+              pageText: normalizedPageText,
               excerpt: content.replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, "").trim(),
               fallbackExcerpt: content,
             }),

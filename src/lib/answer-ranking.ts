@@ -278,10 +278,22 @@ function applyBoldPatternOutsideExisting(text: string, pattern: RegExp, maxMatch
 }
 
 function capBoldSegments(text: string, originalText: string, maxSegments = 4) {
-  const existingBold = new Set(Array.from(originalText.matchAll(/\*\*([^*]+)\*\*/g), (match) => match[1]));
+  // Audit L14: allow only as many "free" (uncounted) passes of a bold string
+  // as occurrences that existed in the original text. The previous Set-based
+  // check let every NEWLY-bolded token identical to a pre-existing bold
+  // phrase bypass the cap, so an answer could render far more than
+  // maxSegments bold segments.
+  const existingBoldCounts = new Map<string, number>();
+  for (const match of originalText.matchAll(/\*\*([^*]+)\*\*/g)) {
+    existingBoldCounts.set(match[1], (existingBoldCounts.get(match[1]) ?? 0) + 1);
+  }
   let kept = 0;
   return text.replace(/\*\*([^*]+)\*\*/g, (match, content: string) => {
-    if (existingBold.has(content)) return match;
+    const freePasses = existingBoldCounts.get(content) ?? 0;
+    if (freePasses > 0) {
+      existingBoldCounts.set(content, freePasses - 1);
+      return match;
+    }
     kept += 1;
     return kept <= maxSegments ? match : content;
   });

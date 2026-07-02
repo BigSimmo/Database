@@ -323,7 +323,14 @@ function usefulTokenCount(value: string) {
   return value.split(/\s+/).filter((token) => token.length > 2 || acronymDisplay.has(token)).length;
 }
 
+// Audit L16: the function's default is an unconditional `return false`, so
+// any label surviving the noisy checks is kept. The former document_type/site
+// "protection" branches also returned false and were behaviorally dead code
+// that misled maintainers into thinking those labels had protection a future
+// noisy rule would silently bypass. If a rule must never apply to protected
+// labels, short-circuit it ABOVE the noisy checks instead.
 function isNoisyLabel(label: string, labelType: DocumentLabelType) {
+  void labelType;
   if (!label || label.length < 2 || label.length > 64) return true;
   if (lowValuePattern.test(label)) return true;
   if (/\b(?:docx?|xlsx?|pptx?|pdf)\b/.test(label)) return true;
@@ -338,13 +345,6 @@ function isNoisyLabel(label: string, labelType: DocumentLabelType) {
   if (lowValueExact.has(label)) return true;
   if (usefulTokenCount(label) === 0) return true;
   if (label.split(/\s+/).length > 6) return true;
-  if (labelType === "document_type" && ["clinical form", "clinical checklist"].includes(label)) return false;
-  if (
-    labelType === "site" &&
-    /\b(?:hospital|health service|fiona stanley|rockingham peel|mental health service)\b/.test(label)
-  ) {
-    return false;
-  }
   return false;
 }
 

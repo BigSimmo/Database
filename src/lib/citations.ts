@@ -1,4 +1,16 @@
+import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 import type { Citation, SearchResult } from "@/lib/types";
+
+// Citation titles come straight from document extraction, so repair glyph
+// artifacts (ligatures, soft hyphens, control chars) and drop the synthetic
+// prefix before they reach any label — keeps mobile/compact labels consistent
+// with the cleaned titles rendered elsewhere (cleanDisplayTitle).
+function cleanCitationTitle(value: string) {
+  return normalizeExtractedGlyphs(value)
+    .replace(/^Synthetic\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export function citationFromResult(result: SearchResult): Citation {
   return {
@@ -15,7 +27,7 @@ export function citationFromResult(result: SearchResult): Citation {
 
 export function formatCitationLabel(citation: Citation) {
   const page = citation.page_number ? `p. ${citation.page_number}` : "source";
-  const title = (citation.title || citation.file_name || "Source").trim();
+  const title = cleanCitationTitle(citation.title || citation.file_name || "Source") || "Source";
   return `${title}, ${page}`;
 }
 
@@ -57,7 +69,7 @@ export function formatCompactCitationLabel(citation: Pick<Citation, "title" | "f
   // as one of a few demo drug names. Dropping filler words and keeping up to
   // three significant words preserves both drugs in a multi-drug title (e.g.
   // "Clozapine and lithium co-prescribing") rather than collapsing to "Clozapine and".
-  const rawTitle = (citation.title || citation.file_name || "Source").replace(/^Synthetic\s+/i, "").trim();
+  const rawTitle = cleanCitationTitle(citation.title || citation.file_name || "Source") || "Source";
   const shortTitle = compactTitleWords(rawTitle);
   const page = citation.page_number ? `p.${citation.page_number}` : "source";
   return `${shortTitle} ${page}`;
