@@ -840,6 +840,7 @@ function NaturalLanguageAnswer({
   sourceCount,
   weakEvidence,
   grounded,
+  sourceOnly,
   bestSource,
   sources,
   copied,
@@ -849,6 +850,7 @@ function NaturalLanguageAnswer({
   sourceCount: number;
   weakEvidence: boolean;
   grounded: boolean;
+  sourceOnly: boolean;
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
   copied: boolean;
@@ -925,6 +927,19 @@ function NaturalLanguageAnswer({
             <SafeBoldText text={cleaned} />
           </span>
         </p>
+        {sourceOnly ? (
+          <p
+            data-testid="source-only-disclosure"
+            role="note"
+            className={cn(
+              "rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1.5 text-xs leading-5",
+              textMuted,
+            )}
+          >
+            Source-only answer — assembled from your documents without the AI model, so it may be less
+            complete. Verify it against the cited passages below.
+          </p>
+        ) : null}
         {sourceCapsuleButton}
         {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
           <div
@@ -3934,6 +3949,7 @@ function StagedAnswerResultSurface({
               sourceCount={sourceCount}
               weakEvidence={weakEvidence}
               grounded={answerGrounded}
+              sourceOnly={answer.answerQualityTier === "source_only"}
               bestSource={bestSource}
               sources={sources}
               copied={copiedAnswer}

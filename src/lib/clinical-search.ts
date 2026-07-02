@@ -304,8 +304,14 @@ const comparisonPattern =
   /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b|\bcombine\b.{0,100}\bwith\b/i;
 const tableThresholdPattern =
   /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b/i;
+// Note (8a): bare generic risk/workflow words (`risk`, `urgent`, `escalat*`) were removed from this
+// pattern. On their own — with no medication/dose/pharmacology signal — they mis-classified topical
+// queries like "suicide risk mitigation" or "urgent clinical escalation" as medication-dosing
+// queries, whose retrieval plan then buried the actual guideline under dose/threshold evidence. A
+// genuine medication_dose_risk query still matches via a drug name, dose/route term, or the
+// medication/pharmacology/agitation vocabulary retained below.
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*|risk|urgent|escalat\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
 const documentIncludePattern =
   /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
 const explicitDocumentLookupPattern =

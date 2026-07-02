@@ -18,7 +18,9 @@ const envSchema = z.object({
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
   OPENAI_ANSWER_MODEL: z.string().default("gpt-5.5"),
   OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.5"),
-  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5-pro"),
+  // Strong tier intentionally stays on the standard (non-"pro") model. Fast vs strong
+  // is differentiated by reasoning effort (OPENAI_*_REASONING_EFFORT), not model tier.
+  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5"),
   // Reasoning models (gpt-5*) draw reasoning tokens from this same budget, so a
   // low cap can starve the JSON answer payload and silently truncate clinical
   // content (doses/thresholds cut mid-sentence). Raised default to 4000 for headroom;
@@ -28,9 +30,15 @@ const envSchema = z.object({
   OPENAI_VISION_MODEL: z.string().default("gpt-5.5"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
-  // Answer generation has a source-backed fallback path, so it should fail fast
-  // instead of inheriting the longer provider timeout used by embeddings/vision.
-  OPENAI_ANSWER_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
+  // Answer generation has a source-backed fallback path, but a too-tight budget
+  // makes a strong reasoning model time out and silently degrade to stitched
+  // extractive prose (the "unnatural answer" failure mode). The product decision is
+  // to favour natural, model-written answers within ~20-30s, so this sits well above
+  // the old 12s default while staying under the OPENAI_REQUEST_TIMEOUT_MS ceiling.
+  // 30s (up from 25s) gives verbose strong-route answers margin so they finish rather
+  // than fail-closed; strong reasoning effort is also query-class-capped to keep the
+  // tail latency in budget (see strongReasoningEffortForQueryClass).
+  OPENAI_ANSWER_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
   OPENAI_GENERATION_MAX_RETRIES: z.coerce.number().int().nonnegative().default(0),
   OPENAI_PROMPT_CACHE_RETENTION: z.enum(["off", "in_memory", "24h"]).default("24h"),
@@ -43,6 +51,14 @@ const envSchema = z.object({
   OPENAI_SUMMARY_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("medium"),
   OPENAI_VISION_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("low"),
   OPENAI_TEXT_VERBOSITY: z.enum(["low", "medium", "high"]).default("low"),
+  // Answer/search provider mode. Controls whether OpenAI (embeddings + synthesis) is used.
+  // - "auto" (default): use OpenAI when a usable key is present and the call succeeds;
+  //   automatically degrade to a source-only (embedding-free, deterministic) answer when
+  //   the key is missing/invalid or the provider fails. The fallback is ON BY DEFAULT.
+  // - "openai": legacy behaviour — always attempt OpenAI; do not pre-empt with source-only.
+  // - "offline": never call OpenAI at all (no embeddings, no generation); lexical retrieval
+  //   + deterministic source-only answers only. Fails closed when evidence is weak.
+  RAG_PROVIDER_MODE: z.enum(["auto", "openai", "offline"]).default("auto"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
   RAG_SEARCH_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(60000),
