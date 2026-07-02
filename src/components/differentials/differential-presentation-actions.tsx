@@ -31,7 +31,7 @@ export function CopyAfterReviewButton({
       type="button"
       onClick={copyText}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/28 bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-bold text-white shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         className,
       )}
     >

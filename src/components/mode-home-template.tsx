@@ -44,7 +44,7 @@ const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
   neutral: "bg-[color:var(--text-soft)]",
   purple: "bg-violet-600",
   success: "bg-[color:var(--success)]",
-  teal: "bg-[color:var(--clinical-chat-teal)]",
+  teal: "bg-[color:var(--clinical-accent)]",
 };
 
 export function ModeHomeTemplate({
@@ -73,7 +73,7 @@ export function ModeHomeTemplate({
       )}
     >
       <section className="grid justify-items-center gap-3 sm:gap-4" aria-labelledby={`${testId ?? "mode-home"}-title`}>
-        <span className="mode-home-icon grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem] lg:rounded-[1.35rem]">
+        <span className="mode-home-icon grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem] lg:rounded-[1.35rem]">
           <Icon className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10" aria-hidden="true" />
         </span>
         <div className="grid gap-2">
@@ -101,7 +101,7 @@ export function ModeHomeTemplate({
           const ActionIcon = action.icon;
           const content = (
             <>
-              <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14 sm:rounded-xl">
+              <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14 sm:rounded-xl">
                 <ActionIcon className="h-5 w-5 sm:h-7 sm:w-7" aria-hidden="true" />
               </span>
               <span className="min-w-0">
@@ -113,7 +113,7 @@ export function ModeHomeTemplate({
                 </span>
               </span>
               <ArrowRight
-                className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-chat-teal)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                 aria-hidden="true"
               />
             </>
@@ -164,7 +164,7 @@ export function ModeHomeTemplate({
               const content = (
                 <>
                   {PillIcon ? (
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]">
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                       <PillIcon className="h-3.5 w-3.5" aria-hidden="true" />
                     </span>
                   ) : (
@@ -174,7 +174,7 @@ export function ModeHomeTemplate({
                 </>
               );
               const pillClassName =
-                "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-teal)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-0 sm:px-3";
+                "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-0 sm:px-3";
               return pill.href ? (
                 <Link key={pill.label} href={pill.href} className={pillClassName}>
                   {content}

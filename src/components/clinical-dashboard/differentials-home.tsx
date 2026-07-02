@@ -119,11 +119,11 @@ function statusLabel(status: DifferentialRecord["status"]) {
 }
 
 function statusTone(status: DifferentialRecord["status"]) {
-  if (status === "emergent") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (status === "emergent") return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
   if (status === "urgent") {
-    return "border-orange-200 bg-orange-50 text-orange-700";
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
-  return "border-blue-200 bg-blue-50 text-blue-700";
+  return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 }
 
 function recordIcon(record: DifferentialRecord) {
@@ -200,7 +200,7 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 }
 
 function MatchBadge({ label }: { label: string }) {
-  const tone = label === "Best match" ? "text-rose-700" : label === "High match" ? "text-teal-700" : "text-orange-700";
+  const tone = label === "Best match" ? "text-[color:var(--danger)]" : label === "High match" ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--warning)]";
   return <span className={cn("text-[11px] font-extrabold", tone)}>{label}</span>;
 }
 
@@ -222,7 +222,7 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
       className={cn(
         "grid h-8 w-8 shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         selected
-          ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-white"
+          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
           : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--text-soft)]",
       )}
     >
@@ -250,15 +250,15 @@ function DesktopResultRow({
       className={cn(
         "group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_9.75rem_2.5rem] items-center gap-3 rounded-lg border bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition",
         isBest
-          ? "border-rose-200 bg-[linear-gradient(90deg,rgba(255,241,242,0.95),rgba(255,255,255,0.96))] shadow-[0_10px_26px_rgba(225,29,72,0.08)]"
-          : "border-[color:var(--border)] hover:border-[color:var(--clinical-chat-teal)]/35 hover:shadow-[var(--shadow-soft)]",
+          ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 shadow-[var(--shadow-tight)]"
+          : "border-[color:var(--border)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
       )}
     >
       <span
         className={cn(
           "grid h-8 w-8 place-items-center rounded-md border text-sm font-extrabold",
           isBest
-            ? "border-rose-200 bg-rose-50 text-rose-700"
+            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
             : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
         )}
       >
@@ -267,9 +267,9 @@ function DesktopResultRow({
       <Link
         href={result.href}
         className={cn(
-          "grid h-14 w-14 place-items-center rounded-lg border transition group-hover:border-[color:var(--clinical-chat-teal)]/35",
+          "grid h-14 w-14 place-items-center rounded-lg border transition group-hover:border-[color:var(--clinical-accent-border)]",
           isBest
-            ? "border-rose-200 bg-white text-rose-600"
+            ? "border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]"
             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
         )}
         aria-label={`Open ${result.title}`}
@@ -280,7 +280,7 @@ function DesktopResultRow({
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Link
             href={result.href}
-            className="min-w-0 text-base font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-chat-teal)]"
+            className="min-w-0 text-base font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]"
           >
             <span className="line-clamp-1">{result.title}</span>
           </Link>
@@ -300,7 +300,7 @@ function DesktopResultRow({
         <MatchBadge label={result.matchLabel} />
         <Link
           href={result.href}
-          className="inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-chat-teal)]"
+          className="inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           <ExternalLink className="h-4 w-4" aria-hidden />
           Open page
@@ -308,7 +308,7 @@ function DesktopResultRow({
         <button
           type="button"
           onClick={onToggle}
-          className="inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-chat-teal)]"
+          className="inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           <GitCompareArrows className="h-4 w-4" aria-hidden />
           {selected ? "Compared" : "Compare"}
@@ -336,8 +336,8 @@ function MobileResultCard({
   return (
     <article
       className={cn(
-        "grid gap-2 rounded-lg border border-slate-200 bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-        isBest && "border-rose-200 bg-rose-50/55",
+        "grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
+        isBest && "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/55",
       )}
     >
       <div className="grid grid-cols-[2rem_2.25rem_minmax(0,1fr)_2rem] items-start gap-2">
@@ -345,7 +345,7 @@ function MobileResultCard({
           className={cn(
             "grid h-8 w-8 place-items-center rounded-md border text-sm font-extrabold",
             isBest
-              ? "border-rose-200 bg-white text-rose-700"
+              ? "border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
           )}
         >
@@ -399,10 +399,10 @@ function BestAnswerCard({
   const Icon = best.icon;
 
   return (
-    <section className="rounded-lg border border-rose-200 bg-rose-50/55 p-4 shadow-[var(--shadow-inset)]">
+    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/55 p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-rose-200 bg-white text-rose-600">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]">
             <Icon className="h-8 w-8 stroke-[1.8]" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -430,19 +430,19 @@ function SafetyCard() {
   const workflow = acuteConfusionPresentationWorkflow;
 
   return (
-    <section className="rounded-lg border border-rose-200 bg-rose-50/45 p-4 shadow-[var(--shadow-inset)]">
+    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45 p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-rose-200 bg-white text-rose-600">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]">
           <ShieldAlert className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-extrabold uppercase tracking-[0.05em] text-rose-700">Safety first</h2>
+          <h2 className="text-sm font-extrabold uppercase tracking-[0.05em] text-[color:var(--danger)]">Safety first</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">
             {workflow.safetySnapshot.summary}
           </p>
           <Link
             href="/differentials/presentations?q=acute+confusion"
-            className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-chat-teal)]"
+            className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
           >
             View presentation guide
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -468,7 +468,7 @@ function LikelyPresentationCard({ best }: { best: DifferentialResult }) {
       <ul className="mt-3 grid gap-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
         {points.map((point) => (
           <li key={point} className="grid grid-cols-[0.45rem_minmax(0,1fr)] gap-2">
-            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[color:var(--clinical-chat-teal)]" aria-hidden />
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[color:var(--clinical-accent)]" aria-hidden />
             <span>{point}</span>
           </li>
         ))}
@@ -512,7 +512,7 @@ function SourceStatusCard({ sourceCount }: { sourceCount: number }) {
       </h2>
       <div className="mt-3 grid gap-2 text-sm font-bold">
         <p className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 text-[color:var(--clinical-chat-teal)]">
+          <span className="inline-flex items-center gap-2 text-[color:var(--clinical-accent)]">
             <ShieldCheck className="h-4 w-4" aria-hidden />
             Local only
           </span>
@@ -603,7 +603,7 @@ function SearchResultsView({
           <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
-                <span className="inline-flex items-center gap-1.5 text-[color:var(--clinical-chat-teal)]">
+                <span className="inline-flex items-center gap-1.5 text-[color:var(--clinical-accent)]">
                   <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
                   Local results only
                 </span>
@@ -618,7 +618,7 @@ function SearchResultsView({
                 type="button"
                 onClick={rerunSearch}
                 disabled={loading}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
               >
                 <GitCompareArrows className="h-4 w-4" aria-hidden />
                 Compare top 3
@@ -651,7 +651,7 @@ function SearchResultsView({
                   className={cn(
                     "min-h-9 min-w-0 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
                     index === 0
-                      ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-white"
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
                   )}
                 >
@@ -706,7 +706,7 @@ function SearchResultsView({
 
           <button
             type="button"
-            className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] lg:inline-flex"
+            className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:inline-flex"
           >
             View all results (14)
             <ChevronRight className="h-4 w-4 rotate-90" aria-hidden />
@@ -714,7 +714,7 @@ function SearchResultsView({
 
           <Link
             href={routeWithQuery("/differentials/presentations", query)}
-            className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-chat-teal)] px-4 text-base font-extrabold text-white shadow-[var(--shadow-elevated)] lg:inline-flex"
+            className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] lg:inline-flex"
           >
             <GitCompareArrows className="h-5 w-5" aria-hidden />
             Compare selected ({selectedCount})
@@ -728,7 +728,7 @@ function SearchResultsView({
       <div className="fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
         <Link
           href={routeWithQuery("/differentials/presentations", query)}
-          className="mx-auto flex min-h-14 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-extrabold text-white shadow-[var(--shadow-elevated)]"
+          className="mx-auto flex min-h-14 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
         >
           <GitCompareArrows className="h-5 w-5" aria-hidden />
           Compare selected ({selectedCount})
@@ -840,7 +840,7 @@ export function DifferentialsHome({
           <button
             type="button"
             onClick={() => router.push("/differentials/presentations?q=recent+differential+review")}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-chat-teal)] transition hover:bg-[color:var(--clinical-chat-teal-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-sm"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-sm"
           >
             View all
             <ChevronRight className="h-4 w-4" aria-hidden />

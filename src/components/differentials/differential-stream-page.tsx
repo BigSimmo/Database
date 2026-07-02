@@ -43,7 +43,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
     <main className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:px-6 lg:px-8">
       <div className="mx-auto grid w-full max-w-6xl gap-6">
         <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
             {copy.heading}
           </p>
           <h1 className="mt-1 text-4xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-5xl">
@@ -51,7 +51,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-[color:var(--text-muted)]">{copy.intro}</p>
           {query ? (
-            <p className="mt-2 text-sm font-bold text-[color:var(--clinical-chat-teal)]">Query: {query}</p>
+            <p className="mt-2 text-sm font-bold text-[color:var(--clinical-accent)]">Query: {query}</p>
           ) : null}
         </section>
 
@@ -104,7 +104,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
             </Link>
             <Link
               href={appModeHomeHref("differentials", { focus: true })}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--clinical-chat-teal)]/30 bg-[color:var(--clinical-chat-teal-soft)] px-3 text-sm font-bold text-[color:var(--clinical-chat-teal)] hover:opacity-90"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] hover:opacity-90"
             >
               <ArrowRight className="h-4 w-4" aria-hidden />
               Open differential search
