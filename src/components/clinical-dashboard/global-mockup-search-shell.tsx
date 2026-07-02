@@ -91,9 +91,21 @@ function GlobalMockupSearchShellClient({
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const requestedMode = searchParams.get("mode");
   const searchParamString = searchParams.toString();
+  // Mode resolved from the URL (?mode=), falling back to this shell's default when
+  // the param is missing, unknown, or not offered here. Seeds the initial mode and
+  // re-syncs it after a navigation.
+  const resolvedSearchMode =
+    isAppModeId(requestedMode) &&
+    isAppModeVisible(requestedMode) &&
+    (!availableModeIds?.length || availableModeIds.includes(requestedMode))
+      ? requestedMode
+      : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
-  const previousUrlHadQueryRef = useRef(currentUrlHasQuery);
-  const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
+  // The search string we last synced into local state, so the effect below only
+  // reacts to genuine navigations. Seeded with the current string so the initial
+  // mount is a no-op — the state above is already derived from the URL.
+  const lastSyncedSearchParamsRef = useRef(searchParamString);
+  const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -104,12 +116,6 @@ function GlobalMockupSearchShellClient({
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
-  const dashboardSearchMode =
-    isAppModeId(requestedMode) &&
-    isAppModeVisible(requestedMode) &&
-    (!availableModeIds?.length || availableModeIds.includes(requestedMode))
-      ? requestedMode
-      : initialSearchMode;
   const shouldRenderDashboardSearch = requestedRun && requestedQuery.length > 0;
   const isFormsOnlyShell = availableModeIds?.length === 1 && availableModeIds[0] === "forms";
   const isStandaloneModeHome =
@@ -119,41 +125,24 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
-  // True when on a sub-route of a mode home (e.g. /forms/transport-crisis-form,
-  // /services/13yarn) rather than the mode home itself (/forms, /services).
-  const isDetailPage =
-    /^\/(forms|services|favourites)\/.+/.test(pathname) || /^\/differentials\/diagnoses\/.+/.test(pathname);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      const params = new URLSearchParams(window.location.search);
-      const requestedMode = params.get("mode");
-      const nextMode =
-        isAppModeId(requestedMode) &&
-        isAppModeVisible(requestedMode) &&
-        (!availableModeIds?.length || availableModeIds.includes(requestedMode))
-          ? requestedMode
-          : initialSearchMode;
-      setSearchMode(nextMode);
+    // Re-derive the mode and query from the URL, but only when the search string
+    // actually changes (a real navigation). Reacting on every render — as the old
+    // requestAnimationFrame sync effectively did — let a deferred frame land after
+    // a programmatic/user fill and wipe the controlled input; on slow CI WebKit
+    // that raced the forms-detail composer to empty (input focused-but-empty,
+    // submit stuck disabled). Typing never changes the URL, so a URL-gated sync
+    // cannot clobber in-progress input, and the initial mount is skipped entirely
+    // because the state above is already seeded from the URL.
+    if (lastSyncedSearchParamsRef.current === searchParamString) return;
+    lastSyncedSearchParamsRef.current = searchParamString;
 
-      const urlHasQuery = params.has("q") || params.has("query");
-      const hadQueryBeforeThisSync = previousUrlHadQueryRef.current;
-      previousUrlHadQueryRef.current = urlHasQuery;
-      if (urlHasQuery) {
-        // Sync the controlled query state from the URL query param.
-        const requestedQuery = (params.get("q") ?? params.get("query"))?.trim();
-        setQuery(requestedQuery ?? "");
-      } else if (!isDetailPage || hadQueryBeforeThisSync) {
-        // On no-query routes, clear any stale URL-derived query. Initial detail
-        // page mounts still skip the deferred clear so programmatic fills are
-        // not wiped by the WebKit requestAnimationFrame race.
-        setQuery("");
-      }
+    setSearchMode(resolvedSearchMode);
+    setQuery(currentUrlHasQuery ? requestedQuery : "");
 
-      if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [availableModeIds, initialSearchMode, isDetailPage, pathname, searchParamString]);
+    if (searchParams.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
+  }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString, searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,14 +220,14 @@ function GlobalMockupSearchShellClient({
     navigateToMode("answer", { query: recentQuery, focus: true });
   }
 
-  if (shouldRenderDashboardSearch && dashboardSearchMode === "forms" && isFormsOnlyShell) {
+  if (shouldRenderDashboardSearch && resolvedSearchMode === "forms" && isFormsOnlyShell) {
     return <FormsSearchResultsPage query={requestedQuery} focusSearch={searchParams.get("focus") === "1"} />;
   }
 
   if (shouldRenderDashboardSearch) {
     return (
       <ClinicalDashboard
-        initialSearchMode={dashboardSearchMode}
+        initialSearchMode={resolvedSearchMode}
         initialQuery={requestedQuery}
         focusSearch={searchParams.get("focus") === "1"}
         autoRunSearch
