@@ -226,9 +226,7 @@ function failureCategoryCounts(results: Array<{ failures: string[] }>) {
 }
 
 function isSourceMetadataDebtThresholdFailure(failure: string) {
-  return (
-    failure.startsWith("top-result stale/review/unknown rate") || failure.startsWith("top-result review_required_rate")
-  );
+  return failure.startsWith("top-result stale_rate") || failure.startsWith("top-result review_required_rate");
 }
 
 function isIsoDateString(value: string) {
@@ -265,7 +263,7 @@ function evaluateSourceMetadataDebtAcceptance(args: {
   }
   if (args.governance.stale_rate > acceptance.max_stale_rate) {
     rejectionReasons.push(
-      `stale/review/unknown rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`,
+      `stale rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`,
     );
   }
   if (args.governance.review_required_rate > acceptance.max_review_required_rate) {
@@ -339,7 +337,8 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
     unverified_top_results: unverified,
     unknown_extraction_top_results: unknownExtraction,
     poor_extraction_top_results: poorExtraction,
-    stale_rate: rate(stale + reviewDue + unknown, total),
+    stale_rate: rate(stale, total),
+    stale_review_unknown_rate: rate(stale + reviewDue + unknown, total),
     review_required_top_results: reviewRequired,
     review_required_rate: rate(reviewRequired, total),
     metadata_policy:
@@ -417,7 +416,7 @@ export function buildEvalQualityReport(args: {
     }
     if (governance.stale_rate > qualityThresholds.staleTopResultRate) {
       thresholdFailures.push(
-        `top-result stale/review/unknown rate ${governance.stale_rate} above ${qualityThresholds.staleTopResultRate}`,
+        `top-result stale_rate ${governance.stale_rate} above ${qualityThresholds.staleTopResultRate}`,
       );
     }
     if (governance.review_required_rate > qualityThresholds.reviewRequiredTopResultRate) {
@@ -607,7 +606,8 @@ ${markdownTable([
   ["Unverified top results", governance.unverified_top_results],
   ["Unknown-extraction top results", governance.unknown_extraction_top_results],
   ["Poor-extraction top results", governance.poor_extraction_top_results],
-  ["Stale/review/unknown rate", governance.stale_rate],
+  ["Stale rate", governance.stale_rate],
+  ["Stale/review/unknown rate", governance.stale_review_unknown_rate],
   ["Review-required top results", governance.review_required_top_results],
   ["Review-required rate", governance.review_required_rate],
 ])}

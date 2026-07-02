@@ -387,7 +387,18 @@ const documentTypePatterns: Array<{
     confidence: 0.82,
     patterns: [/\bprescrib\b/i, /\baid\b/i, /\bcalculator\b/i, /\bdosing\b/i, /\bnomogram\b/i],
   },
-  { label: "reference", confidence: 0.72, patterns: [/\breference\b/i, /\binformation sheet\b/i, /\bplacecard\b/i] },
+  {
+    label: "reference",
+    confidence: 0.72,
+    patterns: [
+      /\breference\b/i,
+      /\bquick reference\b/i,
+      /\bquick guide\b/i,
+      /\bqrg\b/i,
+      /\binformation sheet\b/i,
+      /\bplacecard\b/i,
+    ],
+  },
 ];
 
 const secondaryFacetLimits: Record<keyof DocumentOrganizationProfile["secondary_facets"], number> = {
@@ -856,8 +867,12 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "assess",
     label_type: "clinical_action",
-    strong: [/\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination)\b/i],
-    body: [/\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination)\b/i],
+    strong: [
+      /\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination|scale\b|aims\b|bleeding event)\b/i,
+    ],
+    body: [
+      /\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination|scale\b|aims\b)\b/i,
+    ],
     minBodyMatches: 1,
   },
   {
@@ -868,7 +883,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "administer",
     label_type: "clinical_action",
-    strong: [/\b(?:administer|administration|infusions?|eye drops?|medication administration)\b/i],
+    strong: [
+      /\b(?:administer|administration|infusions?|eye drops?|medication administration|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium)\b/i,
+    ],
   },
   {
     label: "monitor",
@@ -894,8 +911,10 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "document",
     label_type: "clinical_action",
-    strong: [/\b(?:document|documentation|record in)\b/i],
-    body: [/\b(?:documentation|record in)\b/i],
+    strong: [
+      /\b(?:document|documentation|record in|medical records?|my health record|uploading|amending|removing documents)\b/i,
+    ],
+    body: [/\b(?:documentation|record in|medical records?|my health record)\b/i],
     minBodyMatches: 3,
   },
   { label: "notify", label_type: "clinical_action", strong: [/\b(?:notify|notification|report to)\b/i] },
@@ -948,26 +967,28 @@ const smartFacetRules: SmartFacetRule[] = [
     label: "clinical-instruction",
     label_type: "document_intent",
     strong: [
-      /\b(?:guideline|procedure|protocol|qrg\b|quick reference guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline)\b/i,
+      /\b(?:guideline|procedure|protocol|qrg\b|quick reference|quick guide|sop\b|standard operating procedure|clinical instruction|clinical management|clinical summary|insertion summary|clinical poster|sdg\b|standing drug guideline|apheresis|biopsy|perfusion|ventilation|cardiac arrest|stemi activation|therapy recipients|micro alerts)\b/i,
     ],
   },
   {
     label: "decision-support",
     label_type: "document_intent",
-    strong: [/\b(?:algorithm|flowchart|decision tree|criteria|threshold|diagnos|diagnosis)\b/i],
+    strong: [
+      /\b(?:algorithm|flowchart|decision tree|criteria|threshold|diagnos|diagnosis|scale\b|aims\b|bleeding event|hypothermia|cardiac arrest|stemi activation|pathway)\b/i,
+    ],
   },
   {
     label: "patient-information",
     label_type: "document_intent",
     strong: [
-      /\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|for patients)\b/i,
+      /\b(?:patient information|consumer information|factsheet|leaflet|flyer|brochure|booklet|poster|info sheet|information sheet|print ready pi|food and nutrition|huffers and puffers|common discomforts in pregnancy|caring for your|living with|before surgery|tips for reducing|genetic cholesterol|for patients)\b/i,
     ],
   },
   {
     label: "staff-guidance",
     label_type: "document_intent",
     strong: [
-      /\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|orientation|training|education|competenc|whs\b|work health and safety)\b/i,
+      /\b(?:staff guidance|staff access|staff only|registrar role|staff role|roles? and responsibilities|reflective practice|peer workforce|research nurse|orientation|training|education|competenc|whs\b|work health and safety)\b/i,
     ],
   },
   {
@@ -979,19 +1000,21 @@ const smartFacetRules: SmartFacetRule[] = [
     label: "operational-process",
     label_type: "document_intent",
     strong: [
-      /\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|management sop|roles? and responsibilities)\b/i,
+      /\b(?:workflow|process|administration|operational|procedure|sop\b|standard operating procedure|access to|access model|capacity model|remote network access|my health record|medical records?|contingency plan|workloads|staffing|management sop|roles? and responsibilities)\b/i,
     ],
   },
   {
     label: "documentation-requirement",
     label_type: "document_intent",
-    strong: [/\b(?:documentation|record in|form required|documented in)\b/i],
+    strong: [
+      /\b(?:documentation|record in|form required|documented in|medical records?|my health record|uploading|amending|removing documents)\b/i,
+    ],
   },
   {
     label: "medication-instruction",
     label_type: "document_intent",
     strong: [
-      /\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|permethrin)\b/i,
+      /\b(?:prescrib|dose|dosing|medication instruction|medication management|medications?\b|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?|over the counter|complementary medicines|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium|permethrin)\b/i,
     ],
   },
 
@@ -1008,6 +1031,11 @@ const smartFacetRules: SmartFacetRule[] = [
     strong: [
       /\b(?:dose|dosing|dosage|nomogram|drug guideline|standing drug guideline|sdg\b|drug infusions?|infusions?|eye drops?)\b/i,
     ],
+  },
+  {
+    label: "contains-quick-reference",
+    label_type: "content_feature",
+    strong: [/\b(?:quick reference|quick guide|qrg\b)\b/i],
   },
   {
     label: "contains-monitoring-schedule",

@@ -85,14 +85,15 @@ Source governance:
 - unverified top-result count
 - unknown-extraction top-result count
 - poor-extraction top-result count
-- combined stale/review/unknown top-result rate
+- stale/outdated top-result rate
+- combined stale/review/unknown top-result audit rate
 - review-required top-result count and rate
 
 Metadata policy:
 
 - `unknown`, `unverified`, `review_due`, `outdated`, unknown extraction, and poor extraction are treated as review-required.
 - Do not silently default missing corpus metadata to `current` or `approved`.
-- Reduce the warning rate by backfilling source metadata through ingestion/enrichment or by explicitly accepting the review-required baseline in a versioned release metadata debt file.
+- Reduce the review-required rate by backfilling source metadata through ingestion/enrichment or by explicitly accepting a bounded review-required baseline in a versioned release metadata debt file.
 - Danger-class source governance warnings are blocking.
 - Warning-class retrieval source metadata notes may be accepted only by passing `--source-metadata-debt <path>` to `npm run eval:quality -- --fail-on-threshold`.
 - Source metadata debt acceptance does not mark sources current or approved. It only removes the accepted retrieval metadata threshold failures from the blocking failure list.
@@ -118,7 +119,7 @@ Answer quality:
 - retrieval hit@K is below `0.8`
 - document recall@5 is below `0.8`
 - content recall@5 is below `0.8`
-- stale/review/unknown top-result rate is above `0.25`
+- stale/outdated top-result rate is above `0.25`
 - review-required top-result rate is above `0.25`
 - grounded supported answer rate is below `0.9`
 - unsupported-answer correctness is below `1.0`
@@ -153,4 +154,4 @@ Run full quality evals after:
 - clinical output changes
 - release or handoff confidence checks
 
-`npm run verify:release` includes `npm run eval:quality:release` after cheaper local gates. `eval:quality:release` passes `docs/release-source-metadata-debt-2026-06-30.json` while that temporary release debt is active. Use focused variants such as `--retrieval-only`, `--rag-only`, `--limit`, `--query`, or `--question` during development to avoid unnecessary provider-backed cost.
+`npm run verify:release` includes `npm run eval:quality:release` after cheaper local gates. `eval:quality:release` passes `docs/release-source-metadata-debt-2026-06-30.json` while that bounded release debt is active. Use `npm run audit:source-governance` to refresh the live corpus debt counts, and use focused variants such as `--retrieval-only`, `--rag-only`, `--limit`, `--query`, or `--question` during development to avoid unnecessary provider-backed cost.

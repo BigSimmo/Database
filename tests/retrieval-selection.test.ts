@@ -310,6 +310,55 @@ describe("retrieval source selection", () => {
     );
   });
 
+  it("keeps directly relevant content selectable when review metadata is absent", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What is the next step after red-zone risk?",
+      queryClass: "document_lookup",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "metadata-missing-flowchart",
+          document_id: "metadata-missing-doc",
+          title: "Risk Matrix Flowchart",
+          file_name: "risk-matrix.pdf",
+          section_heading: "Red zone",
+          content: "Risk matrix flowchart red zone: next step is urgent review and escalation.",
+          hybrid_score: 0.52,
+          source_metadata: undefined,
+          index_unit: {
+            id: "unit-red-risk",
+            unit_type: "flowchart_step",
+            title: "Red-zone risk next step",
+            content: "Red-zone risk requires urgent review and escalation.",
+            source_chunk_id: "metadata-missing-flowchart",
+            source_image_id: "image-red-risk",
+            page_start: 3,
+            page_end: 3,
+            heading_path: ["Risk matrix", "Red zone"],
+            normalized_terms: ["risk", "red zone", "next step", "urgent review"],
+            quality_score: 0.9,
+            extraction_mode: "hybrid",
+          },
+        }),
+        source({
+          id: "current-generic",
+          document_id: "current-generic-doc",
+          title: "Generic Current Source",
+          file_name: "generic-current.pdf",
+          content: "Generic process overview and routine administrative guidance.",
+          hybrid_score: 0.66,
+          source_metadata: sourceMetadata(),
+        }),
+      ],
+    });
+
+    expect(selection.results[0].id).toBe("metadata-missing-flowchart");
+    expect(selection.results[0].source_metadata).toBeUndefined();
+    expect(selection.summary.requiredSignalsSatisfied).toBe(true);
+    expect(selection.summary.matchedSignals).toEqual(expect.arrayContaining(["risk", "red_zone"]));
+  });
+
   // Contract changed 2026-07-02 (measured): source-governance metadata must NOT reorder retrieval
   // selection. The corpus is only partially enriched — unenriched documents normalize to
   // unknown/unverified — so metadata weighting in selection buried correct documents on the golden
@@ -375,6 +424,61 @@ describe("retrieval source selection", () => {
       "current-local-nmhs",
       "current-local-akg",
     ]);
+  });
+
+  it("does not let unverified validation displace directly relevant evidence", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What dose and route are shown in the agitation medication chart?",
+      queryClass: "medication_dose_risk",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "unverified-dose-route",
+          document_id: "unverified-dose-doc",
+          title: "Agitation Medication Chart",
+          file_name: "agitation-chart.pdf",
+          section_heading: "Medication chart",
+          content: "Agitation medication chart lists lorazepam 1 mg IM or PO.",
+          hybrid_score: 0.56,
+          source_metadata: sourceMetadata({
+            document_status: "current",
+            clinical_validation_status: "unverified",
+            extraction_quality: "good",
+          }),
+          index_unit: {
+            id: "unit-unverified-dose-route",
+            unit_type: "medication_chart_row",
+            title: "Lorazepam route row",
+            content: "Lorazepam 1 mg IM or PO.",
+            source_chunk_id: "unverified-dose-route",
+            source_image_id: null,
+            page_start: 5,
+            page_end: 5,
+            heading_path: ["Medication chart"],
+            normalized_terms: ["agitation", "lorazepam", "1 mg", "im", "po"],
+            quality_score: 0.9,
+            extraction_mode: "hybrid",
+          },
+        }),
+        source({
+          id: "current-generic-policy",
+          document_id: "current-generic-policy-doc",
+          title: "Current Medication Policy",
+          file_name: "current-medication-policy.pdf",
+          content: "General current medication governance policy without agitation dose or route detail.",
+          hybrid_score: 0.64,
+          source_metadata: sourceMetadata({
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          }),
+        }),
+      ],
+    });
+
+    expect(selection.results[0].id).toBe("unverified-dose-route");
+    expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("unverified");
   });
 
   it("prefers risk/red-zone flowchart evidence over generic flowchart evidence", () => {
@@ -446,5 +550,46 @@ describe("retrieval source selection", () => {
     expect(selection.intent.needsRiskFlowchart).toBe(true);
     expect(selection.summary.requiredSignalsSatisfied).toBe(true);
     expect(selection.summary.matchedSignals).toEqual(expect.arrayContaining(["risk", "red_zone"]));
+  });
+
+  it("does not let routine governance metadata displace stronger risk-flowchart action evidence", () => {
+    const selection = selectRetrievalEvidence({
+      query: "In the clinical flowchart, what is the next step after red-zone risk?",
+      queryClass: "document_lookup",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "review-due-action",
+          document_id: "review-due-doc",
+          title: "Mental Health Emergency Flowchart",
+          file_name: "review-due-flowchart.pdf",
+          content: "Flowchart red-zone risk: urgent psychiatric review is required.",
+          hybrid_score: 0.72,
+          source_metadata: sourceMetadata({
+            document_status: "review_due",
+            clinical_validation_status: "unverified",
+            extraction_quality: "good",
+          }),
+        }),
+        source({
+          id: "current-action",
+          document_id: "current-doc",
+          title: "Acute Deterioration Risk Pathway",
+          file_name: "current-risk-pathway.pdf",
+          content: "Risk pathway red-zone risk: next step is urgent senior review and escalation.",
+          hybrid_score: 0.69,
+          source_metadata: sourceMetadata({
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          }),
+        }),
+      ],
+    });
+
+    expect(selection.results[0].id).toBe("review-due-action");
+    expect(selection.results[0].source_metadata?.document_status).toBe("review_due");
+    expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("unverified");
   });
 });

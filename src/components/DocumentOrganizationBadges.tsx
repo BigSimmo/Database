@@ -2,6 +2,7 @@ import { AlertTriangle, Building2, FileText, Tag } from "lucide-react";
 
 import { cn, metadataPill, toneInfo, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { canonicalDocumentDisplayTitle } from "@/lib/document-organization";
+import { formatDocumentLabelDisplay } from "@/lib/document-tags";
 import type { DocumentLabel, DocumentOrganizationProfile } from "@/lib/types";
 
 type OrganizationDocument = {
@@ -27,16 +28,6 @@ export function documentDisplayTitle(document: Pick<OrganizationDocument, "title
   return typeof profile?.canonical_display_title === "string" && profile.canonical_display_title.trim()
     ? profile.canonical_display_title
     : canonicalDocumentDisplayTitle(document);
-}
-
-function displayLabel(value: string) {
-  return value
-    .split(" ")
-    .filter(Boolean)
-    .map((word) =>
-      word.length <= 4 && word === word.toUpperCase() ? word : `${word[0]?.toUpperCase()}${word.slice(1)}`,
-    )
-    .join(" ");
 }
 
 function labelFromLabels(
@@ -79,7 +70,7 @@ export function DocumentOrganizationBadges({
       {siteLabel ? (
         <span className={cn(metadataPill, toneInfo, sizeClass)} title="Hospital or service site">
           <Building2 className="mr-1 h-3.5 w-3.5" />
-          {compact && siteShortLabel ? siteShortLabel : displayLabel(siteLabel)}
+          {compact && siteShortLabel ? siteShortLabel : formatDocumentLabelDisplay(siteLabel, "site")}
         </span>
       ) : needsReview && candidateCount > 0 ? (
         <span className={cn(metadataPill, toneWarning, sizeClass)} title="Site candidate needs review">
@@ -90,7 +81,7 @@ export function DocumentOrganizationBadges({
       {typeLabel ? (
         <span className={cn(metadataPill, toneNeutral, sizeClass)} title="Document type">
           <FileText className="mr-1 h-3.5 w-3.5" />
-          {displayLabel(typeLabel)}
+          {formatDocumentLabelDisplay(typeLabel, "document_type")}
         </span>
       ) : null}
       {needsReview ? (

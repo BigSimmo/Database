@@ -1,20 +1,39 @@
 {
   "accepted": true,
   "accepted_by": "repository owner",
-  "accepted_at": "2026-06-30T00:00:00.000+08:00",
+  "accepted_at": "2026-07-02T00:00:00.000+08:00",
   "expires_at": "2026-07-31T23:59:59.000+08:00",
-  "reason": "Temporary release metadata debt acceptance for the existing eval corpus while document-level source status and local validation metadata are backfilled. This does not mark any source current, locally reviewed, or approved.",
+  "reason": "Bounded release metadata debt acceptance for residual corpus-state governance values after required source metadata key coverage was completed. This accepts review_due, unknown, and unverified states as tracked backend debt only; it does not mark any source current, locally reviewed, or approved.",
   "scope": "eval-quality retrieval source metadata thresholds only",
-  "source_report": "output/evals/eval-quality-final.json",
+  "source_report": "output/evals/retrieval-quality-2026-07-02T04-58-43-365Z.json",
+  "observed_live_corpus": {
+    "observed_at": "2026-07-02T00:00:00.000+08:00",
+    "indexed_documents": 2065,
+    "missing_required_source_metadata": 0,
+    "review_due_documents": 481,
+    "unknown_status_documents": 132,
+    "unverified_documents": 130,
+    "poor_extraction_documents": 0,
+    "missing_smart_v2_labels": 0
+  },
+  "observed_retrieval_eval": {
+    "stale_top_results": 0,
+    "review_due_top_results": 5,
+    "unverified_top_results": 6,
+    "review_required_top_results": 7,
+    "stale_rate": 0,
+    "review_required_rate": 0.14
+  },
   "required_follow_up": [
-    "Review high-frequency golden top-result documents first.",
+    "Review high-frequency review_due, unknown, and unverified documents first.",
+    "Keep required source metadata key coverage at zero missing fields.",
     "Backfill documents.metadata.document_status only after confirming source currentness.",
     "Backfill documents.metadata.clinical_validation_status only after local clinical review.",
     "Replace this debt file with stricter ceilings or remove it before expiry."
   ],
   "ceilings": {
-    "max_stale_rate": 1,
-    "max_review_required_rate": 1,
+    "max_stale_rate": 0,
+    "max_review_required_rate": 0.2,
     "max_outdated_top_results": 0,
     "max_poor_extraction_top_results": 0,
     "max_source_governance_danger_failure_rate": 0

@@ -1,6 +1,8 @@
 import * as nextEnv from "@next/env";
 import { promises as fs } from "node:fs";
 import { resolve } from "node:path";
+import { reviewDocumentTagQuality } from "@/lib/document-tags";
+import type { DocumentLabel } from "@/lib/types";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -20,12 +22,17 @@ type SupabaseAdmin = Awaited<ReturnType<typeof loadAdminClient>>;
 
 type DocumentRow = {
   id: string;
+  title: string;
+  file_name: string;
 };
 
 type LabelRow = {
   id: string;
   document_id: string;
-  label_type: string;
+  label: string;
+  label_type: DocumentLabel["label_type"];
+  source: DocumentLabel["source"];
+  confidence: number;
 };
 
 type QueryResult<T> = {
@@ -164,6 +171,12 @@ function countByLabelType(labels: LabelRow[]) {
 
 const smartV2LabelTypes = new Set(["clinical_action", "care_phase", "document_intent", "content_feature"]);
 
+function countQualityIssues(issues: ReturnType<typeof reviewDocumentTagQuality>) {
+  const counts = new Map<string, number>();
+  for (const issue of issues) counts.set(issue.kind, (counts.get(issue.kind) ?? 0) + 1);
+  return Object.fromEntries([...counts.entries()].sort());
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -174,9 +187,14 @@ async function main() {
   const supabase = await loadAdminClient();
   const allowedSiteMissing = await loadAllowlist(args.allowedSiteMissingPath);
   const allowedDocumentTypeMissing = await loadAllowlist(args.allowedDocumentTypeMissingPath);
-  const documents = await fetchAll<DocumentRow>(supabase, "documents", "id", (query) => query.eq("status", "indexed"));
-  const labels = await fetchAll<LabelRow>(supabase, "document_labels", "id,document_id,label_type", (query) =>
-    query.eq("source", "generated"),
+  const documents = await fetchAll<DocumentRow>(supabase, "documents", "id,title,file_name", (query) =>
+    query.eq("status", "indexed"),
+  );
+  const labels = await fetchAll<LabelRow>(
+    supabase,
+    "document_labels",
+    "id,document_id,label,label_type,source,confidence",
+    (query) => query.eq("source", "generated"),
   );
 
   const documentIds = new Set(documents.map((document) => document.id));
@@ -202,6 +220,17 @@ async function main() {
   const missingDocumentType = [...documentIds].filter(
     (id) => !documentTypeDocumentIds.has(id) && !allowedDocumentTypeMissing.has(id),
   );
+  const labelsByDocument = new Map<string, LabelRow[]>();
+  for (const label of labels) {
+    labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+  }
+  const qualityIssues = reviewDocumentTagQuality(
+    documents.map((document) => ({
+      ...document,
+      labels: labelsByDocument.get(document.id) ?? [],
+    })),
+    { overusedThreshold: Math.max(100, Math.ceil(documents.length * 0.35)) },
+  );
 
   const passed = missingGenerated.length === 0 && missingSite.length === 0 && missingDocumentType.length === 0;
 
@@ -217,6 +246,18 @@ async function main() {
     indexed_without_smart_v2: missingSmartV2.length,
     labels_by_type: countByLabelType(labels),
     smart_v2_labels_by_type: countByLabelType(smartV2Labels),
+    label_quality_issue_count: qualityIssues.length,
+    label_quality_issue_counts: countQualityIssues(qualityIssues),
+    sample_label_quality_issues: qualityIssues.slice(0, 10).map((issue) => ({
+      kind: issue.kind,
+      label: issue.label,
+      canonical_label: issue.canonicalLabel,
+      label_type: issue.label_type,
+      count: issue.count,
+      reason: issue.reason,
+      examples: issue.examples,
+      document_titles: issue.documentTitles,
+    })),
     sample_missing_generated: missingGenerated.slice(0, 10),
     sample_missing_site: missingSite.slice(0, 10),
     sample_missing_document_type: missingDocumentType.slice(0, 10),
@@ -248,6 +289,12 @@ async function main() {
     );
     console.log(
       `Smart-v2 labels by type: ${Object.entries(report.smart_v2_labels_by_type)
+        .map(([type, count]) => `${type}=${count}`)
+        .join(", ")}`,
+    );
+    console.log(`Label quality issues: ${report.label_quality_issue_count}`);
+    console.log(
+      `Label quality issue counts: ${Object.entries(report.label_quality_issue_counts)
         .map(([type, count]) => `${type}=${count}`)
         .join(", ")}`,
     );

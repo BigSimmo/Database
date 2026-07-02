@@ -38,8 +38,19 @@ type ClinicalValidationEvidence = {
 
 const APPLY = process.argv.includes("--apply");
 const EVAL_ONLY = process.argv.includes("--eval-only");
-const NOW = new Date("2026-06-30T00:00:00+08:00");
 const BACKFILL_VERSION = "source_metadata_backfill_2026_06_30_v1";
+
+function backfillAsOfDate() {
+  const index = process.argv.indexOf("--as-of");
+  if (index < 0) return new Date();
+  const raw = process.argv[index + 1];
+  if (!raw || raw.startsWith("--")) throw new Error("Missing value for --as-of");
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T00:00:00+08:00`) : new Date(raw);
+  if (Number.isNaN(date.getTime())) throw new Error(`Invalid --as-of date: ${raw}`);
+  return date;
+}
+
+const NOW = backfillAsOfDate();
 
 const publisherByCode: Record<string, { publisher: string; jurisdiction: string }> = {
   AKG: { publisher: "Armadale Kalamunda Group", jurisdiction: "Australia/WA" },
