@@ -33,10 +33,33 @@ export type RagQueryClassification = {
 // ("Review date: ...", "reviewed by ...") satisfy the guard, so "review" only
 // counts when attached to a clinical role or urgency (senior clinician review,
 // urgent medical officer review) or an escalation/MET phrase.
-export const riskZoneContextPattern =
-  /\b(?:(?:red|amber|yellow|orange|purple|green|blue)[\s-]*zones?|colou?red zones?|zone criteria)\b/i;
+export const zoneColourAlternatives = "red|amber|yellow|orange|purple|green|blue";
+export const riskZoneContextPattern = new RegExp(
+  `\\b(?:(?:${zoneColourAlternatives})[\\s-]*zones?|colou?red zones?|zone criteria)\\b`,
+  "i",
+);
 export const riskZoneActionPattern =
   /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|medical|clinician|clinical|nursing|officer)\s+(?:\w+\s+){0,2}review\w*)\b/i;
+
+// The zone colour a query names, if any ("red-zone risk" -> "red").
+export function queriedZoneColour(query: string) {
+  return query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1]?.toLowerCase() ?? null;
+}
+
+// Zone-context patterns scoped to the colour the query names (falling back to
+// any colour). `zonePhrasePattern` matches explicit zone phrases; `bareColourPattern`
+// is for risk-matrix / flowchart visual units, which store the cell colour as a
+// bare token ("... | Red | escalate ..."). Shared by the fast-path guard and
+// coverage gate in rag.ts and the ranking source check here so a red-zone
+// question is never satisfied (or boosted) by another colour's action evidence.
+export function zoneContextPatternsForQuery(query: string) {
+  const colour = queriedZoneColour(query);
+  const colourGroup = colour ?? `(?:${zoneColourAlternatives})`;
+  return {
+    zonePhrasePattern: new RegExp(`\\b${colourGroup}[\\s-]*zones?\\b|\\bcolou?red zones?\\b|\\bzone criteria\\b`, "i"),
+    bareColourPattern: new RegExp(`\\b${colourGroup}\\b`, "i"),
+  };
+}
 
 export const intentSignalWords = {
   dosing: [
@@ -1361,14 +1384,17 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // this, the generic penalty demoted the documents that actually contain the
   // red-zone next step while unrelated risk-assessment flowcharts kept the boost.
   // Both term groups must hit: a bare "zone" or a lone "review" is not evidence.
-  // Risk-matrix / flowchart visual units store the cell colour as a bare token
+  // The patterns are scoped to the colour the query names, so a red-zone
+  // question is not boosted by an amber-zone cell's action; risk-matrix /
+  // flowchart visual units store the cell colour as a bare token
   // ("... | Red | escalate ..."), so for those units the colour token counts as
   // zone context.
+  const zonePatterns = zoneContextPatternsForQuery(query);
   const zoneCellUnitEvidence =
     ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
-    /\b(?:red|amber|yellow|orange|purple|green|blue)\b/.test(haystack);
+    zonePatterns.bareColourPattern.test(haystack);
   const riskFlowchartZoneActionSource =
-    (riskZoneContextPattern.test(haystack) || zoneCellUnitEvidence) && riskZoneActionPattern.test(haystack);
+    (zonePatterns.zonePhrasePattern.test(haystack) || zoneCellUnitEvidence) && riskZoneActionPattern.test(haystack);
   const riskFlowchartLexicalSource =
     /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
     /\b(?:risk|red zone|red)\b/.test(haystack);

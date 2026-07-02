@@ -660,6 +660,16 @@ describe("retrieval query variants", () => {
     expect(variants).not.toContain("red zone");
   });
 
+  it("injects the zone variant for risk-matrix wording too", () => {
+    const query = "What action is shown for the risk matrix red zone?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    // Risk-matrix questions hit the same zone-action evidence (risk_matrix_cell
+    // units store the colour as a bare token), so they need the precise
+    // "<colour> zone" variant just like flowchart wording does.
+    expect(variants).toContain("red zone");
+  });
+
   it("keeps agitation route queries focused on the canonical agitation and arousal source", () => {
     const query = "What IM or PO options are listed for agitation?";
     const textQuery = buildClinicalTextSearchQuery(query);
@@ -810,6 +820,24 @@ describe("retrieval query variants", () => {
 
     expect(ranked[0].file_name).toBe("Clinical Risk Flowchart.pdf");
     expect(selected.results[0]?.file_name).toBe("Clinical Risk Flowchart.pdf");
+  });
+
+  it("does not boost another colour's zone action for a colour-specific query", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "amber-zone-action",
+        document_id: "amber-zone-doc",
+        title: "Deterioration Response Guideline",
+        file_name: "Deterioration Response Guideline.pdf",
+        content: "If the patient reaches the Amber Zone, escalate for urgent senior review.",
+        similarity: 0.62,
+      }),
+    ]);
+
+    // Amber-zone action evidence must not take the risk-flowchart boost (or
+    // dodge the generic penalty) for a red-zone question.
+    expect(ranked[0]?.score_explanation?.rawPenalty).toBeLessThanOrEqual(-0.18);
   });
 
   it("penalizes action-free risk flowcharts for next-step queries", () => {

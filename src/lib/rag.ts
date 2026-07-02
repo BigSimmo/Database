@@ -24,7 +24,10 @@ import {
   hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
+  queriedZoneColour,
   riskZoneActionPattern,
+  zoneColourAlternatives,
+  zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -1956,7 +1959,7 @@ export function buildRetrievalQueryVariants(
     addVariant("admission discharge");
   }
   if (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
+    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
   ) {
     addVariant("risk flow");
@@ -1964,12 +1967,12 @@ export function buildRetrievalQueryVariants(
     // and "risk flow review urgent escalation" variants required all terms in one
     // chunk and did not reliably contribute candidates to the pool. A "<colour> zone" variant retrieves the small,
     // precise set of zone-action chunks (escalation protocols, observation and
-    // response charts) that answer zone / next-step questions. Match the zone the
-    // query actually names so an amber-zone question does not pull red-zone
-    // chunks into its candidate pool.
-    const zoneColour = query.match(/\b(red|amber|yellow|orange|purple|green|blue)[\s-]*zones?\b/i)?.[1];
+    // response charts, risk-matrix cells) that answer zone / next-step questions.
+    // Match the zone the query actually names so an amber-zone question does not
+    // pull red-zone chunks into its candidate pool.
+    const zoneColour = queriedZoneColour(query);
     if (zoneColour) {
-      addVariant(`${zoneColour.toLowerCase()} zone`);
+      addVariant(`${zoneColour} zone`);
     }
   }
   addVariant(analysis.queryRewrite.searchQuery);
@@ -3280,16 +3283,10 @@ function hasAnyTerm(text: string, pattern: RegExp) {
   return pattern.test(text);
 }
 
-const zoneColourAlternatives = "red|amber|yellow|orange|purple|green|blue";
-
-function queriedZoneColour(query: string) {
-  return query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1]?.toLowerCase() ?? null;
-}
-
 function isRiskFlowchartNextStepQuery(query: string) {
   return (
     /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
-    (new RegExp(`\\b(?:risk|(?:${zoneColourAlternatives})[\\s-]*zones?)\\b`, "i").test(query)) &&
+    new RegExp(`\\b(?:risk|(?:${zoneColourAlternatives})[\\s-]*zones?)\\b`, "i").test(query) &&
     /\b(?:next step|step after|after|action)\b/i.test(query)
   );
 }
@@ -3303,18 +3300,10 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
   // decision steps as prose ("has any Purple or Red Zone criteria ... escalate
   // for Senior Clinician Review") without ever saying "flowchart".
   //
-  // When the query names a colour, the zone evidence must match that colour (a
-  // red-zone question must not fast-path on an amber-zone chunk). Risk-matrix /
-  // flowchart visual units store the cell colour as a bare token
-  // ("... | Red | escalate ..."), so for those units the colour token alone
-  // counts as zone context.
-  const colour = queriedZoneColour(query);
-  const colourGroup = colour ?? `(?:${zoneColourAlternatives})`;
-  const zonePhrasePattern = new RegExp(
-    `\\b${colourGroup}[\\s-]*zones?\\b|\\bcolou?red zones?\\b|\\bzone criteria\\b`,
-    "i",
-  );
-  const bareColourPattern = new RegExp(`\\b${colourGroup}\\b`, "i");
+  // The shared patterns are scoped to the colour the query names (a red-zone
+  // question must not fast-path on an amber-zone chunk); for risk-matrix /
+  // flowchart visual units the bare cell colour token counts as zone context.
+  const { zonePhrasePattern, bareColourPattern } = zoneContextPatternsForQuery(query);
   return results.slice(0, limit).some((result) => {
     const evidenceText = evidenceTextForGate(result);
     if (!riskZoneActionPattern.test(evidenceText)) return false;
