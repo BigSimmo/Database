@@ -740,7 +740,7 @@ async function setCachedImageClassification(args: {
       owner_id: args.ownerId,
       image_hash: args.imageHash,
       model: env.OPENAI_VISION_MODEL,
-      caption: args.classification.caption,
+      caption: redactCaptionIdentifiers(cleanString(args.classification.caption)),
       mime_type: args.mimeType,
       metadata: {
         extractor: "local-worker",

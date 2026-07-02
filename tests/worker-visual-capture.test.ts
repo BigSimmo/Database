@@ -63,6 +63,10 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("metadata.caption_context_hash !== contextHash");
   });
 
+  it("redacts captions before cache writes", () => {
+    expect(workerSource).toContain('caption: redactCaptionIdentifiers(cleanString(args.classification.caption))');
+  });
+
   it("computes perceptual duplicate groups before caption budget selection", () => {
     expect(workerSource.indexOf("const preparedImages: Array")).toBeLessThan(
       workerSource.indexOf("const scoredCandidates = rankVisualCandidates"),
