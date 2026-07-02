@@ -526,7 +526,7 @@ function SourceStatusCard({ sourceCount }: { sourceCount: number }) {
           </span>
           <span className="text-[color:var(--text-muted)]">{sourceCount.toLocaleString()} sources</span>
         </p>
-        <p className="flex items-center justify-between gap-3 text-[color:var(--clinical-chat-amber)]">
+        <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
           <span className="inline-flex items-center gap-2">
             <CircleHelp className="h-4 w-4" aria-hidden />
             {workflow.sourceStatus.label}
