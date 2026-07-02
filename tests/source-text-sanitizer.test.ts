@@ -5,6 +5,7 @@ import {
   isLowYieldClinicalText,
   lowYieldSourceNoiseScore,
   normalizeExtractedGlyphs,
+  polishStoredSynopsis,
   repairTruncatedCompactTail,
   sourceTextForClinicalProse,
   sourceTextForCompactDisplay,
@@ -296,6 +297,27 @@ describe("repairTruncatedCompactTail", () => {
     );
     const once = repairTruncatedCompactTail("Avoid the combination where poss...");
     expect(repairTruncatedCompactTail(once)).toBe(once);
+  });
+});
+
+describe("polishStoredSynopsis", () => {
+  it("strips a banner glued after the synopsis prefix and repairs the truncated tail", () => {
+    const stored =
+      "Section: Interactions | Page: 4 | OFFICIAL: OFFICIAL Lithium Therapy - dose guidance • avoid NSAIDs where poss...";
+
+    expect(polishStoredSynopsis(stored)).toBe(
+      "Section: Interactions | Page: 4 | Lithium Therapy - dose guidance • avoid NSAIDs …",
+    );
+  });
+
+  it("returns an already-clean synopsis unchanged and is idempotent", () => {
+    const clean = "Section: Dosing | Page: 2 | Monitor lithium levels weekly after any dose change.";
+    expect(polishStoredSynopsis(clean)).toBe(clean);
+
+    const once = polishStoredSynopsis(
+      "Section: Interactions | Page: 4 | OFFICIAL: OFFICIAL Lithium Therapy - dose guidance • avoid NSAIDs where poss...",
+    );
+    expect(polishStoredSynopsis(once)).toBe(once);
   });
 });
 

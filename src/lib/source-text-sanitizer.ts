@@ -437,6 +437,19 @@ export function repairTruncatedCompactTail(value: string) {
   return words.length ? `${words.join(" ")} …` : "";
 }
 
+// Repairs a stored retrieval_synopsis in place (backfill path): glyph repair,
+// protective-marking banner removal per " | "-delimited segment (the synopsis
+// prefix format puts the banner mid-string, after "Section: … | Page: N | "),
+// and truncated-tail repair. Newly-built synopses already get all of this at
+// ingestion; this exists for rows stored before the fix. Idempotent.
+export function polishStoredSynopsis(value: string) {
+  const segments = normalizeExtractedGlyphs(value)
+    .split(/\s*\|\s*/)
+    .map((segment) => stripClassificationBanner(segment).replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  return repairTruncatedCompactTail(segments.join(" | "));
+}
+
 export function sourceTextForCompactDisplay(text: string) {
   return repairTruncatedCompactTail(
     readableWhitespace(
