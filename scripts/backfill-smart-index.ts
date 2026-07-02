@@ -602,7 +602,7 @@ async function main() {
 
     const enrichment = await upsertDocumentEnrichment({
       supabase,
-      document,
+      document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
       chunks: chunks as never,
       images: images as never,
     });
@@ -613,7 +613,7 @@ async function main() {
     });
     const memory = await upsertDocumentDeepMemory({
       supabase,
-      document,
+      document: document as Parameters<typeof upsertDocumentDeepMemory>[0]["document"],
       chunks: chunks as never,
       images: images as never,
       summary: enrichment.summary.summary,
