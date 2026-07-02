@@ -35,7 +35,7 @@ import { logger } from "@/lib/logger";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
-import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
 import { chooseAnswerRoute, hasDirectTitleSupport, shouldRetryWithStrongAfterFast } from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
@@ -1790,11 +1790,11 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
   void (async () => {
     try {
-      const deletion = createAdminClient().from("rag_response_cache").delete();
-      await (sharedCacheOwnerId ? deletion.eq("owner_id", sharedCacheOwnerId) : deletion.is("owner_id", null)).in(
-        "cache_kind",
-        ["search", "answer"],
-      );
+      const deleteQuery = createAdminClient().from("rag_response_cache").delete();
+      const scopedQuery = sharedCacheOwnerId
+        ? deleteQuery.eq("owner_id", sharedCacheOwnerId)
+        : deleteQuery.is("owner_id", null);
+      await scopedQuery.in("cache_kind", ["search", "answer"]);
     } catch (error) {
       // Shared cache invalidation is best effort.
       console.warn("Shared cache invalidation failed for owner:", error);
@@ -3165,7 +3165,7 @@ async function attachPageVisualEvidence(
       page_number: image.page_number,
       storage_path: image.storage_path,
       caption: image.caption,
-      bbox: image.bbox as ChunkImage["bbox"],
+      bbox: normalizeImageBbox(image.bbox),
       image_type: image.image_type as ChunkImage["image_type"],
       searchable: image.searchable,
       clinical_relevance_score: image.clinical_relevance_score,

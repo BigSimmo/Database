@@ -266,7 +266,7 @@ export type ChunkImage = {
   signed_url?: string;
   caption: string;
   bbox?: [number, number, number, number] | null;
-  image_type?: ImageEvidenceCategory;
+  image_type?: ImageEvidenceCategory | string;
   searchable?: boolean;
   clinical_relevance_score?: number;
   source_kind?: string | null;
@@ -381,7 +381,7 @@ export type DocumentIndexQualityScore = {
   document_id: string;
   owner_id?: string | null;
   quality_score: number;
-  extraction_quality: ClinicalSourceMetadata["extraction_quality"];
+  extraction_quality: ClinicalSourceMetadata["extraction_quality"] | string;
   metrics: Record<string, unknown>;
   issues: string[];
   updated_at?: string;
