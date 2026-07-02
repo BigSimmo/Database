@@ -642,10 +642,20 @@ function allowedChunkMap(results: SearchResult[]) {
   return new Map(results.map((result) => [result.id, result]));
 }
 
-function deriveConfidence(results: SearchResult[], acceptedCitationCount: number): RagAnswer["confidence"] {
-  if (acceptedCitationCount === 0 || results.length === 0) return "unsupported";
-  const strongest = results.reduce((max, result) => Math.max(max, result.similarity), 0);
-  if (strongest >= 0.82 && acceptedCitationCount >= 2) return "high";
+// Audit M1: confidence must reflect the strength of the evidence the answer
+// actually CITES. Taking the max similarity over ALL retrieved results let an
+// uncited high-similarity chunk grant "high" confidence to an answer built on
+// weak citations, so the strongest-score scan is scoped to the cited subset.
+// A citation that maps to no known chunk contributes nothing (fail low).
+function deriveConfidence(
+  results: SearchResult[],
+  acceptedCitations: Array<Pick<Citation, "chunk_id">>,
+): RagAnswer["confidence"] {
+  if (acceptedCitations.length === 0 || results.length === 0) return "unsupported";
+  const citedIds = new Set(acceptedCitations.map((citation) => citation.chunk_id));
+  const citedResults = results.filter((result) => citedIds.has(result.id));
+  const strongest = citedResults.reduce((max, result) => Math.max(max, result.similarity), 0);
+  if (strongest >= 0.82 && acceptedCitations.length >= 2) return "high";
   if (strongest >= 0.64) return "medium";
   return "low";
 }
@@ -872,7 +882,22 @@ function normalizeQuoteVerificationText(text: string) {
 }
 
 function tableFactQuoteText(fact: NonNullable<SearchResult["table_facts"]>[number]) {
-  return [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+  // Mirrors tableFactText in answer-verification.ts: include the fact-metadata
+  // snippet fields that rich-mode prompts show the model (tableSnippetForFact),
+  // so quotes drawn from them verify as exact.
+  const metadata = safeRecord(fact.metadata);
+  const metadataString = (key: string) => (typeof metadata[key] === "string" ? (metadata[key] as string) : "");
+  const metadataCells = Array.isArray(metadata.cells) ? (metadata.cells as unknown[]).map(String).join(" ") : "";
+  return [
+    fact.table_title,
+    fact.row_label,
+    fact.clinical_parameter,
+    fact.threshold_value,
+    fact.action,
+    metadataString("accessible_table_markdown"),
+    metadataString("table_text_snippet"),
+    metadataCells,
+  ]
     .filter(Boolean)
     .join(" ");
 }
@@ -4520,7 +4545,7 @@ function buildExtractiveAnswer(args: {
   return {
     answer: naturalAnswer.answer,
     grounded: hasExtractedAnswer && citations.length > 0,
-    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations.length) : "unsupported",
+    confidence: hasExtractedAnswer ? deriveConfidence(args.results, citations) : "unsupported",
     citations: citations.slice(0, 5),
     sources: args.results,
     modelUsed: null,
@@ -5668,7 +5693,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
   try {
     const parsed = answerJsonSchema.parse(JSON.parse(raw));
     const { citations, modelCited, proposedCount, invalidCount } = sanitizeCitations(parsed.citations, results);
-    const derivedConfidence = modelCited ? deriveConfidence(results, citations.length) : "unsupported";
+    const derivedConfidence = modelCited ? deriveConfidence(results, citations) : "unsupported";
     const confidence = modelCited ? clampConfidence(parsed.confidence, derivedConfidence) : "unsupported";
     const parsedAnswer = parsed.answer ?? "";
     const nonArtifactParsedAnswer = parsedAnswer.trim() && !looksLikeJsonArtifact(parsedAnswer) ? parsedAnswer : "";
@@ -6543,7 +6568,7 @@ ${qualityRetryInstruction}`
         args.query,
       ),
       grounded: false,
-      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations.length) : "unsupported",
+      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations) : "unsupported",
       citations: hasSources ? fallbackCitations : [],
       sources: answerInputResults,
       modelUsed: null,
@@ -6977,7 +7002,7 @@ ${qualityRetryInstruction}`
               ...baseFallbackAnswer,
               answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
               grounded: true,
-              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations.length),
+              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations),
               routingMode: "extractive",
               routingReason: reviewRouteReason,
               queryAnalysis,

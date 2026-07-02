@@ -6357,6 +6357,7 @@ export function ClinicalDashboard({
     queryText: string,
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
+    onProgress: (message: string) => void = setAnswerProgress,
   ) {
     let response: Response;
     try {
@@ -6387,7 +6388,7 @@ export function ClinicalDashboard({
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
 
-    const payload = await readAnswerStream(response, setAnswerProgress);
+    const payload = await readAnswerStream(response, onProgress);
     return {
       kind: "answer" as const,
       query: queryText,
@@ -6395,7 +6396,10 @@ export function ClinicalDashboard({
     };
   }
 
-  async function runWithRetries<T>(operation: () => Promise<T>) {
+  async function runWithRetries<T>(
+    operation: () => Promise<T>,
+    onProgress: (message: string) => void = setAnswerProgress,
+  ) {
     let lastError: unknown;
     for (let attempt = 0; attempt <= searchRetryCount; attempt += 1) {
       try {
@@ -6405,7 +6409,7 @@ export function ClinicalDashboard({
         if (!isRetryableError(error) || attempt >= searchRetryCount) break;
 
         const message = progressForRetry(attempt + 1);
-        setAnswerProgress(message);
+        onProgress(message);
         await sleep(searchRetryDelaysMs[attempt] ?? searchRetryDelaysMs[searchRetryDelaysMs.length - 1]);
       }
     }
@@ -6418,6 +6422,13 @@ export function ClinicalDashboard({
     }
     return answerPayloadIsUsable(payload.payload);
   }
+
+  // Audit M10: monotonically increasing token identifying the latest search.
+  // Concurrent searches (URL-bootstrap auto-search racing a user submit) can
+  // resolve out of order; only the latest request may commit answer/sources/
+  // error/loading state, or a stale response would display one query's answer
+  // under another query's composer text.
+  const searchRequestSeqRef = useRef(0);
 
   function applySearchResult(payload: SearchResultModePayload) {
     if (payload.kind === "documents") {
@@ -6474,6 +6485,14 @@ export function ClinicalDashboard({
       setError("Search setup not ready.");
       return;
     }
+    const requestId = ++searchRequestSeqRef.current;
+    // M10 (diff-review hardening): progress updates emitted by this request's
+    // in-flight machinery (retry messages, keyword fallback, stream progress)
+    // must also be discarded once a newer search takes over, or a slow stale
+    // request repaints the progress banner under the newer query.
+    const onProgress = (message: string | null) => {
+      if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
+    };
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -6481,7 +6500,7 @@ export function ClinicalDashboard({
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
     setAnswerViewMode("high_yield");
-    setAnswerProgress(modeSearch.progressLabel);
+    onProgress(modeSearch.progressLabel);
     rememberRecentQuery(trimmedQuery);
 
     const fallbackQuery = keywordQueryFromNaturalLanguage(trimmedQuery);
@@ -6498,13 +6517,16 @@ export function ClinicalDashboard({
       let lastError: SearchError | null = null;
 
       for (const entry of queryPlan) {
-        if (entry.isKeyword) setAnswerProgress("Trying keyword-based search...");
+        if (entry.isKeyword) onProgress("Trying keyword-based search...");
 
         try {
           const payload =
             modeSearch.kind === "documents"
-              ? await runWithRetries(() => requestDocuments(entry.query, filtersOverride, targetQueryMode))
-              : await runWithRetries(() => requestAnswer(entry.query, filtersOverride, targetQueryMode));
+              ? await runWithRetries(() => requestDocuments(entry.query, filtersOverride, targetQueryMode), onProgress)
+              : await runWithRetries(
+                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress),
+                  onProgress,
+                );
 
           if (!resultUsable(payload)) {
             lastError = makeSearchError("No usable results were found.", 404, false);
@@ -6530,12 +6552,17 @@ export function ClinicalDashboard({
         throw new Error("Search did not return usable results.");
       }
 
-      applySearchResult(successfulPayload);
+      // M10: discard a stale response — a newer search owns the UI state.
+      if (requestId === searchRequestSeqRef.current) applySearchResult(successfulPayload);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Search failed");
+      if (requestId === searchRequestSeqRef.current) {
+        setError(requestError instanceof Error ? requestError.message : "Search failed");
+      }
     } finally {
-      setLoading(false);
-      setAnswerProgress(null);
+      if (requestId === searchRequestSeqRef.current) {
+        setLoading(false);
+        setAnswerProgress(null);
+      }
     }
   }
 

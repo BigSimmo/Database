@@ -259,7 +259,10 @@ const siteDefinitions: SiteDefinition[] = [
     canonical: "BMJ Best Practice",
     rawTags: ["bmj"],
     kind: "reference_collection",
-    evidence: [/\bbmj\b/i, /\bbest practice\b/i],
+    // Audit M7: require the "bmj" token. The generic phrase "best practice"
+    // appears in ordinary local policies ("in line with best practice…") and
+    // falsely attributed them to an external commercial reference.
+    evidence: [/\bbmj\b/i],
   },
 ];
 
@@ -1239,10 +1242,27 @@ export function canonicalDocumentDisplayTitle(input: Pick<OrganizationDocumentIn
   return smartDocumentTitle(cleaned || input.title || input.file_name).replace(/\b([A-Z]{2,}) - ([A-Z])\b/g, "$1-$2");
 }
 
+// Bracketed segments are the raw-tag channel handled separately by
+// extractDocumentBracketTags; they must not leak into the corroborating
+// evidence haystack, or a bare "(FSH)" tag would confirm itself.
+function withoutBracketSegments(value: string) {
+  return value.replace(/[\[(][^\])(]{1,80}[\])]/g, " ");
+}
+
 function evidenceText(input: OrganizationDocumentInput) {
   const metadata = metadataRecord(input.metadata);
   return [
-    input.source_path ?? "",
+    // Audit M6: the title and file name are often the ONLY place a site is
+    // named in plain text (e.g. "Sir Charles Gairdner Hospital Sepsis
+    // Pathway"); omitting them left such documents site=null/needs_review.
+    // Bracket tags are stripped so an uncorroborated "(FSH)" stays a
+    // low-confidence candidate (needs_review) rather than self-confirming.
+    withoutBracketSegments(input.title ?? ""),
+    withoutBracketSegments(input.file_name ?? ""),
+    // source_path usually echoes the file name (e.g. "imports/[FSH] x.pdf"),
+    // so its bracket segments must be stripped too or a bare tag would
+    // self-confirm through this channel (diff-review hardening of M6).
+    withoutBracketSegments(input.source_path ?? ""),
     input.contentText ?? "",
     input.summaryText ?? "",
     metadataString(metadata, "publisher"),
@@ -1334,7 +1354,12 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
   const confirmedCandidates = candidates.filter((candidate) => candidate.confidence >= 0.75);
   const selected = selectSiteCandidate(confirmedCandidates) ?? null;
 
-  const referenceCollection = !selected && candidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
+  // Audit M5: gate the reference fallbacks on the absence of a CONFIRMED
+  // candidate, not on candidates.length — an unconfirmed bracket-tag guess
+  // (confidence 0.58, no corroborating evidence) used to suppress both
+  // fallbacks and leave an obvious clinical reference as site=null.
+  const referenceCollection =
+    !selected && confirmedCandidates.length === 0 ? referenceCollectionFromEvidence(input) : null;
   if (referenceCollection) {
     return {
       label: referenceCollection.canonical,
@@ -1343,12 +1368,12 @@ function classifySite(input: OrganizationDocumentInput, rawTags: string[]) {
       kind: referenceCollection.kind,
       confidence: 0.86,
       evidence_sources: [`source:${referenceCollection.rawTags[0]}`],
-      candidates: [],
+      candidates,
     };
   }
 
-  if (!selected && candidates.length === 0 && hasGeneralClinicalReferenceEvidence(input)) {
-    return generalClinicalReferenceSite;
+  if (!selected && confirmedCandidates.length === 0 && hasGeneralClinicalReferenceEvidence(input)) {
+    return { ...generalClinicalReferenceSite, candidates };
   }
 
   return {

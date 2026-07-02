@@ -1931,30 +1931,35 @@ describe("private document API access", () => {
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
-  it("blocks permanent delete while a document is actively indexing", async () => {
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select") {
-        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: "source.pdf" });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok([{ id: "job-1", status: "processing" }]);
-      }
-      return ok([]);
-    });
-    mockRuntime(client);
-    const { DELETE } = await import("../src/app/api/documents/[id]/route");
+  // M9 (audit 2026-07-01): the guard covers PENDING jobs too — a just-queued
+  // reindex racing a delete used to orphan freshly-uploaded storage objects.
+  it.each(["processing", "pending"] as const)(
+    "blocks permanent delete while a document has %s indexing work",
+    async (jobStatus) => {
+      const client = createSupabaseMock((call) => {
+        if (call.table === "documents" && call.operation === "select") {
+          return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: "source.pdf" });
+        }
+        if (call.table === "ingestion_jobs" && call.operation === "select") {
+          return ok([{ id: "job-1", status: jobStatus }]);
+        }
+        return ok([]);
+      });
+      mockRuntime(client);
+      const { DELETE } = await import("../src/app/api/documents/[id]/route");
 
-    const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
-      params: Promise.resolve({ id: documentId }),
-    });
+      const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
+        params: Promise.resolve({ id: documentId }),
+      });
 
-    expect(response.status).toBe(409);
-    expect(await payload(response)).toEqual({
-      error: "Document is currently indexing. Stop or wait for the worker before deleting.",
-    });
-    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
-    expect(client.storageMocks.remove).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(409);
+      expect(await payload(response)).toEqual({
+        error: "Document has pending or processing indexing work. Stop or wait for the worker before deleting.",
+      });
+      expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
+      expect(client.storageMocks.remove).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects unauthenticated search and answer requests", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({

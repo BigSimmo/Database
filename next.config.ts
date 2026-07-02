@@ -28,7 +28,7 @@ const securityHeaders = [
       upgradeInsecureRequests +
       "img-src 'self' data: blob: https:; " +
       "media-src 'self' https:; " +
-      "connect-src 'self' https://sjrfecxgysukkwxsowpy.supabase.co https://*.supabase.co https://api.openai.com; " +
+      "connect-src 'self' https://*.supabase.co https://api.openai.com; " +
       scriptSrc +
       "style-src 'self' 'unsafe-inline'",
   },

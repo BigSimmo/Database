@@ -1,4 +1,4 @@
-import { clinicalVocabularyTerms } from "@/lib/clinical-vocabulary";
+import { clinicalVocabularyMatches, clinicalVocabularyTerms } from "@/lib/clinical-vocabulary";
 import type { ImageEvidenceCategory } from "@/lib/types";
 
 export const visualIntelligenceVersion = "visual-intelligence-v1" as const;
@@ -398,9 +398,13 @@ export function deterministicStructuredVisualProfile(args: {
     {
       clinical_purpose: compact([args.tableTitle, args.tableLabel, args.caption].filter(Boolean).join(" | "), 280),
       key_terms: clinicalVocabularyTerms(text, 12),
-      medications: clinicalVocabularyTerms(text, 24).filter((term) =>
-        /clozapine|lithium|olanzapine|lorazepam|haloperidol|diazepam|antipsychotic/i.test(term),
-      ),
+      // Audit L6: derive medications from the clinical vocabulary's medication
+      // category instead of a hardcoded drug allowlist, which silently dropped
+      // vocabulary drugs (quetiapine, risperidone, promethazine, …) from the
+      // fallback profile.
+      medications: clinicalVocabularyMatches(text, 24)
+        .filter((entry) => entry.type === "medication")
+        .map((entry) => entry.canonical),
       thresholds,
       actions: text.match(/\b(?:withhold|cease|stop|repeat|monitor|review|escalate|continue)[^.|\n]{0,120}/gi) ?? [],
       monitoring_items: text.match(/\b(?:FBC|ANC|WBC|level|observations?|monitoring|blood test)[^.|\n]{0,80}/gi) ?? [],

@@ -45,6 +45,38 @@ function sourceMetadata(
 }
 
 describe("retrieval source selection", () => {
+  // Audit H3 disposition (2026-07-02): SUPERSEDED by PR #118, which removed
+  // source-governance metadata weighting from retrieval selection entirely —
+  // measured on the golden retrieval eval (doc-recall@5 1.0 -> 0.76 with
+  // weighting). There are no freshness/validation penalties in selection to
+  // propagate; governance is enforced by ranking penalties and the
+  // answer/source-governance layer. See the amended governance contract test
+  // below ("keeps relevance ordering ...").
+
+  // L4: stacked boosts must never push the annotated score above 1.0.
+  it("clamps the annotated hybrid_score to at most 1.0 (L4)", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What IM or PO options are listed for agitation?",
+      queryClass: "medication_dose_risk",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "high-base",
+          title: "Agitation Medication Chart",
+          content: "IM and PO options for agitation: olanzapine 5-10 mg PO, droperidol 5 mg IM.",
+          hybrid_score: 0.98,
+          source_metadata: sourceMetadata(),
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title"] },
+        }),
+      ],
+    });
+
+    const annotated = selection.results.find((result) => result.id === "high-base");
+    expect(annotated).toBeDefined();
+    expect(annotated!.hybrid_score).toBeLessThanOrEqual(1);
+  });
+
   it("rescues active-community ED document evidence above generic community hits", () => {
     const selection = selectRetrievalEvidence({
       query: "How are active community patients in ED managed?",
@@ -278,7 +310,13 @@ describe("retrieval source selection", () => {
     );
   });
 
-  it("prefers current locally reviewed clozapine threshold evidence over close review-required sources", () => {
+  // Contract changed 2026-07-02 (measured): source-governance metadata must NOT reorder retrieval
+  // selection. The corpus is only partially enriched — unenriched documents normalize to
+  // unknown/unverified — so metadata weighting in selection buried correct documents on the golden
+  // retrieval eval (doc-recall@5 1.0 -> 0.76, 7/23 failures). Selection orders by relevance
+  // (clamped score -> lexical -> rerank); governance is enforced by ranking penalties and the
+  // answer/source-governance layer instead (RC8 tracked in docs/rag-hybrid-findings-and-todo.md).
+  it("keeps relevance ordering and does not let source-governance metadata reorder selection", () => {
     const selection = selectRetrievalEvidence({
       query: "What ANC or FBC threshold should withhold clozapine?",
       queryClass: "table_threshold",
@@ -328,16 +366,15 @@ describe("retrieval source selection", () => {
     });
 
     expect(selection.results).toHaveLength(5);
+    // Relevance (hybrid) order is preserved; the review-due and unverified sources are NOT demoted
+    // here — their governance state is surfaced/penalised by the ranking and answer layers.
     expect(selection.results.map((result) => result.id)).toEqual([
+      "review-due-shared-care",
+      "current-unverified-bmj",
       "current-local-fsh",
       "current-local-nmhs",
       "current-local-akg",
-      "current-local-camhs",
-      "current-local-smhs",
     ]);
-    expect(
-      selection.results.every((result) => result.source_metadata?.clinical_validation_status === "locally_reviewed"),
-    ).toBe(true);
   });
 
   it("prefers risk/red-zone flowchart evidence over generic flowchart evidence", () => {

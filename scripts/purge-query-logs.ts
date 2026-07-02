@@ -27,7 +27,11 @@ function parseArgs(argv: string[]): PurgeArgs {
     index += 1;
 
     if (token === "--owner-email") args.ownerEmail = value;
-    if (token === "--older-than-days") args.olderThanDays = Number.parseInt(value, 10);
+    else if (token === "--older-than-days") args.olderThanDays = Number.parseInt(value, 10);
+    // Audit L1: fail loudly on unknown flags. A typo'd flag used to silently
+    // swallow its value (e.g. --owner-emial ate the email), and the purge then
+    // ran against the env-configured owner instead of the intended one.
+    else throw new Error(`Unknown argument ${token}`);
   }
 
   if (!args.ownerEmail) throw new Error("Provide --owner-email.");

@@ -1,4 +1,5 @@
 import { formatCitationLabel } from "@/lib/citations";
+import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
 import { parseAnswerDisplayContent, type AnswerDisplayGroup } from "@/lib/answer-formatting";
 import {
   clipboardProvenanceLine,
@@ -598,16 +599,34 @@ export function buildHighYieldClinicalOutputSections(answer: RagAnswer | null | 
     .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
 }
 
+// Audit H4+M8+M16: the copied ward-note/clipboard table must go through the
+// SAME conservative normalization as the on-screen AccessibleTable, so that
+// (a) the "verify values against the source document" caveat for tables whose
+// structure could not be confidently reconstructed is not silently dropped
+// from the pasted artifact (H4), (b) a markdown-parsed header row is never
+// re-emitted as the first data row when explicit columns exist (M8), and
+// (c) ragged rows are padded so values cannot shift into the wrong column
+// (M16).
 function clinicalTableToTextRows(table: ClinicalThresholdTable) {
-  const rows = table.rows?.length ? table.rows : parseMarkdownTable(table.markdown);
-  if (!rows?.length) return [];
-  const hasColumns = Boolean(table.columns?.length);
-  const header = hasColumns ? (table.columns ?? []) : rows[0];
-  const body = hasColumns ? rows : rows.slice(1);
-  const visibleBody = body.slice(0, 6);
+  const explicitRows = table.rows?.length ? table.rows : null;
+  const parsedRows = explicitRows ? null : parseMarkdownTable(table.markdown);
+  const rawRows = explicitRows ?? parsedRows;
+  if (!rawRows?.length) return [];
+  // Markdown-parsed rows include the header line as row 0; let the normalizer
+  // treat it as the header instead of trusting table.columns (M8). Explicit
+  // rows carry no header row, so table.columns is the header there.
+  const normalized = normalizeAccessibleTable(rawRows, explicitRows ? table.columns : null, {
+    conservativeClinical: true,
+  });
+  if (!normalized) return [];
+  const header = normalized.header;
+  const visibleBody = normalized.body.slice(0, 6);
 
   return [
     table.caption,
+    normalized.lowConfidence
+      ? "Table structure could not be confidently reconstructed — verify values against the source document."
+      : "",
     header.length ? `| ${header.join(" | ")} |` : "",
     header.length ? `| ${header.map(() => "---").join(" | ")} |` : "",
     ...visibleBody.map((row) => `| ${row.join(" | ")} |`),
@@ -777,12 +796,15 @@ function highYieldSectionsForOutput(answer: RagAnswer, bottomLine: string) {
 }
 
 function sectionOutputLines(section: ClinicalOutputSection) {
-  return [
-    section.title,
-    ...section.items.map((item) => `- ${item}`),
-    ...(section.tables ?? []).flatMap(clinicalTableToTextRows),
-    "",
-  ];
+  // Diff-review hardening of audit H4: sections are gated on the RAW table
+  // shape (tableHasUsableShape), but emission now runs through
+  // normalizeAccessibleTable, which can reject a table the shape gate passed
+  // (e.g. header-continuation absorbs the only body row, or all cells are
+  // dash placeholders). A section whose items are empty and whose tables all
+  // normalize to nothing must not emit a dangling heading.
+  const tableLines = (section.tables ?? []).flatMap(clinicalTableToTextRows);
+  if (section.items.length === 0 && tableLines.length === 0) return [];
+  return [section.title, ...section.items.map((item) => `- ${item}`), ...tableLines, ""];
 }
 
 function citationOutputLines(answer: RagAnswer) {

@@ -59,6 +59,11 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // Audit M15: server-side key for the redacted query hash. When set, stored
+  // query hashes are HMAC-SHA256 (not offline-reversible, not correlatable
+  // outside this deployment). When unset, the legacy unsalted SHA-256 is kept
+  // for continuity with previously stored rows.
+  RAG_QUERY_HASH_SECRET: z.string().min(16).optional(),
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(150),

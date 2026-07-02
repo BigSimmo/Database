@@ -663,8 +663,12 @@ async function buildScopedSearchPayload(
         limit: body.mode === "documents" ? body.documentLimit : undefined,
       })
     : [];
-  const smartPanel = buildSmartPanel(searchFocusQuery, results);
+  // Audit L10: compute relevance/visual evidence ONCE and share with the
+  // smart panel — the panel's own recomputation was discarded by the spread
+  // at payload build time anyway.
   const relevance = buildEvidenceRelevance(searchFocusQuery, results);
+  const visualEvidence = buildVisualEvidence(results);
+  const smartPanel = buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence });
   const documentMatches =
     body.mode === "documents"
       ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
@@ -691,7 +695,7 @@ async function buildScopedSearchPayload(
   const payload = {
     results: compactSearchResults(searchFocusQuery, results),
     facets: buildSearchFacets(results),
-    visualEvidence: buildVisualEvidence(results),
+    visualEvidence,
     relevance,
     relatedDocuments: relatedDocuments.map((document) => ({
       document_id: document.document_id,
@@ -813,12 +817,16 @@ export async function POST(request: Request) {
               results,
             )
           : [];
+      const cachedVisualEvidence = buildVisualEvidence(results);
       return NextResponse.json({
         results: compactSearchResults(searchFocusQuery, results),
         facets: buildSearchFacets(results),
-        visualEvidence: buildVisualEvidence(results),
+        visualEvidence: cachedVisualEvidence,
         relevance,
-        smartPanel: { ...buildSmartPanel(searchFocusQuery, results), relevance },
+        smartPanel: {
+          ...buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence: cachedVisualEvidence }),
+          relevance,
+        },
         smartApiPlan: buildSmartRagApiPlan({
           query: searchFocusQuery,
           queryClass,
