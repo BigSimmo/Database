@@ -35,18 +35,47 @@ function supabaseStageError(stage: string, error: unknown) {
   return wrapped;
 }
 
+const booleanFlags = new Set(["--apply", "--yes"]);
+const valueFlags = new Set(["--stale-after-minutes", "--limit"]);
+
+// Audit L2 (hardened after diff review): this script mutates ingestion state,
+// so argument parsing fails loudly on ANY surprise —
+//   - unknown/typo'd flag names ("--limt 5" used to be ignored, silently
+//     recovering up to 20 jobs instead of the intended 5),
+//   - a value-flag with a missing or empty value ("--limit" at the end of the
+//     line, "--limit="),
+//   - provided-but-malformed numeric values ("--limit 5O").
 function parseArgs(argv: string[]) {
-  const valueFor = (name: string) => {
-    const inline = argv.find((arg) => arg.startsWith(`--${name}=`))?.split("=")[1];
-    if (inline) return inline;
-    const index = argv.indexOf(`--${name}`);
-    return index >= 0 ? argv[index + 1] : undefined;
+  const values = new Map<string, string>();
+  const booleans = new Set<string>();
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (booleanFlags.has(token)) {
+      booleans.add(token);
+      continue;
+    }
+    const equalsIndex = token.indexOf("=");
+    const name = equalsIndex >= 0 ? token.slice(0, equalsIndex) : token;
+    if (!valueFlags.has(name)) throw new Error(`Unknown argument ${token}`);
+    const value = equalsIndex >= 0 ? token.slice(equalsIndex + 1) : argv[index + 1];
+    if (equalsIndex < 0) index += 1;
+    if (!value || value.startsWith("--")) throw new Error(`Missing value for ${name}`);
+    values.set(name, value);
+  }
+  const positiveIntFor = (name: string) => {
+    const raw = values.get(`--${name}`);
+    if (raw === undefined) return undefined;
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== raw.trim()) {
+      throw new Error(`--${name} must be a positive integer (received "${raw}").`);
+    }
+    return parsed;
   };
   return {
-    apply: argv.includes("--apply"),
-    yes: argv.includes("--yes"),
-    staleAfterMinutes: Number.parseInt(valueFor("stale-after-minutes") ?? "", 10),
-    limit: Number.parseInt(valueFor("limit") ?? "", 10),
+    apply: booleans.has("--apply"),
+    yes: booleans.has("--yes"),
+    staleAfterMinutes: positiveIntFor("stale-after-minutes"),
+    limit: positiveIntFor("limit"),
   };
 }
 
@@ -64,10 +93,8 @@ async function main() {
   ]);
   requireServerEnv();
   const args = parseArgs(process.argv.slice(2));
-  const staleAfterMinutes = Number.isFinite(args.staleAfterMinutes)
-    ? args.staleAfterMinutes
-    : env.WORKER_STALE_AFTER_MINUTES;
-  const limit = Number.isFinite(args.limit) ? args.limit : 20;
+  const staleAfterMinutes = args.staleAfterMinutes ?? env.WORKER_STALE_AFTER_MINUTES;
+  const limit = args.limit ?? 20;
   const supabase = createAdminClient();
 
   console.log("=== Ingestion Queue Recovery ===");

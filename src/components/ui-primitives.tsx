@@ -151,12 +151,16 @@ export function SourceStatusBadge({
 
 export function SourceProvenance({ metadata }: { metadata?: unknown }) {
   const source = normalizeSourceMetadata(metadata);
+  const reviewDate = formatClinicalDate(source.review_date);
+  // Unknown review date / jurisdiction segments are dropped as filler; the
+  // validation and extraction-quality labels always stay — they are clinical
+  // governance signals, not noise.
   const items = [
     validationStatusLabel(source),
-    `Review ${formatClinicalDate(source.review_date)}`,
-    source.jurisdiction ?? "Jurisdiction unknown",
+    reviewDate === "Unknown" ? null : `Review ${reviewDate}`,
+    source.jurisdiction,
     extractionQualityLabel(source),
-  ];
+  ].filter((item): item is string => Boolean(item));
 
   return (
     <div className={compactMetadataRow}>

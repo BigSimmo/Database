@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeClinicalQuery,
   buildClinicalTextSearchQuery,
+  classifyQueryIntent,
   classifyRagQuery,
   clinicalRankExplanation,
   expandClinicalQuery,
@@ -36,6 +37,15 @@ describe("clinical search query normalization", () => {
   it("classifies common RAG query shapes for routing and observability", () => {
     expect(classifyRagQuery("Find the NOCC document").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What should a patient safety plan include?").queryClass).toBe("document_lookup");
+    // M2/M3 (audit 2026-07-01): intent signals match at word boundaries, and
+    // explicit dose vocabulary survives escalation-word cancellation.
+    expect(classifyQueryIntent("What is the time limit for a notable review?").hasDosingSignals).toBe(false);
+    expect(classifyQueryIntent("What is the time limit for a notable review?").imageEvidenceFocus).toBe(false);
+    expect(classifyQueryIntent("clozapine dose review schedule").hasDosingSignals).toBe(true);
+    expect(classifyQueryIntent("What IM options are listed for agitation?").hasDosingSignals).toBe(true);
+    expect(classifyQueryIntent("clozapine 100mg starting schedule").hasDosingSignals).toBe(true);
+    expect(classifyQueryIntent("Show the monitoring table for lithium").imageEvidenceFocus).toBe(true);
+
     expect(classifyRagQuery("What forms are required for a patient safety plan?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What are NOCC requirements?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What assessment documentation is required?").queryClass).toBe("document_lookup");

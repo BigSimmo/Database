@@ -321,6 +321,14 @@ function bytesFromHashInput(input: string | Uint8Array | ArrayBuffer) {
   return input;
 }
 
+// Audit M12: the previous 16-bucket / 16-bit digest (65,536 possible values)
+// realistically collided across distinct same-dimension clinical table crops,
+// silently collapsing two DIFFERENT threshold tables into one searchable
+// "visual family" (one of them was dropped from the index). The v2 digest
+// uses 64 buckets with both a mean-threshold bit pattern (64 bits) and a
+// 2-bit quantized level per bucket (128 bits), making accidental collisions
+// across a document corpus negligible. The version prefix is bumped
+// (ph1 -> ph2) so legacy stored hashes can never alias newly computed ones.
 export function lightweightPerceptualHash(
   imageContent: string | Uint8Array | ArrayBuffer,
   width?: number | null,
@@ -328,9 +336,9 @@ export function lightweightPerceptualHash(
 ) {
   const bytes = bytesFromHashInput(imageContent);
   const sizeKey = `${width ?? "w"}x${height ?? "h"}`;
-  if (bytes.length === 0) return `ph1:${sizeKey}:empty`;
+  if (bytes.length === 0) return `ph2:${sizeKey}:empty`;
 
-  const bucketCount = 16;
+  const bucketCount = 64;
   const buckets = new Array<number>(bucketCount).fill(0);
   const counts = new Array<number>(bucketCount).fill(0);
   const step = Math.max(1, Math.floor(bytes.length / 4096));
@@ -345,7 +353,15 @@ export function lightweightPerceptualHash(
 
   const averages = buckets.map((sum, index) => sum / Math.max(counts[index], 1));
   const mean = averages.reduce((sum, value) => sum + value, 0) / bucketCount;
-  const bitString = averages.map((value) => (value >= mean ? "1" : "0")).join("");
-  const hex = Number.parseInt(bitString, 2).toString(16).padStart(4, "0");
-  return `ph1:${sizeKey}:${hex}`;
+  const maxAverage = Math.max(...averages, 1);
+  const thresholdBits = averages.map((value) => (value >= mean ? "1" : "0")).join("");
+  const levelBits = averages
+    .map((value) => {
+      const level = Math.min(3, Math.floor((value / maxAverage) * 4));
+      return level.toString(2).padStart(2, "0");
+    })
+    .join("");
+  const thresholdHex = BigInt(`0b${thresholdBits}`).toString(16).padStart(16, "0");
+  const levelHex = BigInt(`0b${levelBits}`).toString(16).padStart(32, "0");
+  return `ph2:${sizeKey}:${thresholdHex}${levelHex}`;
 }

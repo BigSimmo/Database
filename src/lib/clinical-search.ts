@@ -557,8 +557,19 @@ function clamp(value: number) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
+// Audit M2: intent signal words match at word boundaries, not as bare
+// substrings — "time limit" used to trigger the "im" dosing signal and
+// "notable" the "table" visual signal, corrupting ranking boosts. Short
+// acronym-like tokens (im, po, mg, prn, mcg) must match as whole words, with
+// a digit-adjacent allowance so unit-attached doses ("100mg") still count;
+// longer entries keep deliberate prefix semantics ("escalat" → escalation,
+// "table" → tables).
 function containsAny(value: string, values: readonly string[]) {
-  return values.some((item) => value.includes(item));
+  return values.some((item) => {
+    const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = item.length <= 3 ? `(?:\\b|\\d)${escaped}\\b` : `\\b${escaped}`;
+    return new RegExp(pattern, "i").test(value);
+  });
 }
 
 function normalizeQueryTokenForLookups(value: string) {
@@ -760,18 +771,24 @@ function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string |
   return 0;
 }
 
+// Explicit dose vocabulary that must survive escalation-word cancellation
+// (audit M3): "clozapine dose review schedule" is a genuine dosing query even
+// though "review" is an escalation signal word.
+const explicitDoseTerms = ["dose", "dosage", "dosing", "titrat", "mg", "mcg"] as const;
+
 export function classifyQueryIntent(query: string): IntentSignals {
   const lowered = query.toLowerCase();
   const match = intentPatterns.find((entry) => entry.pattern.test(query));
   const hasDosingSignals = containsAny(lowered, intentSignalWords.dosing);
   const hasEscalationSignals = containsAny(lowered, intentSignalWords.escalation);
   const hasImageSignals = containsAny(lowered, intentSignalWords.visuals);
+  const hasExplicitDoseTerm = containsAny(lowered, explicitDoseTerms);
 
   return {
     intent: match?.intent ?? "general",
     imageEvidenceFocus: Boolean(match?.imageEvidenceFocus) || hasImageSignals,
     sectionedLookup: Boolean(match?.sectionedLookup),
-    hasDosingSignals: hasDosingSignals && !hasEscalationSignals,
+    hasDosingSignals: hasDosingSignals && (hasExplicitDoseTerm || !hasEscalationSignals),
   };
 }
 

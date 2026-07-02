@@ -287,7 +287,13 @@ function fallbackVisualUnitType(
   profile: StructuredVisualProfile,
   text: string,
 ): DocumentIndexUnitType {
-  if (/\b(?:flow\s*chart|flowchart|algorithm|decision|yes|no|next step|pathway)\b/i.test(text)) return "flowchart_step";
+  // Audit M4: bare "yes"/"no" are common TABLE cell values ("No further
+  // action", a Yes/No column), so they only count as flowchart evidence when
+  // the image is not structurally a table (table_crop / extracted rows).
+  // Specific flowchart terms still win outright.
+  const structuralTable = image.sourceKind === "table_crop" || (image.tableRows?.length ?? 0) > 0;
+  if (/\b(?:flow\s*chart|flowchart|algorithm|decision|next step|pathway)\b/i.test(text)) return "flowchart_step";
+  if (!structuralTable && /\b(?:yes|no)\b/i.test(text)) return "flowchart_step";
   if (/\b(?:risk matrix|red zone|likelihood|consequence|high risk|visual alert)\b/i.test(text))
     return "risk_matrix_cell";
   if (
