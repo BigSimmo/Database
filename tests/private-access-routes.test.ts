@@ -328,6 +328,28 @@ afterEach(() => {
 });
 
 describe("private document API access", () => {
+  it("still requires a valid token even when local no-auth mode is enabled", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(localPortRequest(4298, "/api/documents"));
+
+    expect(response.status).toBe(401);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("accepts authenticated bearer tokens in local no-auth mode", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents"));
+
+    expect(response.status).toBe(200);
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+  });
   it("rejects local no-auth private calls from unmanaged localhost ports before Supabase access", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
@@ -375,10 +397,10 @@ describe("private document API access", () => {
     const response = await GET(localPortRequest(4298, "/api/documents"));
     const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: "Authentication required." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(client.calls[0]).toMatchObject({ table: "documents", selected: "owner_id" });
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("resolves configured local no-auth owner email before document fallback", async () => {
@@ -402,13 +424,10 @@ describe("private document API access", () => {
     const response = await GET(localPortRequest(4298, "/api/documents"));
     const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.auth.admin.listUsers.mock.invocationCallOrder[0]).toBeLessThan(
-      client.from.mock.invocationCallOrder[0],
-    );
-    expect(client.calls.some((call) => call.selected === "owner_id")).toBe(false);
-    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: "Authentication required." });
+    expect(client.auth.admin.listUsers).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("rejects unauthenticated document listing", async () => {
@@ -2772,9 +2791,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
-    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: userId }));
-    expect(client.rpc).toHaveBeenCalledWith(
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toEqual({ error: "Authentication required." });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_owner_id: userId, p_bucket: "search" }),
     );
@@ -2928,12 +2948,10 @@ describe("private document API access", () => {
     );
     const body = await response.text();
 
-    expect(response.status).toBe(200);
-    expect(body).toContain("event: final");
-    expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
-    );
-    expect(client.rpc).toHaveBeenCalledWith(
+    expect(response.status).toBe(401);
+    expect(body).toBeTruthy();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
     );
