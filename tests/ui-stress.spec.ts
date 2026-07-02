@@ -324,7 +324,11 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(evidenceDrawer).toBeVisible();
         expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
         const evidenceSummary = evidenceDrawer.locator("summary");
+        // Confirm focus has actually landed before pressing Enter: in WebKit the
+        // key event can otherwise fire before the summary is focused, so the
+        // <details> never toggles open and the panel stays hidden.
         await evidenceSummary.focus();
+        await expect(evidenceSummary).toBeFocused();
         await page.keyboard.press("Enter");
         const evidenceReview = page.getByTestId("evidence-support-panel");
         await expect(evidenceReview).toBeVisible();
