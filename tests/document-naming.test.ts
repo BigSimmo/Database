@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/supabase/database.types";
 import { documentTitleKey, planDocumentName, smartDocumentTitle } from "../src/lib/document-naming";
 
 function supabaseWithDocuments(documents: unknown[]) {
@@ -10,7 +12,7 @@ function supabaseWithDocuments(documents: unknown[]) {
         }),
       }),
     }),
-  };
+  } as unknown as SupabaseClient<Database>;
 }
 
 describe("document naming", () => {

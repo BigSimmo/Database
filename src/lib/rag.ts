@@ -89,6 +89,7 @@ import type {
   ConflictOrGap,
   ClinicalQueryAnalysis,
   DocumentIndexQuality,
+  DocumentIndexQualityScore,
   DocumentIndexUnitMatch,
   DocumentMemoryCard,
   EvidenceRelevance,
@@ -2917,8 +2918,8 @@ async function attachIndexQualityMetadata(
     const qualityByDocument = new Map(data.map((row) => [row.document_id, row]));
     return results.map((result) => ({
       ...result,
-      indexing_quality: qualityByDocument.get(result.document_id) ?? result.indexing_quality ?? null,
-    }));
+      indexing_quality: (qualityByDocument.get(result.document_id) as unknown as DocumentIndexQualityScore | undefined) ?? result.indexing_quality ?? null,
+    })) as SearchResult[];
   } catch {
     return results;
   }
@@ -5645,12 +5646,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     (async () => {
       const startedAt = Date.now();
       const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
-        query_embedding: embedding,
+        query_embedding: embedding as unknown as string,
         query_text: textSearchQuery,
         match_count: candidateCount,
         min_similarity: minSimilarity,
-        document_filters: documentFilterList ?? null,
-        owner_filter: args.ownerId ?? null,
+        document_filters: documentFilterList ?? undefined,
+        owner_filter: args.ownerId ?? undefined,
       });
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -5738,11 +5739,11 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const resultSets = await Promise.all(
     vectorFilters.map(async (documentFilter) => {
       const { data, error } = await supabase.rpc("match_document_chunks", {
-        query_embedding: embedding,
+        query_embedding: embedding as unknown as string,
         match_count: candidateCount,
         min_similarity: minSimilarity,
-        document_filter: documentFilter,
-        owner_filter: args.ownerId ?? null,
+        document_filter: documentFilter ?? undefined,
+        owner_filter: args.ownerId ?? undefined,
       });
 
       if (error) throw new Error(error.message);

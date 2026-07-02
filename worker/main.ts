@@ -37,6 +37,7 @@ import { safeErrorLogDetails, safeIngestionJobLog } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
+import type { Database } from "../src/lib/supabase/database.types";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkPythonPdfPrerequisites } from "./prerequisites";
@@ -94,7 +95,10 @@ function supabaseStageError(
 }
 
 async function updateJob(jobId: string, patch: Record<string, unknown>) {
-  const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .update(patch as Database["public"]["Tables"]["ingestion_jobs"]["Update"])
+    .eq("id", jobId);
   if (error) throw supabaseStageError("update ingestion job", error);
   if (typeof patch.progress === "number" || typeof patch.stage === "string") {
     progressUpdateState.set(jobId, {
@@ -127,7 +131,10 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 
 async function updateDocument(documentId: string, patch: Record<string, unknown>) {
   const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
-  const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
+  const { error } = await supabase
+    .from("documents")
+    .update(sanitized as Database["public"]["Tables"]["documents"]["Update"])
+    .eq("id", documentId);
   if (error) throw supabaseStageError("update document", error);
 }
 
@@ -191,7 +198,7 @@ async function completeJob(job: JobRow, stage: string) {
   const { error } = await supabase.rpc("complete_ingestion_job", {
     p_job_id: job.id,
     p_document_id: job.document_id,
-    p_batch_id: job.batch_id,
+    p_batch_id: job.batch_id ?? undefined,
     p_stage: stage,
   });
   if (!error) return;
@@ -253,12 +260,12 @@ async function failOrRetryJob(args: {
   const { error } = await supabase.rpc("fail_or_retry_ingestion_job", {
     p_job_id: args.job.id,
     p_document_id: args.job.document_id,
-    p_batch_id: args.job.batch_id,
+    p_batch_id: args.job.batch_id ?? undefined,
     p_retry: args.retry,
     p_document_status: args.documentStatus,
     p_stage: args.stage,
     p_error_message: args.errorMessage,
-    p_next_run_at: args.nextRunAt ?? null,
+    p_next_run_at: args.nextRunAt ?? undefined,
   });
   if (!error) return;
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
@@ -329,7 +336,7 @@ async function claimJobs() {
   });
 
   if (error) throw supabaseStageError("claim ingestion jobs", error);
-  return ((data ?? []) as Array<Omit<JobRow, "documents"> & { documents: JobDocument }>).map((job) => ({
+  return ((data ?? []) as unknown as Array<Omit<JobRow, "documents"> & { documents: JobDocument }>).map((job) => ({
     ...job,
     documents: job.documents,
   })) as JobRow[];
@@ -353,6 +360,7 @@ function cleanString(val: string): string {
 
 type JsonbValue = string | number | boolean | null | { [key: string]: JsonbValue } | JsonbValue[];
 type JsonbRecord = { [key: string]: JsonbValue };
+type DbJson = Database["public"]["Tables"]["documents"]["Row"]["metadata"];
 
 function sanitizeJsonb(val: unknown): JsonbValue {
   if (typeof val === "string") return cleanString(val);
@@ -368,9 +376,9 @@ function sanitizeJsonb(val: unknown): JsonbValue {
   return val as JsonbValue;
 }
 
-function sanitizeJsonbRecord(value: unknown): Record<string, unknown> {
+function sanitizeJsonbRecord(value: unknown): DbJson {
   const sanitized = sanitizeJsonb(value);
-  return typeof sanitized === "object" && sanitized !== null && !Array.isArray(sanitized) ? sanitized : {};
+  return (typeof sanitized === "object" && sanitized !== null && !Array.isArray(sanitized) ? sanitized : {}) as DbJson;
 }
 
 async function resetDocumentIndex(documentId: string) {
@@ -454,8 +462,11 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // fields, index units) cascade with their legacy chunks regardless — the
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
+  // The table names here are known-valid; the cast bypasses the strict union of table names in generated types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fromTable = (table: string) => (supabase as any).from(table);
   const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = supabase.from(table).select("id").eq("document_id", documentId).limit(1);
+    let query = fromTable(table).select("id").eq("document_id", documentId).limit(1);
     query = direct
       ? query.eq("index_generation_id", indexGenerationId)
       : query.eq("metadata->>index_generation_id", indexGenerationId);
@@ -464,26 +475,23 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
     return (data ?? []).length > 0;
   };
   const deleteDirectGenerationRows = async (table: string) => {
-    const stale = await supabase
-      .from(table)
+    const stale = await fromTable(table)
       .delete()
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await supabase.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
+    const missing = await fromTable(table).delete().eq("document_id", documentId).is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
-    const stale = await supabase
-      .from(table)
+    const stale = await fromTable(table)
       .delete()
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, false))) return;
-    const missing = await supabase
-      .from(table)
+    const missing = await fromTable(table)
       .delete()
       .eq("document_id", documentId)
       .is("metadata->>index_generation_id", null);
@@ -500,7 +508,11 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
 }
 
 async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {
-  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality), {
+  const payload = {
+    ...quality,
+    metrics: sanitizeJsonbRecord(quality.metrics),
+  };
+  const { error } = await supabase.from("document_index_quality").upsert(payload, {
     onConflict: "document_id",
   });
   if (error) throw supabaseStageError("upsert document_index_quality", error);
@@ -748,7 +760,7 @@ async function setCachedImageClassification(args: {
       model: env.OPENAI_VISION_MODEL,
       caption: args.classification.caption,
       mime_type: args.mimeType,
-      metadata: {
+      metadata: sanitizeJsonbRecord({
         extractor: "local-worker",
         image_type: args.classification.image_type,
         searchable: args.classification.searchable,
@@ -768,7 +780,7 @@ async function setCachedImageClassification(args: {
         image_caption_cache_version: imageCaptionCacheVersion,
         vision_classification_prompt_version: visionClassificationPromptVersion,
         caption_context_hash: args.contextHash,
-      },
+      }),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "owner_id,image_hash,model" },
@@ -1106,7 +1118,7 @@ async function uploadAndCaptionImages(
         id: data.id,
         caption: data.caption,
         pageNumber: data.page_number,
-        imageType: data.image_type,
+        imageType: data.image_type as ImageEvidenceCategory,
         sourceKind: image.sourceKind ?? "embedded",
         labels: data.labels ?? [],
         tableLabel: tableMetadata.tableLabel,
@@ -1258,11 +1270,11 @@ async function insertDocumentLevelEmbeddingFields(args: {
     field_type: field.field_type,
     content: field.content,
     content_hash: hashEmbeddingFieldContent(field.content),
-    embedding: assertEmbeddingDim(embeddings[index], `document_embedding_fields.${field.field_type}`),
-    metadata: {
+    embedding: assertEmbeddingDim(embeddings[index], `document_embedding_fields.${field.field_type}`) as unknown as string,
+    metadata: sanitizeJsonbRecord({
       source: "document_level",
       index_generation_id: args.chunkRows[0]?.index_generation_id ?? null,
-    },
+    }),
   }));
   const { error } = await supabase.from("document_embedding_fields").insert(rows);
   if (error) throw supabaseStageError("insert document-level embedding fields", error);
@@ -1326,10 +1338,12 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       index_generation_id: indexGenerationId,
       embedding: assertEmbeddingDim(embeddings[index], `document_chunks.${chunk.chunk_index}`),
       metadata: sanitizeJsonbRecord(chunk.metadata),
-    })) satisfies IndexedChunkRow[];
+    })) as unknown as IndexedChunkRow[];
     indexedChunkRows.push(...rows);
 
-    const { error } = await supabase.from("document_chunks").insert(rows);
+    const { error } = await supabase
+      .from("document_chunks")
+      .insert(rows as unknown as Database["public"]["Tables"]["document_chunks"]["Insert"][]);
     if (error) throw new Error(error.message);
 
     const fieldInputs = buildEmbeddingFieldInputs(job, rows);
@@ -1340,7 +1354,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           ...field,
           content: cleanString(field.content),
           content_hash: hashEmbeddingFieldContent(cleanString(field.content)),
-          embedding: assertEmbeddingDim(fieldEmbeddings[index], `document_embedding_fields.section_context.${index}`),
+          embedding: assertEmbeddingDim(fieldEmbeddings[index], `document_embedding_fields.section_context.${index}`) as unknown as string,
           metadata: sanitizeJsonbRecord({ ...field.metadata, index_generation_id: indexGenerationId }),
         }));
         for (let start = 0; start < fieldRows.length; start += 50) {
@@ -1364,7 +1378,9 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     metadata: sanitizeJsonbRecord({ ...row.metadata, index_generation_id: indexGenerationId }),
   }));
   if (tableFacts.length > 0) {
-    const { error: factsError } = await supabase.from("document_table_facts").insert(tableFacts);
+    const { error: factsError } = await supabase
+      .from("document_table_facts")
+      .insert(tableFacts as unknown as Database["public"]["Tables"]["document_table_facts"]["Insert"][]);
     if (factsError)
       optionalIndexWriteIssues.push(
         optionalIndexWriteWarning("table fact", supabaseStageError("insert table facts", factsError)),
@@ -1380,7 +1396,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     },
     chunks: indexedChunkRows,
     images: insertedImages,
-    tableFacts,
+    tableFacts: tableFacts as unknown as Parameters<typeof buildVisualDocumentIndexUnitInputs>[0]["tableFacts"],
   });
   if (visualIndexUnits.length > 0) {
     try {
@@ -1388,10 +1404,12 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       for (let start = 0; start < visualIndexUnits.length; start += 50) {
         const batch = visualIndexUnits.slice(start, start + 50).map((unit, index) => ({
           ...unit,
-          embedding: assertEmbeddingDim(unitEmbeddings[start + index], `document_index_units.visual.${start + index}`),
+          embedding: assertEmbeddingDim(unitEmbeddings[start + index], `document_index_units.visual.${start + index}`) as unknown as string,
           metadata: sanitizeJsonbRecord({ ...unit.metadata, index_generation_id: indexGenerationId }),
         }));
-        const { error: visualUnitError } = await supabase.from("document_index_units").insert(batch);
+        const { error: visualUnitError } = await supabase
+          .from("document_index_units")
+          .insert(batch as unknown as Database["public"]["Tables"]["document_index_units"]["Insert"][]);
         if (visualUnitError) throw supabaseStageError("insert visual index units", visualUnitError);
       }
     } catch (error) {
@@ -1403,7 +1421,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     job,
     chunkRows: indexedChunkRows,
     insertedImages,
-    tableFacts,
+    tableFacts: tableFacts as unknown as Parameters<typeof buildAdditionalEmbeddingFieldInputs>[0]["tableFacts"],
     qualityHint: buildChunkQualityHint(chunks),
   });
   if (additionalFieldInputs.length > 0) {
@@ -1415,7 +1433,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
           ...field,
           content,
           content_hash: hashEmbeddingFieldContent(content),
-          embedding: assertEmbeddingDim(additionalEmbeddings[index], `document_embedding_fields.${field.field_type}`),
+          embedding: assertEmbeddingDim(additionalEmbeddings[index], `document_embedding_fields.${field.field_type}`) as unknown as string,
           metadata: sanitizeJsonbRecord({ ...field.metadata, index_generation_id: indexGenerationId }),
         };
       });
@@ -1614,8 +1632,8 @@ async function processJob(job: JobRow) {
         const deepMemory = await upsertDocumentDeepMemory({
           supabase,
           document: job.documents,
-          chunks: enrichmentRows.chunks,
-          images: enrichmentRows.images,
+          chunks: enrichmentRows.chunks as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["chunks"],
+          images: enrichmentRows.images as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["images"],
           summary: enrichment.summary.summary,
         });
         sectionCount = deepMemory.sections.length;
