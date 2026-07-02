@@ -1566,9 +1566,7 @@ async function getSharedCachedSearch(
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = await cacheIndexingVersion(args);
-  async function probeSharedCacheMissReason(
-    reasonFromLookup?: SharedCacheMissReason,
-  ): Promise<SharedCacheMissReason> {
+  async function probeSharedCacheMissReason(reasonFromLookup?: SharedCacheMissReason): Promise<SharedCacheMissReason> {
     if (reasonFromLookup) return reasonFromLookup;
     try {
       const supabase = createAdminClient();
@@ -5195,16 +5193,13 @@ function cleanAnswerSectionHeading(heading: string, body: string) {
 
 function applyProviderLabels(answer: RagAnswer): RagAnswer {
   const inferredSourceOnlyFallback =
-    answer.routingMode === "extractive" ||
-    /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
+    answer.routingMode === "extractive" || /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
   const answerQualityTier: RagAnswer["answerQualityTier"] =
     answer.answerQualityTier ??
     (answer.modelUsed ? "model_synthesis" : inferredSourceOnlyFallback ? "source_only" : undefined);
   const fallbackReason =
     answer.fallbackReason ??
-    (answerQualityTier === "source_only"
-      ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only")
-      : null);
+    (answerQualityTier === "source_only" ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only") : null);
   const degradedActive = answerQualityTier === "source_only";
   return {
     ...answer,

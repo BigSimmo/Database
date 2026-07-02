@@ -297,11 +297,10 @@ function compactSearchResults(query: string, results: SearchResult[]) {
 function searchDegradedModeSignal(telemetry?: { embedding_skip_reason?: string | null }) {
   const reason = telemetry?.embedding_skip_reason ?? null;
   const active =
-    reason === SOURCE_ONLY_EMBEDDING_SKIP_REASON ||
-    (typeof reason === "string" && reason.startsWith("source_only_"));
+    reason === SOURCE_ONLY_EMBEDDING_SKIP_REASON || (typeof reason === "string" && reason.startsWith("source_only_"));
   return {
     active,
-    reason: active ? reason ?? "source_only" : null,
+    reason: active ? (reason ?? "source_only") : null,
   };
 }
 

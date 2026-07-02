@@ -19,7 +19,10 @@ export type ExistingDocumentName = {
 export type DocumentNameSupabase = {
   from: (table: "documents") => {
     select: (columns: string) => {
-      eq: (column: "owner_id", value: string) => {
+      eq: (
+        column: "owner_id",
+        value: string,
+      ) => {
         limit: (count: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
       };
     };
