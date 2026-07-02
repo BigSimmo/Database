@@ -4,6 +4,7 @@ import {
   deferralDecision,
   metadataNumber,
   missingArtifactPlan,
+  parseJobStatusRpcResult,
   shouldRunVisualArtifacts,
   type CompletionGateRow,
 } from "../supabase/functions/indexing-v3-agent/behavior";
@@ -168,5 +169,66 @@ describe("indexing-v3-agent behavior", () => {
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "4" }, "indexing_v3_agent_deferral_count")).toBe(4);
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "bad" }, "indexing_v3_agent_deferral_count")).toBe(0);
     expect(metadataNumber(null, "indexing_v3_agent_deferral_count", 2)).toBe(2);
+  });
+
+  it("parses strict completion RPC rows returned as direct table columns", () => {
+    const result = parseJobStatusRpcResult(
+      {
+        ok: true,
+        gate_passed: true,
+        status: "completed",
+        missing: [],
+      },
+      "complete_strict_enrichment_job",
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      gate_passed: true,
+      status: "completed",
+      missing: [],
+    });
+  });
+
+  it("parses strict completion RPC rows returned as nested jsonb function columns", () => {
+    const result = parseJobStatusRpcResult(
+      {
+        complete_strict_enrichment_job: {
+          ok: true,
+          gate_passed: true,
+          status: "completed",
+          missing: [],
+        },
+      },
+      "complete_strict_enrichment_job",
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      gate_passed: true,
+      status: "completed",
+      missing: [],
+    });
+  });
+
+  it("treats null missing arrays from completion RPCs as no missing artifacts", () => {
+    const result = parseJobStatusRpcResult(
+      {
+        complete_strict_enrichment_job: {
+          ok: true,
+          gate_passed: true,
+          status: "completed",
+          missing: null,
+        },
+      },
+      "complete_strict_enrichment_job",
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      gate_passed: true,
+      status: "completed",
+      missing: [],
+    });
   });
 });

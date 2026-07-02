@@ -1489,7 +1489,7 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -1516,7 +1516,7 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -2590,6 +2590,7 @@ describe("private document API access", () => {
       answer: "Use the old protocol.",
       grounded: true,
       confidence: "high",
+      degradedMode: { active: true, reason: "provider_fallback" },
       citations: [{ chunk_id: "chunk-1", page_number: 1, quote: "old protocol", document_id: documentId }],
       smartPanel: { query: "monitoring" },
       smartApiPlan: { displayMode: "direct" },
@@ -2642,6 +2643,7 @@ describe("private document API access", () => {
     expect(finalPayload.sources).toEqual([]);
     expect(finalPayload.smartPanel).toBeUndefined();
     expect(finalPayload.smartApiPlan).toBeUndefined();
+    expect(finalPayload.degradedMode).toEqual({ active: true, reason: "provider_fallback" });
     expect(String(finalPayload.answer)).toContain("cannot provide a clinical answer");
     expect(finalPayload.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
@@ -2653,6 +2655,7 @@ describe("private document API access", () => {
       answer: "Use the old protocol.",
       grounded: true,
       confidence: "high",
+      degradedMode: { active: true, reason: "provider_fallback" },
       citations: [{ chunk_id: "chunk-1", page_number: 1, quote: "old protocol", document_id: documentId }],
       sources: [
         {
@@ -2704,6 +2707,7 @@ describe("private document API access", () => {
     expect(body.sources).toEqual([]);
     expect(body.smartPanel).toBeUndefined();
     expect(body.smartApiPlan).toBeUndefined();
+    expect(body.degradedMode).toEqual({ active: true, reason: "provider_fallback" });
     expect(String(body.answer)).toContain("cannot provide a clinical answer");
     expect(body.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),

@@ -1151,35 +1151,146 @@ begin
       updated_at = excluded.updated_at;
   end if;
 
-  -- document_chunks: typed column (unchanged)
+  -- Preserve legacy NULL-generation rows unless this generation wrote replacements.
   delete from public.document_chunks
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and exists (
+          select 1
+          from public.document_chunks replacement
+          where replacement.document_id = p_document_id
+            and replacement.index_generation_id = p_index_generation_id
+        )
+      )
+    );
 
-  -- artifact tables: now use typed index_generation_id column
+  -- artifact tables: use typed column where set; fall back to metadata when typed is NULL
+  -- because the writer still populates metadata.index_generation_id rather than the typed
+  -- column.  Without the metadata fallback, stale null-typed rows from a prior run would
+  -- never be cleaned up (the typed-column EXISTS guard would always be false), allowing
+  -- artifact rows to accumulate across re-indexes.
   delete from public.document_images
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_images replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
+        )
+      )
+    );
 
   delete from public.document_table_facts
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_table_facts replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
+        )
+      )
+    );
 
   delete from public.document_embedding_fields
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_embedding_fields replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
+        )
+      )
+    );
 
   delete from public.document_index_units
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_index_units replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
+        )
+      )
+    );
 
   delete from public.document_memory_cards
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_memory_cards replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
+        )
+      )
+    );
 
   delete from public.document_sections
   where document_id = p_document_id
-    and (index_generation_id is null or index_generation_id <> p_index_generation_id);
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_sections replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (replacement.index_generation_id is null
+                  and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id)
+            )
+        )
+      )
+    );
 
   return jsonb_build_object(
     'ok', true,
