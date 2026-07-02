@@ -36,7 +36,12 @@ import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } fr
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
-import { chooseAnswerRoute, hasDirectTitleSupport, shouldRetryWithStrongAfterFast } from "@/lib/rag-routing";
+import {
+  chooseAnswerRoute,
+  hasAdversarialManipulationIntent,
+  hasDirectTitleSupport,
+  shouldRetryWithStrongAfterFast,
+} from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -6330,7 +6335,12 @@ async function answerQuestionWithScopeUncoalesced(
     allowGlobalSearch: args.allowGlobalSearch,
   });
   const answerFocusQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
-  const cachedAnswer = getCachedAnswer(args, startedAt);
+  // Never serve a cached answer for an adversarial-manipulation query: a poisoned
+  // entry written before this guard existed (or a shared-cache hit under an
+  // unchanged cache version) would bypass chooseAnswerRoute's refusal. Skipping the
+  // cache lets the query flow to routing, which fails it closed to "unsupported".
+  const adversarialQuery = hasAdversarialManipulationIntent(answerFocusQuery);
+  const cachedAnswer = adversarialQuery ? null : getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
     const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
@@ -6355,7 +6365,7 @@ async function answerQuestionWithScopeUncoalesced(
         : cachedAnswer.smartPanel,
     };
   }
-  const sharedCachedAnswer = await getSharedCachedAnswer(args, startedAt);
+  const sharedCachedAnswer = adversarialQuery ? null : await getSharedCachedAnswer(args, startedAt);
   if (sharedCachedAnswer) {
     setCachedAnswer(args, sharedCachedAnswer);
     const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);

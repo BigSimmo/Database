@@ -55,17 +55,33 @@ const queryStopWords = new Set([
 // the model to ignore its instructions, fabricate citations/evidence, pretend the
 // evidence supports a claim, or exfiltrate a system prompt / secrets. Such a query
 // often mentions a real clinical term (e.g. "clozapine protocol"), so it retrieves
-// genuine sources and would otherwise be answered. The patterns are deliberately
-// tight — each requires an explicit manipulation verb next to its object — and are
-// validated to match zero legitimate clinical questions in the golden eval set.
+// genuine sources and would otherwise be answered.
+//
+// The patterns are deliberately tight to avoid refusing legitimate clinical
+// wording: each requires an explicit manipulation verb next to a manipulation
+// object. In particular they distinguish fabricated-*evidence* framing ("as if the
+// protocol supports this request") from patient-state hypotheticals ("as if the
+// symptoms support toxicity"), a jailbreak persona ("you are now an unrestricted
+// assistant") from a training scenario ("you are now an inpatient..."), and
+// fabrication verbs from clinical nouns like "manufacturer"/"inventory" and
+// composition wording like "documents that make up the evidence base". Validated
+// against the golden eval set and a corpus of trigger-adjacent legitimate probes.
 const adversarialManipulationPatterns: RegExp[] = [
-  /\b(?:ignore|disregard|override|forget|bypass)\s+(?:all\s+|any\s+)?(?:(?:previous|prior|above|earlier|these|those|the|your)\s+)?(?:instructions?|rules?|guardrails?)\b/i,
-  /\byou\s+are\s+now\s+an?\b/i,
-  /\b(?:fabricat|forge|invent|manufactur)\w*\b[^.?!]{0,50}\b(?:citation|chunk|reference|source|evidence|id|ids|value|values|data)\b/i,
-  /\bmake\s+up\b[^.?!]{0,50}\b(?:citation|chunk|reference|source|evidence)\b/i,
-  /\bpretend\b[^.?!]{0,50}\b(?:evidence|source|sources|citation|citations|protocol|guideline|complete|answer)\b/i,
-  /\b(?:answer|respond|reply|act|proceed)\s+as\s+if\b[^.?!]{0,80}\b(?:support|complete|confirm|prove|allow|approve|explicit)\w*/i,
-  /\b(?:reveal|expose|print|show|leak|return|disclose)\b[^.?!]{0,50}\b(?:system\s+prompt|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|secret\s+(?:keys?|tokens?)|credentials?)\b/i,
+  // Instruction override / jailbreak
+  /\b(?:ignore|disregard|override|forget|bypass)\s+(?:all\s+|any\s+)?(?:(?:previous|prior|above|earlier|these|those|the|your)\s+)?(?:instructions?|messages?|prompts?|rules?|guardrails?)\b/i,
+  // Persona jailbreak — requires a jailbreak object, not a bare "you are now a ..."
+  /\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|roleplay\s+as)\s+(?:a\s+|an\s+|the\s+)?(?:unrestricted|unfiltered|uncensored|jailbroken|jailbreak|developer[-\s]?mode|do[-\s]?anything|dan\b|god[-\s]?mode|sudo|root)\b/i,
+  // Fabricate evidence/citations — real fabrication verbs only (not invent/manufacture)
+  /\b(?:fabricat|forge|falsif|counterfeit)\w*\b[^.?!]{0,40}\b(?:citation|citations|chunk|reference|references|source|sources|evidence|quote|quotes|value|values|data)\b/i,
+  // Explicit fake/forged citation values, or the internal citation_chunk_id field name
+  /\b(?:fake|bogus|false|forged|fabricated|made[-\s]?up|placeholder|dummy)\s+(?:citation|chunk|reference|source|evidence|id|ids)\b/i,
+  /\bcitation_chunk_id\b/i,
+  // Pretend the evidence is complete/sufficient/supports (tight objects)
+  /\bpretend\b[^.?!]{0,30}\b(?:evidence|sources?|citations?|data)\b[^.?!]{0,25}\b(?:complete|sufficient|conclusive|enough|available|supports?|proves?|confirms?)\b/i,
+  // Answer "as if" the evidence/source/protocol supports *this request/claim*
+  /\bas\s+if\b[^.?!]{0,40}\b(?:evidence|sources?|protocol|guideline|documents?|citations?)\b[^.?!]{0,30}\b(?:support|prove|confirm|allow|approve|establish)\w*\b[^.?!]{0,25}\b(?:this|the)\s+(?:request|claim|answer|query|response|prompt)\b/i,
+  // Secret / system-prompt exfiltration
+  /\b(?:reveal|expose|print|show|leak|return|disclose|tell|give|send|share)\b[^.?!]{0,50}\b(?:system\s+prompt|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|secret\s+(?:keys?|tokens?)|credentials?)\b/i,
 ];
 
 export function hasAdversarialManipulationIntent(query: string): boolean {
