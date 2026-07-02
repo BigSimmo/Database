@@ -101,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: document, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,metadata")
+      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,error_message,page_count,chunk_count,image_count,metadata")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle();
@@ -170,6 +170,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const atomicReindex = isAtomicReindexCandidate(document);
+    const rollbackDocumentPayload = atomicReindex
+      ? { error_message: document.error_message ?? null }
+      : {
+          status: document.status ?? null,
+          error_message: document.error_message ?? null,
+          page_count: document.page_count ?? 0,
+          chunk_count: document.chunk_count ?? 0,
+          image_count: document.image_count ?? 0,
+        };
     const { error: updateError } = await supabase
       .from("documents")
       .update(
@@ -194,10 +203,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .select()
       .single();
 
-    if (jobError) throw new Error(jobError.message);
+    if (jobError) {
+      const { error: rollbackError } = await supabase
+        .from("documents")
+        .update(rollbackDocumentPayload)
+        .eq("id", id)
+        .eq("owner_id", user.id);
+      if (rollbackError) {
+        throw new Error(`Failed to enqueue reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
+      }
+      throw new Error(jobError.message);
+    }
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    return jsonError(error);
   }
 }

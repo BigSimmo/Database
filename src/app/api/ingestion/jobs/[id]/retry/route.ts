@@ -1,22 +1,31 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { parseRouteParams } from "@/lib/validation/params";
 
 export const runtime = "nodejs";
+
+const ingestionRetryRouteParamsSchema = z.object({
+  id: z.string().uuid(),
+});
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Retry is unavailable in demo mode." }, { status: 400 });
 
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, ingestionRetryRouteParamsSchema, "Invalid ingestion job id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
-      .select("id,document_id,batch_id,status,locked_at,documents!inner(owner_id)")
+      .select(
+        "id,document_id,batch_id,status,stage,progress,error_message,attempt_count,max_attempts,locked_at,locked_by,next_run_at,completed_at,documents!inner(owner_id)",
+      )
       .eq("id", id)
       .eq("documents.owner_id", user.id)
       .maybeSingle();
@@ -74,11 +83,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .update({ status: "queued", error_message: null })
       .eq("id", job.document_id)
       .eq("owner_id", user.id);
-    if (documentError) throw new Error(documentError.message);
+    if (documentError) {
+      const { error: rollbackError } = await supabase
+        .from("ingestion_jobs")
+        .update({
+          status: job.status,
+          stage: job.stage,
+          progress: job.progress,
+          error_message: job.error_message,
+          attempt_count: job.attempt_count,
+          max_attempts: job.max_attempts,
+          locked_at: job.locked_at,
+          locked_by: job.locked_by,
+          next_run_at: job.next_run_at,
+          completed_at: job.completed_at,
+        })
+        .eq("id", id);
+      if (rollbackError) {
+        throw new Error(`${documentError.message}; failed to roll back retried job state: ${rollbackError.message}`);
+      }
+      throw new Error(documentError.message);
+    }
 
     return NextResponse.json({ job: data });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    return jsonError(error, 400);
+    return jsonError(error);
   }
 }
