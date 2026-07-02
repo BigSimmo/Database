@@ -49,6 +49,52 @@ const queryStopWords = new Set([
   "guideline",
 ]);
 
+// Query-side adversarial-manipulation guard. Neutralizing injected instructions
+// embedded in retrieved *source* text is handled separately (neutralizeInstructions
+// in rag.ts); this catches manipulation intent in the *user query* itself — asking
+// the model to ignore its instructions, fabricate citations/evidence, pretend the
+// evidence supports a claim, or exfiltrate a system prompt / secrets. Such a query
+// often mentions a real clinical term (e.g. "clozapine protocol"), so it retrieves
+// genuine sources and would otherwise be answered.
+//
+// The patterns are deliberately tight to avoid refusing legitimate clinical
+// wording: each requires an explicit manipulation verb next to a manipulation
+// object. In particular they distinguish fabricated-*evidence* framing ("as if the
+// protocol supports this request") from patient-state hypotheticals ("as if the
+// symptoms support toxicity"), a jailbreak persona ("you are now an unrestricted
+// assistant") from a training scenario ("you are now an inpatient..."), and
+// fabrication verbs from clinical nouns like "manufacturer"/"inventory" and
+// composition wording like "documents that make up the evidence base". Validated
+// against the golden eval set and a corpus of trigger-adjacent legitimate probes.
+const adversarialManipulationPatterns: RegExp[] = [
+  // Instruction override / jailbreak
+  /\b(?:ignore|disregard|override|forget|bypass)\s+(?:all\s+|any\s+)?(?:(?:previous|prior|above|earlier|these|those|the|your)\s+)?(?:instructions?|messages?|prompts?|rules?|guardrails?)\b/i,
+  // Persona jailbreak — requires a jailbreak object, not a bare "you are now a ..."
+  /\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|roleplay\s+as)\s+(?:a\s+|an\s+|the\s+)?(?:unrestricted|unfiltered|uncensored|jailbroken|jailbreak|developer[-\s]?mode|do[-\s]?anything|dan\b|god[-\s]?mode|sudo|root)\b/i,
+  // Fabricate evidence/citations — real fabrication verbs incl. gerunds ("forging"),
+  // but not "forgot" (forg(?:e|ed|es|ing|ery)) or clinical "invent"/"manufacture".
+  /\b(?:fabricat\w*|forg(?:e|ed|es|ing|ery)|falsif\w*|counterfeit\w*)\b[^.?!]{0,40}\b(?:citations?|chunks?|references?|sources?|evidence|quotes?|values?|data)\b/i,
+  // Explicit fake/forged citations (plural-aware). Deliberately not bare "id"/"ids":
+  // "a patient gives a false ID" is an identity document, not citation fraud.
+  /\b(?:fake|bogus|false|forged|fabricated|made[-\s]?up|placeholder|dummy)\s+(?:citations?|chunks?|references?|sources?|evidence|quotes?)\b/i,
+  /\bcitation_chunk_id\b/i,
+  // Pretend the evidence is complete/sufficient/supports (tight objects)
+  /\bpretend\b[^.?!]{0,30}\b(?:evidence|sources?|citations?|data)\b[^.?!]{0,25}\b(?:complete|sufficient|conclusive|enough|available|supports?|proves?|confirms?)\b/i,
+  // Answer "as if" the evidence/source/protocol supports *this request/claim*
+  /\bas\s+if\b[^.?!]{0,40}\b(?:evidence|sources?|protocol|guideline|documents?|citations?)\b[^.?!]{0,30}\b(?:support|prove|confirm|allow|approve|establish)\w*\b[^.?!]{0,25}\b(?:this|the)\s+(?:request|claim|answer|query|response|prompt)\b/i,
+  // Secret / system-prompt exfiltration by verb (incl. provide/list/output/dump).
+  // "credentials" is intentionally excluded — clinical "prescriber credentials"
+  // means professional qualifications, not secrets.
+  /\b(?:reveal|expose|print|show|leak|return|disclose|tell|give|send|share|provide|list|output|dump|divulge|repeat)\b[^.?!]{0,50}\b(?:system\s+prompt|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|secret\s+(?:keys?|tokens?))\b/i,
+  // Direct interrogative / possessive requests for the system prompt or API keys
+  // ("what is your hidden system prompt", "the api keys") — no exfiltration verb.
+  /\b(?:what(?:'s|\s+is|\s+are)?|your|any|the)\b[^.?!]{0,20}\b(?:hidden\s+)?(?:system\s+prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?)\b/i,
+];
+
+export function hasAdversarialManipulationIntent(query: string): boolean {
+  return adversarialManipulationPatterns.some((pattern) => pattern.test(query));
+}
+
 export function strongestRetrievalScore(results: SearchResult[]) {
   return results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
 }
@@ -240,6 +286,20 @@ export function chooseAnswerRoute(args: {
   const directTitleSupport = hasDirectTitleSupport(args.query, args.results);
   const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
   const topTextRank = Math.max(0, ...args.results.map((result) => result.text_rank ?? 0));
+
+  // Refuse queries whose intent is to manipulate the model (fabricate citations,
+  // pretend the evidence supports a claim, override instructions, exfiltrate
+  // secrets). This fires before any retrieval-score routing so a query that
+  // happens to surface real sources still fails closed.
+  if (hasAdversarialManipulationIntent(args.query)) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "adversarial_manipulation_refused",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
 
   if (args.results.length === 0) {
     return {

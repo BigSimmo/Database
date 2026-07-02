@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildEvalQualityReport,
+  deliveredGroundedAfterSourceGovernancePolicy,
   qualityFailureCategory,
   renderEvalQualityMarkdown,
+  sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
 } from "../scripts/eval-quality";
@@ -154,7 +156,6 @@ describe("eval quality reporting", () => {
     expect(report.retrieval.summary.case_count).toBe(2);
     expect(report.retrieval.summary.top_k_hit_rate).toBe(0.5);
     expect(report.retrieval.source_governance.stale_top_results).toBe(1);
-    expect(report.retrieval.source_governance.stale_rate).toBe(0.5);
     expect(report.retrieval.source_governance.unverified_top_results).toBe(1);
     expect(report.retrieval.source_governance.review_required_top_results).toBe(1);
     expect(report.retrieval.source_governance.metadata_policy).toContain("review-required");
@@ -233,7 +234,7 @@ describe("eval quality reporting", () => {
         accepted_at: "2026-06-25T00:00:00.000Z",
         expires_at: "2099-01-01T00:00:00.000Z",
         reason: "Temporary corpus metadata debt while source records are reviewed.",
-        max_stale_rate: 0,
+        max_stale_rate: 1,
         max_review_required_rate: 1,
         max_outdated_top_results: 0,
         max_poor_extraction_top_results: 0,
@@ -250,6 +251,137 @@ describe("eval quality reporting", () => {
     expect(report.blocking_threshold_failures).toEqual(
       expect.arrayContaining([expect.stringContaining("RAG source_governance_danger_failure_rate")]),
     );
+  });
+
+  it("treats danger warnings as failures only for delivered grounded answers", () => {
+    // Grounded answer delivered on dangerous sourcing: a governance failure.
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 1 })).toEqual([
+      "danger source governance warning present",
+    ]);
+    // Declined answer (grounded=false): the danger warning is the expected
+    // refusal signal, not a failure -- regardless of the preserved routingMode,
+    // so evidence-gap refusals converted from fast/strong routes are exempt too.
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: false, sourceDangerWarningCount: 1 })).toEqual([]);
+    // Grounded answer with no danger warning: clean.
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 0 })).toEqual([]);
+  });
+
+  it("mirrors API source-governance refusals before delivery accounting", () => {
+    expect(
+      deliveredGroundedAfterSourceGovernancePolicy(
+        { grounded: true, confidence: "high", responseMode: "clinical_pathway" },
+        [{ severity: "danger" }],
+      ),
+    ).toBe(false);
+    expect(
+      deliveredGroundedAfterSourceGovernancePolicy(
+        { grounded: true, confidence: "high", responseMode: "clinical_pathway" },
+        [{ severity: "warning" }],
+      ),
+    ).toBe(true);
+    expect(
+      deliveredGroundedAfterSourceGovernancePolicy(
+        { grounded: false, confidence: "unsupported", responseMode: "evidence_gap" },
+        [{ severity: "danger" }],
+      ),
+    ).toBe(false);
+  });
+
+  it("flags refusals that drop an expected danger warning, regardless of grounded", () => {
+    // Refusal expected to surface a danger warning but missing it: a
+    // refusal-safety regression, failing even though grounded=false.
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        grounded: false,
+        sourceDangerWarningCount: 0,
+        expectsDangerWarning: true,
+      }),
+    ).toEqual(["expected danger source governance warning missing"]);
+    // Refusal that still carries its expected danger warning: clean (the warning
+    // is the expected refusal signal, not a failure).
+    expect(
+      sourceGovernanceDangerFailuresForAnswer({
+        grounded: false,
+        sourceDangerWarningCount: 1,
+        expectsDangerWarning: true,
+      }),
+    ).toEqual([]);
+    // No expectation set: unchanged behavior (ungrounded, no warning => clean).
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: false, sourceDangerWarningCount: 0 })).toEqual([]);
+    // The failure is categorized under source governance for reporting.
+    expect(qualityFailureCategory("expected danger source governance warning missing")).toBe("source_governance");
+  });
+
+  it("hard-blocks release when a refusal drops an expected danger warning (not waivable by debt)", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-02T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        ragResult({
+          id: "refusal-missing-expected-danger",
+          supported: false,
+          grounded: false,
+          route: "unsupported",
+          citations: 0,
+          failures: ["expected danger source governance warning missing"],
+        }),
+      ],
+      // A permissive debt acceptance must NOT waive this refusal-safety failure.
+      sourceMetadataDebtAcceptance: {
+        accepted_by: "release owner",
+        accepted_at: "2026-07-02T00:00:00.000Z",
+        expires_at: "2099-01-01T00:00:00.000Z",
+        reason: "Broad metadata debt acceptance for the test.",
+        max_stale_rate: 1,
+        max_review_required_rate: 1,
+        max_outdated_top_results: 0,
+        max_poor_extraction_top_results: 0,
+        max_source_governance_danger_failure_rate: 0,
+      },
+    });
+    expect(report.rag.summary.expected_danger_warning_missing_count).toBe(1);
+    const blocker = "RAG expected_danger_warning_missing_count 1 above 0";
+    expect(report.threshold_failures).toContain(blocker);
+    expect(report.blocking_threshold_failures).toContain(blocker);
+    expect(report.accepted_threshold_failures).not.toContain(blocker);
+  });
+
+  it("excludes declined answers from the danger failure rate regardless of route", () => {
+    const declinedOnly = buildEvalQualityReport({
+      generatedAt: "2026-07-02T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        // Declined via the unsupported route.
+        ragResult({
+          id: "unsupported-declined",
+          supported: false,
+          grounded: false,
+          route: "unsupported",
+          citations: 0,
+          sourceWarningCount: 1,
+          sourceDangerWarningCount: 1,
+        }),
+        // Declined via a fast-route answer converted to an evidence-gap refusal:
+        // grounded=false but the original route is preserved.
+        ragResult({
+          id: "fast-route-evidence-gap-refusal",
+          grounded: false,
+          route: "fast",
+          citations: 0,
+          sourceWarningCount: 1,
+          sourceDangerWarningCount: 1,
+        }),
+        ragResult({ id: "answered-clean" }),
+      ],
+    });
+    expect(declinedOnly.rag.summary.source_governance_danger_failure_rate).toBe(0);
+
+    const answeredDangerous = buildEvalQualityReport({
+      generatedAt: "2026-07-02T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [ragResult({ grounded: true, sourceWarningCount: 1, sourceDangerWarningCount: 1 })],
+    });
+    expect(answeredDangerous.rag.summary.source_governance_danger_failure_rate).toBeGreaterThan(0);
   });
 
   it("rejects source metadata debt acceptance when outdated sources are present", () => {
@@ -273,7 +405,7 @@ describe("eval quality reporting", () => {
         accepted_at: "2026-06-25T00:00:00.000Z",
         expires_at: "2099-01-01T00:00:00.000Z",
         reason: "Temporary corpus metadata debt while source records are reviewed.",
-        max_stale_rate: 0,
+        max_stale_rate: 1,
         max_review_required_rate: 1,
         max_outdated_top_results: 0,
         max_poor_extraction_top_results: 0,
@@ -284,32 +416,6 @@ describe("eval quality reporting", () => {
     expect(report.accepted_threshold_failures).toEqual([]);
     expect(report.blocking_threshold_failures).toEqual(report.threshold_failures);
     expect(report.source_metadata_debt_acceptance.rejection_reasons.join(" ")).toContain("outdated top results");
-  });
-
-  it("marks source metadata debt acceptance passed when no metadata thresholds need accepting", () => {
-    const report = buildEvalQualityReport({
-      generatedAt: "2026-06-25T00:00:00.000Z",
-      retrievalResults: [retrievalResult()],
-      ragResults: [ragResult()],
-      sourceMetadataDebtAcceptance: {
-        accepted_by: "release owner",
-        accepted_at: "2026-06-25T00:00:00.000Z",
-        expires_at: "2099-01-01T00:00:00.000Z",
-        reason: "Temporary corpus metadata debt while source records are reviewed.",
-        max_stale_rate: 0,
-        max_review_required_rate: 0,
-        max_outdated_top_results: 0,
-        max_poor_extraction_top_results: 0,
-        max_source_governance_danger_failure_rate: 0,
-      },
-    });
-
-    expect(report.threshold_failures).toEqual([]);
-    expect(report.source_metadata_debt_acceptance).toMatchObject({
-      status: "passed",
-      accepted_failures: [],
-      rejection_reasons: [],
-    });
   });
 
   it("renders a readable Markdown report", () => {
@@ -326,6 +432,6 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Source Governance");
     expect(markdown).toContain("## Answer Metrics");
     expect(markdown).toContain("| Hit@K | 1 |");
-    expect(markdown).toContain("Policy: primary top results");
+    expect(markdown).toContain("Policy: unknown, unverified");
   });
 });

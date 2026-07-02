@@ -109,6 +109,16 @@ export function sourceWarningsForRagQualityAnswer(
   );
 }
 
+export function deliveredGroundedAfterSourceGovernancePolicy(
+  answer: Pick<RagAnswer, "grounded" | "confidence" | "responseMode">,
+  warnings: Array<{ severity: string }>,
+) {
+  const shouldUseSourceGovernanceRefusal =
+    answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
+  if (shouldUseSourceGovernanceRefusal && warnings.some((warning) => warning.severity === "danger")) return false;
+  return answer.grounded;
+}
+
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
@@ -214,6 +224,34 @@ export function qualityFailureCategory(message: string): QualityFailureCategory 
   return "other";
 }
 
+export function sourceGovernanceDangerFailuresForAnswer(args: {
+  grounded: boolean;
+  sourceDangerWarningCount: number;
+  expectsDangerWarning?: boolean;
+}): string[] {
+  const failures: string[] = [];
+  // A danger warning is a governance failure only when a grounded answer was
+  // actually delivered on that sourcing. Declined answers carry the danger
+  // warning as the expected refusal signal, not a failure. `grounded` is the
+  // robust signal for "an answer was delivered": it covers both `unsupported`
+  // routes and answers that a fast/strong/extractive route converted into an
+  // evidence-gap refusal (finalizeRagAnswerQualityCore sets grounded=false
+  // while preserving the original routingMode).
+  if (args.grounded && args.sourceDangerWarningCount > 0) {
+    failures.push("danger source governance warning present");
+  }
+  // Refusal-safety guard: exempting ungrounded answers above must not let a
+  // refusal that is *expected* to surface a danger warning pass as clean when it
+  // silently drops that warning. For cases flagged expectsSourceDangerWarning,
+  // a missing danger warning is a failure regardless of grounded — otherwise a
+  // regression that stops emitting the warning would keep the danger failure
+  // rate at 0 and go undetected.
+  if (args.expectsDangerWarning && args.sourceDangerWarningCount === 0) {
+    failures.push("expected danger source governance warning missing");
+  }
+  return failures;
+}
+
 function rate(numerator: number, denominator: number) {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(4));
 }
@@ -288,14 +326,8 @@ function evaluateSourceMetadataDebtAcceptance(args: {
     );
   }
   const acceptedFailures = rejectionReasons.length === 0 ? metadataFailures : [];
-  const status =
-    rejectionReasons.length > 0
-      ? ("rejected" as const)
-      : metadataFailures.length > 0
-        ? ("accepted" as const)
-        : ("passed" as const);
   return {
-    status,
+    status: acceptedFailures.length > 0 ? ("accepted" as const) : ("rejected" as const),
     path: acceptance.path,
     accepted_by: acceptance.accepted_by,
     accepted_at: acceptance.accepted_at,
@@ -312,54 +344,32 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
   let reviewDue = 0;
   let unknown = 0;
   let unverified = 0;
-  let explicitNonLocalUnverified = 0;
   let unknownExtraction = 0;
   let poorExtraction = 0;
   let reviewRequired = 0;
-  let supportingTotal = 0;
-  let supportingReviewRequired = 0;
-
-  function topResultRequiresReview(topResult: GoldenRetrievalResult["topResults"][number]) {
-    const status = topResult.document_status ?? "unknown";
-    const validation = topResult.clinical_validation_status ?? "unverified";
-    const extraction = topResult.extraction_quality ?? "unknown";
-    const explicitNonLocalValidation =
-      validation === "unverified" &&
-      (topResult.jurisdiction === "International" ||
-        /\b(?:not a local|non-local|international)\b/i.test(topResult.clinical_validation_evidence_basis ?? ""));
-    return (
-      status === "outdated" ||
-      status === "review_due" ||
-      status === "unknown" ||
-      (validation === "unverified" && !explicitNonLocalValidation) ||
-      extraction === "unknown" ||
-      extraction === "poor"
-    );
-  }
 
   for (const result of results) {
     for (const topResult of result.topResults) {
-      supportingTotal += 1;
-      if (topResultRequiresReview(topResult)) supportingReviewRequired += 1;
-    }
-
-    for (const topResult of result.topResults.slice(0, 1)) {
       total += 1;
       const status = topResult.document_status ?? "unknown";
       const validation = topResult.clinical_validation_status ?? "unverified";
       const extraction = topResult.extraction_quality ?? "unknown";
-      const explicitNonLocalValidation =
-        validation === "unverified" &&
-        (topResult.jurisdiction === "International" ||
-          /\b(?:not a local|non-local|international)\b/i.test(topResult.clinical_validation_evidence_basis ?? ""));
       if (status === "outdated") stale += 1;
       if (status === "review_due") reviewDue += 1;
       if (status === "unknown") unknown += 1;
       if (validation === "unverified") unverified += 1;
-      if (explicitNonLocalValidation) explicitNonLocalUnverified += 1;
       if (extraction === "unknown") unknownExtraction += 1;
       if (extraction === "poor") poorExtraction += 1;
-      if (topResultRequiresReview(topResult)) reviewRequired += 1;
+      if (
+        status === "outdated" ||
+        status === "review_due" ||
+        status === "unknown" ||
+        validation === "unverified" ||
+        extraction === "unknown" ||
+        extraction === "poor"
+      ) {
+        reviewRequired += 1;
+      }
     }
   }
 
@@ -369,18 +379,14 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
     review_due_top_results: reviewDue,
     unknown_status_top_results: unknown,
     unverified_top_results: unverified,
-    explicit_non_local_unverified_top_results: explicitNonLocalUnverified,
     unknown_extraction_top_results: unknownExtraction,
     poor_extraction_top_results: poorExtraction,
     stale_rate: rate(stale, total),
     stale_review_unknown_rate: rate(stale + reviewDue + unknown, total),
     review_required_top_results: reviewRequired,
     review_required_rate: rate(reviewRequired, total),
-    supporting_top5_total_results: supportingTotal,
-    supporting_top5_review_required_results: supportingReviewRequired,
-    supporting_top5_review_required_rate: rate(supportingReviewRequired, supportingTotal),
     metadata_policy:
-      "primary top results with unknown, local unverified, review_due, outdated, unknown extraction, or poor extraction metadata are treated as review-required; explicit non-local unverified sources remain labelled but are not treated as missing local validation debt.",
+      "unknown, unverified, review_due, outdated, unknown extraction, and poor extraction metadata are treated as review-required; do not silently default them to current or approved.",
   };
 }
 
@@ -399,7 +405,12 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
       result.failures.some((failure) => qualityFailureCategory(failure) === "numeric_grounding"),
   );
   const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
-  const sourceGovernanceDangerFailures = results.filter((result) => result.sourceDangerWarningCount > 0);
+  const sourceGovernanceDangerFailures = results.filter(
+    (result) => result.grounded && result.sourceDangerWarningCount > 0,
+  );
+  const expectedDangerWarningMissing = results.filter((result) =>
+    result.failures.includes("expected danger source governance warning missing"),
+  ).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -427,6 +438,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     source_warning_count: results.reduce((sum, result) => sum + result.sourceWarningCount, 0),
     source_governance_warning_rate: rate(sourceGovernanceWarnings.length, results.length),
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
+    expected_danger_warning_missing_count: expectedDangerWarningMissing,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -498,6 +510,14 @@ export function buildEvalQualityReport(args: {
     if (ragSummary.source_governance_danger_failure_rate > 0) {
       thresholdFailures.push(
         `RAG source_governance_danger_failure_rate ${ragSummary.source_governance_danger_failure_rate} above 0`,
+      );
+    }
+    if (ragSummary.expected_danger_warning_missing_count > 0) {
+      // A refusal that was expected to surface a danger warning dropped it. This
+      // is a refusal-safety regression and hard-blocks release — it is never
+      // waivable via the source-metadata debt acceptance below.
+      thresholdFailures.push(
+        `RAG expected_danger_warning_missing_count ${ragSummary.expected_danger_warning_missing_count} above 0`,
       );
     }
     if (ragSummary.p95_latency_ms > qualityThresholds.ragP95LatencyMs) {
@@ -659,15 +679,12 @@ ${markdownTable([
   ["Review-due top results", governance.review_due_top_results],
   ["Unknown-status top results", governance.unknown_status_top_results],
   ["Unverified top results", governance.unverified_top_results],
-  ["Explicit non-local unverified top results", governance.explicit_non_local_unverified_top_results],
   ["Unknown-extraction top results", governance.unknown_extraction_top_results],
   ["Poor-extraction top results", governance.poor_extraction_top_results],
   ["Stale rate", governance.stale_rate],
   ["Stale/review/unknown rate", governance.stale_review_unknown_rate],
   ["Review-required top results", governance.review_required_top_results],
   ["Review-required rate", governance.review_required_rate],
-  ["Supporting top-5 review-required results", governance.supporting_top5_review_required_results],
-  ["Supporting top-5 review-required rate", governance.supporting_top5_review_required_rate],
 ])}
 
 Policy: ${governance.metadata_policy}
@@ -786,17 +803,15 @@ async function runRagQualityCases(args: {
     const validation = validateRagAnswer(testCase, answer);
     const failures = [...validation.failures];
     const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
-    const blockingSourceWarnings = sourceWarnings.filter(
-      (warning) =>
-        !(
-          !testCase.supported &&
-          answer.sources.length === 0 &&
-          warning.code === "weak_evidence" &&
-          warning.severity === "danger"
-        ),
+    const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
+    const deliveredGrounded = deliveredGroundedAfterSourceGovernancePolicy(answer, sourceWarnings);
+    failures.push(
+      ...sourceGovernanceDangerFailuresForAnswer({
+        grounded: deliveredGrounded,
+        sourceDangerWarningCount,
+        expectsDangerWarning: testCase.expectsSourceDangerWarning,
+      }),
     );
-    const sourceDangerWarningCount = blockingSourceWarnings.filter((warning) => warning.severity === "danger").length;
-    if (sourceDangerWarningCount > 0) failures.push("danger source governance warning present");
 
     results.push({
       id: testCase.id,
@@ -808,7 +823,7 @@ async function runRagQualityCases(args: {
       missingFiles: validation.expectedCoverage.missingFiles,
       topFiles: answer.sources.slice(0, 5).map((source) => source.file_name),
       expectedHit: validation.expectedHit,
-      grounded: answer.grounded,
+      grounded: deliveredGrounded,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
       route: answer.routingMode ?? "none",
       model: answer.modelUsed ?? null,

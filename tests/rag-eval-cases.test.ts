@@ -85,6 +85,79 @@ describe("captured RAG eval cases", () => {
     });
   });
 
+  it("preserves expected danger-warning metadata on unsupported captures", () => {
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-source-danger",
+      miss_reason: "source_insufficient",
+      metadata: {
+        rating: "needs_fixing",
+        feedback_type: "source_insufficient",
+        sourceGovernanceWarnings: [{ severity: "danger", code: "outdated_source" }],
+      },
+    });
+
+    expect(testCase).toMatchObject({
+      supported: false,
+      expectsSourceDangerWarning: true,
+    });
+  });
+
+  it("detects persisted danger-message string governance warnings on unsupported captures", () => {
+    // /api/eval-cases persists governance warnings as plain message strings
+    // (ClinicalDashboard submits warning.message), so the predicate matches the
+    // canonical danger message text, not only object-shaped { severity: "danger" }.
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-source-danger-string",
+      miss_reason: "unsupported_answer",
+      metadata: {
+        rating: "needs_fixing",
+        feedback_type: "unsupported_answer",
+        source_governance_warnings: [
+          "One or more supporting sources have not been locally validated.",
+          "One or more supporting sources are marked outdated.",
+        ],
+      },
+    });
+
+    expect(testCase).toMatchObject({
+      supported: false,
+      expectsSourceDangerWarning: true,
+    });
+  });
+
+  it("does not expect a danger warning for non-danger string warnings on unsupported captures", () => {
+    // A review_due-only refusal carries no danger warning; flagging it as
+    // expecting one would trip the missing-warning gate on a false positive.
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-string-warning-only",
+      miss_reason: "unsupported_answer",
+      metadata: {
+        rating: "needs_fixing",
+        feedback_type: "unsupported_answer",
+        source_governance_warnings: ["One or more supporting sources are due for review."],
+      },
+    });
+
+    expect(testCase.expectsSourceDangerWarning).toBeUndefined();
+  });
+
+  it("expects danger warnings for source-insufficient captured refusals", () => {
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-source-insufficient",
+      miss_reason: "source_insufficient",
+      metadata: { rating: "needs_fixing", feedback_type: "source_insufficient" },
+    });
+
+    expect(testCase).toMatchObject({
+      supported: false,
+      expectsSourceDangerWarning: true,
+    });
+  });
+
   it("maps numeric-error feedback to a source-backed regression case", () => {
     const testCase = mapCapturedEvalCase({
       ...row,

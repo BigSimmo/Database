@@ -260,7 +260,10 @@ export function MasterSearchHeader({
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
-  const [desktopHomeComposerTarget, setDesktopHomeComposerTarget] = useState<HTMLElement | null>(null);
+  const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
+  // Stable, header-owned element the composer is portaled into; we move it in and
+  // out of the page-owned slot rather than portaling into the slot directly.
+  const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -569,9 +572,22 @@ export function MasterSearchHeader({
 
   useEffect(() => {
     if (!desktopHomeComposerSlotId) {
-      const frame = window.requestAnimationFrame(() => setDesktopHomeComposerTarget(null));
+      const frame = window.requestAnimationFrame(() => {
+        setDesktopHomeComposerActive(false);
+        setDesktopHomeComposerHost(null);
+      });
       return () => window.cancelAnimationFrame(frame);
     }
+
+    // The composer is portaled into a stable host we own, and we move that host
+    // in and out of the page-owned slot as it appears/disappears. The slot is
+    // rendered by mode-home pages and unmounts on navigation; portaling directly
+    // into it made React reconcile the portal against a container that another
+    // part of the tree had already removed, throwing a null-parentNode error.
+    // Because the host is stable, React's portal container never disappears.
+    const host = document.createElement("div");
+    // Layout-transparent so the composer lays out as a direct child of the slot.
+    host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(desktopHomeComposerMediaQuery);
     let frame: number | null = null;
@@ -581,10 +597,17 @@ export function MasterSearchHeader({
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
-      const target = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
-      setDesktopHomeComposerTarget((current) => (current === target ? current : target));
-      if (mediaQuery.matches && !target) {
-        retryTimeout = window.setTimeout(syncTarget, 50);
+      const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
+      if (slot) {
+        if (host.parentNode !== slot) slot.appendChild(host);
+        setDesktopHomeComposerHost(host);
+        setDesktopHomeComposerActive(true);
+      } else {
+        host.parentNode?.removeChild(host);
+        setDesktopHomeComposerActive(false);
+        if (mediaQuery.matches) {
+          retryTimeout = window.setTimeout(syncTarget, 50);
+        }
       }
     };
     const scheduleSync = () => {
@@ -601,6 +624,9 @@ export function MasterSearchHeader({
       if (retryTimeout !== null) window.clearTimeout(retryTimeout);
       observer.disconnect();
       mediaQuery.removeEventListener("change", scheduleSync);
+      host.parentNode?.removeChild(host);
+      setDesktopHomeComposerActive(false);
+      setDesktopHomeComposerHost(null);
     };
   }, [desktopHomeComposerSlotId]);
 
@@ -1045,7 +1071,7 @@ export function MasterSearchHeader({
       <header
         id="search"
         className={cn(
-          "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl",
+          "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
         )}
       >
         <div
@@ -1084,7 +1110,7 @@ export function MasterSearchHeader({
               }}
               onKeyDown={handleModeTriggerKeyDown}
               className={cn(
-                "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+                "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
                 isWorkflowHeader && "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
               )}
               aria-haspopup="menu"
@@ -1218,7 +1244,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={onNewChat}
-                className="universal-header-icon-control inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+                className="universal-header-icon-control inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
                 aria-label="Start a new chat"
                 title="New chat"
               >
@@ -1232,9 +1258,9 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerTarget ? null : renderSearchComposer("default")}
-          {desktopHomeComposerTarget
-            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerTarget)
+          {desktopHomeComposerActive && desktopHomeComposerHost ? null : renderSearchComposer("default")}
+          {desktopHomeComposerActive && desktopHomeComposerHost
+            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}
         </>
       ) : null}
