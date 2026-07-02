@@ -1,4 +1,6 @@
-export const EXPECTED_EMBED_DIM = 1536;
+import { env } from "./env";
+
+export const EXPECTED_EMBED_DIM = env.EMBEDDING_DIMENSIONS;
 
 export function assertEmbeddingDim(vec: unknown, context: string): number[] {
   if (!Array.isArray(vec)) {
