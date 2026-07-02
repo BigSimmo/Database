@@ -246,8 +246,7 @@ export function MasterSearchHeader({
   const isWorkflowHeader = headerVariant === "workflow";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
-  const canRunLocalSearch =
-    selectedSearch.kind === "services" || selectedSearch.kind === "tools" || selectedSearch.kind === "favourites";
+  const canRunLocalSearch = selectedSearch.kind === "tools" || selectedSearch.kind === "favourites";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -887,7 +886,6 @@ export function MasterSearchHeader({
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesUniversalFooterStyle = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-    const showFooterSearchChips = usesUniversalFooterStyle && searchMode === "answer";
     // Only the Answer chat composer uses the send affordance; every search-mode home uses the magnifier.
     const usesSendAffordance = usesAnswerFooterStyle;
     const composerPlaceholder =
@@ -999,7 +997,7 @@ export function MasterSearchHeader({
             <span className="sr-only">{submitLabel}</span>
           </button>
         </div>
-        {showFooterSearchChips ? (
+        {usesUniversalFooterStyle ? (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
             <button
               type="button"
@@ -1118,7 +1116,7 @@ export function MasterSearchHeader({
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
-              aria-label={`Mode ${selectedAppMode.label}`}
+              aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
               <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
@@ -1144,7 +1142,7 @@ export function MasterSearchHeader({
                 id="app-mode-menu"
                 role="menu"
                 aria-label="Choose app mode"
-                className="fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]"
+                className="absolute left-1/2 top-[calc(100%+0.5rem)] z-50 w-[min(21rem,calc(100vw-4rem))] -translate-x-1/2 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:left-0 sm:w-[min(21rem,calc(100vw-2rem))] sm:translate-x-0"
               >
                 {visibleAppModeOptions.map((mode, index) => {
                   const Icon = appModeIcons[mode.id];
