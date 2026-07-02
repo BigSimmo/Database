@@ -195,7 +195,8 @@ function capturedCaseExpectsSourceDangerWarning(row: CapturedEvalCaseRow) {
   }
   return metadataWarnings(row.metadata).some(
     (warning) =>
-      typeof warning === "object" && warning !== null && (warning as { severity?: unknown }).severity === "danger",
+      (typeof warning === "string" && warning.trim().length > 0) ||
+      (typeof warning === "object" && warning !== null && (warning as { severity?: unknown }).severity === "danger"),
   );
 }
 

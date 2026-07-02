@@ -103,6 +103,24 @@ describe("captured RAG eval cases", () => {
     });
   });
 
+  it("detects persisted string source-governance warnings on unsupported captures", () => {
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-source-danger-string",
+      miss_reason: "unsupported_answer",
+      metadata: {
+        rating: "needs_fixing",
+        feedback_type: "unsupported_answer",
+        source_governance_warnings: ["Matched documents are not suitable for clinical use yet."],
+      },
+    });
+
+    expect(testCase).toMatchObject({
+      supported: false,
+      expectsSourceDangerWarning: true,
+    });
+  });
+
   it("expects danger warnings for source-insufficient captured refusals", () => {
     const testCase = mapCapturedEvalCase({
       ...row,
