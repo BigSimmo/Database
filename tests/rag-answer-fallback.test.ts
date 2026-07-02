@@ -1588,6 +1588,94 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/level checks|renal review|baseline tests/i);
   });
 
+  it("preserves parenthetical facility codes in the document-support list answer", async () => {
+    // Regression: the document-list answer is deterministic and pre-formatted, but the
+    // clinical-prose sanitizer used to strip facility-code suffixes like "(NOCC) (AKG)"
+    // (read as non-prose), mangling a valid answer into garble the quality gate then
+    // refused. The `preformatted` flag now exempts it from that sanitizer.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const noccDocument = {
+      id: "nocc-doc",
+      title: "National Outcomes and Casemix Collection (NOCC) (AKG)",
+      file_name: "NOCC.pdf",
+      metadata: {
+        source_title: "National Outcomes and Casemix Collection",
+        publisher: "Local service",
+        jurisdiction: "Australia/WA",
+        document_status: "current",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+      text_rank: 0.31,
+    };
+    const noccChunk = {
+      id: "nocc-doc-chunk-1",
+      document_id: "nocc-doc",
+      page_number: 1,
+      chunk_index: 0,
+      section_heading: "Outcome measures",
+      section_path: ["Outcome measures"],
+      content: "National Outcomes and Casemix Collection guidance for outcome measures completion.",
+      retrieval_synopsis: "NOCC source summary.",
+      image_ids: [],
+      text_rank: 0.42,
+    };
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_documents_for_query") return { data: [noccDocument], error: null };
+      if (name === "match_document_lookup_chunks_text") return { data: [noccChunk], error: null };
+      if (name === "match_document_chunks_hybrid") {
+        return {
+          data: [
+            source({
+              id: "nocc-doc-chunk-1",
+              document_id: "nocc-doc",
+              title: "National Outcomes and Casemix Collection (NOCC) (AKG)",
+              file_name: "NOCC.pdf",
+              section_heading: "Outcome measures",
+              content: "National Outcomes and Casemix Collection guidance for outcome measures completion.",
+              similarity: 0.91,
+              hybrid_score: 0.93,
+              text_rank: 0.42,
+            }),
+          ],
+          error: null,
+        };
+      }
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "What documents support outcome measures completion?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.preformatted).toBe(true);
+    // The facility-code suffix survives intact (previously mangled to a dangling "(").
+    expect(answer.answer).toContain("(NOCC) (AKG)");
+    expect(answer.answer).not.toMatch(/\(\s*(?:;|$| Outcome)/);
+  });
+
   it("does not promote lithium dosage headings or continuation fragments as the primary answer", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");

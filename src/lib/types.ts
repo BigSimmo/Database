@@ -860,6 +860,11 @@ export type RagAnswer = {
   queryClass?: RagQueryClass;
   queryAnalysis?: ClinicalQueryAnalysis;
   responseMode?: AnswerResponseMode;
+  // True for deterministic, template-built answers (document-support lists, table/visual
+  // source references) assembled from source metadata rather than model prose. These are
+  // well-formed by construction, so the clinical-prose sanitizer/quality gate — which would
+  // strip their document names (facility codes read as non-prose) — must be skipped.
+  preformatted?: boolean;
   latencyTimings?: {
     search_cache_hit?: boolean;
     shared_cache_hit?: boolean;
