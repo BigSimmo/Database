@@ -10,8 +10,21 @@
 -- Set the default base URL for the current (production) project.
 -- This value must be changed for staging/dev environments via:
 --   ALTER DATABASE postgres SET app.indexing_v3_agent_base_url = '...';
-alter database postgres
-  set app.indexing_v3_agent_base_url = 'https://sjrfecxgysukkwxsowpy.supabase.co';
+--
+-- Guarded: hosted Supabase denies ALTER DATABASE SET to the migration role
+-- (42501). We swallow insufficient_privilege so the migration still succeeds on
+-- hosted; the function below already falls back to the hardcoded project URL via
+-- current_setting(..., true), so behaviour is unchanged when the GUC is unset.
+-- On self-hosted / local (where the role is superuser) the GUC is set normally.
+do $$
+begin
+  execute format('alter database %I set app.indexing_v3_agent_base_url = %L',
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
+exception
+  when insufficient_privilege then
+    raise notice 'Skipping ALTER DATABASE SET app.indexing_v3_agent_base_url (insufficient privilege on hosted Supabase); invoke_indexing_v3_agent falls back to the hardcoded URL.';
+end
+$$;
 
 create or replace function public.invoke_indexing_v3_agent(p_limit integer default 1)
 returns bigint
