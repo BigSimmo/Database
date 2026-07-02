@@ -393,7 +393,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
         ) : url ? (
           <img
             src={url}
-            alt={cleanCaption || "Document image"}
+            alt={cleanCaption || tableHeading || "Document image"}
             loading="lazy"
             decoding="async"
             onError={handleImageError}
