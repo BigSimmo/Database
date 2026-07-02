@@ -50,6 +50,10 @@ const auditLogsServiceRolePolicyMigration = readFileSync(
   new URL("../supabase/migrations/20260630090000_audit_logs_service_role_policy.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const preserveLegacyArtifactCommitMigration = readFileSync(
+  new URL("../supabase/migrations/20260702000000_commit_generation_preserve_legacy_artifacts.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -164,6 +168,21 @@ describe("Supabase schema Data API grants", () => {
     );
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_chunks_hybrid");
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_index_units_hybrid");
+  });
+
+  it("preserves NULL-generation artifacts until replacements exist", () => {
+    for (const sql of [schema, preserveLegacyArtifactCommitMigration]) {
+      expect(sql).toContain("from public.document_chunks replacement");
+      expect(sql).toContain("from public.document_images replacement");
+      expect(sql).toContain("from public.document_table_facts replacement");
+      expect(sql).toContain("from public.document_embedding_fields replacement");
+      expect(sql).toContain("from public.document_index_units replacement");
+      expect(sql).toContain("from public.document_memory_cards replacement");
+      expect(sql).toContain("from public.document_sections replacement");
+      expect(sql).not.toContain(
+        "delete from public.document_images where document_id = p_document_id and ( nullif(metadata->>'index_generation_id', '') is null or metadata->>'index_generation_id' <> p_index_generation_id::text );",
+      );
+    }
   });
 
   it("can identify and clean abandoned staged reindex generations", () => {
