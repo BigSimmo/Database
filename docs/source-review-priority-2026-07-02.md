@@ -22,33 +22,33 @@ slots.** Reviewing the 12 documents with 2+ slots clears 47 slots, taking the ra
 
 ## Priority order (golden top-5 slot count)
 
-| Slots | Document | Status flag | Validation flag | Golden cases hit |
-| ---: | --- | --- | --- | --- |
-| 8 | Clozapine Management by GP (NMHS).pdf | review_due | — | show-source-table-image, monitoring-threshold-from-chart |
-| 6 | Opioid use disorder.pdf | — | unverified | opioid-use-disorder-management, opioid-withdrawal-doses |
-| 6 | Bipolar disorder in adults.pdf | — | unverified | bipolar-management-summary, bipolar-vs-schizoaffective, lithium-therapy-monitoring |
-| 5 | Alcohol withdrawal.pdf | review_due | unverified | alcohol-withdrawal-management, alcohol-ciwa-threshold |
-| 5 | Postnatal depression.pdf | — | unverified | depression-adults-vs-children, postnatal-depression-treatment |
-| 5 | Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf | review_due | — | alcohol-ciwa-scoring, alcohol-ciwa-threshold |
-| 4 | Schizophrenia.pdf | — | unverified | clozapine-anc-threshold, schizophrenia-overview |
-| 2 | Arousal and Agitation Drug Management (CAMHS).pdf | review_due | — | agitation-im-po-options, medication-chart-dose-route |
-| 2 | Depression in adults.pdf | — | unverified | depression-adults-vs-children |
-| 2 | Depression in children.pdf | — | unverified | depression-adults-vs-children |
-| 2 | Schizoaffective disorder.pdf | review_due | unverified | bipolar-vs-schizoaffective |
-| 1 | Clozapine GP Shared Care (FSH).pdf | review_due | — | clozapine-anc-threshold |
-| 1 | ED CNS Roles and Responsibilities (RPBG).pdf | review_due | — | active-community-patient-ed |
-| 1 | Discharge Follow-Up for Inpatients (FSH).pdf | review_due | — | admission-discharge-comparison |
-| 1 | Resuscitation and Responding to Clinical Deterioration - MET Review and Code Blue (CAMHS).pdf | review_due | — | flowchart-next-step |
-| 1 | Dyssomnias in children.pdf | — | unverified | insomnia-assessment-management |
-| 1 | Assessment of fatigue.pdf | — | unverified | insomnia-assessment-management |
-| 1 | Insomnia.pdf | — | unverified | insomnia-assessment-management |
-| 1 | Suicide risk mitigation.pdf | — | unverified | suicide-risk-mitigation-guidance |
-| 1 | Advance Health Directive (AKG).pdf | review_due | — | schizophrenia-overview |
-| 1 | Alcohol use disorder.pdf | — | unverified | alcohol-ciwa-scoring |
-| 1 | NS IPWU Transfer from Methadone to Buprenorphine OST SOP (RPBG).pdf | review_due | — | opioid-withdrawal-doses |
-| 1 | Analgesia and Sedation Assessment in PCC (CAMHS).pdf | review_due | — | opioid-withdrawal-doses |
-| 1 | Electroconvulsive Therapy Policy and Procedure (RKPG).pdf | review_due | — | bipolar-vs-schizoaffective |
-| 1 | ECT Registrar Role (FSH).pdf | review_due | — | bipolar-vs-schizoaffective |
+| Slots | Document                                                                                      | Status flag | Validation flag | Golden cases hit                                                                   |
+| ----: | --------------------------------------------------------------------------------------------- | ----------- | --------------- | ---------------------------------------------------------------------------------- |
+|     8 | Clozapine Management by GP (NMHS).pdf                                                         | review_due  | —               | show-source-table-image, monitoring-threshold-from-chart                           |
+|     6 | Opioid use disorder.pdf                                                                       | —           | unverified      | opioid-use-disorder-management, opioid-withdrawal-doses                            |
+|     6 | Bipolar disorder in adults.pdf                                                                | —           | unverified      | bipolar-management-summary, bipolar-vs-schizoaffective, lithium-therapy-monitoring |
+|     5 | Alcohol withdrawal.pdf                                                                        | review_due  | unverified      | alcohol-withdrawal-management, alcohol-ciwa-threshold                              |
+|     5 | Postnatal depression.pdf                                                                      | —           | unverified      | depression-adults-vs-children, postnatal-depression-treatment                      |
+|     5 | Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf                        | review_due  | —               | alcohol-ciwa-scoring, alcohol-ciwa-threshold                                       |
+|     4 | Schizophrenia.pdf                                                                             | —           | unverified      | clozapine-anc-threshold, schizophrenia-overview                                    |
+|     2 | Arousal and Agitation Drug Management (CAMHS).pdf                                             | review_due  | —               | agitation-im-po-options, medication-chart-dose-route                               |
+|     2 | Depression in adults.pdf                                                                      | —           | unverified      | depression-adults-vs-children                                                      |
+|     2 | Depression in children.pdf                                                                    | —           | unverified      | depression-adults-vs-children                                                      |
+|     2 | Schizoaffective disorder.pdf                                                                  | review_due  | unverified      | bipolar-vs-schizoaffective                                                         |
+|     1 | Clozapine GP Shared Care (FSH).pdf                                                            | review_due  | —               | clozapine-anc-threshold                                                            |
+|     1 | ED CNS Roles and Responsibilities (RPBG).pdf                                                  | review_due  | —               | active-community-patient-ed                                                        |
+|     1 | Discharge Follow-Up for Inpatients (FSH).pdf                                                  | review_due  | —               | admission-discharge-comparison                                                     |
+|     1 | Resuscitation and Responding to Clinical Deterioration - MET Review and Code Blue (CAMHS).pdf | review_due  | —               | flowchart-next-step                                                                |
+|     1 | Dyssomnias in children.pdf                                                                    | —           | unverified      | insomnia-assessment-management                                                     |
+|     1 | Assessment of fatigue.pdf                                                                     | —           | unverified      | insomnia-assessment-management                                                     |
+|     1 | Insomnia.pdf                                                                                  | —           | unverified      | insomnia-assessment-management                                                     |
+|     1 | Suicide risk mitigation.pdf                                                                   | —           | unverified      | suicide-risk-mitigation-guidance                                                   |
+|     1 | Advance Health Directive (AKG).pdf                                                            | review_due  | —               | schizophrenia-overview                                                             |
+|     1 | Alcohol use disorder.pdf                                                                      | —           | unverified      | alcohol-ciwa-scoring                                                               |
+|     1 | NS IPWU Transfer from Methadone to Buprenorphine OST SOP (RPBG).pdf                           | review_due  | —               | opioid-withdrawal-doses                                                            |
+|     1 | Analgesia and Sedation Assessment in PCC (CAMHS).pdf                                          | review_due  | —               | opioid-withdrawal-doses                                                            |
+|     1 | Electroconvulsive Therapy Policy and Procedure (RKPG).pdf                                     | review_due  | —               | bipolar-vs-schizoaffective                                                         |
+|     1 | ECT Registrar Role (FSH).pdf                                                                  | review_due  | —               | bipolar-vs-schizoaffective                                                         |
 
 ## How to clear a flag (per the debt-acceptance follow-up rules)
 
