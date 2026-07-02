@@ -25,7 +25,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import { searchFormRecords, type FormSearchMatch } from "@/lib/forms";
 import { cn, codeText } from "@/components/ui-primitives";
@@ -836,13 +836,18 @@ function BottomSearch({
 
 export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSearchResultsPageProps) {
   const router = useRouter();
+  const [prevQuery, setPrevQuery] = useState(query);
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
   const matches = useMemo(() => searchFormRecords(query), [query]);
 
-  useEffect(() => {
+  // Reset the editable draft when the incoming query prop changes (new
+  // navigation) during render rather than in an effect, to avoid a
+  // synchronous set-state-in-effect and the extra commit it triggers.
+  if (query !== prevQuery) {
+    setPrevQuery(query);
     setDraftQuery(query);
-  }, [query]);
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
