@@ -86,6 +86,7 @@ function GlobalMockupSearchShellClient({
   const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
   const initialSearchMode =
     availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
+  const requestedFocus = searchParams.get("focus") === "1";
   const requestedRun = searchParams.get("run") === "1";
   const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
@@ -154,11 +155,11 @@ function GlobalMockupSearchShellClient({
   }, [availableModeIds, initialSearchMode, isDetailPage, pathname, searchParamString]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("focus") !== "1") return undefined;
+    if (!requestedFocus) return undefined;
+    const shouldApplyFocus = (activeElement: Element | null) =>
+      !activeElement || activeElement === document.body || activeElement === document.documentElement;
     const focusInput = () => {
-      const activeElement = document.activeElement;
-      if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) return;
+      if (!shouldApplyFocus(document.activeElement)) return;
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);
@@ -167,7 +168,7 @@ function GlobalMockupSearchShellClient({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [pathname, searchParamString]);
+  }, [pathname, requestedFocus, searchParamString]);
 
   useEffect(() => {
     let cancelled = false;
