@@ -198,7 +198,11 @@ import { searchServiceRecords } from "@/lib/services";
 import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { clinicalProseUsefulness, sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
-import { groupSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
+import {
+  frontendSourceGovernanceWarnings,
+  groupSourceGovernanceWarnings,
+  type SourceGovernanceWarning,
+} from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
   reviewDocumentTagQuality,
@@ -606,7 +610,7 @@ function ScopeAndGovernanceNotice({
   scope: SearchScopeSummary | null;
   warnings: SourceGovernanceWarning[];
 }) {
-  const groupedWarnings = groupSourceGovernanceWarnings(warnings).slice(0, 4);
+  const groupedWarnings = groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(warnings)).slice(0, 4);
   const showScope =
     Boolean(scope && scope.activeFilterCount > 0) ||
     Boolean(scope?.warnings?.length) ||
@@ -2196,6 +2200,7 @@ function AnswerInsightBar({
   queryMode: ClinicalQueryMode;
   sourceGovernanceWarnings: SourceGovernanceWarning[];
 }) {
+  const frontendGovernanceWarnings = frontendSourceGovernanceWarnings(sourceGovernanceWarnings);
   const metadata = normalizeSourceMetadata(
     bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
   );
@@ -2205,8 +2210,8 @@ function AnswerInsightBar({
     queryModeLabel(queryMode);
   const sourceCount = answer.evidenceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
   const support = relevanceChipLabel(relevance ?? answer.relevance, answer.grounded);
-  const sourceStatus = sourceGovernanceWarnings.length
-    ? `${sourceGovernanceWarnings.length} source status note${sourceGovernanceWarnings.length === 1 ? "" : "s"}`
+  const sourceStatus = frontendGovernanceWarnings.length
+    ? `${frontendGovernanceWarnings.length} source status note${frontendGovernanceWarnings.length === 1 ? "" : "s"}`
     : sourceStatusLabel(metadata);
   const retrievalGate = answer.retrievalDiagnostics?.gateStatus;
   const items = [
@@ -7137,7 +7142,11 @@ export function ClinicalDashboard({
 
   const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
-    () => groupSourceGovernanceWarnings(sourceGovernanceWarnings).reduce((total, warning) => total + warning.count, 0),
+    () =>
+      groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(sourceGovernanceWarnings)).reduce(
+        (total, warning) => total + warning.count,
+        0,
+      ),
     [sourceGovernanceWarnings],
   );
   const mobileFabState = useMemo(

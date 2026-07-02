@@ -432,5 +432,39 @@ describe("document organization classifier", () => {
     expect(roles.profile.secondary_facets.document_intent).toEqual(
       expect.arrayContaining(["staff-guidance", "operational-process"]),
     );
+
+    const quickReference = classifyDocumentOrganization({
+      title: "Cleaning Of The Ultrasound Probe Quick Reference(RPBG)",
+      file_name: "Cleaning of the Ultrasound Probe Quick Reference (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group quick reference for cleaning.",
+    });
+    expect(quickReference.profile.document_type.label).toBe("reference");
+    expect(quickReference.profile.secondary_facets.document_intent).toContain("clinical-instruction");
+    expect(quickReference.profile.secondary_facets.content_feature).toContain("contains-quick-reference");
+
+    const medicalRecords = classifyDocumentOrganization({
+      title: "After-Hours Medical Records - Mental Health(AKG)",
+      file_name: "After-Hours Medical Records - Mental Health (AKG).pdf",
+      contentText: "Armadale Kalamunda Group medical records process.",
+    });
+    expect(medicalRecords.profile.secondary_facets.clinical_action).toContain("document");
+    expect(medicalRecords.profile.secondary_facets.document_intent).toEqual(
+      expect.arrayContaining(["operational-process", "documentation-requirement"]),
+    );
+
+    const medicineOnly = classifyDocumentOrganization({
+      title: "Chloramphenicol(RPBG)",
+      file_name: "Chloramphenicol (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group chloramphenicol medication instruction.",
+    });
+    expect(medicineOnly.profile.secondary_facets.clinical_action).toContain("administer");
+    expect(medicineOnly.profile.secondary_facets.document_intent).toContain("medication-instruction");
+
+    const patientLeaflet = classifyDocumentOrganization({
+      title: "Living With A Defibrillator(RPBG)",
+      file_name: "Living with a Defibrillator (RPBG).pdf",
+      contentText: "Royal Perth Bentley Group patient information.",
+    });
+    expect(patientLeaflet.profile.secondary_facets.document_intent).toContain("patient-information");
   });
 });

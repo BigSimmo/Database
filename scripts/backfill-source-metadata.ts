@@ -38,8 +38,19 @@ type ClinicalValidationEvidence = {
 
 const APPLY = process.argv.includes("--apply");
 const EVAL_ONLY = process.argv.includes("--eval-only");
-const NOW = new Date("2026-06-30T00:00:00+08:00");
 const BACKFILL_VERSION = "source_metadata_backfill_2026_06_30_v1";
+
+function backfillAsOfDate() {
+  const index = process.argv.indexOf("--as-of");
+  if (index < 0) return new Date();
+  const raw = process.argv[index + 1];
+  if (!raw || raw.startsWith("--")) throw new Error("Missing value for --as-of");
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T00:00:00+08:00`) : new Date(raw);
+  if (Number.isNaN(date.getTime())) throw new Error(`Invalid --as-of date: ${raw}`);
+  return date;
+}
+
+const NOW = backfillAsOfDate();
 
 const publisherByCode: Record<string, { publisher: string; jurisdiction: string }> = {
   AKG: { publisher: "Armadale Kalamunda Group", jurisdiction: "Australia/WA" },
@@ -87,7 +98,8 @@ function publisherCodeFor(document: DocumentRow, text = "") {
 
 function sourceTypeFor(document: DocumentRow, text: string) {
   const haystack = `${document.title} ${document.file_name} ${text.slice(0, 1500)}`.toLowerCase();
-  if (haystack.includes("standard operational procedure") || /\bsop\b/.test(haystack)) return "standard_operating_procedure";
+  if (haystack.includes("standard operational procedure") || /\bsop\b/.test(haystack))
+    return "standard_operating_procedure";
   if (haystack.includes("policy and procedure")) return "policy_procedure";
   if (/\bprocedure\b/.test(haystack)) return "procedure";
   if (/\bpolicy\b/.test(haystack)) return "policy";
@@ -265,7 +277,9 @@ function firstMatchDate(text: string, labels: string[], endOfMonth: boolean) {
 function standaloneReviewDate(text: string) {
   const datePattern =
     "([0-3]?\\d[/-][01]?\\d[/-]20\\d{2}|[01]?\\d[/-]20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+[0-3]?\\d,?\\s+20\\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2}|[0-3]?\\d\\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\s+20\\d{2})";
-  const reviewedThenReview = text.match(new RegExp(`\\bReviewed\\s+${datePattern}[\\s\\S]{0,100}?\\bReview\\s+${datePattern}`, "i"));
+  const reviewedThenReview = text.match(
+    new RegExp(`\\bReviewed\\s+${datePattern}[\\s\\S]{0,100}?\\bReview\\s+${datePattern}`, "i"),
+  );
   if (reviewedThenReview?.[2]) {
     const parsed = parseClinicalDate(reviewedThenReview[2], { endOfMonth: true });
     if (parsed) return { date: parsed, raw: normalizeWhitespace(reviewedThenReview[0]) };
@@ -281,11 +295,9 @@ function standaloneReviewDate(text: string) {
 }
 
 function extractDates(text: string) {
-  const review = firstMatchDate(
-    text,
-    ["Review Due", "Revision Due", "Revision Date", "Review Date", "Next Review"],
-    true,
-  ) ?? standaloneReviewDate(text);
+  const review =
+    firstMatchDate(text, ["Review Due", "Revision Due", "Revision Date", "Review Date", "Next Review"], true) ??
+    standaloneReviewDate(text);
   const publication =
     firstMatchDate(
       text,
@@ -305,8 +317,7 @@ function extractDates(text: string) {
         "Endorsed",
       ],
       false,
-    ) ??
-    null;
+    ) ?? null;
   const lastUpdated = firstMatchDate(text, ["Last updated", "Updated"], false);
   const reviewCycle =
     /\b(?:reviewed|evaluated)[^.]{0,120}\bat least every three\s*(?:\(\s*3\s*\)|3)?\s*years?\b/i.test(text) ||
@@ -423,7 +434,11 @@ function extractionQualityFor(quality: QualityRow | undefined, existing: string)
   const score = typeof quality?.quality_score === "number" ? quality.quality_score : null;
   const issues = Array.isArray(quality?.issues) ? quality.issues.map(String).join(" ") : String(quality?.issues ?? "");
   if (qualityValue === "poor" || (score !== null && score < 0.52)) return "poor";
-  if (qualityValue === "good" && (score === null || score >= 0.72) && !/\b(?:failed|ocr|missing text)\b/i.test(issues)) {
+  if (
+    qualityValue === "good" &&
+    (score === null || score >= 0.72) &&
+    !/\b(?:failed|ocr|missing text)\b/i.test(issues)
+  ) {
     return "good";
   }
   if (qualityValue === "partial" || qualityValue === "good" || (score !== null && score >= 0.52)) return "partial";
@@ -504,8 +519,7 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
       publisher: publisherCode ? "filename/source_path code" : "not inferred",
       document_status: dates.review?.raw ?? dates.lastUpdated?.raw ?? "not inferred",
       publication_date: dates.publication?.raw ?? "not inferred",
-      clinical_validation_status:
-        clinicalValidation.basis,
+      clinical_validation_status: clinicalValidation.basis,
       extraction_quality: quality
         ? `document_index_quality:${quality.extraction_quality ?? "unknown"} score:${quality.quality_score ?? "unknown"}`
         : "existing metadata",

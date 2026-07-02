@@ -163,12 +163,12 @@ function classSignalScore(queryClass: RagQueryClass, result: SearchResult, combi
 function sourceQualityScore(result: SearchResult) {
   const metadata = result.source_metadata;
   let score = 0;
-  if (metadata?.document_status === "current") score += 0.035;
-  if (metadata?.document_status === "outdated") score -= 0.08;
-  if (metadata?.clinical_validation_status === "approved") score += 0.035;
-  if (metadata?.clinical_validation_status === "locally_reviewed") score += 0.02;
-  if (metadata?.extraction_quality === "good") score += 0.035;
-  if (metadata?.extraction_quality === "poor") score -= 0.06;
+  if (metadata?.document_status === "current") score += 0.004;
+  if (metadata?.document_status === "outdated") score -= 0.04;
+  if (metadata?.clinical_validation_status === "approved") score += 0.004;
+  if (metadata?.clinical_validation_status === "locally_reviewed") score += 0.003;
+  if (metadata?.extraction_quality === "good") score += 0.002;
+  if (metadata?.extraction_quality === "poor") score -= 0.05;
   return score;
 }
 

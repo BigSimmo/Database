@@ -1433,8 +1433,8 @@ describe("RAG structured-output fallback", () => {
       candidateCount: 2,
       retrievalDepth: 2,
       distinctDocumentCount: 2,
-      topScore: 0.6,
-      secondScore: 0.58,
+      topScore: 0.63,
+      secondScore: 0.61,
       scoreSpread: 0.02,
       routeMode: "unsupported",
     });

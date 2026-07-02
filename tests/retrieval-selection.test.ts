@@ -327,7 +327,7 @@ describe("retrieval source selection", () => {
     expect(selection.summary.matchedSignals).toEqual(expect.arrayContaining(["risk", "red_zone"]));
   });
 
-  it("prefers current locally reviewed clozapine threshold evidence over close review-required sources", () => {
+  it("keeps stronger clozapine threshold evidence visible even when routine governance review is required", () => {
     const selection = selectRetrievalEvidence({
       query: "What ANC or FBC threshold should withhold clozapine?",
       queryClass: "table_threshold",
@@ -377,16 +377,65 @@ describe("retrieval source selection", () => {
     });
 
     expect(selection.results).toHaveLength(5);
-    expect(selection.results.map((result) => result.id)).toEqual([
-      "current-local-fsh",
-      "current-local-nmhs",
-      "current-local-akg",
-      "current-local-camhs",
-      "current-local-smhs",
-    ]);
+    expect(selection.results.map((result) => result.id)).toContain("review-due-shared-care");
     expect(
-      selection.results.every((result) => result.source_metadata?.clinical_validation_status === "locally_reviewed"),
+      selection.results.some((result) => result.source_metadata?.clinical_validation_status === "locally_reviewed"),
     ).toBe(true);
+  });
+
+  it("does not let unverified validation displace directly relevant evidence", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What dose and route are shown in the agitation medication chart?",
+      queryClass: "medication_dose_risk",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "unverified-dose-route",
+          document_id: "unverified-dose-doc",
+          title: "Agitation Medication Chart",
+          file_name: "agitation-chart.pdf",
+          section_heading: "Medication chart",
+          content: "Agitation medication chart lists lorazepam 1 mg IM or PO.",
+          hybrid_score: 0.56,
+          source_metadata: sourceMetadata({
+            document_status: "current",
+            clinical_validation_status: "unverified",
+            extraction_quality: "good",
+          }),
+          index_unit: {
+            id: "unit-unverified-dose-route",
+            unit_type: "medication_chart_row",
+            title: "Lorazepam route row",
+            content: "Lorazepam 1 mg IM or PO.",
+            source_chunk_id: "unverified-dose-route",
+            source_image_id: null,
+            page_start: 5,
+            page_end: 5,
+            heading_path: ["Medication chart"],
+            normalized_terms: ["agitation", "lorazepam", "1 mg", "im", "po"],
+            quality_score: 0.9,
+            extraction_mode: "hybrid",
+          },
+        }),
+        source({
+          id: "current-generic-policy",
+          document_id: "current-generic-policy-doc",
+          title: "Current Medication Policy",
+          file_name: "current-medication-policy.pdf",
+          content: "General current medication governance policy without agitation dose or route detail.",
+          hybrid_score: 0.64,
+          source_metadata: sourceMetadata({
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          }),
+        }),
+      ],
+    });
+
+    expect(selection.results[0].id).toBe("unverified-dose-route");
+    expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("unverified");
   });
 
   it("prefers risk/red-zone flowchart evidence over generic flowchart evidence", () => {
@@ -460,7 +509,7 @@ describe("retrieval source selection", () => {
     expect(selection.summary.matchedSignals).toEqual(expect.arrayContaining(["risk", "red_zone"]));
   });
 
-  it("prefers current locally reviewed risk-flowchart action evidence over review-required action evidence", () => {
+  it("does not let routine governance metadata displace stronger risk-flowchart action evidence", () => {
     const selection = selectRetrievalEvidence({
       query: "In the clinical flowchart, what is the next step after red-zone risk?",
       queryClass: "document_lookup",
@@ -496,8 +545,8 @@ describe("retrieval source selection", () => {
       ],
     });
 
-    expect(selection.results[0].id).toBe("current-action");
-    expect(selection.results[0].source_metadata?.document_status).toBe("current");
-    expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("locally_reviewed");
+    expect(selection.results[0].id).toBe("review-due-action");
+    expect(selection.results[0].source_metadata?.document_status).toBe("review_due");
+    expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("unverified");
   });
 });

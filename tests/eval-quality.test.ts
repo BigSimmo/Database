@@ -241,10 +241,10 @@ describe("eval quality reporting", () => {
     });
 
     expect(report.accepted_threshold_failures).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("top-result stale/review/unknown rate"),
-        expect.stringContaining("top-result review_required_rate"),
-      ]),
+      expect.arrayContaining([expect.stringContaining("top-result review_required_rate")]),
+    );
+    expect(report.accepted_threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("top-result stale_rate")]),
     );
     expect(report.blocking_threshold_failures).toEqual(
       expect.arrayContaining([expect.stringContaining("RAG source_governance_danger_failure_rate")]),

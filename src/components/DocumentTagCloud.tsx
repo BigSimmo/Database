@@ -118,7 +118,10 @@ export function DocumentTagCloud({
   selectedTagKeys,
   grouped = false,
 }: DocumentTagCloudProps) {
-  const tags = useMemo(() => buildSmartDocumentTags(labels, { query, includeManualGroup: true }), [labels, query]);
+  const tags = useMemo(
+    () => buildSmartDocumentTags(labels, { query, includeManualGroup: true }).filter((tag) => tag.tier !== "ranking"),
+    [labels, query],
+  );
   const groupedTags = useMemo(
     () => groupSmartDocumentTags(labels, { query, includeManualGroup: true }),
     [labels, query],

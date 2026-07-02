@@ -1,4 +1,5 @@
 import * as nextEnv from "@next/env";
+import { documentLabelTier } from "@/lib/document-tags";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -42,6 +43,8 @@ type GeneratedLabelRow = {
     generated_by: "document-organization-classifier";
     organization_profile_version: "document-organization-v1";
     classified_at: string;
+    label_tier: ReturnType<typeof documentLabelTier>;
+    review_status: Classification["profile"]["review_status"];
   };
 };
 
@@ -264,6 +267,8 @@ function generatedLabelsForPlan(plan: ClassificationPlan, stampedAt: string): Ge
       generated_by: "document-organization-classifier",
       organization_profile_version: "document-organization-v1",
       classified_at: stampedAt,
+      label_tier: documentLabelTier(label.label, label.label_type),
+      review_status: plan.classification.profile.review_status,
     },
   }));
 }

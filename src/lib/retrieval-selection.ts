@@ -323,10 +323,9 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
     if (
       hasActionSignal &&
       metadata?.document_status === "current" &&
-      (metadata.clinical_validation_status === "approved" ||
-        metadata.clinical_validation_status === "locally_reviewed")
+      (metadata.clinical_validation_status === "approved" || metadata.clinical_validation_status === "locally_reviewed")
     ) {
-      boost += 0.05;
+      boost += 0.003;
     }
     if (args.candidate.chunkType === "flowchart" && !hasActionSignal) boost -= 0.14;
   }
@@ -347,17 +346,14 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (args.intent.requiredTermSignals.length > 0 && args.candidate.lexicalScore === 1) boost += 0.1;
   if (args.intent.requiredTermSignals.length > 0 && (args.candidate.lexicalScore ?? 0) === 0) boost -= 0.08;
 
-  if (metadata?.document_status === "current") boost += 0.06;
-  if (metadata?.document_status === "review_due") boost -= 0.12;
-  if (metadata?.document_status === "outdated") boost -= 0.24;
+  if (metadata?.document_status === "current") boost += 0.004;
+  if (metadata?.document_status === "outdated") boost -= 0.04;
 
-  if (metadata?.clinical_validation_status === "approved") boost += 0.06;
-  if (metadata?.clinical_validation_status === "locally_reviewed") boost += 0.05;
-  if (metadata?.clinical_validation_status === "unverified") boost -= 0.02;
+  if (metadata?.clinical_validation_status === "approved") boost += 0.004;
+  if (metadata?.clinical_validation_status === "locally_reviewed") boost += 0.003;
 
-  if (metadata?.extraction_quality === "good") boost += 0.02;
-  if (metadata?.extraction_quality === "partial") boost -= 0.04;
-  if (metadata?.extraction_quality === "poor") boost -= 0.12;
+  if (metadata?.extraction_quality === "good") boost += 0.002;
+  if (metadata?.extraction_quality === "poor") boost -= 0.06;
 
   return boost;
 }
