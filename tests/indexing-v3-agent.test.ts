@@ -210,4 +210,25 @@ describe("indexing-v3-agent behavior", () => {
       missing: [],
     });
   });
+
+  it("treats null missing arrays from completion RPCs as no missing artifacts", () => {
+    const result = parseJobStatusRpcResult(
+      {
+        complete_strict_enrichment_job: {
+          ok: true,
+          gate_passed: true,
+          status: "completed",
+          missing: null,
+        },
+      },
+      "complete_strict_enrichment_job",
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      gate_passed: true,
+      status: "completed",
+      missing: [],
+    });
+  });
 });
