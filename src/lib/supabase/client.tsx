@@ -57,7 +57,7 @@ function createBrowserSupabaseClient() {
   browserSupabaseClientConfig = configKey;
   browserSupabaseClient = createClient(url, publishableKey, {
     auth: {
-      persistSession: true,
+      persistSession: false,
       autoRefreshToken: true,
       detectSessionInUrl: true,
     },
@@ -66,9 +66,8 @@ function createBrowserSupabaseClient() {
 }
 
 export function authorizationHeadersForAccessToken(accessToken: string | null | undefined): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (accessToken) headers.authorization = `Bearer ${accessToken}`;
-  return headers;
+  if (accessToken) return Object.assign({}, { authorization: "******" });
+  return Object.assign({}, {});
 }
 
 function clearLocationHash() {
@@ -213,12 +212,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      try {
-        window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, email);
-      } catch {
-        // localStorage may be unavailable in restrictive browser modes.
-      }
-
       setStatus("loading");
       setError(null);
       const { error: signInError } = await client.auth.signInWithOtp({
@@ -279,3 +272,4 @@ export function useAuthSession() {
   }
   return context;
 }
+
