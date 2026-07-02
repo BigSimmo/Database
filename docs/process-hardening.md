@@ -30,6 +30,19 @@ This document turns the current process review into phased, durable repo practic
 - Added `src/components/clinical-dashboard/` as the module boundary.
 - `src/app/page.tsx` now imports `ClinicalDashboard` from the module path (`@/components/clinical-dashboard`) while preserving
   the legacy source declaration file for AST and merge-guard compatibility.
+- **2026-07-03:** extracted `AuthPanel` (+ its solely-consumed auth-email snapshot helpers) into `clinical-dashboard/auth-panel.tsx`. Monolith 7924 → 7800 lines. Per-module gate established: `npm run typecheck` + `npx vitest run tests/clinical-dashboard-merge-artifacts.test.ts tests/rendered-text-formatting.test.ts` + a `data-testid`/`aria-label` sha1 checksum over `ClinicalDashboard.tsx` + `clinical-dashboard/*.tsx` (must be byte-identical before/after each move) + lint + prettier.
+
+#### Remaining decomposition — hand-off (do on a stable `main`, one module per commit)
+
+The approved move map (`docs/redesign/04-deferred.md` §2) has 5 modules left. Unlike `auth-panel`, these are **interdependent** — they share a clinical-detail/notes helper family, so order matters and cross-module `export`s are required. Recommended order and the key dependency to resolve first:
+
+1. `answer-content.tsx` — `SourceImage`, `ScopeAndGovernanceNotice`, `SourcePreviewContent`, `NaturalLanguageAnswer` (**AST-pinned** — retarget `tests/clinical-dashboard-merge-artifacts.test.ts` to scan this file for `NaturalLanguageAnswer`), `UserQuestionBubble`, `KeyClinicalItems` + answer formatters. Widen `tests/rendered-text-formatting.test.ts` to also scan this file.
+2. `evidence-panels.tsx` — the clinical-detail/notes helper family (`displayItemsForClinicalDetailSection`, `sortClinicalDetailSections`, `clinicalDetailSummaryItems`, and siblings) **plus** `ClinicalNotesChecklistPanel`, `SafetyFindingsPanel`, `EvidenceGapPanel`, `EvidenceCounts`, `AnswerSourceStatus`, `EvidenceSummaryCard`, `AnswerInsightBar`, `EvidenceVerificationStrip`, `AnswerFeedbackPanel`, `VerificationWorkspace`, `AnswerViewModeControl`, `EvidenceMapTable`, `AnswerSafetyNotice`, `QuoteCards`. **Export the helper family** so output-panel can import it. Must land before output-panel.
+3. `output-panel.tsx` — `ClinicalOutputPanel` (**AST-pinned** — retarget `dashboardPath` in `tests/clinical-dashboard-merge-artifacts.test.ts` to resolve declarations across the monolith + this file). Imports the detail helpers from `evidence-panels`.
+4. `visual-evidence.tsx` — `VisualEvidenceStrip`, `InlineTableCard`, `MobileEvidenceSheetContent`, `MobileEvidenceTabPanel`, `UnifiedEvidenceDrawerContent`.
+5. `document-results.tsx` — `WhyThisMatchedPanel`, `RelatedDocumentsPanel`, `StagedAnswerResultSurface`.
+
+For each: trace which module-scope helpers/icons/types it uses; move solely-consumed ones with it, import shared ones; strip newly-orphaned monolith imports (lint flags them); run the per-module gate above; commit immediately. Keep the main `ClinicalDashboard` export in `ClinicalDashboard.tsx` (the barrel/bridge stays). Admin surfaces (`DocumentDrawer`, `SettingsDialog`, `ToolsHub`, `MobileSectionFab`) are out of the approved map — a later pass.
 
 ## Phase 4 - Release maturity
 

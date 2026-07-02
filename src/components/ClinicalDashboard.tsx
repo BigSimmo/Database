@@ -26,10 +26,8 @@ import {
   Layers,
   ListChecks,
   Loader2,
-  LogIn,
   LogOut,
   LockKeyhole,
-  Mail,
   Palette,
   PanelTop,
   Plus,
@@ -53,7 +51,6 @@ import {
 } from "lucide-react";
 import {
   type CSSProperties,
-  FormEvent,
   memo,
   type RefObject,
   useCallback,
@@ -96,7 +93,6 @@ import {
   fieldIcon,
   floatingControl,
   iconTilePremium,
-  fieldLabel,
   metadataPill,
   panelSubtle,
   primaryControl,
@@ -120,10 +116,11 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
+import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
+import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
@@ -297,7 +294,6 @@ function useMobilePreviewSheet() {
   return useSyncExternalStore(subscribeToMobilePreviewMedia, getMobilePreviewSnapshot, () => false);
 }
 
-const authEmailChangeEvent = "clinical-kb-auth-email-change";
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
@@ -509,32 +505,6 @@ async function readAnswerStream(response: Response, onProgress: (message: string
 
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
-}
-
-function getAuthEmailSnapshot() {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem(AUTH_EMAIL_STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function getServerAuthEmailSnapshot() {
-  return "";
-}
-
-function subscribeAuthEmail(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => undefined;
-  const notify = () => onStoreChange();
-
-  window.addEventListener("storage", notify);
-  window.addEventListener(authEmailChangeEvent, notify);
-
-  return () => {
-    window.removeEventListener("storage", notify);
-    window.removeEventListener(authEmailChangeEvent, notify);
-  };
 }
 
 const SourceImage = memo(function SourceImage({
@@ -4522,100 +4492,6 @@ function StagedAnswerResultSurface({
 
       <SafetyFindingsPanel findings={safetyFindings} />
     </div>
-  );
-}
-
-function AuthPanel() {
-  const { status, error, isConfigured, signInWithEmail, signOut, session } = useAuthSession();
-  const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
-  const [draftEmail, setDraftEmail] = useState<string | null>(null);
-  const email = draftEmail ?? savedEmail;
-  const busy = status === "loading";
-  const isExpired = status === "expired";
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!email.trim()) return;
-    await signInWithEmail(email.trim());
-  }
-
-  if (!isConfigured) {
-    return (
-      <div className={cn(panelSubtle, "p-3")}>
-        <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--text)]">Real-data sign-in unavailable</p>
-            <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
-              Configure the Supabase public URL and publishable key before using private documents.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "authenticated") {
-    return (
-      <div className={cn(panelSubtle, "p-3")}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>{session?.user.email ?? "Authenticated session"}</p>
-          </div>
-          <button type="button" onClick={signOut} className={cn(floatingControl, "px-3 text-xs")}>
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={submit} className={cn(panelSubtle, "space-y-3 p-3")}>
-      <div className="flex items-start gap-3">
-        <LogIn className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--primary)]" />
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">
-            {isExpired ? "Sign-in link expired" : "Sign in for private documents"}
-          </p>
-          <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
-            {isExpired
-              ? "Send a fresh link if this one failed or already timed out."
-              : "Real-data search, upload, and source previews require a Supabase Auth session."}
-          </p>
-        </div>
-      </div>
-      <label className="block">
-        <span className={fieldLabel}>Email address</span>
-        <div className="relative">
-          <Mail className={fieldIcon} />
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setDraftEmail(event.target.value)}
-            placeholder="you@example.com"
-            className={fieldControlWithIcon}
-          />
-        </div>
-      </label>
-      <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-        Send sign-in link
-      </button>
-      {error && (
-        <p
-          role="alert"
-          className={cn(
-            "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs",
-            textMuted,
-          )}
-        >
-          {error}
-        </p>
-      )}
-    </form>
   );
 }
 
