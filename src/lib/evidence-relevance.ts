@@ -344,7 +344,16 @@ export function buildEvidenceRelevance(query: string, results: SearchResult[]): 
       ? "direct"
       : directSourceCount > 0 || partialSourceCount > 0
         ? "partial"
-        : matchedTerms.length > 0 || results.length > 0
+        : // Audit L3: base nearby-vs-none on matched terms. `results.length > 0`
+          // was always true here (empty results early-return above), which made
+          // the aggregate "none" verdict unreachable and overstated evidence
+          // for result sets matching zero query terms. Strong retrieval scores
+          // still count as "nearby" (diff-review hardening): term matching is
+          // purely lexical, so a good semantic match ("myocardial infarction"
+          // for "heart attack") must not degrade to "none" and trip the
+          // danger-level governance banner while every per-source chip reads
+          // "nearby".
+          matchedTerms.length > 0 || score >= 0.5
           ? "nearby"
           : "none";
   const relevance: EvidenceRelevance = {
