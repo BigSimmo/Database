@@ -4,8 +4,8 @@ export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
 export type SearchableAppModeId = AppModeId;
 
-export type AppModeSearchKind = "answer" | "documents" | "favourites" | "differentials" | "tools";
-export type AppModeResultKind = "answer" | "documents" | "favourites" | "differentials" | "tools";
+export type AppModeSearchKind = "answer" | "documents" | "services" | "favourites" | "differentials" | "tools";
+export type AppModeResultKind = "answer" | "documents" | "services" | "favourites" | "differentials" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -83,7 +83,7 @@ export const appModeDefinitions = [
     description: "Service records and referral pathways",
     href: "/services",
     search: {
-      kind: "documents",
+      kind: "services",
       placeholder: "Search services...",
       inputAriaLabel: "Search services, source records, pathways, and criteria",
       submitIdleLabel: "Services",
@@ -92,7 +92,7 @@ export const appModeDefinitions = [
       emptyTitle: "Enter a service search term",
       readyTitle: "Search services",
       progressLabel: "Searching service records.",
-      resultKind: "documents",
+      resultKind: "services",
       resultHeading: "Service matches",
       statusLabel: "Services",
       nextStep: "Review matching service records",
@@ -291,6 +291,11 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
   if (!mode) return false;
   const kind = mode.search.kind;
   return (
-    kind === "answer" || kind === "documents" || kind === "favourites" || kind === "differentials" || kind === "tools"
+    kind === "answer" ||
+      kind === "documents" ||
+      kind === "services" ||
+      kind === "favourites" ||
+      kind === "differentials" ||
+      kind === "tools"
   );
 }
