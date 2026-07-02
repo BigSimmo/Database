@@ -770,7 +770,7 @@ export function DocumentSearchResultsPanel({
     return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
   })();
   return (
-    <div data-testid="document-search-workspace" className="space-y-3">
+    <div data-testid="document-search-workspace" className="w-full space-y-3">
       {recordMatchCount > 0 ||
       matches.length > 0 ||
       (trimmedQuery && !shouldShowHome) ||

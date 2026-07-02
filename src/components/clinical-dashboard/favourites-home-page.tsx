@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 type FavouritesHomePageProps = {
   query?: string;
@@ -24,6 +25,8 @@ export function FavouritesHomePage({ query = "" }: FavouritesHomePageProps) {
           router.push(appModeHomeHref("favourites", { focus: true }));
         }}
         onAddFavourite={() => undefined}
+        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
+        headingLevel={1}
       />
     </main>
   );
