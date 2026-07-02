@@ -1719,7 +1719,7 @@ async function processJob(job: JobRow) {
     await completeJob(job, completionStage);
     await refreshRagTableStats();
   } catch (error) {
-    console.error(`Ingestion job ${job.id} failed:`, error);
+    console.error("Ingestion job failed", safeErrorLogDetails(error));
     const message = error instanceof Error ? error.message : String(error);
     const partialConflict = isPartialIndexWriteConflict(error);
     const shouldRetry = isRetryableIngestionError(error) && job.attempt_count < job.max_attempts;
