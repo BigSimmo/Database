@@ -189,7 +189,7 @@ async function updateBatch(batchId: string | null) {
   const failed = data.filter((job) => job.status === "failed").length;
   const status = terminalBatchStatus({ queued, processing, failed });
 
-  await supabase
+  const { error: fallbackUpdateError } = await supabase
     .from("import_batches")
     .update({
       status,
@@ -197,6 +197,12 @@ async function updateBatch(batchId: string | null) {
       completed_at: status === "processing" ? null : new Date().toISOString(),
     })
     .eq("id", batchId);
+  if (fallbackUpdateError) {
+    console.warn(
+      "Import batch status fallback update failed",
+      safeErrorLogDetails(supabaseStageError("update import batch status fallback", fallbackUpdateError)),
+    );
+  }
 }
 
 async function completeJob(job: JobRow, stage: string) {
