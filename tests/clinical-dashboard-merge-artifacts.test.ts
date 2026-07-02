@@ -3,29 +3,42 @@ import { resolve } from "node:path";
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-const dashboardPath = resolve(process.cwd(), "src/components/ClinicalDashboard.tsx");
-const dashboardSource = readFileSync(dashboardPath, "utf8");
-const dashboardAst = ts.createSourceFile(
-  dashboardPath,
-  dashboardSource,
-  ts.ScriptTarget.Latest,
-  true,
-  ts.ScriptKind.TSX,
-);
+// The dashboard render surfaces are progressively being extracted from the
+// monolith into src/components/clinical-dashboard/*. Scan every file that now
+// owns a pinned declaration so the guards travel with the code and the
+// absence checks strengthen across the whole set.
+const scannedFiles = [
+  "src/components/ClinicalDashboard.tsx",
+  "src/components/clinical-dashboard/answer-content.tsx",
+].map((relativePath) => {
+  const path = resolve(process.cwd(), relativePath);
+  const source = readFileSync(path, "utf8");
+  return {
+    path,
+    source,
+    ast: ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX),
+  };
+});
 
-function findFunctionDeclaration(name: string): ts.FunctionDeclaration | null {
-  let found: ts.FunctionDeclaration | null = null;
+type FoundDeclaration = { node: ts.FunctionDeclaration; ast: ts.SourceFile };
 
-  function visit(node: ts.Node) {
-    if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
-      found = node;
-      return;
+function findFunctionDeclaration(name: string): FoundDeclaration | null {
+  for (const file of scannedFiles) {
+    let found: ts.FunctionDeclaration | null = null;
+
+    function visit(node: ts.Node) {
+      if (found) return;
+      if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
+        found = node;
+        return;
+      }
+      ts.forEachChild(node, visit);
     }
-    ts.forEachChild(node, visit);
-  }
 
-  visit(dashboardAst);
-  return found;
+    visit(file.ast);
+    if (found) return { node: found, ast: file.ast };
+  }
+  return null;
 }
 
 function descendantIdentifiers(node: ts.Node) {
@@ -50,8 +63,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(panel, "ClinicalOutputPanel should remain a local function declaration").not.toBeNull();
     if (!panel) throw new Error("ClinicalOutputPanel should remain a local function declaration");
 
-    const panelSource = panel.getText(dashboardAst);
-    const panelIdentifiers = descendantIdentifiers(panel);
+    const panelSource = panel.node.getText(panel.ast);
+    const panelIdentifiers = descendantIdentifiers(panel.node);
 
     expect(panelIdentifiers.has("copiedWardNote")).toBe(false);
     expect(panelIdentifiers.has("onCopyWardNote")).toBe(false);
@@ -67,7 +80,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(answer, "NaturalLanguageAnswer should remain a local function declaration").not.toBeNull();
     if (!answer) throw new Error("NaturalLanguageAnswer should remain a local function declaration");
 
-    const answerSource = answer.getText(dashboardAst);
+    const answerSource = answer.node.getText(answer.ast);
     expect(answerSource).toContain("plain-answer-prose");
     expect(answerSource).not.toContain("parseAnswerDisplayContent");
     expect(answerSource).not.toContain("AnswerSymbolTile");
