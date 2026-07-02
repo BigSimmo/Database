@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import {
+  ArrowRight,
   BookOpen,
+  Brain,
   ChevronRight,
   ClipboardList,
+  Clock3,
   ExternalLink,
   FileText,
+  Filter,
   Grid2X2,
+  History,
   MoreVertical,
   Pill,
   Pin,
@@ -15,6 +20,8 @@ import {
   Plus,
   Search,
   Send,
+  ShieldCheck,
+  Smartphone,
   Star,
   X,
   type LucideIcon,
@@ -47,6 +54,9 @@ type LauncherApp = {
   workflow: string;
   lastUsed: string;
   status: LauncherStatus;
+  areaLabel: string;
+  primaryAction: string;
+  sourceBacked: boolean;
   sourceToolId?: string;
   relatedIds: string[];
   quickActions: string[];
@@ -72,6 +82,13 @@ const filterOptions = [
   { id: "recent", label: "Recent" },
 ] as const;
 
+const dashboardFilterOptions = [
+  { id: "all", label: "All tools", icon: Filter },
+  { id: "pinned", label: "Pinned", icon: Pin },
+  { id: "review_due", label: "Review due", icon: Clock3 },
+  { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
+] as const;
+
 const launcherApps: LauncherApp[] = [
   {
     id: "medication-prescribing",
@@ -86,6 +103,9 @@ const launcherApps: LauncherApp[] = [
     workflow: "Care planning",
     lastUsed: "May 12, 2025",
     status: "review_due",
+    areaLabel: "Treatment",
+    primaryAction: "Prescribe",
+    sourceBacked: true,
     sourceToolId: "medications",
     relatedIds: ["documents", "services", "clinical-kb-search"],
     quickActions: ["Create new prescription", "Browse formulary", "Review interactions", "Medication templates"],
@@ -107,6 +127,9 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "May 10, 2025",
     status: "ready",
+    areaLabel: "Reference",
+    primaryAction: "Search",
+    sourceBacked: true,
     relatedIds: ["clinical-kb-search", "services", "medication-prescribing"],
     quickActions: ["Search documents", "Browse library", "Open source PDF", "Review indexed documents"],
     recentWorkflows: [
@@ -128,6 +151,9 @@ const launcherApps: LauncherApp[] = [
     workflow: "Referral",
     lastUsed: "Today, 8:15 AM",
     status: "review_due",
+    areaLabel: "Coordination",
+    primaryAction: "Refer",
+    sourceBacked: true,
     relatedIds: ["clinical-kb-search", "documents", "medication-prescribing"],
     quickActions: ["Open services home", "Review referral criteria", "Copy contact pathway", "Check source status"],
     recentWorkflows: [
@@ -148,6 +174,9 @@ const launcherApps: LauncherApp[] = [
     workflow: "Forms",
     lastUsed: "Today, 8:05 AM",
     status: "ready",
+    areaLabel: "Coordination",
+    primaryAction: "Open",
+    sourceBacked: true,
     relatedIds: ["services", "documents", "clinical-kb-search"],
     quickActions: ["Open forms home", "Search forms", "Review readiness checks", "Browse form pathways"],
     recentWorkflows: [
@@ -168,12 +197,61 @@ const launcherApps: LauncherApp[] = [
     workflow: "Reference",
     lastUsed: "Today, 7:30 AM",
     status: "ready",
+    areaLabel: "Reference",
+    primaryAction: "Ask",
+    sourceBacked: true,
     relatedIds: ["documents", "services", "medication-prescribing"],
     quickActions: ["Ask clinical question", "Search indexed guidelines", "Open document scope", "Review sources"],
     recentWorkflows: [
       { title: "Lithium monitoring search", date: "Today, 7:30 AM" },
       { title: "Safety plan search", date: "May 12, 2025" },
       { title: "Clozapine source check", date: "May 10, 2025" },
+    ],
+  },
+  {
+    id: "differentials",
+    title: "Differentials",
+    description: "Build and compare diagnostic possibilities.",
+    detail: "Open the differentials workspace for source-aware comparison, risk review, and presentation support.",
+    href: "/differentials",
+    external: false,
+    icon: Brain,
+    category: "clinical",
+    workflow: "Assessment",
+    lastUsed: "Today, 8:40 AM",
+    status: "recent",
+    areaLabel: "Assessment",
+    primaryAction: "Compare",
+    sourceBacked: true,
+    relatedIds: ["clinical-kb-search", "documents", "medication-prescribing"],
+    quickActions: ["Compare diagnoses", "Search presentations", "Open diagnosis map", "Review clinical clues"],
+    recentWorkflows: [
+      { title: "Acute confusion comparison", date: "Today, 8:40 AM" },
+      { title: "Mood differential map", date: "May 12, 2025" },
+      { title: "Psychosis presentation review", date: "May 10, 2025" },
+    ],
+  },
+  {
+    id: "favourites",
+    title: "Favourites",
+    description: "Return to saved clinical work and sources.",
+    detail: "Open saved clinical items, pinned sources, repeated workflows, and recent reference sets.",
+    href: "/favourites",
+    external: false,
+    icon: Star,
+    category: "admin",
+    workflow: "Saved work",
+    lastUsed: "Today, 8:45 AM",
+    status: "recent",
+    areaLabel: "Saved",
+    primaryAction: "Resume",
+    sourceBacked: false,
+    relatedIds: ["clinical-kb-search", "documents", "services"],
+    quickActions: ["Open saved items", "Review pinned sources", "Resume recent work", "Browse saved sets"],
+    recentWorkflows: [
+      { title: "Saved lithium sources", date: "Today, 8:45 AM" },
+      { title: "Referral source set", date: "May 12, 2025" },
+      { title: "Medication monitoring saves", date: "May 10, 2025" },
     ],
   },
 ];
@@ -258,10 +336,7 @@ function appById(id: string) {
 function StatusPill({ status }: { status: LauncherStatus }) {
   return (
     <span
-      className={cn(
-        "inline-flex min-h-6 items-center rounded-md border px-2 text-[11px] font-bold",
-        statusStyles[status],
-      )}
+      className={cn("inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-bold", statusStyles[status])}
     >
       {statusLabels[status]}
     </span>
@@ -648,6 +723,441 @@ function DetailPanel({
   );
 }
 
+type DashboardFilterId = (typeof dashboardFilterOptions)[number]["id"];
+
+function DashboardStatsStrip({ apps }: { apps: LauncherApp[] }) {
+  const stats = [
+    { label: "Tools", value: String(apps.length), icon: Grid2X2 },
+    { label: "Review due", value: String(apps.filter((app) => app.status === "review_due").length), icon: Clock3 },
+    { label: "Recent", value: String(apps.filter((app) => app.status === "recent").length), icon: History },
+  ];
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[24rem]">
+      {stats.map((item) => {
+        const Icon = item.icon;
+        return (
+          <div
+            key={item.label}
+            className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-inset)]"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <Icon className="h-4 w-4" aria-hidden />
+            </span>
+            <span>
+              <span className="nums block text-xl font-extrabold text-[color:var(--text-heading)]">{item.value}</span>
+              <span className="text-xs font-bold text-[color:var(--text-muted)]">{item.label}</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DashboardSearchControl({ query, onQueryChange }: { query: string; onQueryChange: (query: string) => void }) {
+  return (
+    <form
+      onSubmit={(event) => event.preventDefault()}
+      className="grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)]"
+    >
+      <Search className="ml-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+      <input
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        aria-label="Search tools by clinical job, source, or workflow"
+        placeholder="Search tools..."
+        className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+      />
+      {query.trim() ? (
+        <button
+          type="button"
+          onClick={() => onQueryChange("")}
+          aria-label="Clear tool search"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      ) : (
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </span>
+      )}
+    </form>
+  );
+}
+
+function DashboardFilterBar({
+  activeFilter,
+  onFilterChange,
+}: {
+  activeFilter: DashboardFilterId;
+  onFilterChange: (filter: DashboardFilterId) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {dashboardFilterOptions.map((option) => {
+        const Icon = option.icon;
+        const active = option.id === activeFilter;
+
+        return (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onFilterChange(option.id)}
+            className={cn(
+              "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-bold shadow-[var(--shadow-inset)] transition",
+              active
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
+            )}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function DashboardToolCard({ app, selected = false }: { app: LauncherApp; selected?: boolean }) {
+  return (
+    <Link
+      href={app.href}
+      target={app.external ? "_blank" : undefined}
+      rel={app.external ? "noopener noreferrer" : undefined}
+      aria-label={`Open ${app.title}`}
+      className={cn(
+        "group block rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
+        selected
+          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
+          : "border-[color:var(--border)]",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <AppIcon app={app} compact />
+        <div className="min-w-0 flex-1">
+          <div className="grid gap-2">
+            <h3 className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{app.title}</h3>
+            <StatusPill status={app.status} />
+          </div>
+          <p className={cn("mt-1 line-clamp-2 text-sm font-medium leading-5", textMuted)}>{app.description}</p>
+          <p className="mt-2 truncate text-xs font-bold text-[color:var(--text-soft)]">{app.detail}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="nums truncate text-xs font-semibold text-[color:var(--text-muted)]">{app.lastUsed}</span>
+        <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+          {app.primaryAction}
+          <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function DashboardWideToolTile({ app, selected = false }: { app: LauncherApp; selected?: boolean }) {
+  return (
+    <Link
+      href={app.href}
+      target={app.external ? "_blank" : undefined}
+      rel={app.external ? "noopener noreferrer" : undefined}
+      aria-label={`Open ${app.title}`}
+      data-testid={`application-row-${app.id}`}
+      className={cn(
+        "group grid min-h-[8.75rem] rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+        selected
+          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
+          : "border-[color:var(--border)]",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <AppIcon app={app} compact />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start gap-2">
+            <h3 className="min-w-0 flex-1 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
+              {app.title}
+            </h3>
+            <StatusPill status={app.status} />
+          </div>
+          <p className={cn("mt-1 line-clamp-2 text-sm font-medium leading-5", textMuted)}>{app.description}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            {app.areaLabel}
+          </p>
+          <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">{app.workflow}</p>
+        </div>
+        <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+          {app.primaryAction}
+          <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function DashboardPhonePreview({ apps }: { apps: LauncherApp[] }) {
+  const phoneApps = apps.length ? apps.slice(0, 5) : launcherApps.slice(0, 5);
+  const phoneRecents = recentActivity.slice(0, 2);
+
+  return (
+    <aside className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] xl:sticky xl:top-4 xl:block">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            Phone browser mode
+          </p>
+          <h2 className="mt-1 text-base font-extrabold text-[color:var(--text-heading)]">Direct launch layout</h2>
+        </div>
+        <span className="inline-flex min-h-7 items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs font-bold text-[color:var(--clinical-accent)]">
+          <Smartphone className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+          390px
+        </span>
+      </div>
+
+      <div className="mx-auto mt-4 max-w-[19rem] rounded-[2rem] border border-[color:var(--border-strong)] bg-[color:var(--surface-chrome)] p-2 shadow-[var(--shadow-lux)]">
+        <div className="overflow-hidden rounded-[1.45rem] border border-[color:var(--border)] bg-[color:var(--background)]">
+          <div className="flex min-h-11 items-center justify-between border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3">
+            <span className="text-sm font-extrabold text-[color:var(--text-heading)]">Clinical tools</span>
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
+              <Search className="h-3.5 w-3.5" aria-hidden />
+            </span>
+          </div>
+          <div className="space-y-3 p-3">
+            <div className="grid min-h-10 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2">
+              <Search className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+              <span className="truncate text-xs font-bold text-[color:var(--text-soft)]">Search tools</span>
+              <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+            </div>
+
+            <div className="grid gap-2">
+              {phoneApps.map((app, index) => {
+                const Icon = app.icon;
+                return (
+                  <Link
+                    key={app.id}
+                    href={app.href}
+                    target={app.external ? "_blank" : undefined}
+                    rel={app.external ? "noopener noreferrer" : undefined}
+                    className={cn(
+                      "grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-[color:var(--surface)] px-2 text-left shadow-[var(--shadow-inset)]",
+                      index === 0 && "border border-[color:var(--clinical-accent-border)]",
+                    )}
+                  >
+                    <span className="grid h-8 w-8 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-extrabold text-[color:var(--text-heading)]">
+                        {app.title}
+                      </span>
+                      <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                        {app.areaLabel}
+                      </span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)]">
+              <div className="flex min-h-8 items-center justify-between border-b border-[color:var(--border)] px-2">
+                <span className="text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                  Recents
+                </span>
+                <span className="text-2xs font-bold text-[color:var(--clinical-accent)]">View</span>
+              </div>
+              <div className="divide-y divide-[color:var(--border)]">
+                {phoneRecents.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 text-left"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+                      <span className="min-w-0">
+                        <span className="block truncate text-2xs font-extrabold text-[color:var(--text-heading)]">
+                          {item.label}
+                        </span>
+                        <span className="block truncate text-3xs font-semibold text-[color:var(--text-soft)]">
+                          {item.date}
+                        </span>
+                      </span>
+                      <ArrowRight className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function DashboardRecents({ onSelect }: { onSelect: (id: string) => void }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
+      <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--border)] px-3">
+        <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Recents</h2>
+        <span className="text-xs font-bold text-[color:var(--clinical-accent)]">View all</span>
+      </div>
+      <div className="divide-y divide-[color:var(--border)]">
+        {recentActivity.slice(0, 3).map((item) => {
+          const Icon = item.icon;
+          const app = appById(item.id);
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-left hover:bg-[color:var(--surface-subtle)]"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">{item.label}</span>
+                <span className="block truncate text-xs font-semibold text-[color:var(--text-soft)]">
+                  {app.areaLabel}
+                </span>
+              </span>
+              <span className="hidden items-center gap-3 sm:flex">
+                <StatusPill status={app.status} />
+                <span className="nums w-24 text-right text-xs font-semibold text-[color:var(--text-muted)]">
+                  {item.date}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function DashboardToolsCommandCenter({
+  query,
+  onQueryChange,
+  activeFilter,
+  onFilterChange,
+  filteredApps,
+  pinnedApps,
+  selectedId,
+  onSelect,
+  desktopComposerSlotId,
+  className,
+}: {
+  query: string;
+  onQueryChange: (query: string) => void;
+  activeFilter: DashboardFilterId;
+  onFilterChange: (filter: DashboardFilterId) => void;
+  filteredApps: LauncherApp[];
+  pinnedApps: LauncherApp[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  desktopComposerSlotId?: string;
+  className?: string;
+}) {
+  const startApps = seedPinnedIds.map(appById);
+
+  return (
+    <div data-testid="tools-hub" className={cn("mx-auto w-full max-w-7xl overflow-x-hidden", className)}>
+      <section className="grid gap-5 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:px-8">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-7 items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]">
+              Recommended direction
+            </span>
+            <span className="inline-flex min-h-7 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)]">
+              Launcher first
+            </span>
+          </div>
+          <h1 className="mt-3 text-balance text-3xl font-extrabold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-4xl">
+            Tools command center
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
+            Open a tool directly, resume recent work, or search by clinical task.
+          </p>
+        </div>
+        <DashboardStatsStrip apps={launcherApps} />
+      </section>
+
+      <main className="grid gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
+        {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="hidden" /> : null}
+
+        <section className="grid gap-3">
+          <DashboardSearchControl query={query} onQueryChange={onQueryChange} />
+          <DashboardFilterBar activeFilter={activeFilter} onFilterChange={onFilterChange} />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+          <section className="grid content-start gap-3">
+            <div>
+              <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Start here</h2>
+              <p className="text-sm font-medium text-[color:var(--text-muted)]">Most-used tools stay one click away.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {startApps.map((app, index) => (
+                <DashboardToolCard key={app.id} app={app} selected={index === 0} />
+              ))}
+            </div>
+          </section>
+
+          <DashboardPhonePreview apps={filteredApps.length ? filteredApps : pinnedApps} />
+        </section>
+
+        <section
+          aria-label="All tools"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-4"
+        >
+          <div className="grid gap-3 border-b border-[color:var(--border)] pb-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+                <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">All tools</h2>
+              </div>
+              <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                Every tool opens directly. Pick by task, status, or last-used context.
+              </p>
+            </div>
+            <div className="text-xs font-bold text-[color:var(--text-muted)]">
+              Showing {filteredApps.length} of {launcherApps.length}
+            </div>
+          </div>
+
+          {filteredApps.length ? (
+            <div className="grid gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredApps.map((app) => (
+                <DashboardWideToolTile key={app.id} app={app} selected={app.id === selectedId} />
+              ))}
+            </div>
+          ) : (
+            <div className="px-3 py-8 text-center">
+              <p className="text-sm font-semibold text-[color:var(--text-heading)]">No tools match</p>
+              <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
+                Clear the search or try another clinical workflow, tool name, or category.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <DashboardRecents onSelect={onSelect} />
+      </main>
+    </div>
+  );
+}
+
 type ApplicationsLauncherWorkspaceProps = {
   variant?: LauncherVariant;
   query?: string;
@@ -665,6 +1175,7 @@ export function ApplicationsLauncherWorkspace({
 }: ApplicationsLauncherWorkspaceProps) {
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<(typeof filterOptions)[number]["id"]>("all");
+  const [dashboardFilter, setDashboardFilter] = useState<DashboardFilterId>("all");
   const [selectedId, setSelectedId] = useState("clinical-kb-search");
   const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
@@ -692,6 +1203,24 @@ export function ApplicationsLauncherWorkspace({
     });
   }, [activeFilter, normalizedQuery]);
 
+  const dashboardFilteredApps = useMemo(() => {
+    return launcherApps.filter((app) => {
+      const matchesFilter =
+        dashboardFilter === "all" ||
+        (dashboardFilter === "pinned"
+          ? pinnedIds.includes(app.id)
+          : dashboardFilter === "review_due"
+            ? app.status === "review_due"
+            : app.sourceBacked);
+      const matchesQuery =
+        !normalizedQuery ||
+        [app.title, app.description, app.workflow, app.detail, app.areaLabel].some((value) =>
+          value.toLowerCase().includes(normalizedQuery),
+        );
+      return matchesFilter && matchesQuery;
+    });
+  }, [dashboardFilter, normalizedQuery, pinnedIds]);
+
   function togglePin(id: string) {
     setPinnedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [id, ...current]));
   }
@@ -714,6 +1243,23 @@ export function ApplicationsLauncherWorkspace({
     event.preventDefault();
     const firstMatch = filteredApps[0];
     if (firstMatch) selectApplication(firstMatch.id);
+  }
+
+  if (isDashboardTools) {
+    return (
+      <DashboardToolsCommandCenter
+        query={query}
+        onQueryChange={updateQuery}
+        activeFilter={dashboardFilter}
+        onFilterChange={setDashboardFilter}
+        filteredApps={dashboardFilteredApps}
+        pinnedApps={pinnedApps}
+        selectedId={selectedId}
+        onSelect={selectApplication}
+        desktopComposerSlotId={desktopComposerSlotId}
+        className={className}
+      />
+    );
   }
 
   const workspace = (
@@ -755,7 +1301,7 @@ export function ApplicationsLauncherWorkspace({
           <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:mt-5 sm:text-4xl">
             {copy.heading}
           </h1>
-          <p className="mt-3 max-w-xl text-[15px] leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
+          <p className="mt-3 max-w-xl text-base-minus leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
             {copy.description}
           </p>
           <div className="mt-6">

@@ -158,7 +158,7 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
             </h2>
             <span
               className={cn(
-                "inline-flex min-h-6 items-center rounded-md border px-2 text-[11px] font-extrabold uppercase",
+                "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase",
                 statusTone[record.status],
               )}
             >
@@ -174,11 +174,11 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
                   key={fact.label}
                   className={cn("min-w-0", index > 0 && "border-l border-[color:var(--danger)]/14 pl-2 sm:pl-4")}
                 >
-                  <p className="grid gap-1 text-[10px] font-bold leading-tight text-[color:var(--text-heading)] sm:flex sm:items-center sm:gap-2 sm:text-xs">
+                  <p className="grid gap-1 text-3xs font-bold leading-tight text-[color:var(--text-heading)] sm:flex sm:items-center sm:gap-2 sm:text-xs">
                     <Icon className="h-3.5 w-3.5 text-[color:var(--danger)] sm:h-4 sm:w-4" aria-hidden />
                     <span>{fact.label}</span>
                   </p>
-                  <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)] sm:text-xs">
+                  <p className="mt-1 text-3xs font-semibold text-[color:var(--text-muted)] sm:text-xs">
                     {fact.value}
                   </p>
                 </div>
@@ -190,7 +190,7 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
             {record.safetySnapshot.tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--surface-subtle)] px-2.5 text-[11px] font-semibold text-[color:var(--text-muted)]"
+                className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--surface-subtle)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)]"
               >
                 {tag}
               </span>
@@ -216,7 +216,7 @@ function RelatedDiagnoses({ record }: { record: DifferentialRecord }) {
               <span className="min-w-0 truncate text-[color:var(--text-heading)]">{node.label}</span>
               <span
                 className={cn(
-                  "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
+                  "shrink-0 rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase",
                   tag.className,
                 )}
               >
@@ -289,7 +289,7 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
             </span>
             <span
               className={cn(
-                "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
+                "shrink-0 rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase",
                 item.tag.className,
               )}
             >

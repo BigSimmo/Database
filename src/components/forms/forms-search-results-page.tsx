@@ -25,7 +25,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from "react";
 
 import { searchFormRecords, type FormSearchMatch } from "@/lib/forms";
 import { cn, codeText } from "@/components/ui-primitives";
@@ -179,7 +179,7 @@ function DesktopTopBar({ onSearch }: { onSearch: (query: string) => void }) {
           aria-label="Notifications"
         >
           <Bell className="h-6 w-6" />
-          <span className="absolute right-1 top-0 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[10px] font-extrabold text-[color:var(--clinical-accent-contrast)]">
+          <span className="absolute right-1 top-0 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-3xs font-extrabold text-[color:var(--clinical-accent-contrast)]">
             2
           </span>
         </button>
@@ -223,7 +223,7 @@ function MobileTopBar() {
             aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute right-2 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[10px] font-extrabold">
+            <span className="absolute right-2 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-3xs font-extrabold">
               2
             </span>
           </button>
@@ -245,11 +245,13 @@ function SearchSummary({
   formsCount,
   onQueryChange,
   onSubmit,
+  queryInputRef,
 }: {
   query: string;
   formsCount: number;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  queryInputRef?: RefObject<HTMLInputElement | null>;
 }) {
   return (
     <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)]">
@@ -258,6 +260,7 @@ function SearchSummary({
           <span className="sr-only">Current forms query</span>
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--clinical-accent)]" />
           <input
+            ref={queryInputRef}
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             className="h-13 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-12 pr-12 text-xl font-extrabold text-[color:var(--text-heading)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/12"
@@ -352,7 +355,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
       <div className="p-5 pb-2">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
       </div>
-      <div className="hidden grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] border-b border-[color:var(--border)] px-5 py-3 text-[11px] font-bold uppercase text-[color:var(--text-muted)] md:grid">
+      <div className="hidden grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] border-b border-[color:var(--border)] px-5 py-3 text-2xs font-bold uppercase text-[color:var(--text-muted)] md:grid">
         <span>Form</span>
         <span>Title</span>
         <span>Tags</span>
@@ -382,7 +385,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                   return (
                     <span
                       key={`${chipLabel}-${chipIndex}`}
-                      className={cn("rounded-full px-2 py-1 text-[10px] font-black uppercase", tagToneClass(chipLabel))}
+                      className={cn("rounded-full px-2 py-1 text-3xs font-black uppercase", tagToneClass(chipLabel))}
                     >
                       {chipLabel}
                     </span>
@@ -587,7 +590,7 @@ function PathwayNode({
 }) {
   return (
     <div>
-      <p className="mb-3 text-[11px] font-bold uppercase text-[color:var(--text-muted)]">{label}</p>
+      <p className="mb-3 text-2xs font-bold uppercase text-[color:var(--text-muted)]">{label}</p>
       <div
         className={cn(
           "min-h-[112px] rounded-lg border p-4",
@@ -601,7 +604,7 @@ function PathwayNode({
         ) : null}
         <p className="mt-2 text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{title}</p>
         {active ? (
-          <span className="mt-3 inline-flex rounded-full bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-[11px] font-extrabold text-[color:var(--clinical-accent)]">
+          <span className="mt-3 inline-flex rounded-full bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-2xs font-extrabold text-[color:var(--clinical-accent)]">
             You are here
           </span>
         ) : null}
@@ -685,13 +688,13 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
-                  <h3 className="min-w-0 text-[12px] font-extrabold leading-[1.15] text-[color:var(--text-heading)]">
+                  <h3 className="min-w-0 text-xs font-extrabold leading-[1.15] text-[color:var(--text-heading)]">
                     {form.title}
                   </h3>
                   <Link
                     href={`/forms/${form.slug}`}
                     aria-label={`Open ${form.title}`}
-                    className="relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-[10.5px] font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+                    className="relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-3xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
                   >
                     Open
                     <ExternalLink className="h-3 w-3" />
@@ -704,7 +707,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                       <span
                         key={`${chipLabel}-${chipIndex}`}
                         className={cn(
-                          "rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase leading-none",
+                          "rounded-full px-1.5 py-0.5 text-4xs font-black uppercase leading-none",
                           tagToneClass(chipLabel),
                         )}
                       >
@@ -713,7 +716,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                     );
                   })}
                 </div>
-                <p className="mt-0.5 truncate text-[10px] font-medium leading-3 text-[color:var(--text-muted)]">
+                <p className="mt-0.5 truncate text-3xs font-medium leading-3 text-[color:var(--text-muted)]">
                   {compactMatchReason(match)}
                 </p>
               </div>
@@ -735,7 +738,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
 function MobilePathway() {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-tight)]">
-      <h2 className="text-[13px] font-extrabold text-[color:var(--text-heading)]">
+      <h2 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">
         Related pathway <span className="font-medium text-[color:var(--text-muted)]">( PSOLIS Transport )</span>
       </h2>
       <div className="mt-1.5 flex items-center gap-1 overflow-x-auto pb-0.5">
@@ -759,9 +762,9 @@ function MobilePathway() {
                   {code}
                 </p>
               ) : null}
-              <p className="mt-0.5 text-[7.5px] font-bold leading-[10px] text-[color:var(--text-muted)]">{label}</p>
+              <p className="mt-0.5 text-4xs font-bold leading-[10px] text-[color:var(--text-muted)]">{label}</p>
               {index === 1 ? (
-                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-[7.5px] font-black leading-[10px] text-[color:var(--clinical-accent)]">
+                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-4xs font-black leading-[10px] text-[color:var(--clinical-accent)]">
                   You are here
                 </p>
               ) : null}
@@ -772,7 +775,7 @@ function MobilePathway() {
       </div>
       <button
         type="button"
-        className="mx-auto mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-[13px] font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+        className="mx-auto mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
       >
         <Workflow className="h-4 w-4" />
         View full pathway
@@ -834,20 +837,26 @@ function BottomSearch({
   );
 }
 
-export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSearchResultsPageProps) {
+export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
+  return <FormsSearchResultsPageContent key={props.query} {...props} />;
+}
+
+function FormsSearchResultsPageContent({ query, focusSearch = false }: FormsSearchResultsPageProps) {
   const router = useRouter();
-  const [prevQuery, setPrevQuery] = useState(query);
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
   const matches = useMemo(() => searchFormRecords(query), [query]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset the editable draft when the incoming query prop changes (new
-  // navigation) during render rather than in an effect, to avoid a
-  // synchronous set-state-in-effect and the extra commit it triggers.
-  if (query !== prevQuery) {
-    setPrevQuery(query);
-    setDraftQuery(query);
-  }
+  useEffect(() => {
+    if (!focusSearch) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusSearch]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -882,6 +891,7 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
                 formsCount={matches.length}
                 onQueryChange={setDraftQuery}
                 onSubmit={submit}
+                queryInputRef={searchInputRef}
               />
             </div>
             <div className="hidden lg:block">
@@ -918,7 +928,7 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
             >
               <SlidersHorizontal className="h-5 w-5" />
               Filters
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-[10px] text-[color:var(--clinical-accent-contrast)]">
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-3xs text-[color:var(--clinical-accent-contrast)]">
                 3
               </span>
             </button>
@@ -928,7 +938,6 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
       </div>
 
       <BottomSearch query={mobileQuery} onQueryChange={setMobileQuery} onSubmit={submitMobile} />
-      {focusSearch ? null : null}
     </div>
   );
 }

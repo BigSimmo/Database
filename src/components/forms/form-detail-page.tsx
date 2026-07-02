@@ -194,14 +194,14 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-9 sm:w-9">
           {summaryIcon(card)}
         </span>
-        <p className="min-w-0 pt-0.5 text-[8px] font-bold uppercase leading-[11px] text-[color:var(--text-soft)] sm:text-[11px] sm:leading-4">
+        <p className="min-w-0 pt-0.5 text-4xs font-bold uppercase leading-[11px] text-[color:var(--text-soft)] sm:text-2xs sm:leading-4">
           {displayText(card.label, "Priority fact")}
         </p>
       </div>
-      <h3 className="text-[12px] font-semibold leading-[15px] text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+      <h3 className="text-xs font-semibold leading-[15px] text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
         {displayText(card.title)}
       </h3>
-      <p className={cn("mt-0.5 text-[10px] font-medium leading-[14px] sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
+      <p className={cn("mt-0.5 text-3xs font-medium leading-[14px] sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
         {displayText(card.detail)}
       </p>
     </article>
@@ -258,7 +258,7 @@ function PathwayContextCard({
       <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Before</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Before</p>
           <div className="mt-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
             <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-2">
               <span className="text-sm font-bold text-[color:var(--text-heading)]">5(2)</span>
@@ -270,19 +270,19 @@ function PathwayContextCard({
         </div>
         <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
           <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
-          <p className="mb-2 text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Current</p>
+          <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
           <div className="flex items-center gap-2">
             <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
             <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
-          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-[10px] font-bold text-[color:var(--clinical-accent)]">
+          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]">
             You are here
           </span>
           <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
         </div>
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
             {parallelForms.map((item) => (
               <div
@@ -297,7 +297,7 @@ function PathwayContextCard({
         </div>
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">After</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">After</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
             {afterForms.map((item) => (
               <div
@@ -313,7 +313,7 @@ function PathwayContextCard({
         {criteria.length ? (
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-            <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
             <div className="mt-2 grid gap-1.5">
               {criteria.slice(0, 3).map((criterion) => (
                 <span
@@ -645,7 +645,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
-              <h2 className="text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
+              <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
                 Priority facts
               </h2>
               <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
@@ -667,7 +667,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
-                    <span className={cn(metadataPill, "rounded-full text-[10px] uppercase", toneWarning)}>
+                    <span className={cn(metadataPill, "rounded-full text-3xs uppercase", toneWarning)}>
                       Governance
                     </span>
                   </div>
@@ -726,7 +726,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   </p>
                   <span
                     className={cn(
-                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[10px] font-bold",
+                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-3xs font-bold",
                       sourceToneClass(form),
                     )}
                   >
@@ -787,7 +787,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               {relatedTags.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {relatedTags.map((tag) => (
-                    <span key={tag} className={cn(metadataPill, "rounded-full text-[11px]")}>
+                    <span key={tag} className={cn(metadataPill, "rounded-full text-2xs")}>
                       {tag}
                     </span>
                   ))}

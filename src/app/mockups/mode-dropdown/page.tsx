@@ -77,7 +77,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                 <ActiveIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="block truncate text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -118,7 +118,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{mode.label}</span>
-                        <span className="block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
+                        <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
                           {mode.description}
                         </span>
                       </span>

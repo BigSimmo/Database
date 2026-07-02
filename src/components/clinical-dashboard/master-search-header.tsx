@@ -75,6 +75,10 @@ import { tagSearchText } from "@/lib/document-tags";
 
 const mobileSheetMediaQuery = "(max-width: 639px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
+// Standalone mode-home shells move the composer into the hero from the tablet
+// breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
+// hero exactly like desktop instead of floating over the heading.
+const tabletHomeComposerMediaQuery = "(min-width: 640px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 const appModeIcons: Record<AppModeId, typeof Search> = {
   answer: Sparkles,
@@ -197,6 +201,7 @@ export function MasterSearchHeader({
   searchComposerVisible = true,
   workflowCopyText,
   desktopHomeComposerSlotId,
+  heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
   onMobileBack,
 }: {
@@ -234,6 +239,9 @@ export function MasterSearchHeader({
   searchComposerVisible?: boolean;
   workflowCopyText?: string;
   desktopHomeComposerSlotId?: string;
+  /** Portal the composer into the hero slot from the tablet breakpoint (sm) up,
+   *  rather than the default desktop (lg) breakpoint. */
+  heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
 }) {
@@ -244,6 +252,7 @@ export function MasterSearchHeader({
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
+  const isServicesMode = searchMode === "services";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
@@ -589,7 +598,9 @@ export function MasterSearchHeader({
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
-    const mediaQuery = window.matchMedia(desktopHomeComposerMediaQuery);
+    const mediaQuery = window.matchMedia(
+      heroComposerFromTablet ? tabletHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+    );
     let frame: number | null = null;
     let retryTimeout: number | null = null;
     const syncTarget = () => {
@@ -628,7 +639,7 @@ export function MasterSearchHeader({
       setDesktopHomeComposerActive(false);
       setDesktopHomeComposerHost(null);
     };
-  }, [desktopHomeComposerSlotId]);
+  }, [desktopHomeComposerSlotId, heroComposerFromTablet]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -664,7 +675,7 @@ export function MasterSearchHeader({
       <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3")}>
         {labelScopeFilterFields.map((field) => (
           <label key={field.key} className="grid min-w-0 gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
               {field.label}
             </span>
             <input
@@ -685,7 +696,7 @@ export function MasterSearchHeader({
         <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 sm:hidden">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Refine search</p>
-            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">Mode, status, labels</span>
+            <span className="text-2xs font-semibold text-[color:var(--text-soft)]">Mode, status, labels</span>
           </div>
           <div className="grid gap-2">
             <select
@@ -747,7 +758,7 @@ export function MasterSearchHeader({
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
           <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-0.5">
             <span className={eyebrowText}>Label filters</span>
-            <span className="flex items-center gap-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
               <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
             </span>
@@ -766,7 +777,7 @@ export function MasterSearchHeader({
         <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Document scope</p>
-            <span className="nums shrink-0 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="nums shrink-0 text-2xs font-semibold text-[color:var(--text-soft)]">
               {selectedDocumentIds.length ? `${selectedDocumentIds.length} selected` : loadedScopeSummary}
             </span>
           </div>
@@ -797,11 +808,11 @@ export function MasterSearchHeader({
                 All documents
               </button>
               {scopeFilter ? (
-                <span className="nums rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                <span className="nums rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)]">
                   {matchingDocuments.length} match{matchingDocuments.length === 1 ? "" : "es"}
                 </span>
               ) : (
-                <span className="rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                <span className="rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)]">
                   Recently updated first
                 </span>
               )}
@@ -842,7 +853,7 @@ export function MasterSearchHeader({
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
-                        <span className="nums block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
+                        <span className="nums block truncate text-2xs font-medium text-[color:var(--text-soft)]">
                           {documentScopeMeta(document)}
                         </span>
                         <DocumentTagCloud
@@ -855,7 +866,7 @@ export function MasterSearchHeader({
                         />
                       </span>
                       {selected ? (
-                        <span className="rounded-md bg-[color:var(--primary-soft)] px-2 py-1 text-[11px] font-bold text-[color:var(--primary-strong)]">
+                        <span className="rounded-md bg-[color:var(--primary-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--primary-strong)]">
                           In scope
                         </span>
                       ) : null}
@@ -980,7 +991,7 @@ export function MasterSearchHeader({
             type="submit"
             disabled={!canAsk}
             title={
-              !realDataReady
+              !realDataReady && !canRunLocalSearch
                 ? "Search setup not ready"
                 : trimmedQuery.length < 1
                   ? selectedSearch.emptyTitle
@@ -1096,6 +1107,21 @@ export function MasterSearchHeader({
             >
               {useMobileBackControl ? <ArrowLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
+            {isServicesMode ? (
+              <div className="hidden min-w-0 items-center gap-3 lg:flex">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+                  <ShieldCheck className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
+                    Services Navigator
+                  </span>
+                  <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                    Psychiatry referral directory
+                  </span>
+                </span>
+              </div>
+            ) : null}
           </div>
 
           <div
@@ -1124,7 +1150,7 @@ export function MasterSearchHeader({
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="hidden truncate text-[10px] font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block">
+                <span className="hidden truncate text-3xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
@@ -1183,7 +1209,7 @@ export function MasterSearchHeader({
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{mode.label}</span>
-                        <span className="block truncate text-[11px] font-medium text-[color:var(--text-soft)]">
+                        <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
                           {mode.description}
                         </span>
                       </span>

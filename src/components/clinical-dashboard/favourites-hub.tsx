@@ -128,7 +128,7 @@ export function FavouritesHub({
         />
 
         {desktopComposerSlotId ? (
-          <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
+          <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] sm:[&:not(:empty)]:block" />
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
@@ -143,7 +143,7 @@ export function FavouritesHub({
                 key={stat.label}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
               >
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
@@ -156,7 +156,7 @@ export function FavouritesHub({
         </div>
       </div>
 
-      <div className="mx-auto grid w-full max-w-5xl gap-2 px-0.5 text-[11px] font-semibold text-[color:var(--text-muted)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="mx-auto grid w-full max-w-5xl gap-2 px-0.5 text-2xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="grid min-w-0 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <div ref={tabMenuRef} className="relative min-w-0">
             <button
@@ -174,7 +174,7 @@ export function FavouritesHub({
                 <SelectedTabIcon className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-[9px] font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-3xs font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-soft)]">
                   View
                 </span>
                 <span className="truncate text-xs font-bold leading-none text-[color:var(--text-heading)]">
@@ -234,7 +234,7 @@ export function FavouritesHub({
                       <span className="font-bold">{tab.label}</span>
                       <span
                         className={cn(
-                          "nums rounded-full px-2 py-0.5 text-[11px] font-bold",
+                          "nums rounded-full px-2 py-0.5 text-2xs font-bold",
                           selected
                             ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
                             : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
@@ -426,7 +426,7 @@ function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveTo
         <p className="mt-0.5 truncate text-sm font-medium text-[color:var(--text-muted)]">{item.meta}</p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="truncate text-xs font-semibold text-[color:var(--text-soft)]">{item.set}</span>
-          <span className="nums rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--text-muted)]">
+          <span className="nums rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold text-[color:var(--text-muted)]">
             {item.sourceMeta}
           </span>
         </div>

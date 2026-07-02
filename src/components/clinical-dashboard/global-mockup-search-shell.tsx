@@ -37,6 +37,8 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
   { value: "required_documentation", label: "Documentation" },
   { value: "compare_guidance", label: "Compare" },
 ];
+// Re-apply focus shortly after the first frame to survive initial hydration remounts.
+const focusHydrationRetryDelayMs = 300;
 
 type GlobalMockupSearchShellProps = {
   children: ReactNode;
@@ -86,6 +88,7 @@ function GlobalMockupSearchShellClient({
   const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
   const initialSearchMode =
     availableModeIds?.length && !availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
+  const requestedFocus = searchParams.get("focus") === "1";
   const requestedRun = searchParams.get("run") === "1";
   const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
@@ -119,6 +122,9 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
+  const effectiveSidebarWidth = effectiveSidebarCollapsed ? "5.25rem" : "20rem";
+  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
   // True when on a sub-route of a mode home (e.g. /forms/transport-crisis-form,
   // /services/13yarn) rather than the mode home itself (/forms, /services).
   const isDetailPage =
@@ -150,10 +156,25 @@ function GlobalMockupSearchShellClient({
         setQuery("");
       }
 
-      if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [availableModeIds, initialSearchMode, isDetailPage, pathname, searchParamString]);
+
+  useEffect(() => {
+    if (!requestedFocus) return undefined;
+    const shouldApplyFocus = (activeElement: Element | null) =>
+      !activeElement || activeElement === document.body || activeElement === document.documentElement;
+    const focusInput = () => {
+      if (!shouldApplyFocus(document.activeElement)) return;
+      inputRef.current?.focus({ preventScroll: true });
+    };
+    const frame = window.requestAnimationFrame(focusInput);
+    const timeout = window.setTimeout(focusInput, focusHydrationRetryDelayMs);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [pathname, requestedFocus, searchParamString]);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,18 +271,19 @@ function GlobalMockupSearchShellClient({
     <div
       className={cn(
         "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] lg:grid",
-        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
-          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width": effectiveSidebarWidth,
         } as CSSProperties
       }
     >
       <div className="hidden lg:block">
         <div className="sticky top-0 flex h-dvh min-h-0">
           <ClinicalDesktopSidebar
-            collapsed={sidebarCollapsed}
+            collapsed={effectiveSidebarCollapsed}
+            collapseLocked={isDifferentialPresentationWorkflow}
             recentQueries={recentQueries}
             identity={sidebarIdentity}
             activeMode={searchMode}
@@ -314,20 +336,21 @@ function GlobalMockupSearchShellClient({
           desktopSearchPlacement={
             (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
           }
-          searchComposerVisible={searchComposerVisible && !isDifferentialPresentationWorkflow}
+          searchComposerVisible={shouldShowSearchComposer}
           workflowCopyText={
             isDifferentialPresentationWorkflow
               ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
               : undefined
           }
           desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+          heroComposerFromTablet={isStandaloneModeHome}
         />
 
         <div
           id="main-content"
           className={cn(
             "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
-            !searchComposerVisible
+            !shouldShowSearchComposer
               ? "pb-8"
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"

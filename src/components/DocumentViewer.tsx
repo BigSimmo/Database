@@ -230,7 +230,7 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
   return (
     <div data-testid="clinical-document-profile" className="mt-3 space-y-4">
       {profile.overview ? (
-        <p className={cn(proseMeasure, "whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]")}>
+        <p className={cn(proseMeasure, "whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]")}>
           <SafeBoldText text={cleanClinicalSummaryText(profile.overview)} />
         </p>
       ) : null}
@@ -239,7 +239,7 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
           <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
             {section.label}
           </h3>
-          <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]")}>
+          <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]")}>
             {section.items.slice(0, section.key === "best_questions" ? 8 : 6).map((item, index) => {
               const text = profileItemText(item);
               if (!text) return null;
@@ -411,7 +411,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
           </div>
         )}
       </div>
-      <figcaption className="mt-3 space-y-2 text-[15px] leading-6 text-[color:var(--text)]">
+      <figcaption className="mt-3 space-y-2 text-base-minus leading-6 text-[color:var(--text)]">
         {tableHeading ? <p className="font-semibold">{tableHeading}</p> : null}
         {showImageCaptionLine ? <p className={textMuted}>{cleanCaption}</p> : null}
         <AccessibleTable
@@ -435,7 +435,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
           {displayLabels.map((label) => (
             <span
               key={`${image.id}:${label}`}
-              className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-[10px] font-semibold text-[color:var(--text-muted)]"
+              className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-3xs font-semibold text-[color:var(--text-muted)]"
             >
               {label}
             </span>
@@ -493,7 +493,7 @@ function TableReviewPanel({
                     disabled={!canReview || busyFactId === fact.id}
                     onClick={() => onReview(fact, value)}
                     className={cn(
-                      "inline-flex min-h-8 items-center rounded-md border px-2 text-[11px] font-semibold transition",
+                      "inline-flex min-h-8 items-center rounded-md border px-2 text-2xs font-semibold transition",
                       reviewClass === value
                         ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -615,7 +615,7 @@ function PinnedSourceEvidence({
           className={cn(
             sourceCard,
             "mt-3 overflow-hidden border-[color:var(--primary)] bg-[color:var(--surface)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/20",
-            compact ? "text-sm leading-6" : "text-[15px] leading-7",
+            compact ? "text-sm leading-6" : "text-base-minus leading-7",
           )}
         >
           <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--primary-soft)]/28 px-3 py-3">
@@ -631,7 +631,7 @@ function PinnedSourceEvidence({
             </div>
           </div>
           <blockquote className="bg-[color:var(--surface)] px-3 py-3 text-[color:var(--text)]">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <p className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               Excerpt
             </p>
             <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] px-3 py-2">
@@ -663,7 +663,7 @@ function PinnedSourceEvidence({
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-[15px] leading-6 text-[color:var(--primary)]">
+        <p className="mt-3 text-base-minus leading-6 text-[color:var(--primary)]">
           Open a citation from an answer to see the exact indexed passage.
         </p>
       )}
@@ -682,7 +682,7 @@ function IndexedSourceText({
 }) {
   const blocks = parseIndexedSourceText(text);
   if (blocks.length === 0) {
-    return <p className={cn("mt-4 text-[15px] leading-6", textMuted)}>{emptyText}</p>;
+    return <p className={cn("mt-4 text-base-minus leading-6", textMuted)}>{emptyText}</p>;
   }
 
   return (
@@ -699,7 +699,7 @@ function IndexedSourceText({
           ) : (
             <h4
               key={block.id}
-              className="mt-1 border-l-4 border-[color:var(--primary)] pl-3 text-[15px] font-bold text-[color:var(--text-heading)]"
+              className="mt-1 border-l-4 border-[color:var(--primary)] pl-3 text-base-minus font-bold text-[color:var(--text-heading)]"
             >
               {block.text}
             </h4>
@@ -711,7 +711,7 @@ function IndexedSourceText({
             <ul
               key={block.id}
               className={cn(
-                "space-y-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-3 text-[15px] leading-6 text-[color:var(--text)]",
+                "space-y-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-3 text-base-minus leading-6 text-[color:var(--text)]",
                 compact && "px-4 py-2 text-sm leading-6",
               )}
             >
@@ -741,7 +741,7 @@ function IndexedSourceText({
           <p
             key={block.id}
             className={cn(
-              "rounded-lg border-l-4 border-[color:var(--primary)]/45 bg-[color:var(--primary-soft)]/14 py-2 pl-3 pr-2 text-[15px] leading-7 text-[color:var(--text)]",
+              "rounded-lg border-l-4 border-[color:var(--primary)]/45 bg-[color:var(--primary-soft)]/14 py-2 pl-3 pr-2 text-base-minus leading-7 text-[color:var(--text)]",
               compact && "text-sm leading-6",
             )}
           >
@@ -889,7 +889,7 @@ function IndexedTextPanel({
           emptyText="No displayable extracted text has been indexed for this page yet."
         />
       ) : (
-        <p className={cn("mt-4 text-[15px]", textMuted)}>No extracted text has been indexed for this page yet.</p>
+        <p className={cn("mt-4 text-base-minus", textMuted)}>No extracted text has been indexed for this page yet.</p>
       )}
       <div className={cn("mt-4 pt-4", clinicalDivider)}>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -908,7 +908,7 @@ function IndexedTextPanel({
               <p className="nums text-xs font-bold text-[color:var(--text)]">
                 Hit {clampedActiveHitIndex + 1} of {visibleChunks.length}
               </p>
-              <p className={cn("mt-0.5 truncate text-[11px] font-semibold", textMuted)}>
+              <p className={cn("mt-0.5 truncate text-2xs font-semibold", textMuted)}>
                 {pageHitSummary || "No page numbers indexed for these hits"}
               </p>
             </div>
@@ -943,7 +943,7 @@ function IndexedTextPanel({
           {searchingDocument ? (
             <LoadingPanel label="Searching all indexed passages" />
           ) : visibleChunks.length === 0 ? (
-            <p className={cn("text-[15px] leading-6", textMuted)}>No indexed passage matched that search.</p>
+            <p className={cn("text-base-minus leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (
               <article
@@ -987,7 +987,7 @@ function IndexedTextPanel({
                       {chunk.matchedTerms.slice(0, 5).map((term) => (
                         <span
                           key={`${chunk.id}:${term}`}
-                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-2 text-[10px] font-bold text-[color:var(--primary)]"
+                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-2 text-3xs font-bold text-[color:var(--primary)]"
                         >
                           {term}
                         </span>
@@ -996,7 +996,7 @@ function IndexedTextPanel({
                   ) : null}
                 </div>
                 <div className="px-3 pb-3">
-                  <p className="mb-2 mt-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                     Excerpt
                   </p>
                   {normalizedSearch ? (
@@ -1258,7 +1258,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           <ChevronLeft className="h-4 w-4" />
         </button>
         {pagesReady ? (
-          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-[var(--radius-lg)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
+          <label className="flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2 sm:px-3">
             <span className="hidden sm:inline">Page</span>
             <input
               aria-label="PDF page number"
@@ -1272,7 +1272,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
               inputMode="numeric"
               className="nums h-[44px] w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14"
             />
-            <span className="nums text-[13px] font-semibold sm:text-sm">of {totalPages}</span>
+            <span className="nums text-sm-minus font-semibold sm:text-sm">of {totalPages}</span>
           </label>
         ) : (
           <div className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:px-3">
@@ -1289,7 +1289,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        <div className="col-span-3 grid grid-cols-3 gap-1.5 rounded-[var(--radius-lg)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)] sm:col-span-1 sm:ml-auto sm:flex sm:items-center">
+        <div className="col-span-3 grid grid-cols-3 gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)] sm:col-span-1 sm:ml-auto sm:flex sm:items-center">
           <button
             onClick={() => {
               setFitWidth(false);
@@ -1523,18 +1523,23 @@ function DocumentManualTagEditor({
           <Tag className="h-3.5 w-3.5 text-[color:var(--primary)]" />
           Manual tags
         </p>
-        <span className={cn("text-[11px] font-semibold", textMuted)}>
+        <span className={cn("text-2xs font-semibold", textMuted)}>
           {manualLabels.length ? `${manualLabels.length} curated` : "Generated tags are read-only"}
         </span>
       </div>
 
       <form onSubmit={addManualTag} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+        <label htmlFor="manual-tag-input" className="sr-only">
+          Manual tag
+        </label>
         <input
+          id="manual-tag-input"
           value={draftLabel}
           onChange={(event) => setDraftLabel(event.target.value)}
           placeholder="Add clean manual tag"
           disabled={!canManage || busyAction !== null}
           className={fieldControl}
+          aria-label="Manual tag"
         />
         <select
           value={draftType}
@@ -1598,7 +1603,7 @@ function DocumentManualTagEditor({
                 ) : (
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[color:var(--text)]">{label.label}</p>
-                    <p className={cn("text-[11px] font-semibold", textMuted)}>
+                    <p className={cn("text-2xs font-semibold", textMuted)}>
                       {manualLabelTypeLabel(label.label_type)}
                     </p>
                   </div>
@@ -2359,8 +2364,8 @@ export function DocumentViewer({
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
-      <header className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
+      <header className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl">
+        <div className="mx-auto flex h-12 min-w-0 max-w-7xl items-center gap-2">
           <Link
             href={documentHomeHref}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
@@ -2392,7 +2397,7 @@ export function DocumentViewer({
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <Link
               href={scopedDocumentHref}
-              className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              className="hidden h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
               aria-label="Scope this document"
               title={headerSubtitle}
             >
@@ -2530,7 +2535,7 @@ export function DocumentViewer({
                   title="Clinical summary"
                   description="From indexed passages, cleaned for practical use."
                 />
-                <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
+                <p className="mt-3 whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]">
                   <SafeBoldText text={generatedSummaryText} />
                 </p>
               </section>
@@ -2718,7 +2723,7 @@ export function DocumentViewer({
                       </a>
                     ) : null}
                   </div>
-                  <p className="mb-2 hidden text-center text-[11px] text-[color:var(--text-muted)] sm:block">
+                  <p className="mb-2 hidden text-center text-2xs text-[color:var(--text-muted)] sm:block">
                     Browser PDF mode keeps heavy-zoom pages crisp and is recommended when zoom quality looks soft.
                   </p>
                   {useNativePdfViewer ? (
@@ -2854,7 +2859,7 @@ export function DocumentViewer({
               {document.summary?.clinical_specifics?.profile ? (
                 <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
               ) : document.summary?.summary ? (
-                <p className="mt-3 whitespace-pre-wrap text-[15px] leading-6 text-[color:var(--text-muted)]">
+                <p className="mt-3 whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]">
                   <SafeBoldText text={document.summary.summary} />
                 </p>
               ) : null}
@@ -2868,7 +2873,7 @@ export function DocumentViewer({
                         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                           {key.replaceAll("_", " ")}
                         </p>
-                        <ul className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text-muted)]">
+                        <ul className="mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]">
                           {(items as string[]).slice(0, 5).map((item, index) => (
                             <li key={`${key}:${index}:${item}`}>
                               - <SafeBoldText text={item} />
@@ -2923,7 +2928,7 @@ export function DocumentViewer({
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading extracted tables" />
               ) : clinicalImages.length === 0 ? (
-                <p className={cn("text-[15px]", textMuted)}>No indexed clinically useful tables or diagrams.</p>
+                <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
               ) : (
                 clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
               )}

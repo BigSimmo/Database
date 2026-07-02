@@ -61,6 +61,8 @@ type DifferentialResult = {
   safety?: string;
 };
 
+type DifferentialEvidenceState = "source-backed" | "guided";
+
 const primaryActions: DifferentialAction[] = [
   {
     label: "Search presentations",
@@ -190,7 +192,7 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
   return (
     <span
       className={cn(
-        "inline-flex min-h-5 items-center rounded-md border px-1.5 text-[10px] font-extrabold uppercase leading-none tracking-normal",
+        "inline-flex min-h-5 items-center rounded-md border px-1.5 text-3xs font-extrabold uppercase leading-none tracking-normal",
         statusTone(status),
         className,
       )}
@@ -207,12 +209,12 @@ function MatchBadge({ label }: { label: string }) {
       : label === "High match"
         ? "text-[color:var(--clinical-accent)]"
         : "text-[color:var(--warning)]";
-  return <span className={cn("text-[11px] font-extrabold", tone)}>{label}</span>;
+  return <span className={cn("text-2xs font-extrabold", tone)}>{label}</span>;
 }
 
 function Chip({ children }: { children: string }) {
   return (
-    <span className="inline-flex min-h-6 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-[11px] font-bold leading-none text-[color:var(--text-muted)]">
+    <span className="inline-flex min-h-6 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]">
       <span className="truncate">{children}</span>
     </span>
   );
@@ -223,10 +225,10 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
     <button
       type="button"
       aria-pressed={selected}
-      aria-label={`${selected ? "Remove" : "Add"} ${label} from comparison`}
+      aria-label={`${selected ? "Remove" : "Add"} ${label} ${selected ? "from" : "to"} comparison`}
       onClick={onClick}
       className={cn(
-        "grid h-8 w-8 shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "grid h-10 w-10 shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         selected
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
           : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--text-soft)]",
@@ -306,7 +308,7 @@ function DesktopResultRow({
         <MatchBadge label={result.matchLabel} />
         <Link
           href={result.href}
-          className="inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           <ExternalLink className="h-4 w-4" aria-hidden />
           Open page
@@ -314,7 +316,7 @@ function DesktopResultRow({
         <button
           type="button"
           onClick={onToggle}
-          className="inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           <GitCompareArrows className="h-4 w-4" aria-hidden />
           {selected ? "Compared" : "Compare"}
@@ -346,7 +348,7 @@ function MobileResultCard({
         isBest && "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/55",
       )}
     >
-      <div className="grid grid-cols-[2rem_2.25rem_minmax(0,1fr)_2rem] items-start gap-2">
+      <div className="grid grid-cols-[2rem_2.5rem_minmax(0,1fr)_2.5rem] items-start gap-2">
         <span
           className={cn(
             "grid h-8 w-8 place-items-center rounded-md border text-sm font-extrabold",
@@ -360,7 +362,7 @@ function MobileResultCard({
         <Link
           href={result.href}
           aria-label={`Open ${result.title}`}
-          className="grid h-9 w-9 place-items-center rounded-md text-[color:var(--text-muted)]"
+          className="grid h-10 w-10 place-items-center rounded-md text-[color:var(--text-muted)]"
         >
           <Icon className="h-6 w-6 stroke-[1.75]" aria-hidden />
         </Link>
@@ -368,7 +370,7 @@ function MobileResultCard({
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <Link
               href={result.href}
-              className="min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
+              className="inline-flex min-h-10 min-w-0 items-center text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
             >
               <span className="line-clamp-2">{result.title}</span>
             </Link>
@@ -412,7 +414,7 @@ function BestAnswerCard({
             <Icon className="h-8 w-8 stroke-[1.8]" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
+            <p className="text-2xs font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
             <h2 className="mt-1 text-lg font-extrabold leading-6 text-[color:var(--text-heading)]">{best.title}</h2>
             <div className="mt-2">
               <StatusBadge status={best.status} />
@@ -510,8 +512,19 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
   );
 }
 
-function SourceStatusCard({ sourceCount }: { sourceCount: number }) {
+function SourceStatusCard({
+  sourceCount,
+  evidenceState,
+  loading,
+  onRunSourceSearch,
+}: {
+  sourceCount: number;
+  evidenceState: DifferentialEvidenceState;
+  loading: boolean;
+  onRunSourceSearch: () => void;
+}) {
   const workflow = acuteConfusionPresentationWorkflow;
+  const hasSourceEvidence = evidenceState === "source-backed";
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -522,19 +535,36 @@ function SourceStatusCard({ sourceCount }: { sourceCount: number }) {
         <p className="flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 text-[color:var(--clinical-accent)]">
             <ShieldCheck className="h-4 w-4" aria-hidden />
-            Local only
+            {hasSourceEvidence ? "Source-backed" : "Guided local differential"}
           </span>
-          <span className="text-[color:var(--text-muted)]">{sourceCount.toLocaleString()} sources</span>
+          <span className="text-[color:var(--text-muted)]">
+            {hasSourceEvidence ? `${sourceCount.toLocaleString()} sources` : "Evidence pending"}
+          </span>
         </p>
         <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
           <span className="inline-flex items-center gap-2">
             <CircleHelp className="h-4 w-4" aria-hidden />
-            {workflow.sourceStatus.label}
+            {hasSourceEvidence ? workflow.sourceStatus.label : "Run source search"}
           </span>
-          <span className="text-[color:var(--text-muted)]">312 sources</span>
+          <span className="text-[color:var(--text-muted)]">{hasSourceEvidence ? "312 sources" : "Not yet checked"}</span>
         </p>
       </div>
-      <p className="mt-2 text-xs font-medium text-[color:var(--text-muted)]">{workflow.sourceStatus.version}</p>
+      <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+        {hasSourceEvidence
+          ? workflow.sourceStatus.version
+          : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
+      </p>
+      {!hasSourceEvidence ? (
+        <button
+          type="button"
+          onClick={onRunSourceSearch}
+          disabled={loading}
+          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+        >
+          <Search className="h-4 w-4" aria-hidden />
+          {loading ? "Searching sources" : "Run source search"}
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -543,10 +573,16 @@ function InterpretationRail({
   best,
   results,
   sourceCount,
+  evidenceState,
+  loading,
+  onRunSourceSearch,
 }: {
   best: DifferentialResult;
   results: DifferentialResult[];
   sourceCount: number;
+  evidenceState: DifferentialEvidenceState;
+  loading: boolean;
+  onRunSourceSearch: () => void;
 }) {
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
@@ -558,7 +594,12 @@ function InterpretationRail({
       <SafetyCard />
       <LikelyPresentationCard best={best} />
       <UrgencyCard results={results} />
-      <SourceStatusCard sourceCount={sourceCount} />
+      <SourceStatusCard
+        sourceCount={sourceCount}
+        evidenceState={evidenceState}
+        loading={loading}
+        onRunSourceSearch={onRunSourceSearch}
+      />
       <p className="px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
         Clinical decision support only. Review before use. No patient data stored.
       </p>
@@ -585,7 +626,13 @@ function SearchResultsView({
   );
   const best = results[0];
   const selectedCount = selectedIds.size;
-  const reviewedSourceCount = documentCount && documentCount > 0 ? documentCount : (documentMatches?.length ?? 0);
+  const hasSourceEvidence = Boolean(documentMatches?.length);
+  const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
+  const reviewedSourceCount = hasSourceEvidence
+    ? documentCount && documentCount > 0
+      ? documentCount
+      : (documentMatches?.length ?? 0)
+    : 0;
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -604,7 +651,7 @@ function SearchResultsView({
   return (
     <div
       data-testid="differentials-search-results"
-      className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 sm:px-4 lg:px-0"
+      className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(14rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
         <section className="min-w-0 space-y-3" aria-label="Differential diagnosis results">
@@ -613,13 +660,17 @@ function SearchResultsView({
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
                 <span className="inline-flex items-center gap-1.5 text-[color:var(--clinical-accent)]">
                   <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                  Local results only
+                  {hasSourceEvidence ? "Source-backed results" : "Guided local differential"}
                 </span>
-                <span className="hidden sm:inline">Reviewed content prioritised. Review before use.</span>
+                <span className="hidden sm:inline">
+                  {hasSourceEvidence
+                    ? "Reviewed content prioritised. Review before use."
+                    : "Run source search to validate against indexed local documents."}
+                </span>
               </div>
-              <h1 className="mt-3 text-base font-extrabold uppercase tracking-[0.09em] text-[color:var(--text-heading)]">
+              <h2 className="mt-3 text-base font-extrabold uppercase tracking-[0.09em] text-[color:var(--text-heading)]">
                 Diagnosis pages <span className="text-[color:var(--text-muted)]">(ranked)</span>
-              </h1>
+              </h2>
             </div>
             <div className="hidden items-center gap-2 sm:flex">
               <button
@@ -628,8 +679,12 @@ function SearchResultsView({
                 disabled={loading}
                 className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
               >
-                <GitCompareArrows className="h-4 w-4" aria-hidden />
-                Compare top 3
+                {hasSourceEvidence ? (
+                  <GitCompareArrows className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Search className="h-4 w-4" aria-hidden />
+                )}
+                {hasSourceEvidence ? "Compare top 3" : "Run source search"}
               </button>
               <button
                 type="button"
@@ -652,40 +707,63 @@ function SearchResultsView({
                 <button
                   key={item.label}
                   type="button"
+                  aria-label={item.label}
                   className={cn(
-                    "min-h-9 min-w-0 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
+                    "min-h-10 min-w-10 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
                     index === 0
                       ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
                   )}
                 >
-                  <span className="hidden min-[360px]:inline">{item.label}</span>
-                  <span className="min-[360px]:hidden">{item.compact}</span>
+                  <span className="hidden min-[430px]:inline">{item.label}</span>
+                  <span className="min-[430px]:hidden">{item.compact}</span>
                 </button>
               ))}
               <button
                 type="button"
-                className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
+                aria-label="Filters"
+                className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
               >
                 <ListFilter className="h-4 w-4" aria-hidden />
-                <span className="hidden min-[360px]:inline">Filters</span>
+                <span className="hidden min-[430px]:inline">Filters</span>
               </button>
             </div>
             <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
               <span>
-                <strong className="text-[color:var(--text-heading)]">8 results</strong> · Ranked by relevance
+                <strong className="text-[color:var(--text-heading)]">8 results</strong> ·{" "}
+                {hasSourceEvidence ? "Ranked by relevance" : "Guided differential view"}
               </span>
               <button
                 type="button"
-                className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
+                className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
               >
                 Sort
                 <ChevronRight className="h-3.5 w-3.5 rotate-90" aria-hidden />
               </button>
             </div>
+            {!hasSourceEvidence ? (
+              <section
+                aria-label="Source status"
+                className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 p-3 text-sm"
+              >
+                <p className="font-semibold leading-5 text-[color:var(--text-heading)]">
+                  Showing guided local differential records. Source-library evidence has not been checked for this
+                  query yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={rerunSearch}
+                  disabled={loading}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+                >
+                  <Search className="h-4 w-4" aria-hidden />
+                  {loading ? "Searching sources" : "Run source search"}
+                </button>
+              </section>
+            ) : null}
           </div>
 
-          <div className="grid gap-2">
+          <div className="grid gap-2 max-sm:mt-72">
             {results.map((result, index) => (
               <div key={result.id}>
                 <div className="hidden lg:block">
@@ -726,10 +804,17 @@ function SearchResultsView({
           </Link>
         </section>
 
-        <InterpretationRail best={best} results={results} sourceCount={reviewedSourceCount} />
+        <InterpretationRail
+          best={best}
+          results={results}
+          sourceCount={reviewedSourceCount}
+          evidenceState={evidenceState}
+          loading={loading}
+          onRunSourceSearch={rerunSearch}
+        />
       </div>
 
-      <div className="fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
+      <div className="fixed inset-x-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
         <Link
           href={routeWithQuery("/differentials/presentations", query)}
           className="mx-auto flex min-h-14 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
@@ -811,10 +896,7 @@ export function DifferentialsHome({
     runSearch(action.query);
   }
 
-  // Differential results are only presented once a source-backed search has
-  // returned document evidence; a bare query (no run, failed setup, or an
-  // empty API response) must not surface ranked diagnoses as reviewed results.
-  if (trimmedQuery && hasEvidenceMatches) {
+  if (trimmedQuery) {
     return (
       <SearchResultsView
         query={trimmedQuery}
@@ -826,25 +908,14 @@ export function DifferentialsHome({
     );
   }
 
-  const showNoEvidenceNotice = Boolean(trimmedQuery) && !loading && !hasEvidenceMatches;
-
   return (
     <div data-testid="differentials-home" className="mx-auto w-full max-w-6xl overflow-x-hidden px-1">
-      {showNoEvidenceNotice ? (
-        <p
-          data-testid="differentials-no-evidence-notice"
-          className="mx-auto mb-3 flex max-w-2xl items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 px-3 py-2 text-sm font-semibold text-[color:var(--warning)]"
-        >
-          <Info className="h-4 w-4 shrink-0" aria-hidden />
-          No source-backed matches for &ldquo;{trimmedQuery}&rdquo; yet. Run the search or refine the presentation to
-          see reviewed differentials.
-        </p>
-      ) : null}
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
         subtitle="Find differentials, compare causes, and open reviewed clinical summaries."
         icon={BrainCircuit}
+        headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}
         actionsLabel="Differential actions"
         actions={primaryActions.map((action) => ({

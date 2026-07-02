@@ -153,7 +153,7 @@ export function ClinicalSidebarContent({
 
       <section className="min-w-0">
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
             Recent chats
           </p>
         </div>
@@ -195,7 +195,7 @@ export function ClinicalSidebarContent({
 
       <section>
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
+          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {sidebarToolItems.map((item) => {

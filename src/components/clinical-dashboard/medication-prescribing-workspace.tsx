@@ -391,8 +391,8 @@ function ClinicalBadge({
     <span
       title={label}
       className={cn(
-        "inline-flex h-[1.375rem] max-w-full shrink-0 items-center gap-1 rounded-md border px-1.5 text-[10px] font-semibold leading-none shadow-[var(--shadow-inset)]",
-        compact && "h-5 px-1.5 text-[9.5px]",
+        "inline-flex h-[1.375rem] max-w-full shrink-0 items-center gap-1 rounded-md border px-1.5 text-3xs font-semibold leading-none shadow-[var(--shadow-inset)]",
+        compact && "h-5 px-1.5 text-3xs",
         toneClassName[tone],
       )}
     >
@@ -544,7 +544,7 @@ function FilterStrip({
           aria-pressed={activeFilter === filter.id}
           onClick={() => onFilterChange(filter.id)}
           className={cn(
-            "min-h-8 shrink-0 rounded-lg border px-2.5 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
+            "min-h-8 shrink-0 rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
             activeFilter === filter.id
               ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
@@ -566,7 +566,7 @@ function ResultMatchBadge({ result }: { result: MedicationResult }) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 w-fit items-center gap-1.5 rounded-md px-2 text-2xs font-semibold",
+        "inline-flex min-h-6 w-fit items-center gap-1.5 rounded-md px-2 text-2xs font-semibold tracking-[0.06em]",
         result.tone === "teal" &&
           "border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
         result.tone === "blue" &&
@@ -582,8 +582,8 @@ function ResultMatchBadge({ result }: { result: MedicationResult }) {
 
 function DoseCeiling({ value }: { value: string }) {
   return (
-    <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-      <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+    <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+      <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
         Ceiling
       </span>
       <span className="whitespace-nowrap nums text-[color:var(--text-heading)]">{value}</span>
@@ -645,7 +645,7 @@ function MedicationResults({
                 <span className="flex min-w-0 items-center gap-2.5">
                   <ResultToneIcon result={result} />
                   <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold text-[color:var(--text-heading)]">
+                    <span className="block truncate text-base-minus font-semibold text-[color:var(--text-heading)]">
                       {result.name}
                     </span>
                     <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
@@ -656,15 +656,15 @@ function MedicationResults({
                     </span>
                   </span>
                 </span>
-                <span className="text-[13px] font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
+                <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
                 <DoseCeiling value={result.ceiling} />
-                <span className="text-[13px] font-medium leading-[1.4] text-[color:var(--text-heading)]">
+                <span className="text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
                   {result.action}
                 </span>
                 {result.href ? (
                   <ChevronRight className="h-4 w-4 justify-self-end text-[color:var(--text-soft)]" aria-hidden="true" />
                 ) : (
-                  <span className="justify-self-end text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                     Soon
                   </span>
                 )}
@@ -710,7 +710,7 @@ function MedicationResults({
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)]">
+                    <p className="truncate text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                       {result.name}
                     </p>
                     <p className="truncate text-xs font-medium text-[color:var(--text-muted)]">{result.indication}</p>
@@ -718,7 +718,7 @@ function MedicationResults({
                   {result.href ? (
                     <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
                   ) : (
-                    <span className="mt-1 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <span className="mt-1 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                       Soon
                     </span>
                   )}
@@ -726,7 +726,7 @@ function MedicationResults({
                 <span className="flex flex-wrap gap-1.5">
                   <ResultMatchBadge result={result} />
                 </span>
-                <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-[color:var(--text-heading)]">
+                <div className="flex flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                   <span>{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
                 </div>
@@ -791,14 +791,14 @@ function DetailTile({
         <div className="min-w-0 space-y-1">
           <p
             className={cn(
-              "text-[11px] font-semibold leading-4",
+              "text-2xs font-semibold leading-4",
               danger ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
             )}
           >
             {label}
           </p>
-          <p className="text-[13px] font-semibold leading-5 text-[color:var(--text-heading)]">{value}</p>
-          {meta ? <p className="text-[11px] font-medium leading-4 text-[color:var(--text-muted)]">{meta}</p> : null}
+          <p className="text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">{value}</p>
+          {meta ? <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">{meta}</p> : null}
         </div>
       </div>
     </div>
@@ -822,14 +822,14 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
         <IconTile icon={Icon} tone={row.tone === "danger" ? "danger" : "teal"} className="h-8 w-8" />
         <p
           className={cn(
-            "text-[13px] font-semibold sm:text-sm",
+            "text-sm-minus font-semibold sm:text-sm",
             row.tone === "danger" ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
           )}
         >
           {row.label}
         </p>
       </div>
-      <div className="min-w-0 text-[13px] leading-5 text-[color:var(--text-heading)] sm:text-sm">
+      <div className="min-w-0 text-sm-minus leading-5 text-[color:var(--text-heading)] sm:text-sm">
         <BadgeCluster items={row.badges} compact limit={row.tone === "danger" ? 4 : 3} className="mb-2" />
         {row.columns ? (
           <div
@@ -843,12 +843,12 @@ function DetailRowBlock({ row }: { row: DetailRow }) {
             {row.columns.map((column) => (
               <div key={column.label} className="min-w-0 py-2.5 md:px-3 first:md:pl-0 last:md:pr-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">{column.label}</p>
+                  <p className="text-2xs font-semibold text-[color:var(--text-muted)]">{column.label}</p>
                   {column.meta ? (
                     <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact />
                   ) : null}
                 </div>
-                <p className="mt-1 text-[13px] font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
+                <p className="mt-1 text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
                   {column.value}
                 </p>
               </div>
@@ -960,7 +960,7 @@ function DetailLedger({
               />
               <span className="truncate">Additional populations, risks and PK</span>
             </span>
-            <span className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+            <span className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
               {secondaryRows.length} sections
             </span>
           </summary>
@@ -998,7 +998,7 @@ function SidePanel({ section }: { section: SideSection }) {
                   />
                 )}
                 <div className="min-w-0">
-                  <p className="text-[13px] font-semibold leading-5 text-[color:var(--text-heading)]">{item.label}</p>
+                  <p className="text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">{item.label}</p>
                   <p className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">{item.body}</p>
                 </div>
               </div>
@@ -1057,7 +1057,7 @@ function AccessPanel() {
         <h4 className="text-sm font-semibold text-[color:var(--text-heading)]">Access</h4>
       </div>
       <BadgeCluster items={accessBadges} compact limit={3} className="mb-2.5" />
-      <dl className="grid gap-2 text-[13px]">
+      <dl className="grid gap-2 text-sm-minus">
         {[
           ["Brand", "Campral"],
           ["PBS status", "PBS streamlined"],
@@ -1112,7 +1112,7 @@ function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: 
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "text-[13px] font-semibold leading-4",
+            "text-sm-minus font-semibold leading-4",
             row.tone === "danger" ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
           )}
         >
@@ -1136,7 +1136,7 @@ function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: 
                 className="min-w-0 py-2 min-[460px]:px-2 first:min-[460px]:pl-0 last:min-[460px]:pr-0"
               >
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <p className="text-[10.5px] font-semibold text-[color:var(--text-muted)]">{column.label}</p>
+                  <p className="text-3xs font-semibold text-[color:var(--text-muted)]">{column.label}</p>
                   {column.meta ? (
                     <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact />
                   ) : null}
@@ -1179,7 +1179,7 @@ function MobileDisclosurePanel({ panel }: { panel: MobileDisclosurePanelData }) 
 
   return (
     <details className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0">
-      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-[13px] font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-sm-minus font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
           <span className="truncate">{panel.label}</span>
@@ -1275,12 +1275,12 @@ function MedicationDetail() {
         <div className="space-y-3.5">
           <section data-medication-section="summary" className="scroll-mt-16 px-1 sm:px-0">
             <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-              <IconTile icon={Pill} tone="teal" className="h-11 w-11 sm:h-14 sm:w-14" />
+            <IconTile icon={Pill} tone="teal" className="h-11 w-11 sm:h-14 sm:w-14" />
               <div className="min-w-0 flex-1">
-                <h3 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2rem]">
+                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2rem]">
                   Acamprosate
-                </h3>
-                <p className="mt-1 text-[13px] font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+                </h1>
+                <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
                   Alcohol abstinence maintenance <span className="mx-1.5 text-[color:var(--text-soft)]">·</span>{" "}
                   GABA/glutamate modulator
                 </p>
@@ -1331,7 +1331,7 @@ export function AcamprosateMedicationPage() {
       <div className="px-3 py-3 sm:px-6 lg:px-8">
         <MedicationDetail />
       </div>
-      <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-[10px] font-medium text-[color:var(--text-soft)] opacity-70">
+      <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-3xs font-medium text-[color:var(--text-soft)] opacity-70">
         Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
       </footer>
     </main>

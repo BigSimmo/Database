@@ -3,18 +3,21 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   Activity,
   AlertCircle,
+  ArrowRight,
   Bell,
   BookOpen,
+  Bookmark,
   CheckCircle2,
   ChevronDown,
   CircleUserRound,
   ClipboardCheck,
   Copy,
+  DollarSign,
   ExternalLink,
   FileImage,
   FileText,
@@ -32,11 +35,13 @@ import {
   Mail,
   Palette,
   PanelTop,
+  Phone,
   Plus,
   Quote,
   RefreshCw,
   Search,
   Settings as SettingsIcon,
+  Scale,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -47,6 +52,7 @@ import {
   Target,
   UploadCloud,
   UserRound,
+  Users,
   WifiOff,
   Wrench,
   X,
@@ -218,7 +224,7 @@ import {
   type AppModeSearchKind,
 } from "@/lib/app-modes";
 import { searchFormRecords } from "@/lib/forms";
-import { searchServiceRecords } from "@/lib/services";
+import { searchServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
@@ -873,7 +879,7 @@ function SourcePreviewContent({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
-              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
                 {sourcePreviewPageCountLabel(previewSources)}
               </span>
             </div>
@@ -897,7 +903,7 @@ function SourcePreviewContent({
             )}
           >
             {index === 0 ? (
-              <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--clinical-accent)]">
+              <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Best match
               </p>
@@ -1131,7 +1137,7 @@ function NaturalLanguageAnswer({
           title="Sources"
           description="Open the original PDF page."
           titleAccessory={
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
               {sourcePreviewPageCountLabel(previewSources)}
             </span>
           }
@@ -1177,7 +1183,7 @@ function UserQuestionBubble({ query }: { query: string }) {
         className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
       >
         <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
-        <p className={cn("nums mt-0.5 text-[11px] leading-4", textMuted)}>9:14 AM</p>
+        <p className={cn("nums mt-0.5 text-2xs leading-4", textMuted)}>9:14 AM</p>
       </div>
     </section>
   );
@@ -1258,8 +1264,8 @@ function KeyClinicalItems({
 
   return (
     <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
-      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-[15px]">Key monitoring items</h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-[15px]">
+      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-base-minus">Key monitoring items</h3>
+      <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-base-minus">
         {items.map((item) => (
           <li key={item.id} className="pl-0.5">
             {item.label ? (
@@ -1769,7 +1775,7 @@ function ClinicalNoteDetailCard({ row }: { row: ClinicalNotesRow }) {
   const detail = sentenceCaseClinicalNoteDetail(row.detail);
   return (
     <div className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 shadow-[var(--shadow-inset)]">
-      <p className="text-[12px] leading-[1.5] text-[color:var(--text)]">
+      <p className="text-xs leading-[1.5] text-[color:var(--text)]">
         <span className="mr-1.5 font-semibold text-[color:var(--text-muted)]">{clinicalNoteDetailLabel(row)}:</span>
         {detail}
       </p>
@@ -1925,7 +1931,7 @@ function ClinicalNotesChecklistPanel({
                 <span className="truncate">{tab.label}</span>
                 <span
                   className={cn(
-                    "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
+                    "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-3xs",
                     selected
                       ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
                       : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
@@ -1982,7 +1988,7 @@ function ClinicalNotesChecklistPanel({
                   <span
                     className={cn(
                       subtleStatusPill,
-                      "min-h-6 px-2 text-[10px]",
+                      "min-h-6 px-2 text-3xs",
                       row.tone === "warn" ? toneWarning : toneSuccess,
                     )}
                   >
@@ -2024,13 +2030,17 @@ function ClinicalNotesChecklistPanel({
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+              style={{ minHeight: 48, minWidth: 48 }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span
+              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]"
+              style={{ minHeight: 48, minWidth: 48 }}
+            >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -2038,7 +2048,8 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
+            style={{ minHeight: 48, minWidth: 48 }}
           >
             <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
@@ -2046,7 +2057,8 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+            style={{ minHeight: 48, minWidth: 48 }}
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -2097,7 +2109,7 @@ function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extract
                 Source
               </Link>
             </div>
-            <p className="mt-2 text-[15px] font-medium leading-6 text-[color:var(--text)]">{finding.text}</p>
+            <p className="mt-2 text-base-minus font-medium leading-6 text-[color:var(--text)]">{finding.text}</p>
             <p className={cn("mt-2 text-xs font-semibold leading-5", textMuted)}>
               {formatCitationLabel(finding.citation)}
             </p>
@@ -2145,13 +2157,13 @@ function EvidenceGapPanel({
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <article className={cn(sourceCard, "p-3")}>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">What was found</p>
-          <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{found}</p>
+          <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>{found}</p>
         </article>
         <article className={cn(sourceCard, "p-3")}>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
             What was not found
           </p>
-          <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{missing}</p>
+          <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>{missing}</p>
         </article>
         <article className={cn(sourceCard, "p-3 md:col-span-2")}>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Closest sources</p>
@@ -2170,14 +2182,14 @@ function EvidenceGapPanel({
               ))}
             </div>
           ) : (
-            <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>No nearby indexed sources were returned.</p>
+            <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>No nearby indexed sources were returned.</p>
           )}
         </article>
         <article className={cn(sourceCard, "p-3 md:col-span-2")}>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
             Suggested next search/upload
           </p>
-          <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
+          <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>
             Try a narrower query using the missing terms, scope to a likely document, or upload/index the guideline that
             directly covers &quot;{query.trim()}&quot;.
           </p>
@@ -2224,7 +2236,7 @@ function EvidenceCounts({
           className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
         >
           <p className="text-lg font-semibold leading-none text-[color:var(--text-heading)]">{item.value}</p>
-          <p className={cn("mt-1 text-[11px] font-bold uppercase tracking-[0.08em]", textMuted)}>{item.label}</p>
+          <p className={cn("mt-1 text-2xs font-bold uppercase tracking-[0.08em]", textMuted)}>{item.label}</p>
         </div>
       ))}
     </div>
@@ -2345,7 +2357,7 @@ function EvidenceSummaryCard({
               {Math.round(Math.max(0, Math.min(1, bestSource.score)) * 100)}% match
             </span>
           </div>
-          <p className={cn("mt-3 line-clamp-3 text-[13px] font-medium leading-5", textMuted)}>
+          <p className={cn("mt-3 line-clamp-3 text-sm-minus font-medium leading-5", textMuted)}>
             &ldquo;{bestSource.snippet}&rdquo;
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -2575,7 +2587,7 @@ function AnswerInsightBar({
             className="inline-flex min-h-8 min-w-0 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]"
           >
             <Icon className="h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
-            <span className="shrink-0 text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            <span className="shrink-0 text-3xs uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
               {item.label}
             </span>
             <span className="min-w-0 truncate">{item.value}</span>
@@ -2656,7 +2668,7 @@ function EvidenceVerificationStrip({
               ) : (
                 <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" />
               )}
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+              <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
                 {check.label}
               </p>
             </div>
@@ -2665,7 +2677,7 @@ function EvidenceVerificationStrip({
         ))}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:max-w-72">
-        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+        <span className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
           Pinned source
         </span>
         {bestSource ? (
@@ -2725,7 +2737,7 @@ function AnswerFeedbackPanel({
           </p>
         </div>
         {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>
@@ -3066,7 +3078,7 @@ function QuoteCards({
                   </span>
                   <StrengthBadge strength={quote.source_strength} />
                 </div>
-                <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
+                <blockquote className={cn(proseMeasure, "text-base-minus font-medium leading-6 text-[color:var(--text)]")}>
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
                 <div
@@ -3075,7 +3087,7 @@ function QuoteCards({
                     clinicalDivider,
                   )}
                 >
-                  <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
+                  <span className="max-w-full text-base-minus font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
                     {formatCompactCitationLabel(quote)}
                   </span>
                   <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
@@ -3189,7 +3201,7 @@ function ClinicalOutputPanel({
                 "min-h-12 min-w-0 justify-between gap-2 rounded-lg px-3 py-2 text-left sm:min-h-9",
               )}
             >
-              <span className="min-w-0 truncate text-[11px] uppercase tracking-[0.06em]">{item.label}</span>
+              <span className="min-w-0 truncate text-2xs uppercase tracking-[0.06em]">{item.label}</span>
               <span className="shrink-0 text-sm font-bold text-[color:var(--text-heading)]">{item.value}</span>
             </span>
           ))}
@@ -3205,7 +3217,7 @@ function ClinicalOutputPanel({
               <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
                 {leadSection.title}
               </p>
-              <p className="mt-1 text-[15px] font-semibold leading-6 text-[color:var(--text-heading)]">
+              <p className="mt-1 text-base-minus font-semibold leading-6 text-[color:var(--text-heading)]">
                 <SafeBoldText text={leadSection.items[0] ?? "Review the source-backed answer and citations."} />
               </p>
             </div>
@@ -3249,7 +3261,7 @@ function ClinicalOutputPanel({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
                         {meta.eyebrow}
                       </p>
                       <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -3257,7 +3269,7 @@ function ClinicalOutputPanel({
                       </h3>
                     </div>
                   </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-[10px]")}>{itemCount}</span>
+                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-3xs")}>{itemCount}</span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">
@@ -3277,7 +3289,7 @@ function ClinicalOutputPanel({
                   </div>
                 ) : null}
                 {section.items.length ? (
-                  <ul className="mt-3 grid gap-2 text-[15px] leading-6 text-[color:var(--text)]">
+                  <ul className="mt-3 grid gap-2 text-base-minus leading-6 text-[color:var(--text)]">
                     {section.items.map((item, index) => (
                       <li
                         key={`${section.id}:${index}:${item.slice(0, 48)}`}
@@ -3474,7 +3486,7 @@ function VisualEvidenceStrip({
                     caption={sourceHeader.caption || sourceHeader.title}
                   />
                 </div>
-                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
+                <figcaption className="mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text)] sm:mt-3">
                   {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
                   {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
                   <AccessibleTable
@@ -3494,7 +3506,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
+                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
                           {label}
                         </span>
                       ))}
@@ -3507,14 +3519,14 @@ function VisualEvidenceStrip({
                     clinicalDivider,
                   )}
                 >
-                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                  <span className={cn("text-base-minus font-semibold leading-6 sm:hidden", textMuted)}>
                     {formatCompactCitationLabel(item)}
                   </span>
                   <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
                     {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                    <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
                       {item.image_type.replaceAll("_", " ")}
                     </span>
                   )}
@@ -3811,7 +3823,7 @@ function MobileEvidenceSheetContent({
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab}
-                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
+                {count ? <span className="nums text-2xs opacity-80">{count}</span> : null}
               </button>
             );
           })}
@@ -3860,13 +3872,17 @@ function MobileEvidenceSheetContent({
           {primarySourceHref ? (
             <Link
               href={primarySourceHref}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+              style={{ minHeight: 48, minWidth: 48 }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+            <span
+              className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]"
+              style={{ minHeight: 48, minWidth: 48 }}
+            >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -3874,7 +3890,8 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => void copyEvidence()}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+            style={{ minHeight: 48, minWidth: 48 }}
           >
             <Copy className="h-3.5 w-3.5" />
             {copiedQuotes ? "Copied" : "Copy"}
@@ -3882,7 +3899,8 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            style={{ minHeight: 48, minWidth: 48 }}
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -4009,7 +4027,7 @@ function UnifiedEvidenceDrawerContent({
 
       <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
         {order.map((item) => (
-          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
             {item}
           </span>
         ))}
@@ -4040,7 +4058,7 @@ function UnifiedEvidenceDrawerContent({
                           <p className="text-sm font-semibold text-[color:var(--text-heading)]">
                             {compactClinicalTableCaption(item)}
                           </p>
-                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
+                          <span className={cn(metadataPill, "text-2xs")}>p.{item.page_number ?? "n/a"}</span>
                         </div>
                         <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
                           <Link href={item.viewer_href} className={chatMicroAction}>
@@ -4145,7 +4163,7 @@ function RelatedDocumentsPanel({
               </button>
             </div>
             {document.summary && (
-              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
+              <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>
                 <SafeBoldText text={document.summary} />
               </p>
             )}
@@ -4372,7 +4390,7 @@ function StagedAnswerResultSurface({
                       <h3 className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
                         {activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
                       </h3>
-                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
                         {activeReviewPanel === "clinical" ? clinicalNoteDisplayCount : "Supported"}
                       </span>
                     </div>
@@ -4443,7 +4461,7 @@ function StagedAnswerResultSurface({
               </span>
             }
             titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
@@ -4459,7 +4477,7 @@ function StagedAnswerResultSurface({
               ) : null
             }
             headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
+            titleClassName="text-base-minus leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
             contentStyle={{ height: "80dvh" }}
@@ -4486,7 +4504,7 @@ function StagedAnswerResultSurface({
             title="Evidence"
             description="Review by evidence type."
             titleAccessory={
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs")}>{evidenceTrustLabel}</span>
             }
             closeLabel="Close evidence"
             headerLeading={
@@ -4546,7 +4564,7 @@ function AuthPanel() {
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
           <div>
             <p className="text-sm font-semibold text-[color:var(--text)]">Real-data sign-in unavailable</p>
-            <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
+            <p className={cn("mt-1 text-base-minus leading-6", textMuted)}>
               Configure the Supabase public URL and publishable key before using private documents.
             </p>
           </div>
@@ -4580,7 +4598,7 @@ function AuthPanel() {
           <p className="text-sm font-semibold text-[color:var(--text)]">
             {isExpired ? "Sign-in link expired" : "Sign in for private documents"}
           </p>
-          <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
+          <p className={cn("mt-1 text-base-minus leading-6", textMuted)}>
             {isExpired
               ? "Send a fresh link if this one failed or already timed out."
               : "Real-data search, upload, and source previews require a Supabase Auth session."}
@@ -4766,14 +4784,14 @@ function DocumentLabelReviewPanel({
                   >
                     {documentDisplayTitle(item.document)}
                   </Link>
-                  <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
+                  <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
                     {item.visible.length} visible · {item.ranking.length} ranking · {item.hidden.length} hidden
                   </p>
                 </div>
                 {item.needsReview ? (
-                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-[11px]")}>Needs review</span>
+                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-2xs")}>Needs review</span>
                 ) : (
-                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-[11px]")}>Reviewed</span>
+                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-2xs")}>Reviewed</span>
                 )}
               </div>
 
@@ -4787,7 +4805,7 @@ function DocumentLabelReviewPanel({
                 if (!labelRows.length) return null;
                 return (
                   <section key={title} className="grid gap-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <p className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                       {title}
                     </p>
                     <div className="grid gap-1.5">
@@ -4801,14 +4819,14 @@ function DocumentLabelReviewPanel({
                               <span className="truncate text-xs font-semibold text-[color:var(--text)]">
                                 {label.displayLabel}
                               </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-[10px]")}>
+                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-3xs")}>
                                 {label.tier}
                               </span>
-                              <span className={cn(metadataPill, "min-h-6 text-[10px]")}>
+                              <span className={cn(metadataPill, "min-h-6 text-3xs")}>
                                 {labelTypeDisplay(label.labelType)}
                               </span>
                             </div>
-                            <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
+                            <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
                               {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
                             </p>
                           </div>
@@ -4825,7 +4843,7 @@ function DocumentLabelReviewPanel({
                                     `restore:${label.id}`,
                                   )
                                 }
-                                className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
+                                className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
                               >
                                 Restore
                               </button>
@@ -4842,7 +4860,7 @@ function DocumentLabelReviewPanel({
                                       `approve:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
+                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
                                 >
                                   Approve
                                 </button>
@@ -4857,7 +4875,7 @@ function DocumentLabelReviewPanel({
                                       `hide:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px] text-[color:var(--danger)]")}
+                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs text-[color:var(--danger)]")}
                                 >
                                   Hide
                                 </button>
@@ -4958,7 +4976,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
       <div className="mt-3 space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
-            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-[11px]", tagQualityTone[kind])}>
+            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-2xs", tagQualityTone[kind])}>
               {tagQualityLabel(kind)}: {counts[kind]}
             </span>
           ))}
@@ -4971,17 +4989,17 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", tagQualityTone[issue.kind])}>
+                  <span className={cn(metadataPill, "min-h-6 px-2 text-3xs", tagQualityTone[issue.kind])}>
                     {tagQualityLabel(issue.kind)}
                   </span>
                   <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
                   {issue.count > 1 ? (
-                    <span className={cn("text-[11px] font-semibold", textMuted)}>{issue.count} hits</span>
+                    <span className={cn("text-2xs font-semibold", textMuted)}>{issue.count} hits</span>
                   ) : null}
                 </div>
                 <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
                 {issue.examples.length || issue.documentTitles.length ? (
-                  <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
+                  <p className={cn("mt-1 truncate text-2xs font-semibold", textMuted)}>
                     {[
                       issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "",
                       issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : "",
@@ -5053,16 +5071,16 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "nums text-[11px]")}>
+              <span className={cn(metadataPill, "nums text-2xs")}>
                 index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>sections:{item.sectionCount}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>memory:{item.memoryCardCount}</span>
+              <span className={cn(metadataPill, "text-2xs")}>extraction:{item.extractionQuality}</span>
+              <span className={cn(metadataPill, "text-2xs")}>sections:{item.sectionCount}</span>
+              <span className={cn(metadataPill, "text-2xs")}>memory:{item.memoryCardCount}</span>
               {item.issues.slice(0, 4).map((issue) => (
-                <span key={issue} className={cn(metadataPill, "text-[11px]")}>
+                <span key={issue} className={cn(metadataPill, "text-2xs")}>
                   {issue}
                 </span>
               ))}
@@ -5288,7 +5306,7 @@ function DocumentDrawer({
       {/* Dynamic Browse Library Filters */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
@@ -5304,7 +5322,7 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
           <select
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
@@ -5320,7 +5338,7 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
           <select
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
@@ -5336,7 +5354,7 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
             Population
           </label>
           <select
@@ -5560,7 +5578,7 @@ function DocumentDrawer({
                     {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
                   </p>
                   {document.summary?.summary && (
-                    <p className={cn("mt-2 line-clamp-2 text-[13px] leading-5", textMuted)}>
+                    <p className={cn("mt-2 line-clamp-2 text-sm-minus leading-5", textMuted)}>
                       <SafeBoldText text={document.summary.summary} />
                     </p>
                   )}
@@ -5640,7 +5658,7 @@ function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
 
 function DrawerGroupLabel({ title }: { title: string }) {
   return (
-    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
+    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }
 
@@ -5786,13 +5804,13 @@ export function SettingsDialog({
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
+                <p className="mb-0.5 text-2xs font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
                   Clinical context
                 </p>
-                <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
+                <p className="truncate text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                   {identity.displayName}
                 </p>
-                <p className="text-[12px] font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-[13px] lg:leading-5">
+                <p className="text-xs font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-sm-minus lg:leading-5">
                   Consultant psychiatrist, Western Australia
                 </p>
               </div>
@@ -5814,7 +5832,7 @@ export function SettingsDialog({
             <div className="grid gap-3 lg:gap-4">
               {settingSections.map((section) => (
                 <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-[12px] font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-[13px] lg:text-[color:var(--text-heading)]">
+                  <h3 className="mb-1 px-1 text-xs font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-sm-minus lg:text-[color:var(--text-heading)]">
                     {section.title}
                   </h3>
                   <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgba(0,0,0,0.04),var(--shadow-inset)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.24),var(--shadow-inset)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
@@ -5852,7 +5870,7 @@ export function SettingsDialog({
 
 function SettingsChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
+    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
       {label}
     </span>
   );
@@ -5860,7 +5878,7 @@ function SettingsChip({ label }: { label: string }) {
 
 function SettingsClinicalContextStrip() {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
+    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
@@ -5903,10 +5921,10 @@ function SettingsSummaryTile({
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[10px] font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
+          <span className="block truncate text-3xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
             {label}
           </span>
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-[13px]">
+          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-sm-minus">
             {value}
           </span>
         </span>
@@ -5945,7 +5963,7 @@ function SettingsRow({
       <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
         <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
         {value ? (
-          <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
+          <span className="mt-0.5 block max-w-full truncate text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-sm-minus">
             {value}
           </span>
         ) : null}
@@ -5988,7 +6006,7 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-[13px] font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm-minus font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         data-testid="settings-row-guide-help"
       >
         <BookOpen className="h-4 w-4" />
@@ -5996,6 +6014,500 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
         <ChevronDown className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
       </button>
     </div>
+  );
+}
+
+function matchingServicesFor(query: string) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return serviceRecords;
+  const matches = searchServiceRecords(trimmedQuery);
+  return matches.length ? matches.map((match) => match.service) : [];
+}
+
+function serviceConfidenceLabel(service: ServiceRecord) {
+  const confidence = service.verification?.confidence ?? "Unknown";
+  const status = service.source?.status;
+  return status ? `${confidence} confidence - ${status}` : `${confidence} confidence`;
+}
+
+function serviceMeetsCount(service: ServiceRecord) {
+  return (service.criteria ?? []).filter((criterion) => criterion.tone === "meet").length;
+}
+
+function serviceCautionCount(service: ServiceRecord) {
+  return (service.criteria ?? []).filter((criterion) => criterion.tone === "caution").length;
+}
+
+function serviceRejectCount(service: ServiceRecord) {
+  return (service.criteria ?? []).filter((criterion) => criterion.tone === "reject").length;
+}
+
+function serviceFitLabel(service: ServiceRecord) {
+  if (serviceRejectCount(service) > 0) return "Review fit";
+  if (serviceCautionCount(service) > 0) return "Confirm";
+  return "Meets";
+}
+
+function serviceChipClassName(tone?: string | null) {
+  if (tone === "danger")
+    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  if (tone === "info")
+    return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
+  if (tone === "warning")
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  if (tone === "success")
+    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
+}
+
+function ServiceStatusChips({ service, compact = false }: { service: ServiceRecord; compact?: boolean }) {
+  const chips = (service.statusChips ?? []).filter((chip) => chip.label).slice(0, compact ? 3 : 4);
+  if (!chips.length) return null;
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      {chips.map((chip) => (
+        <span
+          key={chip.label}
+          className={cn(
+            "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-2xs font-bold leading-none max-sm:min-h-5 max-sm:px-1.5 max-sm:text-3xs",
+            serviceChipClassName(chip.tone),
+          )}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+          {chip.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ServiceMetric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: typeof Phone;
+  label: string;
+  value?: string | null;
+  detail?: string | null;
+}) {
+  return (
+    <div className="grid min-h-[4.25rem] grid-cols-[1.55rem_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 shadow-[var(--shadow-inset)] sm:grid-cols-[1.85rem_minmax(0,1fr)] sm:px-3 max-sm:min-h-[3.35rem] max-sm:px-2 max-sm:py-1.5">
+      <Icon className="h-[1.125rem] w-[1.125rem] text-[color:var(--clinical-accent)] sm:h-5 sm:w-5" aria-hidden />
+      <div className="min-w-0">
+        <p className="truncate text-3xs font-bold uppercase leading-4 text-[color:var(--text-soft)]">
+          {label}
+        </p>
+        <p className="truncate text-xs font-bold leading-5 text-[color:var(--text-heading)] sm:text-sm">
+          {value || "Confirm locally"}
+        </p>
+        {detail ? (
+          <p className="truncate text-3xs font-semibold text-[color:var(--text-muted)] sm:text-2xs">
+            {detail}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ServiceResultCard({
+  service,
+  index,
+  selected,
+  onToggleSelected,
+}: {
+  service: ServiceRecord;
+  index: number;
+  selected: boolean;
+  onToggleSelected: (slug: string) => void;
+}) {
+  const rank = index + 1;
+  const highlighted = rank === 1;
+  const primaryContact = service.primaryContact?.value ?? "Confirm locally";
+  const contactDetail = service.primaryContact?.detail ?? service.route ?? "Referral route pending";
+  const eligibility =
+    service.eligibility ?? service.summaryCards?.find((card) => card.id === "eligibility")?.title ?? "Confirm locally";
+  const cost = service.cost ?? service.summaryCards?.find((card) => card.id === "cost")?.title ?? "Confirm locally";
+  const isFree = cost.toLowerCase().includes("free");
+
+  return (
+    <article
+      data-testid={`service-mode-result-${service.slug}`}
+      className={cn(
+        "service-referral-card rounded-lg border bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-tight)] transition sm:p-4",
+        highlighted
+          ? "border-[color:var(--clinical-accent)] shadow-[var(--glow-primary)]"
+          : "border-[color:var(--border)] hover:border-[color:var(--border-strong)]",
+      )}
+    >
+      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-2.5 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-3">
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] sm:h-9 sm:w-9">
+          {rank}
+        </span>
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="min-w-0 text-base-minus font-bold leading-5 text-[color:var(--text-heading)] sm:text-lg sm:leading-6">
+              {service.title}
+            </h3>
+            <ServiceStatusChips service={service} compact />
+          </div>
+          <p className={cn("mt-1 text-sm-minus font-medium leading-5 sm:text-sm sm:leading-6", textMuted)}>
+            {service.subtitle ?? service.bestUse ?? "Open the service record for referral details."}
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label={selected ? `Remove ${service.title} from selected services` : `Select ${service.title}`}
+          onClick={() => onToggleSelected(service.slug)}
+          className={cn(
+            "hidden h-9 min-w-[6.25rem] items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold shadow-[var(--shadow-tight)] sm:inline-flex",
+            selected
+              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+              : "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
+          )}
+        >
+          <CheckCircle2 className="h-4 w-4" aria-hidden />
+          {selected ? "Selected" : "Select"}
+        </button>
+        <button
+          type="button"
+          aria-label={selected ? `Remove ${service.title} from selected services` : `Select ${service.title}`}
+          onClick={() => onToggleSelected(service.slug)}
+          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
+        >
+          <Bookmark className={cn("h-5 w-5", selected && "fill-current text-[color:var(--clinical-accent)]")} />
+        </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <ServiceMetric icon={Phone} label="Route / contact" value={primaryContact} detail={contactDetail} />
+        <ServiceMetric icon={Users} label="Eligibility" value={eligibility} detail="See details" />
+        <ServiceMetric
+          icon={ShieldCheck}
+          label="Confidence"
+          value={service.verification?.confidence ?? "Unknown"}
+          detail={service.source?.status ?? "Source status pending"}
+        />
+        <ServiceMetric
+          icon={DollarSign}
+          label="Cost"
+          value={cost}
+          detail={isFree ? "No cost to access" : "Confirm before referral"}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap gap-1.5">
+          <span className={cn(metadataPill, "min-h-7 rounded-full max-sm:min-h-6 max-sm:text-2xs")}>
+            {serviceConfidenceLabel(service)}
+          </span>
+          {(service.tags ?? []).slice(0, 4).map((tag, tagIndex) => (
+            <span
+              key={tag}
+              className={cn(
+                metadataPill,
+                "min-h-7 rounded-full max-sm:min-h-6 max-sm:text-2xs",
+                tagIndex > 1 && "max-sm:hidden",
+              )}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {highlighted ? (
+            <span className="hidden min-h-7 items-center rounded-full bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] sm:inline-flex">
+              Best fit
+            </span>
+          ) : null}
+          <Link
+            href={`/services/${service.slug}`}
+            aria-label={`Open ${service.title}`}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] max-sm:min-h-8"
+          >
+            Open
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ServicesHub({ query, onQueryChange }: { query: string; onQueryChange: (nextQuery: string) => void }) {
+  const matches = matchingServicesFor(query);
+  const trimmedQuery = query.trim();
+  const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
+  const selectedServices = serviceRecords.filter((service) => selectedSlugs.includes(service.slug));
+  const totalMeets = matches.reduce((count, service) => count + serviceMeetsCount(service), 0);
+  const totalCautions = matches.reduce((count, service) => count + serviceCautionCount(service), 0);
+  const totalRejects = matches.reduce((count, service) => count + serviceRejectCount(service), 0);
+  const verifiedCount = matches.filter((service) => service.verification?.locallyVerified).length;
+  const localConfirmationCount = matches.filter((service) =>
+    [service.source?.status, ...(service.statusChips ?? []).map((chip) => chip.label)]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes("confirmation"),
+  ).length;
+
+  function toggleSelected(slug: string) {
+    setSelectedSlugs((current) => {
+      if (current.includes(slug)) return current.filter((item) => item !== slug);
+      return [slug, ...current].slice(0, 5);
+    });
+  }
+
+  return (
+    <section
+      data-testid="services-hub"
+      className="services-navigator-hub mx-auto w-full max-w-7xl space-y-4"
+      aria-label="Referral services"
+    >
+      <h2 className="sr-only">Referral services</h2>
+      <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] lg:grid lg:grid-cols-[repeat(4,minmax(0,1fr))] lg:items-center lg:gap-3">
+        {[
+          ["1", "Search", "Find services"],
+          ["2", "Shortlist", "Pick best options"],
+          ["3", "Compare", "Review side by side"],
+          ["4", "Refer", "Send with confidence"],
+        ].map(([step, title, body], index) => (
+          <div key={step} className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-2">
+            <span
+              className={cn(
+                "grid h-9 w-9 place-items-center rounded-full border text-sm font-bold",
+                index === 0
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                  : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+              )}
+            >
+              {step}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
+              <span className="block truncate text-xs font-semibold text-[color:var(--text-soft)]">{body}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+        <div className="min-w-0 space-y-4">
+          <div className="grid gap-2">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-3xl max-sm:text-[1.45rem]">
+                  {matches.length} referral match{matches.length === 1 ? "" : "es"}
+                </h2>
+              </div>
+              <button type="button" className={cn(floatingControl, "min-h-10 shrink-0 gap-2 px-3 max-sm:min-h-9")}>
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                Sort
+              </button>
+            </div>
+            <p className={cn("max-w-3xl text-sm leading-6 max-sm:text-sm-minus max-sm:leading-5", textMuted)}>
+              {trimmedQuery
+                ? `Best fit for ${trimmedQuery}; review route, eligibility, confidence, and source status.`
+                : `Best fit view across ${serviceRecords.length} referral services; search to narrow by need, patient group, route, or region.`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2" aria-label="Service filters">
+            {["Best fit", "Crisis", "ATSI-specific", "Phone referral", "Free", "WA"].map((suggestion, index) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => onQueryChange(index === 0 ? "" : suggestion)}
+                className={cn(
+                  "inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-bold transition max-sm:min-h-7 max-sm:px-2.5",
+                  index === 0
+                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                )}
+              >
+                {suggestion}
+              </button>
+            ))}
+            {trimmedQuery ? (
+              <button
+                type="button"
+                onClick={() => onQueryChange("")}
+                className="min-h-8 px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline"
+              >
+                Clear all
+              </button>
+            ) : null}
+          </div>
+
+          {matches.length ? (
+            <div className="grid gap-3">
+              {matches.map((service, index) => (
+                <ServiceResultCard
+                  key={service.slug}
+                  service={service}
+                  index={index}
+                  selected={selectedSlugs.includes(service.slug)}
+                  onToggleSelected={toggleSelected}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No services match"
+              body="Try crisis, Aboriginal, phone, regional, or clear the search to browse every service."
+            />
+          )}
+        </div>
+
+        <aside className="hidden space-y-4 lg:block">
+          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
+              <span className="text-xs font-bold text-[color:var(--clinical-accent)]">{selectedServices.length} selected</span>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {selectedServices.map((service, index) => (
+                <button
+                  key={service.slug}
+                  type="button"
+                  onClick={() => toggleSelected(service.slug)}
+                  className="grid min-h-14 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)]"
+                >
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
+                      {service.title}
+                    </span>
+                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                      {serviceFitLabel(service)} - {service.cost ?? "Cost pending"}
+                    </span>
+                  </span>
+                  <span className="text-lg leading-none text-[color:var(--text-soft)]">x</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
+              <button type="button" className="text-xs font-bold text-[color:var(--clinical-accent)]">
+                Edit
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 text-sm font-semibold">
+              {[
+                ["Meets", totalMeets, "bg-[color:var(--success)]"],
+                ["Caution", totalCautions, "bg-[color:var(--warning)]"],
+                ["Does not meet", totalRejects, "bg-[color:var(--danger)]"],
+                ["Source verified", verifiedCount, "bg-[color:var(--success)]"],
+                ["Local confirmation", localConfirmationCount, "bg-[color:var(--warning)]"],
+              ].map(([label, count, dotClass]) => (
+                <div key={String(label)} className="flex items-center justify-between gap-3">
+                  <span className="inline-flex min-w-0 items-center gap-2 text-[color:var(--text-muted)]">
+                    <span className={cn("h-3 w-3 rounded-full", dotClass as string)} aria-hidden />
+                    {label}
+                  </span>
+                  <span className="nums font-bold text-[color:var(--text-heading)]">{String(count)}</span>
+                </div>
+              ))}
+            </div>
+            <button className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]" type="button">
+              Review details
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </section>
+
+          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
+              <button type="button" className="text-xs font-bold text-[color:var(--clinical-accent)]">
+                View details
+              </button>
+            </div>
+            <div className="mt-4 grid h-3 grid-cols-[3fr_3fr_1fr_1fr] overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
+              <span className="bg-[color:var(--success)]" />
+              <span className="bg-[color:var(--warning)]" />
+              <span className="bg-[color:var(--danger)]" />
+              <span className="bg-[color:var(--border-strong)]" />
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+              <span>
+                High
+                <br />
+                <b className="nums text-[color:var(--text-heading)]">
+                  {matches.filter((service) => service.verification?.confidence === "High").length}
+                </b>
+              </span>
+              <span>
+                Medium
+                <br />
+                <b className="nums text-[color:var(--text-heading)]">
+                  {matches.filter((service) => service.verification?.confidence === "Medium").length}
+                </b>
+              </span>
+              <span>
+                Low
+                <br />
+                <b className="nums text-[color:var(--text-heading)]">
+                  {matches.filter((service) => service.verification?.confidence === "Low").length}
+                </b>
+              </span>
+              <span>
+                Unknown
+                <br />
+                <b className="nums text-[color:var(--text-heading)]">
+                  {
+                    matches.filter(
+                      (service) => !service.verification?.confidence || service.verification?.confidence === "Unknown",
+                    ).length
+                  }
+                </b>
+              </span>
+            </div>
+          </section>
+
+          <button
+            type="button"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
+          >
+            <Scale className="h-5 w-5" aria-hidden />
+            Compare selected ({selectedServices.length})
+          </button>
+
+          <section className="grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[color:var(--clinical-accent)]">Next step</span>
+              <span className="block text-sm leading-5 text-[color:var(--text-muted)]">
+                Compare services side by side to confirm the best referral for your patient.
+              </span>
+            </span>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
+              <ArrowRight className="h-5 w-5" aria-hidden />
+            </span>
+          </section>
+        </aside>
+      </div>
+
+      {selectedServices.length ? (
+        <div className="fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[0_14px_32px_rgb(15_37_48_/_24%)] lg:hidden">
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Scale className="h-5 w-5" aria-hidden />
+            {selectedServices.length} selected
+          </span>
+          <button type="button" className="inline-flex min-h-10 items-center gap-2">
+            Compare
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -6077,6 +6589,15 @@ function buildMobileSectionFabState({
         statusLabel: "Tools",
         statusTone: "neutral",
         nextStep: "Launch a clinical tool",
+        badgeLabel: null,
+        badgeTone: "neutral",
+      };
+    }
+    if (modeSearch.resultKind === "services") {
+      return {
+        statusLabel: "Services",
+        statusTone: "neutral",
+        nextStep: modeSearch.nextStep,
         badgeLabel: null,
         badgeTone: "neutral",
       };
@@ -6251,7 +6772,7 @@ function MobileSectionFab({
           <span
             aria-hidden="true"
             className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-[10px] font-bold leading-4 shadow-[var(--shadow-tight)]",
+              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-3xs font-bold leading-4 shadow-[var(--shadow-tight)]",
               fabToneClassName(state.badgeTone),
             )}
           >
@@ -6287,7 +6808,7 @@ function MobileSectionFab({
             <div className="min-w-0">
               <p
                 id={labelId}
-                className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+                className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
               >
                 Answer navigator
               </p>
@@ -6297,7 +6818,7 @@ function MobileSectionFab({
             </div>
             <span
               data-testid="mobile-section-fab-status"
-              className={cn("rounded-full border px-2 py-1 text-[11px] font-bold", fabToneClassName(state.statusTone))}
+              className={cn("rounded-full border px-2 py-1 text-2xs font-bold", fabToneClassName(state.statusTone))}
             >
               {state.statusLabel}
             </span>
@@ -6352,14 +6873,14 @@ function MobileSectionFab({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
+                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                     {item.description}
                   </span>
                 </span>
                 {item.count !== null ? (
                   <span
                     className={cn(
-                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
+                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-2xs font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
                         "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
@@ -6466,6 +6987,8 @@ export function ClinicalDashboard({
   autoRunSearch = false,
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamString = searchParams?.toString() ?? "";
   const mainRef = useRef<HTMLElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -6473,7 +6996,7 @@ export function ClinicalDashboard({
   const autoRunSearchSignatureRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const nextWorkStatePollRef = useRef(0);
-  const urlSearchBootstrappedRef = useRef(false);
+  const searchModeRef = useRef<AppModeId>(initialSearchMode);
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
@@ -6501,6 +7024,8 @@ export function ClinicalDashboard({
     () => (searchMode === "services" ? searchServiceRecords(query) : []),
     [query, searchMode],
   );
+  const serviceNavigatorResultCount =
+    searchMode === "services" ? (query.trim() ? serviceSearchMatches.length : serviceRecords.length) : 0;
   const formSearchMatches = useMemo(
     () => (searchMode === "forms" ? searchFormRecords(query) : []),
     [query, searchMode],
@@ -6540,6 +7065,22 @@ export function ClinicalDashboard({
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
+  const resetSearchModeState = useCallback((mode: AppModeId) => {
+    setQuery("");
+    if (mode === "differentials" || mode === "answer") {
+      setAnswer(null);
+      setSources([]);
+    }
+    setModeSearchSubmitted(false);
+    setLoading(false);
+    setError(null);
+    setAnswerProgress(null);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setDocumentMatches([]);
+  }, []);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -7170,6 +7711,10 @@ export function ClinicalDashboard({
   }, [activeIndexingWork, canUsePrivateApis, clientDemoMode, refresh]);
 
   useEffect(() => {
+    searchModeRef.current = searchMode;
+  }, [searchMode]);
+
+  useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
     updateOnline();
     window.addEventListener("online", updateOnline);
@@ -7188,22 +7733,23 @@ export function ClinicalDashboard({
   }, [focusSearch]);
 
   useEffect(() => {
-    if (urlSearchBootstrappedRef.current) return;
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(searchParamString);
     const mode = params.get("mode");
-    const searchText = params.get("q")?.trim();
+    const searchText = params.has("q") ? (params.get("q") ?? "").trim() : null;
     const shouldFocusComposer = params.get("focus") === "1";
     if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
-    urlSearchBootstrappedRef.current = true;
     const targetMode = mode;
     const frame = window.requestAnimationFrame(() => {
-      if (targetMode === "differentials") clearDifferentialModeResultState();
-      setSearchMode(targetMode);
-      if (searchText) setQuery(searchText);
+      if (targetMode !== searchModeRef.current) {
+        resetSearchModeState(targetMode);
+        setSearchMode(targetMode);
+        searchModeRef.current = targetMode;
+      }
+      if (searchText !== null) setQuery(searchText);
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [resetSearchModeState, searchParamString]);
 
   useEffect(() => {
     if (urlDocumentSearchBootstrappedRef.current) return;
@@ -7450,6 +7996,21 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
+    if (modeSearch.kind === "services") {
+      setAnswer(null);
+      setSources([]);
+      setDocumentMatches([]);
+      setSearchRelevance(null);
+      setSearchFacets(null);
+      setSearchScope(null);
+      setSourceGovernanceWarnings([]);
+      setAnswerProgress(null);
+      setLoading(false);
+      setError(null);
+      rememberRecentQuery(trimmedQuery);
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      return;
+    }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
       return;
@@ -7562,7 +8123,11 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    if (!autoRunSearch || !trimmedQuery || !canRunSearch || loading) return;
+    const localAutoRunMode =
+      activeModeSearch.kind === "services" ||
+      activeModeSearch.kind === "tools" ||
+      activeModeSearch.kind === "favourites";
+    if (!autoRunSearch || !trimmedQuery || (!canRunSearch && !localAutoRunMode) || loading) return;
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
@@ -7793,21 +8358,7 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
-    if (mode === "differentials") clearDifferentialModeResultState();
-    setQuery("");
-    if (mode === "answer") {
-      setAnswer(null);
-      setSources([]);
-    }
-    setModeSearchSubmitted(false);
-    setLoading(false);
-    setError(null);
-    setAnswerProgress(null);
-    setSearchRelevance(null);
-    setSearchFacets(null);
-    setSearchScope(null);
-    setSourceGovernanceWarnings([]);
-    setDocumentMatches([]);
+    resetSearchModeState(mode);
     setSearchMode(mode);
     router.push(appModeHomeHref(mode));
   }
@@ -8092,6 +8643,10 @@ export function ClinicalDashboard({
           ? query.trim()
             ? "Filtered tools"
             : "Browse tools"
+          : activeModeResultKind === "services"
+            ? query.trim()
+              ? "Filtered services"
+              : "Referral services"
           : activeModeResultKind === "favourites"
             ? query.trim()
               ? "Filtered favourites"
@@ -8108,6 +8663,8 @@ export function ClinicalDashboard({
       icon:
         activeModeResultKind === "tools"
           ? Wrench
+          : activeModeResultKind === "services"
+            ? ShieldCheck
           : activeModeResultKind === "favourites"
             ? Heart
             : activeModeResultKind === "answer"
@@ -8117,12 +8674,16 @@ export function ClinicalDashboard({
       count:
         activeModeResultKind === "tools"
           ? applicationsLauncherItemCount
+          : activeModeResultKind === "services"
+            ? serviceNavigatorResultCount
           : activeModeResultKind === "favourites"
             ? null
             : activeModeResultKind === "documents"
               ? documentMatches.length
               : null,
-      empty: activeModeResultKind === "documents" && documentMatches.length === 0,
+      empty:
+        (activeModeResultKind === "documents" && documentMatches.length === 0) ||
+        (activeModeResultKind === "services" && serviceNavigatorResultCount === 0),
     },
     {
       label: "Quotes",
@@ -8167,7 +8728,7 @@ export function ClinicalDashboard({
       mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
       className={className}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {demoMode
           ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
           : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
@@ -8205,7 +8766,7 @@ export function ClinicalDashboard({
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
           : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
@@ -8293,34 +8854,41 @@ export function ClinicalDashboard({
           ? "Admin"
           : "Library";
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
+  const isServicesNavigator = activeModeResultKind === "services";
 
   return (
     <div
       className={cn(
         appBackdrop,
         "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:overflow-hidden",
-        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        isServicesNavigator
+          ? "lg:grid-cols-[minmax(0,1fr)]"
+          : sidebarCollapsed
+            ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]"
+            : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
-          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width": isServicesNavigator ? "0rem" : sidebarCollapsed ? "5.25rem" : "20rem",
         } as CSSProperties
       }
     >
-      <ClinicalDesktopSidebar
-        collapsed={sidebarCollapsed}
-        recentQueries={recentQueries}
-        identity={sidebarIdentity}
-        activeMode={searchMode}
-        onCollapsedChange={setSidebarCollapsed}
-        onNewChat={startNewChat}
-        onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onPrefetchApplications={prefetchApplications}
-      />
+      {isServicesNavigator ? null : (
+        <ClinicalDesktopSidebar
+          collapsed={sidebarCollapsed}
+          recentQueries={recentQueries}
+          identity={sidebarIdentity}
+          activeMode={searchMode}
+          onCollapsedChange={setSidebarCollapsed}
+          onNewChat={startNewChat}
+          onPickRecent={pickRecentQuery}
+          onOpenGuide={openGuide}
+          onOpenSettings={openSettings}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onPrefetchApplications={prefetchApplications}
+        />
+      )}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:h-full">
         <MasterSearchHeader
@@ -8332,7 +8900,7 @@ export function ClinicalDashboard({
           selectedDocumentIds={selectedDocumentIds}
           queryMode={queryMode}
           scopeFilters={scopeFilters}
-          realDataReady={canRunSearch}
+          realDataReady={canRunSearch || isServicesNavigator}
           onQueryChange={setQuery}
           onSearchModeChange={selectSearchMode}
           onAsk={ask}
@@ -8379,6 +8947,7 @@ export function ClinicalDashboard({
           <div
             className={cn(
               "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+              isServicesNavigator && "lg:pt-5",
               searchMode === "answer"
                 ? "pb-32 sm:pb-36 lg:pb-40"
                 : hasMobileBottomSearch
@@ -8413,10 +8982,12 @@ export function ClinicalDashboard({
               className={cn(
                 "min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? "grid w-full place-items-center"
-                  : activeModeResultKind === "tools" ||
-                      activeModeResultKind === "favourites" ||
-                      activeModeResultKind === "differentials"
+                  ? "grid w-full items-end justify-items-center sm:items-center"
+                  : activeModeResultKind === "services"
+                    ? "mx-auto w-full max-w-7xl space-y-4 overflow-x-hidden"
+                    : activeModeResultKind === "tools" ||
+                        activeModeResultKind === "favourites" ||
+                        activeModeResultKind === "differentials"
                     ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                     : activeModeResultKind === "documents"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
@@ -8493,6 +9064,8 @@ export function ClinicalDashboard({
                   }
                   desktopComposerSlotId={desktopHomeComposerSlotId}
                 />
+              ) : activeModeResultKind === "services" ? (
+                <ServicesHub query={query} onQueryChange={setQuery} />
               ) : activeModeResultKind === "documents" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace
@@ -8678,7 +9251,7 @@ export function ClinicalDashboard({
                               <Icon className="h-3.5 w-3.5" />
                               {tab.label}
                             </span>
-                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                            <span className="mt-1 block truncate text-2xs font-semibold opacity-80">
                               {tab.summary}
                             </span>
                           </button>

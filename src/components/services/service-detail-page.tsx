@@ -283,7 +283,7 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-[color:var(--text-muted)]">{displayText(card.label, "Detail")}</p>
-          <h3 className="mt-0.5 text-[15px] font-semibold leading-5 text-[color:var(--text-heading)]">
+          <h3 className="mt-0.5 text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
             {displayText(card.title)}
           </h3>
         </div>
@@ -405,7 +405,7 @@ function CriteriaGroup({
                 </div>
                 <span
                   className={cn(
-                    "inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-[10px] font-bold lowercase",
+                    "inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-3xs font-bold lowercase",
                     pill.className,
                   )}
                 >
@@ -437,7 +437,7 @@ function TagList({ items, emptyLabel }: { items: string[]; emptyLabel: string })
   return (
     <div className="flex flex-wrap gap-1.5">
       {uniqueItems.map((item) => (
-        <span key={normalizeTagForList(item)} className={cn(metadataPill, "min-h-7 rounded-full text-[11px]")}>
+        <span key={normalizeTagForList(item)} className={cn(metadataPill, "min-h-7 rounded-full text-2xs")}>
           {item}
         </span>
       ))}
@@ -580,7 +580,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                         <span
                           key={chip.label ?? `status-chip-${index}`}
                           className={cn(
-                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-bold",
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-bold",
                             chipToneClass(chip.tone),
                           )}
                         >
