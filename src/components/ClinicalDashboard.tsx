@@ -951,8 +951,8 @@ function NaturalLanguageAnswer({
               textMuted,
             )}
           >
-            Source-only answer — assembled from your documents without the AI model, so it may be less
-            complete. Verify it against the cited passages below.
+            Source-only answer — assembled from your documents without the AI model, so it may be less complete. Verify
+            it against the cited passages below.
           </p>
         ) : null}
         {sourceCapsuleButton}

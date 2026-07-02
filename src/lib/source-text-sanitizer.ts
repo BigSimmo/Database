@@ -247,8 +247,7 @@ export function clinicalProseUsefulness(text: string) {
       (mostlySourceTitle && !hasConcreteClinicalAction) ||
       (noiseRatio >= 0.28 && !hasConcreteClinicalAction) ||
       (isLowYieldClinicalText(fragment) && !hasConcreteClinicalAction);
-    const keptByBaseline =
-      !droppedByBaseline && (hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16);
+    const keptByBaseline = !droppedByBaseline && (hasClinicalSignal || hasConcreteClinicalAction || noiseRatio < 0.16);
     if (!keptByBaseline && !hasClinicalThresholdSignal) continue;
     keptFragments.push(fragment);
     if (keptByBaseline) baselineKeptFragments.push(fragment);

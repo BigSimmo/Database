@@ -459,11 +459,7 @@ function recordRetrievalLayer(
 // where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
 type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
 
-function recordHybridRpcError(
-  telemetry: SearchTelemetry | undefined,
-  rpc: string,
-  error: SupabaseRpcError,
-) {
+function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: string, error: SupabaseRpcError) {
   if (!error) return;
   const code = error.code ?? "unknown";
   logger.error("hybrid_rpc_failed", { rpc, code, message: error.message, hint: error.hint });
@@ -5003,8 +4999,7 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   // summary answers legitimately paraphrase, so enforcing overlap there would reject good answers.
   // A model-answer failure here only escalates fast→strong and is recovered for strongly
   // source-backed answers, so the downside of enforcing it is a retry, not a wrongful gap.
-  const enforceModelAnswerOverlap =
-    isSimpleDirectQuestion(query, queryClass) && !isBareDefinitionQuestion(query);
+  const enforceModelAnswerOverlap = isSimpleDirectQuestion(query, queryClass) && !isBareDefinitionQuestion(query);
   if (
     (answer.routingMode === "extractive" || answer.confidence === "low" || enforceModelAnswerOverlap) &&
     !hasRelevantQueryOverlap(cleanedAnswer, query)
@@ -6369,7 +6364,11 @@ async function answerQuestionWithScopeUncoalesced(
   const sourceOnlyAnswer = isSourceOnlyMode();
   const route =
     sourceOnlyAnswer && gatedRoute.route.mode !== "unsupported"
-      ? { ...gatedRoute.route, mode: "extractive" as const, reason: `${gatedRoute.route.reason}; ${sourceOnlyReason()}` }
+      ? {
+          ...gatedRoute.route,
+          mode: "extractive" as const,
+          reason: `${gatedRoute.route.reason}; ${sourceOnlyReason()}`,
+        }
       : gatedRoute.route;
   const retrievalDiagnostics: RetrievalDiagnostics = {
     ...initialRetrievalDiagnostics,
@@ -7138,8 +7137,7 @@ ${qualityRetryInstruction}`
     // answer's citations. buildExtractiveAnswer derives its own source-backed
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
-    const canRecoverExtractively =
-      !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
+    const canRecoverExtractively = !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
