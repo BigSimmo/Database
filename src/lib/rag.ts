@@ -5179,13 +5179,16 @@ function cleanAnswerSectionHeading(heading: string, body: string) {
 }
 
 function applyProviderLabels(answer: RagAnswer): RagAnswer {
+  const inferredSourceOnlyFallback =
+    answer.routingMode === "extractive" ||
+    /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
   const answerQualityTier: RagAnswer["answerQualityTier"] =
     answer.answerQualityTier ??
-    (answer.modelUsed ? "model_synthesis" : answer.routingMode === "extractive" ? "source_only" : undefined);
+    (answer.modelUsed ? "model_synthesis" : inferredSourceOnlyFallback ? "source_only" : undefined);
   const fallbackReason =
     answer.fallbackReason ??
     (answerQualityTier === "source_only"
-      ? (answer.routingReason?.match(/source_only_[a-z_]+/)?.[0] ?? "source_only")
+      ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only")
       : null);
   const degradedActive = answerQualityTier === "source_only";
   return {
