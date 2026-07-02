@@ -130,7 +130,10 @@ export const env = {
   OPENAI_STRONG_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_STRONG_ANSWER_MODEL),
 } satisfies typeof parsedEnv;
 
-export function requireServerEnv() {
+export function requireServerEnv(): {
+  NEXT_PUBLIC_SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+} {
   const missing = [
     ["NEXT_PUBLIC_SUPABASE_URL", env.NEXT_PUBLIC_SUPABASE_URL],
     ["SUPABASE_SERVICE_ROLE_KEY", env.SUPABASE_SERVICE_ROLE_KEY],
@@ -143,6 +146,7 @@ export function requireServerEnv() {
   }
 
   assertExpectedSupabaseProjectConfig(env);
+  return env as { NEXT_PUBLIC_SUPABASE_URL: string; SUPABASE_SERVICE_ROLE_KEY: string };
 }
 
 export function requireOpenAIEnv() {
