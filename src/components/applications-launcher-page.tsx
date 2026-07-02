@@ -486,8 +486,7 @@ function MobileApplicationRow({
       data-testid={`mobile-application-row-${app.id}`}
       className={cn(
         "grid min-h-[62px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 py-2.5 text-left first:border-t-0",
-        selected &&
-          "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/60",
+        selected && "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/60",
       )}
     >
       <AppIcon app={app} compact />
