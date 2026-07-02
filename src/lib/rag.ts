@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
   generateStructuredTextResult,
@@ -1747,7 +1748,16 @@ export function invalidateRagCachesForDocumentMutation(ownerId: string) {
   invalidateAnonymousSharedRagCaches();
 }
 
-async function insertRagQuery(row: Record<string, unknown>) {
+interface RagQueryInsert {
+  owner_id?: string | null;
+  query: string;
+  answer?: string | null;
+  source_chunk_ids?: string[] | null;
+  model?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
@@ -1759,10 +1769,12 @@ async function insertRagQuery(row: Record<string, unknown>) {
     query: queryTextForStorage(rawQuery),
     metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
   };
-  await supabase.from("rag_queries").insert(safeRow);
+  await supabase
+    .from("rag_queries")
+    .insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
 }
 
-async function logRagQuery(row: Record<string, unknown>) {
+async function logRagQuery(row: RagQueryInsert) {
   if (env.RAG_AWAIT_QUERY_LOGS) {
     await insertRagQuery(row);
     return;
