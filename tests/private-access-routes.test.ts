@@ -321,6 +321,28 @@ afterEach(() => {
 });
 
 describe("private document API access", () => {
+  it("still requires a valid token even when local no-auth mode is enabled", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(localPortRequest(4298, "/api/documents"));
+
+    expect(response.status).toBe(401);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("accepts authenticated bearer tokens in local no-auth mode", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents"));
+
+    expect(response.status).toBe(200);
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+  });
   it("rejects local no-auth private calls from unmanaged localhost ports before Supabase access", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
