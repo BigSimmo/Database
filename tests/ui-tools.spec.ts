@@ -221,6 +221,17 @@ test.describe("Clinical KB applications launcher", () => {
     }
   });
 
+  test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    for (const path of ["/services?focus=1", "/forms?focus=1"] as const) {
+      await gotoLauncher(page, path);
+      const sharedSearch = page.getByTestId("global-search-input");
+      await expect(sharedSearch).toBeVisible();
+      await expect(sharedSearch).toBeFocused();
+    }
+  });
+
   test("services mode shows source-backed records in search results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");

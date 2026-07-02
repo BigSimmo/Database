@@ -149,11 +149,25 @@ function GlobalMockupSearchShellClient({
         // not wiped by the WebKit requestAnimationFrame race.
         setQuery("");
       }
-
-      if (params.get("focus") === "1") inputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [availableModeIds, initialSearchMode, isDetailPage, pathname, searchParamString]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("focus") !== "1") return undefined;
+    const focusInput = () => {
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) return;
+      inputRef.current?.focus({ preventScroll: true });
+    };
+    const frame = window.requestAnimationFrame(focusInput);
+    const timeout = window.setTimeout(focusInput, 300);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [pathname, searchParamString]);
 
   useEffect(() => {
     let cancelled = false;
