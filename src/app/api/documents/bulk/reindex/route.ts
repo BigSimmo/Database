@@ -96,7 +96,7 @@ export async function POST(request: Request) {
     const documentIds = Array.from(new Set(parsed.documentIds));
     const { data: documents, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,metadata")
+      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,page_count,chunk_count,image_count,error_message,metadata")
       .eq("owner_id", user.id)
       .in("id", documentIds);
     if (documentError) throw new Error(documentError.message);
@@ -193,7 +193,28 @@ export async function POST(request: Request) {
           })
           .select("id")
           .single();
-        if (jobError) throw new Error(jobError.message);
+        if (jobError) {
+          if (!atomicReindex) {
+            const { error: rollbackError } = await supabase
+              .from("documents")
+              .update({
+                status: document.status,
+                error_message: document.error_message,
+                page_count: document.page_count,
+                chunk_count: document.chunk_count,
+                image_count: document.image_count,
+              })
+              .eq("id", document.id)
+              .eq("owner_id", user.id)
+              .eq("status", "queued")
+              .is("error_message", null)
+              .eq("page_count", 0)
+              .eq("chunk_count", 0)
+              .eq("image_count", 0);
+            if (rollbackError) throw new Error(rollbackError.message);
+          }
+          throw new Error(jobError.message);
+        }
         results.push({ documentId: document.id, mode: parsed.mode, ok: true, jobId: job.id });
       } catch (error) {
         results.push({

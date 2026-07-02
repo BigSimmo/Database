@@ -16,7 +16,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
-      .select("id,document_id,batch_id,status,locked_at,documents!inner(owner_id)")
+      .select(
+        "id,document_id,batch_id,status,stage,progress,error_message,attempt_count,max_attempts,locked_at,locked_by,next_run_at,completed_at,documents!inner(owner_id)",
+      )
       .eq("id", id)
       .eq("documents.owner_id", user.id)
       .maybeSingle();
@@ -34,6 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // job is NOT processing, OR its lock is already stale, OR it has no lock.
     const staleThreshold = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
 
+    const nextRunAt = new Date().toISOString();
     const { data, error } = await supabase
       .from("ingestion_jobs")
       .update({
@@ -45,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         max_attempts: env.WORKER_MAX_ATTEMPTS,
         locked_at: null,
         locked_by: null,
-        next_run_at: new Date().toISOString(),
+        next_run_at: nextRunAt,
         completed_at: null,
       })
       .eq("id", id)
@@ -74,7 +77,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .update({ status: "queued", error_message: null })
       .eq("id", job.document_id)
       .eq("owner_id", user.id);
-    if (documentError) throw new Error(documentError.message);
+    if (documentError) {
+      const { error: rollbackError } = await supabase
+        .from("ingestion_jobs")
+        .update({
+          status: job.status,
+          stage: job.stage,
+          progress: job.progress,
+          error_message: job.error_message,
+          attempt_count: job.attempt_count,
+          max_attempts: job.max_attempts,
+          locked_at: job.locked_at,
+          locked_by: job.locked_by,
+          next_run_at: job.next_run_at,
+          completed_at: job.completed_at,
+        })
+        .eq("id", id)
+        .eq("status", "pending")
+        .eq("stage", "queued")
+        .eq("progress", 0)
+        .eq("attempt_count", 0)
+        .is("locked_at", null)
+        .is("locked_by", null)
+        .eq("next_run_at", nextRunAt);
+      if (rollbackError) throw new Error(rollbackError.message);
+      throw new Error(documentError.message);
+    }
 
     return NextResponse.json({ job: data });
   } catch (error) {
