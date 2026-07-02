@@ -150,6 +150,15 @@ function summaryCardsFor(form: FormRecord): ServiceSummaryCard[] {
   ];
 }
 
+function joinNotes(notes: string[] | null | undefined) {
+  if (!notes?.length) return undefined;
+  return notes
+    .map((note) => note.trim())
+    .filter(Boolean)
+    .map((note) => (/[.!?]$/.test(note) ? note : `${note}.`))
+    .join(" ");
+}
+
 function detailRowsFor(form: FormRecord) {
   const referralRows = form.referralInfo?.length
     ? form.referralInfo
@@ -162,7 +171,7 @@ function detailRowsFor(form: FormRecord) {
 
   return [
     ...referralRows,
-    { label: "Verification", value: form.verification?.notes?.join(" ") },
+    { label: "Verification", value: joinNotes(form.verification?.notes) },
     { label: "Related pathway", value: form.route },
   ].filter((row) => hasText(row.value));
 }

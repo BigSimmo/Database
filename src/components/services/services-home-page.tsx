@@ -13,7 +13,7 @@ import { defaultServiceSlug, serviceRecords } from "@/lib/services";
 
 const taskCards: ModeHomeAction[] = [
   {
-    title: "Find a service",
+    title: "Search services",
     description: "Search by need, catchment, provider, or keyword.",
     icon: FileSearch,
     href: appModeHomeHref("services", { focus: true }),
@@ -43,7 +43,7 @@ const commonPathways: ModeHomePill[] = [
     href: appModeHomeHref("services", { query: "crisis support services", focus: true, run: true }),
   },
   {
-    label: "ATSI-specific",
+    label: "Aboriginal and Torres Strait Islander",
     tone: "info",
     href: appModeHomeHref("services", {
       query: "Aboriginal Torres Strait Islander services",
