@@ -224,7 +224,7 @@ test.describe("Clinical KB applications launcher", () => {
   test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    for (const path of ["/services?focus=1", "/forms?focus=1"] as const) {
+    for (const path of ["/services?focus=1", "/forms?focus=1"]) {
       await gotoLauncher(page, path);
       const sharedSearch = page.getByTestId("global-search-input");
       await expect(sharedSearch).toBeVisible();
