@@ -57,6 +57,9 @@ jobs:
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
 
+      - name: Format check
+        run: npm run format:check
+
       - name: Lint
         run: npm run lint
 

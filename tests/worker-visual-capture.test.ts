@@ -75,7 +75,7 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("let classification = redactImageClassification(resolved.classification);");
     expect(workerSource).toContain("caption: classification.caption");
     expect(workerSource).toContain(
-      'const structuredProfile = normalizeStructuredVisualProfile(redactCaptionMetadataValue(metadata.structured_visual_profile), {',
+      "const structuredProfile = normalizeStructuredVisualProfile(redactCaptionMetadataValue(metadata.structured_visual_profile), {",
     );
   });
 
