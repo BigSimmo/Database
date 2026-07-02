@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -49,17 +47,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  memo,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type CSSProperties, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import {
   DocumentOrganizationBadges,
@@ -71,15 +59,12 @@ import { DocumentManagementActions, type DocumentDeleteResult } from "@/componen
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import {
   appBackdrop,
   answerSurface,
-  chatActionRow,
-  chatAnswerText,
   chatMicroAction,
   codeText,
   clinicalDivider,
@@ -101,10 +86,6 @@ import {
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
-  sourceCapsule,
-  statusDotMuted,
-  statusDotReady,
-  statusDotReview,
   subtleStatusPill,
   tableCard,
   tableCardHeader,
@@ -149,10 +130,22 @@ import {
 } from "@/components/clinical-dashboard/dashboard-shell";
 import {
   cleanDisplayTitle,
+  comparableAnswerText,
   compactSourceSnippet,
   sanitizeAnswerDisplayText,
   sanitizeDisplayText,
 } from "@/components/clinical-dashboard/display-text";
+import {
+  keyClinicalItemsFromSections,
+  keyClinicalItemsFromTable,
+  NaturalLanguageAnswer,
+  plainAnswerText,
+  ScopeAndGovernanceNotice,
+  SourceImage,
+  sourceStatusDotClass,
+  UserQuestionBubble,
+} from "@/components/clinical-dashboard/answer-content";
+import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
@@ -219,7 +212,6 @@ import { searchServiceRecords } from "@/lib/services";
 import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
-  clinicalProseUsefulness,
   normalizeExtractedGlyphs,
   sourceTextForCompactDisplay,
   sourceTextForVerbatimQuote,
@@ -252,7 +244,6 @@ import type {
   QuoteCard,
   RagAnswer,
   AnswerSection,
-  AnswerSectionKind,
   ConflictOrGap,
   RelatedDocument,
   EvidenceSummary,
@@ -276,23 +267,6 @@ import {
 
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
-const sourcePreviewSheetMediaQuery = "(max-width: 1023px)";
-
-function subscribeToMobilePreviewMedia(callback: () => void) {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
-  const media = window.matchMedia(sourcePreviewSheetMediaQuery);
-  media.addEventListener("change", callback);
-  return () => media.removeEventListener("change", callback);
-}
-
-function getMobilePreviewSnapshot() {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(sourcePreviewSheetMediaQuery).matches;
-}
-
-function useMobilePreviewSheet() {
-  return useSyncExternalStore(subscribeToMobilePreviewMedia, getMobilePreviewSnapshot, () => false);
-}
 
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
@@ -507,747 +481,6 @@ function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
 
-const SourceImage = memo(function SourceImage({
-  endpoint,
-  caption,
-  className = "max-h-52",
-}: {
-  endpoint: string;
-  caption: string;
-  className?: string;
-}) {
-  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
-
-  useEffect(() => {
-    const cached = getCachedSignedUrl(endpoint);
-    if (cached) return () => undefined;
-
-    let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
-          setFailed(false);
-        } else if (active) {
-          setFailed(true);
-        }
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired]);
-
-  function retryImage() {
-    clearCachedSignedUrl(endpoint);
-    setUrl(null);
-    setFailed(false);
-    setAttempt((current) => current + 1);
-  }
-
-  function handleImageError() {
-    clearCachedSignedUrl(endpoint);
-    setFailed(true);
-  }
-
-  if (failed) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid min-h-36 place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
-        )}
-      >
-        <div>
-          <AlertCircle className="mx-auto mb-2 h-5 w-5" />
-          Image preview could not load.
-          <button
-            type="button"
-            onClick={retryImage}
-            className="mt-3 inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
-          >
-            Retry image
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!url) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid min-h-36 place-items-center rounded-lg bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]",
-        )}
-      >
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading image
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={url}
-      alt={caption}
-      loading="lazy"
-      decoding="async"
-      onError={handleImageError}
-      className={cn(className, "w-full rounded-lg object-contain")}
-    />
-  );
-});
-
-function ScopeAndGovernanceNotice({
-  scope,
-  warnings,
-}: {
-  scope: SearchScopeSummary | null;
-  warnings: SourceGovernanceWarning[];
-}) {
-  const groupedWarnings = groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(warnings)).slice(0, 4);
-  const showScope =
-    Boolean(scope && scope.activeFilterCount > 0) ||
-    Boolean(scope?.warnings?.length) ||
-    scope?.matchedDocumentCount === 0;
-  if (!showScope && groupedWarnings.length === 0) return null;
-  return (
-    <div className="space-y-2 rounded-lg border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] p-3 text-sm text-[color:var(--text)]">
-      {showScope && scope ? (
-        <p className="font-semibold">
-          Scope: {scope.summary}
-          {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
-        </p>
-      ) : null}
-      {scope?.warnings?.length ? (
-        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-          {scope.warnings.slice(0, 3).map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      ) : null}
-      {groupedWarnings.length ? (
-        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-          {groupedWarnings.map((warning) => (
-            <li key={warning.code}>
-              {warning.message}
-              {warning.titles.length ? (
-                <details className="mt-1 font-medium text-[color:var(--text-muted)]">
-                  <summary className="cursor-pointer">Sources affected</summary>
-                  <span className="mt-1 block">{warning.titles.slice(0, 5).join(", ")}</span>
-                </details>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function plainAnswerText(value: string) {
-  const useful = clinicalProseUsefulness(value);
-  return sanitizeAnswerDisplayText(useful.text || value, { minLength: 8, minTokens: 2 })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
-}
-
-function primaryAnswerDisplayText(value: string) {
-  const cleaned = plainAnswerText(value);
-  const fragments = cleaned
-    .split(/\r?\n+/)
-    .flatMap((line: string) =>
-      line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
-    )
-    .map((fragment: string) =>
-      fragment
-        .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
-        .replace(
-          /^(?:\*\*)?(?:answer|summary|bottom line|direct answer|clinical point|key point|required actions?|monitoring(?:\/timing)?|thresholds?|dose detail|medication(?:\/dose details?)?|escalation(?:\/risk)?|risk|safety|documentation(?:\/forms)?|source gaps?)(?:\*\*)?:\s+/i,
-          "",
-        )
-        .trim(),
-    )
-    .map((fragment: string) => clinicalProseUsefulness(fragment).text || fragment)
-    .filter((fragment: string) => {
-      if (!fragment) return false;
-      const useful = clinicalProseUsefulness(fragment);
-      return useful.useful || fragment.split(/\s+/).length >= 8;
-    });
-  const uniqueFragments = Array.from(new Set(fragments));
-  const selected = uniqueFragments.slice(0, 3).join(" ");
-  const words = selected.split(/\s+/).filter(Boolean);
-  if (words.length <= 85) return selected || cleaned;
-  return `${words
-    .slice(0, 85)
-    .join(" ")
-    .replace(/[;,:-]\s*$/, "")}...`;
-}
-
-function sourceCapsuleText({
-  sourceCount,
-  weakEvidence,
-  grounded,
-}: {
-  sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
-}) {
-  if (sourceCount <= 0) return "No direct source found";
-  if (!grounded) return "Review nearby sources";
-  if (weakEvidence) return "Review sources";
-  return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
-}
-
-function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
-  if (!metadata) return statusDotMuted;
-  if (metadata.document_status === "current") return statusDotReady;
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return statusDotReview;
-  return statusDotMuted;
-}
-
-type CapsulePreviewSource = {
-  id: string;
-  title: string;
-  pageNumber: number | null;
-  metadata: ReturnType<typeof normalizeSourceMetadata>;
-  score: number;
-  href: string;
-  snippet?: string;
-  sourceStrength?:
-    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
-};
-
-function sourceBadgeLabel(index: number) {
-  return `S${index + 1}`;
-}
-
-function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
-    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  }
-  if (index === 0) {
-    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]";
-  }
-  return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-}
-
-function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
-  if (!source.sourceStrength || source.sourceStrength === "none") return "Unsupported";
-  if (source.sourceStrength === "limited") return "Partial";
-  if (source.sourceStrength === "moderate") return "Partial";
-  if (index === 0 || source.sourceStrength === "strong") return "Direct";
-  return "Partial";
-}
-
-function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
-  if (metadata.document_status === "review_due") return "Review due";
-  if (metadata.document_status === "outdated") return "Outdated";
-  if (metadata.document_status === "current") return "Current";
-  return sourceStatusLabel(metadata);
-}
-
-function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
-  const uniquePages = new Set(previewSources.map((source) => source.pageNumber).filter((page) => page !== null));
-  const count = uniquePages.size || previewSources.length;
-  return `${count} page${count === 1 ? "" : "s"}`;
-}
-
-function capsulePreviewSources(
-  bestSource: BestSourceRecommendation | null,
-  sources: SearchResult[],
-  sourceLinks: SourceLink[] = [],
-) {
-  const rows: CapsulePreviewSource[] = [];
-  const seen = new Set<string>();
-  const pushRow = (row: CapsulePreviewSource) => {
-    const key = `${row.id}:${row.title}:${row.pageNumber ?? "n/a"}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    rows.push(row);
-  };
-
-  sourceLinks.slice(0, 5).forEach((source) => {
-    pushRow({
-      id: source.chunk_id,
-      title: source.title || source.file_name || "Source",
-      pageNumber: source.page_number,
-      metadata: normalizeSourceMetadata(source.sourceMetadata),
-      score: source.score ?? 0,
-      href: source.href,
-      snippet: source.snippet,
-      sourceStrength: source.sourceStrength,
-    });
-  });
-
-  if (bestSource) {
-    pushRow({
-      id: bestSource.chunk_id,
-      title: bestSource.title || bestSource.file_name || "Source",
-      pageNumber: bestSource.page_number,
-      metadata: normalizeSourceMetadata(bestSource.source_metadata),
-      score: bestSource.score,
-      href: bestSource.viewer_href,
-      sourceStrength: bestSource.source_strength,
-    });
-  }
-
-  sources.slice(0, 5).forEach((source) => {
-    pushRow({
-      id: source.id,
-      title: source.title || source.file_name || "Source",
-      pageNumber: source.page_number,
-      metadata: normalizeSourceMetadata(source.source_metadata),
-      score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
-      href: sourceResultHref(source),
-      sourceStrength: source.source_strength,
-    });
-  });
-
-  return rows.slice(0, 4);
-}
-
-function SourcePreviewContent({
-  previewSources,
-  quoteText,
-  copiedQuote,
-  onCopyQuote,
-  showHeader = true,
-}: {
-  previewSources: CapsulePreviewSource[];
-  quoteText?: string | null;
-  copiedQuote: boolean;
-  onCopyQuote: () => void;
-  showHeader?: boolean;
-}) {
-  const primaryPreviewSource = previewSources[0] ?? null;
-  const reviewDueSource = previewSources.find(
-    (source) => source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated",
-  );
-
-  return (
-    <>
-      {showHeader ? (
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
-              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
-                {sourcePreviewPageCountLabel(previewSources)}
-              </span>
-            </div>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>Open the original PDF page.</p>
-          </div>
-        </div>
-      ) : null}
-      <div
-        className={cn("grid gap-0 divide-y divide-[color:var(--border)]", showHeader ? "mt-3" : "")}
-        role="list"
-        aria-label="Sources behind this answer"
-      >
-        {previewSources.map((source, index) => (
-          <div
-            key={`${source.id}:${index}`}
-            role="listitem"
-            className={cn(
-              "min-w-0 py-2.5",
-              index === 0 &&
-                "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]",
-            )}
-          >
-            {index === 0 ? (
-              <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--clinical-accent)]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Best match
-              </p>
-            ) : index === 1 ? (
-              <p className="mb-1.5 text-xs font-semibold text-[color:var(--text-muted)]">Also used</p>
-            ) : null}
-            <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
-              <span
-                className={cn(
-                  "nums grid h-8 min-w-8 place-items-center rounded-md border px-1 text-xs font-bold shadow-[var(--shadow-inset)]",
-                  sourceBadgeToneClass(source.metadata, index),
-                )}
-              >
-                {sourceBadgeLabel(index)}
-              </span>
-              <span className="min-w-0">
-                <Link
-                  href={source.href}
-                  data-testid="source-capsule-preview-row"
-                  className="flex min-h-12 items-center rounded-md text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
-                >
-                  <span className="line-clamp-2">{cleanDisplayTitle(source.title)}</span>
-                </Link>
-                <span className={cn("mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs", textMuted)}>
-                  <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
-                  <span aria-hidden>·</span>
-                  <span>{sourceSupportLabel(source, index)}</span>
-                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
-                  <span
-                    className={
-                      source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated"
-                        ? "font-semibold text-[color:var(--warning)]"
-                        : undefined
-                    }
-                  >
-                    {sourceStatusShortLabel(source.metadata)}
-                  </span>
-                </span>
-              </span>
-              <Link
-                href={source.href}
-                className={cn(
-                  index === 0
-                    ? "inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]"
-                    : "grid h-12 w-12 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                )}
-                aria-label={`Open ${sourceBadgeLabel(index)} source page`}
-              >
-                <ExternalLink className="h-4 w-4" />
-                {index === 0 ? <span>Open</span> : null}
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-      {quoteText ? (
-        <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
-          &ldquo;{quoteText}&rdquo;
-        </blockquote>
-      ) : null}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        {primaryPreviewSource ? (
-          <Link
-            href={primaryPreviewSource.href}
-            className={chatMicroAction}
-            aria-label={`Open source page for ${primaryPreviewSource.title}`}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Open source page
-          </Link>
-        ) : null}
-        {quoteText ? (
-          <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
-            <Copy className="h-3.5 w-3.5" />
-            {copiedQuote ? "Copied quote" : "Copy quote"}
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
-        <span
-          className={cn(
-            "inline-flex min-h-8 items-center gap-1.5",
-            reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
-          )}
-        >
-          {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-          {reviewDueSource
-            ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
-            : "Sources current"}
-        </span>
-        {primaryPreviewSource ? (
-          <Link
-            href={primaryPreviewSource.href}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            Evidence details
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-function NaturalLanguageAnswer({
-  text,
-  sourceCount,
-  weakEvidence,
-  grounded,
-  sourceOnly,
-  bestSource,
-  sources,
-  sourceLinks,
-  copied,
-  onCopy,
-}: {
-  text: string;
-  sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
-  sourceOnly: boolean;
-  bestSource: BestSourceRecommendation | null;
-  sources: SearchResult[];
-  sourceLinks: SourceLink[];
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
-  const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
-  const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
-  const copySourceQuoteTimerRef = useRef<number | null>(null);
-  const usePreviewSheet = useMobilePreviewSheet();
-  useEffect(() => {
-    return () => {
-      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
-    };
-  }, []);
-  const cleaned = primaryAnswerDisplayText(text);
-  if (!cleaned) return null;
-  const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
-  const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
-  const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
-  const canOpenSourcePreview = previewSources.length > 0;
-  async function copySourceQuote() {
-    if (!quoteText) return;
-    try {
-      await navigator.clipboard.writeText(quoteText);
-      setCopiedSourceQuote(true);
-      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
-      copySourceQuoteTimerRef.current = window.setTimeout(() => setCopiedSourceQuote(false), 1600);
-    } catch {
-      setCopiedSourceQuote(false);
-    }
-  }
-  const sourceCapsuleButton = (
-    <button
-      type="button"
-      ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit")}
-      aria-label="Open answer sources"
-      aria-expanded={sourcePreviewOpen}
-      onClick={() => {
-        if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
-      }}
-    >
-      {sourceCount > 0 ? (
-        <>
-          <span className="sm:hidden">
-            {sourceCount} source{sourceCount === 1 ? "" : "s"}
-          </span>
-          <span className="hidden sm:inline">{capsuleText}</span>
-        </>
-      ) : (
-        capsuleText
-      )}
-      {canOpenSourcePreview ? <ChevronDown className="h-3.5 w-3.5" /> : null}
-    </button>
-  );
-
-  return (
-    <section
-      data-testid="plain-answer-response"
-      aria-label="Primary natural-language answer"
-      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[color:var(--text-heading)]"
-    >
-      <span
-        data-testid="answer-clinical-icon"
-        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <ShieldCheck className="h-[18px] w-[18px]" />
-      </span>
-      <div className="min-w-0 space-y-1.5">
-        <p className={chatAnswerText}>
-          <span data-testid="plain-answer-prose">
-            <SafeBoldText text={cleaned} />
-          </span>
-        </p>
-        {sourceOnly ? (
-          <p
-            data-testid="source-only-disclosure"
-            role="note"
-            className={cn(
-              "rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1.5 text-xs leading-5",
-              textMuted,
-            )}
-          >
-            Source-only answer — assembled from your documents without the AI model, so it may be less complete. Verify
-            it against the cited passages below.
-          </p>
-        ) : null}
-        {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
-          >
-            <SourcePreviewContent
-              previewSources={previewSources}
-              quoteText={quoteText}
-              copiedQuote={copiedSourceQuote}
-              onCopyQuote={copySourceQuote}
-            />
-          </div>
-        ) : null}
-        <Sheet
-          open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
-          onClose={() => setSourcePreviewOpen(false)}
-          title="Sources"
-          description="Open the original PDF page."
-          titleAccessory={
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
-              {sourcePreviewPageCountLabel(previewSources)}
-            </span>
-          }
-          closeLabel="Close answer sources"
-          contentClassName="sm:max-w-xl"
-          returnFocusRef={sourceCapsuleRef}
-          portal
-        >
-          <div data-testid="source-capsule-preview">
-            <SourcePreviewContent
-              previewSources={previewSources}
-              quoteText={quoteText}
-              copiedQuote={copiedSourceQuote}
-              onCopyQuote={copySourceQuote}
-              showHeader={false}
-            />
-          </div>
-        </Sheet>
-        <div className={chatActionRow} aria-label="Answer actions">
-          <button
-            type="button"
-            onClick={onCopy}
-            className={chatMicroAction}
-            aria-label="Copy answer with source status"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {copied ? "Copied with sources" : "Copy with sources"}
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function UserQuestionBubble({ query }: { query: string }) {
-  const cleaned = query.trim();
-  if (!cleaned) return null;
-
-  return (
-    <section className="flex justify-end px-1" aria-label="User question">
-      <div
-        data-testid="user-question-bubble"
-        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
-      >
-        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
-        <p className={cn("nums mt-0.5 text-[11px] leading-4", textMuted)}>9:14 AM</p>
-      </div>
-    </section>
-  );
-}
-
-type KeyClinicalItem = {
-  id: string;
-  label?: string;
-  detail: string;
-};
-
-function keyClinicalItemFromText(item: string): KeyClinicalItem | null {
-  const cleaned = item.replace(/^[-*•]\s*/, "").trim();
-  if (cleaned.length < 24) return null;
-  const [labelCandidate, ...detailParts] = cleaned.split(/\s+(?:—|-)\s+/);
-  const label = labelCandidate?.trim();
-  const detail = detailParts.join(" — ").trim();
-  const id = comparableAnswerText(cleaned);
-  if (label && detail && label.length <= 64) return { id, label, detail };
-  return { id, detail: cleaned };
-}
-
-function keyClinicalItemsFromSections(
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
-): KeyClinicalItem[] {
-  const usefulKinds = new Set<AnswerSectionKind | undefined>([
-    "required_actions",
-    "monitoring_timing",
-    "medication_dose",
-    "thresholds",
-    "escalation_risk",
-    "contraindications_cautions",
-    "comparison",
-  ]);
-  return sections
-    .filter((section) => usefulKinds.has(section.kind))
-    .flatMap((section) =>
-      section.body
-        .split(/\n+|(?<=\.)\s+(?=(?:Monitor|Check|Use|Avoid|Escalate|Withhold|Review|Document|Repeat|Consider)\b)/)
-        .map((item) => keyClinicalItemFromText(item))
-        .filter((item): item is KeyClinicalItem => Boolean(item)),
-    )
-    .filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index)
-    .slice(0, 5);
-}
-
-function keyClinicalItemsFromTable(item: VisualEvidenceCard | null): KeyClinicalItem[] {
-  const rows = item?.tableRows?.filter((row) => row.some((cell) => cell.trim())) ?? [];
-  if (rows.length < 2) return [];
-
-  return rows
-    .slice(0, 3)
-    .map((row): KeyClinicalItem | null => {
-      const [domain, baseline] = row.map((cell) => cell.trim()).filter(Boolean);
-      if (!domain || !baseline) return null;
-      const detail = baseline;
-      return {
-        id: comparableAnswerText([domain, detail].join(" ")),
-        label: domain,
-        detail,
-      };
-    })
-    .filter((value): value is KeyClinicalItem => value !== null)
-    .slice(0, 5);
-}
-
-function KeyClinicalItems({
-  sections,
-  table,
-}: {
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  table: VisualEvidenceCard | null;
-}) {
-  const sectionItems = keyClinicalItemsFromSections(sections);
-  const tableItems = keyClinicalItemsFromTable(table);
-  const items = sectionItems.length >= 2 ? sectionItems : tableItems;
-  if (items.length < 2) return null;
-
-  return (
-    <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
-      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-[15px]">Key monitoring items</h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-[15px]">
-        {items.map((item) => (
-          <li key={item.id} className="pl-0.5">
-            {item.label ? (
-              <>
-                <span className="font-semibold">{item.label}</span>
-                <span className={textMuted}> — </span>
-                <SafeBoldText text={item.detail} />
-              </>
-            ) : (
-              <SafeBoldText text={item.detail} />
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 type AnswerSupportPriority = {
   title: string;
   detail: string;
@@ -1398,15 +631,6 @@ function AnswerSupportSummaryCard({
       ) : null}
     </section>
   );
-}
-
-function comparableAnswerText(value: string) {
-  return value
-    .replace(/\*\*/g, "")
-    .replace(/\.\.\.$/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }
 
 function isRedundantStructuredItem(item: string, primaryAnswer: string) {
