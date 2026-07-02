@@ -267,7 +267,7 @@ function GlobalMockupSearchShellClient({
                 className={cn(
                   sidebarItem,
                   "grid grid-cols-[2rem_minmax(0,1fr)] px-2.5 py-2 text-left",
-                  active && "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]",
+                  active && "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
                 )}
               >
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">

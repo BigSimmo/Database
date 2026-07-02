@@ -288,7 +288,7 @@ function AppIcon({ app, compact = false }: { app: LauncherApp; compact?: boolean
   return (
     <span
       className={cn(
-        "grid shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]",
+        "grid shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
         compact ? "h-9 w-9" : "h-11 w-11",
       )}
     >
@@ -300,7 +300,7 @@ function AppIcon({ app, compact = false }: { app: LauncherApp; compact?: boolean
 function LaunchLink({ app, compact = false, className }: { app: LauncherApp; compact?: boolean; className?: string }) {
   const label = `Launch ${app.title}`;
   const classes = cn(
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
     compact && "min-h-9 px-3 text-xs",
     className,
   );
@@ -342,7 +342,7 @@ function HeaderFilter({
             className={cn(
               "min-h-11 px-4 text-xs font-semibold transition sm:min-w-[5.25rem]",
               active
-                ? "bg-[color:var(--clinical-chat-teal)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                 : "border-l border-[color:var(--border)] text-[color:var(--text-muted)] first:border-l-0 hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
@@ -374,7 +374,7 @@ function PinnedSection({
     >
       <div className="flex min-h-10 items-center justify-between border-b border-[color:var(--border)] px-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
-          <Pin className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+          <Pin className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
           Pinned
         </div>
         <span className="nums text-xs font-semibold text-[color:var(--text-soft)]">{pinnedApps.length} pinned</span>
@@ -387,7 +387,7 @@ function PinnedSection({
               key={app.id}
               className={cn(
                 "grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] sm:gap-3",
-                selected && "bg-[color:var(--clinical-chat-teal-soft)]/55",
+                selected && "bg-[color:var(--clinical-accent-soft)]/55",
               )}
             >
               <button
@@ -412,7 +412,7 @@ function PinnedSection({
                   onTogglePin(app.id);
                 }}
                 aria-label={`Unpin ${app.title}`}
-                className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--clinical-chat-teal)]"
+                className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--clinical-accent)]"
               >
                 <PinOff className="h-4 w-4" aria-hidden />
               </button>
@@ -442,7 +442,7 @@ function ApplicationRow({
       className={cn(
         "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_7rem_6rem_5.5rem_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 py-3 transition first:border-t-0",
         selected &&
-          "rounded-lg border border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)]/55 shadow-[var(--glow-soft)]",
+          "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/55 shadow-[var(--glow-soft)]",
         !selected && "hover:bg-[color:var(--surface-subtle)]",
       )}
       data-testid={`application-row-${app.id}`}
@@ -461,9 +461,9 @@ function ApplicationRow({
         type="button"
         onClick={() => onTogglePin(app.id)}
         aria-label={`${pinned ? "Unpin" : "Pin"} ${app.title}`}
-        className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--clinical-chat-teal)]"
+        className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--clinical-accent)]"
       >
-        <Pin className={cn("h-4 w-4", pinned && "fill-current text-[color:var(--clinical-chat-teal)]")} aria-hidden />
+        <Pin className={cn("h-4 w-4", pinned && "fill-current text-[color:var(--clinical-accent)]")} aria-hidden />
       </button>
     </div>
   );
@@ -485,8 +485,7 @@ function MobileApplicationRow({
       data-testid={`mobile-application-row-${app.id}`}
       className={cn(
         "grid min-h-[62px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 py-2.5 text-left first:border-t-0",
-        selected &&
-          "rounded-lg border border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)]/60",
+        selected && "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/60",
       )}
     >
       <AppIcon app={app} compact />
@@ -542,9 +541,9 @@ function DetailPanel({
             type="button"
             onClick={() => onTogglePin(app.id)}
             aria-label={`${pinned ? "Unpin" : "Pin"} ${app.title}`}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--clinical-chat-teal)]"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--clinical-accent)]"
           >
-            <Pin className={cn("h-4 w-4", pinned && "fill-current text-[color:var(--clinical-chat-teal)]")} />
+            <Pin className={cn("h-4 w-4", pinned && "fill-current text-[color:var(--clinical-accent)]")} />
           </button>
           {onClose ? (
             <button
@@ -583,12 +582,12 @@ function DetailPanel({
       <LaunchLink app={app} className="mt-4 w-full" />
 
       <section className="mt-5 border-t border-[color:var(--border)] pt-4">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Overview</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Overview</h3>
         <p className={cn("mt-2 text-sm leading-6", textMuted)}>{app.detail}</p>
       </section>
 
       <section className="mt-5">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Quick actions</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Quick actions</h3>
         <div className="mt-2 divide-y divide-[color:var(--border)] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
           {app.quickActions.map((action) => (
             <button
@@ -608,8 +607,8 @@ function DetailPanel({
 
       <section className="mt-5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Recent workflows</h3>
-          <span className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">View all</span>
+          <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Recent workflows</h3>
+          <span className="text-xs font-semibold text-[color:var(--clinical-accent)]">View all</span>
         </div>
         <div className="mt-2 space-y-2">
           {app.recentWorkflows.slice(0, 4).map((workflow) => (
@@ -623,15 +622,15 @@ function DetailPanel({
 
       <section className="mt-5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">Recent activity</h3>
-          <span className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">View all</span>
+          <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Recent activity</h3>
+          <span className="text-xs font-semibold text-[color:var(--clinical-accent)]">View all</span>
         </div>
         <div className="mt-2 space-y-2">
           {recentActivity.map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.label} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-sm">
-                <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                 <span className="min-w-0 truncate text-[color:var(--text)]">{item.label}</span>
                 <span className="nums shrink-0 text-xs font-medium text-[color:var(--text-soft)]">{item.date}</span>
               </div>
@@ -641,7 +640,7 @@ function DetailPanel({
       </section>
 
       <section className="mt-5">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-chat-teal)]">{copy.relatedHeading}</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">{copy.relatedHeading}</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {related.map((relatedApp) => {
             const Icon = relatedApp.icon;
@@ -651,7 +650,7 @@ function DetailPanel({
                 href={relatedApp.href}
                 target={relatedApp.external ? "_blank" : undefined}
                 rel={relatedApp.external ? "noopener noreferrer" : undefined}
-                className="flex min-h-10 items-center gap-2 rounded-lg text-xs font-semibold text-[color:var(--clinical-chat-teal)] hover:bg-[color:var(--clinical-chat-teal-soft)]"
+                className="flex min-h-10 items-center gap-2 rounded-lg text-xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden />
                 <span className="min-w-0 truncate">{relatedApp.shortTitle ?? relatedApp.title}</span>
@@ -681,7 +680,7 @@ function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenC
         <Link
           href="/"
           onClick={() => onOpenChange(false)}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-chat-teal)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]"
         >
           <Plus className="h-4 w-4" />
           New chat
@@ -724,7 +723,7 @@ function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenC
                   onClick={() => onOpenChange(false)}
                   className={sidebarApplicationTile}
                 >
-                  <Icon className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                  <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -748,7 +747,7 @@ function ApplicationsMobileMenu({ open, onOpenChange }: { open: boolean; onOpenC
             <span>Settings</span>
           </button>
           <div className="mt-2 flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-xs font-bold text-[color:var(--clinical-chat-teal)]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)]">
               AK
             </span>
             <span className="min-w-0 flex-1">
@@ -820,7 +819,7 @@ function ApplicationsModeMenu({ open, onOpenChange }: { open: boolean; onOpenCha
             className={cn(
               "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               option.active
-                ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
@@ -828,7 +827,7 @@ function ApplicationsModeMenu({ open, onOpenChange }: { open: boolean; onOpenCha
               className={cn(
                 "grid h-8 w-8 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
                 option.active
-                  ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)]"
+                  ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
               )}
             >
@@ -884,7 +883,7 @@ function ApplicationsHeader({
             aria-expanded={modeMenuOpen}
             aria-label="Current app mode: Applications"
           >
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
               <Grid2X2 className="h-3.5 w-3.5" />
             </span>
             <span className="min-w-0">
@@ -1003,7 +1002,7 @@ export function ApplicationsLauncherWorkspace({
       {isDashboardTools ? (
         <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7">
           <div className="grid justify-items-center gap-3 text-center">
-            <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/15 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
+            <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/15 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
               <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
             </span>
             <div className="max-w-2xl space-y-2">
@@ -1033,7 +1032,7 @@ export function ApplicationsLauncherWorkspace({
         </section>
       ) : (
         <section className="mx-auto flex min-h-[14rem] max-w-3xl flex-col items-center justify-center px-5 py-7 text-center sm:min-h-[16rem] sm:py-8 lg:min-h-[17rem]">
-          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-chat-teal)]/20 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
           </span>
           <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:mt-5 sm:text-4xl">
@@ -1099,7 +1098,7 @@ export function ApplicationsLauncherWorkspace({
             className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
           >
             <div className="flex min-h-12 items-center gap-2 border-b border-[color:var(--border)] px-3">
-              <BookOpen className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+              <BookOpen className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
               <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
             </div>
 
@@ -1153,7 +1152,7 @@ export function ApplicationsLauncherWorkspace({
           <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Recent activity</h2>
-              <span className="text-xs font-semibold text-[color:var(--clinical-chat-teal)]">View all</span>
+              <span className="text-xs font-semibold text-[color:var(--clinical-accent)]">View all</span>
             </div>
             <div className="grid gap-2 md:grid-cols-3">
               {recentActivity.slice(0, 3).map((item) => {
@@ -1165,7 +1164,7 @@ export function ApplicationsLauncherWorkspace({
                     onClick={() => selectApplication(item.id)}
                     className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
                   >
-                    <Icon className="h-5 w-5 text-[color:var(--clinical-chat-teal)]" aria-hidden />
+                    <Icon className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
                         {item.label}

@@ -139,16 +139,13 @@
   --clinical-accent-border: #b9e4ea;
   --clinical-accent-contrast: #ffffff;
 
-  /* Migration compat: existing teal/ready call-sites resolve to the new roles.
-     Remove once all call-sites reference the role tokens directly. */
-  --clinical-chat-teal: var(--clinical-accent);
-  --clinical-chat-teal-soft: var(--clinical-accent-soft);
+  /* Bespoke chat surfaces with no role-token equivalent: warm sand callouts
+     and table headers. Per-theme values, not aliases. */
   --clinical-chat-sand: #f7f1e6;
   --clinical-chat-sand-border: #eadcc7;
   --clinical-chat-sand-border-strong: #ddc7a8;
   --clinical-chat-document: #f1f4f6;
   --clinical-chat-table-header: #f7f8fa;
-  --clinical-chat-amber: var(--warning);
   --clinical-chat-ready: var(--success);
 
   /* Semantic triads (text / background / border), on-white for light mode. */
@@ -281,14 +278,11 @@
   --clinical-accent-border: #235b60;
   --clinical-accent-contrast: #04252a;
 
-  --clinical-chat-teal: var(--clinical-accent);
-  --clinical-chat-teal-soft: var(--clinical-accent-soft);
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
   --clinical-chat-sand-border-strong: #806034;
   --clinical-chat-document: #101215;
   --clinical-chat-table-header: #141619;
-  --clinical-chat-amber: var(--warning);
   --clinical-chat-ready: var(--success);
 
   --info-text: #89c0f0;
