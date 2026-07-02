@@ -1443,9 +1443,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });
 
-  test("upload drawer exposes setup checklist and explicit upload labels", async ({ page }) => {
+  test("upload drawer exposes setup checklist and explicit upload labels", async ({ page, request }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
+    // Upload availability depends on the checkout's env config: env-less servers run in
+    // read-only demo mode while .env.local local-auth servers accept uploads. The browser
+    // mocks above do not decide enablement, so read the real server flag and branch the
+    // enablement assertions on it to keep this test green in both configurations.
+    const setupStatusResponse = await request.get("/api/setup-status");
+    expect(setupStatusResponse.ok()).toBe(true);
+    const serverDemoMode = (await setupStatusResponse.json()).demoMode === true;
+
     await gotoApp(page, "/");
     await expect(visibleQuestionInput(page)).toBeVisible();
 
@@ -1459,9 +1467,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(uploadDrawer.getByText("Search RPC and vector indexes")).toBeVisible();
     await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
     await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
-    await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
+    const uploadTab = uploadDrawer.getByRole("tab", { name: /Upload/ });
+    await uploadTab.click();
     await expect(uploadDrawer.getByText("Clinical upload")).toBeVisible();
     await expect(uploadDrawer.getByText("Guideline PDF files")).toBeVisible();
+    if (serverDemoMode) {
+      await expect(uploadTab).toContainText("Locked");
+      await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeDisabled();
+    } else {
+      await expect(uploadTab).toContainText("Ready");
+      await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeEnabled();
+    }
     await expect(uploadDrawer.getByRole("button", { name: "Upload guidelines" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
