@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
+import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,15 @@ const answerSchema = z.object({
 });
 
 type AnswerBody = z.infer<typeof answerSchema>;
+
+function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
+  if (answer?.degradedMode) return answer.degradedMode;
+  const active = answer?.answerQualityTier === "source_only";
+  return {
+    active,
+    reason: active ? (answer?.fallbackReason ?? "source_only") : null,
+  };
+}
 
 function encodeSse(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -116,6 +126,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
               confidence: "unsupported",
               citations: [],
               sources: [],
+              degradedMode: answerDegradedModeSignal(),
               scope: { ...scope, queryMode: body.queryMode },
               sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
             });
@@ -174,6 +185,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
               confidence: "unsupported",
               citations: [],
               sources: [],
+              degradedMode: answerDegradedModeSignal(),
               scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
               sourceGovernanceWarnings: warnings,
             });
@@ -182,6 +194,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
 
           send("final", {
             ...answer,
+            degradedMode: answerDegradedModeSignal(answer),
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
             sourceGovernanceWarnings: warnings,
           });

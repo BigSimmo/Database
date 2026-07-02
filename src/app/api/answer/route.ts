@@ -17,6 +17,7 @@ import {
 import { parseJsonBody } from "@/lib/validation/body";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
+import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,15 @@ const answerSchema = z.object({
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
   skipCache: z.boolean().optional().default(false),
 });
+
+function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
+  if (answer?.degradedMode) return answer.degradedMode;
+  const active = answer?.answerQualityTier === "source_only";
+  return {
+    active,
+    reason: active ? (answer?.fallbackReason ?? "source_only") : null,
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -47,6 +57,7 @@ export async function POST(request: Request) {
         responseMode: smartApiPlan.displayMode,
         smartApiPlan,
         demoMode: true,
+        degradedMode: answerDegradedModeSignal(answer),
       });
     }
 
@@ -77,6 +88,7 @@ export async function POST(request: Request) {
         confidence: "unsupported",
         citations: [],
         sources: [],
+        degradedMode: answerDegradedModeSignal(),
         scope: { ...scope, queryMode: body.queryMode },
         sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
       });
@@ -111,6 +123,7 @@ export async function POST(request: Request) {
         confidence: "unsupported",
         citations: [],
         sources: [],
+        degradedMode: answerDegradedModeSignal(),
         scope: { ...scope, queryMode: body.queryMode },
         sourceGovernanceWarnings: warnings,
       });
@@ -118,6 +131,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...answer,
+      degradedMode: answerDegradedModeSignal(answer),
       scope: { ...scope, queryMode: body.queryMode },
       sourceGovernanceWarnings: warnings,
     });
