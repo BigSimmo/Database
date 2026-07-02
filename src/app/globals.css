@@ -9,8 +9,7 @@
  *
  * Radius usage rules:
  *   rounded-md  chips, inner elements, metadata pills
- *   rounded-lg  controls, inputs, buttons
- *   rounded-lg  cards, panels, drawers
+ *   rounded-lg  controls, inputs, buttons, cards, panels, drawers
  *   rounded-xl  bottom sheets, dialogs, large shells
  */
 @theme {
@@ -489,8 +488,9 @@ summary::-webkit-details-marker {
   letter-spacing: 0;
 }
 
+/* Display is set by utilities at the call site (inline-flex / hidden xl:inline-flex)
+   so responsive hiding works; keep these rules display-free. */
 .universal-header-ledger-item {
-  display: inline-flex;
   min-width: 0;
   align-items: center;
   gap: 0.35rem;

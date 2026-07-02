@@ -694,7 +694,9 @@ export function MasterSearchHeader({
         id="search"
         className="edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl"
       >
-        <div className="relative mx-auto grid min-h-14 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        {/* Middle column flexes and the mode pill truncates inside it; fixed side
+            clusters never overlap the pill at intermediate widths. */}
+        <div className="relative mx-auto grid min-h-14 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
@@ -707,7 +709,7 @@ export function MasterSearchHeader({
 
             <div className="universal-header-ledger hidden min-w-0 items-center gap-1 md:inline-flex">
               <span className="universal-header-ledger-label">Sources</span>
-              <span className="universal-header-ledger-item">
+              <span className="universal-header-ledger-item inline-flex">
                 <span
                   className={cn(
                     "universal-header-status-dot",
@@ -717,10 +719,10 @@ export function MasterSearchHeader({
                 />
                 <span>{headerReadinessLabel}</span>
               </span>
-              <span className="universal-header-ledger-separator" aria-hidden="true" />
-              <span className="universal-header-ledger-item nums">{headerSourceSummary}</span>
               <span className="universal-header-ledger-separator hidden xl:inline-block" aria-hidden="true" />
-              <span className="universal-header-ledger-item hidden max-w-[9rem] truncate xl:inline-flex">
+              <span className="universal-header-ledger-item nums hidden xl:inline-flex">{headerSourceSummary}</span>
+              <span className="universal-header-ledger-separator hidden 2xl:inline-block" aria-hidden="true" />
+              <span className="universal-header-ledger-item hidden max-w-[9rem] truncate 2xl:inline-flex">
                 {headerAccountLabel}
               </span>
             </div>
@@ -743,13 +745,13 @@ export function MasterSearchHeader({
                 setModeMenuOpen((open) => !open);
               }}
               onKeyDown={handleModeTriggerKeyDown}
-              className="universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-[17.5rem] sm:min-w-[15rem]"
+              className="universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-full sm:max-w-[17.5rem]"
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Current app mode: ${selectedAppMode.label}`}
             >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
@@ -881,16 +883,16 @@ export function MasterSearchHeader({
                     scopeSummaryRef.current = element;
                   }}
                   data-testid="scope-trigger"
-                  className="universal-header-icon-control flex h-11 w-11 cursor-pointer list-none items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-0 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:w-auto sm:px-3"
+                  className="universal-header-icon-control flex h-11 w-11 cursor-pointer list-none items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-0 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:min-h-10 xl:w-auto xl:px-3"
                   aria-label="Open document scope"
                   aria-expanded={scopeOpen}
                 >
                   <Globe2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">
+                  <span className="hidden xl:inline">
                     {selectedDocumentIds.length ? `${selectedDocumentIds.length} scoped` : "All sources"}
                   </span>
                   {activeScopeFilterCount(scopeFilters) > 0 ? (
-                    <span className="ml-1.5 rounded-full bg-[color:var(--clinical-chat-teal)] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                    <span className="ml-1.5 rounded-full bg-[color:var(--clinical-chat-teal)] px-1.5 py-0.5 text-[10px] font-bold text-[color:var(--clinical-accent-contrast)] leading-none">
                       {activeScopeFilterCount(scopeFilters)}
                     </span>
                   ) : null}
@@ -913,7 +915,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="hidden min-h-10 items-center gap-1.5 rounded-full bg-[color:var(--command)] px-3.5 text-xs font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
+              className="hidden min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color:var(--command)] px-3.5 text-xs font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:inline-flex"
               aria-label="Start a new chat"
             >
               <Plus className="h-4 w-4" />
@@ -922,7 +924,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:hidden"
+              className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:hidden"
               aria-label="Start a new chat"
             >
               <Plus className="h-5 w-5" />
@@ -980,7 +982,7 @@ export function MasterSearchHeader({
             triggerClassName={isAnswerFooterComposer ? "answer-footer-search-action" : undefined}
           />
 
-          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+          <label className="flex min-w-0 flex-1 items-center overflow-hidden">
             <input
               ref={queryInputRef}
               data-testid="global-search-input"
@@ -997,14 +999,13 @@ export function MasterSearchHeader({
                 chatComposerInput,
                 "w-full min-w-0",
                 isAnswerFooterComposer && "answer-footer-search-input",
-                query ? "pr-11" : null,
               )}
             />
             {query && (
               <button
                 type="button"
                 onClick={onClearQuery}
-                className="absolute right-0 top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                 aria-label="Clear search question"
               >
                 <X className="h-4 w-4" />

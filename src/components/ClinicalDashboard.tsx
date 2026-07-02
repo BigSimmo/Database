@@ -2672,7 +2672,7 @@ function AnswerSafetyNotice({
         </p>
       ) : null}
       {demoMode ? (
-        <p className="mt-1 font-semibold text-amber-800 dark:text-amber-100">
+        <p className="mt-1 font-semibold text-[color:var(--warning)]">
           Synthetic demo only: this is not clinical guidance.
         </p>
       ) : null}
