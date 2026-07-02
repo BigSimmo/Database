@@ -190,13 +190,18 @@ export async function planDocumentName(args: {
   const matching = documents.filter((document) => {
     if (args.contentHash && document.content_hash === args.contentHash) return false;
     const metadata = metadataRecord(document.metadata);
-    const groupKey =
+    // Match on both the stored group key and the current title: renames update the
+    // title while preserving metadata, so the stored key alone can be stale.
+    const storedGroupKey =
       typeof metadata.smart_title_group_key === "string" && metadata.smart_title_group_key.trim()
         ? metadata.smart_title_group_key
-        : document.title
-          ? documentTitleKey(document.title)
-          : "";
-    return groupKey === duplicateGroupKey || documentTitleKey(document.file_name ?? "") === duplicateGroupKey;
+        : "";
+    const titleGroupKey = document.title ? documentTitleKey(document.title) : "";
+    return (
+      storedGroupKey === duplicateGroupKey ||
+      titleGroupKey === duplicateGroupKey ||
+      documentTitleKey(document.file_name ?? "") === duplicateGroupKey
+    );
   });
 
   if (matching.length === 0) {

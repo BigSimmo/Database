@@ -62,6 +62,30 @@ describe("document naming", () => {
     });
   });
 
+  it("matches a renamed document by its current title when the stored group key is stale", async () => {
+    // Renames update title but preserve metadata, so smart_title_group_key can lag.
+    const plan = await planDocumentName({
+      supabase: supabaseWithDocuments([
+        {
+          id: "doc-1",
+          title: "Clozapine Prescribing",
+          file_name: "source.pdf",
+          content_hash: "hash-1",
+          metadata: { smart_title_group_key: "source" },
+        },
+      ]),
+      ownerId: "owner",
+      fileName: "clozapine_prescribing.pdf",
+      requestedTitle: "Clozapine Prescribing",
+      contentHash: "hash-2",
+    });
+
+    expect(plan).toMatchObject({
+      title: "Clozapine Prescribing (Copy 2)",
+      duplicateReason: "same_title_or_filename",
+    });
+  });
+
   it("prefers a version/date suffix from the uploaded filename when available", async () => {
     const plan = await planDocumentName({
       supabase: supabaseWithDocuments([
