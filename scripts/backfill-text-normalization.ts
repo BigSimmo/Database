@@ -139,7 +139,11 @@ async function main() {
     `Text-normalization backfill ${writeEnabled ? "WRITE" : "DRY-RUN"} against ${expectedSupabaseProject.name} (${expectedSupabaseProject.ref})`,
   );
 
-  let changed: ChangedRow[] = [];
+  // In dry-run mode only a counter and capped samples are kept; the full
+  // changed-row list (old + new text for the mandatory backup) is materialized
+  // only when writes are enabled, so a corpus-wide dry run stays flat in memory.
+  const changed: ChangedRow[] = [];
+  let changedCount = 0;
   const sampleDiffs: Array<{ id: string; before: string; after: string }> = [];
   let scanned = 0;
   let offset = 0;
@@ -169,19 +173,22 @@ async function main() {
       const synopsisChanged = newSynopsis !== row.retrieval_synopsis;
       if (!contentChanged && !headingChanged && !synopsisChanged) continue;
 
-      changed.push({
-        id: row.id,
-        document_id: row.document_id,
-        content_changed: contentChanged,
-        heading_changed: headingChanged,
-        synopsis_changed: synopsisChanged,
-        old_content: row.content,
-        new_content: newContent,
-        old_section_heading: row.section_heading,
-        new_section_heading: newHeading,
-        old_retrieval_synopsis: row.retrieval_synopsis,
-        new_retrieval_synopsis: newSynopsis,
-      });
+      changedCount += 1;
+      if (writeEnabled && (!args.limit || changed.length < args.limit)) {
+        changed.push({
+          id: row.id,
+          document_id: row.document_id,
+          content_changed: contentChanged,
+          heading_changed: headingChanged,
+          synopsis_changed: synopsisChanged,
+          old_content: row.content,
+          new_content: newContent,
+          old_section_heading: row.section_heading,
+          new_section_heading: newHeading,
+          old_retrieval_synopsis: row.retrieval_synopsis,
+          new_retrieval_synopsis: newSynopsis,
+        });
+      }
       if (contentChanged && sampleDiffs.length < 8) {
         sampleDiffs.push({
           id: row.id,
@@ -193,14 +200,14 @@ async function main() {
 
     offset += rows.length;
     if (rows.length < PAGE_SIZE) break;
-    if (args.limit && changed.length >= args.limit) break;
+    if (args.limit && changedCount >= args.limit) break;
   }
 
   // --limit bounds the number of rows we will WRITE, not just how far we page.
-  if (args.limit && changed.length > args.limit) changed = changed.slice(0, args.limit);
+  const reportedCount = args.limit ? Math.min(changedCount, args.limit) : changedCount;
 
   console.log(
-    `Scanned ${scanned} chunks; ${changed.length} would change${args.limit ? ` (capped at --limit ${args.limit})` : ""}.`,
+    `Scanned ${scanned} chunks; ${reportedCount} would change${args.limit ? ` (capped at --limit ${args.limit})` : ""}.`,
   );
   for (const diff of sampleDiffs) {
     console.log(`\n  chunk ${diff.id}`);
@@ -208,7 +215,7 @@ async function main() {
     console.log(`    after:  ${JSON.stringify(diff.after)}`);
   }
 
-  if (changed.length === 0) {
+  if (changedCount === 0) {
     console.log("\nNothing to update.");
     return;
   }
