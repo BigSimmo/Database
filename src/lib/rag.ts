@@ -1749,28 +1749,21 @@ export function invalidateRagCachesForDocumentMutation(ownerId: string) {
   invalidateAnonymousSharedRagCaches();
 }
 
-interface RagQueryInsert {
-  owner_id?: string | null;
-  query: string;
-  answer?: string | null;
-  source_chunk_ids?: string[] | null;
-  model?: string | null;
+type RagQueryInsert = Omit<Database["public"]["Tables"]["rag_queries"]["Insert"], "metadata"> & {
   metadata?: Record<string, unknown>;
-}
+};
 
 async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
   const rawQuery = typeof row.query === "string" ? row.query : "";
-  const existingMetadata =
-    row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
   const safeRow = {
     ...row,
     query: queryTextForStorage(rawQuery),
-    metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
+    metadata: { ...(row.metadata ?? {}), ...queryPrivacyMetadata(rawQuery) } as Json,
   };
-  await supabase.from("rag_queries").insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
+  await supabase.from("rag_queries").insert(safeRow);
 }
 
 async function logRagQuery(row: RagQueryInsert) {
@@ -3021,6 +3014,14 @@ async function packAdjacentSourceContext(
   }
 }
 
+// The bbox column is untyped jsonb written by external import pipelines, so validate the
+// expected [x0, y0, x1, y1] shape instead of trusting a cast.
+function chunkImageBbox(value: unknown): ChunkImage["bbox"] {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const coords = value.map((entry) => Number(entry));
+  return coords.every(Number.isFinite) ? (coords as [number, number, number, number]) : null;
+}
+
 async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
@@ -3092,7 +3093,7 @@ async function attachPageVisualEvidence(
       page_number: image.page_number,
       storage_path: image.storage_path,
       caption: image.caption,
-      bbox: image.bbox as ChunkImage["bbox"],
+      bbox: chunkImageBbox(image.bbox),
       image_type: image.image_type as ChunkImage["image_type"],
       searchable: image.searchable,
       clinical_relevance_score: image.clinical_relevance_score,

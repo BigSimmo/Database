@@ -171,7 +171,7 @@ export async function planDocumentName(args: {
     if (!args.supabase) throw new Error("supabase client or existingDocs is required");
     const { data, error } = await args.supabase
       .from("documents")
-      .select("id,title,file_name,content_hash")
+      .select("id,title,file_name,content_hash,metadata")
       .eq("owner_id", args.ownerId)
       .limit(1000);
     if (error) throw new Error(error.message);
