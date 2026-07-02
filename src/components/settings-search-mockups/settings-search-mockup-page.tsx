@@ -68,7 +68,7 @@ const concepts: Record<SettingsSearchMockupVariant, Concept> = {
     eyebrow: "Concept 01",
     title: "Refined account & app hub",
     subtitle:
-      "A softer ChatGPT-style settings surface with balanced spacing, quiet cards, and one precise teal emphasis.",
+      "A softer ChatGPT-style settings surface with balanced spacing, quiet cards, and one precise Aegean accent emphasis.",
     activeNav: "Account",
     modalTitle: "Account & app",
     tone: "balanced",
@@ -278,7 +278,7 @@ function IconFrame({ icon: Icon, active = false }: { icon: LucideIcon; active?: 
       className={cn(
         "grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition shadow-[var(--shadow-inset)]",
         active
-          ? "border-[color:var(--clinical-chat-teal)]/30 bg-[color:var(--app-shell)] text-white shadow-[0_8px_20px_rgba(0,108,103,0.18)]"
+          ? "border-[color:var(--clinical-accent)]/30 bg-[color:var(--app-shell)] text-white shadow-[0_8px_20px_rgba(0,108,103,0.18)]"
           : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
       )}
     >
@@ -307,11 +307,11 @@ function DesktopNav({ active }: { active: string }) {
             className={cn(
               "relative grid min-h-10 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg border border-transparent px-3 text-left text-sm font-medium transition",
               selected
-                ? "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-[color:var(--clinical-chat-teal)]"
+                ? "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-[color:var(--clinical-accent)]"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
             )}
           >
-            <Icon className={cn("h-4 w-4", selected && "text-[color:var(--clinical-chat-teal)]")} strokeWidth={1.8} />
+            <Icon className={cn("h-4 w-4", selected && "text-[color:var(--clinical-accent)]")} strokeWidth={1.8} />
             <span className="truncate">{label}</span>
           </button>
         );
@@ -333,7 +333,7 @@ function SummaryTile({ row, index, tone }: { row: SettingsRow; index: number; to
         tone === "compact" ? "min-h-[70px]" : "",
         tone === "premium" ? "min-h-[82px]" : "shadow-[var(--shadow-tight)]",
         accent
-          ? "border-[color:var(--clinical-chat-teal)]/24 bg-[color:var(--clinical-chat-teal-soft)]/42 shadow-[0_12px_26px_rgba(0,108,103,0.09)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-0.5 before:rounded-full before:bg-[color:var(--clinical-chat-teal)]"
+          ? "border-[color:var(--clinical-accent)]/24 bg-[color:var(--clinical-accent-soft)]/42 shadow-[0_12px_26px_rgba(15,31,38,0.09)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-0.5 before:rounded-full before:bg-[color:var(--clinical-accent)]"
           : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-raised)]",
       )}
     >
@@ -362,20 +362,20 @@ function DesktopProfileStrip({ tone }: { tone: Concept["tone"] }) {
         "mt-4 grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-4 text-left",
         tone === "compact" ? "min-h-[76px]" : tone === "premium" ? "min-h-[88px]" : "min-h-[78px]",
         tone === "compact"
-          ? "border-[color:var(--clinical-chat-teal)]/16 bg-[color:var(--surface-inset)] shadow-[var(--shadow-tight)]"
+          ? "border-[color:var(--clinical-accent)]/16 bg-[color:var(--surface-inset)] shadow-[var(--shadow-tight)]"
           : tone === "premium"
-            ? "border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--surface-lux)] shadow-[0_12px_30px_rgba(15,31,38,0.08)]"
+            ? "border-[color:var(--clinical-accent)]/18 bg-[color:var(--surface-lux)] shadow-[0_12px_30px_rgba(15,31,38,0.08)]"
             : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/45",
       )}
     >
       <span
         className={cn(
-          "relative grid shrink-0 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/10 bg-[color:var(--clinical-chat-teal-soft)] font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]",
+          "relative grid shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent)]/10 bg-[color:var(--clinical-accent-soft)] font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
           tone === "premium" ? "h-14 w-14 text-base" : "h-12 w-12 text-sm",
         )}
       >
         DS
-        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--surface)] bg-emerald-600" />
+        <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">Dr Simpson</span>
@@ -427,7 +427,7 @@ function DesktopModal({ concept }: { concept: Concept }) {
     <section
       className={cn(
         "h-[800px] w-[880px] overflow-hidden rounded-lg border bg-[color:var(--surface)] shadow-[0_18px_52px_rgba(15,31,38,0.11)] ring-1 ring-white/45",
-        concept.tone === "premium" ? "border-[color:var(--clinical-chat-teal)]/15" : "border-[color:var(--border-lux)]",
+        concept.tone === "premium" ? "border-[color:var(--clinical-accent)]/15" : "border-[color:var(--border-lux)]",
       )}
     >
       <div className="grid h-full grid-cols-[248px_minmax(0,1fr)]">
@@ -437,7 +437,7 @@ function DesktopModal({ concept }: { concept: Concept }) {
         <div className="min-w-0 overflow-hidden px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
                 {concept.eyebrow}
               </p>
               <h2 className="mt-1 text-2xl font-semibold text-[color:var(--text-heading)]">
@@ -461,7 +461,7 @@ function DesktopModal({ concept }: { concept: Concept }) {
             className={cn(
               "mt-4 h-[524px] overflow-hidden rounded-lg border bg-[color:var(--surface-lux)] px-5 shadow-[var(--shadow-lux)] ring-1 ring-white/35",
               concept.tone === "premium"
-                ? "border-[color:var(--clinical-chat-teal)]/15"
+                ? "border-[color:var(--clinical-accent)]/15"
                 : "border-[color:var(--border-lux)]",
             )}
           >
@@ -537,13 +537,13 @@ function PhoneProfileRow({ tone }: { tone: Concept["tone"] }) {
       className={cn(
         "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 text-left",
         tone === "premium"
-          ? "min-h-[82px] border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--surface-lux)] shadow-[0_10px_24px_rgba(15,31,38,0.08)]"
+          ? "min-h-[82px] border-[color:var(--clinical-accent)]/18 bg-[color:var(--surface-lux)] shadow-[0_10px_24px_rgba(15,31,38,0.08)]"
           : "min-h-[74px] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/40",
       )}
     >
-      <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-chat-teal)]/10 bg-[color:var(--clinical-chat-teal-soft)] text-sm font-bold text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]">
+      <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent)]/10 bg-[color:var(--clinical-accent-soft)] text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
         DS
-        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-emerald-600" />
+        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">Dr Simpson</span>
@@ -565,7 +565,7 @@ function PhoneClinicalStatus() {
           className={cn(
             "inline-flex min-h-8 items-center justify-center rounded-lg border px-2 text-[11px] font-semibold shadow-[var(--shadow-inset)]",
             index === 0
-              ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+              ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
           )}
         >
@@ -653,7 +653,7 @@ function BoardShell({ children, concept }: { children: ReactNode; concept: Conce
         <div className="mx-auto max-w-[1320px]">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-chat-teal)]">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
                 {concept.eyebrow}
               </p>
               <h1 className="mt-1 text-2xl font-semibold">{concept.title}</h1>
