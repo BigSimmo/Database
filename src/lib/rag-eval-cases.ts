@@ -227,7 +227,10 @@ export function mapCapturedEvalCase(row: CapturedEvalCaseRow): RagEvalCase {
     allowedRoutes: unsupportedFeedback ? ["unsupported"] : ["extractive", "fast", "strong"],
     minCitations: rating === "good" || (feedbackType && !unsupportedFeedback) ? 1 : 0,
     latencyTargetMs: unsupportedFeedback ? 2000 : rating === "good" ? 5000 : 20000,
-    expectsSourceDangerWarning: unsupportedFeedback && capturedCaseExpectsSourceDangerWarning(row) ? true : undefined,
+    expectsSourceDangerWarning:
+      feedbackType === "source_insufficient" || (unsupportedFeedback && capturedCaseExpectsSourceDangerWarning(row))
+        ? true
+        : undefined,
   };
 }
 

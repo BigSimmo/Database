@@ -103,6 +103,20 @@ describe("captured RAG eval cases", () => {
     });
   });
 
+  it("expects danger warnings for source-insufficient captured refusals", () => {
+    const testCase = mapCapturedEvalCase({
+      ...row,
+      id: "capture-source-insufficient",
+      miss_reason: "source_insufficient",
+      metadata: { rating: "needs_fixing", feedback_type: "source_insufficient" },
+    });
+
+    expect(testCase).toMatchObject({
+      supported: false,
+      expectsSourceDangerWarning: true,
+    });
+  });
+
   it("maps numeric-error feedback to a source-backed regression case", () => {
     const testCase = mapCapturedEvalCase({
       ...row,
