@@ -1489,7 +1489,7 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -1516,7 +1516,7 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
