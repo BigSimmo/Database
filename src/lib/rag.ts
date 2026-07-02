@@ -3164,7 +3164,7 @@ export function decideTextFastPath(
     // Flowchart/zone "next step" questions need the zone-action evidence (red
     // zone -> escalate / urgent review), not just a lexically matching flowchart
     // page; otherwise fall through to structured/vector retrieval.
-    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(query, results)) {
+    if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(results)) {
       return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
     }
     if (directTitleSupport && strongestScore >= 0.32) {
