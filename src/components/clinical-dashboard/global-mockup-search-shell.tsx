@@ -12,6 +12,7 @@ import {
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
 import { cn } from "@/components/ui-primitives";
@@ -82,7 +83,7 @@ function GlobalMockupSearchShellClient({
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -270,9 +271,6 @@ function GlobalMockupSearchShellClient({
           onOpenEvidence={() => navigateToMode("answer", { focus: true })}
           onNewChat={startNewChat}
           onOpenMobileSidebar={() => setMobileMenuOpen(true)}
-          onOpenSettings={openSettings}
-          theme={theme}
-          onToggleTheme={toggleTheme}
           mobileLeadingAction={
             pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
           }

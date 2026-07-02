@@ -16,11 +16,11 @@ import {
   Pill,
   Search,
   Settings as SettingsIcon,
-  ShieldAlert,
   Sparkles,
   Sun,
   Wrench,
 } from "lucide-react";
+import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { cn, sidebarItem, sidebarToolTile, statusDotReady, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { type AppModeId } from "@/lib/app-modes";
@@ -60,8 +60,6 @@ const collapsedSidebarButton =
   "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
-const collapsedSidebarPrimaryButton =
-  "border-transparent bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:text-[color:var(--command-contrast)]";
 
 export function ClinicalSidebarContent({
   recentQueries,
@@ -106,18 +104,15 @@ export function ClinicalSidebarContent({
       {showHeader ? (
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-              <ShieldAlert className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-[color:var(--text-heading)]">Clinical Guide</p>
-              <p className={cn("truncate text-xs", textMuted)}>Source-backed workspace</p>
-            </div>
+            <BrandMark className="h-10 w-10" />
+            <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
+              Clinical Guide
+            </p>
           </div>
           <button
             type="button"
             onClick={() => onCollapsedChange?.(true)}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--text)]"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             aria-label="Collapse sidebar"
             title="Collapse sidebar"
           >
@@ -339,15 +334,17 @@ export function ClinicalDesktopSidebar({
           <button
             type="button"
             onClick={() => onCollapsedChange(false)}
-            className={cn(collapsedSidebarButton, collapsedSidebarPrimaryButton)}
+            className={cn(collapsedSidebarButton, "group")}
             aria-label="Expand sidebar"
             title="Expand sidebar"
           >
-            <PanelLeftOpen className="h-4.5 w-4.5" />
+            <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
+            <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
           </button>
+          <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
         </div>
 
-        <div className="mt-4 grid w-full justify-items-center gap-2 px-3">
+        <div className="mt-3 grid w-full justify-items-center gap-2 px-3">
           <button
             type="button"
             onClick={onNewChat}
@@ -507,6 +504,7 @@ export function ClinicalMobileSidebar({
       closeLabel="Close Clinical Guide menu"
       placement="left"
       contentClassName="lg:hidden"
+      headerLeading={<BrandMark className="h-8 w-8" />}
     >
       <ClinicalSidebarContent
         showHeader={false}

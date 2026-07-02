@@ -121,6 +121,7 @@ import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
+import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
 import {
@@ -5748,7 +5749,7 @@ export function ClinicalDashboard({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -7467,9 +7468,6 @@ export function ClinicalDashboard({
             closeDashboardTransientSurfaces("mobileSidebar");
             setMobileSidebarOpen(true);
           }}
-          onOpenSettings={openSettings}
-          theme={theme}
-          onToggleTheme={toggleTheme}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}

@@ -29,16 +29,12 @@ import {
   Menu,
   MessageSquarePlus,
   Mic,
-  Moon,
-  MoreHorizontal,
   Pill,
   Plus,
   Search,
   Send,
-  Settings,
   ShieldCheck,
   Sparkles,
-  Sun,
   AlertCircle,
   ArrowLeft,
   X,
@@ -75,7 +71,6 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
-import { type ResolvedTheme } from "@/lib/theme";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -162,9 +157,6 @@ export function MasterSearchHeader({
   onOpenSourcePdf,
   onNewChat,
   onOpenMobileSidebar,
-  onOpenSettings,
-  theme,
-  onToggleTheme,
   queryModeOptions,
   queryInputRef,
   queryInputAutoFocus = false,
@@ -203,9 +195,6 @@ export function MasterSearchHeader({
   onOpenSourcePdf?: () => void;
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
-  onOpenSettings?: () => void;
-  theme?: ResolvedTheme;
-  onToggleTheme?: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
   queryInputRef?: Ref<HTMLInputElement>;
   queryInputAutoFocus?: boolean;
@@ -240,21 +229,15 @@ export function MasterSearchHeader({
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const [utilityMenuOpen, setUtilityMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerTarget, setDesktopHomeComposerTarget] = useState<HTMLElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const utilityMenuRef = useRef<HTMLDivElement | null>(null);
-  const utilityButtonRef = useRef<HTMLButtonElement | null>(null);
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const scopeSummaryRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
-  const hasUtilityActions = Boolean(onOpenSettings || (theme && onToggleTheme));
-  const UtilityThemeIcon = theme === "dark" ? Sun : Moon;
-  const utilityThemeLabel = theme === "dark" ? "Light mode" : "Dark mode";
   const selectedDocuments = selectedDocumentIds
     .map((id) => documents.find((document) => document.id === id))
     .filter((document): document is ClinicalDocument => Boolean(document));
@@ -308,10 +291,6 @@ export function MasterSearchHeader({
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const isStandaloneModeHomeHeader = Boolean(desktopHomeComposerSlotId);
   const useMobileBackControl = mobileLeadingAction === "back";
-  // Every mode home shares the same header identity; only the mode description
-  // varies, matching the dashboard shell.
-  const homeHeaderTitle = "Clinical Guide";
-  const homeHeaderDescription = selectedAppMode.description;
 
   function currentUsesScopeSheet() {
     return window.matchMedia(mobileSheetMediaQuery).matches;
@@ -576,7 +555,6 @@ export function MasterSearchHeader({
   }, [desktopHomeComposerSlotId]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
-  const dismissUtilityMenu = useCallback(() => setUtilityMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
     closeScope(reason === "escape");
   }
@@ -589,13 +567,6 @@ export function MasterSearchHeader({
   });
 
   useDismissableLayer({
-    enabled: utilityMenuOpen,
-    refs: [utilityMenuRef, utilityButtonRef],
-    restoreFocusRef: utilityButtonRef,
-    onDismiss: dismissUtilityMenu,
-  });
-
-  useDismissableLayer({
     enabled: scopeOpen,
     refs: [scopePopoverRef, scopeSummaryRef],
     restoreFocusRef: scopeSummaryRef,
@@ -605,7 +576,6 @@ export function MasterSearchHeader({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setActionMenuOpen(false);
-    setUtilityMenuOpen(false);
     onAsk();
   }
 
@@ -1014,7 +984,6 @@ export function MasterSearchHeader({
         id="search"
         className={cn(
           "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl",
-          isStandaloneModeHomeHeader && "lg:py-4",
         )}
       >
         <div
@@ -1023,7 +992,6 @@ export function MasterSearchHeader({
             isWorkflowHeader
               ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
               : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
-            isStandaloneModeHomeHeader && "lg:min-h-16 lg:px-6",
           )}
         >
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -1038,21 +1006,6 @@ export function MasterSearchHeader({
             >
               {useMobileBackControl ? <ArrowLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            {isStandaloneModeHomeHeader ? (
-              <div className="hidden min-w-0 items-center gap-3 lg:flex">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                  <SelectedAppModeIcon className="h-5 w-5" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-xl font-extrabold leading-6 text-[color:var(--text-heading)]">
-                    {homeHeaderTitle}
-                  </span>
-                  <span className="block truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    {homeHeaderDescription}
-                  </span>
-                </span>
-              </div>
-            ) : null}
           </div>
 
           <div
@@ -1071,7 +1024,6 @@ export function MasterSearchHeader({
               type="button"
               onClick={() => {
                 setActionMenuOpen(false);
-                setUtilityMenuOpen(false);
                 closeScope(false);
                 setModeMenuOpen((open) => !open);
               }}
@@ -1221,23 +1173,6 @@ export function MasterSearchHeader({
                   Copy after review
                 </button>
               </>
-            ) : isStandaloneModeHomeHeader ? (
-              /* min-[1400px]: below that the equal-thirds grid leaves the right
-                 column too narrow for these chips and they slide under the
-                 centered mode pill. */
-              <div className="hidden min-w-0 items-center gap-2 min-[1400px]:flex">
-                <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                  <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-                  Local only
-                </span>
-                <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                  <CheckCircle2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-                  Saved
-                </span>
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-extrabold text-[color:var(--clinical-accent)]">
-                  AK
-                </span>
-              </div>
             ) : null}
             {!isWorkflowHeader ? (
               <button
@@ -1256,66 +1191,6 @@ export function MasterSearchHeader({
                   <span className="hidden whitespace-nowrap xl:inline">New chat</span>
                 )}
               </button>
-            ) : null}
-            {!isWorkflowHeader && hasUtilityActions ? (
-              <>
-                <button
-                  ref={utilityButtonRef}
-                  type="button"
-                  onClick={() => {
-                    setActionMenuOpen(false);
-                    setModeMenuOpen(false);
-                    closeScope(false);
-                    setUtilityMenuOpen((open) => !open);
-                  }}
-                  className="universal-header-icon-control hidden h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid"
-                  aria-haspopup="menu"
-                  aria-expanded={utilityMenuOpen}
-                  aria-controls={utilityMenuOpen ? "header-utility-menu" : undefined}
-                  aria-label="Open display and account actions"
-                  title="More actions"
-                >
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
-                {utilityMenuOpen ? (
-                  <div
-                    ref={utilityMenuRef}
-                    id="header-utility-menu"
-                    role="menu"
-                    aria-label="Display and account actions"
-                    className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10"
-                  >
-                    {theme && onToggleTheme ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          onToggleTheme();
-                          setUtilityMenuOpen(false);
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      >
-                        <UtilityThemeIcon className="h-4 w-4 shrink-0" />
-                        <span>{utilityThemeLabel}</span>
-                      </button>
-                    ) : null}
-                    {onOpenSettings ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setUtilityMenuOpen(false);
-                          window.requestAnimationFrame(onOpenSettings);
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      >
-                        <Settings className="h-4 w-4 shrink-0" />
-                        <span>Settings</span>
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </>
             ) : null}
           </div>
         </div>
