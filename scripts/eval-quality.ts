@@ -109,6 +109,16 @@ export function sourceWarningsForRagQualityAnswer(
   );
 }
 
+export function deliveredGroundedAfterSourceGovernancePolicy(
+  answer: Pick<RagAnswer, "grounded" | "confidence" | "responseMode">,
+  warnings: Array<{ severity: string }>,
+) {
+  const shouldUseSourceGovernanceRefusal =
+    answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
+  if (shouldUseSourceGovernanceRefusal && warnings.some((warning) => warning.severity === "danger")) return false;
+  return answer.grounded;
+}
+
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
@@ -212,6 +222,34 @@ export function qualityFailureCategory(message: string): QualityFailureCategory 
     return "source_governance";
   }
   return "other";
+}
+
+export function sourceGovernanceDangerFailuresForAnswer(args: {
+  grounded: boolean;
+  sourceDangerWarningCount: number;
+  expectsDangerWarning?: boolean;
+}): string[] {
+  const failures: string[] = [];
+  // A danger warning is a governance failure only when a grounded answer was
+  // actually delivered on that sourcing. Declined answers carry the danger
+  // warning as the expected refusal signal, not a failure. `grounded` is the
+  // robust signal for "an answer was delivered": it covers both `unsupported`
+  // routes and answers that a fast/strong/extractive route converted into an
+  // evidence-gap refusal (finalizeRagAnswerQualityCore sets grounded=false
+  // while preserving the original routingMode).
+  if (args.grounded && args.sourceDangerWarningCount > 0) {
+    failures.push("danger source governance warning present");
+  }
+  // Refusal-safety guard: exempting ungrounded answers above must not let a
+  // refusal that is *expected* to surface a danger warning pass as clean when it
+  // silently drops that warning. For cases flagged expectsSourceDangerWarning,
+  // a missing danger warning is a failure regardless of grounded — otherwise a
+  // regression that stops emitting the warning would keep the danger failure
+  // rate at 0 and go undetected.
+  if (args.expectsDangerWarning && args.sourceDangerWarningCount === 0) {
+    failures.push("expected danger source governance warning missing");
+  }
+  return failures;
 }
 
 function rate(numerator: number, denominator: number) {
@@ -367,7 +405,12 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
       result.failures.some((failure) => qualityFailureCategory(failure) === "numeric_grounding"),
   );
   const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
-  const sourceGovernanceDangerFailures = results.filter((result) => result.sourceDangerWarningCount > 0);
+  const sourceGovernanceDangerFailures = results.filter(
+    (result) => result.grounded && result.sourceDangerWarningCount > 0,
+  );
+  const expectedDangerWarningMissing = results.filter((result) =>
+    result.failures.includes("expected danger source governance warning missing"),
+  ).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -395,6 +438,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     source_warning_count: results.reduce((sum, result) => sum + result.sourceWarningCount, 0),
     source_governance_warning_rate: rate(sourceGovernanceWarnings.length, results.length),
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
+    expected_danger_warning_missing_count: expectedDangerWarningMissing,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -466,6 +510,14 @@ export function buildEvalQualityReport(args: {
     if (ragSummary.source_governance_danger_failure_rate > 0) {
       thresholdFailures.push(
         `RAG source_governance_danger_failure_rate ${ragSummary.source_governance_danger_failure_rate} above 0`,
+      );
+    }
+    if (ragSummary.expected_danger_warning_missing_count > 0) {
+      // A refusal that was expected to surface a danger warning dropped it. This
+      // is a refusal-safety regression and hard-blocks release — it is never
+      // waivable via the source-metadata debt acceptance below.
+      thresholdFailures.push(
+        `RAG expected_danger_warning_missing_count ${ragSummary.expected_danger_warning_missing_count} above 0`,
       );
     }
     if (ragSummary.p95_latency_ms > qualityThresholds.ragP95LatencyMs) {
@@ -752,7 +804,14 @@ async function runRagQualityCases(args: {
     const failures = [...validation.failures];
     const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
     const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
-    if (sourceDangerWarningCount > 0) failures.push("danger source governance warning present");
+    const deliveredGrounded = deliveredGroundedAfterSourceGovernancePolicy(answer, sourceWarnings);
+    failures.push(
+      ...sourceGovernanceDangerFailuresForAnswer({
+        grounded: deliveredGrounded,
+        sourceDangerWarningCount,
+        expectsDangerWarning: testCase.expectsSourceDangerWarning,
+      }),
+    );
 
     results.push({
       id: testCase.id,
@@ -764,7 +823,7 @@ async function runRagQualityCases(args: {
       missingFiles: validation.expectedCoverage.missingFiles,
       topFiles: answer.sources.slice(0, 5).map((source) => source.file_name),
       expectedHit: validation.expectedHit,
-      grounded: answer.grounded,
+      grounded: deliveredGrounded,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
       route: answer.routingMode ?? "none",
       model: answer.modelUsed ?? null,

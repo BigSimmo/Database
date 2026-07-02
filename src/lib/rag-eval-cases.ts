@@ -1,3 +1,4 @@
+import { isDangerSourceGovernanceMessage } from "@/lib/source-governance";
 import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 export type RagEvalCategory = "routine" | "complex" | "unsupported";
@@ -27,6 +28,15 @@ export type RagEvalCase = {
   minCitations: number;
   latencyTargetMs: number;
   requireVisualEvidence?: boolean;
+  /**
+   * Set on refusal cases whose sourcing must surface a `danger`-severity source
+   * governance warning (e.g. an outdated / weak-evidence / poor-extraction source
+   * that the answer correctly declines on). The release eval fails if the danger
+   * warning is missing even when the answer is an ungrounded refusal, so a refusal
+   * silently dropping its expected safety warning is caught as a regression rather
+   * than passing as "clean". Leave unset when no danger warning is expected.
+   */
+  expectsSourceDangerWarning?: boolean;
 };
 
 export type AnswerQualityEvalCase = RagEvalCase & {
@@ -156,6 +166,48 @@ function uniqueNonEmpty(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 }
 
+function metadataBoolean(metadata: unknown, keys: string[]) {
+  if (typeof metadata !== "object" || metadata === null) return false;
+  return keys.some((key) => (metadata as Record<string, unknown>)[key] === true);
+}
+
+function metadataNumber(metadata: unknown, keys: string[]) {
+  if (typeof metadata !== "object" || metadata === null) return 0;
+  for (const key of keys) {
+    const value = (metadata as Record<string, unknown>)[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return 0;
+}
+
+function metadataWarnings(metadata: unknown) {
+  if (typeof metadata !== "object" || metadata === null) return [];
+  const record = metadata as Record<string, unknown>;
+  const warnings = record.sourceGovernanceWarnings ?? record.source_governance_warnings ?? record.sourceWarnings;
+  return Array.isArray(warnings) ? warnings : [];
+}
+
+function capturedCaseExpectsSourceDangerWarning(row: CapturedEvalCaseRow) {
+  if (
+    metadataBoolean(row.metadata, ["expectsSourceDangerWarning", "expects_source_danger_warning"]) ||
+    metadataNumber(row.metadata, ["sourceDangerWarningCount", "source_danger_warning_count"]) > 0
+  ) {
+    return true;
+  }
+  return metadataWarnings(row.metadata).some((warning) => {
+    // Object-shaped warnings carry severity directly.
+    if (typeof warning === "object" && warning !== null) {
+      return (warning as { severity?: unknown }).severity === "danger";
+    }
+    // UI captures persist governance warnings as plain message strings (severity
+    // dropped by /api/eval-cases). Match only the canonical danger messages —
+    // treating any non-empty string as danger would flag captures whose sole
+    // warning is non-danger (e.g. review_due / unverified) and then trip the
+    // "expected danger ... missing" gate on a false positive.
+    return typeof warning === "string" && isDangerSourceGovernanceMessage(warning);
+  });
+}
+
 function expectedFilesForCapturedCase(row: CapturedEvalCaseRow, rating: "good" | "needs_fixing") {
   const explicit = uniqueNonEmpty([row.expected_file]);
   if (explicit.length > 0) return explicit;
@@ -184,6 +236,10 @@ export function mapCapturedEvalCase(row: CapturedEvalCaseRow): RagEvalCase {
     allowedRoutes: unsupportedFeedback ? ["unsupported"] : ["extractive", "fast", "strong"],
     minCitations: rating === "good" || (feedbackType && !unsupportedFeedback) ? 1 : 0,
     latencyTargetMs: unsupportedFeedback ? 2000 : rating === "good" ? 5000 : 20000,
+    expectsSourceDangerWarning:
+      feedbackType === "source_insufficient" || (unsupportedFeedback && capturedCaseExpectsSourceDangerWarning(row))
+        ? true
+        : undefined,
   };
 }
 
