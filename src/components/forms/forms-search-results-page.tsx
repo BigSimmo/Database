@@ -25,7 +25,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import { searchFormRecords, type FormSearchMatch } from "@/lib/forms";
 import { cn, codeText } from "@/components/ui-primitives";
@@ -838,9 +838,6 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
   const router = useRouter();
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
-  useEffect(() => {
-    setDraftQuery(query);
-  }, [query]);
   const matches = useMemo(() => searchFormRecords(query), [query]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -850,10 +847,13 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
 
   function submitMobile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push(submitUrl(mobileQuery || query));
+    const nextQuery = mobileQuery || query;
+    setDraftQuery(nextQuery);
+    router.push(submitUrl(nextQuery));
   }
 
   function submitQuery(nextQuery: string) {
+    setDraftQuery(nextQuery);
     router.push(submitUrl(nextQuery));
   }
 
