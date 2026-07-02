@@ -204,6 +204,132 @@ describe("ward output helpers", () => {
     expect(thresholds?.items[0]).toContain("Withhold clozapine");
   });
 
+  // H4/M8/M16 (audit 2026-07-01): copied ward-note tables must go through the
+  // same conservative normalization as the on-screen AccessibleTable.
+  it("carries the low-confidence caveat into the copied table output (H4)", () => {
+    const thresholdAnswer: RagAnswer = {
+      ...answer,
+      answer: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+      answerSections: [
+        {
+          heading: "Threshold",
+          body: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "image-1",
+          image_id: "image-1",
+          signed_url_endpoint: "/api/images/image-1/signed-url",
+          caption: "FBC/ANC monitoring thresholds",
+          document_id: "doc-1",
+          title: "Clozapine source",
+          file_name: "clozapine.pdf",
+          page_number: 2,
+          source_chunk_id: "chunk-1",
+          chunk_index: 0,
+          viewer_href: "/documents/doc-1?page=2&chunk=chunk-1",
+          tableLabel: "Table 1",
+          tableTitle: "FBC/ANC thresholds",
+          // Interleaved generic column on a clinical table triggers the
+          // conservative raw-grid fallback (ambiguous_generic_column).
+          tableRows: [
+            ["Below 1.5", "withhold dose", "contact prescriber"],
+            ["1.5-2.0", "increase monitoring", "review threshold"],
+          ],
+          tableColumns: ["ANC level", "", "Action"],
+        },
+      ],
+    };
+
+    const copy = formatAnswerForClipboard(thresholdAnswer);
+    expect(copy).toContain("verify values against the source document");
+  });
+
+  it("does not duplicate the markdown header as a data row (M8)", () => {
+    const thresholdAnswer: RagAnswer = {
+      ...answer,
+      answer: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+      answerSections: [
+        {
+          heading: "Threshold",
+          body: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "image-1",
+          image_id: "image-1",
+          signed_url_endpoint: "/api/images/image-1/signed-url",
+          caption: "FBC/ANC monitoring thresholds",
+          document_id: "doc-1",
+          title: "Clozapine source",
+          file_name: "clozapine.pdf",
+          page_number: 2,
+          source_chunk_id: "chunk-1",
+          chunk_index: 0,
+          viewer_href: "/documents/doc-1?page=2&chunk=chunk-1",
+          tableLabel: "Table 1",
+          tableTitle: "FBC/ANC thresholds",
+          tableRows: null,
+          tableColumns: ["ANC", "Action"],
+          accessibleTableMarkdown:
+            "| ANC | Action |\n| --- | --- |\n| Below 1.5 | Withhold clozapine |\n| 1.5-2.0 | Increase monitoring |",
+        },
+      ],
+    };
+
+    const copy = formatAnswerForClipboard(thresholdAnswer);
+    const headerOccurrences = copy.split("| ANC | Action |").length - 1;
+    expect(headerOccurrences).toBe(1);
+    expect(copy).toContain("| Below 1.5 | Withhold clozapine |");
+  });
+
+  it("pads ragged rows so values cannot shift columns (M16)", () => {
+    const thresholdAnswer: RagAnswer = {
+      ...answer,
+      answer: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+      answerSections: [
+        {
+          heading: "Threshold",
+          body: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "image-1",
+          image_id: "image-1",
+          signed_url_endpoint: "/api/images/image-1/signed-url",
+          caption: "FBC/ANC monitoring thresholds",
+          document_id: "doc-1",
+          title: "Clozapine source",
+          file_name: "clozapine.pdf",
+          page_number: 2,
+          source_chunk_id: "chunk-1",
+          chunk_index: 0,
+          viewer_href: "/documents/doc-1?page=2&chunk=chunk-1",
+          tableLabel: "Table 1",
+          tableTitle: "FBC/ANC thresholds",
+          // Second row has an extra trailing cell (ragged extraction).
+          tableRows: [
+            ["Below 1.5", "withhold dose"],
+            ["1.5-2.0", "increase monitoring", "contact prescriber daily"],
+          ],
+          tableColumns: ["Level", "Action"],
+        },
+      ],
+    };
+
+    const copy = formatAnswerForClipboard(thresholdAnswer);
+    // The 3-cell row must not render as a 3-column line under a 2-column
+    // header; the trailing cell merges into the nearest named column.
+    expect(copy).not.toContain("| 1.5-2.0 | increase monitoring | contact prescriber daily |");
+    expect(copy).toContain("increase monitoring contact prescriber daily");
+  });
+
   it("does not promote nearby table evidence for unsupported answers", () => {
     const unsupportedAnswer: RagAnswer = {
       ...answer,

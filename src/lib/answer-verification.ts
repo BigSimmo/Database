@@ -82,18 +82,52 @@ export function extractNumericTokens(text: string): string[] {
 }
 
 function tableFactText(fact: DocumentTableFact): string {
-  return [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+  // Diff-review completion of audit H1: rich-mode prompts resolve a "table
+  // snippet" from these fact-metadata fields when no image is attached
+  // (tableSnippetForFact in rag.ts), so numbers the model copies from them
+  // must count as verified too.
+  const metadata = (fact.metadata ?? {}) as Record<string, unknown>;
+  const metadataString = (key: string) => (typeof metadata[key] === "string" ? (metadata[key] as string) : "");
+  const metadataCells = Array.isArray(metadata.cells) ? (metadata.cells as unknown[]).map(String).join(" ") : "";
+  return [
+    fact.table_title,
+    fact.row_label,
+    fact.clinical_parameter,
+    fact.threshold_value,
+    fact.action,
+    metadataString("accessible_table_markdown"),
+    metadataString("table_text_snippet"),
+    metadataCells,
+  ]
     .filter(Boolean)
     .join(" ");
 }
 
+// The verification corpus must cover the SAME text the model was shown in
+// buildRagSourceBlock (rag.ts): retrieval_synopsis and image table text are
+// rendered into the prompt, so a number the model faithfully copied from them
+// must count as verified. Omitting them blanked correct dose/threshold answers
+// whose figures lived only in a synopsis or table-crop text (audit H1); this
+// mirrors sourceTextForQuoteVerification in rag.ts.
 function sourceTextForResult(result: SearchResult): string {
   const parts: string[] = [result.content ?? ""];
   if (result.adjacent_context) parts.push(result.adjacent_context);
   if (result.section_heading) parts.push(result.section_heading);
+  if (result.retrieval_synopsis) parts.push(result.retrieval_synopsis);
   if (result.table_facts?.length) parts.push(result.table_facts.map(tableFactText).join(" "));
   if (result.memory_cards?.length) parts.push(result.memory_cards.map((card) => card.content).join(" "));
   if (result.index_unit) parts.push([result.index_unit.title, result.index_unit.content].filter(Boolean).join(" "));
+  if (result.images?.length) {
+    parts.push(
+      result.images
+        .map((image) =>
+          [image.tableLabel, image.tableTitle, image.caption, image.tableTextSnippet, image.accessibleTableMarkdown]
+            .filter(Boolean)
+            .join(" "),
+        )
+        .join(" "),
+    );
+  }
   return parts.join(" ");
 }
 

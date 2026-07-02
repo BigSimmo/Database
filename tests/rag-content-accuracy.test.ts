@@ -46,10 +46,7 @@ describe("unboldUnverifiedNumbers — emphasis tracks verification (P8)", () => 
   });
 
   it("keeps bold around verified figures and non-numeric emphasis", () => {
-    const out = unboldUnverifiedNumbers(
-      "Give **10 mg** now and **withhold** if unstable.",
-      new Set(["500mg"]),
-    );
+    const out = unboldUnverifiedNumbers("Give **10 mg** now and **withhold** if unstable.", new Set(["500mg"]));
     expect(out).toBe("Give **10 mg** now and **withhold** if unstable.");
   });
 
