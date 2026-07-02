@@ -16,7 +16,13 @@ import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
 import { cn } from "@/components/ui-primitives";
-import { appModeHomeHref, isAppModeId, isAppModeVisible, visibleAppModeDefinitions, type AppModeId } from "@/lib/app-modes";
+import {
+  appModeHomeHref,
+  isAppModeId,
+  isAppModeVisible,
+  visibleAppModeDefinitions,
+  type AppModeId,
+} from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";

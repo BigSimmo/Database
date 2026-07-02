@@ -105,7 +105,9 @@ export async function POST(request: Request) {
     const documentIds = Array.from(new Set(parsed.documentIds));
     const { data: documents, error: documentError } = await supabase
       .from("documents")
-      .select("id,owner_id,title,file_name,source_path,import_batch_id,status,error_message,page_count,chunk_count,image_count,metadata")
+      .select(
+        "id,owner_id,title,file_name,source_path,import_batch_id,status,error_message,page_count,chunk_count,image_count,metadata",
+      )
       .eq("owner_id", user.id)
       .in("id", documentIds);
     if (documentError) throw new Error(documentError.message);
@@ -244,7 +246,9 @@ export async function POST(request: Request) {
               .eq("owner_id", user.id)
               .eq("updated_at", rollbackFence);
             if (rollbackError) {
-              throw new Error(`Failed to enqueue bulk reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`);
+              throw new Error(
+                `Failed to enqueue bulk reindex job: ${jobError.message}; rollback failed: ${rollbackError.message}`,
+              );
             }
           }
           throw new Error(jobError.message);
