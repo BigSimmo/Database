@@ -274,9 +274,16 @@ export function isClinicalImageEvidence(image: {
   return assessment.clinical_use_class === "clinical_evidence";
 }
 
-function bboxLooksLikeHeaderOrFooter(bbox: ExtractedImage["bbox"]) {
-  if (!bbox) return false;
-  const [, y0, , y1] = bbox;
+export function normalizeImageBbox(value: unknown): [number, number, number, number] | null {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const coords = value.map((entry) => Number(entry));
+  return coords.every(Number.isFinite) ? (coords as [number, number, number, number]) : null;
+}
+
+function bboxLooksLikeHeaderOrFooter(bbox: unknown) {
+  const coords = normalizeImageBbox(bbox);
+  if (!coords) return false;
+  const [, y0, , y1] = coords;
   const height = Math.abs(y1 - y0);
   if (height > 110) return false;
   return y1 < 105 || y0 > 705;
