@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
@@ -50,6 +50,12 @@ const auditLogsServiceRolePolicyMigration = readFileSync(
   new URL("../supabase/migrations/20260630090000_audit_logs_service_role_policy.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const migrationDirectoryUrl = new URL("../supabase/migrations/", import.meta.url);
+
+function parseMigrationStem(fileName: string) {
+  const stem = fileName.match(/^\d+_(.+)\.sql$/)?.[1];
+  return stem ?? null;
+}
 const preserveLegacyArtifactCommitMigration = readFileSync(
   new URL("../supabase/migrations/20260702000000_commit_generation_preserve_legacy_artifacts.sql", import.meta.url),
   "utf8",
@@ -333,6 +339,26 @@ describe("Supabase schema Data API grants", () => {
     }
     expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to anon;/);
+  });
+
+  it("does not introduce new duplicate migration stems", () => {
+    const duplicateStemAllowlist = new Map<string, number>([
+      ["api_rate_limits", 2],
+      ["audit_logs", 2],
+      ["audit_logs_service_role_policy", 2],
+      ["indexing_reliability_recovery", 2],
+      ["rag_queries_retention", 2],
+    ]);
+    const stemCounts = new Map<string, number>();
+
+    for (const fileName of readdirSync(migrationDirectoryUrl)) {
+      const stem = parseMigrationStem(fileName);
+      if (!stem) continue;
+      stemCounts.set(stem, (stemCounts.get(stem) ?? 0) + 1);
+    }
+
+    const duplicateStems = new Map([...stemCounts.entries()].filter(([, count]) => count > 1));
+    expect(duplicateStems).toEqual(duplicateStemAllowlist);
   });
 
   it("stores deep structured memory privately for source-backed answers", () => {
