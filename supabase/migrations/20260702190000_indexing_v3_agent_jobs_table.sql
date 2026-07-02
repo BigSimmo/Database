@@ -202,8 +202,9 @@ begin
   with eligible_jobs as (
     select j.id, j.document_id, j.attempt_count, j.max_attempts
     from public.indexing_v3_agent_jobs j
-    -- must join documents to confirm document.status = 'indexed'
-    -- and to gate on enrichment_status (also stored in the job row)
+    join public.documents d
+      on d.id = j.document_id
+     and d.status = 'indexed'
     where j.status not in ('completed', 'needs_enrichment_artifacts')
       and j.enrichment_status in ('pending', 'failed', 'processing')
       and j.attempt_count < j.max_attempts
