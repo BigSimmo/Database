@@ -2924,7 +2924,7 @@ export function DocumentViewer({
             event.preventDefault();
             if (canSummarizeDocument) void summarize();
           }}
-          className="floating-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl"
+          className="floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl"
         >
           <button
             type="button"

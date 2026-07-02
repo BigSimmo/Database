@@ -325,8 +325,9 @@ function GlobalMockupSearchShellClient({
 
         <div
           id="main-content"
+          tabIndex={-1}
           className={cn(
-            "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
+            "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden focus:outline-none",
             !searchComposerVisible
               ? "pb-8"
               : searchMode === "answer"
