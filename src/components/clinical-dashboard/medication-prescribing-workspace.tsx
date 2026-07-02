@@ -28,7 +28,6 @@ import { useState } from "react";
 
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import {
-  appBackdrop,
   cn,
   toneDanger,
   toneInfo,
@@ -1325,32 +1324,17 @@ function MedicationDetail() {
 
 export function AcamprosateMedicationPage() {
   return (
-    <main
-      id="main-content"
-      className={cn(appBackdrop, "min-h-[100dvh] text-[color:var(--text)]")}
-      data-testid="acamprosate-medication-page"
-    >
-      <header className="edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)] pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
-        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2 py-2.5 sm:gap-3">
-          <Link
-            href="/?mode=prescribing&q=acamprosate%20renal%20dose"
-            className="inline-flex min-h-9 w-fit items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Medication search</span>
-            <span className="sm:hidden">Search</span>
-          </Link>
-          <div className="text-center text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
-            Clinical KB
-          </div>
-          <div className="flex justify-end">
-            <span className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-              <Pill className="h-3.5 w-3.5" aria-hidden="true" />
-              Medication
-            </span>
-          </div>
-        </div>
-      </header>
+    <main className="min-h-[calc(100dvh-4rem)] text-[color:var(--text)]" data-testid="acamprosate-medication-page">
+      <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-6 lg:px-8">
+        <Link
+          href="/?mode=prescribing&q=acamprosate%20renal%20dose"
+          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Medication search</span>
+          <span className="sm:hidden">Search</span>
+        </Link>
+      </div>
       <div className="px-3 py-3 sm:px-6 lg:px-8">
         <MedicationDetail />
       </div>
