@@ -386,6 +386,46 @@ describe("API validation contracts", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
+  it("rejects non-form upload content before storage upload or database writes", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ file: "nope" }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: "Invalid upload form data." });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed multipart upload bodies before storage upload or database writes", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        headers: { "content-type": "multipart/form-data; boundary=broken" },
+        body: "--broken\r\nContent-Disposition: form-data; name=\"file\"; filename=\"guideline.pdf\"\r\n\r\n%PDF-1.7",
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: "Invalid upload form data." });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
   it("accepts valid document rename JSON through the shared body parser", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) {
