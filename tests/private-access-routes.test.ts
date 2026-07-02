@@ -1066,8 +1066,9 @@ describe("private document API access", () => {
   });
 
   it("rolls back the job retry when document queue status update fails", async () => {
+    const retryJobId = "99999999-9999-4999-8999-999999999999";
     const previousJob = {
-      id: "job-1",
+      id: retryJobId,
       document_id: documentId,
       batch_id: null,
       status: "failed",
@@ -1090,9 +1091,9 @@ describe("private document API access", () => {
       if (call.table === "ingestion_jobs" && call.operation === "update") {
         ingestionUpdateCount += 1;
         if (ingestionUpdateCount === 1) {
-          return ok({ id: "job-1", document_id: documentId, status: "pending" });
+          return ok({ id: retryJobId, document_id: documentId, status: "pending" });
         }
-        return ok({ id: "job-1" });
+        return ok({ id: retryJobId });
       }
       if (call.table === "documents" && call.operation === "update") return fail("documents update failed");
       return ok([]);
@@ -1100,12 +1101,12 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
-      params: Promise.resolve({ id: "job-1" }),
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/${retryJobId}/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: retryJobId }),
     });
 
-    expect(response.status).toBe(400);
-    expect(String((await payload(response)).error)).toBe("Request could not be completed.");
+    expect(response.status).toBe(500);
+    expect(String((await payload(response)).error)).toBe("Request failed.");
     const jobUpdates = client.calls.filter((call) => call.table === "ingestion_jobs" && call.operation === "update");
     expect(jobUpdates).toHaveLength(2);
     expect(jobUpdates[1]?.updatePayload).toEqual({
@@ -1583,8 +1584,8 @@ describe("private document API access", () => {
     const body = await payload(response);
     const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
-    expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Request could not be completed." });
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "Request failed." });
     expect(documentUpdates).toHaveLength(2);
     expect(documentUpdates[0]?.updatePayload).toEqual({
       status: "queued",
