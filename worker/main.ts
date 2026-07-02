@@ -94,7 +94,7 @@ function supabaseStageError(
 }
 
 async function updateJob(jobId: string, patch: Record<string, unknown>) {
-  const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
+  const { error } = await supabase.from("ingestion_jobs").update(patch as any).eq("id", jobId);
   if (error) throw supabaseStageError("update ingestion job", error);
   if (typeof patch.progress === "number" || typeof patch.stage === "string") {
     progressUpdateState.set(jobId, {
@@ -127,7 +127,7 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 
 async function updateDocument(documentId: string, patch: Record<string, unknown>) {
   const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
-  const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
+  const { error } = await supabase.from("documents").update(sanitized as any).eq("id", documentId);
   if (error) throw supabaseStageError("update document", error);
 }
 
@@ -191,7 +191,7 @@ async function completeJob(job: JobRow, stage: string) {
   const { error } = await supabase.rpc("complete_ingestion_job", {
     p_job_id: job.id,
     p_document_id: job.document_id,
-    p_batch_id: job.batch_id,
+    p_batch_id: job.batch_id ?? undefined,
     p_stage: stage,
   });
   if (!error) return;
@@ -253,12 +253,12 @@ async function failOrRetryJob(args: {
   const { error } = await supabase.rpc("fail_or_retry_ingestion_job", {
     p_job_id: args.job.id,
     p_document_id: args.job.document_id,
-    p_batch_id: args.job.batch_id,
+    p_batch_id: args.job.batch_id ?? undefined,
     p_retry: args.retry,
     p_document_status: args.documentStatus,
     p_stage: args.stage,
     p_error_message: args.errorMessage,
-    p_next_run_at: args.nextRunAt ?? null,
+    p_next_run_at: args.nextRunAt ?? undefined,
   });
   if (!error) return;
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
@@ -455,7 +455,7 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
   const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = supabase.from(table).select("id").eq("document_id", documentId).limit(1);
+    let query = (supabase.from(table as any) as any).select("id").eq("document_id", documentId).limit(1);
     query = direct
       ? query.eq("index_generation_id", indexGenerationId)
       : query.eq("metadata->>index_generation_id", indexGenerationId);
@@ -465,25 +465,25 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
   };
   const deleteDirectGenerationRows = async (table: string) => {
     const stale = await supabase
-      .from(table)
+      .from(table as any)
       .delete()
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await supabase.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
+    const missing = await supabase.from(table as any).delete().eq("document_id", documentId).is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
     const stale = await supabase
-      .from(table)
+      .from(table as any)
       .delete()
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, false))) return;
     const missing = await supabase
-      .from(table)
+      .from(table as any)
       .delete()
       .eq("document_id", documentId)
       .is("metadata->>index_generation_id", null);
@@ -500,7 +500,7 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
 }
 
 async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {
-  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality), {
+  const { error } = await supabase.from("document_index_quality").upsert(sanitizeJsonbRecord(quality) as any, {
     onConflict: "document_id",
   });
   if (error) throw supabaseStageError("upsert document_index_quality", error);
@@ -1106,7 +1106,9 @@ async function uploadAndCaptionImages(
         id: data.id,
         caption: data.caption,
         pageNumber: data.page_number,
-        imageType: data.image_type,
+        imageType: imageEvidenceCategories.has(data.image_type as ImageEvidenceCategory)
+          ? (data.image_type as ImageEvidenceCategory)
+          : "unclear",
         sourceKind: image.sourceKind ?? "embedded",
         labels: data.labels ?? [],
         tableLabel: tableMetadata.tableLabel,

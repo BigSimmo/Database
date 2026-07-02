@@ -1,6 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
-
 export type DocumentNamePlan = {
   title: string;
   baseTitle: string;
@@ -153,7 +150,7 @@ function uniqueTitle(
 }
 
 export async function planDocumentName(args: {
-  supabase?: SupabaseClient<Database>;
+  supabase?: any;
   ownerId: string;
   fileName: string;
   requestedTitle?: string | null;

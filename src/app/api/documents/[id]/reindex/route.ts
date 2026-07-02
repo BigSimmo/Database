@@ -74,8 +74,10 @@ async function selectReindexRowsInPages<T>(args: {
 }) {
   const rows: T[] = [];
   for (let offset = 0; ; offset += reindexPageSize) {
-    let query = args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);
-    if (args.searchableOnly) query = query.eq("searchable", true);
+    let query =
+      args.table === "document_images" && args.searchableOnly
+        ? args.supabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
+        : args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);
     const { data, error } = await query.range(offset, offset + reindexPageSize - 1);
     if (error) throw new Error(error.message);
 

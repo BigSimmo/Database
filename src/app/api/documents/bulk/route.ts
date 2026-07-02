@@ -156,8 +156,7 @@ export async function POST(request: Request) {
         metadata.bulk_metadata_updated_by = user.id;
 
         const nextTitle = editTitle(document.title, parsed.titleEdit);
-        const updatePayload: Record<string, unknown> = { metadata };
-        if (nextTitle && nextTitle !== document.title) updatePayload.title = nextTitle;
+        const updatePayload = nextTitle && nextTitle !== document.title ? { metadata, title: nextTitle } : { metadata };
 
         const { error: updateError } = await supabase
           .from("documents")

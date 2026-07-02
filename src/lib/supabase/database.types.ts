@@ -1,10 +1,6 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = any
+
+export type Vector = number[] | string
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -101,7 +97,7 @@ export type Database = {
           content_hash: string | null
           created_at: string
           document_id: string
-          embedding: string
+          embedding: Vector
           heading_level: number | null
           id: string
           image_ids: string[]
@@ -122,7 +118,7 @@ export type Database = {
           content_hash?: string | null
           created_at?: string
           document_id: string
-          embedding: string
+          embedding: Vector
           heading_level?: number | null
           id?: string
           image_ids?: string[]
@@ -143,7 +139,7 @@ export type Database = {
           content_hash?: string | null
           created_at?: string
           document_id?: string
-          embedding?: string
+          embedding?: Vector
           heading_level?: number | null
           id?: string
           image_ids?: string[]
@@ -180,7 +176,7 @@ export type Database = {
           content_hash: string
           created_at: string
           document_id: string
-          embedding: string
+          embedding: Vector
           field_type: string
           id: string
           metadata: Json
@@ -193,7 +189,7 @@ export type Database = {
           content_hash: string
           created_at?: string
           document_id: string
-          embedding: string
+          embedding: Vector
           field_type: string
           id?: string
           metadata?: Json
@@ -206,7 +202,7 @@ export type Database = {
           content_hash?: string
           created_at?: string
           document_id?: string
-          embedding?: string
+          embedding?: Vector
           field_type?: string
           id?: string
           metadata?: Json
@@ -408,7 +404,7 @@ export type Database = {
           content: string
           created_at: string
           document_id: string
-          embedding: string
+          embedding: Vector
           extraction_mode: string
           heading_path: string[]
           id: string
@@ -430,7 +426,7 @@ export type Database = {
           content: string
           created_at?: string
           document_id: string
-          embedding: string
+          embedding: Vector
           extraction_mode?: string
           heading_path?: string[]
           id?: string
@@ -452,7 +448,7 @@ export type Database = {
           content?: string
           created_at?: string
           document_id?: string
-          embedding?: string
+          embedding?: Vector
           extraction_mode?: string
           heading_path?: string[]
           id?: string
@@ -562,7 +558,7 @@ export type Database = {
           content: string
           created_at: string
           document_id: string
-          embedding: string
+          embedding: Vector
           id: string
           metadata: Json
           normalized_terms: string[]
@@ -581,7 +577,7 @@ export type Database = {
           content: string
           created_at?: string
           document_id: string
-          embedding: string
+          embedding: Vector
           id?: string
           metadata?: Json
           normalized_terms?: string[]
@@ -600,7 +596,7 @@ export type Database = {
           content?: string
           created_at?: string
           document_id?: string
-          embedding?: string
+          embedding?: Vector
           id?: string
           metadata?: Json
           normalized_terms?: string[]
@@ -1775,7 +1771,7 @@ export type Database = {
         }[]
       }
       cleanup_abandoned_document_index_generations: {
-        Args: { p_document_id?: string; p_dry_run?: boolean; p_limit?: number }
+        Args: { p_document_id?: string | null; p_dry_run?: boolean; p_limit?: number }
         Returns: Json
       }
       commit_document_index_generation: {
@@ -1794,7 +1790,7 @@ export type Database = {
       }
       complete_ingestion_job: {
         Args: {
-          p_batch_id?: string
+          p_batch_id?: string | null
           p_document_id: string
           p_job_id: string
           p_stage?: string
@@ -1851,9 +1847,9 @@ export type Database = {
       explain_retrieval_rpc: {
         Args: {
           p_analyze?: boolean
-          p_document_filters?: string[]
+          p_document_filters?: string[] | null
           p_match_count?: number
-          p_owner_filter?: string
+          p_owner_filter?: string | null
           p_query_text: string
           p_rpc: string
         }
@@ -1861,19 +1857,19 @@ export type Database = {
       }
       fail_or_retry_ingestion_job: {
         Args: {
-          p_batch_id?: string
+          p_batch_id?: string | null
           p_document_id: string
           p_document_status?: string
           p_error_message?: string
           p_job_id: string
-          p_next_run_at?: string
+          p_next_run_at?: string | null
           p_retry?: boolean
           p_stage?: string
         }
         Returns: Json
       }
       get_related_document_metadata: {
-        Args: { document_ids: string[]; owner_filter?: string }
+        Args: { document_ids: string[]; owner_filter?: string | null }
         Returns: {
           document_id: string
           labels: Json
@@ -1908,11 +1904,11 @@ export type Database = {
       }
       match_document_chunks: {
         Args: {
-          document_filter?: string
+          document_filter?: string | null
           match_count?: number
           min_similarity?: number
-          owner_filter?: string
-          query_embedding: string
+          owner_filter?: string | null
+          query_embedding: Vector
         }
         Returns: {
           chunk_index: number
@@ -1934,11 +1930,11 @@ export type Database = {
       }
       match_document_chunks_hybrid: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
           min_similarity?: number
-          owner_filter?: string
-          query_embedding: string
+          owner_filter?: string | null
+          query_embedding: Vector
           query_text: string
         }
         Returns: {
@@ -1962,9 +1958,9 @@ export type Database = {
       }
       match_document_chunks_text: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
-          owner_filter?: string
+          owner_filter?: string | null
           query_text: string
         }
         Returns: {
@@ -1989,11 +1985,11 @@ export type Database = {
       }
       match_document_embedding_fields_hybrid: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
           min_similarity?: number
-          owner_filter?: string
-          query_embedding: string
+          owner_filter?: string | null
+          query_embedding: Vector
           query_text: string
         }
         Returns: {
@@ -2009,10 +2005,10 @@ export type Database = {
       }
       match_document_embedding_fields_text: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
           min_text_rank?: number
-          owner_filter?: string
+          owner_filter?: string | null
           query_text: string
         }
         Returns: {
@@ -2026,11 +2022,11 @@ export type Database = {
       }
       match_document_index_units_hybrid: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
           min_similarity?: number
-          owner_filter?: string
-          query_embedding: string
+          owner_filter?: string | null
+          query_embedding: Vector
           query_text: string
         }
         Returns: {
@@ -2056,9 +2052,9 @@ export type Database = {
       }
       match_document_lookup_chunks_text: {
         Args: {
-          document_filters: string[]
+          document_filters: string[] | null
           match_count?: number
-          owner_filter?: string
+          owner_filter?: string | null
           query_text: string
         }
         Returns: {
@@ -2079,11 +2075,11 @@ export type Database = {
       }
       match_document_memory_cards_hybrid: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
           min_similarity?: number
-          owner_filter?: string
-          query_embedding: string
+          owner_filter?: string | null
+          query_embedding: Vector
           query_text: string
         }
         Returns: {
@@ -2108,11 +2104,11 @@ export type Database = {
       }
       match_document_memory_cards_hybrid_v2: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
           min_similarity?: number
-          owner_filter?: string
-          query_embedding: string
+          owner_filter?: string | null
+          query_embedding: Vector
           query_text: string
         }
         Returns: {
@@ -2137,9 +2133,9 @@ export type Database = {
       }
       match_document_table_facts_text: {
         Args: {
-          document_filters?: string[]
+          document_filters?: string[] | null
           match_count?: number
-          owner_filter?: string
+          owner_filter?: string | null
           query_text: string
         }
         Returns: {
@@ -2160,7 +2156,7 @@ export type Database = {
       match_documents_for_query: {
         Args: {
           match_count?: number
-          owner_filter?: string
+          owner_filter?: string | null
           query_text: string
         }
         Returns: {

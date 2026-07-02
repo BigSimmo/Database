@@ -1716,11 +1716,11 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
   void (async () => {
     try {
-      await createAdminClient()
-        .from("rag_response_cache")
-        .delete()
-        [sharedCacheOwnerId ? "eq" : "is"]("owner_id", sharedCacheOwnerId)
-        .in("cache_kind", ["search", "answer"]);
+      const deleteQuery = createAdminClient().from("rag_response_cache").delete();
+      const scopedQuery = sharedCacheOwnerId
+        ? deleteQuery.eq("owner_id", sharedCacheOwnerId)
+        : deleteQuery.is("owner_id", null);
+      await scopedQuery.in("cache_kind", ["search", "answer"]);
     } catch (error) {
       // Shared cache invalidation is best effort.
       console.warn("Shared cache invalidation failed for owner:", error);
@@ -1904,7 +1904,7 @@ async function fetchEnabledRagAliases(
       ? query.eq("owner_id", scopeOwnerId)
       : nullableQuery.is
         ? nullableQuery.is("owner_id", null)
-        : query.eq("owner_id", null);
+        : query;
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as RagAliasInput[];
