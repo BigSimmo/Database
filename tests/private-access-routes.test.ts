@@ -996,13 +996,7 @@ describe("private document API access", () => {
     // update resolves with no row → refuse with 409.
     const client = createSupabaseMock((call) => {
       if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok({
-          id: "99999999-9999-4999-8999-999999999999",
-          document_id: documentId,
-          batch_id: null,
-          status: "processing",
-          locked_at: null,
-        });
+        return ok({ id: "job-1", document_id: documentId, batch_id: null, status: "processing", locked_at: null });
       }
       if (call.table === "ingestion_jobs" && call.operation === "update") {
         // Guard rejected the reset: no row affected.
@@ -1013,12 +1007,9 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(
-      authenticatedRequest("/api/ingestion/jobs/99999999-9999-4999-8999-999999999999/retry", { method: "POST" }),
-      {
-        params: Promise.resolve({ id: "99999999-9999-4999-8999-999999999999" }),
-      },
-    );
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: "job-1" }),
+    });
 
     expect(response.status).toBe(409);
     expect(String((await payload(response)).error)).toContain("still being processed");
@@ -1033,30 +1024,21 @@ describe("private document API access", () => {
   it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok({
-          id: "99999999-9999-4999-8999-999999999999",
-          document_id: documentId,
-          batch_id: null,
-          status: "failed",
-          locked_at: null,
-        });
+        return ok({ id: "job-1", document_id: documentId, batch_id: null, status: "failed", locked_at: null });
       }
       if (call.table === "documents" && call.operation === "update") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "update") {
         // Guard allowed the reset: one row affected.
-        return ok({ id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" });
+        return ok({ id: "job-1", document_id: documentId, status: "pending" });
       }
       return ok([]);
     });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
-    const response = await POST(
-      authenticatedRequest("/api/ingestion/jobs/99999999-9999-4999-8999-999999999999/retry", { method: "POST" }),
-      {
-        params: Promise.resolve({ id: "99999999-9999-4999-8999-999999999999" }),
-      },
-    );
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/job-1/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: "job-1" }),
+    });
     const documentUpdate = client.calls.find((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(200);
@@ -2608,6 +2590,7 @@ describe("private document API access", () => {
       answer: "Use the old protocol.",
       grounded: true,
       confidence: "high",
+      degradedMode: { active: true, reason: "provider_fallback" },
       citations: [{ chunk_id: "chunk-1", page_number: 1, quote: "old protocol", document_id: documentId }],
       smartPanel: { query: "monitoring" },
       smartApiPlan: { displayMode: "direct" },
@@ -2660,6 +2643,7 @@ describe("private document API access", () => {
     expect(finalPayload.sources).toEqual([]);
     expect(finalPayload.smartPanel).toBeUndefined();
     expect(finalPayload.smartApiPlan).toBeUndefined();
+    expect(finalPayload.degradedMode).toEqual({ active: true, reason: "provider_fallback" });
     expect(String(finalPayload.answer)).toContain("cannot provide a clinical answer");
     expect(finalPayload.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
@@ -2671,6 +2655,7 @@ describe("private document API access", () => {
       answer: "Use the old protocol.",
       grounded: true,
       confidence: "high",
+      degradedMode: { active: true, reason: "provider_fallback" },
       citations: [{ chunk_id: "chunk-1", page_number: 1, quote: "old protocol", document_id: documentId }],
       sources: [
         {
@@ -2722,6 +2707,7 @@ describe("private document API access", () => {
     expect(body.sources).toEqual([]);
     expect(body.smartPanel).toBeUndefined();
     expect(body.smartApiPlan).toBeUndefined();
+    expect(body.degradedMode).toEqual({ active: true, reason: "provider_fallback" });
     expect(String(body.answer)).toContain("cannot provide a clinical answer");
     expect(body.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),

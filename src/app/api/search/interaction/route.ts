@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { PublicApiError } from "@/lib/http";
 import {
   normalizedQueryTextForStorage,
   queryDerivedTokensForStorage,
@@ -114,6 +114,12 @@ export async function POST(request: Request) {
     if (error instanceof serverAuth.AuthenticationError) {
       return serverAuth.unauthorizedResponse(error);
     }
-    return jsonError(error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+    if (error instanceof PublicApiError) {
+      return NextResponse.json({ ok: false }, { status: error.status });
+    }
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 }

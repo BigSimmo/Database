@@ -4,9 +4,11 @@ import {
   completionGateFromRow,
   deferralDecision,
   missingArtifactPlan,
+  parseJobStatusRpcResult,
   shouldRunVisualArtifacts,
   type CompletionGate,
   type CompletionGateRow,
+  type JobStatusRpcResult,
   type MissingArtifactPlan,
 } from "./behavior.ts";
 
@@ -1922,14 +1924,7 @@ async function deferJob(job: ClaimedJob, gate: CompletionGate): Promise<void> {
 }
 
 async function completeJob(job: ClaimedJob): Promise<void> {
-  const rows = await sql<
-    Array<{
-      ok: boolean;
-      gate_passed: boolean;
-      missing: string[] | null;
-      status: string;
-    }>
-  >`
+  const rows = await sql<JobStatusRpcResult[]>`
     select *
     from public.complete_strict_enrichment_job(
       ${job.document_id}::uuid,
@@ -1939,7 +1934,7 @@ async function completeJob(job: ClaimedJob): Promise<void> {
       'visual-v3'
     )
   `;
-  const result = rows[0];
+  const result = parseJobStatusRpcResult(rows[0], "complete_strict_enrichment_job");
   if (!result?.ok || !result.gate_passed) {
     throw new Error(
       `Strict enrichment completion blocked: ${JSON.stringify({
