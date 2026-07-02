@@ -1419,6 +1419,15 @@ function cloneSearchResults(results: SearchResult[]) {
   return structuredClone(results);
 }
 
+function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {
+  return {
+    ...telemetry,
+    shared_cache_hit: false,
+    shared_cache_status: undefined,
+    shared_cache_miss_reason: null,
+  };
+}
+
 function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
@@ -1444,6 +1453,9 @@ function getCachedSearch(
       embedding_latency_ms: 0,
       supabase_rpc_latency_ms: 0,
       rerank_latency_ms: 0,
+      shared_cache_hit: false,
+      shared_cache_status: undefined,
+      shared_cache_miss_reason: null,
     },
   };
 }
@@ -1455,12 +1467,13 @@ function setCachedSearch(
   queryVariants: string[] = [],
 ) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
+  const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: cloneSearchResults(results),
-    telemetry: { ...telemetry },
+    telemetry: { ...cacheTelemetry },
   });
 
   while (searchCache.size > env.RAG_SEARCH_CACHE_SIZE) {
@@ -1468,7 +1481,7 @@ function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, telemetry, queryVariants);
+  setSharedCachedSearch(args, results, cacheTelemetry, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
