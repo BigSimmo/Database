@@ -104,7 +104,7 @@ function FormsSidebar() {
             key={label}
             type="button"
             className={cn(
-              "grid min-h-12 grid-cols-[2rem_1fr] items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition",
+              "grid min-h-12 grid-cols-[2rem_1fr] items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/45",
               active
                 ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                 : "text-white/90 hover:bg-white/8",
@@ -117,7 +117,10 @@ function FormsSidebar() {
       </nav>
 
       <div className="mx-4 mt-5 rounded-lg border border-white/18 bg-white/[0.03] p-3">
-        <button type="button" className="flex min-h-10 w-full items-center gap-3 text-sm font-bold text-white">
+        <button
+          type="button"
+          className="flex min-h-10 w-full items-center gap-3 rounded-md text-sm font-bold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+        >
           <Moon className="h-5 w-5" />
           Dark mode
         </button>
@@ -160,7 +163,7 @@ function DesktopTopBar({ onSearch }: { onSearch: (query: string) => void }) {
         </label>
         <button
           type="submit"
-          className="h-12 rounded-lg bg-[color:var(--clinical-accent)] px-7 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+          className="h-12 rounded-lg bg-[color:var(--clinical-accent)] px-7 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/20"
         >
           Search
         </button>
@@ -172,14 +175,19 @@ function DesktopTopBar({ onSearch }: { onSearch: (query: string) => void }) {
         </div>
         <button
           type="button"
-          className="relative grid h-11 w-11 place-items-center rounded-full hover:bg-[color:var(--surface-subtle)]"
+          className="relative grid h-11 w-11 place-items-center rounded-full transition hover:bg-[color:var(--surface-subtle)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+          aria-label="Notifications"
         >
           <Bell className="h-6 w-6" />
           <span className="absolute right-1 top-0 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[10px] font-extrabold text-[color:var(--clinical-accent-contrast)]">
             2
           </span>
         </button>
-        <button type="button" className="flex items-center gap-3">
+        <button
+          type="button"
+          className="flex items-center gap-3 rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+          aria-label="Open account menu"
+        >
           <span className="grid h-11 w-11 place-items-center rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-base font-extrabold text-[color:var(--clinical-accent)]">
             JW
           </span>
@@ -196,7 +204,7 @@ function MobileTopBar() {
       <div className="flex min-h-12 items-center justify-between">
         <button
           type="button"
-          className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent-contrast)]"
+          className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent-contrast)] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
           aria-label="Open menu"
         >
           <Menu className="h-6 w-6" />
@@ -211,7 +219,7 @@ function MobileTopBar() {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="relative grid h-11 w-11 place-items-center rounded-full"
+            className="relative grid h-11 w-11 place-items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />
@@ -219,7 +227,11 @@ function MobileTopBar() {
               2
             </span>
           </button>
-          <button type="button" className="grid h-11 w-8 place-items-center rounded-full" aria-label="More">
+          <button
+            type="button"
+            className="grid h-11 w-8 place-items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            aria-label="More"
+          >
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>
@@ -255,7 +267,7 @@ function SearchSummary({
             <button
               type="button"
               onClick={() => onQueryChange("")}
-              className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--clinical-accent-soft)]"
+              className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--clinical-accent)]/25"
               aria-label="Clear forms query"
             >
               <X className="h-4 w-4" />
@@ -264,7 +276,7 @@ function SearchSummary({
         </label>
         <button
           type="button"
-          className="grid h-13 w-full place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+          className="grid h-13 w-full place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
           aria-label="Open filters"
         >
           <SlidersHorizontal className="h-5 w-5" />
@@ -282,7 +294,7 @@ function SearchSummary({
         </span>
         <button
           type="button"
-          className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-bold text-[color:var(--text)]"
+          className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
         >
           Source: Official
           <ChevronDown className="h-4 w-4" />
@@ -311,7 +323,7 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
           key={label}
           type="button"
           className={cn(
-            "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap",
+            "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap rounded-t-md focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16",
             index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text)]",
           )}
         >
@@ -354,7 +366,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
             <article
               key={form.slug}
               data-testid={`form-search-result-${form.slug}`}
-              className="grid gap-4 border-b border-[color:var(--border)] px-5 py-4 last:border-b-0 md:grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] md:items-center"
+              className="grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]/55 md:grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] md:items-center"
             >
               <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xl font-black text-[color:var(--clinical-accent)]">
                 {resultCode(index)}
@@ -383,7 +395,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
               <Link
                 href={`/forms/${form.slug}`}
                 aria-label={`Open ${form.title}`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16 md:justify-self-end"
               >
                 Open
                 <ExternalLink className="h-4 w-4" />
@@ -395,7 +407,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
         <button
           type="button"
-          className="inline-flex items-center gap-2 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+          className="inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
         >
           View all forms ({matches.length})
           <ChevronRight className="h-4 w-4" />
@@ -447,7 +459,10 @@ function RefineRail() {
     <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[var(--shadow-soft)]">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Refine</h2>
-        <button type="button" className="text-xs font-extrabold text-[color:var(--clinical-accent)]">
+        <button
+          type="button"
+          className="rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+        >
           Reset
         </button>
       </div>
@@ -475,7 +490,7 @@ function NextSteps() {
           <button
             key={title}
             type="button"
-            className="grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 border-b border-[color:var(--border)] py-3 text-left last:border-b-0 lg:grid-cols-[32px_1fr_18px] lg:py-4"
+            className="grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 rounded-lg border-b border-[color:var(--border)] py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16 lg:grid-cols-[32px_1fr_18px] lg:px-2 lg:py-4"
           >
             <Icon className="h-5 w-5 text-[color:var(--clinical-accent)] lg:h-6 lg:w-6" />
             <span>
@@ -544,7 +559,7 @@ function PathwayPanel() {
       <div className="mt-5 flex justify-center">
         <button
           type="button"
-          className="inline-flex items-center gap-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+          className="inline-flex min-h-9 items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
         >
           <Workflow className="h-5 w-5" />
           View full pathway
@@ -605,7 +620,7 @@ function PathwayNode({
 
 function VerifiedFooter() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-4 py-6 text-sm text-[color:var(--text-muted)]">
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-5 text-xs text-[color:var(--text-muted)] lg:py-6 lg:text-sm">
       <span className="inline-flex items-center gap-2 font-extrabold text-[color:var(--clinical-accent)]">
         <ShieldCheck className="h-5 w-5" />
         Source verified
@@ -632,7 +647,7 @@ function MobileTabs({ formsCount }: { formsCount: number }) {
           key={label}
           type="button"
           className={cn(
-            "relative flex min-h-11 items-center gap-2 whitespace-nowrap",
+            "relative flex min-h-11 items-center gap-2 whitespace-nowrap rounded-t-md focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16",
             index === 0 && "text-[color:var(--clinical-accent)]",
           )}
         >
@@ -653,9 +668,9 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
   return (
     <section
       data-testid="form-search-mobile-results"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)]"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1.5 shadow-[var(--shadow-tight)]"
     >
-      <h2 className="px-1 pb-1.5 text-sm font-extrabold text-[color:var(--text-heading)]">Top forms</h2>
+      <h2 className="px-1 pb-1 text-sm font-extrabold text-[color:var(--text-heading)]">Top forms</h2>
       <div className="grid gap-1">
         {matches.map((match, index) => {
           const form = match.service;
@@ -663,20 +678,20 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
             <article
               key={form.slug}
               data-testid={`form-search-mobile-result-${form.slug}`}
-              className="grid grid-cols-[42px_minmax(0,1fr)] gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1.5 shadow-[var(--shadow-tight)]"
+              className="grid grid-cols-[38px_minmax(0,1fr)] gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[0_1px_2px_rgb(12_24_34_/_5%)]"
             >
-              <div className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xl font-black leading-none text-[color:var(--clinical-accent)]">
+              <div className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-lg font-black leading-none text-[color:var(--clinical-accent)]">
                 {resultCode(index)}
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
-                  <h3 className="min-w-0 text-[12.5px] font-extrabold leading-[1.15] text-[color:var(--text-heading)]">
+                  <h3 className="min-w-0 text-[12px] font-extrabold leading-[1.15] text-[color:var(--text-heading)]">
                     {form.title}
                   </h3>
                   <Link
                     href={`/forms/${form.slug}`}
                     aria-label={`Open ${form.title}`}
-                    className="relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-[10.5px] font-extrabold text-[color:var(--clinical-accent)] before:absolute before:-inset-2 before:rounded-lg before:content-['']"
+                    className="relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-[10.5px] font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
                   >
                     Open
                     <ExternalLink className="h-3 w-3" />
@@ -698,7 +713,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                     );
                   })}
                 </div>
-                <p className="mt-0.5 truncate text-[10.5px] font-medium leading-3 text-[color:var(--text-muted)]">
+                <p className="mt-0.5 truncate text-[10px] font-medium leading-3 text-[color:var(--text-muted)]">
                   {compactMatchReason(match)}
                 </p>
               </div>
@@ -708,7 +723,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
       </div>
       <button
         type="button"
-        className="mx-auto mt-1.5 flex min-h-7 items-center gap-2 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+        className="mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
       >
         View all forms ({matches.length})
         <ChevronRight className="h-4 w-4" />
@@ -719,7 +734,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
 
 function MobilePathway() {
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)]">
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-tight)]">
       <h2 className="text-[13px] font-extrabold text-[color:var(--text-heading)]">
         Related pathway <span className="font-medium text-[color:var(--text-muted)]">( PSOLIS Transport )</span>
       </h2>
@@ -757,7 +772,7 @@ function MobilePathway() {
       </div>
       <button
         type="button"
-        className="mx-auto mt-1 flex min-h-7 items-center gap-2 text-[13px] font-extrabold text-[color:var(--clinical-accent)]"
+        className="mx-auto mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-[13px] font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
       >
         <Workflow className="h-4 w-4" />
         View full pathway
@@ -778,12 +793,12 @@ function BottomSearch({
   return (
     <form
       onSubmit={onSubmit}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[var(--shadow-soft)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-4 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_28px_rgb(12_24_34_/_10%)] lg:hidden"
     >
       <div className="grid min-w-0 grid-cols-[42px_minmax(0,1fr)_52px] items-center gap-2">
         <button
           type="button"
-          className="grid h-11 w-11 place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--text)]"
+          className="grid h-11 w-11 place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
           aria-label="Add"
         >
           <Plus className="h-6 w-6" />
@@ -793,7 +808,7 @@ function BottomSearch({
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-5 pr-12 text-sm font-medium text-[color:var(--text)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/12"
+            className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-5 pr-12 text-sm font-medium text-[color:var(--text)] outline-none transition focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/12"
             placeholder="Ask or search forms..."
           />
           {query ? (
@@ -809,7 +824,7 @@ function BottomSearch({
         </label>
         <button
           type="submit"
-          className="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+          className="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/20"
           aria-label="Search forms"
         >
           <Send className="h-5 w-5" />
@@ -821,17 +836,18 @@ function BottomSearch({
 
 export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSearchResultsPageProps) {
   const router = useRouter();
+  const [prevQuery, setPrevQuery] = useState(query);
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
-  // Keep the desktop draft in sync when the route query changes (e.g. a new
-  // search submitted from the top bar) so refinements start from the term the
-  // results actually reflect, not the first render's query.
-  const [lastSyncedQuery, setLastSyncedQuery] = useState(query);
-  if (lastSyncedQuery !== query) {
-    setLastSyncedQuery(query);
+  const matches = useMemo(() => searchFormRecords(query), [query]);
+
+  // Reset the editable draft when the incoming query prop changes (new
+  // navigation) during render rather than in an effect, to avoid a
+  // synchronous set-state-in-effect and the extra commit it triggers.
+  if (query !== prevQuery) {
+    setPrevQuery(query);
     setDraftQuery(query);
   }
-  const matches = useMemo(() => searchFormRecords(query), [query]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -840,10 +856,13 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
 
   function submitMobile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push(submitUrl(mobileQuery || query));
+    const nextQuery = mobileQuery || query;
+    setDraftQuery(nextQuery);
+    router.push(submitUrl(nextQuery));
   }
 
   function submitQuery(nextQuery: string) {
+    setDraftQuery(nextQuery);
     router.push(submitUrl(nextQuery));
   }
 
@@ -855,7 +874,7 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
 
       <div className="lg:pl-[205px]">
         <DesktopTopBar onSearch={submitQuery} />
-        <main className="grid w-full gap-3 px-4 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
+        <main className="grid w-full gap-3 px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
           <div className="grid gap-3 lg:gap-5">
             <div className="hidden lg:block">
               <SearchSummary
@@ -895,7 +914,7 @@ export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSear
             <NextSteps />
             <button
               type="button"
-              className="mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-sm"
+              className="mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-sm transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
             >
               <SlidersHorizontal className="h-5 w-5" />
               Filters

@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Activity,
   AlertCircle,
@@ -54,6 +55,7 @@ import {
   type CSSProperties,
   FormEvent,
   memo,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -156,10 +158,27 @@ import {
 } from "@/components/clinical-dashboard/display-text";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
-import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
-import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
-import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
-import { ApplicationsLauncherWorkspace, applicationsLauncherItemCount } from "@/components/applications-launcher-page";
+import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
+
+const DifferentialsHome = dynamic(
+  () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
+  { ssr: false },
+);
+const FavouritesHub = dynamic(
+  () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
+  { ssr: false },
+);
+const MedicationPrescribingWorkspace = dynamic(
+  () =>
+    import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
+      (m) => m.MedicationPrescribingWorkspace,
+    ),
+  { ssr: false },
+);
+const ApplicationsLauncherWorkspace = dynamic(
+  () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
+  { ssr: false },
+);
 import {
   DocumentSearchResultsPanel,
   MatchExplanationChips,
@@ -215,10 +234,15 @@ import {
 } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
+  documentLabelReviewStatus,
+  documentLabelTier,
+  formatDocumentLabelDisplay,
+  normalizeDocumentLabelForStorage,
   reviewDocumentTagQuality,
   tagSearchText,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
+  type SmartDocumentTagTier,
   type SmartDocumentTagQualityIssueKind,
 } from "@/lib/document-tags";
 import type {
@@ -239,6 +263,8 @@ import type {
   SearchScopeSummary,
   VisualEvidenceCard,
   ClinicalQueryMode,
+  DocumentLabel,
+  DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -711,7 +737,7 @@ function sourceCapsuleText({
   if (sourceCount <= 0) return "No direct source found";
   if (!grounded) return "Review nearby sources";
   if (weakEvidence) return "Review sources";
-  return `Source-backed · ${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
+  return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
 }
 
 function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
@@ -729,7 +755,44 @@ type CapsulePreviewSource = {
   score: number;
   href: string;
   snippet?: string;
+  sourceStrength?:
+    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
 };
+
+function sourceBadgeLabel(index: number) {
+  return `S${index + 1}`;
+}
+
+function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
+  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  }
+  if (index === 0) {
+    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]";
+  }
+  return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
+}
+
+function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
+  if (!source.sourceStrength || source.sourceStrength === "none") return "Unsupported";
+  if (source.sourceStrength === "limited") return "Partial";
+  if (source.sourceStrength === "moderate") return "Partial";
+  if (index === 0 || source.sourceStrength === "strong") return "Direct";
+  return "Partial";
+}
+
+function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
+  if (metadata.document_status === "review_due") return "Review due";
+  if (metadata.document_status === "outdated") return "Outdated";
+  if (metadata.document_status === "current") return "Current";
+  return sourceStatusLabel(metadata);
+}
+
+function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
+  const uniquePages = new Set(previewSources.map((source) => source.pageNumber).filter((page) => page !== null));
+  const count = uniquePages.size || previewSources.length;
+  return `${count} page${count === 1 ? "" : "s"}`;
+}
 
 function capsulePreviewSources(
   bestSource: BestSourceRecommendation | null,
@@ -754,6 +817,7 @@ function capsulePreviewSources(
       score: source.score ?? 0,
       href: source.href,
       snippet: source.snippet,
+      sourceStrength: source.sourceStrength,
     });
   });
 
@@ -765,6 +829,7 @@ function capsulePreviewSources(
       metadata: normalizeSourceMetadata(bestSource.source_metadata),
       score: bestSource.score,
       href: bestSource.viewer_href,
+      sourceStrength: bestSource.source_strength,
     });
   }
 
@@ -776,10 +841,11 @@ function capsulePreviewSources(
       metadata: normalizeSourceMetadata(source.source_metadata),
       score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
       href: sourceResultHref(source),
+      sourceStrength: source.source_strength,
     });
   });
 
-  return rows.slice(0, 3);
+  return rows.slice(0, 4);
 }
 
 function SourcePreviewContent({
@@ -787,51 +853,106 @@ function SourcePreviewContent({
   quoteText,
   copiedQuote,
   onCopyQuote,
+  showHeader = true,
 }: {
   previewSources: CapsulePreviewSource[];
   quoteText?: string | null;
   copiedQuote: boolean;
   onCopyQuote: () => void;
+  showHeader?: boolean;
 }) {
   const primaryPreviewSource = previewSources[0] ?? null;
+  const reviewDueSource = previewSources.find(
+    (source) => source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated",
+  );
 
   return (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Sources behind this answer
-          </p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Preview first, then open the source document when needed.
-          </p>
+      {showHeader ? (
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
+              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+                {sourcePreviewPageCountLabel(previewSources)}
+              </span>
+            </div>
+            <p className={cn("mt-1 text-xs leading-5", textMuted)}>Open the original PDF page.</p>
+          </div>
         </div>
-        <span className={cn(metadataPill, "nums shrink-0")}>{previewSources.length} sources</span>
-      </div>
-      <div className="mt-3 grid gap-1.5" role="list" aria-label="Sources behind this answer">
+      ) : null}
+      <div
+        className={cn("grid gap-0 divide-y divide-[color:var(--border)]", showHeader ? "mt-3" : "")}
+        role="list"
+        aria-label="Sources behind this answer"
+      >
         {previewSources.map((source, index) => (
-          <Link
+          <div
             key={`${source.id}:${index}`}
-            href={source.href}
-            data-testid="source-capsule-preview-row"
-            className="grid min-h-[44px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             role="listitem"
-            aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
+            className={cn(
+              "min-w-0 py-2.5",
+              index === 0 &&
+                "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]",
+            )}
           >
-            <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                {cleanDisplayTitle(source.title)}
+            {index === 0 ? (
+              <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--clinical-accent)]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Best match
+              </p>
+            ) : index === 1 ? (
+              <p className="mb-1.5 text-xs font-semibold text-[color:var(--text-muted)]">Also used</p>
+            ) : null}
+            <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
+              <span
+                className={cn(
+                  "nums grid h-8 min-w-8 place-items-center rounded-md border px-1 text-xs font-bold shadow-[var(--shadow-inset)]",
+                  sourceBadgeToneClass(source.metadata, index),
+                )}
+              >
+                {sourceBadgeLabel(index)}
               </span>
-              <span className={cn("block truncate text-xs", textMuted)}>
-                <span className="font-mono tabular-nums">p.{source.pageNumber ?? "n/a"}</span> ·{" "}
-                {sourceStatusLabel(source.metadata)}
+              <span className="min-w-0">
+                <Link
+                  href={source.href}
+                  data-testid="source-capsule-preview-row"
+                  className="flex min-h-12 items-center rounded-md text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
+                >
+                  <span className="line-clamp-2">{cleanDisplayTitle(source.title)}</span>
+                </Link>
+                <span className={cn("mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs", textMuted)}>
+                  <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
+                  <span aria-hidden>·</span>
+                  <span>{sourceSupportLabel(source, index)}</span>
+                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
+                  <span
+                    className={
+                      source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated"
+                        ? "font-semibold text-[color:var(--warning)]"
+                        : undefined
+                    }
+                  >
+                    {sourceStatusShortLabel(source.metadata)}
+                  </span>
+                </span>
               </span>
-            </span>
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-1.5 text-[11px]")}>
-              {Math.round(Math.max(0, Math.min(1, source.score)) * 100)}%
-            </span>
-          </Link>
+              <Link
+                href={source.href}
+                className={cn(
+                  index === 0
+                    ? "inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]"
+                    : "grid h-12 w-12 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                )}
+                aria-label={`Open ${sourceBadgeLabel(index)} source page`}
+              >
+                <ExternalLink className="h-4 w-4" />
+                {index === 0 ? <span>Open</span> : null}
+              </Link>
+            </div>
+          </div>
         ))}
       </div>
       {quoteText ? (
@@ -855,6 +976,28 @@ function SourcePreviewContent({
             <Copy className="h-3.5 w-3.5" />
             {copiedQuote ? "Copied quote" : "Copy quote"}
           </button>
+        ) : null}
+      </div>
+      <div className="mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
+        <span
+          className={cn(
+            "inline-flex min-h-8 items-center gap-1.5",
+            reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
+          )}
+        >
+          {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          {reviewDueSource
+            ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
+            : "Sources current"}
+        </span>
+        {primaryPreviewSource ? (
+          <Link
+            href={primaryPreviewSource.href}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            Evidence details
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
         ) : null}
       </div>
     </>
@@ -985,8 +1128,13 @@ function NaturalLanguageAnswer({
         <Sheet
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
           onClose={() => setSourcePreviewOpen(false)}
-          title="Sources behind this answer"
-          description="Preview sources first, then open the source document when needed."
+          title="Sources"
+          description="Open the original PDF page."
+          titleAccessory={
+            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+              {sourcePreviewPageCountLabel(previewSources)}
+            </span>
+          }
           closeLabel="Close answer sources"
           contentClassName="sm:max-w-xl"
           returnFocusRef={sourceCapsuleRef}
@@ -998,6 +1146,7 @@ function NaturalLanguageAnswer({
               quoteText={quoteText}
               copiedQuote={copiedSourceQuote}
               onCopyQuote={copySourceQuote}
+              showHeader={false}
             />
           </div>
         </Sheet>
@@ -1125,6 +1274,158 @@ function KeyClinicalItems({
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+type AnswerSupportPriority = {
+  title: string;
+  detail: string;
+  sourceLabel?: string;
+  tone: "priority" | "caution";
+};
+
+function answerSupportPriority(
+  answer: RagAnswer,
+  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+  table: VisualEvidenceCard | null,
+  safetyFindings: ReturnType<typeof extractSafetyFindings>,
+  options: { grounded: boolean; weakEvidence: boolean },
+): AnswerSupportPriority | null {
+  const firstSafetyFinding = safetyFindings[0];
+  if (firstSafetyFinding) {
+    return {
+      title: "Priority",
+      detail: formatSafetyFindingLabel(firstSafetyFinding),
+      sourceLabel: "S1",
+      tone: "caution",
+    };
+  }
+
+  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence) {
+    return {
+      title: "Review source match",
+      detail:
+        "Verify cited passages before using clinical numbers, monitoring, dose, route, timing, or risk decisions.",
+      sourceLabel: "Review",
+      tone: "caution",
+    };
+  }
+
+  const sectionItems = keyClinicalItemsFromSections(sections);
+  const tableItems = keyClinicalItemsFromTable(table);
+  const item = sectionItems[0] ?? tableItems[0] ?? null;
+  if (!item) return null;
+
+  return {
+    title: item.label ?? "Priority",
+    detail: item.detail,
+    sourceLabel: "S1",
+    tone: "priority",
+  };
+}
+
+function AnswerSupportSummaryCard({
+  priority,
+  clinicalCount,
+  evidenceSummary,
+  clinicalAvailable,
+  evidenceAvailable,
+  clinicalTriggerRef,
+  evidenceTriggerRef,
+  onOpenClinicalNotes,
+  onOpenEvidence,
+}: {
+  priority: AnswerSupportPriority | null;
+  clinicalCount: number;
+  evidenceSummary: string;
+  clinicalAvailable: boolean;
+  evidenceAvailable: boolean;
+  clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
+  evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
+  onOpenClinicalNotes: () => void;
+  onOpenEvidence: () => void;
+}) {
+  const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
+  const supportButtonClass =
+    "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+
+  return (
+    <section
+      data-testid="answer-support-card"
+      className="max-w-[68ch] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+      aria-label="Answer support"
+    >
+      {priority ? (
+        <div
+          className={cn(
+            "grid min-h-[68px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t-2 px-3 py-3",
+            priority.tone === "caution" ? "border-t-[color:var(--warning)]" : "border-t-[color:var(--warning)]",
+          )}
+        >
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+            aria-hidden="true"
+          >
+            {priority.tone === "caution" ? <AlertCircle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
+            <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
+            <p className={cn("mt-1 line-clamp-2 text-sm leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
+          </div>
+          {priority.sourceLabel ? (
+            <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{priority.sourceLabel}</span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {supportRowCount > 0 ? (
+        <div
+          className={cn(
+            "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
+            supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
+          )}
+        >
+          {clinicalAvailable ? (
+            <button
+              ref={clinicalTriggerRef}
+              id="answer-clinical-notes-drawer-mobile-trigger"
+              data-testid="answer-clinical-notes-trigger"
+              type="button"
+              onClick={onOpenClinicalNotes}
+              className={supportButtonClass}
+              aria-label="Open clinical notes"
+            >
+              <ClipboardCheck className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
+                <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                  {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+            </button>
+          ) : null}
+          {evidenceAvailable ? (
+            <button
+              ref={evidenceTriggerRef}
+              id="answer-evidence-drawer-mobile-trigger"
+              data-testid="answer-evidence-trigger"
+              type="button"
+              onClick={onOpenEvidence}
+              className={supportButtonClass}
+              aria-label="Open evidence"
+            >
+              <Layers className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
+                <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
+              </span>
+              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1263,7 +1564,7 @@ function clinicalDetailSummaryItems(sections: ClinicalDetailSection[]) {
   return items.filter((item) => item.value > 0);
 }
 
-type ClinicalNotesTabId = "safety" | "monitor";
+type ClinicalNotesTabId = "essentials" | "actions" | "safety";
 
 type ClinicalNotesRow = {
   id: string;
@@ -1277,15 +1578,20 @@ const clinicalNotesTabMeta: Record<
   ClinicalNotesTabId,
   { label: string; icon: typeof ShieldCheck; sectionIds: string[] }
 > = {
+  essentials: {
+    label: "Essentials",
+    icon: ClipboardCheck,
+    sectionIds: ["thresholds", "monitoring", "medication", "support-map", "comparison"],
+  },
+  actions: {
+    label: "Actions",
+    icon: Activity,
+    sectionIds: ["action", "documentation", "monitoring", "medication"],
+  },
   safety: {
     label: "Safety",
     icon: ShieldCheck,
     sectionIds: ["escalation", "cautions", "source-gap", "thresholds"],
-  },
-  monitor: {
-    label: "Monitor",
-    icon: Activity,
-    sectionIds: ["monitoring", "medication", "action"],
   },
 };
 
@@ -1485,8 +1791,15 @@ function clinicalNotesRowsForTab(sections: ClinicalDetailSection[], tab: Clinica
   for (const section of sections) {
     const sectionText = `${section.title} ${section.items.join(" ")}`.toLowerCase();
     const hasMonitoringText =
-      tab === "monitor" && /\b(monitor|screen|level|fbc|anc|metabolic|renal|thyroid|function)\b/i.test(sectionText);
+      (tab === "actions" || tab === "essentials") &&
+      /\b(monitor|screen|level|fbc|anc|metabolic|renal|thyroid|function)\b/i.test(sectionText);
+    const hasSafetyText =
+      tab === "safety" &&
+      /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat|warning|review due)\b/i.test(sectionText);
     if (!meta.sectionIds.includes(section.id) && !hasMonitoringText) {
+      if (!hasSafetyText) continue;
+    }
+    if (tab === "essentials" && section.id === "action" && rows.length >= 2) {
       continue;
     }
     const tone: ClinicalNotesRow["tone"] = section.id === "escalation" || section.id === "cautions" ? "warn" : "safe";
@@ -1567,27 +1880,14 @@ function ClinicalNotesChecklistPanel({
 }) {
   const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
-  const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(tabs[0]?.id ?? "safety");
-  const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : (tabs[0]?.id ?? "safety");
+  const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
+  const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
+  const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab);
   const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
-  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  const firstExpandableRow = rows.find(clinicalNoteHasDistinctDetail) ?? null;
-  const activeRow = rows.find((row) => row.id === expandedRowId) ?? firstExpandableRow;
   const [added, setAdded] = useState(false);
-  const warningCount = rows.filter((row) => row.tone === "warn").length;
-  const toggles: Array<{
-    id: ClinicalNotesTabId | "table";
-    label: string;
-    icon: typeof ShieldCheck;
-    count?: number;
-    popout?: boolean;
-  }> = [
-    ...tabs.map((tab) => ({ ...tab, popout: false })),
-    ...(tableEvidenceCount > 0 && onOpenTables
-      ? [{ id: "table" as const, label: "Table", icon: Table2, count: tableEvidenceCount, popout: true }]
-      : []),
-  ];
+  const warningRows = clinicalNotesRowsForTab(detailSections, "safety");
+  const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
     return (
@@ -1595,148 +1895,142 @@ function ClinicalNotesChecklistPanel({
     );
   }
 
-  const ActiveIcon = clinicalNotesTabMeta[activeTab].icon;
-  const showToggleBar = toggles.length > 1;
+  const activeMeta = clinicalNotesTabMeta[activeTab];
 
   return (
     <section data-testid="clinical-notes-checklist" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {showToggleBar ? (
-        <div className="sticky top-0 z-10 -mx-3 -mt-2 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-1.5 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
-          <div
-            role="tablist"
-            aria-label="Clinical notes categories"
-            className="flex min-w-0 items-center gap-1 overflow-x-auto"
-          >
-            {toggles.map((tab) => {
-              const Icon = tab.icon;
-              const selected = !tab.popout && tab.id === activeTab;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  aria-label={`${tab.label} (${tab.count})`}
-                  data-testid={tab.popout ? "clinical-notes-table-popout-toggle" : undefined}
-                  onClick={() => {
-                    if (tab.popout) {
-                      onOpenTables?.();
-                      return;
-                    }
-                    setRequestedTab(tab.id as ClinicalNotesTabId);
-                    setExpandedRowId(null);
-                  }}
+      <div className="sticky top-0 z-10 -mx-3 -mt-2 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-2 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
+        <div
+          role="tablist"
+          aria-label="Clinical notes categories"
+          className="grid min-w-0 grid-cols-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+        >
+          {tabs.map((tab) => {
+            const selected = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-label={`${tab.label} (${tab.count})`}
+                onClick={() => setRequestedTab(tab.id)}
+                className={cn(
+                  "inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  selected
+                    ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                )}
+              >
+                <span className="truncate">{tab.label}</span>
+                <span
                   className={cn(
-                    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
                     selected
-                      ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                      : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                      ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
+                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span>{tab.label}</span>
-                  {tab.count ? <span className="nums text-[10px] opacity-70">{tab.count}</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-3 flex min-w-0 items-start gap-2.5 border-b border-[color:var(--border)] pb-3">
-        <span
-          className={cn(
-            "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md border shadow-[var(--shadow-inset)]",
-            activeTab === "safety" ? toneWarning : toneSuccess,
-          )}
-          aria-hidden="true"
-        >
-          <ActiveIcon className="h-3.5 w-3.5" />
-        </span>
-        <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold leading-[1.35] text-[color:var(--text-heading)]">
-            {activeTab === "safety" ? "Safety checklist" : "Monitoring checklist"}
-          </h3>
-          <p className={cn("mt-0.5 text-[12px] leading-[1.45]", textMuted)}>
-            {activeTab === "safety"
-              ? warningCount > 0
-                ? `${warningCount} caution ${warningCount === 1 ? "item" : "items"} prioritised from the answer.`
-                : "Key actions to start and continue safely."
-              : "Monitoring and medication follow-up items."}
-          </p>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="divide-y divide-[color:var(--border)]">
+      <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+          {activeMeta.label} ({rows.length})
+        </p>
+        {tableEvidenceCount > 0 && onOpenTables ? (
+          <button
+            type="button"
+            onClick={onOpenTables}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Tables
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
         {rows.map((row) => {
-          const expanded = row.id === activeRow?.id;
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
-          const RowIcon = row.tone === "warn" ? AlertCircle : CheckCircle2;
+          const RowIcon = row.tone === "warn" ? AlertCircle : activeTab === "actions" ? Activity : CheckCircle2;
           return (
-            <article key={row.id} data-testid="clinical-note-row" className="relative py-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (hasDistinctDetail) setExpandedRowId(expanded ? null : row.id);
-                }}
-                className="w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-expanded={hasDistinctDetail ? expanded : undefined}
+            <article
+              key={row.id}
+              data-testid="clinical-note-row"
+              className="grid min-h-[70px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
+            >
+              <span
+                className={cn(
+                  "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+                  row.tone === "warn" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
+                )}
+                aria-hidden="true"
               >
-                <span className="flex min-w-0 items-start gap-2">
+                <RowIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="min-w-0 flex-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                    {row.title}
+                  </p>
                   <span
                     className={cn(
-                      "mt-0.5 inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border bg-[color:var(--surface)]",
-                      row.tone === "warn"
-                        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                        : "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
+                      subtleStatusPill,
+                      "min-h-6 px-2 text-[10px]",
+                      row.tone === "warn" ? toneWarning : toneSuccess,
                     )}
-                    aria-hidden="true"
                   >
-                    <RowIcon className="h-3 w-3" />
+                    {row.tone === "warn" ? "Review" : activeTab === "actions" ? "Action" : "Source"}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex min-w-0 items-start gap-1.5">
-                      <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-[1.35] text-[color:var(--text-heading)]">
-                        {row.title}
-                      </span>
-                      <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-[10px] font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-                        {row.sourceIndex}
-                      </span>
-                      {hasDistinctDetail ? (
-                        <ChevronDown
-                          className={cn(
-                            "mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition",
-                            expanded && "rotate-180",
-                          )}
-                        />
-                      ) : null}
-                    </span>
-                    {hasDistinctDetail ? (
-                      <span className={cn("mt-0.5 line-clamp-1 text-[12px] leading-[1.45]", textMuted)}>
-                        {row.detail}
-                      </span>
-                    ) : null}
-                  </span>
+                </div>
+                {hasDistinctDetail ? (
+                  <p className={cn("mt-1 line-clamp-2 text-xs leading-5", textMuted)}>{row.detail}</p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="nums grid h-7 min-w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                  S{row.sourceIndex}
                 </span>
-              </button>
-              {expanded && hasDistinctDetail ? <ClinicalNoteDetailCard row={row} /> : null}
+                <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+              </div>
             </article>
           );
         })}
       </div>
+
+      {warningCount > 0 && activeTab !== "safety" ? (
+        <button
+          type="button"
+          onClick={() => setRequestedTab("safety")}
+          className="mt-3 grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 py-2 text-left text-[color:var(--warning)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <AlertCircle className="h-5 w-5" />
+          <span className="min-w-0">
+            <span className="block text-xs font-bold uppercase tracking-[0.06em]">Safety preview ({warningCount})</span>
+            <span className="block truncate text-xs font-semibold">Review toxicity symptoms</span>
+          </span>
+          <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-xs")}>S1</span>
+        </button>
+      ) : null}
 
       <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
         <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -1744,7 +2038,7 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
@@ -1752,7 +2046,7 @@ function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -2106,29 +2400,41 @@ function compactEvidenceSummary(
   sourceSummary?: EvidenceSummary,
   renderModel?: AnswerRenderModel,
 ) {
-  const sourceCount =
-    renderModel?.primarySources.length ??
-    sourceSummary?.total_sources ??
-    sources.length ??
-    answer.sources?.length ??
-    answer.citations.length;
+  const support =
+    renderModel?.trust === "high"
+      ? "Strong support"
+      : renderModel?.trust === "medium"
+        ? "Supported"
+        : renderModel?.trust === "low"
+          ? "Limited support"
+          : "Review support";
+  const claimCount = renderModel?.evidenceRows.length || answer.answerSections?.length || answer.citations.length;
   const quoteCount = renderModel?.quoteCards.length ?? answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0;
-  const parts = [
-    `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
-    `${quoteCount} quote${quoteCount === 1 ? "" : "s"}`,
-    "More",
-  ];
-  return parts.join(" · ");
+  const tableCount = (renderModel?.visualEvidence ?? answer.visualEvidence ?? []).filter(
+    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
+  ).length;
+  const sourceCount = renderModel?.primarySources.length || sourceSummary?.total_sources || sources.length;
+  const countParts = [
+    claimCount > 0 ? `${claimCount} claim${claimCount === 1 ? "" : "s"}` : null,
+    quoteCount > 0 ? `${quoteCount} quote${quoteCount === 1 ? "" : "s"}` : null,
+    tableCount > 0 ? `${tableCount} table${tableCount === 1 ? "" : "s"}` : null,
+  ].filter((part): part is string => Boolean(part));
+
+  if (countParts.length === 0 && sourceCount > 0) {
+    countParts.push(`${sourceCount} source${sourceCount === 1 ? "" : "s"}`);
+  }
+
+  return [support, ...countParts].join(" · ");
 }
 
-type EvidenceTabName = "Tables" | "Sources" | "Images" | "Quotes" | "PDFs" | "Map";
+type EvidenceTabName = "Claims" | "Quotes" | "Tables" | "Images" | "Gaps";
 
 function renderModelAllows(renderModel: AnswerRenderModel, block: AnswerRenderModel["allowedBlocks"][number]) {
   return renderModel.allowedBlocks.includes(block);
 }
 
 function evidenceTabOrder(_answer: RagAnswer, renderModel: AnswerRenderModel): EvidenceTabName[] {
-  const order: EvidenceTabName[] = ["Sources", "Map", "Tables", "Quotes", "PDFs", "Images"];
+  const order: EvidenceTabName[] = ["Claims", "Quotes", "Tables", "Images", "Gaps"];
   return order.filter((tab) => {
     if (tab === "Tables") {
       return (
@@ -2136,11 +2442,10 @@ function evidenceTabOrder(_answer: RagAnswer, renderModel: AnswerRenderModel): E
         renderModel.visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length)
       );
     }
-    if (tab === "Sources") return renderModelAllows(renderModel, "reviewSources");
     if (tab === "Images") return renderModelAllows(renderModel, "visualEvidence");
     if (tab === "Quotes") return renderModelAllows(renderModel, "quoteCards");
-    if (tab === "PDFs") return renderModelAllows(renderModel, "reviewSources");
-    return renderModelAllows(renderModel, "evidenceMap");
+    if (tab === "Gaps") return renderModel.warnings.length > 0;
+    return renderModelAllows(renderModel, "evidenceMap") || renderModelAllows(renderModel, "reviewSources");
   });
 }
 
@@ -2149,24 +2454,27 @@ function evidenceTabCount({
   sources,
   visualEvidence,
   answerEvidenceMapRows,
-  pdfSources,
   renderModel,
 }: {
   tab: EvidenceTabName;
   sources: SearchResult[];
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pdfSources: RenderModelPdfSource[];
   renderModel: AnswerRenderModel;
 }) {
   if (tab === "Tables") {
     return visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
   }
-  if (tab === "Sources") return sources.length || renderModel.primarySources.length;
+  if (tab === "Claims")
+    return (
+      answerEvidenceMapRows.length ||
+      renderModel.evidenceRows.length ||
+      sources.length ||
+      renderModel.primarySources.length
+    );
   if (tab === "Images") return visualEvidence.length;
   if (tab === "Quotes") return renderModel.quoteCards.length;
-  if (tab === "PDFs") return pdfSources.length;
-  return answerEvidenceMapRows.length;
+  return renderModel.warnings.length;
 }
 
 function clinicalNotesCount(answer: RagAnswer) {
@@ -2466,7 +2774,7 @@ function RenderModelSourceList({
     <div className="space-y-3">
       {sources.map((source, index) => {
         const metadata = normalizeSourceMetadata(source.sourceMetadata);
-        const snippet = compactSourceSnippet(source.snippet ?? "");
+        const snippet = compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title });
         const openLabel = `Open source ${index + 1}: ${cleanDisplayTitle(source.title)}${query ? ` for ${query}` : ""}`;
         return (
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
@@ -3286,13 +3594,133 @@ function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
 }
 
 const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
-  Tables: ListChecks,
-  Sources: Layers,
-  Images: FileImage,
+  Claims: CheckCircle2,
   Quotes: Quote,
-  PDFs: FileText,
-  Map: BookOpen,
+  Tables: ListChecks,
+  Images: FileImage,
+  Gaps: AlertCircle,
 };
+
+function supportDotClass(supportLevel: string) {
+  const normalized = supportLevel.toLowerCase();
+  if (normalized.includes("unsupported") || normalized.includes("none")) return "bg-[color:var(--danger)]";
+  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) {
+    return "bg-[color:var(--warning)]";
+  }
+  return "bg-[color:var(--clinical-accent)]";
+}
+
+function supportLabel(supportLevel: string) {
+  const normalized = supportLevel.toLowerCase();
+  if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
+  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
+    return "Partial";
+  return "Direct";
+}
+
+function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: AnswerRenderModel) {
+  if (rows.length) return rows.slice(0, 6);
+  return renderModel.primarySources.slice(0, 6).map((source, index) => ({
+    id: source.id,
+    section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
+    detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
+    supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
+    citationCount: 1,
+    sourceStatus:
+      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
+    bestSourceLabel: source.label,
+    bestLinkedPassage: source.snippet || source.reason,
+    href: source.href,
+  }));
+}
+
+function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[]; renderModel: AnswerRenderModel }) {
+  const claimRows = claimRowsForEvidencePanel(rows, renderModel);
+  const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
+  const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
+
+  if (!claimRows.length) {
+    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+  }
+
+  return (
+    <div data-testid="evidence-claims-panel" className="space-y-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Claims checked</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--clinical-accent)]" />
+              Direct
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--warning)]" />
+              Partial
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--danger)]" />
+              Unsupported
+            </span>
+          </div>
+        </div>
+        <p className="shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
+          {directCount} direct <span className="mx-1">·</span> {partialCount} partial
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+        {claimRows.map((row, index) => (
+          <Link
+            key={`${row.id}:${index}`}
+            href={row.href ?? "#"}
+            data-testid={row.href ? "evidence-map-open-source" : undefined}
+            aria-disabled={!row.href}
+            className={cn(
+              "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+              !row.href && "pointer-events-none",
+            )}
+            aria-label={`Open source for ${row.section}`}
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
+            <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
+              <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
+                {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
+              </span>
+            </span>
+            <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
+  if (!warnings.length) {
+    return (
+      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
+    );
+  }
+
+  return (
+    <div className="grid gap-2">
+      {warnings.map((warning, index) => (
+        <article
+          key={`${warning}:${index}`}
+          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 p-3"
+        >
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[color:var(--warning)]">Gap {index + 1}</p>
+            <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{warning}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
 
 function MobileEvidenceSheetContent({
   answer,
@@ -3301,6 +3729,8 @@ function MobileEvidenceSheetContent({
   query,
   visualEvidence,
   answerEvidenceMapRows,
+  sourceGovernanceWarnings,
+  demoMode,
   initialTab,
   pendingFeedback,
   copiedQuotes,
@@ -3315,6 +3745,8 @@ function MobileEvidenceSheetContent({
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  sourceGovernanceWarnings: SourceGovernanceWarning[];
+  demoMode: boolean;
   initialTab?: EvidenceTabName | null;
   pendingFeedback: AnswerFeedbackType | null;
   copiedQuotes: boolean;
@@ -3324,10 +3756,22 @@ function MobileEvidenceSheetContent({
   onScopeDocument: (documentId: string) => void;
 }) {
   const order = evidenceTabOrder(answer, renderModel);
-  const pdfSources = uniquePdfSourcesForRenderModel(renderModel).slice(0, 6);
   const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
   const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
   const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
+  const [added, setAdded] = useState(false);
+  const primarySourceHref = renderModel.primarySources[0]?.href;
+  async function copyEvidence() {
+    if (renderModel.quoteCards.length) {
+      onCopyQuotes();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(renderModel.copyText);
+    } catch {
+      // Clipboard writes can fail in locked-down browsers; keep the panel usable.
+    }
+  }
 
   return (
     <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
@@ -3346,7 +3790,6 @@ function MobileEvidenceSheetContent({
               sources,
               visualEvidence,
               answerEvidenceMapRows,
-              pdfSources,
               renderModel,
             });
             return (
@@ -3360,7 +3803,7 @@ function MobileEvidenceSheetContent({
                 data-testid={`mobile-evidence-tab-${tab.toLowerCase()}`}
                 onClick={() => setSelectedTab(tab)}
                 className={cn(
-                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition sm:min-h-10",
+                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
                   selected
                     ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
@@ -3395,7 +3838,6 @@ function MobileEvidenceSheetContent({
                   query={query}
                   visualEvidence={visualEvidence}
                   answerEvidenceMapRows={answerEvidenceMapRows}
-                  pdfSources={pdfSources}
                   copiedQuotes={copiedQuotes}
                   onCopyQuotes={onCopyQuotes}
                   onFollowUpQuote={onFollowUpQuote}
@@ -3406,7 +3848,47 @@ function MobileEvidenceSheetContent({
           );
         })}
       </div>
+      <ScopeAndGovernanceNotice scope={null} warnings={sourceGovernanceWarnings} />
+      <AnswerSafetyNotice
+        demoMode={demoMode}
+        weakEvidence={renderModel.trust !== "high"}
+        retrievalDiagnostics={answer.retrievalDiagnostics}
+      />
       <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+      <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
+        <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
+          {primarySourceHref ? (
+            <Link
+              href={primarySourceHref}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Source
+            </Link>
+          ) : (
+            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Source
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void copyEvidence()}
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copiedQuotes ? "Copied" : "Copy"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdded(true)}
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {added ? "Added" : "Add"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -3417,7 +3899,6 @@ function MobileEvidenceTabPanel({
   query,
   visualEvidence,
   answerEvidenceMapRows,
-  pdfSources,
   copiedQuotes,
   onCopyQuotes,
   onFollowUpQuote,
@@ -3428,12 +3909,15 @@ function MobileEvidenceTabPanel({
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pdfSources: RenderModelPdfSource[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onFollowUpQuote?: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
+  if (tab === "Claims") {
+    return <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />;
+  }
+
   if (tab === "Tables") {
     const tableEvidence = visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length);
     return tableEvidence.length ? (
@@ -3462,16 +3946,6 @@ function MobileEvidenceTabPanel({
     );
   }
 
-  if (tab === "Sources") {
-    return (
-      <RenderModelSourceList
-        sources={renderModel.primarySources.slice(0, 4)}
-        query={query}
-        onScopeDocument={onScopeDocument}
-      />
-    );
-  }
-
   if (tab === "Images") {
     return visualEvidence.length ? (
       <VisualEvidenceStrip evidence={visualEvidence} embedded />
@@ -3492,33 +3966,7 @@ function MobileEvidenceTabPanel({
     );
   }
 
-  if (tab === "PDFs") {
-    return pdfSources.length ? (
-      <div className="grid gap-2">
-        {pdfSources.map((source, index) => (
-          <Link
-            key={`${source.document_id}:${source.file_name}:${index}`}
-            href={`/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${"id" in source ? source.id : (source.chunk_id ?? "")}`}
-            className={cn(sourceCard, "flex min-h-[52px] items-center justify-between gap-3 p-3")}
-          >
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
-                {cleanDisplayTitle(source.title)}
-              </span>
-              <span className={cn("block truncate text-xs", textMuted)}>
-                {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
-              </span>
-            </span>
-            <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-          </Link>
-        ))}
-      </div>
-    ) : (
-      <EmptyState icon={FileText} title={emptyStates.pdfsUsed.title} body={emptyStates.pdfsUsed.body} />
-    );
-  }
-
-  return <EvidenceMapTable rows={answerEvidenceMapRows} />;
+  return <EvidenceGapsPanel warnings={renderModel.warnings} />;
 }
 
 function UnifiedEvidenceDrawerContent({
@@ -3547,7 +3995,6 @@ function UnifiedEvidenceDrawerContent({
   onScopeDocument: (documentId: string) => void;
 }) {
   const order = evidenceTabOrder(answer, renderModel);
-  const pdfSources = uniquePdfSourcesForRenderModel(renderModel).slice(0, 6);
 
   return (
     <div className="space-y-4">
@@ -3569,6 +4016,15 @@ function UnifiedEvidenceDrawerContent({
       </div>
 
       {order.map((section) => {
+        if (section === "Claims") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Claims</p>
+              <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />
+            </section>
+          );
+        }
+
         if (section === "Tables") {
           return (
             <section key={section} className="space-y-2">
@@ -3604,19 +4060,6 @@ function UnifiedEvidenceDrawerContent({
           );
         }
 
-        if (section === "Sources") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Sources</p>
-              <RenderModelSourceList
-                sources={renderModel.primarySources.slice(0, 4)}
-                query={query}
-                onScopeDocument={onScopeDocument}
-              />
-            </section>
-          );
-        }
-
         if (section === "Images") {
           return (
             <section key={section} className="space-y-2">
@@ -3647,41 +4090,10 @@ function UnifiedEvidenceDrawerContent({
           );
         }
 
-        if (section === "PDFs") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">PDFs used</p>
-              {pdfSources.length ? (
-                <div className="grid gap-2">
-                  {pdfSources.map((source, index) => (
-                    <Link
-                      key={`${source.document_id}:${source.file_name}:${index}`}
-                      href={`/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${"id" in source ? source.id : (source.chunk_id ?? "")}`}
-                      className={cn(sourceCard, "flex min-h-[52px] items-center justify-between gap-3 p-3")}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
-                          {cleanDisplayTitle(source.title)}
-                        </span>
-                        <span className={cn("block truncate text-xs", textMuted)}>
-                          {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
-                        </span>
-                      </span>
-                      <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState icon={FileText} title={emptyStates.pdfsUsed.title} body={emptyStates.pdfsUsed.body} />
-              )}
-            </section>
-          );
-        }
-
         return (
           <section key={section} className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Evidence map</p>
-            <EvidenceMapTable rows={answerEvidenceMapRows} />
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Gaps</p>
+            <EvidenceGapsPanel warnings={renderModel.warnings} />
           </section>
         );
       })}
@@ -3818,18 +4230,62 @@ function StagedAnswerResultSurface({
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
+  const [activeReviewPanel, setActiveReviewPanel] = useState<"clinical" | "evidence" | null>(null);
   const [copiedQuotes, setCopiedQuotes] = useState(false);
+  const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
+  const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
+  const useReviewSheet = useMobilePreviewSheet();
   const copyQuotesTimerRef = useRef<number | null>(null);
   useEffect(() => {
     return () => {
       if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
     };
   }, []);
-  const openTableEvidence = useCallback(() => {
+  function openClinicalNotes() {
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    if (useReviewSheet) {
+      setActiveReviewPanel(null);
+      setClinicalNotesOpen(true);
+      return;
+    }
     setClinicalNotesOpen(false);
-    setEvidenceInitialTab("Tables");
-    setEvidenceOpen(true);
-  }, [setClinicalNotesOpen, setEvidenceInitialTab, setEvidenceOpen]);
+    setActiveReviewPanel("clinical");
+  }
+  function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
+    window.requestAnimationFrame(() => {
+      if (ref.current?.isConnected) ref.current.focus({ preventScroll: true });
+    });
+  }
+  function closeClinicalNotesReview() {
+    setClinicalNotesOpen(false);
+    restoreFocusToTrigger(clinicalNotesTriggerRef);
+  }
+  function openEvidence(initialTab: EvidenceTabName | null = null) {
+    setClinicalNotesOpen(false);
+    setEvidenceInitialTab(initialTab);
+    if (useReviewSheet) {
+      setActiveReviewPanel(null);
+      setEvidenceOpen(true);
+      return;
+    }
+    setEvidenceOpen(false);
+    setActiveReviewPanel("evidence");
+  }
+  function closeEvidenceReview() {
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    restoreFocusToTrigger(evidenceTriggerRef);
+  }
+  function closeDesktopReviewPanel() {
+    const triggerRef = activeReviewPanel === "clinical" ? clinicalNotesTriggerRef : evidenceTriggerRef;
+    setActiveReviewPanel(null);
+    restoreFocusToTrigger(triggerRef);
+  }
+  function openTableEvidence() {
+    setClinicalNotesOpen(false);
+    openEvidence("Tables");
+  }
   const copyQuotes = useCallback(async () => {
     const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);
     if (!quoteText) return;
@@ -3842,6 +4298,14 @@ function StagedAnswerResultSurface({
       setCopiedQuotes(false);
     }
   }, [renderModel.quoteCards]);
+  const priority = answerSupportPriority(answer, safeAnswerSections, centralTable, safetyFindings, {
+    grounded: answerGrounded,
+    weakEvidence,
+  });
+  const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
+  const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
+  const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
+  const showLayoutAside = Boolean(activeReviewPanel || centralTable);
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
@@ -3853,8 +4317,8 @@ function StagedAnswerResultSurface({
           data-desktop-table-aside={centralTable ? "true" : "false"}
           className={cn(
             "space-y-3",
-            centralTable &&
-              "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.78fr)] lg:items-start lg:gap-4 lg:space-y-0",
+            showLayoutAside &&
+              "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(21rem,0.72fr)] lg:items-start lg:gap-5 lg:space-y-0",
           )}
         >
           <div className="min-w-0 space-y-3">
@@ -3871,10 +4335,95 @@ function StagedAnswerResultSurface({
               onCopy={onCopyAnswer}
             />
 
-            <KeyClinicalItems sections={safeAnswerSections} table={centralTable} />
+            {showInlineSupportCard ? (
+              <AnswerSupportSummaryCard
+                priority={priority}
+                clinicalCount={clinicalNoteDisplayCount}
+                evidenceSummary={inlineEvidenceSummary}
+                clinicalAvailable={showClinicalNotes}
+                evidenceAvailable={showEvidenceDrawer}
+                clinicalTriggerRef={clinicalNotesTriggerRef}
+                evidenceTriggerRef={evidenceTriggerRef}
+                onOpenClinicalNotes={openClinicalNotes}
+                onOpenEvidence={() => openEvidence(null)}
+              />
+            ) : null}
+
+            {centralTable && activeReviewPanel ? <InlineTableCard item={centralTable} /> : null}
           </div>
 
-          {centralTable ? (
+          {activeReviewPanel ? (
+            <aside
+              data-testid="desktop-answer-review-panel"
+              className="hidden min-h-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:sticky lg:top-4"
+              aria-label={activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
+            >
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg")}>
+                    {activeReviewPanel === "clinical" ? (
+                      <ClipboardCheck className="h-3.5 w-3.5" />
+                    ) : (
+                      <Layers className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
+                        {activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
+                      </h3>
+                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+                        {activeReviewPanel === "clinical" ? clinicalNoteDisplayCount : "Supported"}
+                      </span>
+                    </div>
+                    <p className={cn("mt-1 text-sm leading-5", textMuted)}>
+                      {activeReviewPanel === "clinical"
+                        ? "Source-backed points from this answer."
+                        : "Review by evidence type."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDesktopReviewPanel}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  aria-label={`Close ${activeReviewPanel === "clinical" ? "clinical notes" : "evidence"}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 polished-scroll">
+                {activeReviewPanel === "clinical" ? (
+                  <ClinicalNotesChecklistPanel
+                    answer={answer}
+                    viewMode={answerViewMode}
+                    evidenceMapRows={answerEvidenceMapRows}
+                    bestSource={bestSource}
+                    copied={copiedAnswer}
+                    onCopy={onCopyAnswer}
+                    onOpenTables={openTableEvidence}
+                  />
+                ) : (
+                  <MobileEvidenceSheetContent
+                    answer={answer}
+                    sources={sources}
+                    renderModel={renderModel}
+                    query={query}
+                    visualEvidence={renderModel.visualEvidence}
+                    answerEvidenceMapRows={answerEvidenceMapRows}
+                    sourceGovernanceWarnings={sourceGovernanceWarnings}
+                    demoMode={demoMode}
+                    initialTab={evidenceInitialTab}
+                    pendingFeedback={pendingFeedback}
+                    copiedQuotes={copiedQuotes}
+                    onCopyQuotes={copyQuotes}
+                    onSubmitFeedback={onSubmitFeedback}
+                    onScopeDocument={onScopeDocument}
+                  />
+                )}
+              </div>
+            </aside>
+          ) : centralTable ? (
             <div className="min-w-0 lg:sticky lg:top-24">
               <InlineTableCard item={centralTable} />
             </div>
@@ -3882,35 +4431,23 @@ function StagedAnswerResultSurface({
         </div>
 
         {showClinicalNotes ? (
-          <UtilityDrawer
-            id="answer-clinical-notes-drawer"
-            icon={ClipboardCheck}
-            title="Clinical notes"
-            summary="Monitoring, safety, escalation, or caution details when clinically useful."
-            mobileSummary={`${clinicalNoteDisplayCount} note${clinicalNoteDisplayCount === 1 ? "" : "s"} · Source-backed`}
-            className={clinicalNotesRow}
+          <Sheet
             open={clinicalNotesOpen}
-            onOpenChange={(open) => {
-              if (open) setEvidenceOpen(false);
-              setClinicalNotesOpen(open);
-            }}
-            sheetHeaderLeading={
+            onClose={closeClinicalNotesReview}
+            title="Clinical notes"
+            description="Source-backed points from this answer."
+            closeLabel="Close clinical notes"
+            headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
                 <ClipboardCheck className="h-3.5 w-3.5" />
               </span>
             }
-            sheetTitleAccessory={
+            titleAccessory={
               <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
-            sheetDescriptionContent={
-              <span className="inline-flex min-h-5 items-center gap-1.5 text-[11px] font-semibold text-[color:var(--primary)]">
-                <ShieldCheck className="h-3 w-3" />
-                Source-backed
-              </span>
-            }
-            sheetHeaderActions={
+            headerActions={
               bestSource ? (
                 <Link
                   href={bestSource.viewer_href}
@@ -3921,14 +4458,14 @@ function StagedAnswerResultSurface({
                 </Link>
               ) : null
             }
-            sheetDescription={null}
-            sheetHeaderClassName="gap-2 p-2.5 sm:p-3"
-            sheetTitleClassName="text-[15px] leading-5"
-            sheetCloseButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            sheetChildrenClassName="flex min-h-0 flex-1 flex-col"
-            sheetContentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            sheetContentStyle={{ height: "80dvh" }}
-            sheetBodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            headerClassName="gap-2 p-2.5 sm:p-3"
+            titleClassName="text-[15px] leading-5"
+            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
+            contentStyle={{ height: "80dvh" }}
+            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            returnFocusRef={clinicalNotesTriggerRef}
+            portal
           >
             <ClinicalNotesChecklistPanel
               answer={answer}
@@ -3939,99 +4476,47 @@ function StagedAnswerResultSurface({
               onCopy={onCopyAnswer}
               onOpenTables={openTableEvidence}
             />
-          </UtilityDrawer>
+          </Sheet>
         ) : null}
 
         {showEvidenceDrawer ? (
-          <UtilityDrawer
-            id="answer-evidence-drawer"
-            icon={Layers}
-            title="Evidence"
-            summary={compactEvidenceSummary(answer, sources, sourceSummary, renderModel)}
-            mobileSummary={compactEvidenceSummary(answer, sources, sourceSummary, renderModel)}
-            className={evidenceRow}
+          <Sheet
             open={evidenceOpen}
-            onOpenChange={(open) => {
-              if (open) setClinicalNotesOpen(false);
-              setEvidenceOpen(open);
-              if (!open) setEvidenceInitialTab(null);
-            }}
+            onClose={closeEvidenceReview}
+            title="Evidence"
+            description="Review by evidence type."
+            titleAccessory={
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
+            }
+            closeLabel="Close evidence"
+            headerLeading={
+              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
+                <Layers className="h-3.5 w-3.5" />
+              </span>
+            }
+            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
+            contentStyle={{ height: "80dvh" }}
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            returnFocusRef={evidenceTriggerRef}
+            portal
           >
-            <div className="sm:hidden">
-              <MobileEvidenceSheetContent
-                answer={answer}
-                sources={sources}
-                renderModel={renderModel}
-                query={query}
-                visualEvidence={renderModel.visualEvidence}
-                answerEvidenceMapRows={answerEvidenceMapRows}
-                initialTab={evidenceInitialTab}
-                pendingFeedback={pendingFeedback}
-                copiedQuotes={copiedQuotes}
-                onCopyQuotes={copyQuotes}
-                onSubmitFeedback={onSubmitFeedback}
-                onScopeDocument={onScopeDocument}
-              />
-            </div>
-            <div className="hidden space-y-3 sm:block">
-              {renderModelAllows(renderModel, "sourceStatus") ? (
-                <>
-                  <AnswerInsightBar
-                    answer={answer}
-                    bestSource={bestSource}
-                    relevance={currentRelevance}
-                    queryMode={queryMode}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                  />
-                  <EvidenceVerificationStrip
-                    answer={answer}
-                    bestSource={bestSource}
-                    sourceSummary={sourceSummary}
-                    weakEvidence={weakEvidence}
-                    governanceWarningCount={groupedGovernanceWarningCount}
-                  />
-                </>
-              ) : null}
-              {renderModelAllows(renderModel, "reviewSources") ? (
-                <EvidenceSummaryCard
-                  answer={answer}
-                  bestSource={bestSource}
-                  grounded={answerGrounded}
-                  relevance={currentRelevance}
-                  sourceSummary={sourceSummary}
-                  weakEvidence={weakEvidence}
-                  sources={sources}
-                  gaps={gaps}
-                  onScopeDocument={onScopeDocument}
-                  supporting
-                />
-              ) : null}
-              {renderModelAllows(renderModel, "warnings") ? (
-                <>
-                  <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                  <AnswerSafetyNotice
-                    demoMode={demoMode}
-                    weakEvidence={weakEvidence}
-                    retrievalDiagnostics={answer.retrievalDiagnostics}
-                  />
-                  <EvidenceGapPanel relevance={currentRelevance} sources={sources} query={query} />
-                </>
-              ) : null}
-              {renderModelAllows(renderModel, "diagnostics") ? <WhyThisMatchedPanel sources={sources} /> : null}
-              <UnifiedEvidenceDrawerContent
-                answer={answer}
-                renderModel={renderModel}
-                query={query}
-                visualEvidence={renderModel.visualEvidence}
-                answerEvidenceMapRows={answerEvidenceMapRows}
-                pendingFeedback={pendingFeedback}
-                copiedQuotes={copiedQuotes}
-                onCopyQuotes={copyQuotes}
-                onSubmitFeedback={onSubmitFeedback}
-                onScopeDocument={onScopeDocument}
-              />
-            </div>
-          </UtilityDrawer>
+            <MobileEvidenceSheetContent
+              answer={answer}
+              sources={sources}
+              renderModel={renderModel}
+              query={query}
+              visualEvidence={renderModel.visualEvidence}
+              answerEvidenceMapRows={answerEvidenceMapRows}
+              sourceGovernanceWarnings={sourceGovernanceWarnings}
+              demoMode={demoMode}
+              initialTab={evidenceInitialTab}
+              pendingFeedback={pendingFeedback}
+              copiedQuotes={copiedQuotes}
+              onCopyQuotes={copyQuotes}
+              onSubmitFeedback={onSubmitFeedback}
+              onScopeDocument={onScopeDocument}
+            />
+          </Sheet>
         ) : null}
       </div>
 
@@ -4141,9 +4626,308 @@ const tagQualityTone: Record<SmartDocumentTagQualityIssueKind, string> = {
   overused: toneNeutral,
 };
 
+const labelTierTone: Record<SmartDocumentTagTier, string> = {
+  primary: toneSuccess,
+  secondary: toneNeutral,
+  ranking: toneInfo,
+};
+
+const documentLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }> = [
+  { value: "site", label: "Site" },
+  { value: "topic", label: "Topic" },
+  { value: "document_type", label: "Document type" },
+  { value: "medication", label: "Medication" },
+  { value: "risk", label: "Risk" },
+  { value: "setting", label: "Setting" },
+  { value: "workflow", label: "Workflow" },
+  { value: "population", label: "Population" },
+  { value: "service", label: "Service" },
+  { value: "clinical_action", label: "Clinical action" },
+  { value: "care_phase", label: "Care phase" },
+  { value: "document_intent", label: "Document intent" },
+  { value: "content_feature", label: "Content feature" },
+  { value: "custom", label: "Manual" },
+];
+
 function tagQualityLabel(kind: SmartDocumentTagQualityIssueKind) {
   if (kind === "low_confidence") return "low confidence";
   return kind;
+}
+
+function normalizedLabelReviewRow(label: DocumentLabel) {
+  const normalized = normalizeDocumentLabelForStorage(label);
+  const fallbackLabelType = documentLabelTypeOptions.some((option) => option.value === label.label_type)
+    ? label.label_type
+    : "custom";
+  const labelType = normalized?.label_type ?? fallbackLabelType;
+  const labelText = normalized?.label ?? label.label?.trim() ?? "";
+  const tier: SmartDocumentTagTier = normalized
+    ? documentLabelTier(normalized.label, normalized.label_type)
+    : "secondary";
+  const reviewStatus = documentLabelReviewStatus(label);
+  return {
+    id: label.id,
+    label: labelText,
+    displayLabel: labelText ? formatDocumentLabelDisplay(labelText, labelType) : "Unreviewed label",
+    labelType,
+    tier,
+    reviewStatus,
+    source: label.source,
+    confidence: normalized?.confidence ?? label.confidence ?? 0,
+  };
+}
+
+function labelTypeDisplay(value: DocumentLabelType) {
+  return documentLabelTypeOptions.find((option) => option.value === value)?.label ?? value.replaceAll("_", " ");
+}
+
+type LabelReviewMutationBody =
+  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
+
+function DocumentLabelReviewPanel({
+  documents,
+  canManage,
+  onMutateLabel,
+}: {
+  documents: ClinicalDocument[];
+  canManage: boolean;
+  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
+}) {
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [overrideDrafts, setOverrideDrafts] = useState<Record<string, { label: string; labelType: DocumentLabelType }>>(
+    {},
+  );
+
+  const items = useMemo(() => {
+    return documents
+      .map((document) => {
+        const rows = (document.labels ?? [])
+          .map((label) => normalizedLabelReviewRow(label))
+          .filter((row): row is NonNullable<ReturnType<typeof normalizedLabelReviewRow>> => Boolean(row));
+        const visible = rows.filter((row) => row.reviewStatus !== "hidden" && row.tier !== "ranking");
+        const ranking = rows.filter((row) => row.reviewStatus !== "hidden" && row.tier === "ranking");
+        const hidden = rows.filter((row) => row.reviewStatus === "hidden");
+        const needsReview = rows.some((row) => row.reviewStatus === "new" && row.source === "generated");
+        return { document, rows, visible, ranking, hidden, needsReview };
+      })
+      .filter((item) => item.rows.length)
+      .sort((a, b) => Number(b.needsReview) - Number(a.needsReview) || b.ranking.length - a.ranking.length)
+      .slice(0, 8);
+  }, [documents]);
+
+  if (!items.length) return null;
+
+  async function mutate(documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody, actionId: string) {
+    setBusyAction(actionId);
+    try {
+      return await onMutateLabel(documentId, method, body);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function draftFor(documentId: string) {
+    return overrideDrafts[documentId] ?? { label: "", labelType: "topic" as DocumentLabelType };
+  }
+
+  function setDraft(documentId: string, next: { label: string; labelType: DocumentLabelType }) {
+    setOverrideDrafts((current) => ({ ...current, [documentId]: next }));
+  }
+
+  return (
+    <details className={cn(sourceCard, "group p-3")}>
+      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={cn(iconTilePremium, "h-8 w-8")}>
+            <ClipboardCheck className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[color:var(--text)]">Label review</span>
+            <span className={cn("block truncate text-xs", textMuted)}>
+              Visible labels, ranking labels, hidden labels, confidence, and manual overrides
+            </span>
+          </span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+      </summary>
+      <div className="mt-3 grid gap-3 border-t border-[color:var(--border)] pt-3">
+        {items.map((item) => {
+          const draft = draftFor(item.document.id);
+          return (
+            <article
+              key={item.document.id}
+              className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <Link
+                    href={`/documents/${item.document.id}`}
+                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                  >
+                    {documentDisplayTitle(item.document)}
+                  </Link>
+                  <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
+                    {item.visible.length} visible · {item.ranking.length} ranking · {item.hidden.length} hidden
+                  </p>
+                </div>
+                {item.needsReview ? (
+                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-[11px]")}>Needs review</span>
+                ) : (
+                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-[11px]")}>Reviewed</span>
+                )}
+              </div>
+
+              {(
+                [
+                  { title: "Visible", rows: item.visible },
+                  { title: "Ranking", rows: item.ranking },
+                  { title: "Hidden", rows: item.hidden },
+                ] satisfies Array<{ title: string; rows: typeof item.rows }>
+              ).map(({ title, rows: labelRows }) => {
+                if (!labelRows.length) return null;
+                return (
+                  <section key={title} className="grid gap-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                      {title}
+                    </p>
+                    <div className="grid gap-1.5">
+                      {labelRows.slice(0, 8).map((label) => (
+                        <div
+                          key={label.id}
+                          className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="truncate text-xs font-semibold text-[color:var(--text)]">
+                                {label.displayLabel}
+                              </span>
+                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-[10px]")}>
+                                {label.tier}
+                              </span>
+                              <span className={cn(metadataPill, "min-h-6 text-[10px]")}>
+                                {labelTypeDisplay(label.labelType)}
+                              </span>
+                            </div>
+                            <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
+                              {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {label.reviewStatus === "hidden" ? (
+                              <button
+                                type="button"
+                                disabled={!canManage || busyAction !== null}
+                                onClick={() =>
+                                  void mutate(
+                                    item.document.id,
+                                    "PATCH",
+                                    { labelId: label.id, action: "restore" },
+                                    `restore:${label.id}`,
+                                  )
+                                }
+                                className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
+                              >
+                                Restore
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={!canManage || busyAction !== null || label.reviewStatus === "approved"}
+                                  onClick={() =>
+                                    void mutate(
+                                      item.document.id,
+                                      "PATCH",
+                                      { labelId: label.id, action: "approve" },
+                                      `approve:${label.id}`,
+                                    )
+                                  }
+                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!canManage || busyAction !== null}
+                                  onClick={() =>
+                                    void mutate(
+                                      item.document.id,
+                                      "PATCH",
+                                      { labelId: label.id, action: "hide" },
+                                      `hide:${label.id}`,
+                                    )
+                                  }
+                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px] text-[color:var(--danger)]")}
+                                >
+                                  Hide
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+
+              <form
+                className="grid gap-2 border-t border-[color:var(--border)] pt-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const trimmed = draft.label.trim();
+                  if (!trimmed) return;
+                  void mutate(
+                    item.document.id,
+                    "POST",
+                    { label: trimmed, label_type: draft.labelType },
+                    `override:${item.document.id}`,
+                  ).then((ok) => {
+                    if (ok) setDraft(item.document.id, { label: "", labelType: draft.labelType });
+                  });
+                }}
+              >
+                <input
+                  value={draft.label}
+                  onChange={(event) => setDraft(item.document.id, { ...draft, label: event.target.value })}
+                  disabled={!canManage || busyAction !== null}
+                  placeholder="Manual override label"
+                  className={fieldControlPlain}
+                />
+                <select
+                  value={draft.labelType}
+                  onChange={(event) =>
+                    setDraft(item.document.id, { ...draft, labelType: event.target.value as DocumentLabelType })
+                  }
+                  disabled={!canManage || busyAction !== null}
+                  aria-label="Manual override label type"
+                  className={fieldControlPlain}
+                >
+                  {documentLabelTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  disabled={!canManage || busyAction !== null || !draft.label.trim()}
+                  className={cn(primaryControl, "justify-center text-xs")}
+                >
+                  {busyAction === `override:${item.document.id}` ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Override
+                </button>
+              </form>
+            </article>
+          );
+        })}
+      </div>
+    </details>
+  );
 }
 
 function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] }) {
@@ -4308,6 +5092,7 @@ function DocumentDrawer({
   bulkActionBusy,
   canManageDocuments,
   onTagSearch,
+  onMutateLabel,
 }: {
   documents: ClinicalDocument[];
   pagination: DocumentPagination | null;
@@ -4326,6 +5111,7 @@ function DocumentDrawer({
   bulkActionBusy: boolean;
   canManageDocuments: boolean;
   onTagSearch: (tag: SmartDocumentTag) => void;
+  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
 }) {
   const [filter, setFilter] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -4591,6 +5377,9 @@ function DocumentDrawer({
         <p className={cn("text-xs", textMuted)}>
           Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
         </p>
+      ) : null}
+      {isAdminMode ? (
+        <DocumentLabelReviewPanel documents={documents} canManage={canManageDocuments} onMutateLabel={onMutateLabel} />
       ) : null}
       {isAdminMode ? <DocumentTagQualityPanel documents={documents} /> : null}
       {isAdminMode ? <DocumentIndexRepairPanel documents={documents} /> : null}
@@ -6212,6 +7001,93 @@ export function ClinicalDashboard({
     setAnswer((current) => applyRenamedDocumentToAnswer(current, updatedDocument));
   }, []);
 
+  const handleDocumentLabelsUpdated = useCallback((documentId: string, labels: DocumentLabel[]) => {
+    setDocuments((current) =>
+      current.map((document) => (document.id === documentId ? { ...document, labels } : document)),
+    );
+    setDocumentMatches((current) =>
+      current.map((document) => (document.document_id === documentId ? { ...document, labels } : document)),
+    );
+    setSources((current) =>
+      current.map((source) => (source.document_id === documentId ? { ...source, document_labels: labels } : source)),
+    );
+  }, []);
+
+  const handleDocumentLabelPatched = useCallback((documentId: string, label: DocumentLabel) => {
+    function mergeLabel(labels: DocumentLabel[] | null | undefined) {
+      const current = labels ?? [];
+      let replaced = false;
+      const next = current.map((item) => {
+        if (item.id !== label.id) return item;
+        replaced = true;
+        return label;
+      });
+      return replaced ? next : [label, ...next];
+    }
+
+    setDocuments((current) =>
+      current.map((document) =>
+        document.id === documentId ? { ...document, labels: mergeLabel(document.labels) } : document,
+      ),
+    );
+    setDocumentMatches((current) =>
+      current.map((document) =>
+        document.document_id === documentId ? { ...document, labels: mergeLabel(document.labels) } : document,
+      ),
+    );
+    setSources((current) =>
+      current.map((source) =>
+        source.document_id === documentId ? { ...source, document_labels: mergeLabel(source.document_labels) } : source,
+      ),
+    );
+  }, []);
+
+  const mutateDocumentLabel = useCallback(
+    async (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => {
+      if (!canUsePrivateApis) return false;
+      try {
+        const response = await fetch(`/api/documents/${documentId}/labels`, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            ...(clientDemoMode ? {} : authorizationHeader),
+          },
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          markSessionExpired();
+          return false;
+        }
+        if (!response.ok) {
+          setActionNotice({
+            tone: "warning",
+            message: typeof payload?.error === "string" ? payload.error : "Label update failed.",
+          });
+          return false;
+        }
+        if (Array.isArray(payload.labels)) {
+          handleDocumentLabelsUpdated(documentId, payload.labels as DocumentLabel[]);
+        } else if (payload.label && typeof payload.label === "object") {
+          handleDocumentLabelPatched(documentId, payload.label as DocumentLabel);
+        }
+        setActionNotice({ tone: "success", message: "Document label review updated." });
+        return true;
+      } catch {
+        setActionNotice({ tone: "warning", message: "Label update failed." });
+        return false;
+      }
+    },
+    [
+      authorizationHeader,
+      canUsePrivateApis,
+      clientDemoMode,
+      handleDocumentLabelPatched,
+      handleDocumentLabelsUpdated,
+      markSessionExpired,
+    ],
+  );
+
   const handleDocumentDeleted = useCallback(
     (result: DocumentDeleteResult) => {
       setDocuments((current) => current.filter((document) => document.id !== result.documentId));
@@ -7015,6 +7891,13 @@ export function ClinicalDashboard({
 
   function openEvidenceDrawer() {
     closeDashboardTransientSurfaces();
+    const reviewTrigger = document.getElementById("answer-evidence-drawer-mobile-trigger") as HTMLButtonElement | null;
+    if (reviewTrigger) {
+      reviewTrigger.scrollIntoView({ block: "center", behavior: "smooth" });
+      reviewTrigger.click();
+      return;
+    }
+
     const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
     if (!drawer) {
       setActionNotice({
@@ -7634,6 +8517,7 @@ export function ClinicalDashboard({
                       query={query}
                       loading={loading}
                       documentCount={indexedDocumentTotal}
+                      recentDocuments={documents}
                       realDataReady={canRunSearch}
                       authUnavailable={!clientDemoMode && !canUsePrivateApis}
                       apiUnavailable={apiUnavailable}
@@ -7744,6 +8628,7 @@ export function ClinicalDashboard({
                       bulkActionBusy={bulkActionBusy}
                       canManageDocuments={canUsePrivateApis}
                       onTagSearch={handleTagSearch}
+                      onMutateLabel={mutateDocumentLabel}
                     />
                   </UtilityDrawer>
                 ) : null}

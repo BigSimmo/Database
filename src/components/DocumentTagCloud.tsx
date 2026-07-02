@@ -4,7 +4,7 @@ import { Clock3, FileText, ListChecks, ShieldAlert, Sparkles, Tag, Target, Users
 import { useMemo, useState } from "react";
 import {
   buildSmartDocumentTags,
-  groupSmartDocumentTags,
+  groupSmartDocumentTagsFromTags,
   type SmartDocumentTag,
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
@@ -12,7 +12,7 @@ import type { DocumentLabel } from "@/lib/types";
 import { cn } from "@/components/ui-primitives";
 
 type DocumentTagCloudProps = {
-  labels?: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null;
+  labels?: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence" | "metadata">> | null;
   query?: string;
   limit?: number;
   compact?: boolean;
@@ -118,14 +118,8 @@ export function DocumentTagCloud({
   selectedTagKeys,
   grouped = false,
 }: DocumentTagCloudProps) {
-  const tags = useMemo(
-    () => buildSmartDocumentTags(labels, { query, includeManualGroup: true }).filter((tag) => tag.tier !== "ranking"),
-    [labels, query],
-  );
-  const groupedTags = useMemo(
-    () => groupSmartDocumentTags(labels, { query, includeManualGroup: true }),
-    [labels, query],
-  );
+  const tags = useMemo(() => buildSmartDocumentTags(labels, { query, includeManualGroup: true }), [labels, query]);
+  const groupedTags = useMemo(() => groupSmartDocumentTagsFromTags(tags), [tags]);
   const selected = useMemo(() => new Set(selectedTagKeys ?? []), [selectedTagKeys]);
   const [expanded, setExpanded] = useState(false);
   if (tags.length === 0) return null;
