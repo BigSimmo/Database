@@ -6538,16 +6538,10 @@ export function ClinicalDashboard({
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
-  const storedSessionExists =
-    typeof window !== "undefined" &&
-    Object.keys(localStorage).some((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePrivateApis =
     localProjectReady &&
-    (localNoAuthMode ||
-      localDevCanAttemptPrivateApis ||
-      authStatus === "authenticated" ||
-      (supabaseEnvStatus === "ready" && storedSessionExists));
+    (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "mobileSidebar" | "documents" | "upload") => {

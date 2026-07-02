@@ -1566,9 +1566,7 @@ async function getSharedCachedSearch(
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = await cacheIndexingVersion(args);
-  async function probeSharedCacheMissReason(
-    reasonFromLookup?: SharedCacheMissReason,
-  ): Promise<SharedCacheMissReason> {
+  async function probeSharedCacheMissReason(reasonFromLookup?: SharedCacheMissReason): Promise<SharedCacheMissReason> {
     if (reasonFromLookup) return reasonFromLookup;
     try {
       const supabase = createAdminClient();
@@ -1822,19 +1820,21 @@ export function invalidateRagCachesForDocumentMutation(ownerId: string) {
   invalidateAnonymousSharedRagCaches();
 }
 
-async function insertRagQuery(row: Record<string, unknown>) {
+type RagQueryInsert = Omit<Database["public"]["Tables"]["rag_queries"]["Insert"], "metadata"> & {
+  metadata?: Record<string, unknown>;
+};
+
+async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
   const rawQuery = typeof row.query === "string" ? row.query : "";
-  const existingMetadata =
-    row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
   const safeRow = {
     ...row,
     query: queryTextForStorage(rawQuery),
-    metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
+    metadata: { ...(row.metadata ?? {}), ...queryPrivacyMetadata(rawQuery) } as Json,
   };
-  await supabase.from("rag_queries").insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
+  await supabase.from("rag_queries").insert(safeRow);
 }
 
 async function logRagQuery(row: Record<string, unknown>) {
@@ -5190,16 +5190,13 @@ function cleanAnswerSectionHeading(heading: string, body: string) {
 
 function applyProviderLabels(answer: RagAnswer): RagAnswer {
   const inferredSourceOnlyFallback =
-    answer.routingMode === "extractive" ||
-    /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
+    answer.routingMode === "extractive" || /(?:^|;\s*)generation_fallback(?::|$)/i.test(answer.routingReason ?? "");
   const answerQualityTier: RagAnswer["answerQualityTier"] =
     answer.answerQualityTier ??
     (answer.modelUsed ? "model_synthesis" : inferredSourceOnlyFallback ? "source_only" : undefined);
   const fallbackReason =
     answer.fallbackReason ??
-    (answerQualityTier === "source_only"
-      ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only")
-      : null);
+    (answerQualityTier === "source_only" ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only") : null);
   const degradedActive = answerQualityTier === "source_only";
   return {
     ...answer,

@@ -48,7 +48,11 @@ function jobsResponse(jobs: JobRow[], extra: Record<string, unknown> = {}) {
 
 export async function GET(request: Request) {
   try {
-    const { batchId, limit, offset } = parseRequestQuery(request, ingestionJobsQuerySchema, "Invalid ingestion jobs query.");
+    const { batchId, limit, offset } = parseRequestQuery(
+      request,
+      ingestionJobsQuerySchema,
+      "Invalid ingestion jobs query.",
+    );
     if (isDemoMode()) {
       return jobsResponse([], {
         demoMode: true,

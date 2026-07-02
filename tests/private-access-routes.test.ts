@@ -175,10 +175,17 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
     data: { signedUrl: `https://signed.local/${path}` },
     error: null,
   }));
-  const remove = vi.fn(async (...args: [string[]]) => {
-    void args;
-    return { data: [], error: null };
-  });
+  const remove = vi.fn(
+    async (
+      ...args: [string[]]
+    ): Promise<{
+      data: string[] | null;
+      error: QueryError | null;
+    }> => {
+      void args;
+      return { data: [], error: null };
+    },
+  );
   const storageFrom = vi.fn(() => ({ upload, createSignedUrl, remove }));
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
@@ -321,6 +328,28 @@ afterEach(() => {
 });
 
 describe("private document API access", () => {
+  it("still requires a valid token even when local no-auth mode is enabled", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(localPortRequest(4298, "/api/documents"));
+
+    expect(response.status).toBe(401);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("accepts authenticated bearer tokens in local no-auth mode", async () => {
+    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
+    mockRuntime(client, undefined, { localNoAuth: true });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents"));
+
+    expect(response.status).toBe(200);
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+  });
   it("rejects local no-auth private calls from unmanaged localhost ports before Supabase access", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
@@ -368,10 +397,10 @@ describe("private document API access", () => {
     const response = await GET(localPortRequest(4298, "/api/documents"));
     const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: "Authentication required." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(client.calls[0]).toMatchObject({ table: "documents", selected: "owner_id" });
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("resolves configured local no-auth owner email before document fallback", async () => {
@@ -395,13 +424,10 @@ describe("private document API access", () => {
     const response = await GET(localPortRequest(4298, "/api/documents"));
     const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.auth.admin.listUsers.mock.invocationCallOrder[0]).toBeLessThan(
-      client.from.mock.invocationCallOrder[0],
-    );
-    expect(client.calls.some((call) => call.selected === "owner_id")).toBe(false);
-    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: "Authentication required." });
+    expect(client.auth.admin.listUsers).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("rejects unauthenticated document listing", async () => {
@@ -714,7 +740,7 @@ describe("private document API access", () => {
       id: documentId,
       title: "Existing guideline",
       file_name: "guideline.pdf",
-      status: "indexed",
+      status: "failed",
       page_count: 4,
       chunk_count: 8,
       image_count: 1,
@@ -1061,8 +1087,77 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(200);
     // IDX-H1: only re-queue; never zero the chunk/page counts here (the worker resets at start).
-    expect(documentUpdate?.updatePayload).toEqual({ status: "queued", error_message: null });
+    // updated_at is the rollback-fence stamp shared with the reindex routes.
+    expect(documentUpdate?.updatePayload).toEqual({
+      status: "queued",
+      error_message: null,
+      updated_at: expect.any(String),
+    });
     expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the job retry when document queue status update fails", async () => {
+    const retryJobId = "99999999-9999-4999-8999-999999999999";
+    const previousJob = {
+      id: retryJobId,
+      document_id: documentId,
+      batch_id: null,
+      status: "failed",
+      stage: "failed",
+      progress: 42,
+      error_message: "OCR failed",
+      attempt_count: 2,
+      max_attempts: 3,
+      locked_at: null,
+      locked_by: null,
+      next_run_at: null,
+      completed_at: "2024-01-01T00:00:00.000Z",
+    };
+
+    let ingestionUpdateCount = 0;
+    const client = createSupabaseMock((call) => {
+      if (call.table === "ingestion_jobs" && call.operation === "select") {
+        return ok(previousJob);
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "update") {
+        ingestionUpdateCount += 1;
+        if (ingestionUpdateCount === 1) {
+          return ok({ id: retryJobId, document_id: documentId, status: "pending" });
+        }
+        return ok({ id: retryJobId });
+      }
+      if (call.table === "documents" && call.operation === "update") return fail("documents update failed");
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
+
+    const response = await POST(authenticatedRequest(`/api/ingestion/jobs/${retryJobId}/retry`, { method: "POST" }), {
+      params: Promise.resolve({ id: retryJobId }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(String((await payload(response)).error)).toBe("Request failed.");
+    const jobUpdates = client.calls.filter((call) => call.table === "ingestion_jobs" && call.operation === "update");
+    expect(jobUpdates).toHaveLength(2);
+    expect(jobUpdates[1]?.updatePayload).toEqual({
+      status: previousJob.status,
+      stage: previousJob.stage,
+      progress: previousJob.progress,
+      error_message: previousJob.error_message,
+      attempt_count: previousJob.attempt_count,
+      max_attempts: previousJob.max_attempts,
+      locked_at: previousJob.locked_at,
+      locked_by: previousJob.locked_by,
+      next_run_at: previousJob.next_run_at,
+      completed_at: previousJob.completed_at,
+    });
+    // Rollback fence: the rollback must be conditional on the exact
+    // next_run_at this reset wrote, so it cannot revert a concurrent retry's
+    // newer reset that re-wrote the same generic pending/queued fields.
+    const resetNextRunAt = (jobUpdates[0]?.updatePayload as { next_run_at?: string }).next_run_at;
+    expect(typeof resetNextRunAt).toBe("string");
+    expect(jobUpdates[1]?.filters).toContainEqual({ column: "next_run_at", value: resetNextRunAt });
   });
 
   it("runs enrichment-only reindex for owned indexed documents using generic metadata", async () => {
@@ -1071,7 +1166,7 @@ describe("private document API access", () => {
       owner_id: userId,
       title: "Future Uploaded Protocol",
       file_name: "future-upload.pdf",
-      source_path: null,
+      source_path: "legacy/imports/rollback.pdf",
       import_batch_id: null,
       metadata: { existing: true },
     };
@@ -1490,6 +1585,249 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
   });
 
+  it("rolls back single-document queue mutation when full reindex job enqueue fails", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Rollback Protocol",
+      file_name: "rollback.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 12,
+      chunk_count: 34,
+      image_count: 2,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("job insert failed");
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "Request failed." });
+    expect(documentUpdates).toHaveLength(2);
+    expect(documentUpdates[0]?.updatePayload).toEqual({
+      status: "queued",
+      error_message: null,
+      page_count: 0,
+      chunk_count: 0,
+      image_count: 0,
+      updated_at: expect.any(String),
+    });
+    expect(documentUpdates[1]?.updatePayload).toEqual({
+      status: "failed",
+      error_message: "older failure",
+      page_count: 12,
+      chunk_count: 34,
+      image_count: 2,
+    });
+    // Rollback fence: the rollback must be conditional on the updated_at
+    // stamp the queue-state write set, so it is a single atomic UPDATE that
+    // cannot revert a newer queue state written by an overlapping request.
+    const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
+    expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
+  });
+
+  it("skips single-document rollback when a competing active job appears after the safety check", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Rollback Guard Protocol",
+      file_name: "rollback-guard.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 12,
+      chunk_count: 34,
+      image_count: 2,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select" && call.limitCount === 1) {
+        return ok([{ id: "competing-job" }]);
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("job insert failed");
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+    const body = await payload(response);
+    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: "Request failed." });
+    expect(documentUpdates).toHaveLength(1);
+    expect(documentUpdates[0]?.updatePayload).toEqual({
+      status: "queued",
+      error_message: null,
+      page_count: 0,
+      chunk_count: 0,
+      image_count: 0,
+      updated_at: expect.any(String),
+    });
+  });
+
+  it("rolls back per-document queue mutation when bulk full reindex enqueue fails", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Rollback Protocol",
+      file_name: "bulk-rollback.pdf",
+      source_path: "legacy/imports/bulk-rollback.pdf",
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("bulk job insert failed");
+      return ok([]);
+    });
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId], mode: "full" }),
+      }),
+    );
+    const body = await payload(response);
+    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: false,
+      results: [
+        {
+          documentId,
+          mode: "full",
+          ok: false,
+          error: "bulk job insert failed",
+        },
+      ],
+    });
+    expect(documentUpdates).toHaveLength(2);
+    expect(documentUpdates[0]?.updatePayload).toEqual({
+      status: "queued",
+      error_message: null,
+      page_count: 0,
+      chunk_count: 0,
+      image_count: 0,
+      updated_at: expect.any(String),
+    });
+    expect(documentUpdates[1]?.updatePayload).toEqual({
+      status: "failed",
+      error_message: "older failure",
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+    });
+    // Rollback fence: same atomic-conditional guard as the single-document
+    // reindex route — the rollback matches on the stamp this request wrote.
+    const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
+    expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
+  });
+
+  it("skips bulk rollback when a competing active job appears after the safety check", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Rollback Guard Protocol",
+      file_name: "bulk-rollback-guard.pdf",
+      source_path: "legacy/imports/bulk-rollback-guard.pdf",
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select" && call.limitCount === 1) {
+        return ok([{ id: "competing-job" }]);
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("bulk job insert failed");
+      return ok([]);
+    });
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId], mode: "full" }),
+      }),
+    );
+    const body = await payload(response);
+    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: false,
+      results: [
+        {
+          documentId,
+          mode: "full",
+          ok: false,
+          error: "bulk job insert failed",
+        },
+      ],
+    });
+    expect(documentUpdates).toHaveLength(1);
+    expect(documentUpdates[0]?.updatePayload).toEqual({
+      status: "queued",
+      error_message: null,
+      page_count: 0,
+      chunk_count: 0,
+      image_count: 0,
+      updated_at: expect.any(String),
+    });
+  });
+
   it("cleans up uploaded storage when document insert fails", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "documents" && call.operation === "insert" ? fail("document insert failed") : ok([]),
@@ -1535,6 +1873,51 @@ describe("private document API access", () => {
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
 
     expect(response.status).toBe(500);
+    expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
+    expect(
+      client.calls.some(
+        (call) =>
+          call.table === "documents" &&
+          call.operation === "delete" &&
+          call.filters.some((filter) => filter.column === "id" && typeof filter.value === "string") &&
+          call.filters.some((filter) => filter.column === "owner_id" && filter.value === userId),
+      ),
+    ).toBe(true);
+  });
+
+  it("still runs catch cleanup when upload cleanup calls return non-throwing errors", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "insert") {
+        return ok({ id: documentId });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        return fail("job insert failed");
+      }
+      if (call.table === "documents" && call.operation === "delete") {
+        return fail("document cleanup returned error");
+      }
+      return ok([]);
+    });
+    client.storageMocks.remove.mockResolvedValue({
+      data: [],
+      error: { message: "storage cleanup returned error" },
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
+    const documentDeletes = client.calls.filter((call) => call.table === "documents" && call.operation === "delete");
+
+    expect(response.status).toBe(500);
+    expect(documentDeletes.length).toBeGreaterThanOrEqual(2);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -2532,9 +2915,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
-    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: userId }));
-    expect(client.rpc).toHaveBeenCalledWith(
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toEqual({ error: "Authentication required." });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_owner_id: userId, p_bucket: "search" }),
     );
@@ -2688,12 +3072,10 @@ describe("private document API access", () => {
     );
     const body = await response.text();
 
-    expect(response.status).toBe(200);
-    expect(body).toContain("event: final");
-    expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
-    );
-    expect(client.rpc).toHaveBeenCalledWith(
+    expect(response.status).toBe(401);
+    expect(body).toBeTruthy();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
     );
