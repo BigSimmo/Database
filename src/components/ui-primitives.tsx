@@ -56,8 +56,6 @@ export const iconTilePremium =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 export const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold tabular-nums text-[color:var(--text-muted)]";
-export const premiumHeaderSurface =
-  "border-b border-[color:var(--border-lux)] bg-[radial-gradient(circle_at_16%_-45%,color-mix(in_srgb,var(--app-shell-accent)_16%,transparent),transparent_18rem),linear-gradient(180deg,var(--app-shell-muted)_0%,var(--app-shell)_100%)] text-[color:var(--neutral-900)] shadow-[var(--shadow-soft)]";
 export const sheetSurface =
   "rounded-t-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--border-strong)]/20 backdrop-blur-xl dark:ring-[color:var(--border-strong)]/10 sm:rounded-[var(--radius-lg)]";
 export const sheetHandle = "mx-auto block h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70 sm:hidden";
@@ -153,12 +151,16 @@ export function SourceStatusBadge({
 
 export function SourceProvenance({ metadata }: { metadata?: unknown }) {
   const source = normalizeSourceMetadata(metadata);
+  const reviewDate = formatClinicalDate(source.review_date);
+  // Unknown review date / jurisdiction segments are dropped as filler; the
+  // validation and extraction-quality labels always stay — they are clinical
+  // governance signals, not noise.
   const items = [
     validationStatusLabel(source),
-    `Review ${formatClinicalDate(source.review_date)}`,
-    source.jurisdiction ?? "Jurisdiction unknown",
+    reviewDate === "Unknown" ? null : `Review ${reviewDate}`,
+    source.jurisdiction,
     extractionQualityLabel(source),
-  ];
+  ].filter((item): item is string => Boolean(item));
 
   return (
     <div className={compactMetadataRow}>

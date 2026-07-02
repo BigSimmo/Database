@@ -39,7 +39,7 @@ export const riskZoneContextPattern = new RegExp(
   "i",
 );
 export const riskZoneActionPattern =
-  /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|medical|clinician|clinical|nursing|officer)\s+(?:\w+\s+){0,2}review\w*)\b/i;
+  /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|immediate|medical|clinical|clinician|nursing|officer)\s+(?:clinician\s+|specialist\s+|nurse\s+|officer\s+)?review\w*)\b/i;
 
 // The zone colour a query names, if any ("red-zone risk" -> "red").
 export function queriedZoneColour(query: string) {
@@ -1377,7 +1377,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const riskFlowchartQuery =
     queryClass === "document_lookup" &&
     /\b(?:flow\s*chart|flowchart|algorithm|pathway)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|next step|step after)\b/i.test(query);
+    (/\b(?:risk|next step|step after)\b/i.test(query) || riskZoneContextPattern.test(query));
   // Zone-action evidence ("red zone ... escalate / urgent review") answers a risk
   // flowchart question even when the source never uses the word "flowchart" —
   // escalation protocols express the flowchart's decision steps as text. Without

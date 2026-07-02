@@ -15,7 +15,9 @@
 
 ### Verification
 
-- `npm run typecheck` and `npm run lint` pass; vitest 688 passed / 2 skipped; `tests/ui-smoke.spec.ts` 29/29 and `tests/ui-accessibility.spec.ts` 2/2 pass on Chromium; dev server serves 200 with 0 console errors; light/dark desktop + light mobile screenshots confirm the direction; contrast spot-checks pass (Aegean-on-white ≈5.8:1, command ≈16:1, semantics ≥4.5:1). `npm run verify:release` (full build + e2e + eval) not run.
+- `npm run typecheck` and `npm run lint` pass; vitest 688 passed / 2 skipped; `tests/ui-smoke.spec.ts` 29/29 and `tests/ui-accessibility.spec.ts` 2/2 pass on Chromium; dev server serves 200 with 0 console errors; light/dark desktop + light mobile screenshots confirm the direction; contrast spot-checks pass (Aegean-on-white ≈5.8:1, command ≈16:1, semantics ≥4.5:1).
+- **Full release-gate chain run stepwise on 2026-07-02 (equivalent to `verify:release`): all green.** check:runtime ✓ · lint ✓ · typecheck ✓ · vitest 688/2 skipped ✓ · `next build` ✓ · e2e chromium 39/39, firefox 35/35, webkit 38+1-flaky-passed-on-retry ✓ · production-readiness READY 5/5 ✓ · `eval:quality:release` passed thresholds ✓.
+- Known test/env coupling (pre-existing, not theme-related): `ui-smoke.spec.ts` "upload drawer exposes setup checklist" expects demo-mode-disabled uploads and fails when `.env.local` (local auth) is present; the e2e gate is green in the env-less configuration the suite is written for.
 
 ### Polish (follow-up pass)
 

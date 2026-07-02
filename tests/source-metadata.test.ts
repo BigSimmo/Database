@@ -36,6 +36,27 @@ describe("source metadata helpers", () => {
     expect(line).toContain("Review status: Current source");
     expect(line).toContain("Validation: Approved");
     expect(line).toContain("Review date: 18/05/2026");
+    expect(line).toContain("Jurisdiction: Australia/WA");
+  });
+
+  it("drops unknown filler segments but keeps governance warnings", () => {
+    const emptySummary = sourceProvenanceSummary(normalizeSourceMetadata(null));
+
+    // No "Publisher unknown · Jurisdiction unknown · review Unknown" filler —
+    // only the clinical governance warnings remain visible. (The clipboard
+    // line intentionally stays explicit; see the dedicated test below.)
+    expect(emptySummary).toBe("Review status unknown · Not locally validated");
+
+    const fullSummary = sourceProvenanceSummary(
+      normalizeSourceMetadata({
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+        review_date: "2026-05-18",
+        document_status: "current",
+        clinical_validation_status: "approved",
+      }),
+    );
+    expect(fullSummary).toBe("WA Health · Australia/WA · review 18/05/2026 · Current source · Approved");
   });
 
   it("keeps copied provenance explicit when review metadata is absent", () => {
