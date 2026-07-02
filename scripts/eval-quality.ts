@@ -327,7 +327,7 @@ function evaluateSourceMetadataDebtAcceptance(args: {
   }
   const acceptedFailures = rejectionReasons.length === 0 ? metadataFailures : [];
   return {
-    status: acceptedFailures.length > 0 ? ("accepted" as const) : ("rejected" as const),
+    status: rejectionReasons.length > 0 ? ("rejected" as const) : ("accepted" as const),
     path: acceptance.path,
     accepted_by: acceptance.accepted_by,
     accepted_at: acceptance.accepted_at,
