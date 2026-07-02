@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
@@ -66,7 +67,11 @@ async function selectRowsInPages<T>(args: {
 }) {
   const rows: T[] = [];
   for (let offset = 0; ; offset += pageSize) {
-    let query = args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);
+    // Dynamic table/select strings need the untyped client surface.
+    let query = (args.supabase as unknown as SupabaseClient)
+      .from(args.table)
+      .select(args.select)
+      .eq("document_id", args.documentId);
     if (args.searchableOnly) query = query.eq("searchable", true);
     const { data, error } = await query.range(offset, offset + pageSize - 1);
     if (error) throw new Error(error.message);
@@ -145,13 +150,13 @@ export async function POST(request: Request) {
           );
           const enrichment = await upsertDocumentEnrichment({
             supabase,
-            document,
+            document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
             chunks: committedChunks,
             images: committedImages,
           });
           const memory = await upsertDocumentDeepMemory({
             supabase,
-            document,
+            document: document as Parameters<typeof upsertDocumentDeepMemory>[0]["document"],
             chunks: committedChunks,
             images: committedImages,
             summary: enrichment.summary.summary,

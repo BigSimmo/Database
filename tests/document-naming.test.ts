@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../src/lib/supabase/database.types";
 import { documentTitleKey, planDocumentName, smartDocumentTitle } from "../src/lib/document-naming";
 
 function supabaseWithDocuments(documents: unknown[]) {
+  // Minimal stub of the query chain planDocumentName uses.
   return {
     from: () => ({
       select: () => ({
@@ -12,7 +11,7 @@ function supabaseWithDocuments(documents: unknown[]) {
         }),
       }),
     }),
-  } as unknown as SupabaseClient<Database>;
+  } as unknown as Parameters<typeof planDocumentName>[0]["supabase"];
 }
 
 describe("document naming", () => {

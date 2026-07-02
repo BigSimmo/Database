@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
   generateStructuredTextResult,
@@ -89,7 +89,6 @@ import type {
   ConflictOrGap,
   ClinicalQueryAnalysis,
   DocumentIndexQuality,
-  DocumentIndexQualityScore,
   DocumentIndexUnitMatch,
   DocumentMemoryCard,
   EvidenceRelevance,
@@ -1652,7 +1651,8 @@ async function replaceSharedCacheRow(
       normalized_query: normalizedQuery,
       indexing_version: indexingVersion,
       dependency_version: ragCacheDependencyVersion,
-      payload,
+      // JSON-serializable by contract of the response cache.
+      payload: payload as Json,
       expires_at: new Date(Date.now() + ttlMs).toISOString(),
     });
   } catch {
@@ -1717,11 +1717,11 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
   }
   void (async () => {
     try {
-      await createAdminClient()
-        .from("rag_response_cache")
-        .delete()
-        [sharedCacheOwnerId ? "eq" : "is"]("owner_id", sharedCacheOwnerId)
-        .in("cache_kind", ["search", "answer"]);
+      const deletion = createAdminClient().from("rag_response_cache").delete();
+      await (sharedCacheOwnerId ? deletion.eq("owner_id", sharedCacheOwnerId) : deletion.is("owner_id", null)).in(
+        "cache_kind",
+        ["search", "answer"],
+      );
     } catch (error) {
       // Shared cache invalidation is best effort.
       console.warn("Shared cache invalidation failed for owner:", error);
@@ -1770,9 +1770,7 @@ async function insertRagQuery(row: RagQueryInsert) {
     query: queryTextForStorage(rawQuery),
     metadata: { ...existingMetadata, ...queryPrivacyMetadata(rawQuery) },
   };
-  await supabase
-    .from("rag_queries")
-    .insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
+  await supabase.from("rag_queries").insert(safeRow as Database["public"]["Tables"]["rag_queries"]["Insert"]);
 }
 
 async function logRagQuery(row: RagQueryInsert) {
@@ -1900,12 +1898,7 @@ async function fetchEnabledRagAliases(
       .eq("enabled", true)
       .order("weight", { ascending: false })
       .limit(maxRagAliasesPerScope);
-    const nullableQuery = query as typeof query & { is?: (column: string, value: null) => typeof query };
-    query = scopeOwnerId
-      ? query.eq("owner_id", scopeOwnerId)
-      : nullableQuery.is
-        ? nullableQuery.is("owner_id", null)
-        : query.eq("owner_id", null);
+    query = scopeOwnerId ? query.eq("owner_id", scopeOwnerId) : query.is("owner_id", null);
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as RagAliasInput[];
@@ -2071,8 +2064,8 @@ async function searchTextChunkCandidates(args: {
     const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
       query_text: queryText,
       match_count: matchCount,
-      document_filters: args.documentIds ?? null,
-      owner_filter: args.ownerId ?? null,
+      document_filters: args.documentIds ?? undefined,
+      owner_filter: args.ownerId ?? undefined,
     });
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
@@ -2223,9 +2216,9 @@ async function fetchBestDocumentLookupChunks(args: {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
     query_text: args.query,
-    document_filters: args.documentIds,
+    document_filters: args.documentIds ?? undefined,
     match_count: Math.max(args.limit * 3, 24),
-    owner_filter: args.ownerId ?? null,
+    owner_filter: args.ownerId ?? undefined,
   });
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -2329,7 +2322,7 @@ async function searchDocumentLookupFastPath(args: {
       const { data, error } = await args.supabase.rpc("match_documents_for_query", {
         query_text: variant,
         match_count: index === 0 ? 12 : 8,
-        owner_filter: args.ownerId ?? null,
+        owner_filter: args.ownerId ?? undefined,
       });
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
@@ -2682,8 +2675,8 @@ async function searchTableFactCandidates(args: {
       const { data, error } = await args.supabase.rpc("match_document_table_facts_text", {
         query_text: variant,
         match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-        document_filters: args.documentIds ?? null,
-        owner_filter: args.ownerId ?? null,
+        document_filters: args.documentIds ?? undefined,
+        owner_filter: args.ownerId ?? undefined,
       });
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
@@ -2726,12 +2719,12 @@ async function searchEmbeddingFieldCandidates(args: {
   telemetry?: SearchTelemetry;
 }) {
   const { data, error } = await args.supabase.rpc("match_document_embedding_fields_hybrid", {
-    query_embedding: args.queryEmbedding,
+    query_embedding: args.queryEmbedding as unknown as string,
     query_text: buildClinicalTextSearchQuery(args.query),
     match_count: args.matchCount,
     min_similarity: 0.12,
-    document_filters: args.documentIds ?? null,
-    owner_filter: args.ownerId ?? null,
+    document_filters: args.documentIds ?? undefined,
+    owner_filter: args.ownerId ?? undefined,
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2776,12 +2769,12 @@ async function searchIndexUnitCandidates(args: {
   telemetry?: SearchTelemetry;
 }) {
   const { data, error } = await args.supabase.rpc("match_document_index_units_hybrid", {
-    query_embedding: args.queryEmbedding,
+    query_embedding: args.queryEmbedding as unknown as string,
     query_text: buildClinicalTextSearchQuery(args.query),
     match_count: args.matchCount,
     min_similarity: 0.1,
-    document_filters: args.documentIds ?? null,
-    owner_filter: args.ownerId ?? null,
+    document_filters: args.documentIds ?? undefined,
+    owner_filter: args.ownerId ?? undefined,
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2904,7 +2897,7 @@ async function attachIndexQualityMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   ownerId?: string,
-) {
+): Promise<SearchResult[]> {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
   try {
@@ -2918,8 +2911,11 @@ async function attachIndexQualityMetadata(
     const qualityByDocument = new Map(data.map((row) => [row.document_id, row]));
     return results.map((result) => ({
       ...result,
-      indexing_quality: (qualityByDocument.get(result.document_id) as unknown as DocumentIndexQualityScore | undefined) ?? result.indexing_quality ?? null,
-    })) as SearchResult[];
+      indexing_quality:
+        (qualityByDocument.get(result.document_id) as SearchResult["indexing_quality"]) ??
+        result.indexing_quality ??
+        null,
+    }));
   } catch {
     return results;
   }
@@ -3096,8 +3092,8 @@ async function attachPageVisualEvidence(
       page_number: image.page_number,
       storage_path: image.storage_path,
       caption: image.caption,
-      bbox: image.bbox,
-      image_type: image.image_type,
+      bbox: image.bbox as ChunkImage["bbox"],
+      image_type: image.image_type as ChunkImage["image_type"],
       searchable: image.searchable,
       clinical_relevance_score: image.clinical_relevance_score,
       source_kind: image.source_kind,
