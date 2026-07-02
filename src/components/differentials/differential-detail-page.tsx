@@ -87,6 +87,13 @@ function statusLabel(status: DifferentialRecord["status"]) {
   return "Routine";
 }
 
+/** Maps a related node's likelihood to its own severity tag, mirroring the record-status tones. */
+function likelihoodTag(likelihood: DifferentialRecord["related"][number]["likelihood"]) {
+  if (likelihood === "must-not-miss") return { label: "Emergent", className: statusTone.emergent };
+  if (likelihood === "possible") return { label: "Urgent", className: statusTone.urgent };
+  return { label: "Review", className: statusTone.routine };
+}
+
 function SectionRow({ section }: { section: DifferentialSection }) {
   const Icon = sectionIcons[section.tone];
   const meta = rowMeta[section.tone];
@@ -202,29 +209,28 @@ function RelatedDiagnoses({ record }: { record: DifferentialRecord }) {
         Related diagnoses
       </h2>
       <ul className="mt-3 grid gap-2">
-        {record.related.slice(0, 4).map((node) => (
-          <li key={node.id} className="flex items-center justify-between gap-2 text-xs font-bold">
-            <span className="min-w-0 truncate text-[color:var(--text-heading)]">{node.label}</span>
-            <span
-              className={cn(
-                "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
-                node.likelihood === "must-not-miss"
-                  ? "border-[color:var(--danger)]/20 bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-                  : node.likelihood === "possible"
-                    ? "border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-              )}
-            >
-              {node.likelihood === "must-not-miss" ? "Emergent" : node.likelihood === "possible" ? "Urgent" : "Review"}
-            </span>
-          </li>
-        ))}
+        {record.related.slice(0, 4).map((node) => {
+          const tag = likelihoodTag(node.likelihood);
+          return (
+            <li key={node.id} className="flex items-center justify-between gap-2 text-xs font-bold">
+              <span className="min-w-0 truncate text-[color:var(--text-heading)]">{node.label}</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
+                  tag.className,
+                )}
+              >
+                {tag.label}
+              </span>
+            </li>
+          );
+        })}
       </ul>
       <Link
         href="#related"
         className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
       >
-        View all related ({record.related.length + 8})
+        View all related ({record.related.length})
         <ChevronRight className="h-3.5 w-3.5" aria-hidden />
       </Link>
     </section>
@@ -250,7 +256,16 @@ function CurrentPresentation({ record }: { record: DifferentialRecord }) {
 }
 
 function CompareBasket({ record }: { record: DifferentialRecord }) {
-  const items = [record.title, ...record.related.slice(0, 2).map((node) => node.label)];
+  const items = [
+    {
+      id: "self",
+      label: record.title,
+      tag: { label: statusLabel(record.status), className: statusTone[record.status] },
+    },
+    ...record.related
+      .slice(0, 2)
+      .map((node) => ({ id: node.id, label: node.label, tag: likelihoodTag(node.likelihood) })),
+  ];
 
   return (
     <section className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] lg:block">
@@ -265,15 +280,20 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
       <ul className="mt-3 grid gap-2">
         {items.map((item) => (
           <li
-            key={item}
+            key={item.id}
             className="flex items-center justify-between gap-2 text-xs font-bold text-[color:var(--text-heading)]"
           >
             <span className="inline-flex min-w-0 items-center gap-2">
               <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
-              <span className="truncate">{item}</span>
+              <span className="truncate">{item.label}</span>
             </span>
-            <span className="rounded-md border border-[color:var(--danger)]/20 bg-[color:var(--danger-soft)] px-1.5 py-0.5 text-[10px] font-extrabold uppercase text-[color:var(--danger)]">
-              {statusLabel(record.status)}
+            <span
+              className={cn(
+                "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
+                item.tag.className,
+              )}
+            >
+              {item.tag.label}
             </span>
           </li>
         ))}
@@ -382,16 +402,6 @@ function HeaderChrome() {
           >
             <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
           </Link>
-          <div className="hidden items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)] sm:flex">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
-              <GitCompareArrows className="h-4 w-4" aria-hidden />
-            </span>
-            <div className="leading-tight">
-              <p className="text-[10px] font-bold uppercase text-[color:var(--text-muted)]">Mode</p>
-              <p className="text-sm font-extrabold text-[color:var(--text-heading)]">Differentials</p>
-            </div>
-            <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-          </div>
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden rounded-lg border border-[color:var(--success)]/20 bg-[color:var(--success-soft)] px-3 py-2 text-xs font-bold text-[color:var(--success)] sm:inline-flex">
@@ -486,6 +496,7 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_27rem]">
           <section className="grid gap-4">
             <SafetySnapshot record={record} />
+            <div className="h-44 lg:hidden" aria-hidden />
             <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
               {record.sections.map((section) => (
                 <SectionRow key={section.id} section={section} />
