@@ -25,6 +25,7 @@ import {
   normalizedClinicalSearchTokens,
   rankClinicalResults,
   riskZoneActionPattern,
+  riskZoneContextPattern,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -3289,7 +3290,7 @@ function queriedZoneColour(query: string) {
 function isRiskFlowchartNextStepQuery(query: string) {
   return (
     /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk matrix)\b/i.test(query) &&
-    (new RegExp(`\\b(?:risk|(?:${zoneColourAlternatives})[\\s-]*zones?)\\b`, "i").test(query)) &&
+    riskZoneContextPattern.test(query) &&
     /\b(?:next step|step after|after|action)\b/i.test(query)
   );
 }

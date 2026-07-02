@@ -31,7 +31,8 @@ export type RagQueryClassification = {
 // must not qualify as escalation evidence.
 export const riskZoneContextPattern =
   /\b(?:(?:red|amber|yellow|orange|purple|green|blue)[\s-]*zones?|colou?red zones?|zone criteria)\b/i;
-export const riskZoneActionPattern = /\b(?:escalat\w+|urgent|review\w*|respond\w*|actions?\s+required)\b/i;
+export const riskZoneActionPattern =
+  /\b(?:escalat\w+|urgent|respond\w*|actions?\s+required|(?:senior|immediate|clinical|medical)\s+(?:clinician\s+|specialist\s+|nurse\s+)?review\w*)\b/i;
 
 export const intentSignalWords = {
   dosing: [
@@ -1364,8 +1365,14 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     /\b(?:red|amber|yellow|orange|purple|green|blue)\b/.test(haystack);
   const riskFlowchartZoneActionSource =
     (riskZoneContextPattern.test(haystack) || zoneCellUnitEvidence) && riskZoneActionPattern.test(haystack);
+  // For queries that ask for a next step / action, the generic "flowchart + risk/red"
+  // match is not sufficient evidence — only zone-action evidence (same result carries
+  // both a coloured-zone reference and an action term) qualifies for the boost.
+  const riskFlowchartActionQuery =
+    riskFlowchartQuery && /\b(?:next step|step after|action)\b/i.test(query);
   const riskFlowchartSource =
-    (/\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
+    (!riskFlowchartActionQuery &&
+      /\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
       /\b(?:risk|red zone|red)\b/.test(haystack)) ||
     riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
