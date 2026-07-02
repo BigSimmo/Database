@@ -185,7 +185,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
               confidence: "unsupported",
               citations: [],
               sources: [],
-              degradedMode: answerDegradedModeSignal(),
+              degradedMode: answerDegradedModeSignal(answer),
               scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
               sourceGovernanceWarnings: warnings,
             });

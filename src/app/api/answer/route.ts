@@ -123,7 +123,7 @@ export async function POST(request: Request) {
         confidence: "unsupported",
         citations: [],
         sources: [],
-        degradedMode: answerDegradedModeSignal(),
+        degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: body.queryMode },
         sourceGovernanceWarnings: warnings,
       });
