@@ -121,13 +121,16 @@ select
     when coalesce(d.metadata->>'indexing_v3_agent_status', 'pending') in
          ('completed', 'needs_enrichment_artifacts', 'failed')
       then coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
+    when coalesce(d.metadata->>'indexing_v3_agent_status', 'pending') in
+         ('deferred', 'retry_pending')
+      then 'pending'
     when coalesce(d.metadata->>'indexing_v3_agent_status', '') = 'processing'
       and (
         nullif(d.metadata->>'indexing_v3_agent_locked_at', '') is null
         or (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz < now() - interval '2 hours'
       )
       then 'pending'  -- stale processing → reset to pending
-    else coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
+    else 'pending'
   end as status,
   coalesce(d.metadata->>'enrichment_status', 'pending') as enrichment_status,
   case
