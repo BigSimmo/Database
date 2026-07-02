@@ -99,6 +99,8 @@ language plpgsql
 security invoker
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  v_processing_lock_timeout interval := make_interval(mins => 45);
 begin
   return query
   with candidates as (
@@ -158,26 +160,55 @@ begin
             )
           )
         else
-          jsonb_strip_nulls(
-            (coalesce(d.metadata, '{}'::jsonb)
-              - 'indexing_v3_agent_locked_by'
-              - 'indexing_v3_agent_locked_at'
-              - 'indexing_v3_agent_next_run_at'
-              - 'indexing_v3_agent_last_error')
-            || jsonb_build_object(
-              'indexing_v3_agent_status', 'deferred',
-              'indexing_v3_agent_updated_at', now(),
-              'completion_gate_missing', to_jsonb(c.missing),
-              'completion_gate', jsonb_build_object(
-                'result', 'deferred',
-                'missing', to_jsonb(c.missing),
-                'counts', c.counts,
-                'presence', c.presence,
-                'source', 'repair_strict_enrichment_gate_batch'
-              ),
-              'enrichment_status', 'pending'
-            )
-          )
+          case
+            when coalesce(d.metadata->>'indexing_v3_agent_status', '') = 'processing'
+              and (
+                case
+                  when coalesce(d.metadata->>'indexing_v3_agent_locked_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                    then (d.metadata->>'indexing_v3_agent_locked_at')::timestamptz
+                  else null
+                end
+              ) >= now() - v_processing_lock_timeout
+              then jsonb_strip_nulls(
+                (coalesce(d.metadata, '{}'::jsonb)
+                  - 'indexing_v3_agent_next_run_at'
+                  - 'indexing_v3_agent_last_error')
+                || jsonb_build_object(
+                  'indexing_v3_agent_status', 'processing',
+                  'indexing_v3_agent_updated_at', now(),
+                  'completion_gate_missing', to_jsonb(c.missing),
+                  'completion_gate', jsonb_build_object(
+                    'result', 'deferred',
+                    'missing', to_jsonb(c.missing),
+                    'counts', c.counts,
+                    'presence', c.presence,
+                    'source', 'repair_strict_enrichment_gate_batch'
+                  ),
+                  'enrichment_status', 'processing'
+                )
+              )
+            else
+              jsonb_strip_nulls(
+                (coalesce(d.metadata, '{}'::jsonb)
+                  - 'indexing_v3_agent_locked_by'
+                  - 'indexing_v3_agent_locked_at'
+                  - 'indexing_v3_agent_next_run_at'
+                  - 'indexing_v3_agent_last_error')
+                || jsonb_build_object(
+                  'indexing_v3_agent_status', 'deferred',
+                  'indexing_v3_agent_updated_at', now(),
+                  'completion_gate_missing', to_jsonb(c.missing),
+                  'completion_gate', jsonb_build_object(
+                    'result', 'deferred',
+                    'missing', to_jsonb(c.missing),
+                    'counts', c.counts,
+                    'presence', c.presence,
+                    'source', 'repair_strict_enrichment_gate_batch'
+                  ),
+                  'enrichment_status', 'pending'
+                )
+              )
+          end
       end,
       updated_at = now()
     from candidates c
