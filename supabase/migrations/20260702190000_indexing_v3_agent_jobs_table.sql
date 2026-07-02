@@ -201,6 +201,39 @@ as $$
 -- state. Once the edge function writes completions to this table,
 -- the documents.metadata patch below should be removed.
 begin
+  -- Backward compatibility: old ingestion path still enqueues by writing
+  -- documents.metadata.indexing_v3_agent_status = 'pending'. Ensure those
+  -- documents get a jobs-table row before claiming.
+  insert into public.indexing_v3_agent_jobs (
+    document_id,
+    status,
+    enrichment_status,
+    next_run_at,
+    version,
+    metadata,
+    created_at,
+    updated_at
+  )
+  select
+    d.id,
+    'pending',
+    coalesce(d.metadata->>'enrichment_status', 'pending') as enrichment_status,
+    case
+      when coalesce(d.metadata->>'indexing_v3_agent_next_run_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+        then (d.metadata->>'indexing_v3_agent_next_run_at')::timestamptz
+      else null
+    end as next_run_at,
+    coalesce(nullif(d.metadata->>'indexing_v3_agent_version', ''), 'visual-core-v3') as version,
+    '{}'::jsonb as metadata,
+    coalesce(d.created_at, now()) as created_at,
+    now() as updated_at
+  from public.documents d
+  where d.status = 'indexed'
+    and d.metadata ? 'indexing_v3_agent_status'
+    and coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
+          not in ('completed', 'needs_enrichment_artifacts')
+  on conflict (document_id) do nothing;
+
   return query
   with eligible_jobs as (
     select j.id, j.document_id, j.attempt_count, j.max_attempts
