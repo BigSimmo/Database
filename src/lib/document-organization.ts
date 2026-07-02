@@ -390,7 +390,14 @@ const documentTypePatterns: Array<{
   {
     label: "reference",
     confidence: 0.72,
-    patterns: [/\breference\b/i, /\bquick reference\b/i, /\bquick guide\b/i, /\bqrg\b/i, /\binformation sheet\b/i, /\bplacecard\b/i],
+    patterns: [
+      /\breference\b/i,
+      /\bquick reference\b/i,
+      /\bquick guide\b/i,
+      /\bqrg\b/i,
+      /\binformation sheet\b/i,
+      /\bplacecard\b/i,
+    ],
   },
 ];
 
@@ -860,8 +867,12 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "assess",
     label_type: "clinical_action",
-    strong: [/\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination|scale\b|aims\b|bleeding event)\b/i],
-    body: [/\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination|scale\b|aims\b)\b/i],
+    strong: [
+      /\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination|scale\b|aims\b|bleeding event)\b/i,
+    ],
+    body: [
+      /\b(?:assess|assessment|screening|screen for|diagnos|diagnosis|evaluate|evaluation|examination|scale\b|aims\b)\b/i,
+    ],
     minBodyMatches: 1,
   },
   {
@@ -872,7 +883,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "administer",
     label_type: "clinical_action",
-    strong: [/\b(?:administer|administration|infusions?|eye drops?|medication administration|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium)\b/i],
+    strong: [
+      /\b(?:administer|administration|infusions?|eye drops?|medication administration|vaccination|prophylaxis|chloramphenicol|gentamicin|oxybuprocaine|phenylephrine|naloxone|prenoxad|niacin|polystyrene sulphonate|resonium)\b/i,
+    ],
   },
   {
     label: "monitor",
@@ -898,7 +911,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "document",
     label_type: "clinical_action",
-    strong: [/\b(?:document|documentation|record in|medical records?|my health record|uploading|amending|removing documents)\b/i],
+    strong: [
+      /\b(?:document|documentation|record in|medical records?|my health record|uploading|amending|removing documents)\b/i,
+    ],
     body: [/\b(?:documentation|record in|medical records?|my health record)\b/i],
     minBodyMatches: 3,
   },
@@ -958,7 +973,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "decision-support",
     label_type: "document_intent",
-    strong: [/\b(?:algorithm|flowchart|decision tree|criteria|threshold|diagnos|diagnosis|scale\b|aims\b|bleeding event|hypothermia|cardiac arrest|stemi activation|pathway)\b/i],
+    strong: [
+      /\b(?:algorithm|flowchart|decision tree|criteria|threshold|diagnos|diagnosis|scale\b|aims\b|bleeding event|hypothermia|cardiac arrest|stemi activation|pathway)\b/i,
+    ],
   },
   {
     label: "patient-information",
@@ -989,7 +1006,9 @@ const smartFacetRules: SmartFacetRule[] = [
   {
     label: "documentation-requirement",
     label_type: "document_intent",
-    strong: [/\b(?:documentation|record in|form required|documented in|medical records?|my health record|uploading|amending|removing documents)\b/i],
+    strong: [
+      /\b(?:documentation|record in|form required|documented in|medical records?|my health record|uploading|amending|removing documents)\b/i,
+    ],
   },
   {
     label: "medication-instruction",

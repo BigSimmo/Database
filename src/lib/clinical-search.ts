@@ -1406,7 +1406,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // the same result.
   const nextStepActionQuery = /\b(?:next step|step after|action)\b/i.test(query);
   const riskFlowchartSource = nextStepActionQuery
-    ? riskFlowchartZoneActionSource || (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
+    ? riskFlowchartZoneActionSource ||
+      (riskFlowchartLexicalSource && riskZoneActionPattern.test(riskFlowchartEvidenceText))
     : riskFlowchartLexicalSource || riskFlowchartZoneActionSource;
   const riskFlowchartCanonicalTitle =
     riskFlowchartQuery &&

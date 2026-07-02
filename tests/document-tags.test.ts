@@ -127,9 +127,7 @@ describe("smart document tags", () => {
   });
 
   it("separates stable machine labels from polished display labels and visibility tiers", () => {
-    expect(formatDocumentLabelDisplay("contains_quick-reference", "content_feature")).toBe(
-      "Contains quick reference",
-    );
+    expect(formatDocumentLabelDisplay("contains_quick-reference", "content_feature")).toBe("Contains quick reference");
     expect(formatDocumentLabelDisplay("post-discharge-follow-up", "care_phase")).toBe("Post-discharge follow-up");
     expect(formatDocumentLabelDisplay("fiona stanley hospital", "site")).toBe("FSH");
 
