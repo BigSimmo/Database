@@ -252,6 +252,231 @@ describe("retrieval query variants", () => {
     ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
   });
 
+  it("keeps flowchart zone-action fast paths gated on action evidence", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+
+    // A lexically strong but action-free flowchart page must not short-circuit
+    // retrieval before the structured/vector layers can surface the zone actions.
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content: "Appendix IV: Risk assessment flow chart to identify infection control procedures.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
+    // An action word alone (review/urgent) without any coloured-zone context on
+    // the same result must not satisfy the guard either.
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content: "Flowchart: review infection-control procedures before the patient proceeds.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
+    // Document "review" boilerplate (review date / reviewed by) on a zone chunk
+    // is not an action instruction and must not satisfy the guard.
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content: "Red Zone criteria table. Review date: March 2026. Reviewed by the policy committee.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content:
+              "If deteriorating (has any Purple or Red Zone criteria on observation chart), escalate for Senior Clinician Review or call a MET.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
+  it("applies the zone-action guard to hyphenated risk-matrix queries", () => {
+    // "risk-matrix" phrasing must trigger the same guard as "risk matrix".
+    expect(
+      decideTextFastPath(
+        "In the risk-matrix, what is the next step after the red zone?",
+        [
+          result({
+            content: "Risk-matrix overview of procedural exposure categories.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+  });
+
+  it("matches the queried zone colour before fast-pathing", () => {
+    // A red-zone question must not fast-path on an amber-zone action chunk.
+    expect(
+      decideTextFastPath(
+        "In the clinical flowchart, what is the next step after red-zone risk?",
+        [
+          result({
+            content: "If the patient reaches the Amber Zone, escalate for urgent senior review.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" });
+
+    // ...and an amber-zone question (no literal "risk"/"red") still triggers the
+    // guard and is satisfied by amber-zone action evidence.
+    expect(
+      decideTextFastPath(
+        "In the clinical flowchart, what is the next step after the amber zone?",
+        [
+          result({
+            content: "If the patient reaches the Amber Zone, escalate for urgent senior review.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
+  it("accepts risk-matrix cell colour tokens as zone context", () => {
+    // risk_matrix_cell units store the cell colour as a bare token
+    // ("... | Red | escalate ..."), not as the phrase "red zone".
+    expect(
+      decideTextFastPath(
+        "In the risk matrix flowchart, what action is shown after red-zone risk?",
+        [
+          result({
+            content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+            similarity: 0.82,
+            index_unit: {
+              id: "unit-rm",
+              unit_type: "risk_matrix_cell",
+              title: "Physical aggression / Recent incident: Red",
+              content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_start: 1,
+              page_end: 1,
+              heading_path: ["Risk matrix"],
+              normalized_terms: ["red", "risk matrix"],
+              quality_score: 0.9,
+              extraction_mode: "model_heavy",
+            },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
+  it("treats hyphenated risk-matrix queries as flowchart next-step lookups", () => {
+    expect(
+      decideTextFastPath(
+        "In the risk-matrix flowchart, what action is shown after red-zone risk?",
+        [
+          result({
+            content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+            similarity: 0.82,
+            index_unit: {
+              id: "unit-rm-hyphen",
+              unit_type: "risk_matrix_cell",
+              title: "Physical aggression / Recent incident: Red",
+              content: "Aggression risk matrix | Physical aggression | Recent incident | Red | Escalate to senior clinician urgently",
+              source_chunk_id: "chunk-1",
+              source_image_id: "image-1",
+              page_start: 1,
+              page_end: 1,
+              heading_path: ["Risk matrix"],
+              normalized_terms: ["red", "risk matrix"],
+              quality_score: 0.9,
+              extraction_mode: "model_heavy",
+            },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "strong_document_text_score" });
+  });
+
+  it("requires zone and action evidence on a single result for the flowchart risk gate", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+
+    // Zone words on one result and action words on another (or a flowchart image
+    // caption) must not satisfy the gate - the answer needs both on one result.
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({ content: "Risk assessment flow chart for infection control procedures.", similarity: 0.9 }),
+          result({
+            id: "chunk-2",
+            content: "Compliance is monitored by review of clinical incidents.",
+            similarity: 0.8,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_visual_flowchart_risk_evidence" });
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({
+            content:
+              "If deteriorating (has any Purple or Red Zone criteria on observation chart), escalate for Senior Clinician Review.",
+            similarity: 0.9,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ accepted: true, reason: "visual_flowchart_risk_gate" });
+  });
+
+  it("routes plain flowchart document lookups through the ordinary title gate", () => {
+    // A flowchart mention without zone / next-step intent must not be forced
+    // through the zone-action gate; a direct title hit uses the title gate.
+    expect(
+      evaluateEvidenceCoverageGate(
+        "Which procedure flowchart covers ECT team coordination?",
+        [
+          result({
+            title: "ECT Team Coordination Procedure Flowchart",
+            file_name: "ect-team-coordination-flowchart.pdf",
+            content: "Procedure flowchart covering ECT team coordination responsibilities.",
+            similarity: 0.72,
+            match_explanation: { titleHit: true, reasons: ["title"] },
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toMatchObject({ strategy: "document_lookup_fast_path", reason: "document_title_evidence_gate" });
+  });
+
   it("does not fast-path comparison queries before synthesis retrieval", () => {
     expect(
       decideTextFastPath(
@@ -462,8 +687,42 @@ describe("retrieval query variants", () => {
     expect(textQuery).toContain("flowchart");
     expect(textQuery).toContain("next");
     expect(textQuery).toContain("step");
-    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone risk flow"]));
+    // "red zone" replaces the old fully-conjunctive variants ("red zone risk flow",
+    // "risk flow review urgent escalation") which matched 0/2 live chunks under
+    // websearch_to_tsquery AND semantics and never contributed candidates.
+    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone"]));
+    expect(variants).not.toContain("red zone risk flow");
     expect(variants.length).toBeLessThanOrEqual(4);
+  });
+
+  it("matches the zone variant to the colour the query names", () => {
+    const query = "In the clinical flowchart, what is the next step after amber-zone risk?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    // An amber-zone question must not pull red-zone chunks into its candidate
+    // pool; the injected variant follows the colour the query names.
+    expect(variants).toContain("amber zone");
+    expect(variants).not.toContain("red zone");
+  });
+
+  it("injects the zone variant for risk-matrix wording too", () => {
+    const query = "What action is shown for the risk matrix red zone?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    // Risk-matrix questions hit the same zone-action evidence (risk_matrix_cell
+    // units store the colour as a bare token), so they need the precise
+    // "<colour> zone" variant just like flowchart wording does.
+    expect(variants).toContain("red zone");
+  });
+
+  it("injects zone-colour variant for risk-matrix queries without a flowchart token", () => {
+    // A query phrased as "risk matrix" (no "flowchart"/"algorithm"/"pathway") must
+    // still receive the zone-colour variant so recall is not regressed for this
+    // class of next-step question.
+    const query = "In the risk matrix, what is the next step after the red zone?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone"]));
   });
 
   it("keeps agitation route queries focused on the canonical agitation and arousal source", () => {
@@ -616,6 +875,62 @@ describe("retrieval query variants", () => {
 
     expect(ranked[0].file_name).toBe("Clinical Risk Flowchart.pdf");
     expect(selected.results[0]?.file_name).toBe("Clinical Risk Flowchart.pdf");
+  });
+
+  it("does not boost another colour's zone action for a colour-specific query", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "amber-zone-action",
+        document_id: "amber-zone-doc",
+        title: "Deterioration Response Guideline",
+        file_name: "Deterioration Response Guideline.pdf",
+        content: "If the patient reaches the Amber Zone, escalate for urgent senior review.",
+        similarity: 0.62,
+      }),
+    ]);
+
+    // Amber-zone action evidence must not take the risk-flowchart boost (or
+    // dodge the generic penalty) for a red-zone question.
+    expect(ranked[0]?.score_explanation?.rawPenalty).toBeLessThanOrEqual(-0.18);
+  });
+
+  it("penalizes action-free risk flowcharts for next-step queries", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "action-free-flowchart",
+        document_id: "action-free-doc",
+        title: "Infection Control Policy",
+        file_name: "Infection Control Policy.pdf",
+        content: "Risk assessment flow chart covering red-zone procedural risk categories.",
+        similarity: 0.62,
+      }),
+    ]);
+
+    // Naming the risk without any action instruction must not earn the
+    // risk-flowchart boost (or dodge the generic penalty) for a next-step query.
+    expect(ranked[0]?.score_explanation?.rawPenalty).toBeLessThanOrEqual(-0.18);
+  });
+
+  it("treats zone-action escalation text as risk-flowchart evidence even without the word flowchart", () => {
+    const query = "In the clinical flowchart, what is the next step after red-zone risk?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "zone-action",
+        document_id: "zone-action-doc",
+        title: "Recognising and Responding to Acute Deterioration",
+        file_name: "Recognising and Responding to Acute Deterioration.pdf",
+        content:
+          "If deteriorating (has any Purple or Red Zone criteria on observation chart), escalate for Senior Clinician Review or call a MET.",
+        similarity: 0.62,
+      }),
+    ]);
+
+    // Escalation protocols express the flowchart's decision steps as text; they
+    // must not take the generic risk-flowchart penalty for lacking the literal
+    // word "flowchart".
+    expect(ranked[0]?.score_explanation?.rawPenalty).toBe(0);
   });
 
   it("redacts retrieval cache keys while preserving query class and variant uniqueness", () => {
