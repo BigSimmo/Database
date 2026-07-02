@@ -122,6 +122,7 @@ import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
+import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
 import {
@@ -271,7 +272,7 @@ function useMobilePreviewSheet() {
 }
 
 const authEmailChangeEvent = "clinical-kb-auth-email-change";
-const recentQueryStorageKey = "clinical-kb-recent-queries";
+export const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const setupRecheckPollMs = 60_000;
@@ -4854,7 +4855,7 @@ function DrawerGroupLabel({ title }: { title: string }) {
   );
 }
 
-function SettingsDialog({
+export function SettingsDialog({
   open,
   onClose,
   identity,
@@ -5754,7 +5755,7 @@ export function ClinicalDashboard({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -5775,16 +5776,10 @@ export function ClinicalDashboard({
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
-  const storedSessionExists =
-    typeof window !== "undefined" &&
-    Object.keys(localStorage).some((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePrivateApis =
     localProjectReady &&
-    (localNoAuthMode ||
-      localDevCanAttemptPrivateApis ||
-      authStatus === "authenticated" ||
-      (supabaseEnvStatus === "ready" && storedSessionExists));
+    (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "mobileSidebar" | "documents" | "upload") => {
@@ -7310,8 +7305,13 @@ export function ClinicalDashboard({
         !modeSearchSubmitted) ||
       (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
       (activeModeResultKind === "differentials" && !modeSearchSubmitted) ||
+      activeModeResultKind === "favourites" ||
       activeModeResultKind === "tools");
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
+  // Favourites and Tools are content-rich hubs: they share the centred hero but
+  // stay top-aligned so their lists start in a stable position.
+  const centeredModeHome =
+    showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -7472,9 +7472,6 @@ export function ClinicalDashboard({
             closeDashboardTransientSurfaces("mobileSidebar");
             setMobileSidebarOpen(true);
           }}
-          onOpenSettings={openSettings}
-          theme={theme}
-          onToggleTheme={toggleTheme}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}
@@ -7533,8 +7530,8 @@ export function ClinicalDashboard({
             <section
               className={cn(
                 "min-h-[calc(100dvh-11rem)]",
-                activeModeResultKind === "answer" && !answer && !loading
-                  ? "grid place-items-center"
+                centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
+                  ? "grid w-full place-items-center"
                   : activeModeResultKind === "tools" ||
                       activeModeResultKind === "favourites" ||
                       activeModeResultKind === "differentials"
@@ -7612,6 +7609,7 @@ export function ClinicalDashboard({
                   onAddFavourite={() =>
                     setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
                   }
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
                 />
               ) : activeModeResultKind === "documents" ? (
                 searchMode === "prescribing" ? (
