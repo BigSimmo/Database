@@ -16,6 +16,8 @@ const playwrightBin = path.join(projectRoot, "node_modules", "playwright", "cli.
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
 const identityPath = "/api/local-project-id";
 const startupTimeoutMs = 120_000;
+const missingErrorComponentsNeedle = "missing required error components";
+const routeSmokePaths = ["/", "/applications"];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -91,11 +93,45 @@ function requestJson(url) {
   });
 }
 
+function requestText(url, timeoutMs = 30_000) {
+  return new Promise((resolve) => {
+    const request = http.get(url, { timeout: timeoutMs }, (response) => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        body += chunk;
+      });
+      response.on("end", () => {
+        if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 400) {
+          resolve(null);
+          return;
+        }
+        resolve(body);
+      });
+    });
+    request.on("timeout", () => {
+      request.destroy();
+      resolve(null);
+    });
+    request.on("error", () => resolve(null));
+  });
+}
+
+async function hasHealthyRouteComponents(baseUrl) {
+  for (const smokePath of routeSmokePaths) {
+    const body = await requestText(`${baseUrl}${smokePath}`);
+    if (!body || body.includes(missingErrorComponentsNeedle)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 async function waitForServer(baseUrl) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < startupTimeoutMs) {
     const payload = await requestJson(`${baseUrl}${identityPath}`);
-    if (isVerifiedProjectPayload(payload)) {
+    if (isVerifiedProjectPayload(payload) && (await hasHealthyRouteComponents(baseUrl))) {
       return;
     }
     await sleep(500);
@@ -169,9 +205,15 @@ foreach ($target in $targets) {
 
 const existingBaseUrl = await findExistingProjectServer();
 if (existingBaseUrl) {
-  console.log(`Using existing Clinical KB server at ${existingBaseUrl}`);
-  const result = runPlaywright(existingBaseUrl);
-  process.exit(result.status ?? (result.signal ? 1 : 0));
+  if (await hasHealthyRouteComponents(existingBaseUrl)) {
+    console.log(`Using existing Clinical KB server at ${existingBaseUrl}`);
+    const result = runPlaywright(existingBaseUrl);
+    process.exit(result.status ?? (result.signal ? 1 : 0));
+  }
+
+  console.log(`Existing Clinical KB server at ${existingBaseUrl} failed route-component smoke; restarting it.`);
+  stopExistingProjectDevServers();
+  await sleep(1000);
 }
 
 stopExistingProjectDevServers();
