@@ -67,6 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         { status: 409 },
       );
     }
+    const resetNextRunAt = data.next_run_at ?? nextRunAt;
 
     // IDX-H1: do NOT reset the document index here. The worker calls resetDocumentIndex at
     // job start (worker/main.ts), so resetting before enqueue would leave a previously-good
@@ -99,7 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .eq("attempt_count", 0)
         .is("locked_at", null)
         .is("locked_by", null)
-        .eq("next_run_at", nextRunAt);
+        .eq("next_run_at", resetNextRunAt);
       if (rollbackError) throw new Error(rollbackError.message);
       throw new Error(documentError.message);
     }
