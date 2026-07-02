@@ -81,8 +81,11 @@ export async function POST(request: Request) {
     if (upload.error) throw new Error(upload.error.message);
     uploadedPath = storagePath;
 
+    const namingSupabase: DocumentNameSupabase = {
+      from: ((table) => supabase!.from(table)) as DocumentNameSupabase["from"],
+    };
     const namePlan = await planDocumentName({
-      supabase: supabase as unknown as DocumentNameSupabase,
+      supabase: namingSupabase,
       ownerId: user.id,
       fileName: file.name,
       requestedTitle: uploadMetadata.title,

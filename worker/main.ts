@@ -93,11 +93,9 @@ type GenerationTableFilter = PromiseLike<GenerationTableResult> & {
   limit: (count: number) => GenerationTableFilter;
 };
 
-type GenerationTableClient = {
-  from: (table: string) => {
-    select: (columns: string) => GenerationTableFilter;
-    delete: () => GenerationTableFilter;
-  };
+type GenerationTableQuery = {
+  select: (columns: string) => GenerationTableFilter;
+  delete: () => GenerationTableFilter;
 };
 
 function supabaseStageError(
@@ -480,9 +478,12 @@ async function replacePageRows(documentId: string, pages: ReturnType<typeof buil
 // fields, index units) cascade with their legacy chunks regardless — the
 // guarantee fully protects images, memory cards, and sections.
 async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
-  const mutationClient = { from: supabase.from.bind(supabase) as unknown as GenerationTableClient["from"] };
+  // The generated Supabase client only types known table literals. This cleanup
+  // path selects among a small runtime-known set of tables, so use a minimal
+  // adapter at the dynamic boundary instead of widening the whole admin client.
+  const fromGenerationTable = supabase.from.bind(supabase) as unknown as (table: string) => GenerationTableQuery;
   const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = mutationClient.from(table).select("id").eq("document_id", documentId).limit(1);
+    let query = fromGenerationTable(table).select("id").eq("document_id", documentId).limit(1);
     query = direct
       ? query.eq("index_generation_id", indexGenerationId)
       : query.eq("metadata->>index_generation_id", indexGenerationId);
@@ -491,26 +492,23 @@ async function deleteStaleIndexGenerationRows(documentId: string, indexGeneratio
     return (data ?? []).length > 0;
   };
   const deleteDirectGenerationRows = async (table: string) => {
-    const stale = await mutationClient
-      .from(table)
+    const stale = await fromGenerationTable(table)
       .delete()
       .eq("document_id", documentId)
       .neq("index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, true))) return;
-    const missing = await mutationClient.from(table).delete().eq("document_id", documentId).is("index_generation_id", null);
+    const missing = await fromGenerationTable(table).delete().eq("document_id", documentId).is("index_generation_id", null);
     if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
   };
   const deleteMetadataGenerationRows = async (table: string) => {
-    const stale = await mutationClient
-      .from(table)
+    const stale = await fromGenerationTable(table)
       .delete()
       .eq("document_id", documentId)
       .neq("metadata->>index_generation_id", indexGenerationId);
     if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
     if (!(await hasReplacementRows(table, false))) return;
-    const missing = await mutationClient
-      .from(table)
+    const missing = await fromGenerationTable(table)
       .delete()
       .eq("document_id", documentId)
       .is("metadata->>index_generation_id", null);
