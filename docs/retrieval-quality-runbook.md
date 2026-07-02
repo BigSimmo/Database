@@ -85,15 +85,18 @@ Source governance:
 - unverified top-result count
 - unknown-extraction top-result count
 - poor-extraction top-result count
-- stale/outdated top-result rate
-- combined stale/review/unknown top-result audit rate
-- review-required top-result count and rate
+- primary top-result stale rate
+- primary top-result review-required count and rate
+- supporting top-5 review-required count and rate for corpus-review prioritization
 
 Metadata policy:
 
 - `unknown`, `unverified`, `review_due`, `outdated`, unknown extraction, and poor extraction are treated as review-required.
+- `stale_rate` is reserved for truly outdated primary top results. Review-due and unknown-status primary top results remain review-required debt, but they are not counted as stale.
+- Explicit non-local unverified sources, such as BMJ documents with a `not a local WA source` evidence basis, remain labelled as unverified but are not treated as missing local-validation debt for release gating.
+- Supporting top-5 review-required counts are reported to prioritize corpus review; they do not suppress ranking by themselves and are not the release gate.
 - Do not silently default missing corpus metadata to `current` or `approved`.
-- Reduce the review-required rate by backfilling source metadata through ingestion/enrichment or by explicitly accepting a bounded review-required baseline in a versioned release metadata debt file.
+- Reduce the warning rate by backfilling source metadata through ingestion/enrichment or by explicitly accepting the review-required baseline in a versioned release metadata debt file.
 - Danger-class source governance warnings are blocking.
 - Warning-class retrieval source metadata notes may be accepted only by passing `--source-metadata-debt <path>` to `npm run eval:quality -- --fail-on-threshold`.
 - Source metadata debt acceptance does not mark sources current or approved. It only removes the accepted retrieval metadata threshold failures from the blocking failure list.
@@ -119,8 +122,8 @@ Answer quality:
 - retrieval hit@K is below `0.8`
 - document recall@5 is below `0.8`
 - content recall@5 is below `0.8`
-- stale/outdated top-result rate is above `0.25`
-- review-required top-result rate is above `0.25`
+- primary top-result stale rate is above `0.25`
+- primary top-result review-required rate is above `0.25`
 - grounded supported answer rate is below `0.9`
 - unsupported-answer correctness is below `1.0`
 - citation failure rate is above `0`
@@ -154,4 +157,6 @@ Run full quality evals after:
 - clinical output changes
 - release or handoff confidence checks
 
-`npm run verify:release` includes `npm run eval:quality:release` after cheaper local gates. `eval:quality:release` passes `docs/release-source-metadata-debt-2026-06-30.json` while that bounded release debt is active. Use `npm run audit:source-governance` to refresh the live corpus debt counts, and use focused variants such as `--retrieval-only`, `--rag-only`, `--limit`, `--query`, or `--question` during development to avoid unnecessary provider-backed cost.
+`npm run governance:release` is the read-only governance routine. It runs generated label coverage, document label governance, and `audit:source-governance:release`. The source-governance audit compares the live corpus against `docs/release-source-metadata-debt-2026-06-30.json` and fails if required metadata returns, poor extraction appears, smart-v2 labels go missing, or the accepted eval baseline exceeds the file ceilings.
+
+`npm run verify:release` includes `npm run governance:release` before `npm run eval:quality:release`. `eval:quality:release` passes `docs/release-source-metadata-debt-2026-06-30.json` while that temporary release debt is active. The current release debt accepts primary review-required top-result rate only up to `0.2`; stale rate, outdated top results, poor-extraction top results, and danger-class source governance failures remain blocked. Use focused variants such as `--retrieval-only`, `--rag-only`, `--limit`, `--query`, or `--question` during development to avoid unnecessary provider-backed cost.

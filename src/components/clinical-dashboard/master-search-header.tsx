@@ -117,6 +117,39 @@ function filterText(values?: string[]) {
   return (values ?? []).join(", ");
 }
 
+type TextScopeFilterKey =
+  | "medications"
+  | "topics"
+  | "sites"
+  | "documentTypes"
+  | "services"
+  | "settings"
+  | "populations"
+  | "risks"
+  | "workflows"
+  | "clinicalActions"
+  | "carePhases"
+  | "documentIntents"
+  | "contentFeatures"
+  | "collections";
+
+const labelScopeFilterFields: Array<{ key: TextScopeFilterKey; label: string; placeholder: string }> = [
+  { key: "medications", label: "Medication", placeholder: "Lithium, clozapine" },
+  { key: "topics", label: "Topic", placeholder: "ECT, safety plan" },
+  { key: "sites", label: "Site", placeholder: "FSH, RPBG, CAMHS" },
+  { key: "documentTypes", label: "Type", placeholder: "Guideline, policy" },
+  { key: "services", label: "Service", placeholder: "Mental health, pharmacy" },
+  { key: "settings", label: "Setting", placeholder: "Inpatient, ED" },
+  { key: "populations", label: "Population", placeholder: "Youth, older adult" },
+  { key: "risks", label: "Risk", placeholder: "High-risk medication" },
+  { key: "workflows", label: "Workflow", placeholder: "Referral, discharge" },
+  { key: "clinicalActions", label: "Action", placeholder: "Assess, monitor" },
+  { key: "carePhases", label: "Phase", placeholder: "Acute management" },
+  { key: "documentIntents", label: "Intent", placeholder: "Decision support" },
+  { key: "contentFeatures", label: "Feature", placeholder: "Contains table" },
+  { key: "collections", label: "Collection", placeholder: "Local policy set" },
+];
+
 function documentScopeTitle(document: ClinicalDocument) {
   return cleanDisplayTitle(document.title);
 }
@@ -237,38 +270,72 @@ export function MasterSearchHeader({
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const scopeSummaryRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
-  const selectedDocuments = selectedDocumentIds
-    .map((id) => documents.find((document) => document.id === id))
-    .filter((document): document is ClinicalDocument => Boolean(document));
+  const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
+  const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
+  const selectedDocuments = useMemo(
+    () =>
+      selectedDocumentIds
+        .map((id) => documentById.get(id))
+        .filter((document): document is ClinicalDocument => Boolean(document)),
+    [documentById, selectedDocumentIds],
+  );
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
   const footerScopeLabel = selectedDocumentIds.length === 0 ? "All sources" : `${selectedDocumentIds.length} scoped`;
-  const scopePreview = selectedDocuments
-    .slice(0, 2)
-    .map((document) => document?.title.replace(/^Synthetic /, ""))
-    .filter(Boolean)
-    .join(", ");
+  const scopePreview = useMemo(
+    () =>
+      selectedDocuments
+        .slice(0, 2)
+        .map((document) => document?.title.replace(/^Synthetic /, ""))
+        .filter(Boolean)
+        .join(", "),
+    [selectedDocuments],
+  );
   const normalizedScopeFilter = scopeFilter.trim().toLowerCase();
-  const recentlyUpdatedDocuments = [...documents].sort((a, b) => {
-    const bTime = Date.parse(b.updated_at || b.created_at || "");
-    const aTime = Date.parse(a.updated_at || a.created_at || "");
-    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
-  });
-  const matchingDocuments = normalizedScopeFilter
-    ? recentlyUpdatedDocuments.filter((document) =>
-        [document.title, document.file_name, document.description, tagSearchText(document)]
-          .filter(Boolean)
-          .some((value) => value?.toLowerCase().includes(normalizedScopeFilter)),
-      )
-    : recentlyUpdatedDocuments;
+  const recentlyUpdatedDocuments = useMemo(
+    () =>
+      [...documents].sort((a, b) => {
+        const bTime = Date.parse(b.updated_at || b.created_at || "");
+        const aTime = Date.parse(a.updated_at || a.created_at || "");
+        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+      }),
+    [documents],
+  );
+  const documentSearchTextById = useMemo(
+    () =>
+      new Map(
+        documents.map((document) => [
+          document.id,
+          [document.title, document.file_name, document.description, tagSearchText(document)]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase(),
+        ]),
+      ),
+    [documents],
+  );
+  const matchingDocuments = useMemo(
+    () =>
+      normalizedScopeFilter
+        ? recentlyUpdatedDocuments.filter((document) =>
+            documentSearchTextById.get(document.id)?.includes(normalizedScopeFilter),
+          )
+        : recentlyUpdatedDocuments,
+    [documentSearchTextById, normalizedScopeFilter, recentlyUpdatedDocuments],
+  );
   const largeScopeSet = documents.length > 12;
   const requireScopeFilter = largeScopeSet && !normalizedScopeFilter;
-  const visibleScopeDocuments = [
-    ...selectedDocuments,
-    ...(requireScopeFilter ? [] : matchingDocuments.filter((document) => !selectedDocumentIds.includes(document.id))),
-  ].slice(0, 12);
+  const visibleScopeDocuments = useMemo(
+    () =>
+      [
+        ...selectedDocuments,
+        ...(requireScopeFilter ? [] : matchingDocuments.filter((document) => !selectedDocumentIdSet.has(document.id))),
+      ].slice(0, 12),
+    [matchingDocuments, requireScopeFilter, selectedDocumentIdSet, selectedDocuments],
+  );
   const hiddenScopeMatchCount = requireScopeFilter
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocumentIds.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
+  const activeLabelFilterCount = labelScopeFilterFields.filter((field) => scopeFilters[field.key]?.length).length;
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
   const queryPlaceholder = isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
@@ -478,19 +545,6 @@ export function MasterSearchHeader({
     }
   }
 
-  const collectionOptions = useMemo(() => {
-    const values = new Set<string>();
-    for (const document of documents) {
-      const metadata =
-        document.metadata && typeof document.metadata === "object"
-          ? (document.metadata as Record<string, unknown>)
-          : {};
-      const collection = metadata.collection;
-      if (typeof collection === "string" && collection.trim()) values.add(collection.trim());
-    }
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [documents]);
-
   const closeScope = useCallback((restoreFocus = false) => {
     setScopeOpen(false);
     if (restoreFocus) scopeSummaryRef.current?.focus();
@@ -601,13 +655,37 @@ export function MasterSearchHeader({
     onAsk();
   }
 
+  function updateTextScopeFilter(key: TextScopeFilterKey, value: string) {
+    onScopeFiltersChange({ ...scopeFilters, [key]: splitFilterText(value) });
+  }
+
+  function renderLabelScopeFilterGrid(compact = false) {
+    return (
+      <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3")}>
+        {labelScopeFilterFields.map((field) => (
+          <label key={field.key} className="grid min-w-0 gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              {field.label}
+            </span>
+            <input
+              value={filterText(scopeFilters[field.key])}
+              onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
+              placeholder={field.placeholder}
+              className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+            />
+          </label>
+        ))}
+      </div>
+    );
+  }
+
   function renderScopeRows() {
     return (
       <div className="grid gap-3">
         <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 sm:hidden">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Refine search</p>
-            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">Mode, status, topics</span>
+            <span className="text-[11px] font-semibold text-[color:var(--text-soft)]">Mode, status, labels</span>
           </div>
           <div className="grid gap-2">
             <select
@@ -623,22 +701,6 @@ export function MasterSearchHeader({
               ))}
             </select>
             <div className="grid grid-cols-2 gap-2">
-              <input
-                value={filterText(scopeFilters.medications)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, medications: splitFilterText(event.target.value) })
-                }
-                placeholder="Medication"
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              />
-              <input
-                value={filterText(scopeFilters.topics)}
-                onChange={(event) =>
-                  onScopeFiltersChange({ ...scopeFilters, topics: splitFilterText(event.target.value) })
-                }
-                placeholder="Topic"
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              />
               <select
                 value={scopeFilters.sourceStatuses?.[0] ?? ""}
                 onChange={(event) =>
@@ -672,14 +734,7 @@ export function MasterSearchHeader({
                 <option value="non_local">Non-local only</option>
               </select>
             </div>
-            <input
-              value={filterText(scopeFilters.collections)}
-              onChange={(event) =>
-                onScopeFiltersChange({ ...scopeFilters, collections: splitFilterText(event.target.value) })
-              }
-              placeholder={collectionOptions.length ? `Collection: ${collectionOptions[0]}` : "Collection"}
-              className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-            />
+            {renderLabelScopeFilterGrid(true)}
             <button
               type="button"
               onClick={() => onScopeFiltersChange({})}
@@ -689,6 +744,25 @@ export function MasterSearchHeader({
             </button>
           </div>
         </section>
+        <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
+          <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-0.5">
+            <span className={eyebrowText}>Label filters</span>
+            <span className="flex items-center gap-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+              {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
+              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="mt-2 grid gap-2 border-t border-[color:var(--border)] pt-2">
+            {renderLabelScopeFilterGrid(false)}
+            <button
+              type="button"
+              onClick={() => onScopeFiltersChange({})}
+              className={cn(floatingControl, "min-h-9 w-fit px-3 text-xs")}
+            >
+              Clear refine filters
+            </button>
+          </div>
+        </details>
         <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
           <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
             <p className={eyebrowText}>Document scope</p>

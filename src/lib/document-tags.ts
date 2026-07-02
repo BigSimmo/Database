@@ -17,6 +17,7 @@ export type SmartDocumentTagGroup =
   | "Manual";
 
 export type SmartDocumentTagTier = "primary" | "secondary" | "ranking";
+export type DocumentLabelReviewStatus = "new" | "approved" | "hidden";
 
 export type SmartDocumentTag = {
   key: string;
@@ -25,6 +26,7 @@ export type SmartDocumentTag = {
   label_type: DocumentLabelType;
   group: SmartDocumentTagGroup;
   tier: SmartDocumentTagTier;
+  reviewStatus: DocumentLabelReviewStatus;
   source: DocumentLabel["source"];
   confidence: number;
   score: number;
@@ -37,6 +39,25 @@ export type SmartDocumentTagFacet = {
   searchText: string;
   group: SmartDocumentTagGroup;
   count: number;
+};
+
+export type SmartDocumentTagGroupResult = {
+  group: SmartDocumentTagGroup;
+  tags: SmartDocumentTag[];
+};
+
+export type SmartDocumentTagFacetGroup = {
+  group: SmartDocumentTagGroup;
+  facets: SmartDocumentTagFacet[];
+};
+
+export type SmartDocumentTagFacetIndex<T extends ClinicalTagSource> = {
+  entries: Array<{
+    document: T;
+    tagKeys: Set<string>;
+    tags: SmartDocumentTag[];
+  }>;
+  groups: SmartDocumentTagFacetGroup[];
 };
 
 export type SmartDocumentTagQualityIssueKind = "noisy" | "duplicate" | "low_confidence" | "overused";
@@ -100,20 +121,20 @@ const groupLabels: Record<DocumentLabelType, SmartDocumentTagGroup> = {
 };
 
 const groupRank: Record<SmartDocumentTagGroup, number> = {
-  Site: 1,
-  Medication: 2,
-  "Clinical action": 3,
-  "Care phase": 4,
+  Site: 0,
+  Medication: 1,
+  "Clinical action": 2,
+  "Care phase": 3,
+  "Document intent": 4,
   Risk: 5,
-  "Document intent": 6,
+  Workflow: 6,
   Topic: 7,
   Service: 8,
   Setting: 9,
   Population: 10,
-  Workflow: 11,
+  "Document type": 11,
   "Content feature": 12,
-  "Document type": 13,
-  Manual: 14,
+  Manual: 13,
 };
 
 export const smartDocumentFacetGroups: SmartDocumentTagGroup[] = [
@@ -124,10 +145,9 @@ export const smartDocumentFacetGroups: SmartDocumentTagGroup[] = [
   "Document intent",
   "Risk",
   "Workflow",
-  "Topic",
-  "Service",
   "Setting",
   "Population",
+  "Service",
   "Document type",
 ];
 
@@ -164,79 +184,68 @@ const acronymDisplay = new Map([
   ["wcc", "WCC"],
 ]);
 
-const siteShortLabels = new Map([
-  ["armadale kalamunda group", "AKG"],
-  ["bentley health service", "BHS"],
-  ["bmj best practice", "BMJ"],
-  ["child and adolescent mental health service", "CAMHS"],
-  ["east metropolitan health service", "EMHS"],
-  ["fiona stanley hospital", "FSH"],
-  ["fremantle hospital", "FH"],
-  ["graylands neuropsychiatric", "Graylands"],
-  ["king edward memorial hospital", "KEMH"],
-  ["north metropolitan health service", "NMHS"],
-  ["peel health campus", "PHC"],
-  ["rockingham peel group", "RKPG"],
-  ["royal perth bentley group", "RPBG"],
-  ["south metropolitan health service", "SMHS"],
-  ["wa health", "WA Health"],
-]);
-
-const displayLabelOverrides = new Map([
+const labelDisplayOverrides = new Map([
   ["assessment_tool", "Assessment tool"],
   ["prescribing_aid", "Prescribing aid"],
-  ["blood test monitoring", "Blood test monitoring"],
-  ["community program for opioid pharmacotherapy", "CPOP"],
   ["electroconvulsive-therapy", "Electroconvulsive therapy"],
   ["substance use alcohol and drugs", "Substance use, alcohol and drugs"],
+  ["substance-use-alcohol-and-drugs", "Substance use, alcohol and drugs"],
   ["aggression violence code black", "Aggression, violence and Code Black"],
   ["admission waitlist bed access", "Admission, waitlist and bed access"],
-  ["transport transfer escort", "Transport, transfer and escort"],
-  ["rights carers advocates", "Rights, carers and advocates"],
-  ["consent capacity confidentiality", "Consent, capacity and confidentiality"],
-  ["incident notification open disclosure", "Incident, notification and open disclosure"],
-  ["psychosis schizophrenia", "Psychosis and schizophrenia"],
-  ["depression mood disorders", "Depression and mood disorders"],
-  ["bipolar mood episode", "Bipolar and mood episode"],
-  ["anxiety trauma", "Anxiety and trauma"],
-  ["cognitive impairment learning disability", "Cognitive impairment and learning disability"],
-  ["shared care gp liaison", "Shared care and GP liaison"],
-  ["care coordination case management", "Care coordination and case management"],
-  ["mental state examination", "Mental state examination"],
-  ["community treatment order", "Community treatment order"],
-  ["substance withdrawal", "Substance withdrawal"],
-  ["acute psychosis", "Acute psychosis"],
-  ["mood episode", "Mood episode"],
-  ["initial assessment", "Initial assessment"],
-  ["acute management", "Acute management"],
-  ["crisis response", "Crisis response"],
-  ["ongoing management", "Ongoing management"],
-  ["maintenance treatment", "Maintenance treatment"],
-  ["discharge planning", "Discharge planning"],
+  ["physical health care", "Physical health care"],
   ["post discharge follow up", "Post-discharge follow-up"],
+  ["post-discharge-follow-up", "Post-discharge follow-up"],
+  ["initial assessment", "Initial assessment"],
+  ["initial-assessment", "Initial assessment"],
+  ["acute management", "Acute management"],
+  ["acute-management", "Acute management"],
+  ["crisis response", "Crisis response"],
+  ["crisis-response", "Crisis response"],
+  ["ongoing management", "Ongoing management"],
+  ["ongoing-management", "Ongoing management"],
+  ["maintenance treatment", "Maintenance treatment"],
+  ["maintenance-treatment", "Maintenance treatment"],
+  ["discharge planning", "Discharge planning"],
+  ["discharge-planning", "Discharge planning"],
   ["clinical instruction", "Clinical instruction"],
+  ["clinical-instruction", "Clinical instruction"],
   ["decision support", "Decision support"],
+  ["decision-support", "Decision support"],
   ["patient information", "Patient information"],
+  ["patient-information", "Patient information"],
   ["staff guidance", "Staff guidance"],
-  ["legal governance", "Legal and governance"],
+  ["staff-guidance", "Staff guidance"],
+  ["legal governance", "Legal governance"],
+  ["legal-governance", "Legal governance"],
   ["operational process", "Operational process"],
+  ["operational-process", "Operational process"],
   ["documentation requirement", "Documentation requirement"],
+  ["documentation-requirement", "Documentation requirement"],
   ["medication instruction", "Medication instruction"],
+  ["medication-instruction", "Medication instruction"],
   ["contains table", "Contains table"],
+  ["contains-table", "Contains table"],
   ["contains flowchart", "Contains flowchart"],
+  ["contains-flowchart", "Contains flowchart"],
   ["contains form", "Contains form"],
+  ["contains-form", "Contains form"],
   ["contains dosage guidance", "Contains dosage guidance"],
+  ["contains-dosage-guidance", "Contains dosage guidance"],
   ["contains monitoring schedule", "Contains monitoring schedule"],
+  ["contains-monitoring-schedule", "Contains monitoring schedule"],
   ["contains referral criteria", "Contains referral criteria"],
+  ["contains-referral-criteria", "Contains referral criteria"],
   ["contains escalation criteria", "Contains escalation criteria"],
+  ["contains-escalation-criteria", "Contains escalation criteria"],
   ["contains legal criteria", "Contains legal criteria"],
+  ["contains-legal-criteria", "Contains legal criteria"],
   ["contains quick reference", "Contains quick reference"],
+  ["contains-quick-reference", "Contains quick reference"],
   ["de escalate", "De-escalate"],
-  ["qtc monitoring", "QTc monitoring"],
-  ["nocc outcome measures", "NOCC outcome measures"],
+  ["de-escalate", "De-escalate"],
 ]);
 
-const displayLowercaseWords = new Set(["and", "or", "of", "to", "for", "in", "on", "with", "from", "by"]);
+const lowercaseDisplayWords = new Set(["and", "or", "of", "for", "from", "to", "in", "with"]);
 
 const rankingOnlyLabels = new Set([
   "clinical risk",
@@ -257,7 +266,7 @@ const rankingOnlyLabels = new Set([
   "documentation requirements",
 ]);
 
-const validClinicalActionLabels = new Set([
+const clinicalActionLabels = new Set([
   "assess",
   "prescribe",
   "administer",
@@ -268,10 +277,37 @@ const validClinicalActionLabels = new Set([
   "discharge",
   "transfer",
   "observe",
-  "document",
   "notify",
   "review",
-  "de escalate",
+  "document",
+  "de-escalate",
+]);
+
+const primaryLabelTypes = new Set<DocumentLabelType>([
+  "site",
+  "medication",
+  "clinical_action",
+  "care_phase",
+  "document_intent",
+  "risk",
+]);
+
+const siteShortLabels = new Map([
+  ["armadale kalamunda group", "AKG"],
+  ["bentley health service", "BHS"],
+  ["bmj best practice", "BMJ"],
+  ["child and adolescent mental health service", "CAMHS"],
+  ["east metropolitan health service", "EMHS"],
+  ["fiona stanley hospital", "FSH"],
+  ["fremantle hospital", "FH"],
+  ["graylands neuropsychiatric", "Graylands"],
+  ["king edward memorial hospital", "KEMH"],
+  ["north metropolitan health service", "NMHS"],
+  ["peel health campus", "PHC"],
+  ["rockingham peel group", "RKPG"],
+  ["royal perth bentley group", "RPBG"],
+  ["south metropolitan health service", "SMHS"],
+  ["wa health", "WA Health"],
 ]);
 
 export const clinicalDocumentTagAliases = [
@@ -431,7 +467,6 @@ function isNoisyLabel(label: string, labelType: DocumentLabelType) {
   if (!label || label.length < 2 || label.length > 64) return true;
   if (lowValuePattern.test(label)) return true;
   if (/\b(?:docx?|xlsx?|pptx?|pdf)\b/.test(label)) return true;
-  if (labelType === "clinical_action" && validClinicalActionLabels.has(label)) return false;
   if (
     labelType === "document_type" &&
     /^(?:policy|guideline|procedure|protocol|form|checklist|pathway|reference|algorithm|factsheet|manual|assessment_tool|prescribing_aid)$/.test(
@@ -440,6 +475,7 @@ function isNoisyLabel(label: string, labelType: DocumentLabelType) {
   ) {
     return false;
   }
+  if (labelType === "clinical_action" && clinicalActionLabels.has(label)) return false;
   if (lowValueExact.has(label)) return true;
   if (usefulTokenCount(label) === 0) return true;
   if (label.split(/\s+/).length > 6) return true;
@@ -459,38 +495,47 @@ function sourceValue(value: unknown): DocumentLabel["source"] {
   return value === "manual" ? "manual" : "generated";
 }
 
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+export function documentLabelReviewStatus(
+  label: Pick<DocumentLabel, "metadata"> | { metadata?: unknown } | null | undefined,
+): DocumentLabelReviewStatus {
+  const metadata = metadataRecord(label?.metadata);
+  const reviewStatus = String(metadata.review_status ?? metadata.label_review_status ?? "new");
+  if (reviewStatus === "approved") return "approved";
+  if (reviewStatus === "hidden" || metadata.hidden === true) return "hidden";
+  return "new";
+}
+
+export function documentLabelTier(label: string, labelType: DocumentLabelType): SmartDocumentTagTier {
+  const normalized = normalizedText(label);
+  if (rankingOnlyLabels.has(normalized)) return "ranking";
+  if (primaryLabelTypes.has(labelType)) return "primary";
+  if (labelType === "content_feature" || labelType === "document_type" || labelType === "custom") return "secondary";
+  return "secondary";
+}
+
 export function formatDocumentLabelDisplay(value: string, labelType?: DocumentLabelType) {
   const displayValue = value.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   if (labelType === "site") {
     const siteShortLabel = siteShortLabels.get(displayValue);
     if (siteShortLabel) return siteShortLabel;
   }
-  const override = displayLabelOverrides.get(value) ?? displayLabelOverrides.get(displayValue);
+  const override = labelDisplayOverrides.get(value) ?? labelDisplayOverrides.get(displayValue);
   if (override) return override;
+
   return displayValue
     .split(" ")
     .filter(Boolean)
     .map((word, index) => {
       const acronym = acronymDisplay.get(word);
       if (acronym) return acronym;
-      if (index > 0 && displayLowercaseWords.has(word)) return word;
+      if (index > 0 && lowercaseDisplayWords.has(word)) return word;
       return `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
     })
     .join(" ");
-}
-
-function displayLabel(value: string, labelType?: DocumentLabelType) {
-  return formatDocumentLabelDisplay(value, labelType);
-}
-
-export function documentLabelTier(label: string, labelType: DocumentLabelType): SmartDocumentTagTier {
-  const normalized = normalizedText(label);
-  if (rankingOnlyLabels.has(normalized)) return "ranking";
-  if (labelType === "site" || labelType === "medication" || labelType === "risk") return "primary";
-  if (labelType === "clinical_action" || labelType === "care_phase" || labelType === "document_intent")
-    return "primary";
-  if (labelType === "topic" && !rankingOnlyLabels.has(normalized)) return "primary";
-  return "secondary";
 }
 
 function queryTerms(query?: string) {
@@ -544,8 +589,8 @@ export function normalizeDocumentLabelForStorage(candidate: LabelCandidate): Nor
 }
 
 export function buildSmartDocumentTags(
-  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null | undefined,
-  options: { limit?: number; query?: string; includeManualGroup?: boolean } = {},
+  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence" | "metadata">> | null | undefined,
+  options: { limit?: number; query?: string; includeManualGroup?: boolean; includeRanking?: boolean } = {},
 ) {
   const terms = queryTerms(options.query);
   const deduped = new Map<string, SmartDocumentTag>();
@@ -554,6 +599,10 @@ export function buildSmartDocumentTags(
     const normalized = normalizeDocumentLabelForStorage(label);
     const source = sourceValue(label.source);
     if (!normalized) continue;
+    const reviewStatus = documentLabelReviewStatus(label);
+    if (reviewStatus === "hidden") continue;
+    const tier = documentLabelTier(normalized.label, normalized.label_type);
+    if (tier === "ranking" && !options.includeRanking) continue;
 
     const group = options.includeManualGroup && source === "manual" ? "Manual" : groupLabels[normalized.label_type];
     const matched = queryMatches(normalized.label, terms);
@@ -565,11 +614,12 @@ export function buildSmartDocumentTags(
       groupRank[group] * 0.04;
     const tag: SmartDocumentTag = {
       key: `${normalized.label_type}:${normalized.label}`,
-      label: displayLabel(normalized.label, normalized.label_type),
+      label: formatDocumentLabelDisplay(normalized.label, normalized.label_type),
       searchText: normalized.label,
       label_type: normalized.label_type,
       group,
-      tier: documentLabelTier(normalized.label, normalized.label_type),
+      tier,
+      reviewStatus,
       source,
       confidence: normalized.confidence,
       score,
@@ -590,23 +640,25 @@ export function buildSmartDocumentTags(
   return typeof options.limit === "number" ? sorted.slice(0, Math.max(0, options.limit)) : sorted;
 }
 
+export function groupSmartDocumentTagsFromTags(tags: SmartDocumentTag[]): SmartDocumentTagGroupResult[] {
+  const grouped = new Map<SmartDocumentTagGroup, SmartDocumentTag[]>();
+  for (const tag of tags) {
+    grouped.set(tag.group, [...(grouped.get(tag.group) ?? []), tag]);
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => groupRank[left] - groupRank[right])
+    .map(([group, groupTags]) => ({ group, tags: groupTags }));
+}
+
 export function groupSmartDocumentTags(
-  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null | undefined,
-  options: { limit?: number; query?: string; includeManualGroup?: boolean; includeRankingOnly?: boolean } = {},
+  labels: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence" | "metadata">> | null | undefined,
+  options: { limit?: number; query?: string; includeManualGroup?: boolean; includeRanking?: boolean } = {},
 ) {
-  const tags = buildSmartDocumentTags(labels, options).filter(
-    (tag) => options.includeRankingOnly || tag.tier !== "ranking",
-  );
-  return [...new Set(tags.map((tag) => tag.group))]
-    .sort((a, b) => groupRank[a] - groupRank[b])
-    .map((group) => ({
-      group,
-      tags: tags.filter((tag) => tag.group === group),
-    }));
+  return groupSmartDocumentTagsFromTags(buildSmartDocumentTags(labels, options));
 }
 
 export function tagSearchText(labels: ClinicalTagSource | null | undefined) {
-  return buildSmartDocumentTags(labels?.labels)
+  return buildSmartDocumentTags(labels?.labels, { includeRanking: true })
     .map((tag) => `${tag.label} ${tag.searchText} ${tag.group}`)
     .join(" ");
 }
@@ -647,6 +699,7 @@ export function reviewDocumentTagQuality<
     const perDocument = new Map<string, DocumentLabel[]>();
 
     for (const label of document.labels ?? []) {
+      if (documentLabelReviewStatus(label as Pick<DocumentLabel, "metadata">) === "hidden") continue;
       const confidence = confidenceValue(label.confidence);
       const canonical = normalizeDocumentLabelForStorage({
         label: label.label,
@@ -670,7 +723,7 @@ export function reviewDocumentTagQuality<
       if (label.source !== "manual" && confidence < lowConfidenceThreshold) {
         addQualityIssue(issues, {
           kind: "low_confidence",
-          label: displayLabel(canonical.label),
+          label: formatDocumentLabelDisplay(canonical.label),
           canonicalLabel: canonical.label,
           label_type: canonical.label_type,
           count: 1,
@@ -684,7 +737,7 @@ export function reviewDocumentTagQuality<
       perDocument.set(duplicateKey, [...(perDocument.get(duplicateKey) ?? []), label as DocumentLabel]);
 
       const global = globalUsage.get(duplicateKey) ?? {
-        label: displayLabel(canonical.label),
+        label: formatDocumentLabelDisplay(canonical.label),
         canonicalLabel: canonical.label,
         label_type: canonical.label_type,
         documents: new Set<string>(),
@@ -701,7 +754,7 @@ export function reviewDocumentTagQuality<
       const [labelType, canonicalLabel] = key.split(":") as [DocumentLabelType, string];
       addQualityIssue(issues, {
         kind: "duplicate",
-        label: displayLabel(canonicalLabel),
+        label: formatDocumentLabelDisplay(canonicalLabel),
         canonicalLabel,
         label_type: labelType,
         count: duplicates.length,
@@ -714,7 +767,6 @@ export function reviewDocumentTagQuality<
 
   for (const global of globalUsage.values()) {
     if (global.documents.size < overusedThreshold) continue;
-    if (documentLabelTier(global.canonicalLabel, global.label_type) === "ranking") continue;
     addQualityIssue(issues, {
       kind: "overused",
       label: global.label,
@@ -740,15 +792,22 @@ export function buildSmartDocumentTagFacets<T extends ClinicalTagSource>(
   documents: T[],
   options: { query?: string; limitPerGroup?: number } = {},
 ) {
+  return buildSmartDocumentTagFacetIndex(documents, options).groups;
+}
+
+export function buildSmartDocumentTagFacetIndex<T extends ClinicalTagSource>(
+  documents: T[],
+  options: { query?: string; limitPerGroup?: number } = {},
+): SmartDocumentTagFacetIndex<T> {
   const limitPerGroup = options.limitPerGroup ?? 8;
   const allowedGroups = new Set(smartDocumentFacetGroups);
   const facets = new Map<string, SmartDocumentTagFacet>();
+  const entries: SmartDocumentTagFacetIndex<T>["entries"] = [];
 
   for (const document of documents) {
     const documentTagKeys = new Set<string>();
     const tags = buildSmartDocumentTags(document.labels, { query: options.query, includeManualGroup: false });
     for (const tag of tags) {
-      if (tag.tier === "ranking") continue;
       if (!allowedGroups.has(tag.group) || documentTagKeys.has(tag.key)) continue;
       documentTagKeys.add(tag.key);
       const existing = facets.get(tag.key);
@@ -764,9 +823,10 @@ export function buildSmartDocumentTagFacets<T extends ClinicalTagSource>(
         });
       }
     }
+    entries.push({ document, tagKeys: documentTagKeys, tags });
   }
 
-  return smartDocumentFacetGroups
+  const groups = smartDocumentFacetGroups
     .map((group) => ({
       group,
       facets: [...facets.values()]
@@ -775,22 +835,28 @@ export function buildSmartDocumentTagFacets<T extends ClinicalTagSource>(
         .slice(0, Math.max(1, limitPerGroup)),
     }))
     .filter((group) => group.facets.length > 0);
+
+  return { entries, groups };
 }
 
 export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(
   documents: T[],
   selectedTagKeys: string[],
 ) {
-  if (selectedTagKeys.length === 0) return documents;
-  const selected = new Set(selectedTagKeys);
-  return documents.filter((document) => {
-    const tagKeys = new Set(
-      buildSmartDocumentTags(document.labels, { includeManualGroup: false }).map((tag) => tag.key),
-    );
-    return [...selected].every((key) => tagKeys.has(key));
-  });
+  return filterDocumentsBySmartTagFacetIndex(buildSmartDocumentTagFacetIndex(documents), selectedTagKeys);
+}
+
+export function filterDocumentsBySmartTagFacetIndex<T extends ClinicalTagSource>(
+  index: SmartDocumentTagFacetIndex<T>,
+  selectedTagKeys: string[],
+) {
+  if (selectedTagKeys.length === 0) return index.entries.map((entry) => entry.document);
+  const selected = [...new Set(selectedTagKeys)];
+  return index.entries
+    .filter((entry) => selected.every((key) => entry.tagKeys.has(key)))
+    .map((entry) => entry.document);
 }
 
 type ClinicalTagSource = {
-  labels?: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence">> | null;
+  labels?: Array<Pick<DocumentLabel, "label" | "label_type" | "source" | "confidence" | "metadata">> | null;
 };

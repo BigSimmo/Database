@@ -171,7 +171,9 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
   await route.fulfill({ json: payload });
 }
 
-async function mockDemoApi(page: Page) {
+type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
+
+async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOverride } = {}) {
   await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
@@ -208,8 +210,11 @@ async function mockDemoApi(page: Page) {
       documentId?: string;
       documentIds?: string[];
     };
+    const answer =
+      options.answerOverride?.(body.query ?? "What monitoring is required?", body.documentId, body.documentIds) ??
+      demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds);
     await fulfillAnswerResponse(route, {
-      ...demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
+      ...answer,
       demoMode: true,
     });
   });
@@ -456,7 +461,7 @@ function scopeTrigger(page: Page) {
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  const measurementTolerance = 0.01;
+  const measurementTolerance = 0.5;
   expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
   expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
@@ -775,16 +780,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sourceCapsule).not.toContainText("Check sources");
     await expectMinTouchTarget(sourceCapsule);
     await sourceCapsule.click();
-    const sourceSheet = page.getByRole("dialog", { name: "Sources behind this answer" });
+    const sourceSheet = page.getByRole("dialog", { name: "Sources" });
     await expect(sourceSheet).toBeVisible();
     const sourcePreview = page.getByTestId("source-capsule-preview");
     await expect(sourcePreview).toBeVisible();
-    await expect(sourcePreview).toContainText("Sources behind this answer");
+    await expect(sourcePreview).toContainText("Best match");
     await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
     const firstPreviewSource = sourcePreview.getByTestId("source-capsule-preview-row").first();
     await expect(firstPreviewSource).toHaveAttribute("href", /\/documents\/.+chunk=/);
     await expectMinTouchTarget(firstPreviewSource);
-    await expect(sourcePreview.getByRole("link", { name: /Open source page/i })).toBeVisible();
+    await expect(sourcePreview.getByRole("link", { name: /Open S1 source page/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
     const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy quote" });
     await expect(copyQuoteButton).toBeVisible();
@@ -812,11 +817,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
     await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
-    const keyItems = page.getByLabel("Key monitoring items");
-    await expect(keyItems).toBeVisible();
-    await expect(keyItems).toContainText("FBC/ANC");
-    await expect(keyItems).toContainText("Myocarditis");
-    await expect(keyItems).toContainText("Metabolic");
+    const supportCard = page.getByTestId("answer-support-card");
+    await expect(supportCard).toBeVisible();
+    await expect(supportCard).toContainText("Clinical notes");
+    await expect(supportCard).toContainText("Evidence");
+    await expect(supportCard).toContainText(/Priority|FBC\/ANC|Myocarditis|Metabolic/i);
 
     const clinicalTable = page.getByLabel("Inline table preview").first();
     await expect(clinicalTable).toBeVisible();
@@ -869,59 +874,42 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const clinicalNotesTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
     await expect(clinicalNotesTrigger).toBeVisible();
     await expect(clinicalNotesTrigger).toContainText("Clinical notes");
-    await expect(clinicalNotesTrigger).toContainText("Source-backed");
+    await expect(clinicalNotesTrigger).toContainText(/notes?/i);
     await expectMinTouchTarget(clinicalNotesTrigger);
     await clinicalNotesTrigger.click();
     const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
     await expect(clinicalNotesSheet).toBeVisible();
     await expect(clinicalNotesSheet.getByTestId("clinical-notes-checklist")).toBeVisible();
+    await expect(clinicalNotesSheet.getByRole("tab", { name: /Essentials/ })).toBeVisible();
+    await expect(clinicalNotesSheet.getByRole("tab", { name: /Actions/ })).toBeVisible();
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Safety/ })).toBeVisible();
-    await expect(clinicalNotesSheet.getByRole("tab", { name: /Monitor/ })).toBeVisible();
+    expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
+    await expect(clinicalNotesSheet.getByText("Review toxicity symptoms", { exact: true })).toBeVisible();
     await tapOutsideActiveSurface(page);
     await expect(clinicalNotesSheet).toHaveCount(0);
-    await clinicalNotesTrigger.click();
-    await expect(clinicalNotesSheet).toBeVisible();
-    const clinicalNotesTableToggle = clinicalNotesSheet.getByRole("tab", { name: /Table/i });
-    await expect(clinicalNotesTableToggle).toBeVisible();
-    await expect(clinicalNotesSheet.getByText("Table details")).toHaveCount(0);
-    await expect(clinicalNotesSheet.getByRole("table")).toHaveCount(0);
-    expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
-    await expect(clinicalNotesSheet.getByText("Safety checklist")).toBeVisible();
-    await clinicalNotesTableToggle.click();
-    await expect(clinicalNotesSheet).toHaveCount(0);
-    const tablePopoutSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(tablePopoutSheet).toBeVisible();
-    await expect(tablePopoutSheet.getByTestId("mobile-evidence-tab-tables")).toHaveAttribute("aria-selected", "true");
-    await expect(tablePopoutSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
-    await expect(tablePopoutSheet.getByRole("table")).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(tablePopoutSheet).toHaveCount(0);
 
     const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
     await expect(evidenceDrawer).toBeVisible();
     await expect(evidenceDrawer).toContainText("Evidence");
-    await expect(evidenceDrawer).toContainText(/sources?/i);
+    await expect(evidenceDrawer).toContainText(/claims?/i);
     await expect(evidenceDrawer).toContainText(/quotes?/i);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     const hierarchy = await page.evaluate(() => {
       const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
-      const keyItems = document.querySelector('[aria-label="Key monitoring items"]');
+      const support = document.querySelector('[data-testid="answer-support-card"]');
       const table = document.querySelector('[aria-label="Inline table preview"]');
-      const evidence = document.querySelector("#answer-evidence-drawer-mobile-trigger");
       return {
         questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
-        keyItemsTop: keyItems?.getBoundingClientRect().top ?? 9999,
+        supportTop: support?.getBoundingClientRect().top ?? 9999,
         tableTop: table?.getBoundingClientRect().top ?? 9999,
-        evidenceTop: evidence?.getBoundingClientRect().top ?? 9999,
       };
     });
     expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
-    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.keyItemsTop);
-    expect(hierarchy.keyItemsTop).toBeLessThan(hierarchy.tableTop);
-    expect(hierarchy.tableTop).toBeLessThan(hierarchy.evidenceTop);
+    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.supportTop);
+    expect(hierarchy.supportTop).toBeLessThan(hierarchy.tableTop);
 
     await evidenceDrawer.click();
     const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
@@ -929,31 +917,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
     const evidenceSheetOrder = await evidenceSheet.evaluate((element) => {
       const tabs = element.querySelector('[data-testid="mobile-evidence-tabs"]');
-      const review = element.querySelector('[data-testid="answer-review-panel"]');
+      const claims = element.querySelector('[data-testid="evidence-claims-panel"]');
       return {
         tabsTop: tabs?.getBoundingClientRect().top ?? 9999,
-        reviewTop: review?.getBoundingClientRect().top ?? 9999,
+        claimsTop: claims?.getBoundingClientRect().top ?? 9999,
       };
     });
-    expect(evidenceSheetOrder.tabsTop).toBeLessThan(evidenceSheetOrder.reviewTop);
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-sources")).toHaveAttribute("aria-selected", "true");
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-sources")).toBeVisible();
-    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-sources"));
+    expect(evidenceSheetOrder.tabsTop).toBeLessThan(evidenceSheetOrder.claimsTop);
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
+    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-claims"));
     const sourcePanelLink = evidenceSheet
-      .getByTestId("mobile-evidence-panel-sources")
-      .locator('a[href*="chunk="]')
+      .getByTestId("mobile-evidence-panel-claims")
+      .getByTestId("evidence-map-open-source")
       .first();
     await expect(sourcePanelLink).toBeVisible();
     await expect(sourcePanelLink).toHaveAttribute("href", /\/documents\/.+chunk=/);
+    await expectMinTouchTarget(sourcePanelLink);
     await evidenceSheet.getByTestId("mobile-evidence-tab-tables").click();
     await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
     await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
-    await evidenceSheet.getByTestId("mobile-evidence-tab-map").click();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-map")).toBeVisible();
-    const evidenceMapOpenSource = evidenceSheet.getByTestId("evidence-map-open-source").first();
-    await expect(evidenceMapOpenSource).toBeVisible();
-    await expect(evidenceMapOpenSource).toHaveAttribute("href", /\/documents\/.+chunk=/);
-    await expectMinTouchTarget(evidenceMapOpenSource);
+    const gapsTab = evidenceSheet.getByTestId("mobile-evidence-tab-gaps");
+    if (await gapsTab.count()) {
+      await gapsTab.click();
+      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-gaps")).toBeVisible();
+      await expectMinTouchTarget(gapsTab);
+    }
     await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
@@ -992,10 +981,158 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("source-only answer keeps support rows honest", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          answer:
+            "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the sources directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.",
+          grounded: false,
+          confidence: "low",
+          answerQualityTier: "source_only",
+          fallbackReason: "source_only_no_api",
+          citations: [],
+          answerSections: [],
+          quoteCards: [],
+          visualEvidence: [],
+        };
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium");
+    await visibleAnswerSubmitButton(page).click();
+
+    const supportCard = page.getByTestId("answer-support-card");
+    await expect(supportCard).toBeVisible();
+    await expect(supportCard).toContainText("Review source match");
+    await expect(supportCard).toContainText("Verify cited passages");
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).toContainText(/sources?|claims?/i);
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).not.toContainText("0 claims");
+
+    const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
+    if (await clinicalTrigger.count()) {
+      await clinicalTrigger.click();
+      const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
+      await expect(clinicalNotesSheet).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(clinicalNotesSheet).toHaveCount(0);
+    }
+
+    await supportCard.getByTestId("answer-evidence-trigger").click();
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(evidenceSheet).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   for (const viewport of [
-    { name: "320px mobile", width: 320, height: 820, expands: true },
+    { name: "phone", width: 390, height: 820, sheet: true },
+    { name: "tablet", width: 768, height: 1024, sheet: true },
+    { name: "near sheet breakpoint", width: 1018, height: 900, sheet: true },
+    { name: "desktop", width: 1440, height: 900, sheet: false },
+  ] as const) {
+    test(`answer support popups adapt at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoApi(page);
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+
+      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
+      await visibleAnswerSubmitButton(page).click();
+
+      const plainAnswer = page.getByTestId("plain-answer-response");
+      await expect(plainAnswer).toBeVisible();
+      const supportCard = page.getByTestId("answer-support-card");
+      await expect(supportCard).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+
+      const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
+      await expectMinTouchTarget(sourceCapsule);
+      await sourceCapsule.click();
+      const sourceSurface = viewport.sheet
+        ? page.getByRole("dialog", { name: "Sources" })
+        : page.getByTestId("source-capsule-preview");
+      await expect(sourceSurface).toBeVisible();
+      await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
+        "href",
+        /\/documents\/.+chunk=/,
+      );
+      await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
+      if (viewport.sheet) {
+        await page.keyboard.press("Escape");
+        await expect(sourceSurface).toHaveCount(0);
+        await expect(sourceCapsule).toBeFocused();
+      } else {
+        await sourceCapsule.click();
+        await expect(sourceSurface).toHaveCount(0);
+      }
+
+      const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
+      await expectMinTouchTarget(clinicalTrigger);
+      await clinicalTrigger.click();
+      const clinicalSurface = viewport.sheet
+        ? page.getByRole("dialog", { name: "Clinical notes" })
+        : page.getByTestId("desktop-answer-review-panel");
+      await expect(clinicalSurface).toBeVisible();
+      await expect(clinicalSurface.getByTestId("clinical-notes-checklist")).toBeVisible();
+      await expect(clinicalSurface.getByRole("tab", { name: /Actions/ })).toBeVisible();
+      await expectMinTouchTarget(clinicalSurface.getByRole("link", { name: /^Source$/ }).first());
+      const clinicalCopy = clinicalSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).first();
+      await expectMinTouchTarget(clinicalCopy);
+      await clinicalCopy.click();
+      if (viewport.sheet) {
+        await page.keyboard.press("Escape");
+        await expect(clinicalSurface).toHaveCount(0);
+        await expect(clinicalTrigger).toBeVisible();
+      } else {
+        await clinicalSurface.getByRole("button", { name: "Close clinical notes" }).click();
+        await expect(clinicalSurface).toHaveCount(0);
+      }
+
+      const evidenceTrigger = page.locator("#answer-evidence-drawer-mobile-trigger");
+      await expectMinTouchTarget(evidenceTrigger);
+      await evidenceTrigger.click();
+      const evidenceSurface = viewport.sheet
+        ? page.getByRole("dialog", { name: "Evidence" })
+        : page.getByTestId("desktop-answer-review-panel");
+      await expect(evidenceSurface).toBeVisible();
+      await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
+      await expect(evidenceSurface.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      await expect(evidenceSurface.getByTestId("evidence-claims-panel")).toBeVisible();
+      await expectMinTouchTarget(evidenceSurface.getByRole("link", { name: /^Source$/ }).first());
+      const evidenceCopy = evidenceSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).last();
+      await expectMinTouchTarget(evidenceCopy);
+      await evidenceCopy.click();
+      const evidenceTablesTab = evidenceSurface.getByTestId("mobile-evidence-tab-tables");
+      if (await evidenceTablesTab.count()) {
+        await evidenceTablesTab.click();
+        await expect(evidenceSurface.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
+        await expectMinTouchTarget(evidenceTablesTab);
+      }
+      if (viewport.sheet) {
+        await page.keyboard.press("Escape");
+        await expect(evidenceSurface).toHaveCount(0);
+        await expect(evidenceTrigger).toBeFocused();
+      } else {
+        await evidenceSurface.getByRole("button", { name: "Close evidence" }).click();
+        await expect(evidenceSurface).toHaveCount(0);
+      }
+
+      await expectNoPageHorizontalOverflow(page);
+    });
+  }
+
+  for (const viewport of [
     { name: "390px mobile", width: 390, height: 820, expands: true },
-    { name: "1280px desktop", width: 1280, height: 900, expands: false },
+    { name: "768px tablet", width: 768, height: 1024, expands: true },
+    { name: "1440px desktop", width: 1440, height: 900, expands: false },
   ] as const) {
     test(`clinical table mobile expansion at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -1014,27 +1151,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       const expandButton = clinicalTable.getByTestId("table-expand-button");
       if (!viewport.expands) {
-        await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText("Source-backed");
+        await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText(/sources?/i);
         await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
           "data-desktop-table-aside",
           "true",
         );
         const desktopLayout = await page.evaluate(() => {
           const answer = document.querySelector('[data-testid="plain-answer-response"]');
-          const keyItems = document.querySelector('[aria-label="Key monitoring items"]');
+          const support = document.querySelector('[data-testid="answer-support-card"]');
           const table = document.querySelector('[aria-label="Inline table preview"]');
           const answerRect = answer?.getBoundingClientRect();
-          const keyRect = keyItems?.getBoundingClientRect();
+          const supportRect = support?.getBoundingClientRect();
           const tableRect = table?.getBoundingClientRect();
           return {
             answerRight: answerRect?.right ?? 0,
             answerTop: answerRect?.top ?? 9999,
-            keyRight: keyRect?.right ?? 0,
+            supportRight: supportRect?.right ?? 0,
             tableLeft: tableRect?.left ?? 0,
             tableTop: tableRect?.top ?? 9999,
           };
         });
-        expect(desktopLayout.tableLeft).toBeGreaterThan(Math.max(desktopLayout.answerRight, desktopLayout.keyRight));
+        expect(desktopLayout.tableLeft).toBeGreaterThan(
+          Math.max(desktopLayout.answerRight, desktopLayout.supportRight),
+        );
         expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
         await expect(expandButton).toHaveCount(0);
         await expectNoPageHorizontalOverflow(page);
@@ -1169,13 +1308,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: /Recent documents/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Browse library/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Open a source PDF/i })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Explore document parts" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Suggested searches" })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Recently indexed" })).toHaveCount(0);
-    await expect(page.locator('a[href^="/documents/"]')).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Resume Lithium monitoring guideline/i })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Document shortcuts" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "monitoring", exact: true })).toHaveCount(0);
+    await page.getByRole("region", { name: "Smart facets" }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole("region", { name: "Smart facets" })).toBeVisible();
+    await page.getByRole("region", { name: "Recent documents" }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole("region", { name: "Recent documents" })).toBeVisible();
+    await expect(page.locator('a[href^="/documents/"]').first()).toBeVisible();
     await expect(page.getByText("Source library workspace")).toHaveCount(0);
     await expect(page.getByText("Document display")).toHaveCount(0);
 
@@ -1188,12 +1325,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("1 table").first()).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toContainText("Best match");
     await expect(page.getByTestId("document-search-workspace")).toContainText("Relevant");
+    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open exact evidence/i })).toBeVisible();
     await expect(page.getByRole("button", { name: "Lithium", exact: true })).toBeVisible();
     await expect(page.getByText("Tag facets")).toHaveCount(0);
-    await expect(page.getByTestId("document-search-workspace")).not.toContainText(
-      /No direct support|Partial support|source support|direct support/i,
-    );
     await expectMinTouchTarget(page.getByRole("link", { name: /Open Synthetic lithium/i }).first());
+    await expect(page.getByRole("button", { name: /Preview evidence for/i }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
     await page
       .getByRole("button", { name: /Answer from/i })

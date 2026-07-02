@@ -309,31 +309,23 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
       await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
       await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
+      const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
+      await expect(evidenceDrawer).toBeVisible();
+      await evidenceDrawer.click();
       if (viewport.name === "mobile") {
-        const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-        await expect(evidenceDrawer).toBeVisible();
-        await evidenceDrawer.click();
         const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
         await expect(evidenceSheet).toBeVisible();
         await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-        await expect(evidenceSheet.getByTestId("mobile-evidence-tab-sources")).toHaveAttribute("aria-selected", "true");
-        await expect(evidenceSheet.getByTestId("mobile-evidence-panel-sources")).toBeVisible();
+        await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
+        await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
         await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       } else {
-        const evidenceDrawer = page.locator("#answer-evidence-drawer");
-        await expect(evidenceDrawer).toBeVisible();
-        expect(await evidenceDrawer.evaluate((element) => element.hasAttribute("open"))).toBe(false);
-        const evidenceSummary = evidenceDrawer.locator("summary");
-        // Confirm focus has actually landed before pressing Enter: in WebKit the
-        // key event can otherwise fire before the summary is focused, so the
-        // <details> never toggles open and the panel stays hidden.
-        await evidenceSummary.focus();
-        await expect(evidenceSummary).toBeFocused();
-        await page.keyboard.press("Enter");
-        const evidenceReview = page.getByTestId("evidence-support-panel");
+        const evidenceReview = page.getByTestId("desktop-answer-review-panel");
         await expect(evidenceReview).toBeVisible();
-        await expect(evidenceReview.getByText("Evidence review")).toBeVisible();
-        await expect(evidenceReview.getByTestId("evidence-counts").getByText("Quotes")).toBeVisible();
+        await expect(evidenceReview.getByRole("heading", { name: "Evidence" })).toBeVisible();
+        await expect(evidenceReview.getByTestId("mobile-evidence-tabs")).toBeVisible();
+        await expect(evidenceReview.getByTestId("evidence-claims-panel")).toBeVisible();
+        await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
     });
