@@ -1963,9 +1963,9 @@ export function buildRetrievalQueryVariants(
     addVariant("risk flow");
     // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"
     // and "risk flow review urgent escalation" variants required all terms in one
-    // chunk and did not reliably contribute candidates to the pool. A "<colour> zone" variant retrieves the small,
-    // precise set of zone-action chunks (escalation protocols, observation and
-    // response charts) that answer zone / next-step questions. Match the zone the
+    // chunk and did not reliably contribute candidates to the pool.
+    // A "<colour> zone" variant retrieves the small, precise set of zone-action chunks
+    // (escalation protocols, observation and response charts) that answer zone / next-step questions. Match the zone the
     // query actually names so an amber-zone question does not pull red-zone
     // chunks into its candidate pool.
     const zoneColour = query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1];
