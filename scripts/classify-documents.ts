@@ -45,7 +45,8 @@ type GeneratedLabelRow = {
     organization_profile_version: "document-organization-v1";
     classified_at: string;
     label_tier: string;
-    review_status: "new";
+    review_status: string;
+    [key: string]: unknown;
   };
 };
 
@@ -158,6 +159,7 @@ type ExistingGeneratedLabelRow = {
   document_id: string;
   label_type: string;
   label: string;
+  metadata: unknown;
 };
 
 function assertMutationRows(
@@ -184,6 +186,26 @@ function dedupeGeneratedLabels(rows: GeneratedLabelRow[]) {
     seen.add(key);
     return true;
   });
+}
+
+function preservedReviewMetadata(metadata: unknown) {
+  const record = metadataRecord(metadata);
+  const preserved: Record<string, unknown> = {};
+  for (const key of [
+    "review_status",
+    "reviewed_at",
+    "reviewed_by",
+    "review_note",
+    "review_reason",
+    "hidden_at",
+    "hidden_by",
+    "hidden_reason",
+    "approved_at",
+    "approved_by",
+  ]) {
+    if (record[key] !== undefined) preserved[key] = record[key];
+  }
+  return preserved;
 }
 
 function chunkArray<T>(items: T[], size: number) {
@@ -385,7 +407,7 @@ async function writeClassifications(supabase: SupabaseAdmin, plans: Classificati
     const desiredLabelKeys = new Set(generatedLabels.map(labelIdentity));
     const { data: existingGenerated, error: existingGeneratedError } = (await supabase
       .from("document_labels")
-      .select("id,document_id,label_type,label")
+      .select("id,document_id,label_type,label,metadata")
       .in("document_id", documentIds)
       .eq("source", "generated")
       .in("label_type", [...generatedLabelTypes])) as {
@@ -397,8 +419,19 @@ async function writeClassifications(supabase: SupabaseAdmin, plans: Classificati
     const labelsToDelete = (existingGenerated ?? [])
       .filter((label) => !desiredLabelKeys.has(labelIdentity(label)))
       .map((label) => label.id);
+    const existingGeneratedByKey = new Map((existingGenerated ?? []).map((label) => [labelIdentity(label), label]));
+    const labelsForUpsert = generatedLabels.map((label) => {
+      const preserved = preservedReviewMetadata(existingGeneratedByKey.get(labelIdentity(label))?.metadata);
+      return {
+        ...label,
+        metadata: {
+          ...label.metadata,
+          ...preserved,
+        },
+      };
+    });
 
-    for (const labels of chunkArray(generatedLabels, labelUpsertBatchSize)) {
+    for (const labels of chunkArray(labelsForUpsert, labelUpsertBatchSize)) {
       if (!labels.length) continue;
       const { data, error: labelError } = await supabase
         .from("document_labels")

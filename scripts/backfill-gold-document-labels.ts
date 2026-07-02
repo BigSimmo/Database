@@ -1,4 +1,5 @@
 import * as nextEnv from "@next/env";
+import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import type { Json } from "@/lib/supabase/database.types";
 import type { DocumentLabelType } from "@/lib/types";
 
@@ -53,6 +54,14 @@ type GoldLabelInsert = {
   confidence: number;
   metadata: Json;
 };
+
+async function invalidateRagCachesForAffectedOwners(supabase: SupabaseAdmin, ownerIds: Set<string | null>) {
+  for (const ownerId of ownerIds) {
+    const deleteQuery = supabase.from("rag_response_cache").delete().in("cache_kind", ["search", "answer"]);
+    const { error } = ownerId ? await deleteQuery.eq("owner_id", ownerId) : await deleteQuery.is("owner_id", null);
+    if (error) throw new Error(error.message);
+  }
+}
 
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
@@ -200,11 +209,18 @@ async function main() {
       summary: summariesByDocument.get(document.id) ?? null,
     });
     for (const label of missing) {
+      const normalized = normalizeDocumentLabelForStorage({
+        label: label.label,
+        label_type: label.label_type,
+        confidence: 1,
+        source: "manual",
+      });
+      if (!normalized) continue;
       inserts.push({
         document_id: document.id,
         owner_id: document.owner_id,
-        label: label.label,
-        label_type: label.label_type,
+        label: normalized.label,
+        label_type: normalized.label_type,
         source: "manual",
         confidence: 1,
         metadata: {
@@ -244,6 +260,12 @@ async function main() {
     }
     written += batch.length;
     console.log(`Upserted ${written}/${inserts.length} gold label(s).`);
+  }
+  if (written > 0) {
+    await invalidateRagCachesForAffectedOwners(supabase, new Set(inserts.map((insert) => insert.owner_id)));
+    console.log(
+      `Invalidated RAG search/answer caches for ${new Set(inserts.map((insert) => insert.owner_id)).size} owner scope(s).`,
+    );
   }
 }
 

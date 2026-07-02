@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft, ExternalLink, FileText, Loader2, Search } from 
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { useAuthSession } from "@/lib/supabase/client";
 
 type DocumentListItem = {
   id: string;
@@ -43,10 +44,10 @@ const focusRing =
 
 const defaultQuery = "clozapine monitoring table";
 
-async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
+async function fetchJson<T>(url: string, signal: AbortSignal, authorizationHeader: Record<string, string>): Promise<T> {
   const response = await fetch(url, {
     cache: "no-store",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...authorizationHeader },
     signal,
   });
   if (!response.ok) {
@@ -76,6 +77,7 @@ function liveDocumentHref(documentId: string, result: ChunkSearchResult | undefi
 export function DocumentSearchLiveOpener() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { authorizationHeader } = useAuthSession();
   const query = searchParams.get("q")?.trim() || defaultQuery;
   const documentHint = searchParams.get("document")?.trim() || "clozapine";
   const [state, setState] = useState<ResolverState>({
@@ -94,16 +96,23 @@ export function DocumentSearchLiveOpener() {
         const documentParams = new URLSearchParams({
           limit: "20",
           includeMeta: "false",
+          status: "indexed",
           q: lookupTerm,
         });
         let payload = await fetchJson<DocumentsPayload>(
           `/api/documents?${documentParams.toString()}`,
           controller.signal,
+          authorizationHeader,
         );
         let documents = (payload.documents ?? []).filter((document) => document.status === "indexed");
 
         if (documents.length === 0) {
-          payload = await fetchJson<DocumentsPayload>("/api/documents?limit=20&includeMeta=false", controller.signal);
+          const fallbackParams = new URLSearchParams({ limit: "20", includeMeta: "false", status: "indexed" });
+          payload = await fetchJson<DocumentsPayload>(
+            `/api/documents?${fallbackParams.toString()}`,
+            controller.signal,
+            authorizationHeader,
+          );
           documents = (payload.documents ?? []).filter((document) => document.status === "indexed");
         }
 
@@ -123,6 +132,7 @@ export function DocumentSearchLiveOpener() {
           const searchPayload = await fetchJson<ChunkSearchPayload>(
             `/api/documents/${document.id}/search?${chunkParams.toString()}`,
             controller.signal,
+            authorizationHeader,
           );
           const result = searchPayload.results?.[0];
           const score = Number(result?.score ?? 0);
@@ -136,6 +146,7 @@ export function DocumentSearchLiveOpener() {
           const detailPayload = await fetchJson<DocumentDetailPayload>(
             `/api/documents/${document.id}?page=1&pageLimit=1&chunkLimit=1`,
             controller.signal,
+            authorizationHeader,
           );
           best = { document, result: detailPayload.chunks?.[0], score: 0 };
         }
@@ -158,7 +169,7 @@ export function DocumentSearchLiveOpener() {
 
     void openLiveDocument();
     return () => controller.abort();
-  }, [lookupTerm, query, router]);
+  }, [authorizationHeader, lookupTerm, query, router]);
 
   return (
     <main className="min-h-screen bg-[color:var(--background)] px-3 py-4 pb-28 text-[color:var(--text)] sm:px-6 sm:py-6 lg:px-8">

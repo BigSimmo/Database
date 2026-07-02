@@ -197,7 +197,10 @@ export function documentGovernanceText(document: LabelGovernanceDocument) {
 }
 
 function documentGoldLabelText(document: LabelGovernanceDocument) {
-  return [document.title, document.file_name, metadataText(document.metadata)].filter(Boolean).join(" ").toLowerCase();
+  return [document.title, document.file_name, document.summary?.summary, metadataText(document.metadata)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 function normalizeGoldLabel(label: GoldDocumentLabel) {

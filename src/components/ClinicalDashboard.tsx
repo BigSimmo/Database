@@ -774,6 +774,7 @@ function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadat
 }
 
 function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
+  if (!source.sourceStrength || source.sourceStrength === "none") return "Unsupported";
   if (source.sourceStrength === "limited") return "Partial";
   if (source.sourceStrength === "moderate") return "Partial";
   if (index === 0 || source.sourceStrength === "strong") return "Direct";
@@ -3621,7 +3622,7 @@ function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: An
   if (rows.length) return rows.slice(0, 6);
   return renderModel.primarySources.slice(0, 6).map((source, index) => ({
     id: source.id,
-    section: index === 0 ? "Dose interval" : cleanDisplayTitle(source.title),
+    section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
     detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
     supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
     citationCount: 1,
@@ -3728,6 +3729,8 @@ function MobileEvidenceSheetContent({
   query,
   visualEvidence,
   answerEvidenceMapRows,
+  sourceGovernanceWarnings,
+  demoMode,
   initialTab,
   pendingFeedback,
   copiedQuotes,
@@ -3742,6 +3745,8 @@ function MobileEvidenceSheetContent({
   query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  sourceGovernanceWarnings: SourceGovernanceWarning[];
+  demoMode: boolean;
   initialTab?: EvidenceTabName | null;
   pendingFeedback: AnswerFeedbackType | null;
   copiedQuotes: boolean;
@@ -3843,6 +3848,13 @@ function MobileEvidenceSheetContent({
           );
         })}
       </div>
+      <ScopeAndGovernanceNotice scope={null} warnings={sourceGovernanceWarnings} />
+      <AnswerSafetyNotice
+        demoMode={demoMode}
+        weakEvidence={renderModel.trust !== "high"}
+        retrievalDiagnostics={answer.retrievalDiagnostics}
+      />
+      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
       <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
         <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
           {primarySourceHref ? (
@@ -4291,6 +4303,7 @@ function StagedAnswerResultSurface({
     weakEvidence,
   });
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
+  const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
   const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
   const showLayoutAside = Boolean(activeReviewPanel || centralTable);
 
@@ -4398,6 +4411,8 @@ function StagedAnswerResultSurface({
                     query={query}
                     visualEvidence={renderModel.visualEvidence}
                     answerEvidenceMapRows={answerEvidenceMapRows}
+                    sourceGovernanceWarnings={sourceGovernanceWarnings}
+                    demoMode={demoMode}
                     initialTab={evidenceInitialTab}
                     pendingFeedback={pendingFeedback}
                     copiedQuotes={copiedQuotes}
@@ -4470,7 +4485,9 @@ function StagedAnswerResultSurface({
             onClose={closeEvidenceReview}
             title="Evidence"
             description="Review by evidence type."
-            titleAccessory={<span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>Supported</span>}
+            titleAccessory={
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
+            }
             closeLabel="Close evidence"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
@@ -4490,6 +4507,8 @@ function StagedAnswerResultSurface({
               query={query}
               visualEvidence={renderModel.visualEvidence}
               answerEvidenceMapRows={answerEvidenceMapRows}
+              sourceGovernanceWarnings={sourceGovernanceWarnings}
+              demoMode={demoMode}
               initialTab={evidenceInitialTab}
               pendingFeedback={pendingFeedback}
               copiedQuotes={copiedQuotes}
@@ -4637,18 +4656,24 @@ function tagQualityLabel(kind: SmartDocumentTagQualityIssueKind) {
 
 function normalizedLabelReviewRow(label: DocumentLabel) {
   const normalized = normalizeDocumentLabelForStorage(label);
-  if (!normalized) return null;
-  const tier = documentLabelTier(normalized.label, normalized.label_type);
+  const fallbackLabelType = documentLabelTypeOptions.some((option) => option.value === label.label_type)
+    ? label.label_type
+    : "custom";
+  const labelType = normalized?.label_type ?? fallbackLabelType;
+  const labelText = normalized?.label ?? label.label?.trim() ?? "";
+  const tier: SmartDocumentTagTier = normalized
+    ? documentLabelTier(normalized.label, normalized.label_type)
+    : "secondary";
   const reviewStatus = documentLabelReviewStatus(label);
   return {
     id: label.id,
-    label: normalized.label,
-    displayLabel: formatDocumentLabelDisplay(normalized.label, normalized.label_type),
-    labelType: normalized.label_type,
+    label: labelText,
+    displayLabel: labelText ? formatDocumentLabelDisplay(labelText, labelType) : "Unreviewed label",
+    labelType,
     tier,
     reviewStatus,
     source: label.source,
-    confidence: normalized.confidence,
+    confidence: normalized?.confidence ?? label.confidence ?? 0,
   };
 }
 

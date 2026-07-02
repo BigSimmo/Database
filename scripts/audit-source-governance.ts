@@ -301,8 +301,17 @@ async function main() {
 
   if (debtPolicy) {
     if (!debtPolicy.accepted) debtPolicyFailures.push("debt policy must set accepted to true");
-    if (debtPolicy.expires_at && Date.parse(debtPolicy.expires_at) < Date.now()) {
-      debtPolicyFailures.push(`debt policy expired at ${debtPolicy.expires_at}`);
+    const acceptedAt = Date.parse(debtPolicy.accepted_at);
+    if (!Number.isFinite(acceptedAt)) {
+      debtPolicyFailures.push(`debt policy accepted_at is invalid: ${debtPolicy.accepted_at}`);
+    }
+    if (debtPolicy.expires_at) {
+      const expiresAt = Date.parse(debtPolicy.expires_at);
+      if (!Number.isFinite(expiresAt)) {
+        debtPolicyFailures.push(`debt policy expires_at is invalid: ${debtPolicy.expires_at}`);
+      } else if (expiresAt < Date.now()) {
+        debtPolicyFailures.push(`debt policy expired at ${debtPolicy.expires_at}`);
+      }
     }
     if (requiredMetadataMissingTotal > 0) {
       debtPolicyFailures.push(`required source metadata missing total ${requiredMetadataMissingTotal} must be 0`);
