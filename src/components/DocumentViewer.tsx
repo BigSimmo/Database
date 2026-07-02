@@ -361,7 +361,9 @@ function DocumentImage({ image }: { image: ImageRow }) {
   const showImageCaptionLine = cleanCaption && cleanCaption !== tableCaption;
   const displayLabels = smartEvidenceTags(
     image.labels,
-    [tableHeading, cleanCaption, image.tableTextSnippet ? sourceTextForCompactDisplay(image.tableTextSnippet) : null].filter(Boolean).join(" "),
+    [tableHeading, cleanCaption, image.tableTextSnippet ? sourceTextForCompactDisplay(image.tableTextSnippet) : null]
+      .filter(Boolean)
+      .join(" "),
   );
 
   return (
