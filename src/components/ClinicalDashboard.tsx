@@ -930,7 +930,7 @@ function SourcePreviewContent({
         ))}
       </div>
       {quoteText ? (
-        <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-chat-teal)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+        <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
           &ldquo;{quoteText}&rdquo;
         </blockquote>
       ) : null}
@@ -1059,7 +1059,7 @@ function NaturalLanguageAnswer({
     >
       <span
         data-testid="answer-clinical-icon"
-        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)]"
+        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         aria-hidden="true"
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
@@ -1146,7 +1146,7 @@ function UserQuestionBubble({ query }: { query: string }) {
     <section className="flex justify-end px-1" aria-label="User question">
       <div
         data-testid="user-question-bubble"
-        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-chat-teal-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
+        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
       >
         <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
         <p className={cn("nums mt-0.5 text-[11px] leading-4", textMuted)}>9:14 AM</p>
@@ -3733,7 +3733,7 @@ function MobileEvidenceSheetContent({
                 className={cn(
                   "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
                   selected
-                    ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                 )}
               >
@@ -5654,7 +5654,7 @@ function SettingsDialog({
                   className={cn(
                     "flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium leading-5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                     active
-                      ? "bg-[color:var(--surface-lux)] text-[color:var(--clinical-chat-teal)] shadow-[var(--shadow-inset)] ring-1 ring-[color:var(--clinical-chat-teal)]/10"
+                      ? "bg-[color:var(--surface-lux)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] ring-1 ring-[color:var(--clinical-accent)]/10"
                       : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-lux)]/80 hover:text-[color:var(--text-heading)]",
                   )}
                 >
@@ -5683,14 +5683,14 @@ function SettingsDialog({
 
           <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-lux)_96%,transparent_4%)_0%,color-mix(in_srgb,var(--surface-lux)_88%,var(--background))_100%)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-3.5 lg:shadow-[var(--shadow-inset)]">
             <div className="flex items-center gap-3 lg:gap-3">
-              <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-chat-teal-soft)] text-sm font-bold leading-none text-[color:var(--clinical-chat-teal)] ring-1 ring-[color:var(--clinical-chat-teal)]/10 lg:h-11 lg:w-11">
+              <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-bold leading-none text-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10 lg:h-11 lg:w-11">
                 {identity.initials}
                 {identity.signedIn ? (
-                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-chat-ready)]" />
+                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-chat-teal)] lg:hidden">
+                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
                   Clinical context
                 </p>
                 <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
@@ -5756,7 +5756,7 @@ function SettingsDialog({
 
 function SettingsChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-chat-teal)]/18 bg-[color:var(--clinical-chat-teal-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-chat-teal)] lg:min-h-7 lg:px-3 lg:text-xs">
+    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
       {label}
     </span>
   );
@@ -5764,7 +5764,7 @@ function SettingsChip({ label }: { label: string }) {
 
 function SettingsClinicalContextStrip() {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-chat-teal)]/14 bg-[color:var(--clinical-chat-teal-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-chat-teal)] lg:hidden">
+    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
@@ -5791,7 +5791,7 @@ function SettingsSummaryTile({
       className={cn(
         "min-w-0 rounded-2xl border p-2 shadow-[var(--shadow-inset)] lg:rounded-xl lg:p-3",
         emphasized
-          ? "border-[color:var(--clinical-chat-teal)]/26 bg-[color:var(--clinical-chat-teal-soft)]/72"
+          ? "border-[color:var(--clinical-accent)]/26 bg-[color:var(--clinical-accent-soft)]/72"
           : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
       )}
     >
@@ -5800,7 +5800,7 @@ function SettingsSummaryTile({
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
             emphasized
-              ? "border-[color:var(--clinical-chat-teal)] bg-[color:var(--clinical-chat-teal)] text-[color:var(--primary-contrast)]"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
           )}
         >
@@ -5840,7 +5840,7 @@ function SettingsRow({
         className={cn(
           "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
           active
-            ? "bg-[color:var(--clinical-chat-teal)] text-[color:var(--primary-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-chat-teal)_24%,transparent)] lg:border-[color:var(--clinical-chat-teal)]"
+            ? "bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
             : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
         )}
       >

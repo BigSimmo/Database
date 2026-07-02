@@ -98,8 +98,8 @@ export const sidebarItem =
 export const sidebarToolTile =
   "grid min-h-[64px] place-items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 export const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
-export const statusDotReady = `${statusDotBase} bg-[color:var(--clinical-chat-ready)]`;
-export const statusDotReview = `${statusDotBase} bg-[color:var(--clinical-chat-amber)]`;
+export const statusDotReady = `${statusDotBase} bg-[color:var(--success)]`;
+export const statusDotReview = `${statusDotBase} bg-[color:var(--warning)]`;
 export const statusDotMuted = `${statusDotBase} bg-[color:var(--text-soft)]`;
 
 export const toneSuccess =

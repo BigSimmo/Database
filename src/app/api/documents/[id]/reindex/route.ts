@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
@@ -73,9 +74,14 @@ async function selectReindexRowsInPages<T>(args: {
   searchableOnly?: boolean;
 }) {
   const rows: T[] = [];
+  if (args.searchableOnly && args.table !== "document_images") {
+    throw new Error("searchableOnly reindex paging only supports the document_images table.");
+  }
   for (let offset = 0; ; offset += reindexPageSize) {
-    let query = args.supabase.from(args.table).select(args.select).eq("document_id", args.documentId);
-    if (args.searchableOnly) query = query.eq("searchable", true);
+    const dynamicSupabase = args.supabase as unknown as SupabaseClient;
+    const query = args.searchableOnly
+      ? dynamicSupabase.from("document_images").select(args.select).eq("document_id", args.documentId).eq("searchable", true)
+      : dynamicSupabase.from(args.table).select(args.select).eq("document_id", args.documentId);
     const { data, error } = await query.range(offset, offset + reindexPageSize - 1);
     if (error) throw new Error(error.message);
 
@@ -147,13 +153,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       const enrichment = await upsertDocumentEnrichment({
         supabase,
-        document,
+        document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
         chunks: committedChunks,
         images: committedImages,
       });
       const deepMemory = await upsertDocumentDeepMemory({
         supabase,
-        document,
+        document: document as Parameters<typeof upsertDocumentDeepMemory>[0]["document"],
         chunks: committedChunks,
         images: committedImages,
         summary: enrichment.summary.summary,

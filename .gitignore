@@ -68,6 +68,8 @@ next-env.d.ts
 
 # agent/QA artifacts
 .codex-screenshots/
+# Local debugging scratch space — never commit (accidentally landed once via 'Save Codex local changes')
+scratch/
 .qa-smoke/
 *.pid
 tmp_output.txt

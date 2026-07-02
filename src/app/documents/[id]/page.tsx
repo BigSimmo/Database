@@ -1,4 +1,4 @@
-import { DocumentViewerClient } from "@/components/document-viewer-client";
+import { DocumentViewerLazy as DocumentViewer } from "@/components/document-viewer-lazy";
 
 export default async function DocumentPage({
   params,
@@ -8,5 +8,5 @@ export default async function DocumentPage({
   searchParams: Promise<{ page?: string; chunk?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  return <DocumentViewerClient documentId={id} initialPage={Number(query.page ?? 1)} chunkId={query.chunk} />;
+  return <DocumentViewer documentId={id} initialPage={Number(query.page ?? 1)} chunkId={query.chunk} />;
 }

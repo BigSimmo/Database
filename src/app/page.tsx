@@ -1,4 +1,4 @@
-import { ClinicalDashboardClient } from "@/components/clinical-dashboard-client";
+import { ClinicalDashboardLazy as ClinicalDashboard } from "@/components/clinical-dashboard-lazy";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
 type HomeProps = {
@@ -24,7 +24,7 @@ export default async function Home({ searchParams }: HomeProps) {
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
   return (
-    <ClinicalDashboardClient
+    <ClinicalDashboard
       initialSearchMode={initialSearchMode}
       initialQuery={requestedQuery}
       focusSearch={requestedFocus === "1"}
