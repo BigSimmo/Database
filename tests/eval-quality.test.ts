@@ -418,6 +418,32 @@ describe("eval quality reporting", () => {
     expect(report.source_metadata_debt_acceptance.rejection_reasons.join(" ")).toContain("outdated top results");
   });
 
+  it("marks source metadata debt acceptance passed when no metadata thresholds need accepting", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-06-25T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [ragResult()],
+      sourceMetadataDebtAcceptance: {
+        accepted_by: "release owner",
+        accepted_at: "2026-06-25T00:00:00.000Z",
+        expires_at: "2099-01-01T00:00:00.000Z",
+        reason: "Temporary corpus metadata debt while source records are reviewed.",
+        max_stale_rate: 0,
+        max_review_required_rate: 0,
+        max_outdated_top_results: 0,
+        max_poor_extraction_top_results: 0,
+        max_source_governance_danger_failure_rate: 0,
+      },
+    });
+
+    expect(report.threshold_failures).toEqual([]);
+    expect(report.source_metadata_debt_acceptance).toMatchObject({
+      status: "accepted",
+      accepted_failures: [],
+      rejection_reasons: [],
+    });
+  });
+
   it("renders a readable Markdown report", () => {
     const report = buildEvalQualityReport({
       generatedAt: "2026-06-25T00:00:00.000Z",

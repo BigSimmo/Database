@@ -630,8 +630,8 @@ function hasImageEvidenceNeed(query: string) {
 
 function extractionQualityScore(result: SearchResult) {
   const quality = result.source_metadata?.extraction_quality;
-  if (quality === "good") return 0.002;
-  if (quality === "poor") return -0.05;
+  if (quality === "partial") return -0.005;
+  if (quality === "poor") return -0.025;
   return 0;
 }
 
@@ -667,14 +667,11 @@ function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass
   if (result.source_strength === "moderate") score += 0.02;
   if (result.source_strength === "limited") score -= 0.015;
 
-  if (metadata?.document_status === "current") score += 0.004;
+  // Governance metadata should not routinely outrank direct clinical evidence. Keep it
+  // limited to small safety penalties for states that materially weaken source trust.
   if (metadata?.document_status === "outdated") score -= 0.04;
-
-  if (metadata?.clinical_validation_status === "approved") score += 0.004;
-  if (metadata?.clinical_validation_status === "locally_reviewed") score += 0.003;
-
-  if (metadata?.extraction_quality === "good") score += 0.002;
-  if (metadata?.extraction_quality === "poor") score -= 0.06;
+  if (metadata?.extraction_quality === "partial") score -= 0.01;
+  if (metadata?.extraction_quality === "poor") score -= 0.04;
 
   const tableFocusedQuery = queryClass === "table_threshold" || queryClass === "medication_dose_risk";
   if (tableFocusedQuery && (result.table_facts?.length ?? 0) > 0) score += 0.055;
@@ -1217,22 +1214,11 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
       ? 0.08
       : 0;
   const status = result.source_metadata?.document_status;
-  const validation = result.source_metadata?.clinical_validation_status;
-  const statusBoost = status === "current" ? 0.004 : status === "outdated" ? -0.04 : 0;
-  const validationBoost = validation === "approved" ? 0.004 : validation === "locally_reviewed" ? 0.003 : 0;
+  const statusBoost = status === "outdated" ? -0.04 : 0;
   const publicationYearsAgo = parseDateAsYearsAgo(result.source_metadata?.publication_date);
   const reviewYearsAgo = parseDateAsYearsAgo(result.source_metadata?.review_date);
-  const freshnessBoost =
-    publicationYearsAgo === null
-      ? 0
-      : publicationYearsAgo <= 1
-        ? 0.06
-        : publicationYearsAgo <= 3
-          ? 0.03
-          : publicationYearsAgo >= 8
-            ? -0.03
-            : 0;
-  const reviewBoost = reviewYearsAgo === null ? 0 : reviewYearsAgo <= 1 ? 0.03 : reviewYearsAgo >= 5 ? -0.02 : 0;
+  const freshnessBoost = publicationYearsAgo === null ? 0 : publicationYearsAgo >= 8 ? -0.015 : 0;
+  const reviewBoost = reviewYearsAgo === null ? 0 : reviewYearsAgo >= 5 ? -0.01 : 0;
   const imageBoost = imageEvidenceSignal(query, result);
   const sectionBoost = sectionMatchBoost(query, result);
   const sectionedLookupBoost = querySignal.sectionedLookup ? 0.02 : 0;
@@ -1457,7 +1443,7 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     queryClass === "comparison" && titleCoverageBoost > 0 && evidenceBoost > 0.02 ? 0.025 : 0;
   const routeSignal = (() => {
     if (result.source_metadata?.document_status === "outdated") return -0.04;
-    if (result.source_metadata?.extraction_quality === "poor") return -0.04;
+    if (result.source_metadata?.extraction_quality === "poor") return -0.035;
     return 0;
   })();
   const lowLexicalCoverage = normalizedTokens.length > 0 && evidenceBoost < 0.035 && titleCoverageBoost < 0.045;
@@ -1478,7 +1464,6 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const freshnessRecencyBoost = roundScore(statusBoost + freshnessBoost + reviewBoost);
   const metadataSignals =
     statusBoost +
-    validationBoost +
     freshnessBoost +
     reviewBoost +
     extractionBoost +

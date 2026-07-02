@@ -66,29 +66,51 @@ const queryStopWords = new Set([
 // fabrication verbs from clinical nouns like "manufacturer"/"inventory" and
 // composition wording like "documents that make up the evidence base". Validated
 // against the golden eval set and a corpus of trigger-adjacent legitimate probes.
+//
+// This is a best-effort defense-in-depth *first line*, not a complete boundary: a
+// pattern list cannot be exhaustive against paraphrase, and adding ever-looser
+// patterns trades injection recall for clinical false-positives (wrongly refusing
+// real questions), which is the worse failure here. The durable injection defenses
+// remain the source-text neutralization above and the answer-generation prompt,
+// which is instructed not to follow injected instructions. Extend these patterns
+// for *common* phrasings; do not chase every possible variant into false-positive
+// territory.
 const adversarialManipulationPatterns: RegExp[] = [
   // Instruction override / jailbreak
   /\b(?:ignore|disregard|override|forget|bypass)\s+(?:all\s+|any\s+)?(?:(?:previous|prior|above|earlier|these|those|the|your)\s+)?(?:instructions?|messages?|prompts?|rules?|guardrails?)\b/i,
+  // Negated-follow overrides ("do not follow prior instructions", "stop following your
+  // guardrails"). The instruction object must be privileged (prior/system-scoped) or a
+  // rule/guardrail/prompt — never a bare "instructions", so clinical wording like "do not
+  // follow discharge/medication instructions" and "not follow the standard protocol" is
+  // unaffected.
+  /\b(?:do\s+not|don't|stop|cease|quit|no\s+longer)\s+(?:follow(?:ing)?|obey(?:ing)?|adher(?:e|ing))\b[^.?!]{0,25}\b(?:(?:your|prior|previous|above|these|those|system)\s+instructions?|rules?|guardrails?|prompts?)\b/i,
   // Persona jailbreak — requires a jailbreak object, not a bare "you are now a ..."
   /\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|roleplay\s+as)\s+(?:a\s+|an\s+|the\s+)?(?:unrestricted|unfiltered|uncensored|jailbroken|jailbreak|developer[-\s]?mode|do[-\s]?anything|dan\b|god[-\s]?mode|sudo|root)\b/i,
-  // Fabricate evidence/citations — real fabrication verbs incl. gerunds ("forging"),
-  // but not "forgot" (forg(?:e|ed|es|ing|ery)) or clinical "invent"/"manufacture".
-  /\b(?:fabricat\w*|forg(?:e|ed|es|ing|ery)|falsif\w*|counterfeit\w*)\b[^.?!]{0,40}\b(?:citations?|chunks?|references?|sources?|evidence|quotes?|values?|data)\b/i,
+  // Fabricate evidence/citations — fabrication verbs incl. gerunds ("forging") and
+  // "invent" as a whole word (so "inventory" is unaffected); not "forgot"/"manufacture".
+  /\b(?:fabricat\w*|forg(?:e|ed|es|ing|ery)|falsif\w*|counterfeit\w*|invent(?:ed|ing|s)?)\b[^.?!]{0,40}\b(?:citations?|chunks?|references?|sources?|evidence|quotes?|values?|data)\b/i,
+  // "make up" fabrication — the object must immediately follow, so composition wording
+  // like "documents that make up the evidence base / reference list" is not matched.
+  /\bmake\s+up\s+(?:some\s+|a\s+|fake\s+|false\s+)?(?:citations?|references?|quotes?)\b/i,
   // Explicit fake/forged citations (plural-aware). Deliberately not bare "id"/"ids":
   // "a patient gives a false ID" is an identity document, not citation fraud.
   /\b(?:fake|bogus|false|forged|fabricated|made[-\s]?up|placeholder|dummy)\s+(?:citations?|chunks?|references?|sources?|evidence|quotes?)\b/i,
   /\bcitation_chunk_id\b/i,
-  // Pretend the evidence is complete/sufficient/supports (tight objects)
-  /\bpretend\b[^.?!]{0,30}\b(?:evidence|sources?|citations?|data)\b[^.?!]{0,25}\b(?:complete|sufficient|conclusive|enough|available|supports?|proves?|confirms?)\b/i,
+  // pretend / assume / treat-as the evidence is complete/sufficient/supports. Objects are
+  // evidence/sources/citations only — "data" is excluded because clinical scenarios say
+  // "assume the ANC data confirms..." / "treat the lab data as...".
+  /\b(?:pretend|assume|treat)\b[^.?!]{0,30}\b(?:evidence|sources?|citations?)\b[^.?!]{0,25}\b(?:complete|sufficient|conclusive|enough|available|supports?|proves?|confirms?)\b/i,
   // Answer "as if" the evidence/source/protocol supports *this request/claim*
   /\bas\s+if\b[^.?!]{0,40}\b(?:evidence|sources?|protocol|guideline|documents?|citations?)\b[^.?!]{0,30}\b(?:support|prove|confirm|allow|approve|establish)\w*\b[^.?!]{0,25}\b(?:this|the)\s+(?:request|claim|answer|query|response|prompt)\b/i,
-  // Secret / system-prompt exfiltration by verb (incl. provide/list/output/dump).
-  // "credentials" is intentionally excluded — clinical "prescriber credentials"
-  // means professional qualifications, not secrets.
-  /\b(?:reveal|expose|print|show|leak|return|disclose|tell|give|send|share|provide|list|output|dump|divulge|repeat)\b[^.?!]{0,50}\b(?:system\s+prompt|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|secret\s+(?:keys?|tokens?))\b/i,
-  // Direct interrogative / possessive requests for the system prompt or API keys
-  // ("what is your hidden system prompt", "the api keys") — no exfiltration verb.
-  /\b(?:what(?:'s|\s+is|\s+are)?|your|any|the)\b[^.?!]{0,20}\b(?:hidden\s+)?(?:system\s+prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?)\b/i,
+  // Secret exfiltration by verb (incl. provide/list/output/dump; system message/
+  // instructions and access tokens). "credentials" is intentionally excluded — clinical
+  // "prescriber credentials" means professional qualifications, not secrets.
+  /\b(?:reveal|expose|print|show|leak|return|disclose|tell|give|send|share|provide|list|output|dump|divulge|repeat)\b[^.?!]{0,50}\b(?:system\s+(?:prompt|message|instructions?)|hidden\s+(?:system\s+)?prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|access\s+tokens?|secret\s+(?:keys?|tokens?))\b/i,
+  // Direct interrogative / possessive requests (no verb) — only *inherently* privileged
+  // objects. "system message"/"system instructions" are intentionally excluded here (they
+  // appear in clinical/operational noun phrases like "patient monitoring system
+  // instructions"); those are still caught by the verb-based exfiltration rule above.
+  /\b(?:what(?:'s|\s+is|\s+are)?|your|any|the)\b[^.?!]{0,20}\b(?:hidden\s+)?(?:system\s+prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|access\s+tokens?)\b/i,
 ];
 
 export function hasAdversarialManipulationIntent(query: string): boolean {

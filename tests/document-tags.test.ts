@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSmartDocumentTagFacetIndex,
   buildSmartDocumentTagFacets,
   buildSmartDocumentTags,
+  documentLabelReviewStatus,
+  documentLabelTier,
+  filterDocumentsBySmartTagFacetIndex,
   filterDocumentsBySmartTagFacets,
   formatDocumentLabelDisplay,
   normalizeDocumentLabelForStorage,
@@ -124,22 +128,25 @@ describe("smart document tags", () => {
     expect(
       buildSmartDocumentTags([label({ label: "substance-use-alcohol-and-drugs", label_type: "topic" })])[0].label,
     ).toBe("Substance use, alcohol and drugs");
-  });
-
-  it("separates stable machine labels from polished display labels and visibility tiers", () => {
+    expect(formatDocumentLabelDisplay("fiona stanley hospital", "site")).toBe("FSH");
     expect(formatDocumentLabelDisplay("contains_quick-reference", "content_feature")).toBe("Contains quick reference");
     expect(formatDocumentLabelDisplay("post-discharge-follow-up", "care_phase")).toBe("Post-discharge follow-up");
-    expect(formatDocumentLabelDisplay("fiona stanley hospital", "site")).toBe("FSH");
+  });
 
-    const tags = buildSmartDocumentTags([
-      label({ label: "clinical-risk", label_type: "risk", confidence: 0.9 }),
-      label({ label: "lithium", label_type: "medication", confidence: 0.9 }),
-    ]);
-    expect(tags.find((tag) => tag.searchText === "clinical risk")).toMatchObject({ tier: "ranking" });
-    expect(tags.find((tag) => tag.searchText === "lithium")).toMatchObject({ tier: "primary" });
+  it("keeps ranking labels searchable without making them prominent chips", () => {
+    expect(documentLabelTier("clinical-risk", "risk")).toBe("ranking");
+    expect(documentLabelTier("lithium", "medication")).toBe("primary");
+    expect(documentLabelReviewStatus({ metadata: { review_status: "hidden" } })).toBe("hidden");
 
-    const facets = buildSmartDocumentTagFacets([{ labels: tags }]);
-    expect(facets.flatMap((group) => group.facets).map((facet) => facet.searchText)).not.toContain("clinical risk");
+    expect(buildSmartDocumentTags([label({ label: "clinical-risk", label_type: "risk" })])).toEqual([]);
+    expect(
+      buildSmartDocumentTags([label({ label: "clinical-risk", label_type: "risk" })], { includeRanking: true })[0],
+    ).toMatchObject({ searchText: "clinical risk", tier: "ranking" });
+    expect(
+      buildSmartDocumentTags([
+        label({ label: "lithium", label_type: "medication", metadata: { review_status: "hidden" } }),
+      ]),
+    ).toEqual([]);
   });
 
   it("builds grouped tag facets with document counts", () => {
@@ -178,6 +185,40 @@ describe("smart document tags", () => {
     const selectedKey = buildSmartDocumentTags([clozapine], { includeManualGroup: false })[0].key;
 
     expect(filterDocumentsBySmartTagFacets(documents, [selectedKey]).map((document) => document.id)).toEqual(["doc-1"]);
+  });
+
+  it("reuses one smart tag facet index for large result filtering", () => {
+    const documents = Array.from({ length: 120 }, (_, index) => {
+      const documentId = `doc-${index}`;
+      const medication = index % 3 === 0 ? "clozapine" : "lithium";
+
+      return {
+        id: documentId,
+        labels: [
+          label({ document_id: documentId, label: medication, label_type: "medication", confidence: 0.9 }),
+          label({
+            document_id: documentId,
+            label: index % 5 === 0 ? "metabolic monitoring" : "medication review",
+            label_type: "workflow",
+            confidence: 0.8,
+          }),
+          label({ document_id: documentId, label: "clinical-risk", label_type: "risk", confidence: 0.8 }),
+        ],
+      };
+    });
+
+    const index = buildSmartDocumentTagFacetIndex(documents);
+    const clozapineKey = buildSmartDocumentTags([label({ label: "clozapine", label_type: "medication" })])[0].key;
+    const clozapineFacet = index.groups
+      .find((group) => group.group === "Medication")
+      ?.facets.find((facet) => facet.key === clozapineKey);
+
+    expect(index.entries).toHaveLength(documents.length);
+    expect(clozapineFacet).toMatchObject({ label: "Clozapine", count: 40 });
+    expect(filterDocumentsBySmartTagFacetIndex(index, [clozapineKey]).map((document) => document.id)).toEqual(
+      documents.filter((document) => Number(document.id.replace("doc-", "")) % 3 === 0).map((document) => document.id),
+    );
+    expect(filterDocumentsBySmartTagFacetIndex(index, [])).toEqual(documents);
   });
 
   it("reviews noisy, duplicate, low-confidence, and overused tag quality issues", () => {
