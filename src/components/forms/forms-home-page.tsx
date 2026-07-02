@@ -12,7 +12,7 @@ import {
 import { appModeHomeHref } from "@/lib/app-modes";
 import { defaultFormSlug } from "@/lib/forms";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { useRegistryRecords } from "@/lib/use-registry-records";
+import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
@@ -64,7 +64,7 @@ const commonTasks: ModeHomePill[] = [
 
 export function FormsHomePage() {
   const registry = useRegistryRecords("form");
-  const verifiedCount = registry.records.filter((form) => form.verification?.locallyVerified).length;
+  const verifiedCount = countVerifiedRegistryRecords(registry);
 
   return (
     <ModeHomeMain testId="forms-home">

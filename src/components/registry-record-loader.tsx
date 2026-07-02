@@ -19,13 +19,16 @@ function StatePanel({
   title,
   body,
   kind,
+  action,
 }: {
   icon: ReactNode;
   title: string;
   body: string;
   kind: RegistryRecordKind;
+  action?: { href: string; label: string };
 }) {
   const copy = kindCopy[kind];
+  const primary = action ?? { href: copy.homeHref, label: copy.homeLabel };
   return (
     <main className="grid min-h-[60dvh] place-items-center px-4">
       <div className="w-full max-w-md rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-center shadow-[var(--shadow-soft)]">
@@ -35,10 +38,10 @@ function StatePanel({
         <h1 className="mt-4 text-lg font-semibold text-[color:var(--text-heading)]">{title}</h1>
         <p className={cn("mt-2 text-sm leading-6", textMuted)}>{body}</p>
         <Link
-          href={copy.homeHref}
+          href={primary.href}
           className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
         >
-          {copy.homeLabel}
+          {primary.label}
         </Link>
       </div>
     </main>
@@ -75,6 +78,7 @@ export function RegistryRecordLoader({
         icon={<ShieldAlert className="h-5 w-5" aria-hidden />}
         title="Sign in required"
         body={`Sign in to view this ${copy.noun}. Registry records are private to your workspace.`}
+        action={{ href: "/", label: "Go to sign in" }}
       />
     );
   }

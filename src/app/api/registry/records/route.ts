@@ -6,6 +6,7 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import {
+  deriveGovernanceColumns,
   rowGovernance,
   rowToServiceRecord,
   type RegistryRecordKind,
@@ -54,10 +55,17 @@ export async function GET(request: Request) {
 
     if (isDemoMode()) {
       const records = kind === "form" ? formRecords : serviceRecords;
+      const governance = Object.fromEntries(
+        records.map((record) => {
+          const derived = deriveGovernanceColumns(record);
+          return [record.slug, { sourceStatus: derived.source_status, validationStatus: derived.validation_status }];
+        }),
+      );
       return registryResponse({
         records,
         matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
         total: records.length,
+        governance,
         demoMode: true,
       });
     }

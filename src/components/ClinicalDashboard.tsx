@@ -4715,14 +4715,11 @@ export function ClinicalDashboard({
     const modeSearch = appModeSearchConfig(targetMode);
     const targetQueryMode = appModeQueryMode(targetMode, queryMode);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
-    // Services/Forms default the corpus scope to documents that carry the
-    // mode-relevant labels (any 'service' label; document_type 'form').
-    // User-selected filters always win over the mode default.
-    if (targetMode === "services" && !filtersOverride.labelTypesAny?.length) {
-      filtersOverride = { ...filtersOverride, labelTypesAny: ["service"] };
-    } else if (targetMode === "forms" && !filtersOverride.documentTypes?.length) {
-      filtersOverride = { ...filtersOverride, documentTypes: ["form"] };
-    }
+    // Note: no automatic mode-default label scope for Services/Forms. Applying
+    // one on every search routed resolveSearchScope's label path over the whole
+    // library, whose single `document_labels.in(<all ids>)` request produces an
+    // over-long PostgREST URL that fails on large corpora. Corpus search runs
+    // unscoped (like Documents); users opt into label filters explicitly.
 
     setSearchMode(targetMode);
     setQuery(trimmedQuery);

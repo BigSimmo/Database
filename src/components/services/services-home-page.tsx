@@ -12,7 +12,7 @@ import {
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { defaultServiceSlug } from "@/lib/services";
-import { useRegistryRecords } from "@/lib/use-registry-records";
+import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
@@ -78,7 +78,7 @@ const commonPathways: ModeHomePill[] = [
 
 export function ServicesHomePage() {
   const registry = useRegistryRecords("service");
-  const verifiedCount = registry.records.filter((service) => service.verification?.locallyVerified).length;
+  const verifiedCount = countVerifiedRegistryRecords(registry);
 
   return (
     <ModeHomeMain testId="services-home">
