@@ -221,6 +221,21 @@ describe("retrieval query variants", () => {
       ),
     ).toEqual({ returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" });
 
+    // An action word alone (review/urgent) without any coloured-zone context on
+    // the same result must not satisfy the guard either.
+    expect(
+      decideTextFastPath(
+        query,
+        [
+          result({
+            content: "Flowchart: review infection-control procedures before the patient proceeds.",
+            similarity: 0.82,
+          }),
+        ],
+        "document_lookup",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" });
+
     expect(
       decideTextFastPath(
         query,
@@ -438,6 +453,16 @@ describe("retrieval query variants", () => {
     expect(variants).toEqual(expect.arrayContaining(["risk flow", "red zone"]));
     expect(variants).not.toContain("red zone risk flow");
     expect(variants.length).toBeLessThanOrEqual(4);
+  });
+
+  it("matches the zone variant to the colour the query names", () => {
+    const query = "In the clinical flowchart, what is the next step after amber-zone risk?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    // An amber-zone question must not pull red-zone chunks into its candidate
+    // pool; the injected variant follows the colour the query names.
+    expect(variants).toContain("amber zone");
+    expect(variants).not.toContain("red zone");
   });
 
   it("keeps agitation route queries focused on the canonical agitation and arousal source", () => {

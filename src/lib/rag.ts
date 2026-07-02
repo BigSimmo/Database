@@ -24,6 +24,8 @@ import {
   hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
+  riskZoneActionPattern,
+  riskZoneContextPattern,
 } from "@/lib/clinical-search";
 import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -1941,11 +1943,14 @@ export function buildRetrievalQueryVariants(
     // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"
     // and "risk flow review urgent escalation" variants required all terms in one
     // chunk and matched 0 and 2 live chunks respectively - they pulled nothing
-    // into the candidate pool. A plain "red zone" variant retrieves the small,
+    // into the candidate pool. A "<colour> zone" variant retrieves the small,
     // precise set of zone-action chunks (escalation protocols, observation and
-    // response charts) that actually answer red-zone / next-step questions.
-    if (/\b(?:red[\s-]*zone|zones?)\b/i.test(query)) {
-      addVariant("red zone");
+    // response charts) that answer zone / next-step questions. Match the zone the
+    // query actually names so an amber-zone question does not pull red-zone
+    // chunks into its candidate pool.
+    const zoneColour = query.match(/\b(red|amber|yellow|orange|purple|green|blue)[\s-]*zones?\b/i)?.[1];
+    if (zoneColour) {
+      addVariant(`${zoneColour.toLowerCase()} zone`);
     }
   }
   addVariant(analysis.queryRewrite.searchQuery);
@@ -3157,22 +3162,23 @@ export function decideTextFastPath(
   }
 
   if (queryClass === "document_lookup") {
-    // Flowchart/zone "next step" questions need the action evidence (escalate /
-    // urgent review / actions required), not just a lexically matching flowchart
+    // Flowchart/zone "next step" questions need the zone-action evidence (red
+    // zone -> escalate / urgent review), not just a lexically matching flowchart
     // page. Many unrelated policies embed "risk assessment flow chart" appendices
     // that outscore the intended zone-action document on text alone, so mirror the
-    // threshold_action gate: only fast-path when the top candidates already carry
-    // action language; otherwise fall through to structured/vector retrieval.
+    // threshold_action gate: only fast-path when a single top candidate carries
+    // BOTH the zone context and the action language (an action word like "review"
+    // on an unrelated flowchart must not qualify); otherwise fall through to
+    // structured/vector retrieval.
     const flowchartZoneActionQuery =
       /\b(?:flow\s*charts?|flowcharts?|algorithms?|pathways?)\b/i.test(query) &&
       /\b(?:red[\s-]*zone|next step|step after)\b/i.test(query);
     if (
       flowchartZoneActionQuery &&
-      !results.slice(0, 5).some((result) =>
-        /\b(?:escalat\w*|urgent|review\w*|respond\w*|actions?\s+required)\b/i.test(
-          `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")} ${result.retrieval_synopsis ?? ""} ${result.content ?? ""}`,
-        ),
-      )
+      !results.slice(0, 5).some((result) => {
+        const text = `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")} ${result.retrieval_synopsis ?? ""} ${result.content ?? ""}`;
+        return riskZoneContextPattern.test(text) && riskZoneActionPattern.test(text);
+      })
     ) {
       return { returnFastPath: false, reason: "flowchart_action_requires_structured_retrieval" };
     }
@@ -3468,10 +3474,7 @@ export function evaluateEvidenceCoverageGate(
       // page plus scattered "action"/"review" words from other candidates.
       const accepted = top.some((result) => {
         const text = evidenceTextForGate(result);
-        return (
-          /\b(?:red[\s-]*zone|zone|escalation|deteriorat\w+)\b/i.test(text) &&
-          /\b(?:escalat\w*|urgent|review\w*|actions?\s+required)\b/i.test(text)
-        );
+        return riskZoneContextPattern.test(text) && riskZoneActionPattern.test(text);
       });
       return {
         accepted,

@@ -24,6 +24,15 @@ export type RagQueryClassification = {
   needsSynthesis: boolean;
 };
 
+// Shared signals for coloured-zone "next step" retrieval guards (ranking source
+// evidence here; text fast-path and coverage gates in rag.ts). The zone context
+// deliberately requires an explicit coloured-zone reference or "zone criteria" —
+// a bare "zone" (clean zone, time zone, zone 3) plus a common word like "review"
+// must not qualify as escalation evidence.
+export const riskZoneContextPattern =
+  /\b(?:(?:red|amber|yellow|orange|purple|green|blue)[\s-]*zones?|colou?red zones?|zone criteria)\b/i;
+export const riskZoneActionPattern = /\b(?:escalat\w+|urgent|review\w*|respond\w*|actions?\s+required)\b/i;
+
 export const intentSignalWords = {
   dosing: [
     "dose",
@@ -1323,9 +1332,9 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   // escalation protocols express the flowchart's decision steps as text. Without
   // this, the generic penalty demoted the documents that actually contain the
   // red-zone next step while unrelated risk-assessment flowcharts kept the boost.
+  // Both term groups must hit: a bare "zone" or a lone "review" is not evidence.
   const riskFlowchartZoneActionSource =
-    /\b(?:red[\s-]*zones?|coloured? zones?|colored? zones?|zones?)\b/.test(haystack) &&
-    /\b(?:escalat\w*|urgent|review\w*|actions? required)\b/.test(haystack);
+    riskZoneContextPattern.test(haystack) && riskZoneActionPattern.test(haystack);
   const riskFlowchartSource =
     (/\b(?:flowchart|flow chart|flow|algorithm|pathway|matrix)\b/.test(haystack) &&
       /\b(?:risk|red zone|red)\b/.test(haystack)) ||
