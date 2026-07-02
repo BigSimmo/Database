@@ -401,8 +401,9 @@ export function sourceTextForDocumentViewer(text: string) {
 }
 
 export function sourceTextForIndexedPage(text: string) {
-  return text
-    .replace(/\r/g, "\n")
+  // normalizeExtractedGlyphs preserves spaces/tabs/newlines, so the fixed-width
+  // spacing this viewer path relies on for table parsing survives the repair.
+  return normalizeExtractedGlyphs(text)
     .replace(completeImageDataBlockPattern, (block) => readableImageBlockForViewer(block))
     .replace(trailingImageDataBlockPattern, " ")
     .replace(leadingImageDataBlockRemainderPattern, " ")
