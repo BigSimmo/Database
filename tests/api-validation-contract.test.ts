@@ -363,7 +363,9 @@ describe("API validation contracts", () => {
     const batchesRoute = await import("../src/app/api/ingestion/batches/route");
 
     const jobsResponse = await jobsRoute.GET(authenticatedRequest("/api/jobs?limit=2&offset=1"));
-    const ingestionJobsResponse = await ingestionJobsRoute.GET(authenticatedRequest("/api/ingestion/jobs?limit=2&offset=1"));
+    const ingestionJobsResponse = await ingestionJobsRoute.GET(
+      authenticatedRequest("/api/ingestion/jobs?limit=2&offset=1"),
+    );
     const batchesResponse = await batchesRoute.GET(authenticatedRequest("/api/ingestion/batches?limit=2&offset=1"));
 
     expect(jobsResponse.status).toBe(200);
@@ -392,9 +394,12 @@ describe("API validation contracts", () => {
     const summarizeRoute = await import("../src/app/api/documents/[id]/summarize/route");
     const labelsRoute = await import("../src/app/api/documents/[id]/labels/route");
 
-    const retryResponse = await retryRoute.POST(authenticatedRequest("/api/ingestion/jobs/not-a-uuid/retry", { method: "POST" }), {
-      params: Promise.resolve({ id: "not-a-uuid" }),
-    });
+    const retryResponse = await retryRoute.POST(
+      authenticatedRequest("/api/ingestion/jobs/not-a-uuid/retry", { method: "POST" }),
+      {
+        params: Promise.resolve({ id: "not-a-uuid" }),
+      },
+    );
     const summarizeResponse = await summarizeRoute.POST(
       authenticatedRequest("/api/documents/not-a-uuid/summarize", { method: "POST" }),
       { params: Promise.resolve({ id: "not-a-uuid" }) },
@@ -440,7 +445,9 @@ describe("API validation contracts", () => {
     const uploadRoute = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
-    const uploadResponse = await uploadRoute.POST(authenticatedRequest("/api/upload", { method: "POST", body: formData }));
+    const uploadResponse = await uploadRoute.POST(
+      authenticatedRequest("/api/upload", { method: "POST", body: formData }),
+    );
     expect(uploadResponse.status).toBe(500);
     expect(await payload(uploadResponse)).toEqual({ error: "Request failed." });
 
@@ -452,9 +459,12 @@ describe("API validation contracts", () => {
     });
     mockRuntime(retryClient);
     const retryRoute = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
-    const retryResponse = await retryRoute.POST(authenticatedRequest(`/api/ingestion/jobs/${documentId}/retry`, { method: "POST" }), {
-      params: Promise.resolve({ id: documentId }),
-    });
+    const retryResponse = await retryRoute.POST(
+      authenticatedRequest(`/api/ingestion/jobs/${documentId}/retry`, { method: "POST" }),
+      {
+        params: Promise.resolve({ id: documentId }),
+      },
+    );
     expect(retryResponse.status).toBe(500);
     expect(await payload(retryResponse)).toEqual({ error: "Request failed." });
 
@@ -556,7 +566,7 @@ describe("API validation contracts", () => {
       authenticatedRequest("/api/upload", {
         method: "POST",
         headers: { "content-type": "multipart/form-data; boundary=broken" },
-        body: "--broken\r\nContent-Disposition: form-data; name=\"file\"; filename=\"guideline.pdf\"\r\n\r\n%PDF-1.7",
+        body: '--broken\r\nContent-Disposition: form-data; name="file"; filename="guideline.pdf"\r\n\r\n%PDF-1.7',
       }),
     );
     const body = await payload(response);

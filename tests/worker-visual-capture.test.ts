@@ -54,6 +54,12 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("indexing_v3_agent_repair_reason: strictCompletionRepairReason");
   });
 
+  it("logs fallback import-batch update failures when RPC-based refresh is unavailable", () => {
+    expect(workerSource).toContain("Import batch status fallback update failed");
+    expect(workerSource).toContain("update import batch status fallback");
+    expect(workerSource).toContain("const { error: fallbackUpdateError } = await supabase");
+  });
+
   it("invalidates stale image caption cache entries by policy, prompt, and context versions", () => {
     expect(workerSource).toContain('const imageCaptionCacheVersion = "clinical-image-caption-cache-v2"');
     expect(workerSource).toContain('const visionClassificationPromptVersion = "clinical-image-classification-v1"');
@@ -61,6 +67,16 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("metadata.image_policy_version !== clinicalImagePolicyVersion");
     expect(workerSource).toContain("metadata.visual_intelligence_version !== visualIntelligenceVersion");
     expect(workerSource).toContain("metadata.caption_context_hash !== contextHash");
+  });
+
+  it("redacts captions before cache writes", () => {
+    expect(workerSource).toContain("function redactImageClassification");
+    expect(workerSource).toContain("const classification = redactImageClassification(args.classification);");
+    expect(workerSource).toContain("let classification = redactImageClassification(resolved.classification);");
+    expect(workerSource).toContain("caption: classification.caption");
+    expect(workerSource).toContain(
+      'const structuredProfile = normalizeStructuredVisualProfile(redactCaptionMetadataValue(metadata.structured_visual_profile), {',
+    );
   });
 
   it("computes perceptual duplicate groups before caption budget selection", () => {

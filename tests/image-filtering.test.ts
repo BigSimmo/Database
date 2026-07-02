@@ -68,6 +68,11 @@ describe("smart image filtering", () => {
     expect(normalizeImageBbox([20, 20, 180, Number.NaN])).toBeNull();
     expect(normalizeImageBbox("20,20,180,80")).toBeNull();
     expect(normalizeImageBbox(null)).toBeNull();
+    // Values that Number(...) would silently coerce to 0 must not become coordinates.
+    expect(normalizeImageBbox([null, 20, 180, 80])).toBeNull();
+    expect(normalizeImageBbox(["", 20, 180, 80])).toBeNull();
+    expect(normalizeImageBbox([false, 20, 180, 80])).toBeNull();
+    expect(normalizeImageBbox([true, 20, 180, 80])).toBeNull();
   });
 
   it("keeps relevant clinical classifications searchable", () => {
