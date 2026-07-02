@@ -3,6 +3,7 @@ import {
   buildSmartDocumentTagFacets,
   buildSmartDocumentTags,
   filterDocumentsBySmartTagFacets,
+  formatDocumentLabelDisplay,
   normalizeDocumentLabelForStorage,
   reviewDocumentTagQuality,
   tagSearchText,
@@ -118,11 +119,27 @@ describe("smart document tags", () => {
       buildSmartDocumentTags([label({ label: "electroconvulsive therapy", label_type: "topic" })])[0],
     ).toMatchObject({
       searchText: "electroconvulsive-therapy",
-      label: "Electroconvulsive Therapy",
+      label: "Electroconvulsive therapy",
     });
     expect(
       buildSmartDocumentTags([label({ label: "substance-use-alcohol-and-drugs", label_type: "topic" })])[0].label,
-    ).toBe("Substance Use Alcohol And Drugs");
+    ).toBe("Substance use, alcohol and drugs");
+  });
+
+  it("separates stable machine labels from polished display labels and visibility tiers", () => {
+    expect(formatDocumentLabelDisplay("contains_quick-reference", "content_feature")).toBe("Contains quick reference");
+    expect(formatDocumentLabelDisplay("post-discharge-follow-up", "care_phase")).toBe("Post-discharge follow-up");
+    expect(formatDocumentLabelDisplay("fiona stanley hospital", "site")).toBe("FSH");
+
+    const tags = buildSmartDocumentTags([
+      label({ label: "clinical-risk", label_type: "risk", confidence: 0.9 }),
+      label({ label: "lithium", label_type: "medication", confidence: 0.9 }),
+    ]);
+    expect(tags.find((tag) => tag.searchText === "clinical risk")).toMatchObject({ tier: "ranking" });
+    expect(tags.find((tag) => tag.searchText === "lithium")).toMatchObject({ tier: "primary" });
+
+    const facets = buildSmartDocumentTagFacets([{ labels: tags }]);
+    expect(facets.flatMap((group) => group.facets).map((facet) => facet.searchText)).not.toContain("clinical risk");
   });
 
   it("builds grouped tag facets with document counts", () => {

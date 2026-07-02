@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   hasDangerSourceGovernanceWarning,
   sourceGovernanceRefusalAnswer,
@@ -147,6 +148,65 @@ describe("source governance warnings", () => {
 
     expect(warnings).toEqual([expect.objectContaining({ code: "unverified_source", severity: "warning" })]);
     expect(hasDangerSourceGovernanceWarning(warnings)).toBe(false);
+  });
+
+  it("keeps routine review metadata notes out of frontend-visible governance warnings", () => {
+    const warnings = sourceGovernanceWarnings({
+      results: [
+        result({
+          source_metadata: {
+            source_title: "Review due local source",
+            publisher: "WA Health",
+            jurisdiction: "Australia/WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "review_due",
+            clinical_validation_status: "unverified",
+            extraction_quality: "good",
+          },
+          indexing_quality: {
+            document_id: "doc-1",
+            quality_score: 0.9,
+            extraction_quality: "good",
+            metrics: {},
+            issues: [],
+          },
+          table_facts: [],
+        }),
+      ],
+    });
+
+    expect(warnings.map((warning) => warning.code)).toEqual(
+      expect.arrayContaining(["review_due_source", "unverified_source"]),
+    );
+    expect(frontendSourceGovernanceWarnings(warnings)).toEqual([]);
+  });
+
+  it("surfaces only clinically material warnings to the frontend", () => {
+    const warnings = sourceGovernanceWarnings({
+      results: [result()],
+      relevance: {
+        verdict: "none",
+        label: "No evidence",
+        matchedTerms: [],
+        missingTerms: [],
+        directSourceCount: 0,
+        weakSourceCount: 0,
+        score: 0,
+        supportReason: "No source-backed evidence.",
+        isSourceBacked: false,
+      },
+    });
+    const visibleCodes = frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code);
+
+    expect(visibleCodes).toEqual(expect.arrayContaining(["weak_evidence", "outdated_source", "poor_extraction"]));
+    expect(visibleCodes).not.toContain("review_due_source");
+    expect(visibleCodes).not.toContain("unverified_source");
+    expect(visibleCodes).not.toContain("non_local_source");
   });
 
   it("keeps the refusal message free of backend and source-backed wording", () => {

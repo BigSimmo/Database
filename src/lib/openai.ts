@@ -378,6 +378,8 @@ async function createTextResult(
 
   try {
     const client = createOpenAIClient();
+    // The `responses.create` overloads are incompatible with our generic call-site; the double-cast
+    // here works around the SDK type mismatch without changing runtime behaviour.
     const request = client.responses.create(responseBody(input, options, format) as never, requestOptions(options));
     const { data, request_id: requestId } = await unwrapOpenAIResponse(request as unknown as APIPromiseLike<unknown>);
     const completion = extractCompletionStatus(data);

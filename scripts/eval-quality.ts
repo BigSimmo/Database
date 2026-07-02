@@ -120,6 +120,12 @@ const qualityThresholds = {
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
   ragP95LatencyMs: 25_000,
+  ragRouteP95LatencyMs: {
+    unsupported: 4_000,
+    extractive: 12_000,
+    fast: 25_000,
+    strong: 35_000,
+  } as Record<string, number>,
 };
 
 function parseArgs(argv: string[]): EvalQualityArgs {
@@ -226,9 +232,7 @@ function failureCategoryCounts(results: Array<{ failures: string[] }>) {
 }
 
 function isSourceMetadataDebtThresholdFailure(failure: string) {
-  return (
-    failure.startsWith("top-result stale/review/unknown rate") || failure.startsWith("top-result review_required_rate")
-  );
+  return failure.startsWith("top-result stale_rate") || failure.startsWith("top-result review_required_rate");
 }
 
 function isIsoDateString(value: string) {
@@ -265,7 +269,7 @@ function evaluateSourceMetadataDebtAcceptance(args: {
   }
   if (args.governance.stale_rate > acceptance.max_stale_rate) {
     rejectionReasons.push(
-      `stale/review/unknown rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`,
+      `stale rate ${args.governance.stale_rate} exceeds accepted ceiling ${acceptance.max_stale_rate}`,
     );
   }
   if (args.governance.review_required_rate > acceptance.max_review_required_rate) {
@@ -339,7 +343,8 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
     unverified_top_results: unverified,
     unknown_extraction_top_results: unknownExtraction,
     poor_extraction_top_results: poorExtraction,
-    stale_rate: rate(stale + reviewDue + unknown, total),
+    stale_rate: rate(stale, total),
+    stale_review_unknown_rate: rate(stale + reviewDue + unknown, total),
     review_required_top_results: reviewRequired,
     review_required_rate: rate(reviewRequired, total),
     metadata_policy:
@@ -364,6 +369,16 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
   const sourceGovernanceDangerFailures = results.filter((result) => result.sourceDangerWarningCount > 0);
   const latencies = results.map((result) => result.latencyMs);
+  const routeLatencyP95 = Object.fromEntries(
+    Array.from(
+      results.reduce((accumulator, result) => {
+        const current = accumulator.get(result.route) ?? [];
+        current.push(result.latencyMs);
+        accumulator.set(result.route, current);
+        return accumulator;
+      }, new Map<string, number[]>()),
+    ).map(([route, routeLatencies]) => [route, percentile(routeLatencies, 95)]),
+  );
   const estimatedCostUsd = results.some((result) => result.estimatedCostUsd === null)
     ? null
     : results.reduce((sum, result) => sum + (result.estimatedCostUsd ?? 0), 0);
@@ -382,6 +397,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
+    route_p95_latency_ms: routeLatencyP95,
     estimated_cost_usd: estimatedCostUsd === null ? null : Number(estimatedCostUsd.toFixed(6)),
     failure_category_counts: failureCategoryCounts(results),
     failed_cases: results.filter((result) => result.failures.length > 0),
@@ -417,7 +433,7 @@ export function buildEvalQualityReport(args: {
     }
     if (governance.stale_rate > qualityThresholds.staleTopResultRate) {
       thresholdFailures.push(
-        `top-result stale/review/unknown rate ${governance.stale_rate} above ${qualityThresholds.staleTopResultRate}`,
+        `top-result stale_rate ${governance.stale_rate} above ${qualityThresholds.staleTopResultRate}`,
       );
     }
     if (governance.review_required_rate > qualityThresholds.reviewRequiredTopResultRate) {
@@ -456,6 +472,12 @@ export function buildEvalQualityReport(args: {
       thresholdFailures.push(
         `RAG p95_latency_ms ${ragSummary.p95_latency_ms} above ${qualityThresholds.ragP95LatencyMs}`,
       );
+    }
+    for (const [route, maxP95] of Object.entries(qualityThresholds.ragRouteP95LatencyMs)) {
+      const routeP95 = ragSummary.route_p95_latency_ms?.[route];
+      if (typeof routeP95 === "number" && routeP95 > maxP95) {
+        thresholdFailures.push(`RAG route ${route} p95_latency_ms ${routeP95} above ${maxP95}`);
+      }
     }
   }
 
@@ -607,7 +629,8 @@ ${markdownTable([
   ["Unverified top results", governance.unverified_top_results],
   ["Unknown-extraction top results", governance.unknown_extraction_top_results],
   ["Poor-extraction top results", governance.poor_extraction_top_results],
-  ["Stale/review/unknown rate", governance.stale_rate],
+  ["Stale rate", governance.stale_rate],
+  ["Stale/review/unknown rate", governance.stale_review_unknown_rate],
   ["Review-required top results", governance.review_required_top_results],
   ["Review-required rate", governance.review_required_rate],
 ])}

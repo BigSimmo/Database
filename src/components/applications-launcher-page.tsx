@@ -8,7 +8,6 @@ import {
   ExternalLink,
   FileText,
   Grid2X2,
-  Mic,
   MoreVertical,
   Pill,
   Pin,
@@ -781,15 +780,6 @@ export function ApplicationsLauncherWorkspace({
                 className={cn(chatComposerInput, "w-full min-w-0")}
               />
             </label>
-            <button
-              type="button"
-              className={cn(chatComposerIconButton, "disabled:cursor-not-allowed")}
-              aria-label="Voice input unavailable"
-              title="Voice input unavailable"
-              disabled
-            >
-              <Mic className="h-4.5 w-4.5" />
-            </button>
             <button
               type="submit"
               disabled={filteredApps.length === 0}
