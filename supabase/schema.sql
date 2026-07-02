@@ -525,7 +525,11 @@ create table if not exists public.storage_cleanup_jobs (
   metadata jsonb not null default '{}'::jsonb,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint storage_cleanup_jobs_document_id_fkey
+    foreign key (document_id)
+    references public.documents(id)
+    on delete set null
 );
 
 create unique index if not exists documents_owner_content_hash_unique_idx
