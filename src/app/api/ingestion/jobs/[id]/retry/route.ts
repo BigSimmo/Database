@@ -23,7 +23,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
-      .select("id,document_id,batch_id,status,locked_at,documents!inner(owner_id)")
+      .select(
+        "id,document_id,batch_id,status,stage,progress,error_message,attempt_count,max_attempts,locked_at,locked_by,next_run_at,completed_at,documents!inner(owner_id)",
+      )
       .eq("id", id)
       .eq("documents.owner_id", user.id)
       .maybeSingle();
@@ -81,7 +83,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .update({ status: "queued", error_message: null })
       .eq("id", job.document_id)
       .eq("owner_id", user.id);
-    if (documentError) throw new Error(documentError.message);
+    if (documentError) {
+      const { error: rollbackError } = await supabase
+        .from("ingestion_jobs")
+        .update({
+          status: job.status,
+          stage: job.stage,
+          progress: job.progress,
+          error_message: job.error_message,
+          attempt_count: job.attempt_count,
+          max_attempts: job.max_attempts,
+          locked_at: job.locked_at,
+          locked_by: job.locked_by,
+          next_run_at: job.next_run_at,
+          completed_at: job.completed_at,
+        })
+        .eq("id", id);
+      if (rollbackError) {
+        throw new Error(`${documentError.message}; failed to roll back retried job state: ${rollbackError.message}`);
+      }
+      throw new Error(documentError.message);
+    }
 
     return NextResponse.json({ job: data });
   } catch (error) {
