@@ -13,7 +13,6 @@ import {
   FileText,
   Home,
   Menu,
-  Mic,
   Moon,
   MoreVertical,
   Plus,
@@ -794,10 +793,9 @@ function BottomSearch({
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-5 pr-20 text-sm font-medium text-[color:var(--text)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/12"
+            className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-5 pr-12 text-sm font-medium text-[color:var(--text)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/12"
             placeholder="Ask or search forms..."
           />
-          <Mic className="absolute right-12 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--text-muted)]" />
           {query ? (
             <button
               type="button"
