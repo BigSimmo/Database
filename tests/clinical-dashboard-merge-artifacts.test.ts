@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 const scannedFiles = [
   "src/components/ClinicalDashboard.tsx",
   "src/components/clinical-dashboard/answer-content.tsx",
+  "src/components/clinical-dashboard/output-panel.tsx",
 ].map((relativePath) => {
   const path = resolve(process.cwd(), relativePath);
   const source = readFileSync(path, "utf8");
