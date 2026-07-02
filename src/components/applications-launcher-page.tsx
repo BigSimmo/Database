@@ -934,9 +934,7 @@ export function ApplicationsLauncherWorkspace({
     );
   }
 
-  return (
-    <main className={cn("min-w-0 pb-8 text-[color:var(--text)] lg:pb-10", className)}>{workspace}</main>
-  );
+  return <main className={cn("min-w-0 pb-8 text-[color:var(--text)] lg:pb-10", className)}>{workspace}</main>;
 }
 
 export function ApplicationsLauncherPage() {

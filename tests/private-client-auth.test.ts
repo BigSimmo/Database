@@ -26,5 +26,3 @@ describe("browser auth helpers", () => {
     expect(isUsableBrowserSupabaseKey("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature")).toBe(true);
   });
 });
-
-

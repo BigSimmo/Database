@@ -65,6 +65,8 @@ next-env.d.ts
 
 # agent/QA artifacts
 .codex-screenshots/
+# local hook tool cache — machine-local, never commit
+.impeccable/
 # Local debugging scratch space — never commit (accidentally landed once via 'Save Codex local changes')
 scratch/
 .qa-smoke/
