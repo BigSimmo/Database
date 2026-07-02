@@ -65,6 +65,7 @@ import {
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { Sheet } from "@/components/ui/sheet";
 import {
   appModeDefinition,
@@ -124,7 +125,7 @@ function filterText(values?: string[]) {
 }
 
 function documentScopeTitle(document: ClinicalDocument) {
-  return document.title.replace(/^Synthetic /, "").replace(/\.pdf$/i, "");
+  return cleanDisplayTitle(document.title);
 }
 
 function documentScopeMeta(document: ClinicalDocument) {
@@ -770,7 +771,7 @@ export function MasterSearchHeader({
                       key={document.id}
                       type="button"
                       onClick={() => onToggleScope(document.id)}
-                      title={document.title}
+                      title={cleanDisplayTitle(document.title)}
                       className={cn(
                         "grid min-h-[44px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
                         selected
