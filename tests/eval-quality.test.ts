@@ -252,70 +252,40 @@ describe("eval quality reporting", () => {
     );
   });
 
-  it("treats danger warnings as failures only for answered routes", () => {
-    // Genuinely out-of-scope question that declined: a danger warning is the
-    // expected refusal signal, not a failure; and its absence is asserted.
+  it("treats danger warnings as failures only for delivered grounded answers", () => {
+    // Grounded answer delivered on dangerous sourcing: a governance failure.
     expect(
-      sourceGovernanceDangerFailuresForAnswer({
-        routingMode: "unsupported",
-        sourceDangerWarningCount: 1,
-        expectedUnsupported: true,
-      }),
-    ).toEqual([]);
-    expect(
-      sourceGovernanceDangerFailuresForAnswer({
-        routingMode: "unsupported",
-        sourceDangerWarningCount: 0,
-        expectedUnsupported: true,
-      }),
-    ).toEqual(["unsupported-route answer missing danger source governance warning"]);
-    // Supported question wrongly refused: the routing failure is reported
-    // elsewhere; do not add misleading missing-warning noise.
-    expect(
-      sourceGovernanceDangerFailuresForAnswer({
-        routingMode: "unsupported",
-        sourceDangerWarningCount: 0,
-        expectedUnsupported: false,
-      }),
-    ).toEqual([]);
-    // Answered routes: a danger warning means we delivered an answer on
-    // dangerous sourcing, which is a failure regardless of expectation.
-    expect(
-      sourceGovernanceDangerFailuresForAnswer({
-        routingMode: "fast",
-        sourceDangerWarningCount: 1,
-        expectedUnsupported: false,
-      }),
+      sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 1 }),
     ).toEqual(["danger source governance warning present"]);
-    expect(
-      sourceGovernanceDangerFailuresForAnswer({
-        routingMode: null,
-        sourceDangerWarningCount: 1,
-        expectedUnsupported: false,
-      }),
-    ).toEqual(["danger source governance warning present"]);
-    expect(
-      sourceGovernanceDangerFailuresForAnswer({
-        routingMode: "fast",
-        sourceDangerWarningCount: 0,
-        expectedUnsupported: false,
-      }),
-    ).toEqual([]);
-    expect(qualityFailureCategory("unsupported-route answer missing danger source governance warning")).toBe(
-      "source_governance",
-    );
+    // Declined answer (grounded=false): the danger warning is the expected
+    // refusal signal, not a failure -- regardless of the preserved routingMode,
+    // so evidence-gap refusals converted from fast/strong routes are exempt too.
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: false, sourceDangerWarningCount: 1 })).toEqual([]);
+    // Grounded answer with no danger warning: clean.
+    expect(sourceGovernanceDangerFailuresForAnswer({ grounded: true, sourceDangerWarningCount: 0 })).toEqual([]);
   });
 
-  it("excludes declined unsupported-route answers from the danger failure rate", () => {
+  it("excludes declined answers from the danger failure rate regardless of route", () => {
     const declinedOnly = buildEvalQualityReport({
       generatedAt: "2026-07-02T00:00:00.000Z",
       retrievalResults: [retrievalResult()],
       ragResults: [
+        // Declined via the unsupported route.
         ragResult({
           id: "unsupported-declined",
           supported: false,
           grounded: false,
           route: "unsupported",
+          citations: 0,
+          sourceWarningCount: 1,
+          sourceDangerWarningCount: 1,
+        }),
+        // Declined via a fast-route answer converted to an evidence-gap refusal:
+        // grounded=false but the original route is preserved.
+        ragResult({
+          id: "fast-route-evidence-gap-refusal",
+          grounded: false,
+          route: "fast",
           citations: 0,
           sourceWarningCount: 1,
           sourceDangerWarningCount: 1,
@@ -328,7 +298,7 @@ describe("eval quality reporting", () => {
     const answeredDangerous = buildEvalQualityReport({
       generatedAt: "2026-07-02T00:00:00.000Z",
       retrievalResults: [retrievalResult()],
-      ragResults: [ragResult({ sourceWarningCount: 1, sourceDangerWarningCount: 1 })],
+      ragResults: [ragResult({ grounded: true, sourceWarningCount: 1, sourceDangerWarningCount: 1 })],
     });
     expect(answeredDangerous.rag.summary.source_governance_danger_failure_rate).toBeGreaterThan(0);
   });

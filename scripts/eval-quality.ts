@@ -215,22 +215,19 @@ export function qualityFailureCategory(message: string): QualityFailureCategory 
 }
 
 export function sourceGovernanceDangerFailuresForAnswer(args: {
-  routingMode: string | null | undefined;
+  grounded: boolean;
   sourceDangerWarningCount: number;
-  expectedUnsupported: boolean;
 }): string[] {
-  if ((args.routingMode ?? "none") === "unsupported") {
-    // A danger warning on a declined answer is the expected refusal signal, not
-    // a governance failure. Where the question is genuinely out of scope we do
-    // assert the warning is present, so a regression that silently drops it is
-    // caught. Where a supported question was wrongly refused, the routing
-    // failure is reported elsewhere and we do not add misleading warning noise.
-    if (!args.expectedUnsupported) return [];
-    return args.sourceDangerWarningCount === 0
-      ? ["unsupported-route answer missing danger source governance warning"]
-      : [];
-  }
-  return args.sourceDangerWarningCount > 0 ? ["danger source governance warning present"] : [];
+  // A danger warning is a governance failure only when a grounded answer was
+  // actually delivered on that sourcing. Declined answers carry the danger
+  // warning as the expected refusal signal, not a failure. `grounded` is the
+  // robust signal for "an answer was delivered": it covers both `unsupported`
+  // routes and answers that a fast/strong/extractive route converted into an
+  // evidence-gap refusal (finalizeRagAnswerQualityCore sets grounded=false
+  // while preserving the original routingMode).
+  return args.grounded && args.sourceDangerWarningCount > 0
+    ? ["danger source governance warning present"]
+    : [];
 }
 
 function rate(numerator: number, denominator: number) {
@@ -387,7 +384,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   );
   const sourceGovernanceWarnings = results.filter((result) => result.sourceWarningCount > 0);
   const sourceGovernanceDangerFailures = results.filter(
-    (result) => result.route !== "unsupported" && result.sourceDangerWarningCount > 0,
+    (result) => result.grounded && result.sourceDangerWarningCount > 0,
   );
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
@@ -775,9 +772,8 @@ async function runRagQualityCases(args: {
     const sourceDangerWarningCount = sourceWarnings.filter((warning) => warning.severity === "danger").length;
     failures.push(
       ...sourceGovernanceDangerFailuresForAnswer({
-        routingMode: answer.routingMode,
+        grounded: answer.grounded,
         sourceDangerWarningCount,
-        expectedUnsupported: !testCase.supported,
       }),
     );
 
