@@ -28,7 +28,7 @@ function RecentSearchRail() {
             type="button"
             className="inline-flex min-h-9 max-w-[15rem] shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]/78 px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]"
           >
-            <Search className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-chat-teal)]" />
+            <Search className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
             <span className="truncate">{search}</span>
           </button>
         ))}
@@ -99,7 +99,7 @@ export default function RecentSearchesBottomMockupPage() {
 
             <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)] sm:block">
               <div className="flex flex-wrap items-center gap-2">
-                <Filter className="h-4 w-4 text-[color:var(--clinical-chat-teal)]" />
+                <Filter className="h-4 w-4 text-[color:var(--clinical-accent)]" />
                 <p className="text-sm font-semibold text-[color:var(--text-heading)]">Scope and mode stay primary</p>
                 <span className="rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-[11px] font-bold text-[color:var(--text-soft)]">
                   Recent is secondary

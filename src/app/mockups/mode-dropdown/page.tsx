@@ -73,7 +73,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
               aria-haspopup="true"
               aria-expanded={expanded}
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-chat-teal)] text-white shadow-[var(--shadow-tight)]">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white shadow-[var(--shadow-tight)]">
                 <ActiveIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
@@ -102,7 +102,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                       className={[
                         "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition",
                         mode.active
-                          ? "bg-[color:var(--clinical-chat-teal-soft)] text-[color:var(--clinical-chat-teal)]"
+                          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                           : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                       ].join(" ")}
                     >
@@ -110,7 +110,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                         className={[
                           "grid h-8 w-8 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
                           mode.active
-                            ? "border-[color:var(--clinical-chat-teal)]/25 bg-[color:var(--surface)]"
+                            ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         ].join(" ")}
                       >
@@ -159,7 +159,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
           </span>
           <button
             type="button"
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-chat-teal)] px-4 text-sm font-semibold text-white shadow-[var(--shadow-tight)]"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-white shadow-[var(--shadow-tight)]"
           >
             Answer
           </button>
@@ -205,8 +205,8 @@ export default function ModeDropdownMockupPage() {
                 semantics so only one mode is active at a time.
               </p>
               <p>
-                New modes can be added as rows without changing the header width. The active row keeps the current teal
-                treatment from the old Answer tab.
+                New modes can be added as rows without changing the header width. The active row keeps the current
+                Aegean accent treatment from the old Answer tab.
               </p>
             </div>
           </aside>
