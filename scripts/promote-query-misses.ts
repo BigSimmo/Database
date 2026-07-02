@@ -79,14 +79,8 @@ async function main() {
   let inserted = 0;
   for (const group of promotable) {
     const labels = group.labels.filter(
-      (
-        label,
-      ): label is {
-        document_id: string;
-        label: string;
-        label_type: string;
-        confidence?: number;
-      } => Boolean(label.document_id && label.label && label.label_type),
+      (label): label is typeof label & { document_id: string; label: string; label_type: string } =>
+        Boolean(label.document_id && label.label && label.label_type),
     );
     for (const label of labels) {
       const { error: labelError } = await supabase.from("document_labels").upsert(

@@ -386,7 +386,7 @@ function SourceStatusPanel() {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Source status</h2>
-      <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--clinical-chat-amber)]">
+      <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--warning)]">
         <CircleHelp className="h-4 w-4" aria-hidden />
         {status.label}
       </p>

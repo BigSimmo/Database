@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
 
@@ -156,7 +157,8 @@ export async function POST(request: Request) {
         metadata.bulk_metadata_updated_by = user.id;
 
         const nextTitle = editTitle(document.title, parsed.titleEdit);
-        const updatePayload = nextTitle && nextTitle !== document.title ? { metadata, title: nextTitle } : { metadata };
+        const updatePayload: TablesUpdate<"documents"> = { metadata: metadata as Json };
+        if (nextTitle && nextTitle !== document.title) updatePayload.title = nextTitle;
 
         const { error: updateError } = await supabase
           .from("documents")

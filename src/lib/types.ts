@@ -851,11 +851,18 @@ export type RagAnswer = {
   providerMode?: "auto" | "openai" | "offline";
   answerQualityTier?: "model_synthesis" | "source_only" | "cached";
   fallbackReason?: string | null;
+  degradedMode?: {
+    active: boolean;
+    reason?: string | null;
+  };
   queryClass?: RagQueryClass;
   queryAnalysis?: ClinicalQueryAnalysis;
   responseMode?: AnswerResponseMode;
   latencyTimings?: {
     search_cache_hit?: boolean;
+    shared_cache_hit?: boolean;
+    shared_cache_status?: "hit" | "miss";
+    shared_cache_miss_reason?: string | null;
     text_fast_path_latency_ms?: number;
     text_candidate_budget?: number;
     text_candidate_count?: number;

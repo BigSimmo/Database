@@ -1,4 +1,6 @@
 import { loadEnvConfig } from "@next/env";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@/lib/supabase/database.types";
 import { createHash } from "node:crypto";
 
 loadEnvConfig(process.cwd());
@@ -139,7 +141,8 @@ async function loadRowsForDocuments(
   for (let start = 0; start < documentIds.length; start += 5) {
     const ids = documentIds.slice(start, start + 5);
     for (let rangeStart = 0; ; rangeStart += 1000) {
-      const { data, error } = await supabase
+      // Dynamic table/select strings need the untyped client surface.
+      const { data, error } = await (supabase as unknown as SupabaseClient)
         .from(table)
         .select(select)
         .in("document_id", ids)
@@ -595,7 +598,7 @@ async function main() {
               .from("documents")
               .update({
                 image_count: imageStats.searchable,
-                metadata: imageMetadata,
+                metadata: imageMetadata as Json,
               })
               .eq("id", document.id);
           }
@@ -628,8 +631,8 @@ async function main() {
           const deepMemory = await upsertDocumentDeepMemory({
             supabase,
             document: { ...document, metadata: imageMetadata },
-            chunks: evidence.chunks,
-            images: evidence.images,
+            chunks: evidence.chunks as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["chunks"],
+            images: evidence.images as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["images"],
             summary: enrichmentSummary,
           });
           const { data: latestDoc } = await supabase

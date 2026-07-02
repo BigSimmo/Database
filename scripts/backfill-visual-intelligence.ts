@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import type { Json, TablesInsert } from "@/lib/supabase/database.types";
 import {
   buildVisualDocumentIndexUnitInputs,
   embeddingTextForDocumentIndexUnit,
@@ -241,7 +242,10 @@ async function loadChunks(documentId: string) {
 
 async function markImage(image: BackfillImageRow, patch: Record<string, unknown>) {
   const metadata = { ...(image.metadata ?? {}), ...patch };
-  const { error } = await supabase.from("document_images").update({ metadata }).eq("id", image.id);
+  const { error } = await supabase
+    .from("document_images")
+    .update({ metadata: metadata as Json })
+    .eq("id", image.id);
   if (error) throw new Error(error.message);
 }
 
@@ -286,7 +290,9 @@ async function backfillDocument(documentId: string, images: BackfillImageRow[]) 
         ...unit,
         embedding: embeddings[start + index],
       }));
-      const { error } = await supabase.from("document_index_units").insert(batch);
+      const { error } = await supabase
+        .from("document_index_units")
+        .insert(batch as unknown as TablesInsert<"document_index_units">[]);
       if (error) throw new Error(error.message);
     }
   }

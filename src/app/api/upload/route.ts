@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { assertAllowedFile, assertFileContentSignature, jsonError } from "@/lib/http";
+import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
@@ -24,14 +24,18 @@ const uploadMetadataSchema = z
 export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
   let uploadedPath: string | null = null;
-  let insertedDocumentId: string | null = null;
-  let insertedDocumentOwnerId: string | null = null;
 
   try {
     supabase = createAdminClient();
     const adminSupabase = supabase;
     const user = await requireAuthenticatedUser(request, adminSupabase);
-    const formData = await request.formData();
+    const formData = await request.formData().catch((cause) => {
+      throw new PublicApiError("Invalid upload form data.", 400, {
+        code: "invalid_form_data",
+        causeName: cause instanceof Error ? cause.name : null,
+        causeMessage: cause instanceof Error ? cause.message : null,
+      });
+    });
     const file = formData.get("file");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing file field." }, { status: 400 });
@@ -137,8 +141,6 @@ export async function POST(request: Request) {
       .single();
 
     if (documentError) throw new Error(documentError.message);
-    insertedDocumentId = documentId;
-    insertedDocumentOwnerId = user.id;
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
@@ -153,19 +155,7 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (jobError) {
-      const { error: rollbackDocumentError } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", documentId)
-        .eq("owner_id", user.id);
-      if (rollbackDocumentError) {
-        throw new Error(`Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`);
-      }
-      insertedDocumentId = null;
-      insertedDocumentOwnerId = null;
-      throw new Error(jobError.message);
-    }
+    if (jobError) throw new Error(jobError.message);
 
     await writeAuditLog(supabase, {
       ownerId: user.id,
@@ -177,18 +167,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ document, job }, { status: 201 });
   } catch (error) {
-    if (insertedDocumentId && insertedDocumentOwnerId && supabase) {
-      try {
-        await supabase.from("documents").delete().eq("id", insertedDocumentId).eq("owner_id", insertedDocumentOwnerId);
-      } catch (cleanupError) {
-        logger.error("Upload cleanup failed; document row may be orphaned", {
-          documentId: insertedDocumentId,
-          ownerId: insertedDocumentOwnerId,
-          message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
-        });
-      }
-    }
-
     if (uploadedPath && supabase) {
       try {
         await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([uploadedPath]);

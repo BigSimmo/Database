@@ -21,9 +21,11 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
 
 jobs:
+  # Fast deterministic merge gate: static checks, unit tests, and build.
+  # Intended as a required status check on main together with ui-smoke.
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -77,11 +79,37 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npm run check:deployment-readiness
 
+  # Chromium browser smoke in parallel with verify, so the slowest check no
+  # longer serializes behind lint/typecheck/tests/build and a flaky smoke
+  # rerun does not repeat them. The runner boots its own dev server, so no
+  # build step is needed here.
+  ui-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Restore Chromium browser cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-chromium-${{ runner.os }}-
 
       - name: Install Chromium browser
         run: npx playwright install --with-deps chromium
@@ -102,7 +130,7 @@ jobs:
 
   release-browser-matrix:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    needs: verify
+    needs: [verify, ui-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 70
 
@@ -130,6 +158,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps

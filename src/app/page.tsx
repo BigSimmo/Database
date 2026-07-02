@@ -1,10 +1,5 @@
-import dynamic from "next/dynamic";
+import { ClinicalDashboardLazy as ClinicalDashboard } from "@/components/clinical-dashboard-lazy";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
-
-const ClinicalDashboard = dynamic(
-  () => import("@/components/clinical-dashboard").then((m) => m.ClinicalDashboard),
-  { ssr: false },
-);
 
 type HomeProps = {
   searchParams?: Promise<{
