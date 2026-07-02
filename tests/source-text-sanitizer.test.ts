@@ -157,7 +157,8 @@ describe("normalizeExtractedGlyphs", () => {
   });
 
   it("never alters numbers, units, ranges or clinical comparison symbols", () => {
-    const clinical = "Give 150 mg/day; keep ANC \u2265 1.5 \u00D710\u2079/L; taper 5\u201310 mg \u2192 review; well-being intact.";
+    const clinical =
+      "Give 150 mg/day; keep ANC \u2265 1.5 \u00D710\u2079/L; taper 5\u201310 mg \u2192 review; well-being intact.";
     expect(normalizeExtractedGlyphs(clinical)).toBe(clinical);
   });
 

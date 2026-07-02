@@ -958,8 +958,8 @@ function NaturalLanguageAnswer({
               textMuted,
             )}
           >
-            Source-only answer — assembled from your documents without the AI model, so it may be less
-            complete. Verify it against the cited passages below.
+            Source-only answer — assembled from your documents without the AI model, so it may be less complete. Verify
+            it against the cited passages below.
           </p>
         ) : null}
         {sourceCapsuleButton}
@@ -2069,11 +2069,7 @@ function EvidenceSummaryCard({
           </div>
         </article>
       ) : (
-        <EmptyState
-          icon={Target}
-          title={emptyStates.topSource.title}
-          body={emptyStates.topSource.body}
-        />
+        <EmptyState icon={Target} title={emptyStates.topSource.title} body={emptyStates.topSource.body} />
       )}
 
       {gapMessage ? (
@@ -2455,11 +2451,7 @@ function RenderModelSourceList({
 }) {
   if (sources.length === 0) {
     return (
-      <EmptyState
-        icon={FileText}
-        title={emptyStates.sourcePassages.title}
-        body={emptyStates.sourcePassages.body}
-      />
+      <EmptyState icon={FileText} title={emptyStates.sourcePassages.title} body={emptyStates.sourcePassages.body} />
     );
   }
 
@@ -2626,13 +2618,7 @@ function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerE
 
 function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
-    return (
-      <EmptyState
-        icon={BookOpen}
-        title={emptyStates.evidenceMap.title}
-        body={emptyStates.evidenceMap.body}
-      />
-    );
+    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
   }
 
   const tableRows = rows.map((row) => [
@@ -2751,51 +2737,47 @@ function QuoteCards({
         }
       />
       {quotes.length === 0 ? (
-        <EmptyState
-          icon={Quote}
-          title={emptyStates.exactQuotes.title}
-          body={emptyStates.exactQuotes.body}
-        />
+        <EmptyState icon={Quote} title={emptyStates.exactQuotes.title} body={emptyStates.exactQuotes.body} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {quotes.map((quote, index) => {
             const quoteText = sourceTextForVerbatimQuote(quote.quote);
             const quoteTitle = cleanDisplayTitle(quote.title);
             return (
-            <article key={`${quote.chunk_id}:${quote.quote}`} className={cn(sourceCard, "p-3 sm:p-4")}>
-              <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
-                <span className={cn(iconTilePremium, codeText, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>
-                  {index + 1}
-                </span>
-                <StrengthBadge strength={quote.source_strength} />
-              </div>
-              <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
-                &ldquo;{quoteText}&rdquo;
-              </blockquote>
-              <div
-                className={cn(
-                  "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
-                  clinicalDivider,
-                )}
-              >
-                <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
-                  {formatCompactCitationLabel(quote)}
-                </span>
-                <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
-                  {quoteTitle}, page {quote.page_number ?? "n/a"}
-                </span>
-                <div className="w-full sm:w-auto">
-                  <SourceActionRow
-                    viewerHref={documentCitationHref(quote)}
-                    sourceTitle={`quote ${index + 1} from ${quoteTitle}`}
-                    documentId={quote.document_id}
-                    onScopeDocument={onScopeDocument}
-                    onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
-                    divider={false}
-                  />
+              <article key={`${quote.chunk_id}:${quote.quote}`} className={cn(sourceCard, "p-3 sm:p-4")}>
+                <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
+                  <span className={cn(iconTilePremium, codeText, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>
+                    {index + 1}
+                  </span>
+                  <StrengthBadge strength={quote.source_strength} />
                 </div>
-              </div>
-            </article>
+                <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
+                  &ldquo;{quoteText}&rdquo;
+                </blockquote>
+                <div
+                  className={cn(
+                    "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
+                    clinicalDivider,
+                  )}
+                >
+                  <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
+                    {formatCompactCitationLabel(quote)}
+                  </span>
+                  <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
+                    {quoteTitle}, page {quote.page_number ?? "n/a"}
+                  </span>
+                  <div className="w-full sm:w-auto">
+                    <SourceActionRow
+                      viewerHref={documentCitationHref(quote)}
+                      sourceTitle={`quote ${index + 1} from ${quoteTitle}`}
+                      documentId={quote.document_id}
+                      onScopeDocument={onScopeDocument}
+                      onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
+                      divider={false}
+                    />
+                  </div>
+                </div>
+              </article>
             );
           })}
         </div>
@@ -3172,7 +3154,10 @@ function VisualEvidenceStrip({
             return (
               <figure key={item.id} className={cn(sourceCard, "overflow-hidden p-2.5 sm:p-3")}>
                 <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
-                  <SourceImage endpoint={item.signed_url_endpoint} caption={sourceHeader.caption || sourceHeader.title} />
+                  <SourceImage
+                    endpoint={item.signed_url_endpoint}
+                    caption={sourceHeader.caption || sourceHeader.title}
+                  />
                 </div>
                 <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
                   {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
@@ -3484,11 +3469,7 @@ function MobileEvidenceTabPanel({
     return visualEvidence.length ? (
       <VisualEvidenceStrip evidence={visualEvidence} embedded />
     ) : (
-      <EmptyState
-        icon={FileImage}
-        title={emptyStates.imagesUsed.title}
-        body={emptyStates.imagesUsed.body}
-      />
+      <EmptyState icon={FileImage} title={emptyStates.imagesUsed.title} body={emptyStates.imagesUsed.body} />
     );
   }
 
@@ -3514,7 +3495,9 @@ function MobileEvidenceTabPanel({
             className={cn(sourceCard, "flex min-h-[52px] items-center justify-between gap-3 p-3")}
           >
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{cleanDisplayTitle(source.title)}</span>
+              <span className="block truncate text-sm font-semibold text-[color:var(--text)]">
+                {cleanDisplayTitle(source.title)}
+              </span>
               <span className={cn("block truncate text-xs", textMuted)}>
                 {index === 0 ? "Main source" : "Supporting source"} · page {source.page_number ?? "n/a"}
               </span>
@@ -3608,11 +3591,7 @@ function UnifiedEvidenceDrawerContent({
                     ))}
                 </div>
               ) : (
-                <EmptyState
-                  icon={ListChecks}
-                  title={emptyStates.tablesUsed.title}
-                  body={emptyStates.tablesUsed.body}
-                />
+                <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
               )}
             </section>
           );
@@ -3686,11 +3665,7 @@ function UnifiedEvidenceDrawerContent({
                   ))}
                 </div>
               ) : (
-                <EmptyState
-                  icon={FileText}
-                  title={emptyStates.pdfsUsed.title}
-                  body={emptyStates.pdfsUsed.body}
-                />
+                <EmptyState icon={FileText} title={emptyStates.pdfsUsed.title} body={emptyStates.pdfsUsed.body} />
               )}
             </section>
           );

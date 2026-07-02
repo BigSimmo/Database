@@ -151,7 +151,8 @@ async function main() {
     for (const row of rows) {
       scanned += 1;
       const newContent = row.content == null ? row.content : normalizeExtractedGlyphs(row.content);
-      const newHeading = row.section_heading == null ? row.section_heading : normalizeExtractedGlyphs(row.section_heading);
+      const newHeading =
+        row.section_heading == null ? row.section_heading : normalizeExtractedGlyphs(row.section_heading);
       const contentChanged = newContent !== row.content;
       const headingChanged = newHeading !== row.section_heading;
       if (!contentChanged && !headingChanged) continue;
@@ -183,7 +184,9 @@ async function main() {
   // --limit bounds the number of rows we will WRITE, not just how far we page.
   if (args.limit && changed.length > args.limit) changed = changed.slice(0, args.limit);
 
-  console.log(`Scanned ${scanned} chunks; ${changed.length} would change${args.limit ? ` (capped at --limit ${args.limit})` : ""}.`);
+  console.log(
+    `Scanned ${scanned} chunks; ${changed.length} would change${args.limit ? ` (capped at --limit ${args.limit})` : ""}.`,
+  );
   for (const diff of sampleDiffs) {
     console.log(`\n  chunk ${diff.id}`);
     console.log(`    before: ${JSON.stringify(diff.before)}`);
