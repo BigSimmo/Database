@@ -81,6 +81,7 @@ per-user isolation is enforced at both layers.
 
 **Two residual, low-priority items (out of scope for multi-user, no action needed
 to launch):**
+
 - `rag_visual_eval_cases` (an internal eval table) has RLS **disabled**, but it
   has **no anon/authenticated grant** so it is effectively service-role-only. It
   is also **not in `supabase/schema.sql`** (untracked live-only drift) — fixing it
