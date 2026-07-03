@@ -12,6 +12,7 @@
 export type RetrievalGateSummary = {
   case_count: number;
   case_fingerprint?: string;
+  failed_case_count: number;
   document_recall_at_5: number;
   content_recall_at_5: number;
   top_k_hit_rate: number;
@@ -40,6 +41,7 @@ export type ReindexGateConfig = {
     documentRecallAt5Floor: number;
     contentRecallAt5Floor: number;
     topKHitRateFloor: number;
+    failedCaseCountCeiling: number;
     rateRegressionTolerance: number;
     latencyRegressionMs: number;
   };
@@ -64,6 +66,7 @@ export const defaultReindexGateConfig: ReindexGateConfig = {
     documentRecallAt5Floor: 0.8,
     contentRecallAt5Floor: 0.8,
     topKHitRateFloor: 0.8,
+    failedCaseCountCeiling: 0,
     rateRegressionTolerance: 0.02,
     latencyRegressionMs: 4000,
   },
@@ -101,6 +104,7 @@ export type ReindexGateDecision = {
 
 const requiredRetrievalMetrics = [
   "case_count",
+  "failed_case_count",
   "document_recall_at_5",
   "content_recall_at_5",
   "top_k_hit_rate",
@@ -161,6 +165,14 @@ function retrievalChecks(
   config: ReindexGateConfig["retrieval"],
 ): MetricCheck[] {
   const checks: MetricCheck[] = [
+    evaluateCheck({
+      metric: "failed_case_count",
+      direction: "lower_better",
+      baseline: baseline.failed_case_count,
+      candidate: candidate.failed_case_count,
+      bound: config.failedCaseCountCeiling,
+      tolerance: 0,
+    }),
     evaluateCheck({
       metric: "document_recall_at_5",
       direction: "higher_better",
@@ -374,6 +386,7 @@ export function decideReindexGate(
     candidateRetrieval: RetrievalGateSummary;
     baselineQuality?: QualityGateSummary;
     candidateQuality?: QualityGateSummary;
+    qualityMode?: "required" | "retrieval_only";
   },
   config: ReindexGateConfig = defaultReindexGateConfig,
 ): ReindexGateDecision {
@@ -394,6 +407,13 @@ export function decideReindexGate(
 
   const hasBaselineQuality = Boolean(input.baselineQuality);
   const hasCandidateQuality = Boolean(input.candidateQuality);
+  if (input.qualityMode !== "retrieval_only" && (!hasBaselineQuality || !hasCandidateQuality)) {
+    return {
+      decision: "NO_GO",
+      checks,
+      failures: [...gateFailures, "quality summaries are required unless qualityMode is retrieval_only"],
+    };
+  }
   if (hasBaselineQuality !== hasCandidateQuality) {
     // A one-sided quality summary is a driver error; fail closed rather than silently
     // gating on retrieval alone.

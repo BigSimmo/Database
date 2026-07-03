@@ -4,6 +4,7 @@ import { decideReindexGate, type QualityGateSummary, type RetrievalGateSummary }
 function retrieval(overrides: Partial<RetrievalGateSummary> = {}): RetrievalGateSummary {
   return {
     case_count: 4,
+    failed_case_count: 0,
     document_recall_at_5: 0.9,
     content_recall_at_5: 0.9,
     top_k_hit_rate: 0.95,
@@ -36,6 +37,7 @@ describe("decideReindexGate — retrieval", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval(),
       candidateRetrieval: retrieval({ content_recall_at_5: 0.92 }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("GO");
     expect(decision.failures).toEqual([]);
@@ -45,6 +47,7 @@ describe("decideReindexGate — retrieval", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval({ content_recall_at_5: 0.78 }),
       candidateRetrieval: retrieval({ content_recall_at_5: 0.75 }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/content_recall_at_5 0.75 below absolute floor 0.8/);
@@ -56,6 +59,7 @@ describe("decideReindexGate — retrieval", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval({ document_recall_at_5: 0.98 }),
       candidateRetrieval: retrieval({ document_recall_at_5: 0.85 }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/document_recall_at_5 regressed/);
@@ -66,6 +70,7 @@ describe("decideReindexGate — retrieval", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval({ content_recall_at_5: 0.9 }),
       candidateRetrieval: retrieval({ content_recall_at_5: 0.89 }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("GO");
   });
@@ -74,25 +79,72 @@ describe("decideReindexGate — retrieval", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval({ p90_latency_ms: 8000 }),
       candidateRetrieval: retrieval({ p90_latency_ms: 14000 }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/p90_latency_ms regressed/);
   });
 
+  it("fails closed when retrieval summaries omit failed-case counts", () => {
+    const baselineWithoutFailedCaseCount = {
+      case_count: 4,
+      document_recall_at_5: 0.9,
+      content_recall_at_5: 0.9,
+      top_k_hit_rate: 0.9,
+    } as Partial<RetrievalGateSummary> as RetrievalGateSummary;
+    const decision = decideReindexGate({
+      baselineRetrieval: baselineWithoutFailedCaseCount,
+      candidateRetrieval: {
+        case_count: 4,
+        failed_case_count: 0,
+        document_recall_at_5: 0.9,
+        content_recall_at_5: 0.9,
+        top_k_hit_rate: 0.9,
+      },
+      qualityMode: "retrieval_only",
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/baselineRetrieval\.failed_case_count/);
+  });
+
   it("skips optional metrics when either summary omits them", () => {
     const decision = decideReindexGate({
-      baselineRetrieval: { case_count: 4, document_recall_at_5: 0.9, content_recall_at_5: 0.9, top_k_hit_rate: 0.9 },
-      candidateRetrieval: { case_count: 4, document_recall_at_5: 0.9, content_recall_at_5: 0.9, top_k_hit_rate: 0.9 },
+      baselineRetrieval: {
+        case_count: 4,
+        failed_case_count: 0,
+        document_recall_at_5: 0.9,
+        content_recall_at_5: 0.9,
+        top_k_hit_rate: 0.9,
+      },
+      candidateRetrieval: {
+        case_count: 4,
+        failed_case_count: 0,
+        document_recall_at_5: 0.9,
+        content_recall_at_5: 0.9,
+        top_k_hit_rate: 0.9,
+      },
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("GO");
     expect(decision.checks.some((check) => check.metric === "mrr_at_10")).toBe(false);
     expect(decision.checks.some((check) => check.metric === "p90_latency_ms")).toBe(false);
   });
 
+  it("fails closed when retrieval eval reports failed cases", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: retrieval({ failed_case_count: 1 }),
+      qualityMode: "retrieval_only",
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/failed_case_count 1 above absolute ceiling 0/);
+  });
+
   it("fails closed when retrieval summaries cover different eval populations", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval({ case_count: 12 }),
       candidateRetrieval: retrieval({ case_count: 4 }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/retrieval case_count mismatch/);
@@ -102,9 +154,19 @@ describe("decideReindexGate — retrieval", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval({ case_fingerprint: "all-cases-v1" }),
       candidateRetrieval: retrieval({ case_fingerprint: "limited-cases-v1" }),
+      qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/retrieval case_fingerprint mismatch/);
+  });
+
+  it("fails closed when quality summaries are omitted by default", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: retrieval(),
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/quality summaries are required/);
   });
 });
 
@@ -181,7 +243,7 @@ describe("decideReindexGate — quality", () => {
       candidateQuality: quality(),
     });
     expect(decision.decision).toBe("NO_GO");
-    expect(decision.failures.join(" ")).toMatch(/quality summaries must be provided for both/);
+    expect(decision.failures.join(" ")).toMatch(/quality summaries are required/);
   });
 
   it("fails closed when quality summaries omit required source governance rates", () => {
