@@ -5589,7 +5589,12 @@ export function ClinicalDashboard({
                   authUnavailable={!clientDemoMode && !canUsePrivateApis}
                   apiUnavailable={apiUnavailable}
                   setupWarning={setupWarning}
-                  onQueryChange={setQuery}
+                  onQueryChange={(nextQuery) => {
+                    setQuery(nextQuery);
+                    // Clear stale evidence so an edited (but unsubmitted) query
+                    // doesn't keep rendering the previous search's rankings.
+                    setDocumentMatches([]);
+                  }}
                   desktopComposerSlotId={desktopHomeComposerSlotId}
                   onSuggestedSearch={(nextQuery) => {
                     setQuery(nextQuery);
