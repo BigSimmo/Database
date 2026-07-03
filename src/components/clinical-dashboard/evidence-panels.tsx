@@ -28,7 +28,8 @@ import {
 } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
-import { ClinicalOutputPanel, clinicalQueryModeOptions, type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { clinicalQueryModeOptions, type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
 import {
   keyClinicalItemsFromSections,
   keyClinicalItemsFromTable,

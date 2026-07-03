@@ -472,6 +472,12 @@ test.describe("Clinical KB applications launcher", () => {
       mode: "differentials",
       queryMode: "compare_guidance",
     });
+
+    // Evidence arrived, so the results view renders — with the synthetic
+    // demonstration-content notice, never presented as reviewed output.
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(page.getByTestId("differentials-demo-content-notice")).toBeVisible();
+    await expect(page.getByText("Demonstration ranking").first()).toBeVisible();
   });
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {

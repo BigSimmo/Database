@@ -93,6 +93,132 @@ export type Database = {
         }
         Relationships: []
       }
+      clinical_registry_record_sources: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          note: string | null
+          owner_id: string
+          record_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          note?: string | null
+          owner_id: string
+          record_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          note?: string | null
+          owner_id?: string
+          record_id?: string
+        }
+        Relationships: []
+      }
+      clinical_registry_records: {
+        Row: {
+          best_use: string | null
+          catalogue_label: string | null
+          catchments: string[]
+          contacts: Json
+          cost: string | null
+          created_at: string
+          criteria: Json
+          eligibility: string | null
+          id: string
+          kind: string
+          last_reviewed_at: string | null
+          location: string | null
+          navigator_query: string | null
+          owner_id: string
+          primary_contact: Json | null
+          referral: string | null
+          referral_info: Json
+          review_due_at: string | null
+          route: string | null
+          slug: string
+          source: Json
+          source_status: string
+          status_chips: Json
+          subtitle: string | null
+          summary_cards: Json
+          tags: string[]
+          title: string
+          updated_at: string
+          validation_status: string
+          verification: Json
+        }
+        Insert: {
+          best_use?: string | null
+          catalogue_label?: string | null
+          catchments?: string[]
+          contacts?: Json
+          cost?: string | null
+          created_at?: string
+          criteria?: Json
+          eligibility?: string | null
+          id?: string
+          kind: string
+          last_reviewed_at?: string | null
+          location?: string | null
+          navigator_query?: string | null
+          owner_id: string
+          primary_contact?: Json | null
+          referral?: string | null
+          referral_info?: Json
+          review_due_at?: string | null
+          route?: string | null
+          slug: string
+          source?: Json
+          source_status?: string
+          status_chips?: Json
+          subtitle?: string | null
+          summary_cards?: Json
+          tags?: string[]
+          title: string
+          updated_at?: string
+          validation_status?: string
+          verification?: Json
+        }
+        Update: {
+          best_use?: string | null
+          catalogue_label?: string | null
+          catchments?: string[]
+          contacts?: Json
+          cost?: string | null
+          created_at?: string
+          criteria?: Json
+          eligibility?: string | null
+          id?: string
+          kind?: string
+          last_reviewed_at?: string | null
+          location?: string | null
+          navigator_query?: string | null
+          owner_id?: string
+          primary_contact?: Json | null
+          referral?: string | null
+          referral_info?: Json
+          review_due_at?: string | null
+          route?: string | null
+          slug?: string
+          source?: Json
+          source_status?: string
+          status_chips?: Json
+          subtitle?: string | null
+          summary_cards?: Json
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          validation_status?: string
+          verification?: Json
+        }
+        Relationships: []
+      }
       document_chunks: {
         Row: {
           anchor_id: string | null
