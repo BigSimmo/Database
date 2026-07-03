@@ -128,9 +128,12 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+<<<<<<< HEAD
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = effectiveSidebarCollapsed ? "5.25rem" : "20rem";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+=======
+>>>>>>> origin/main
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -147,6 +150,7 @@ function GlobalMockupSearchShellClient({
     setQuery(currentUrlHasQuery ? requestedQuery : "");
   }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
 
+<<<<<<< HEAD
 
   useEffect(() => {
     if (!requestedFocus) return undefined;
@@ -154,6 +158,11 @@ function GlobalMockupSearchShellClient({
       !activeElement || activeElement === document.body || activeElement === document.documentElement;
     const focusInput = () => {
       if (!shouldApplyFocus(document.activeElement)) return;
+=======
+  useEffect(() => {
+    if (!requestedFocus) return undefined;
+    const focusInput = () => {
+>>>>>>> origin/main
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);
@@ -339,7 +348,11 @@ function GlobalMockupSearchShellClient({
           tabIndex={-1}
           className={cn(
             "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden focus:outline-none",
+<<<<<<< HEAD
             !shouldShowSearchComposer
+=======
+            !searchComposerVisible
+>>>>>>> origin/main
               ? "pb-8"
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
