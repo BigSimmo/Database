@@ -96,31 +96,11 @@ export async function GET(request: Request) {
     const records = rows.map(rowToServiceRecord);
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
 
-    const recordIds = rows.map((row) => row.id);
-    const linkedDocumentIdsByRecordId: Record<string, string[]> = {};
-    if (recordIds.length > 0) {
-      const { data: links, error: linksError } = await supabase
-        .from("clinical_registry_record_sources")
-        .select("record_id, document_id")
-        .eq("owner_id", user.id)
-        .in("record_id", recordIds);
-      if (linksError) throw new Error(linksError.message);
-      for (const link of links ?? []) {
-        const existing = linkedDocumentIdsByRecordId[link.record_id] ?? [];
-        existing.push(link.document_id);
-        linkedDocumentIdsByRecordId[link.record_id] = existing;
-      }
-    }
-    const linkedDocumentIdsBySlug = Object.fromEntries(
-      rows.map((row) => [row.slug, linkedDocumentIdsByRecordId[row.id] ?? []]),
-    );
-
     return registryResponse({
       records,
       matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
       total: rows.length,
       governance: governanceBySlug,
-      linkedDocumentIds: linkedDocumentIdsBySlug,
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {

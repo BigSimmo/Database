@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { RegistryRecordKind, RegistryValidationStatus } from "@/lib/registry-records";
+import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -18,14 +18,28 @@ export type RegistryRecordsState = {
   governance: Record<string, RegistryValidationStatus>;
 };
 
+export type RegistryRecordGovernance = {
+  sourceStatus: RegistrySourceStatus;
+  validationStatus: RegistryValidationStatus;
+};
+
 export type RegistryRecordState = {
   status: RegistryRequestStatus;
   record: ServiceRecord | null;
   linkedDocuments: Array<{ id: string; title: string; file_name: string; status: string }>;
   demoMode: boolean;
+  /** Authoritative governance for the record from the API (null until ready),
+   *  so detail pages can render current badges rather than the fixture copy. */
+  governance: RegistryRecordGovernance | null;
 };
 
-const recordLoading: RegistryRecordState = { status: "loading", record: null, linkedDocuments: [], demoMode: false };
+const recordLoading: RegistryRecordState = {
+  status: "loading",
+  record: null,
+  linkedDocuments: [],
+  demoMode: false,
+  governance: null,
+};
 type RegistryRecordsKeyedState = RegistryRecordsState & { kind: RegistryRecordKind };
 
 function recordsState(
@@ -127,24 +141,25 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
         if (response.status === 401) {
           if (authStatus === "loading") return;
           if (authStatus === "authenticated") markSessionExpired();
-          setState({ status: "unauthorized", record: null, linkedDocuments: [], demoMode: false });
+          setState({ status: "unauthorized", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
         if (response.status === 404) {
-          setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false });
+          setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
         if (!response.ok) {
-          setState({ status: "error", record: null, linkedDocuments: [], demoMode: false });
+          setState({ status: "error", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
         const payload = (await response.json()) as {
           record?: ServiceRecord;
           linkedDocuments?: Array<{ id: string; title: string; file_name: string; status: string }>;
           demoMode?: boolean;
+          governance?: RegistryRecordGovernance;
         };
         if (!payload.record) {
-          setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false });
+          setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
         setState({
@@ -152,10 +167,11 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
           record: payload.record,
           linkedDocuments: payload.linkedDocuments ?? [],
           demoMode: Boolean(payload.demoMode),
+          governance: payload.governance ?? null,
         });
       })
       .catch(() => {
-        if (active) setState({ status: "error", record: null, linkedDocuments: [], demoMode: false });
+        if (active) setState({ status: "error", record: null, linkedDocuments: [], demoMode: false, governance: null });
       });
     return () => {
       active = false;

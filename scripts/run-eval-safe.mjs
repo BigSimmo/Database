@@ -206,11 +206,56 @@ function terminateEvalProcess(pid) {
   terminateEvalProcessTree(pid);
 }
 
-function runEvalScript() {
-  const tsxBin = resolve(projectRoot, "node_modules", "tsx", "dist", "cli.mjs");
+function resolveFromAncestorNodeModules(startDir) {
+  let dir = startDir;
+  for (;;) {
+    const candidate = resolve(dir, "node_modules", "tsx", "dist", "cli.mjs");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
-  if (!existsSync(tsxBin)) {
-    console.error(`Could not find tsx runtime at ${tsxBin}`);
+function listGitWorktreeRoots() {
+  const result = spawnSync("git", ["worktree", "list", "--porcelain"], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.status !== 0) return [];
+
+  return (result.stdout || "")
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length).trim())
+    .filter(Boolean);
+}
+
+function resolveTsxCli() {
+  // Fresh git worktrees often have no node_modules of their own. First walk up
+  // ancestor directories like Node's own module resolution; then inspect Git's
+  // known worktrees so sibling/external worktrees can reuse the main checkout's
+  // install. A plain existsSync probe is used because tsx's package "exports"
+  // map does not expose dist/cli.mjs.
+  const ancestorMatch = resolveFromAncestorNodeModules(projectRoot);
+  if (ancestorMatch) return ancestorMatch;
+
+  for (const root of listGitWorktreeRoots()) {
+    const worktreeMatch = resolveFromAncestorNodeModules(root);
+    if (worktreeMatch) return worktreeMatch;
+  }
+
+  return null;
+}
+
+function runEvalScript() {
+  const tsxBin = resolveTsxCli();
+
+  if (!tsxBin) {
+    console.error(
+      "Could not resolve the tsx runtime. Run `npm install` first (or invoke the script with `npx tsx` directly).",
+    );
     process.exit(1);
   }
 

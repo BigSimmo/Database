@@ -5589,6 +5589,7 @@ export function ClinicalDashboard({
                       matches={documentMatches}
                       recordMatches={recordSearchMatches}
                       recordMode={recordSearchMode}
+                      recordStatus={registryRecords.status}
                       showRecordMatches={searchMode === "services" || searchMode === "forms"}
                       query={query}
                       loading={loading}

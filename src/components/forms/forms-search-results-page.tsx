@@ -841,14 +841,21 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
   if (status === "ready") return null;
   const notice =
     status === "loading"
-      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry..." }
+      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry...", action: null }
       : status === "unauthorized"
-        ? { icon: Shield, spin: false, tone: "warning", text: "Sign in to search your forms registry." }
+        ? {
+            icon: Shield,
+            spin: false,
+            tone: "warning",
+            text: "Sign in to search your forms registry.",
+            action: { href: "/", label: "Go to sign in" },
+          }
         : {
             icon: ShieldAlert,
             spin: false,
             tone: "danger",
             text: "Couldn't load the forms registry. Try again shortly.",
+            action: null,
           };
   const Icon = notice.icon;
   const toneClass =
@@ -858,13 +865,21 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
         ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]"
         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]";
   return (
-    <p
+    <div
       data-testid="forms-registry-status-notice"
-      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${toneClass}`}
+      className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${toneClass}`}
     >
       <Icon className={`h-4 w-4 shrink-0 ${notice.spin ? "animate-spin" : ""}`} aria-hidden />
-      {notice.text}
-    </p>
+      <span className="min-w-0 flex-1">{notice.text}</span>
+      {notice.action ? (
+        <Link
+          href={notice.action.href}
+          className="inline-flex min-h-8 items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+        >
+          {notice.action.label}
+        </Link>
+      ) : null}
+    </div>
   );
 }
 

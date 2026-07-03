@@ -1,9 +1,10 @@
 "use client";
 
-import { FileSearch, MapPinned, Route, Users } from "lucide-react";
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import {
   ModeHomeMain,
+  ModeHomeStatusNotice,
   ModeHomeTemplate,
   ModeHomeVerificationFooter,
   type ModeHomeAction,
@@ -79,6 +80,36 @@ const commonPathways: ModeHomePill[] = [
 export function ServicesHomePage() {
   const registry = useRegistryRecords("service");
   const verifiedCount = countVerifiedRegistryRecords(registry);
+  const registryReady = registry.status === "ready";
+  const hasRegistryRecords = registryReady && registry.total > 0;
+  const registryNotice =
+    registry.status === "loading" ? (
+      <ModeHomeStatusNotice
+        icon={Loader2}
+        title="Loading services registry"
+        body="Service tasks will appear once your private registry is ready."
+      />
+    ) : registry.status === "unauthorized" ? (
+      <ModeHomeStatusNotice
+        icon={ShieldAlert}
+        title="Sign in required"
+        body="Sign in to open private service records and referral pathways."
+        actionHref="/"
+        actionLabel="Go to sign in"
+      />
+    ) : registry.status === "error" ? (
+      <ModeHomeStatusNotice
+        icon={ShieldAlert}
+        title="Could not load services"
+        body="The services registry could not be loaded. Try again shortly."
+      />
+    ) : !hasRegistryRecords ? (
+      <ModeHomeStatusNotice
+        icon={FileQuestion}
+        title="No services seeded yet"
+        body="Seed your services registry before opening service detail shortcuts."
+      />
+    ) : null;
 
   return (
     <ModeHomeMain testId="services-home">
@@ -89,18 +120,21 @@ export function ServicesHomePage() {
         icon={Users}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
-        actions={taskCards}
+        actions={hasRegistryRecords ? taskCards : []}
         pillsTitle="Common pathways"
-        pills={commonPathways}
+        pills={hasRegistryRecords ? commonPathways : []}
         footer={
-          registry.status === "ready" ? (
+          hasRegistryRecords ? (
             <ModeHomeVerificationFooter
+              icon={ShieldCheck}
               label="Catalogue service data"
               body="Confirm locally before use"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />
-          ) : null
+          ) : (
+            registryNotice
+          )
         }
       />
     </ModeHomeMain>
