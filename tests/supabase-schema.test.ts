@@ -529,6 +529,8 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("create index if not exists document_table_facts_owner_document_page_idx");
     expect(schema).toContain("create index if not exists document_embedding_fields_owner_chunk_idx");
     expect(schema).toContain("create index if not exists document_index_units_owner_chunk_type_idx");
+    expect(schema).toContain("autovacuum_vacuum_scale_factor = 0.05");
+    expect(schema).toContain("autovacuum_analyze_scale_factor = 0.02");
   });
 
   it("keeps phase 7 retrieval RPCs bounded, profileable, and service-role scoped", () => {
