@@ -6,9 +6,10 @@ SSO, per-user isolation) lands via the `claude/multiuser-auth` branch. The
 consoles — Claude does not change the live Auth config. Target project:
 `Clinical KB Database` (`sjrfecxgysukkwxsowpy`).
 
-> **Order matters:** do **not** enable open signup on live until the isolation
-> hardening (fail-closed owner scoping + the owner-RLS/storage migration) has
-> merged. Validate the whole flow in a **staging** project first.
+> **Order matters:** do **not** enable open signup on live until the fail-closed
+> owner-scoping hardening on this branch has merged (the DB owner-RLS + private
+> storage backstop is already in place — see §7). Validate the whole flow in a
+> **staging** project first.
 
 ## 1. Auth → Providers
 
