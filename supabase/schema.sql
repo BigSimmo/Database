@@ -336,6 +336,9 @@ create table if not exists public.document_embedding_fields (
   metadata jsonb not null default '{}'::jsonb,
   search_tsv tsvector generated always as (to_tsvector('english', content)) stored,
   created_at timestamptz not null default now()
+) with (
+  autovacuum_vacuum_scale_factor = 0.05,
+  autovacuum_analyze_scale_factor = 0.02
 );
 
 create table if not exists public.document_index_quality (
@@ -610,8 +613,6 @@ create index if not exists document_table_facts_search_idx
   on public.document_table_facts using gin(search_tsv);
 create index if not exists document_table_facts_terms_idx
   on public.document_table_facts using gin(normalized_terms);
-create index if not exists document_table_facts_owner_idx
-  on public.document_table_facts(owner_id);
 create index if not exists document_table_facts_owner_document_page_idx
   on public.document_table_facts(owner_id, document_id, page_number);
 create index if not exists document_table_facts_source_image_idx

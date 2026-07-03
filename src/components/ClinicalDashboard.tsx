@@ -4912,6 +4912,7 @@ function DocumentLabelReviewPanel({
                   onChange={(event) => setDraft(item.document.id, { ...draft, label: event.target.value })}
                   disabled={!canManage || busyAction !== null}
                   placeholder="Manual override label"
+                  aria-label="Manual override label"
                   className={fieldControlPlain}
                 />
                 <select
@@ -5447,6 +5448,7 @@ function DocumentDrawer({
               value={collectionDraft}
               onChange={(event) => setCollectionDraft(event.target.value)}
               placeholder="Collection name for selected documents"
+              aria-label="Collection name for selected documents"
               className={fieldControlPlain}
             />
             <button
@@ -5466,6 +5468,7 @@ function DocumentDrawer({
               <select
                 value={metadataDraft.sourceStatus}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceStatus: event.target.value }))}
+                aria-label="Bulk edit source status"
                 className={fieldControlPlain}
               >
                 <option value="">Source status unchanged</option>
@@ -5479,6 +5482,7 @@ function DocumentDrawer({
                 onChange={(event) =>
                   setMetadataDraft((current) => ({ ...current, validationStatus: event.target.value }))
                 }
+                aria-label="Bulk edit validation status"
                 className={fieldControlPlain}
               >
                 <option value="">Validation unchanged</option>
@@ -5491,6 +5495,7 @@ function DocumentDrawer({
                 onChange={(event) =>
                   setMetadataDraft((current) => ({ ...current, extractionQuality: event.target.value }))
                 }
+                aria-label="Bulk edit extraction quality"
                 className={fieldControlPlain}
               >
                 <option value="">Extraction unchanged</option>
@@ -5519,18 +5524,21 @@ function DocumentDrawer({
                 value={metadataDraft.jurisdiction}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, jurisdiction: event.target.value }))}
                 placeholder="Jurisdiction/locality"
+                aria-label="Bulk edit jurisdiction/locality"
                 className={fieldControlPlain}
               />
               <input
                 value={metadataDraft.sourceType}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceType: event.target.value }))}
                 placeholder="Source type"
+                aria-label="Bulk edit source type"
                 className={fieldControlPlain}
               />
               <input
                 value={metadataDraft.category}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, category: event.target.value }))}
                 placeholder="Category"
+                aria-label="Bulk edit category"
                 className={fieldControlPlain}
               />
             </div>
@@ -7977,6 +7985,7 @@ export function ClinicalDashboard({
     const modeSearch = appModeSearchConfig(targetMode);
     const targetQueryMode = appModeQueryMode(targetMode, queryMode);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
+    const requestId = ++searchRequestSeqRef.current;
 
     setSearchMode(targetMode);
     setQuery(trimmedQuery);
@@ -8014,7 +8023,6 @@ export function ClinicalDashboard({
       setError(errorCopy.searchSetupNotReady);
       return;
     }
-    const requestId = ++searchRequestSeqRef.current;
     // M10 (diff-review hardening): progress updates emitted by this request's
     // in-flight machinery (retry messages, keyword fallback, stream progress)
     // must also be discarded once a newer search takes over, or a slow stale

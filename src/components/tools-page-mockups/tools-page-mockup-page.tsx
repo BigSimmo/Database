@@ -271,14 +271,14 @@ function ToolCard({ tool, suggested = false }: { tool: ToolFixture; suggested?: 
       href={tool.href}
       aria-label={`Open ${tool.title}${suggested ? " (suggested)" : ""}`}
       className={cn(
-        "block min-w-0 max-w-full rounded-md border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
+        "flex min-w-0 max-w-full flex-col rounded-md border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
         suggested
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
           : "border-[color:var(--border)]",
         focusRing,
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex flex-1 items-start gap-3">
         <ToolIcon tool={tool} />
         <div className="min-w-0 flex-1">
           <div className="grid gap-2">
@@ -418,7 +418,7 @@ function WideToolTile({
       href={tool.href}
       aria-label={`Open ${tool.title}${suggested ? " (suggested)" : ""}`}
       className={cn(
-        "group grid min-h-[9rem] min-w-0 max-w-full rounded-md border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+        "group grid min-h-[9rem] content-between min-w-0 max-w-full rounded-md border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
         suggested
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
           : "border-[color:var(--border)]",

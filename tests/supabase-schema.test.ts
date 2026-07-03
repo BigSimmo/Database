@@ -512,12 +512,12 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain(
       "create index if not exists document_embedding_fields_owner_id_idx on public.document_embedding_fields(owner_id)",
     );
-    expect(schema).toContain(
-      "create index if not exists document_table_facts_owner_idx on public.document_table_facts(owner_id)",
-    );
+    expect(schema).not.toContain("create index if not exists document_table_facts_owner_idx");
     expect(schema).toContain(
       "create index if not exists document_table_facts_source_image_idx on public.document_table_facts(source_image_id) where source_image_id is not null",
     );
+    expect(schema).toContain("autovacuum_vacuum_scale_factor = 0.05");
+    expect(schema).toContain("autovacuum_analyze_scale_factor = 0.02");
     expect(schema).toContain("create index if not exists documents_indexed_owner_title_idx");
     expect(schema).toContain("create index if not exists document_table_facts_owner_document_page_idx");
     expect(schema).toContain("create index if not exists document_embedding_fields_owner_chunk_idx");

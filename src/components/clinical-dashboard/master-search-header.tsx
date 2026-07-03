@@ -714,6 +714,7 @@ export function MasterSearchHeader({
             <div className="grid grid-cols-2 gap-2">
               <select
                 value={scopeFilters.sourceStatuses?.[0] ?? ""}
+                aria-label="Source status filter"
                 onChange={(event) =>
                   onScopeFiltersChange({
                     ...scopeFilters,
@@ -732,6 +733,7 @@ export function MasterSearchHeader({
               </select>
               <select
                 value={scopeFilters.locality ?? ""}
+                aria-label="Locality filter"
                 onChange={(event) =>
                   onScopeFiltersChange({
                     ...scopeFilters,

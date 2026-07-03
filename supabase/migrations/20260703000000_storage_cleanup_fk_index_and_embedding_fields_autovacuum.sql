@@ -1,8 +1,8 @@
--- Fix: cover storage_cleanup_jobs.document_id FK with an index. The FK itself
--- was added in 20260702130000_storage_cleanup_jobs_document_fk.sql without a
--- covering index, leaving joins/cascades on it to full-scan.
-create index if not exists storage_cleanup_jobs_document_id_idx
-  on public.storage_cleanup_jobs (document_id);
+-- The storage_cleanup_jobs.document_id FK added in
+-- 20260702130000_storage_cleanup_jobs_document_fk.sql is already covered by
+-- storage_cleanup_jobs_document_idx from
+-- 20260528007000_database_hardening_before_import.sql and supabase/schema.sql.
+-- Do not create a duplicate btree under a second name.
 
 -- Fix: document_embedding_fields is now the largest table in the schema
 -- (215k+ rows) and backs an HNSW vector index, but unlike its sibling RAG

@@ -2,6 +2,8 @@
 
 Date: 2026-06-23
 
+> **Colour direction superseded (July 2026).** The layout, interaction, and answer-first plan below still stands, but its colour language predates the **Clinical White / Aegean Graphite** role-split; see [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). Where this doc says "teal", read the role tokens: `--command` (graphite) for primary actions and `--clinical-accent` (Aegean blue-teal) for evidence/selected/send/focus; green is success-only.
+
 ## Purpose
 
 This document captures the agreed implementation plan for mapping the final ChatGPT-inspired clinical chatbot mockups into the application faithfully. It is intentionally written before code changes so implementation can proceed in controlled visual slices with clear acceptance criteria.
