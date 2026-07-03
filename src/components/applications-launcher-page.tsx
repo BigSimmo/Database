@@ -3,11 +3,14 @@
 import Link from "next/link";
 import {
   BookOpen,
+  Brain,
   ChevronRight,
   ClipboardList,
+  Clock3,
   ExternalLink,
   FileText,
   Grid2X2,
+  ListChecks,
   MoreVertical,
   Pill,
   Pin,
@@ -15,6 +18,7 @@ import {
   Plus,
   Search,
   Send,
+  ShieldCheck,
   Star,
   X,
   type LucideIcon,
@@ -33,6 +37,7 @@ import {
 } from "@/components/ui-primitives";
 type LauncherStatus = "ready" | "recent" | "review_due";
 type LauncherCategory = "clinical" | "admin" | "recent";
+type LauncherArea = "reference" | "assessment" | "care" | "coordination" | "personal";
 
 type LauncherApp = {
   id: string;
@@ -44,9 +49,11 @@ type LauncherApp = {
   external: boolean;
   icon: LucideIcon;
   category: LauncherCategory;
+  area: LauncherArea;
   workflow: string;
   lastUsed: string;
   status: LauncherStatus;
+  sourceBacked: boolean;
   sourceToolId?: string;
   relatedIds: string[];
   quickActions: string[];
@@ -66,15 +73,25 @@ const statusLabels: Record<LauncherStatus, string> = {
 };
 
 const filterOptions = [
-  { id: "all", label: "All" },
-  { id: "clinical", label: "Clinical" },
-  { id: "admin", label: "Admin" },
-  { id: "recent", label: "Recent" },
+  { id: "all", label: "All tools", icon: Grid2X2 },
+  { id: "pinned", label: "Pinned", icon: Pin },
+  { id: "review_due", label: "Review due", icon: Clock3 },
+  { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
 ] as const;
+
+const areaLabels: Record<LauncherArea, string> = {
+  reference: "Reference",
+  assessment: "Assessment",
+  care: "Treatment",
+  coordination: "Coordination",
+  personal: "Saved",
+};
 
 const launcherApps: LauncherApp[] = [
   {
     id: "medication-prescribing",
+    area: "care",
+    sourceBacked: true,
     title: "Medication Prescribing",
     shortTitle: "Medication",
     description: "Search, prescribe and review medications.",
@@ -97,6 +114,8 @@ const launcherApps: LauncherApp[] = [
   },
   {
     id: "documents",
+    area: "reference",
+    sourceBacked: true,
     title: "Documents",
     description: "Access and manage clinical documents.",
     detail: "Search indexed PDFs, guidelines, policies, notes, and source documents.",
@@ -117,6 +136,8 @@ const launcherApps: LauncherApp[] = [
   },
   {
     id: "services",
+    area: "coordination",
+    sourceBacked: true,
     title: "Services",
     description: "Review source-backed service records and access pathways.",
     detail:
@@ -138,6 +159,8 @@ const launcherApps: LauncherApp[] = [
   },
   {
     id: "forms",
+    area: "coordination",
+    sourceBacked: true,
     title: "Forms",
     description: "Find clinical forms and source-backed form pathways.",
     detail: "Open the forms home for form search, readiness checks, pathway tasks, and source-backed records.",
@@ -158,6 +181,8 @@ const launcherApps: LauncherApp[] = [
   },
   {
     id: "clinical-kb-search",
+    area: "reference",
+    sourceBacked: true,
     title: "Clinical KB Search",
     description: "Search the knowledge base content.",
     detail: "Search the Clinical KB for source-backed guidance, answers, and evidence.",
@@ -174,6 +199,55 @@ const launcherApps: LauncherApp[] = [
       { title: "Lithium monitoring search", date: "Today, 7:30 AM" },
       { title: "Safety plan search", date: "May 12, 2025" },
       { title: "Clozapine source check", date: "May 10, 2025" },
+    ],
+  },
+  {
+    id: "differentials",
+    area: "assessment",
+    sourceBacked: true,
+    title: "Differentials",
+    description: "Build and compare diagnostic possibilities.",
+    detail: "Compare source-aware differentials, weigh must-not-miss risks, and open the presentation view.",
+    href: "/differentials",
+    external: false,
+    icon: Brain,
+    category: "clinical",
+    workflow: "Assessment",
+    lastUsed: "Today, 8:40 AM",
+    status: "recent",
+    relatedIds: ["clinical-kb-search", "documents", "medication-prescribing"],
+    quickActions: [
+      "Compare differentials",
+      "Open presentation view",
+      "Review must-not-miss risks",
+      "Copy after review",
+    ],
+    recentWorkflows: [
+      { title: "Acute confusion comparison", date: "Today, 8:40 AM" },
+      { title: "Chest pain differentials", date: "May 12, 2025" },
+      { title: "Headache red flags", date: "May 9, 2025" },
+    ],
+  },
+  {
+    id: "favourites",
+    area: "personal",
+    sourceBacked: false,
+    title: "Favourites",
+    description: "Return to saved clinical work and sources.",
+    detail: "Resume saved answers, pinned sources, and repeated workflows.",
+    href: "/favourites",
+    external: false,
+    icon: Star,
+    category: "recent",
+    workflow: "Saved",
+    lastUsed: "Today, 8:45 AM",
+    status: "recent",
+    relatedIds: ["clinical-kb-search", "services", "documents"],
+    quickActions: ["Resume saved work", "Open pinned sources", "Review recent workflows", "Manage pins"],
+    recentWorkflows: [
+      { title: "Saved: Lithium monitoring", date: "Today, 8:45 AM" },
+      { title: "Pinned: Safety plan", date: "May 12, 2025" },
+      { title: "Recent: Clozapine protocol", date: "May 10, 2025" },
     ],
   },
 ];
@@ -268,6 +342,32 @@ function StatusPill({ status }: { status: LauncherStatus }) {
   );
 }
 
+function StatsStrip() {
+  const stats = [
+    { label: "Tools", value: launcherApps.length, icon: Grid2X2 },
+    { label: "Review due", value: launcherApps.filter((app) => app.status === "review_due").length, icon: Clock3 },
+    { label: "Recent", value: launcherApps.filter((app) => app.status === "recent").length, icon: Star },
+  ];
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3" aria-label="Tool overview">
+      {stats.map(({ label, value, icon: Icon }) => (
+        <div
+          key={label}
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 shadow-[var(--shadow-inset)]"
+        >
+          <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <Icon className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="text-left">
+            <span className="nums block text-sm font-bold leading-4 text-[color:var(--text-heading)]">{value}</span>
+            <span className="block text-[11px] font-semibold text-[color:var(--text-soft)]">{label}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AppIcon({ app, compact = false }: { app: LauncherApp; compact?: boolean }) {
   const Icon = app.icon;
   return (
@@ -315,9 +415,10 @@ function HeaderFilter({
   onFilterChange: (filter: (typeof filterOptions)[number]["id"]) => void;
 }) {
   return (
-    <div className="inline-grid grid-cols-4 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
+    <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Tool filters">
       {filterOptions.map((option) => {
         const active = option.id === activeFilter;
+        const Icon = option.icon;
         return (
           <button
             key={option.id}
@@ -325,12 +426,13 @@ function HeaderFilter({
             aria-pressed={active}
             onClick={() => onFilterChange(option.id)}
             className={cn(
-              "min-h-11 px-4 text-xs font-semibold transition sm:min-w-[5.25rem]",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition",
               active
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                : "border-l border-[color:var(--border)] text-[color:var(--text-muted)] first:border-l-0 hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
+            <Icon className="h-3.5 w-3.5" aria-hidden />
             {option.label}
           </button>
         );
@@ -435,7 +537,12 @@ function ApplicationRow({
       <button type="button" onClick={() => onSelect(app.id)} className="contents text-left">
         <AppIcon app={app} compact />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{app.title}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{app.title}</span>
+            {app.sourceBacked ? (
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" aria-label="Source-backed" />
+            ) : null}
+          </span>
           <span className={cn("block truncate text-xs leading-5", textMuted)}>{app.description}</span>
         </span>
         <span className="nums text-xs font-semibold text-[color:var(--text-muted)]">{app.lastUsed}</span>
@@ -558,13 +665,45 @@ function DetailPanel({
         <div className="min-w-0">
           <h2 className="text-xl font-semibold leading-7 text-[color:var(--text-heading)]">{app.title}</h2>
           <p className={cn("mt-1 text-sm leading-5", textMuted)}>{app.description}</p>
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusPill status={app.status} />
+            {app.sourceBacked ? (
+              <span className="inline-flex min-h-6 items-center gap-1 rounded-md border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-[11px] font-bold text-[color:var(--success)]">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                Source-backed
+              </span>
+            ) : null}
+            <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+              {areaLabels[app.area]}
+            </span>
           </div>
         </div>
       </div>
 
       <LaunchLink app={app} className="mt-4 w-full" />
+
+      <section className="mt-4">
+        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Fast actions</h3>
+        <div className="mt-2 grid gap-2">
+          {[
+            { label: "Open recent work", icon: ListChecks, pinAction: false },
+            { label: "Review source status", icon: ShieldCheck, pinAction: false },
+            { label: pinned ? "Unpin from daily tools" : "Pin to daily tools", icon: Pin, pinAction: true },
+          ].map(({ label, icon: Icon, pinAction }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={pinAction ? () => onTogglePin(app.id) : undefined}
+              disabled={!pinAction}
+              className="grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-left text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+              <span className="min-w-0 truncate">{label}</span>
+              <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-5 border-t border-[color:var(--border)] pt-4">
         <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Overview</h3>
@@ -680,17 +819,21 @@ export function ApplicationsLauncherWorkspace({
     return launcherApps.filter((app) => {
       const matchesFilter =
         activeFilter === "all" ||
-        (activeFilter === "recent"
-          ? app.status === "recent" || app.category === "recent"
-          : app.category === activeFilter);
+        (activeFilter === "pinned"
+          ? pinnedIds.includes(app.id)
+          : activeFilter === "review_due"
+            ? app.status === "review_due"
+            : activeFilter === "source_backed"
+              ? app.sourceBacked
+              : true);
       const matchesQuery =
         !normalizedQuery ||
-        [app.title, app.description, app.workflow, app.detail].some((value) =>
+        [app.title, app.description, app.workflow, app.detail, areaLabels[app.area]].some((value) =>
           value.toLowerCase().includes(normalizedQuery),
         );
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, normalizedQuery]);
+  }, [activeFilter, normalizedQuery, pinnedIds]);
 
   function togglePin(id: string) {
     setPinnedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [id, ...current]));
@@ -733,6 +876,8 @@ export function ApplicationsLauncherWorkspace({
             ) : null}
           </div>
 
+          <StatsStrip />
+
           <div className="flex flex-col items-center gap-3">
             <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
             {normalizedQuery ? (
@@ -758,7 +903,8 @@ export function ApplicationsLauncherWorkspace({
           <p className="mt-3 max-w-xl text-[15px] leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
             {copy.description}
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-4">
+            <StatsStrip />
             <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
           </div>
           <form onSubmit={submitFooterSearch} className={cn(chatComposerShell, "mt-5 w-full max-w-2xl")}>

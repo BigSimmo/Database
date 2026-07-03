@@ -81,7 +81,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.locator('a[aria-label="Launch Documents"]').first()).toHaveAttribute("href", "/?mode=documents");
     await expect(page.locator('a[aria-label="Launch Services"]').first()).toHaveAttribute("href", "/services");
     await expect(page.locator('a[aria-label="Launch Forms"]').first()).toHaveAttribute("href", "/forms");
-    await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveCount(0);
+    await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveAttribute("href", "/favourites");
     await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
       "href",
       "/?mode=answer",
@@ -98,7 +98,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-row-documents")).toBeHidden();
-    await expect(page.getByText("Showing 1 to 1 of 5 applications")).toBeVisible();
+    await expect(page.getByText("Showing 1 to 1 of 7 applications")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -116,7 +116,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
-    await expect(toolsHub.getByText("Showing 1 to 1 of 5 tools")).toBeVisible();
+    await expect(toolsHub.getByText("Showing 1 to 1 of 7 tools")).toBeVisible();
     await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
