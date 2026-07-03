@@ -48,7 +48,7 @@ const commonPathways: ModeHomePill[] = [
   },
   {
     label: "Aboriginal and Torres Strait Islander",
-    tone: "info",
+    tone: "rose",
     href: appModeHomeHref("services", {
       query: "Aboriginal Torres Strait Islander services",
       focus: true,
@@ -62,12 +62,12 @@ const commonPathways: ModeHomePill[] = [
   },
   {
     label: "Telehealth",
-    tone: "primary",
+    tone: "indigo",
     href: appModeHomeHref("services", { query: "telehealth services", focus: true, run: true }),
   },
   {
     label: "Free",
-    tone: "success",
+    tone: "slate",
     href: appModeHomeHref("services", { query: "free services", focus: true, run: true }),
   },
   {
