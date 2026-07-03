@@ -694,11 +694,7 @@ function VisualEvidenceStrip({
 
   if (embedded) return <div className="space-y-3">{content}</div>;
 
-  return (
-    <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-      {content}
-    </section>
-  );
+  return <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">{content}</section>;
 }
 
 function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
