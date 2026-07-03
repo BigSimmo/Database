@@ -89,6 +89,7 @@ For each: trace which module-scope helpers/icons/types it uses; move solely-cons
 - **Known follow-up debts (documented, not actioned):**
   - Live migration history has duplicate-version churn (two each of `api_rate_limits`, `audit_logs`, `rag_queries_retention`, `audit_logs_service_role_policy`, `indexing_reliability_recovery`) from the same raw-apply habit. Do not rewrite history; treat as a caution for future applies.
   - Auth server is capped at 10 absolute DB connections (Supabase advisor); switch to percentage-based allocation in the dashboard before scaling instance size (not settable via SQL/MCP).
+  - `storage_cleanup_jobs` live indexes drifted from `supabase/schema.sql`: live carries legacy auto-names (`storage_cleanup_jobs_document_id_idx`, `storage_cleanup_jobs_owner_id_idx`, a non-partial `storage_cleanup_jobs_status_created_idx`) that the hardening defs superseded. Migration `20260703030000_reconcile_storage_cleanup_jobs_indexes` is **prepared but NOT applied** — it drops the legacy names and (re)creates the intended named/partial indexes to match schema.sql. Functional-not-broken (the document_id FK is covered), so apply to live only with explicit approval. `20260703000000`/`010000` are also absent from live `schema_migrations` and will self-heal on the next `supabase db push`.
 
 ## PR merge gate: tiered CI + required checks (2026-07-02)
 
