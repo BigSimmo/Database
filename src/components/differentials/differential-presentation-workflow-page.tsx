@@ -564,7 +564,7 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
           <section className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="max-w-[58rem] text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:whitespace-nowrap xl:text-[22px] xl:leading-[1.2]">
+                <h1 className="max-w-[58rem] text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:whitespace-nowrap xl:text-2xl-minus xl:leading-[1.2]">
                   {workflow.title}
                 </h1>
                 <EmergencyBadge status={workflow.status} />
