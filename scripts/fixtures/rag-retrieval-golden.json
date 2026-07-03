@@ -210,5 +210,33 @@
     "expectedContentTerms": ["alcohol", "withdrawal", ["ciwa", "score", "threshold"]],
     "topK": 12,
     "expectTableEvidence": false
+  },
+  {
+    "id": "clozapine-cbc-abbreviation-threshold",
+    "query": "What CBC (complete blood count) or neutrophil threshold should withhold clozapine?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["Clozapine"],
+    "expectedContentTerms": [
+      "clozapine",
+      ["anc", "neutrophil"],
+      ["fbc", "full blood count", "wbc", "wcc"],
+      ["withhold", "cease", "stop", "red"]
+    ],
+    "topK": 12,
+    "expectTableEvidence": true
+  },
+  {
+    "id": "clozapine-wcc-abbreviation-threshold",
+    "query": "What WCC (white cell count) or neutrophil threshold should withhold clozapine?",
+    "expectedQueryClass": "table_threshold",
+    "expectedDocumentSubstrings": ["Clozapine"],
+    "expectedContentTerms": [
+      "clozapine",
+      ["anc", "neutrophil"],
+      ["fbc", "full blood count", "wbc", "wcc", "white cell"],
+      ["withhold", "cease", "stop", "red"]
+    ],
+    "topK": 12,
+    "expectTableEvidence": true
   }
 ]

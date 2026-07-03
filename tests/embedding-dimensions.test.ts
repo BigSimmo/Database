@@ -30,3 +30,30 @@ describe("strict embedding dimension guard", () => {
     ).toThrow(new RegExp(`non-finite value at index ${EXPECTED_EMBED_DIM - 1}`));
   });
 });
+
+describe("schema vector dimension guard (IDX-C2 fail-fast)", () => {
+  it("parses distinct vector(N) dimensions from schema SQL", async () => {
+    const { parseSchemaVectorDimensions } = await import("../src/lib/embedding-dimensions");
+    const sql =
+      "create table a (e vector(1536)); create table b (f VECTOR(1536)); create index on c using hnsw (g vector(1536));";
+    expect(parseSchemaVectorDimensions(sql)).toEqual([1536]);
+    expect(parseSchemaVectorDimensions("no vectors here")).toEqual([]);
+    expect(parseSchemaVectorDimensions("vector(768) and vector(1536)")).toEqual([768, 1536]);
+  });
+
+  it("passes when the configured dimension matches a single consistent schema dimension", async () => {
+    const { describeSchemaDimensionMismatch } = await import("../src/lib/embedding-dimensions");
+    expect(describeSchemaDimensionMismatch(1536, "e vector(1536), f vector(1536)")).toBeNull();
+  });
+
+  it("flags a config/schema mismatch, inconsistent schema dims, and a missing vector column", async () => {
+    const { describeSchemaDimensionMismatch } = await import("../src/lib/embedding-dimensions");
+    expect(describeSchemaDimensionMismatch(3072, "e vector(1536)")).toMatch(
+      /EMBEDDING_DIMENSIONS=3072 does not match schema vector\(1536\)/,
+    );
+    expect(describeSchemaDimensionMismatch(1536, "e vector(1536), f vector(3072)")).toMatch(
+      /inconsistent vector dimensions/,
+    );
+    expect(describeSchemaDimensionMismatch(1536, "no vectors")).toMatch(/No vector\(N\) columns/);
+  });
+});

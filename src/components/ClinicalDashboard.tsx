@@ -2841,7 +2841,7 @@ export function SettingsDialog({
             <div className="min-w-0">
               <h2
                 id="account-settings-title"
-                className="truncate text-[18px] font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
+                className="truncate text-lg font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
               >
                 Account &amp; app
               </h2>

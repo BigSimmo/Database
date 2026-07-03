@@ -29,6 +29,8 @@ export type IndexQualityMetrics = {
   extracted_image_count: number;
   searchable_image_count: number;
   ocr_page_count?: number;
+  // CI-6: pages flagged image-only but not OCR'd (JS fallback without Python OCR prereqs).
+  needs_ocr_page_count?: number;
 };
 
 export function hashIndexQualityText(text: string) {
@@ -93,6 +95,8 @@ export function assessDocumentIndexQuality(args: {
   const sectionPathCoverage = chunkCount ? sectionPathCount / chunkCount : 0;
   const tableExtractionCoverage = tableImages.length ? tableImagesWithRows.length / tableImages.length : null;
   const ocrCoverage = args.metrics.page_count ? Number(args.metrics.ocr_page_count ?? 0) / args.metrics.page_count : 0;
+  const needsOcrPageCount = Number(args.metrics.needs_ocr_page_count ?? 0);
+  const needsOcrCoverage = args.metrics.page_count ? needsOcrPageCount / args.metrics.page_count : 0;
   const averagePageTextChars = args.metrics.page_count
     ? args.metrics.text_character_count / args.metrics.page_count
     : 0;
@@ -122,6 +126,10 @@ export function assessDocumentIndexQuality(args: {
     issues.push("low structured visual extraction confidence");
   }
   if (args.metrics.text_character_count < 80) issues.push("low extracted text volume");
+  if (needsOcrPageCount > 0)
+    issues.push(
+      `image-only pages not OCR'd (${needsOcrPageCount} of ${args.metrics.page_count}); install Python OCR prerequisites`,
+    );
   if (args.sectionCount === 0) issues.push("no structured sections");
   if (args.memoryCardCount === 0) issues.push("no memory cards");
   if (!fieldTypes.has("document_title")) issues.push("missing document title embedding");
@@ -145,8 +153,15 @@ export function assessDocumentIndexQuality(args: {
     const chunkPageCoverage = Math.min(1, chunkCount / Math.max(args.metrics.page_count * 0.75, 1));
     qualityScore -= Math.max(0, 0.82 - chunkPageCoverage) * 0.08;
   }
+  qualityScore -= Math.min(0.5, needsOcrCoverage * 0.6);
   qualityScore = Math.max(0, Math.min(1, qualityScore));
-  const extractionQuality = qualityScore >= 0.82 ? "good" : qualityScore >= 0.52 ? "partial" : "poor";
+  let extractionQuality = qualityScore >= 0.82 ? "good" : qualityScore >= 0.52 ? "partial" : "poor";
+  // CI-6: a scanned / image-only PDF whose pages could not be OCR'd is effectively unindexed
+  // even when incidental header text nudges the heuristics up to "partial". Force "poor" so it
+  // is visible to eval governance and never silently treated as a good index.
+  if (needsOcrPageCount > 0 && (needsOcrCoverage >= 0.5 || chunkCount === 0)) {
+    extractionQuality = "poor";
+  }
 
   return {
     qualityScore: Number(qualityScore.toFixed(3)),

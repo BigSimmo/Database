@@ -23,7 +23,10 @@ const entries: ClinicalVocabularyEntry[] = [
   },
   {
     canonical: "full blood count",
-    aliases: ["fbc", "blood count", "white cell count", "wcc", "wbc"],
+    // CI-14: FBC (AU/UK) and CBC (US) are the same test. Documents in this corpus use
+    // "FBC"; without the CBC alternates a clinician who searches "CBC" retrieves nothing.
+    // "cbc" is kept in the first 6 aliases so it survives the expansion slice bidirectionally.
+    aliases: ["fbc", "cbc", "complete blood count", "blood count", "white cell count", "wcc", "wbc"],
     type: "lab",
     weight: 1.2,
   },
@@ -52,6 +55,10 @@ const entries: ClinicalVocabularyEntry[] = [
   { canonical: "emergency department", aliases: ["ed"], type: "service", weight: 1.05 },
   { canonical: "intramuscular", aliases: ["im"], type: "workflow", weight: 1.05 },
   { canonical: "oral", aliases: ["po"], type: "workflow", weight: 1.05 },
+  // CI-14: complete the administration-route family alongside IM/PO so route-abbreviation
+  // queries ("subcut", "SC", "sublingual", "SL") retrieve the same chart rows.
+  { canonical: "subcutaneous", aliases: ["sc", "subcut", "subcutaneously"], type: "workflow", weight: 1.05 },
+  { canonical: "sublingual", aliases: ["sl", "sublingually"], type: "workflow", weight: 1.05 },
   { canonical: "as required", aliases: ["prn"], type: "workflow", weight: 1.05 },
   {
     canonical: "clozapine",

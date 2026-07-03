@@ -27,6 +27,12 @@ const envSchema = z.object({
   // if output is still cut off, createTextResult now flags it as truncated (GEN-C1).
   OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(4000),
   OPENAI_QUERY_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
+  // Max inputs per embeddings request. The OpenAI embeddings endpoint caps a single
+  // request at 2048 inputs / ~300k tokens; a full-corpus re-embed of ~400k texts in one
+  // call would exceed that and fail (IDX-C3). embedTexts splits unique inputs into
+  // batches of this size. 256 keeps total tokens well under the ceiling even for the
+  // largest (narrative-profile) chunks while staying far below the 2048 input cap.
+  OPENAI_EMBEDDING_BATCH_SIZE: z.coerce.number().int().positive().max(2048).default(256),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.5"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
@@ -59,6 +65,10 @@ const envSchema = z.object({
   // - "offline": never call OpenAI at all (no embeddings, no generation); lexical retrieval
   //   + deterministic source-only answers only. Fails closed when evidence is weak.
   RAG_PROVIDER_MODE: z.enum(["auto", "openai", "offline"]).default("auto"),
+  // Optional JSON override for app-layer ranking weights (see src/lib/ranking-config.ts).
+  // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
+  // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
+  RAG_RANKING_CONFIG: z.string().optional(),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
   RAG_SEARCH_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(60000),
@@ -87,6 +97,11 @@ const envSchema = z.object({
   MAX_IMPORT_BYTES_PER_RUN: z.coerce.number().int().positive().default(157286400),
   CHUNK_SIZE: z.coerce.number().int().positive().default(2000),
   CHUNK_OVERLAP: z.coerce.number().int().nonnegative().default(200),
+  // Chunking strategy (CI-1). "page" (default) = the current page-bounded chunker, byte-for-
+  // byte unchanged. "document" = structure-aware chunking that lets a chunk span a page break
+  // within a section, so dose tables / monitoring protocols split across a page boundary stay
+  // together. Enabled only for the eval-gated shadow re-index, never silently for live users.
+  CHUNK_STRATEGY: z.enum(["page", "document"]).default("page"),
   WORKER_POLL_MS: z.coerce.number().int().positive().default(1500),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(25),
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(8),

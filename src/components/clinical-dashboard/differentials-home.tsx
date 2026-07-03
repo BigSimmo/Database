@@ -824,10 +824,10 @@ function SearchResultsView({
         />
       </div>
 
-      <div className="fixed inset-x-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-30 border-t border-[color:var(--border)] bg-[color:var(--background)] px-3 py-2.5 lg:hidden">
         <Link
           href={routeWithQuery("/differentials/presentations", query)}
-          className="mx-auto flex min-h-14 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
+          className="mx-auto flex min-h-12 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
         >
           <GitCompareArrows className="h-5 w-5" aria-hidden />
           Compare selected ({selectedCount})

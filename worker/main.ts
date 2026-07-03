@@ -1524,12 +1524,17 @@ function extractionMetrics(
 ) {
   const textCharacterCount = extracted.pages.reduce((sum, page) => sum + page.text.length, 0);
   const ocrPageCount = extracted.pages.filter((page) => page.ocrUsed).length;
+  // CI-6: pages the extractor flagged as image-only but could NOT OCR (JS fallback without
+  // the Python OCR prerequisites). Threaded into index quality so these documents are marked
+  // poor and surfaced to eval governance rather than indexed near-empty.
+  const needsOcrPageCount = extracted.pages.filter((page) => page.needsOcr).length;
   const warnings = [...(extracted.warnings ?? [])];
   if (textCharacterCount < 80) warnings.push("Low extracted text volume; inspect OCR quality.");
 
   return {
     page_count: extracted.pages.length,
     ocr_page_count: ocrPageCount,
+    needs_ocr_page_count: needsOcrPageCount,
     text_character_count: textCharacterCount,
     extracted_image_count: extracted.images.length,
     searchable_image_count: Object.values(imageTypeCounts).reduce((sum, count) => sum + count, 0),
