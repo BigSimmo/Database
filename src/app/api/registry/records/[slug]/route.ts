@@ -6,6 +6,7 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { getFormRecord } from "@/lib/forms";
 import {
+  deriveGovernanceColumns,
   normalizeRegistrySlug,
   rowGovernance,
   rowToServiceRecord,
@@ -42,7 +43,13 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     if (isDemoMode()) {
       const record = kind === "form" ? getFormRecord(normalizedSlug) : getServiceRecord(normalizedSlug);
       if (!record) return notFoundResponse(normalizedSlug);
-      return registryResponse({ record, linkedDocuments: [], demoMode: true });
+      const derived = deriveGovernanceColumns(record);
+      return registryResponse({
+        record,
+        governance: { sourceStatus: derived.source_status, validationStatus: derived.validation_status },
+        linkedDocuments: [],
+        demoMode: true,
+      });
     }
 
     const supabase = createAdminClient();

@@ -57,7 +57,7 @@ export function RegistryRecordLoader({
   slug: string;
   children: (record: ServiceRecord) => ReactNode;
 }) {
-  const { status, record } = useRegistryRecord(kind, slug);
+  const { status, record, governance } = useRegistryRecord(kind, slug);
   const copy = kindCopy[kind];
 
   if (status === "loading") {
@@ -108,5 +108,19 @@ export function RegistryRecordLoader({
     );
   }
 
-  return <>{children(record)}</>;
+  // Reconcile the verified badge with the authoritative governance column so a
+  // record reviewed/downgraded after seeding does not keep showing the stale
+  // fixture verification state.
+  const rendered = governance
+    ? {
+        ...record,
+        verification: {
+          ...record.verification,
+          locallyVerified:
+            governance.validationStatus === "locally_reviewed" || governance.validationStatus === "approved",
+        },
+      }
+    : record;
+
+  return <>{children(rendered)}</>;
 }
