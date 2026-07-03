@@ -73,6 +73,12 @@ For each: trace which module-scope helpers/icons/types it uses; move solely-cons
 - `npm run check:indexing` includes local OCR prerequisites (`fitz`/PyMuPDF, `pytesseract`, and the Tesseract binary). A failure at that prerequisite step is local machine setup debt, not evidence that indexed production data or search behavior regressed.
 - Supabase performance-advisor `unused_index` INFO items are monitored, not automatically fixed. Do not remove search/RAG support indexes until live query evidence, local explain/verification, and rollback planning show the index is safe to drop.
 
+## Route sitemap guard (2026-07-03)
+
+- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run sitemap:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
+- `npm run verify:cheap` now includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety.
+- Keep `docs/site-map.md` as the human-readable route map for now. If it becomes too large for review, split into a concise `docs/site-map.md` summary plus a generated `docs/site-map.generated.md` inventory, and update `scripts/generate-site-map.ts` / `tests/site-map.test.ts` in the same change.
+
 ## Retrieval RPC drift & indexing hygiene (2026-07-01)
 
 - The four app-path hybrid retrieval RPCs (`match_document_chunks_hybrid`, `match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid`, `match_document_memory_cards_hybrid` + its `_v2` core) had live-only performance fixes applied via raw SQL that were never captured in migrations, so a `supabase db reset` / branch DB reproduced the slow pre-fix shapes. Migration `20260701140631_codify_live_retrieval_rpcs` codifies the live definitions (validated byte-equivalent to live via whitespace-stripped `pg_get_functiondef` md5 before applying — a confirmed no-op on live), and `supabase/schema.sql` was reconciled to match. A clean replay now reproduces production retrieval.
