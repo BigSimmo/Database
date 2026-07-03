@@ -148,9 +148,7 @@ describe("golden retrieval eval helpers", () => {
   it("classifies the abbreviation golden cases as their declared query class (CI-14)", async () => {
     // The eval fails a case on query-class mismatch, so a golden case whose query does not
     // classify as its expectedQueryClass would pollute the baseline. Guard the abbreviation
-    // case added for the CBC synonym expansion. (The WCC counterpart is deferred — routing
-    // classifies it correctly, but its withhold-action evidence doesn't yet rank top-5, so
-    // it's excluded from the golden fixture until that ranking gap is addressed.)
+    // case added for the CBC synonym expansion.
     const { classifyRagQuery } = await import("../src/lib/clinical-search");
     const cases = loadGoldenRetrievalCases("scripts/fixtures/rag-retrieval-golden.json");
     const abbreviationCases = cases.filter((testCase) => testCase.id === "clozapine-cbc-abbreviation-threshold");
@@ -158,6 +156,18 @@ describe("golden retrieval eval helpers", () => {
     for (const testCase of abbreviationCases) {
       expect(classifyRagQuery(testCase.query).queryClass).toBe(testCase.expectedQueryClass);
     }
+  });
+
+  it("still classifies the deferred WCC clozapine query as table_threshold (CI-14)", async () => {
+    // The clozapine-wcc-abbreviation-threshold golden case is excluded from the fixture
+    // above because its withhold-action evidence doesn't yet rank top-5 (a retrieval gap,
+    // tracked separately) — but routing/classification for this phrasing is correct and
+    // already shipped. Keep asserting that directly so a future classifier regression is
+    // still caught even though the live retrieval case is deferred.
+    const { classifyRagQuery } = await import("../src/lib/clinical-search");
+    expect(
+      classifyRagQuery("What WCC (white cell count) or neutrophil threshold should withhold clozapine?").queryClass,
+    ).toBe("table_threshold");
   });
 
   it("converts captured RAG eval cases into golden retrieval cases", () => {
