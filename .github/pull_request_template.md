@@ -8,6 +8,8 @@
 - [ ] `npm run verify:ui` when UI, routing, styling, browser behavior, reduced-motion, or forced-colors behavior changed
 - [ ] `npm run verify:release` before release or handoff confidence claims
 - [ ] `npm run format:check`
+- [ ] **`npm run eval:retrieval:quality` (must stay 23/23) when retrieval, ranking, selection, chunking, or scoring behavior changed** — CI cannot run it (needs live keys), so run it locally and paste the summary. A metadata/governance-weighting change once buried correct docs (recall 1.0→0.76) and only this eval caught it.
+- [ ] `npm run eval:rag -- --limit 15` + `npm run eval:quality -- --rag-only` when answer generation, the synthesis prompt, or answer post-processing changed (grounded-supported must not drop; citation-failure 0)
 - [ ] `npm run check:production-readiness` when clinical workflow, privacy, environment, Supabase, source governance, or deployment behavior changed
 - [ ] `npm run check:deployment-readiness` when deployment startup, hosting, or rollout behavior changed
 
