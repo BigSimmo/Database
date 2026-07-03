@@ -521,7 +521,9 @@ function queryClassFromSignals(args: {
   )
     return "document_lookup";
   if (
-    /\b(?:dose|dosage|dosing|route|mg|mcg|microgram|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b)\b/i.test(args.normalizedQuery) &&
+    /\b(?:dose|dosage|dosing|route|mg|mcg|microgram|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b)\b/i.test(
+      args.normalizedQuery,
+    ) &&
     (args.medications.length > 0 || medicationDoseRiskPattern.test(args.normalizedQuery))
   ) {
     return "medication_dose_risk";
@@ -556,7 +558,9 @@ function intentFromSignals(queryClass: RagQueryClass, normalizedQuery: string): 
   if (queryClass === "document_lookup") return "document_lookup";
   if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") {
     if (
-      /(dose|dosage|dosing|mg|mcg|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer)/i.test(normalizedQuery)
+      /(dose|dosage|dosing|mg|mcg|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer)/i.test(
+        normalizedQuery,
+      )
     ) {
       return "drug_dosing";
     }
@@ -1081,7 +1085,9 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query);
   const wantsClozapineBloodMonitoring =
     /\bclozapine\b/i.test(correctedQueryText) &&
-    /\b(?:blood|bloods|fbc|wcc|full blood count|white cell|observation|observations|monitor|monitoring)\b/i.test(correctedQueryText);
+    /\b(?:blood|bloods|fbc|wcc|full blood count|white cell|observation|observations|monitor|monitoring)\b/i.test(
+      correctedQueryText,
+    );
   const wantsClozapineMissedDose =
     /\bclozapine\b/i.test(correctedQueryText) &&
     /\bmissed\b/i.test(correctedQueryText) &&
