@@ -54,7 +54,7 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 | `chatSendButton`         | Composer send (accent)                | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
 | `sidebarItem`            | Sidebar nav row                       | `min-h-11`          | ✅                | ❌     | ✅                        | ❌       |
 | `sidebarToolTile`        | Sidebar tool tile                     | `min-h-[64px]`      | ✅                | ❌     | ✅                        | ❌       |
-| `shellChip`              | Filter / mode chip                    | `min-h-10` ⚠️       | ✅                | ❌     | ❌                        | ❌       |
+| `shellChip`              | Filter / mode chip                    | `min-h-11`          | ✅                | ❌     | ❌                        | ❌       |
 
 ### Form fields
 
@@ -132,11 +132,14 @@ focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
 3. **`disabled:` unhandled** on `navPill`, `chatMicroAction`,
    `chatComposerIconButton`, `sidebarItem` — a disabled state renders identically
    to enabled.
-4. **`shellChip` is `min-h-10` (40px)** — below the 44px WCAG tap minimum used
-   everywhere else. Promote to `min-h-11` if it's a real tap target.
+4. ✅ **FIXED (2026-07-03).** `shellChip` bumped `min-h-10` → `min-h-11` (40→44px) to
+   meet the WCAG tap minimum — it's used on a real `<button>` filter ("All documents"
+   in `master-search-header.tsx`).
 5. **Input focus uses `focus:` not `focus-visible:`** (`fieldControl`,
    `commandInput`) — intentional for text fields (focus ring should show on
    pointer focus too), but noted so it isn't "corrected" to `focus-visible:`.
 
-Gap 1 (the highest-value one) is now closed. Gaps 2–5 remain — all low-risk
-polish; gap 4 (`shellChip` tap size) is the next most worth doing.
+Gaps 1 and 4 (the a11y-relevant ones) are closed. Gaps 2, 3, 5 are intentionally
+left: gap 2 (`active:` press feedback) is an aesthetic/design-team call; gap 3's
+recipes (`navPill`, `chatMicroAction`, `sidebarItem`) are never rendered disabled, so
+adding `disabled:` there would be dead styling; gap 5 (inputs use `focus:`) is deliberate.
