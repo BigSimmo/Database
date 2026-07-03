@@ -131,10 +131,11 @@ focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
    (`toolbarButton`, `chatSendButton`, icon buttons) have no press feedback.
 3. ✅ **FIXED (2026-07-03).** Added `disabled:cursor-not-allowed disabled:opacity-50`
    to `navPill`, `chatMicroAction`, `chatComposerIconButton`, `sidebarItem` — they now
-   honour the documented disabled state.
+   honour the documented disabled state, including the disabled
+   `chatComposerIconButton` in `applications-launcher-page.tsx`.
 4. ✅ **FIXED (2026-07-03).** `shellChip` bumped `min-h-10` → `min-h-11` (40→44px) to
-   meet the WCAG tap minimum. (It still lacks `focus-visible` — add if it's used as a
-   focusable control at its call sites.)
+   meet the WCAG tap minimum — it's used on a real `<button>` filter ("All documents"
+   in `master-search-header.tsx`).
 5. **Input focus uses `focus:` not `focus-visible:`** (`fieldControl`,
    `commandInput`) — intentional for text fields (focus ring should show on
    pointer focus too), but noted so it isn't "corrected" to `focus-visible:`.
