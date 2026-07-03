@@ -7,6 +7,7 @@ import {
   capturedRagCaseToGoldenCase,
   evaluateGoldenRetrievalCase,
   loadGoldenRetrievalCases,
+  retrievalLimitForGoldenCase,
   summarizeGoldenRetrievalResults,
   type GoldenRetrievalResult,
 } from "./eval-retrieval";
@@ -750,7 +751,9 @@ async function runRetrievalQualityCases(args: {
       searchChunksWithTelemetry({
         query: testCase.query,
         ownerId: args.ownerId,
-        topK: testCase.topK,
+        // Fetch ≥10 ranked rows so content_mrr@10 is scored over a true top-10 in this path
+        // too (fixtures with topK<10 would otherwise silently degrade it to content_mrr@topK).
+        topK: retrievalLimitForGoldenCase(testCase),
         minSimilarity: 0.12,
         skipCache: true,
       }),

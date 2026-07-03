@@ -300,10 +300,27 @@ function resultContentEvidenceText(result: SearchResult) {
     .join(" ");
   const imageText = (result.images ?? [])
     .map((image) =>
-      [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet].filter(Boolean).join(" "),
+      [
+        image.caption,
+        image.tableTitle,
+        image.tableLabel,
+        image.tableTextSnippet,
+        image.accessibleTableMarkdown,
+        (image.tableRows ?? []).flat().join(" "),
+      ]
+        .filter(Boolean)
+        .join(" "),
     )
     .join(" ");
-  return normalized([result.retrieval_synopsis, result.content, tableFactText, imageText].filter(Boolean).join(" "));
+  // First-class table/visual evidence: when a hit carries the answer in a typed index unit
+  // (medication-chart row, risk-matrix cell, flowchart step, …) it is not in `content`, so
+  // include it here — otherwise contentReciprocalRankAt10 would miss table/visual answers.
+  const indexUnitText = result.index_unit
+    ? [result.index_unit.title, result.index_unit.content].filter(Boolean).join(" ")
+    : "";
+  return normalized(
+    [result.retrieval_synopsis, result.content, tableFactText, imageText, indexUnitText].filter(Boolean).join(" "),
+  );
 }
 
 function expectedDocumentHits(expectedSubstrings: string[], results: SearchResult[], limit: number) {
