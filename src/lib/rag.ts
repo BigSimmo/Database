@@ -3501,6 +3501,62 @@ function selectRankedRetrievalResults(args: {
   return selection.results;
 }
 
+// Shared blood-monitoring term/action patterns for the clozapine "when do we withhold?" query
+// shape. Declared once so the coverage gate (below) and the top-5 safety net stay in lockstep —
+// they must agree on what counts as blood evidence and a withhold/cease action, or the gate could
+// accept a top-5 the net believes is uncovered (or vice versa). None carry the /g flag, so `.test`
+// is stateless and safe to reuse.
+const clozapineBloodTermPattern = /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i;
+const clozapineWithholdQueryPattern = /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i;
+// The action set for EVIDENCE also accepts "red" — the source table encodes the withhold row as the
+// Red zone — but the QUERY set does not, so an unrelated "red flag" question can't trip this shape.
+const clozapineWithholdActionPattern = /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i;
+
+// True only for the narrow, safety-critical question "what WBC/ANC/neutrophil threshold withholds
+// clozapine?" (any phrasing/abbreviation). Shared by the coverage gate and the top-5 safety net.
+export function isClozapineBloodActionThresholdQuery(query: string) {
+  return (
+    /\bclozapine\b/i.test(query) && clozapineBloodTermPattern.test(query) && clozapineWithholdQueryPattern.test(query)
+  );
+}
+
+// A single chunk that carries BOTH the blood parameter and the withhold/cease/red action on a
+// structured threshold (table facts / threshold unit / table crop). This is the one chunk that
+// actually answers the question; a generic clozapine chunk that only names the drug does not count.
+function resultHasBloodActionThresholdEvidence(result: SearchResult) {
+  if (!hasStructuredThresholdEvidence(result)) return false;
+  const text = evidenceTextForGate(result);
+  return clozapineBloodTermPattern.test(text) && clozapineWithholdActionPattern.test(text);
+}
+
+// Safety net for clozapine blood-monitoring withhold-threshold questions (safety-critical output).
+// The correct answer lives in ONE structured threshold table that pairs the blood parameter
+// (WBC/ANC/neutrophil) with the withhold/cease/red action. The lexical query for these questions
+// collapses to "clozapine monitoring" (buildClinicalTextSearchQuery), which pulls many sibling
+// clozapine chunks; a small ranking jitter can float them above that single table and push it past
+// rank `limit`, leaving a top-5 that names the drug but omits the actual threshold+action. When the
+// query asks for exactly this AND the top-`limit` evidence does not already carry both the blood
+// term and the action, promote the best already-retrieved threshold+action chunk from below the
+// cutoff into the last top-`limit` slot. Pure reordering of the existing candidate set, scoped to
+// this one query shape; a no-op whenever the evidence is already present, so it can never reorder a
+// result set that already answers the question.
+export function ensureClozapineBloodActionEvidenceRanked(
+  query: string,
+  results: SearchResult[],
+  limit = 5,
+): SearchResult[] {
+  if (results.length <= limit || !isClozapineBloodActionThresholdQuery(query)) return results;
+  const topText = topEvidenceText(results, limit);
+  if (clozapineBloodTermPattern.test(topText) && clozapineWithholdActionPattern.test(topText)) return results;
+  const promoteIndex = results.findIndex(
+    (result, index) => index >= limit && resultHasBloodActionThresholdEvidence(result),
+  );
+  if (promoteIndex < 0) return results;
+  const promoted = results[promoteIndex];
+  const rest = results.filter((_, index) => index !== promoteIndex);
+  return [...rest.slice(0, limit - 1), promoted, ...rest.slice(limit - 1)];
+}
+
 export function evaluateEvidenceCoverageGate(
   query: string,
   results: SearchResult[],
@@ -3545,19 +3601,9 @@ export function evaluateEvidenceCoverageGate(
   const hasDirectTitle = directTitleOrAliasSupport(query, top);
 
   if (queryClass === "table_threshold") {
-    if (
-      /\bclozapine\b/i.test(query) &&
-      /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i.test(query) &&
-      /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i.test(query)
-    ) {
-      const hasBlood = hasAnyTerm(
-        evidenceText,
-        /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i,
-      );
-      const hasAction = hasAnyTerm(
-        evidenceText,
-        /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i,
-      );
+    if (isClozapineBloodActionThresholdQuery(query)) {
+      const hasBlood = hasAnyTerm(evidenceText, clozapineBloodTermPattern);
+      const hasAction = hasAnyTerm(evidenceText, clozapineWithholdActionPattern);
       return {
         accepted: hasStructuredThreshold && hasBlood && hasAction,
         reason:
@@ -3704,6 +3750,10 @@ async function prepareCoverageGateResults(args: {
     telemetry: args.telemetry,
     topK: args.topK,
   });
+  // Final step, after all reranking: guarantee the clozapine withhold-threshold table is in the
+  // top-5 the coverage gate evaluates and the answer layer sees. Runs last so no later sort can
+  // undo it; a no-op for every other query and whenever the evidence is already ranked.
+  results = ensureClozapineBloodActionEvidenceRanked(args.query, results);
   args.telemetry.rerank_latency_ms += Date.now() - startedAt;
   return results;
 }

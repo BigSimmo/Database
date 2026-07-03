@@ -5,7 +5,9 @@ import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import {
   buildRetrievalQueryVariants,
   decideTextFastPath,
+  ensureClozapineBloodActionEvidenceRanked,
   evaluateEvidenceCoverageGate,
+  isClozapineBloodActionThresholdQuery,
   retrievalPlanCacheQuery,
   selectRagAliasExpansions,
   shouldApplyUnsupportedSearchShortCircuit,
@@ -607,6 +609,90 @@ describe("retrieval query variants", () => {
         "table_threshold",
       ),
     ).toMatchObject({ accepted: true, reason: "clozapine_blood_action_structured_threshold" });
+  });
+
+  it("classifies clozapine blood-action withhold-threshold questions across phrasings", () => {
+    for (const query of [
+      "What WCC (white cell count) or neutrophil threshold should withhold clozapine?",
+      "What CBC (complete blood count) or neutrophil threshold should withhold clozapine?",
+      "What ANC or FBC threshold should withhold clozapine?",
+      "When should clozapine be ceased based on the WBC result?",
+    ]) {
+      expect(isClozapineBloodActionThresholdQuery(query)).toBe(true);
+    }
+    // Wrong drug, no withhold action, or no blood parameter must NOT trip the shape.
+    for (const query of [
+      "When should lithium be withheld based on levels?",
+      "What is the usual clozapine maintenance dose?",
+      "What is the red flag escalation pathway?",
+    ]) {
+      expect(isClozapineBloodActionThresholdQuery(query)).toBe(false);
+    }
+  });
+
+  it("promotes the clozapine threshold+action table into the top 5 when jitter drops it below", () => {
+    const query = "What WCC (white cell count) or neutrophil threshold should withhold clozapine?";
+    // Five generic clozapine chunks that name the drug but carry no blood parameter or action,
+    // followed by the single structured table that actually answers the question at rank 6.
+    const generic = Array.from({ length: 5 }, (_, index) =>
+      result({
+        id: `generic-${index}`,
+        document_id: `doc-generic-${index}`,
+        title: "Clozapine General Information",
+        content: "Clozapine monitoring overview and administration notes.",
+        hybrid_score: 1 - index * 0.01,
+      }),
+    );
+    const thresholdTable = result({
+      id: "threshold-table",
+      document_id: "doc-cloz-table",
+      title: "Clozapine Prescribing Administration Monitoring",
+      content: "State WBC Neutrophil Outcome Red: withhold clozapine.",
+      hybrid_score: 0.9,
+      table_facts: [
+        tableFact({
+          table_title: "Clozapine blood monitoring",
+          clinical_parameter: "Neutrophil",
+          threshold_value: "< 1.5",
+          action: "Withhold clozapine (Red zone).",
+        }),
+      ],
+    });
+
+    const ranked = ensureClozapineBloodActionEvidenceRanked(query, [...generic, thresholdTable]);
+
+    expect(ranked).toHaveLength(6);
+    // The table is pulled into the last top-5 slot; the weakest generic chunk drops to rank 6.
+    expect(ranked[4].id).toBe("threshold-table");
+    expect(ranked[5].id).toBe("generic-4");
+    expect(ranked.slice(0, 4).map((entry) => entry.id)).toEqual(["generic-0", "generic-1", "generic-2", "generic-3"]);
+  });
+
+  it("leaves ordering untouched when the threshold evidence is already in the top 5", () => {
+    const query = "What WCC (white cell count) or neutrophil threshold should withhold clozapine?";
+    const thresholdTable = result({
+      id: "threshold-table",
+      title: "Clozapine Prescribing Administration Monitoring",
+      content: "State WBC Neutrophil Outcome Red: withhold clozapine.",
+      table_facts: [tableFact({ clinical_parameter: "Neutrophil", threshold_value: "< 1.5", action: "Withhold." })],
+    });
+    const filler = Array.from({ length: 5 }, (_, index) =>
+      result({ id: `filler-${index}`, content: "Clozapine monitoring overview." }),
+    );
+    const input = [thresholdTable, ...filler];
+
+    const ranked = ensureClozapineBloodActionEvidenceRanked(query, input);
+
+    expect(ranked.map((entry) => entry.id)).toEqual(input.map((entry) => entry.id));
+  });
+
+  it("is a no-op for queries outside the clozapine blood-action shape", () => {
+    const query = "What is the safety plan checklist?";
+    const input = Array.from({ length: 6 }, (_, index) => result({ id: `chunk-${index}` }));
+
+    const ranked = ensureClozapineBloodActionEvidenceRanked(query, input);
+
+    expect(ranked).toBe(input);
   });
 
   it("requires both route and numeric dose evidence for dose-route fast gates", () => {
