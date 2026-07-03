@@ -5657,7 +5657,7 @@ export function ClinicalDashboard({
                       loading={loading}
                       documentCount={indexedDocumentTotal}
                       recentDocuments={documents}
-                      realDataReady={canRunSearch}
+                      realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
                       authUnavailable={!clientDemoMode && !canUsePrivateApis}
                       apiUnavailable={apiUnavailable}
                       setupWarning={setupWarning}
