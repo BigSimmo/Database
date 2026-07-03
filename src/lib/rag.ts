@@ -307,6 +307,10 @@ export type SearchChunksArgs = {
   // Internal: set when this call is a re-run on a trigram-corrected query, to prevent the
   // unsupported-short-circuit typo-correction path from recursing more than once.
   typoCorrected?: boolean;
+  // Diagnostic/eval-only: bypass every lexical text-fast-path so retrieval always exercises
+  // the embedding/vector stage. Lets the golden eval measure the vector index directly for a
+  // re-index, instead of being masked by lexical shortcuts. Never set on production paths.
+  forceEmbedding?: boolean;
 };
 
 export type AnswerProgressEvent = {
@@ -1455,6 +1459,7 @@ function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass
     args.ownerId ?? "anonymous",
     scopeKey(args),
     retrievalPlanCacheQuery(args, queryClass, queryVariants),
+    args.forceEmbedding ? "force-embedding" : "",
   ].join("|");
 }
 
@@ -5516,7 +5521,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     });
 
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
-    if (shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
+    if (!args.forceEmbedding && shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
       textFastResults = await attachPageVisualEvidence(supabase, baseTextResults);
       textFastResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
@@ -5567,7 +5572,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
 
     const boostedTextFastPath = decideTextFastPath(args.query, textFastResults, queryClassification.queryClass);
-    if (boostedTextFastPath.returnFastPath) {
+    if (!args.forceEmbedding && boostedTextFastPath.returnFastPath) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
@@ -5673,7 +5678,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         documentLookupResults,
         queryClassification.queryClass,
       );
-      if (documentLookupFastPath.returnFastPath) {
+      if (!args.forceEmbedding && documentLookupFastPath.returnFastPath) {
         markEmbeddingSkippedByTextFastPath(
           telemetry,
           documentLookupFastPath.reason ? `document_lookup_fast_path:${documentLookupFastPath.reason}` : null,

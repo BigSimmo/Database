@@ -19,6 +19,10 @@ const goldenCaseSchema = z.object({
   expectedContentTerms: z.array(contentExpectationSchema).default([]),
   topK: z.number().int().positive().default(8),
   expectTableEvidence: z.boolean().default(false),
+  // Bypass the lexical text-fast-path so this case always exercises the embedding/vector
+  // index. Use for "vector-*" probes that would otherwise be answered by a lexical shortcut,
+  // so a re-index's effect on vector retrieval is actually measured.
+  forceEmbedding: z.boolean().optional(),
 });
 
 const goldenCasesSchema = z.array(goldenCaseSchema);
@@ -37,6 +41,7 @@ type EvalArgs = {
   caseTimeoutMs: number;
   p90BudgetMs: number;
   p50BudgetMs: number;
+  forceEmbedding: boolean;
 };
 
 export type GoldenRetrievalResult = {
@@ -116,6 +121,7 @@ function parseArgs(argv: string[]): EvalArgs {
     caseTimeoutMs: inferredMode === "latency" ? 25_000 : 0,
     p90BudgetMs: 20_000,
     p50BudgetMs: 8_000,
+    forceEmbedding: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -136,6 +142,10 @@ function parseArgs(argv: string[]): EvalArgs {
     if (token === "--latency") {
       args.mode = "latency";
       if (args.caseTimeoutMs <= 0) args.caseTimeoutMs = 25_000;
+      continue;
+    }
+    if (token === "--force-embedding") {
+      args.forceEmbedding = true;
       continue;
     }
 
@@ -743,6 +753,7 @@ async function main() {
         topK: testCase.topK,
         minSimilarity: 0.12,
         skipCache: args.mode !== "latency",
+        forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
       }),
     );
     const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
