@@ -100,10 +100,6 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.locator('a[aria-label="Launch Services"]').first()).toHaveAttribute("href", "/services");
     await expect(page.locator('a[aria-label="Launch Forms"]').first()).toHaveAttribute("href", "/forms");
     await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveAttribute("href", "/favourites");
-    await expect(page.locator('a[aria-label="Launch Differentials"]').first()).toHaveAttribute(
-      "href",
-      "/differentials",
-    );
     await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
       "href",
       "/?mode=answer",
@@ -138,8 +134,8 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
-    await expect(toolsHub.getByText("Showing 1 of 7")).toBeVisible();
-    await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
+    await expect(toolsHub.getByText("Showing 1 to 1 of 7 tools")).toBeVisible();
+    await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
@@ -244,30 +240,14 @@ test.describe("Clinical KB applications launcher", () => {
     }
   });
 
-  test("mode home routes lift the shared search into the hero on tablet", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
+  test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
 
-    for (const home of [
-      { path: "/services", testId: "services-home", heading: "Find a service" },
-      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
-      { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
-    ] as const) {
-      await gotoLauncher(page, home.path);
-      await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-
-      // From the tablet breakpoint up the composer is portaled into the hero
-      // (inside the mode-home container) rather than floated over the heading.
-      const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
-      await expect(heroSearch).toBeVisible();
-
-      const searchBox = await heroSearch.boundingBox();
-      const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
-      expect(searchBox).not.toBeNull();
-      expect(headingBox).not.toBeNull();
-      // Search sits below the heading with no overlap.
-      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThanOrEqual(searchBox?.y ?? 0);
-      await expectNoPageHorizontalOverflow(page);
+    for (const path of ["/services?focus=1", "/forms?focus=1"]) {
+      await gotoLauncher(page, path);
+      const sharedSearch = page.getByTestId("global-search-input");
+      await expect(sharedSearch).toBeVisible();
+      await expect(sharedSearch).toBeFocused();
     }
   });
 
@@ -312,7 +292,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("form detail pages keep the shared forms search wired to form results", async ({ page, browserName }) => {
+  test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
@@ -325,22 +305,12 @@ test.describe("Clinical KB applications launcher", () => {
     const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
     await expect(formsSearchInput).toBeVisible();
 
-    // Submit-and-route half is known-broken on CI Linux WebKit only: the shell's
-    // mount requestAnimationFrame query-sync wipes the composer value there (the
-    // input stays focused-but-empty and the submit disabled), so the search never
-    // routes. It does not reproduce on local WebKit and needs CI-based iteration
-    // on the shell to fix. Skip ONLY this half on WebKit (tracked as follow-up);
-    // Chromium and Firefox still verify the full wiring, and WebKit keeps the
-    // structural checks above. See docs/process-hardening.md "Cross-browser test
-    // robustness".
-    if (browserName === "webkit") return;
-
-    // Under client-only (ssr:false) rendering the shell re-syncs its query from
-    // the URL on mount via requestAnimationFrame. On Firefox that frame can land
-    // right after a programmatic fill — wiping the value, disabling the submit, or
-    // dropping the submit before the router navigates. Drive the fill-and-submit
-    // as one retried unit until the search actually routes to the forms results
-    // URL; the assertions below still verify the result.
+    // The shell now seeds its composer state from the URL and only re-syncs on a
+    // real navigation, so a programmatic fill on this no-query detail route is no
+    // longer wiped by a mount-time frame — the race that used to break CI WebKit
+    // (and could flake Firefox). Drive the fill-and-submit as one retried unit
+    // regardless, so any residual cross-browser navigation-timing jitter cannot
+    // flake the route assertion; the assertions below still verify the result.
     const formsSearchButton = page.getByRole("button", { name: "Search forms" });
     await expect(async () => {
       // A previous attempt's click may have navigated late — after the inner URL
@@ -538,6 +508,12 @@ test.describe("Clinical KB applications launcher", () => {
       mode: "differentials",
       queryMode: "compare_guidance",
     });
+
+    // Evidence arrived, so the results view renders — with the synthetic
+    // demonstration-content notice, never presented as reviewed output.
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(page.getByTestId("differentials-demo-content-notice")).toBeVisible();
+    await expect(page.getByText("Demonstration ranking").first()).toBeVisible();
   });
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {

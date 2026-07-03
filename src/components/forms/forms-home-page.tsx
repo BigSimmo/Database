@@ -1,15 +1,31 @@
-import { ArrowLeftRight, ClipboardCheck, FileText, Route, Search, ShieldCheck, Truck, UserRound } from "lucide-react";
+"use client";
+
+import {
+  ArrowLeftRight,
+  ClipboardCheck,
+  FileQuestion,
+  FileText,
+  Loader2,
+  Route,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  Truck,
+  UserRound,
+} from "lucide-react";
 
 import {
   ModeHomeMain,
+  ModeHomeStatusNotice,
   ModeHomeTemplate,
   ModeHomeVerificationFooter,
   type ModeHomeAction,
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { defaultFormSlug, formRecords } from "@/lib/forms";
+import { defaultFormSlug } from "@/lib/forms";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
@@ -59,11 +75,40 @@ const commonTasks: ModeHomePill[] = [
   },
 ];
 
-function verifiedCount() {
-  return formRecords.filter((form) => form.verification?.locallyVerified).length;
-}
-
 export function FormsHomePage() {
+  const registry = useRegistryRecords("form");
+  const verifiedCount = countVerifiedRegistryRecords(registry);
+  const registryReady = registry.status === "ready";
+  const hasRegistryRecords = registryReady && registry.total > 0;
+  const registryNotice =
+    registry.status === "loading" ? (
+      <ModeHomeStatusNotice
+        icon={Loader2}
+        title="Loading forms registry"
+        body="Form tasks will appear once your private registry is ready."
+      />
+    ) : registry.status === "unauthorized" ? (
+      <ModeHomeStatusNotice
+        icon={ShieldAlert}
+        title="Sign in required"
+        body="Sign in to open private form records and pathways."
+        actionHref="/"
+        actionLabel="Go to sign in"
+      />
+    ) : registry.status === "error" ? (
+      <ModeHomeStatusNotice
+        icon={ShieldAlert}
+        title="Could not load forms"
+        body="The forms registry could not be loaded. Try again shortly."
+      />
+    ) : !hasRegistryRecords ? (
+      <ModeHomeStatusNotice
+        icon={FileQuestion}
+        title="No forms seeded yet"
+        body="Seed your forms registry before opening form detail shortcuts."
+      />
+    ) : null;
+
   return (
     <ModeHomeMain testId="forms-home">
       <ModeHomeTemplate
@@ -73,16 +118,21 @@ export function FormsHomePage() {
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"
-        actions={taskCards}
+        actions={hasRegistryRecords ? taskCards : []}
         pillsTitle="Common tasks"
-        pills={commonTasks}
+        pills={hasRegistryRecords ? commonTasks : []}
         footer={
-          <ModeHomeVerificationFooter
-            label="Source verified"
-            body="MHA 2014 forms"
-            verifiedCount={verifiedCount()}
-            totalCount={formRecords.length}
-          />
+          hasRegistryRecords ? (
+            <ModeHomeVerificationFooter
+              icon={ShieldCheck}
+              label="Source verified"
+              body="MHA 2014 forms"
+              verifiedCount={verifiedCount}
+              totalCount={registry.total}
+            />
+          ) : (
+            registryNotice
+          )
         }
       />
     </ModeHomeMain>

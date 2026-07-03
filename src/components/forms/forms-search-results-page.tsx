@@ -12,6 +12,7 @@ import {
   ExternalLink,
   FileText,
   Home,
+  Loader2,
   Menu,
   Moon,
   MoreVertical,
@@ -19,6 +20,7 @@ import {
   Search,
   Send,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Workflow,
@@ -27,7 +29,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from "react";
 
-import { searchFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
 import { cn, codeText } from "@/components/ui-primitives";
 
 type FormsSearchResultsPageProps = {
@@ -837,16 +840,62 @@ function BottomSearch({
   );
 }
 
-export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
-  return <FormsSearchResultsPageContent key={props.query} {...props} />;
+function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
+  if (status === "ready") return null;
+  const notice =
+    status === "loading"
+      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry...", action: null }
+      : status === "unauthorized"
+        ? {
+            icon: Shield,
+            spin: false,
+            tone: "warning",
+            text: "Sign in to search your forms registry.",
+            action: { href: "/", label: "Go to sign in" },
+          }
+        : {
+            icon: ShieldAlert,
+            spin: false,
+            tone: "danger",
+            text: "Couldn't load the forms registry. Try again shortly.",
+            action: null,
+          };
+  const Icon = notice.icon;
+  const toneClass =
+    notice.tone === "danger"
+      ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50 text-[color:var(--danger)]"
+      : notice.tone === "warning"
+        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]"
+        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]";
+  return (
+    <div
+      data-testid="forms-registry-status-notice"
+      className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${toneClass}`}
+    >
+      <Icon className={`h-4 w-4 shrink-0 ${notice.spin ? "animate-spin" : ""}`} aria-hidden />
+      <span className="min-w-0 flex-1">{notice.text}</span>
+      {notice.action ? (
+        <Link
+          href={notice.action.href}
+          className="inline-flex min-h-8 items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+        >
+          {notice.action.label}
+        </Link>
+      ) : null}
+    </div>
+  );
 }
 
-function FormsSearchResultsPageContent({ query, focusSearch = false }: FormsSearchResultsPageProps) {
+export function FormsSearchResultsPage({ query, focusSearch = false }: FormsSearchResultsPageProps) {
   const router = useRouter();
   const [draftQuery, setDraftQuery] = useState(query);
   const [mobileQuery, setMobileQuery] = useState("");
-  const matches = useMemo(() => searchFormRecords(query), [query]);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const registry = useRegistryRecords("form");
+  const registryReady = registry.status === "ready";
+  const matches = useMemo(
+    () => (registryReady ? rankFormRecords(registry.records, query) : []),
+    [registryReady, registry.records, query],
+  );
 
   useEffect(() => {
     if (!focusSearch) return;
@@ -879,30 +928,34 @@ function FormsSearchResultsPageContent({ query, focusSearch = false }: FormsSear
     <div className="min-h-dvh overflow-x-hidden bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]">
       <FormsSidebar />
       <MobileTopBar />
-      <MobileTabs formsCount={matches.length} />
+      {registryReady ? <MobileTabs formsCount={matches.length} /> : null}
 
       <div className="lg:pl-[205px]">
         <DesktopTopBar onSearch={submitQuery} />
         <main className="grid w-full gap-3 px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
           <div className="grid gap-3 lg:gap-5">
-            <div className="hidden lg:block">
-              <SearchSummary
-                query={draftQuery}
-                formsCount={matches.length}
-                onQueryChange={setDraftQuery}
-                onSubmit={submit}
-                queryInputRef={searchInputRef}
-              />
-            </div>
-            <div className="hidden lg:block">
-              <ResultTabs formsCount={matches.length} />
-            </div>
-            <div className="hidden lg:block">
-              <ResultsTable matches={matches} />
-            </div>
-            <div className="lg:hidden">
-              <MobileCards matches={matches} />
-            </div>
+            <RegistryStatusNotice status={registry.status} />
+            {registryReady ? (
+              <>
+                <div className="hidden lg:block">
+                  <SearchSummary
+                    query={draftQuery}
+                    formsCount={matches.length}
+                    onQueryChange={setDraftQuery}
+                    onSubmit={submit}
+                  />
+                </div>
+                <div className="hidden lg:block">
+                  <ResultTabs formsCount={matches.length} />
+                </div>
+                <div className="hidden lg:block">
+                  <ResultsTable matches={matches} />
+                </div>
+                <div className="lg:hidden">
+                  <MobileCards matches={matches} />
+                </div>
+              </>
+            ) : null}
             <div className="hidden lg:block">
               <PathwayPanel />
             </div>

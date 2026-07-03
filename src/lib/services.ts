@@ -572,7 +572,11 @@ export function serviceRecordSearchText(service: ServiceRecord) {
   return normalizeSearchText(serviceRecordSearchParts(service).join(" "));
 }
 
-export function searchServiceRecords(query: string, limit = serviceRecords.length): ServiceSearchMatch[] {
+export function rankServiceRecords(
+  records: ServiceRecord[],
+  query: string,
+  limit = records.length,
+): ServiceSearchMatch[] {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
 
@@ -580,7 +584,7 @@ export function searchServiceRecords(query: string, limit = serviceRecords.lengt
   const terms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
   const broadServicesQuery = terms.some((term) => ["service", "services", "pathway", "pathways"].includes(term));
 
-  return serviceRecords
+  return records
     .map((service) => {
       const title = normalizeSearchText(service.title);
       const slug = normalizeSearchText(service.slug);
@@ -616,4 +620,8 @@ export function searchServiceRecords(query: string, limit = serviceRecords.lengt
     .filter((match) => match.score > 0)
     .sort((left, right) => right.score - left.score || left.service.title.localeCompare(right.service.title))
     .slice(0, limit);
+}
+
+export function searchServiceRecords(query: string, limit = serviceRecords.length): ServiceSearchMatch[] {
+  return rankServiceRecords(serviceRecords, query, limit);
 }

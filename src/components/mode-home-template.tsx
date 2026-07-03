@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { type ReactNode } from "react";
-import { ArrowRight, ShieldCheck, type LucideIcon } from "lucide-react";
+import { ArrowRight, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -115,11 +115,13 @@ export function ModeHomeMain({
 }
 
 export function ModeHomeVerificationFooter({
+  icon: Icon,
   label,
   body,
   verifiedCount,
   totalCount,
 }: {
+  icon: LucideIcon;
   label: string;
   body: string;
   verifiedCount: number;
@@ -128,7 +130,7 @@ export function ModeHomeVerificationFooter({
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
       <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
-        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+        <Icon className="h-4 w-4" aria-hidden="true" />
         {label}
       </span>
       <span aria-hidden="true">•</span>
@@ -137,6 +139,40 @@ export function ModeHomeVerificationFooter({
         {verifiedCount} of {totalCount} records are locally verified.
       </span>
     </p>
+  );
+}
+
+export function ModeHomeStatusNotice({
+  icon: Icon,
+  title,
+  body,
+  actionHref,
+  actionLabel,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  actionHref?: string;
+  actionLabel?: string;
+}) {
+  return (
+    <div className="mx-auto grid max-w-xl gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="grid gap-1">
+        <span className="text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
+        <span className="text-sm leading-5 text-[color:var(--text-muted)]">{body}</span>
+      </span>
+      {actionHref && actionLabel ? (
+        <Link
+          href={actionHref}
+          className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+        >
+          {actionLabel}
+        </Link>
+      ) : null}
+    </div>
   );
 }
 
