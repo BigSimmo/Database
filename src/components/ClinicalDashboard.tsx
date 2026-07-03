@@ -1016,13 +1016,13 @@ function MobileEvidenceSheetContent({
           {primarySourceHref ? (
             <Link
               href={primarySourceHref}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -1030,7 +1030,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => void copyEvidence()}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copiedQuotes ? "Copied" : "Copy"}
@@ -1038,7 +1038,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -2351,8 +2351,14 @@ function DocumentDrawer({
       {/* Dynamic Browse Library Filters */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <label
+            htmlFor="browse-filter-type"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Type
+          </label>
           <select
+            id="browse-filter-type"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2367,8 +2373,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <label
+            htmlFor="browse-filter-site"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Site
+          </label>
           <select
+            id="browse-filter-site"
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2383,8 +2395,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <label
+            htmlFor="browse-filter-topic"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Topic
+          </label>
           <select
+            id="browse-filter-topic"
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2399,10 +2417,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+          <label
+            htmlFor="browse-filter-population"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
             Population
           </label>
           <select
+            id="browse-filter-population"
             value={selectedPopulation}
             onChange={(e) => setSelectedPopulation(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"

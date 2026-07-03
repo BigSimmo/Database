@@ -844,13 +844,13 @@ export function ClinicalNotesChecklistPanel({
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -858,7 +858,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
@@ -866,7 +866,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
