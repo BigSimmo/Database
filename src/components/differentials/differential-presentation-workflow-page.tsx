@@ -118,7 +118,7 @@ function EmergencyBadge({ status }: { status: DifferentialRecord["status"] }) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 items-center rounded-md border px-2 text-[11px] font-extrabold uppercase leading-none",
+        "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase leading-none",
         statusClassName(status),
       )}
     >
@@ -148,11 +148,11 @@ function CriteriaLabel({ criterion }: { criterion: DifferentialComparisonCriteri
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span
-        className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full border", criterionTone[criterion.tone])}
+        className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full border", criterionTone[criterion.tone])}
       >
-        <Icon className="h-4 w-4" aria-hidden />
+        <Icon className="h-3.5 w-3.5" aria-hidden />
       </span>
-      <span className="min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+      <span className="min-w-0 text-sm-minus font-extrabold leading-4 text-[color:var(--text-heading)]">
         {criterion.title}
       </span>
     </span>
@@ -163,13 +163,13 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
   return (
     <Link
       href={`/differentials/diagnoses/${candidate.record.slug}`}
-      className="group grid min-h-[5.5rem] min-w-[8.75rem] content-start justify-items-center gap-2 px-2.5 py-3 text-center hover:bg-[color:var(--surface-subtle)]"
+      className="group grid min-h-[4.8rem] min-w-[8.5rem] content-start justify-items-center gap-1.5 px-2 py-2.5 text-center hover:bg-[color:var(--surface-subtle)]"
     >
       <CandidateGlyph
         record={candidate.record}
-        className="h-6 w-6 text-[color:var(--text-muted)] group-hover:text-[color:var(--clinical-accent)]"
+        className="h-5 w-5 text-[color:var(--text-muted)] group-hover:text-[color:var(--clinical-accent)]"
       />
-      <span className="max-w-[7.75rem] text-balance text-[13px] font-extrabold leading-4 text-[color:var(--text-heading)]">
+      <span className="max-w-[7.5rem] text-balance text-xs font-extrabold leading-[0.95rem] text-[color:var(--text-heading)]">
         {candidate.record.title}
       </span>
       <EmergencyBadge status={candidate.record.status} />
@@ -215,9 +215,9 @@ function DesktopComparisonTable({ candidates }: { candidates: CandidateView[] })
         <table className="min-w-[84rem] border-separate border-spacing-0 text-left">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 w-[11.5rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-4 py-4 align-top text-xs font-extrabold uppercase text-[color:var(--text-muted)]">
+              <th className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3.5 py-3 align-top text-xs font-extrabold uppercase text-[color:var(--text-muted)]">
                 Criteria
-                <span className="mt-2 block text-[11px] font-bold normal-case text-[color:var(--text-soft)]">
+                <span className="mt-1.5 block text-3xs font-bold normal-case text-[color:var(--text-soft)]">
                   Reorder
                 </span>
               </th>
@@ -225,7 +225,7 @@ function DesktopComparisonTable({ candidates }: { candidates: CandidateView[] })
                 <th
                   key={candidate.record.slug}
                   className={cn(
-                    "w-[9rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] p-0 align-top",
+                    "w-[8.5rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] p-0 align-top",
                     !candidate.selected && "bg-[color:var(--surface-subtle)]/75",
                   )}
                 >
@@ -237,14 +237,14 @@ function DesktopComparisonTable({ candidates }: { candidates: CandidateView[] })
           <tbody>
             {workflow.criteria.map((criterion) => (
               <tr key={criterion.id} className={rowTone[criterion.tone]}>
-                <th className="sticky left-0 z-10 w-[11.5rem] border-b border-r border-[color:var(--border)] bg-inherit px-4 py-4 align-top">
+                <th className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top">
                   <CriteriaLabel criterion={criterion} />
                 </th>
                 {candidates.map((candidate) => (
                   <td
                     key={`${candidate.record.slug}-${criterion.id}`}
                     className={cn(
-                      "w-[9rem] border-b border-r border-[color:var(--border)] px-3.5 py-4 align-top text-[11px] font-semibold leading-[1.55] text-[color:var(--text-muted)]",
+                      "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-3xs font-semibold leading-[1.45] text-[color:var(--text-muted)]",
                       !candidate.selected && "text-[color:var(--text-muted)]",
                     )}
                   >
@@ -267,11 +267,11 @@ function SafetySnapshot() {
   const workflow = acuteConfusionPresentationWorkflow;
   return (
     <section
-      className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/85 p-4 shadow-[var(--shadow-inset)]"
+      className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/85 p-3 shadow-[var(--shadow-inset)] xl:p-4"
       aria-label="Safety snapshot"
     >
       <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)] xl:h-9 xl:w-9">
           <ShieldAlert className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
@@ -279,14 +279,14 @@ function SafetySnapshot() {
             <h2 className="text-sm font-extrabold uppercase text-[color:var(--danger)]">Safety snapshot</h2>
             <EmergencyBadge status={workflow.status} />
           </div>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">
+          <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)] xl:leading-6">
             {workflow.safetySnapshot.summary}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {workflow.safetySnapshot.tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--danger)]"
+                className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--danger)] xl:min-h-7 xl:text-xs"
               >
                 {tag}
               </span>
@@ -409,7 +409,7 @@ function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; i
       className="group rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
       open={index === 0}
     >
-      <summary className="grid min-h-14 cursor-pointer grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2">
+      <summary className="grid min-h-[3.25rem] cursor-pointer grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2">
         <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-sm font-extrabold text-[color:var(--clinical-accent)]">
           {index + 1}
         </span>
@@ -438,8 +438,8 @@ function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; i
                 <Icon className="h-3.5 w-3.5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">{criterion.title}</h3>
-                <p className="mt-1 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                <h3 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">{criterion.title}</h3>
+                <p className="mt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
                   {candidate.comparison[criterion.id] ?? "Review locally."}
                 </p>
               </div>
@@ -481,17 +481,17 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
           <MobileCandidateCard key={candidate.record.slug} candidate={candidate} index={index} />
         ))}
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
+      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
         <Link
           href="/differentials/presentations"
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
         >
           <GitCompareArrows className="h-4 w-4" aria-hidden />
           Compare ({acuteConfusionPresentationWorkflow.selectedCount} selected)
         </Link>
         <CopyAfterReviewButton
           text={comparisonCopy(candidates)}
-          className="min-h-12 bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
+          className="min-h-11 bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
         />
       </div>
     </section>
@@ -569,7 +569,7 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
                 </h1>
                 <EmergencyBadge status={workflow.status} />
               </div>
-              <p className="mt-2 max-w-[44rem] text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+              <p className="mt-2 hidden max-w-[44rem] text-sm font-medium leading-6 text-[color:var(--text-muted)] xl:block">
                 {workflow.subtitle}
               </p>
               {query ? (

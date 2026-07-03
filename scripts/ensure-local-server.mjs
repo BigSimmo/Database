@@ -21,6 +21,7 @@ const printUrlOnly = process.argv.slice(2).includes("--print-url");
 const debugEnabled = process.env.ENSURE_DEBUG === "1";
 const startupLockStaleMs = 3 * 60 * 1000;
 const readyStableMs = 5 * 1000;
+const readinessPaths = ["/", "/applications"];
 
 function debug(message) {
   if (debugEnabled) console.error(`[ensure-local-server] ${message}`);
@@ -213,9 +214,13 @@ async function waitForProject(port) {
       stableSince ??= Date.now();
       const stableForMs = Date.now() - stableSince;
       if (stableForMs >= readyStableMs) {
-        const rootReady = await requestOk(localUrl(port));
-        debug(`root readiness on ${port}: ${rootReady}`);
-        if (rootReady && (await isPortBusy(port))) return true;
+        const routeReadiness = await Promise.all(
+          readinessPaths.map((routePath) => requestOk(`${localUrl(port)}${routePath}`)),
+        );
+        debug(
+          `route readiness on ${port}: ${readinessPaths.map((routePath, index) => `${routePath}=${routeReadiness[index]}`).join(", ")}`,
+        );
+        if (routeReadiness.every(Boolean) && (await isPortBusy(port))) return true;
         stableSince = null;
       }
     } else {

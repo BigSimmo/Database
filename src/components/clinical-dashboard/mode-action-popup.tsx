@@ -389,7 +389,7 @@ export function ModeActionPopup({
                       <span className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)]">
                         <Icon className="h-5 w-5" />
                       </span>
-                      <span className="max-w-full text-balance text-[12px] font-bold leading-4 text-[color:var(--text-heading)]">
+                      <span className="max-w-full text-balance text-xs font-bold leading-4 text-[color:var(--text-heading)]">
                         {item.shortLabel ?? item.label}
                       </span>
                     </button>

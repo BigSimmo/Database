@@ -1,5 +1,7 @@
 # Crisp white colour system plan
 
+> **Superseded — historical record (July 2026).** This crisp-white exploration fed into the final **Clinical White / Aegean Graphite** direction but is no longer the source of truth; see [`02-design-direction.md`](02-design-direction.md) and [`permanent-colour-direction.md`](permanent-colour-direction.md). The true-white canvas landed as planned, but the accent model changed: teal was split into `--command` (graphite, primary actions) and `--clinical-accent` (Aegean, evidence/selected/send/focus), with green success-only. Kept for reasoning history, not current guidance.
+
 ## Goal
 
 Replace the warm cream/porcelain light-mode direction with a cleaner, whiter, more polished clinical interface. The target is a premium white workspace: crisp like ChatGPT/Apple-style product surfaces, but still clinical, source-backed, and operational rather than decorative.

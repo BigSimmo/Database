@@ -342,7 +342,7 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
             {document.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="inline-flex min-h-6 items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-[11px] font-bold text-[color:var(--text-muted)]"
+                className="inline-flex min-h-6 items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold text-[color:var(--text-muted)]"
               >
                 {tag}
               </span>
@@ -355,7 +355,7 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
           className={cn("hidden min-w-[4.25rem] rounded-md text-right sm:block", focusRing)}
         >
           <p className="nums text-sm font-extrabold text-[color:var(--text-heading)]">{document.page}</p>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Open</p>
+          <p className="mt-1 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Open</p>
           <ExternalLink className="ml-auto mt-2 h-4 w-4 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]" />
         </Link>
       </div>
@@ -627,7 +627,7 @@ function EvidenceTile({
 function ReasonRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
       <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
     </div>
   );

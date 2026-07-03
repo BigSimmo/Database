@@ -2,6 +2,8 @@
 
 Date: 2026-06-24
 
+> **Colour direction superseded (July 2026).** This Phase-2 mapping artifact is retained as history. Its colour aliases ("deep teal", "pale teal", "clinical sand", "document blue-grey") predate the **Clinical White / Aegean Graphite** role tokens now in `globals.css`; see [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). Read colour references as the role tokens `--command` (graphite), `--clinical-accent` (Aegean), and `--success` (green, success-only).
+
 ## Purpose
 
 This document translates the approved clinical chat UI direction into a practical component-level implementation map. It identifies what each current UI area should become, which files are likely involved, what should be preserved, and what should be moved, collapsed, or restyled.

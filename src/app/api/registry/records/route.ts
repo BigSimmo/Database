@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   try {
     const { kind, q, limit } = parseRequestQuery(request, registryListQuerySchema, "Invalid registry query.");
 
-    if (isDemoMode()) {
+    if (isDemoMode() || isLocalNoAuthMode()) {
       const records = kind === "form" ? formRecords : serviceRecords;
       const governance = Object.fromEntries(
         records.map((record) => {

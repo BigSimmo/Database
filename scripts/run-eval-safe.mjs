@@ -2,6 +2,7 @@
 
 import { existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -232,37 +233,78 @@ function listGitWorktreeRoots() {
     .filter(Boolean);
 }
 
-function resolveTsxCli() {
-  // Fresh git worktrees often have no node_modules of their own. First walk up
-  // ancestor directories like Node's own module resolution; then inspect Git's
-  // known worktrees so sibling/external worktrees can reuse the main checkout's
-  // install. A plain existsSync probe is used because tsx's package "exports"
-  // map does not expose dist/cli.mjs.
+// Resolve the tsx CLI without assuming node_modules sits directly under the
+// repo root. Fresh git worktrees frequently have a junctioned or hoisted
+// node_modules (or none at all), so honour Node's real resolution algorithm
+// before walking sibling worktrees and falling back to the historical path.
+function resolveTsxCliBin() {
+  const candidates = [];
+
+  // `tsx/cli` maps to `./dist/cli.mjs` via the package's exports map.
+  try {
+    candidates.push(fileURLToPath(import.meta.resolve("tsx/cli")));
+  } catch {
+    // Not resolvable via import.meta.resolve - try the next strategy.
+  }
+
+  // CJS fallback: resolve the (always-exported) package.json and read its `bin`.
+  // Deep specifiers like `tsx/dist/cli.mjs` are blocked by the package exports
+  // map, so we derive the bin path from the manifest instead.
+  try {
+    const require = createRequire(import.meta.url);
+    const pkgPath = require.resolve("tsx/package.json");
+    const bin = require("tsx/package.json").bin;
+    if (typeof bin === "string") candidates.push(resolve(dirname(pkgPath), bin));
+  } catch {
+    // Not resolvable via require - try the next strategy.
+  }
+
   const ancestorMatch = resolveFromAncestorNodeModules(projectRoot);
-  if (ancestorMatch) return ancestorMatch;
+  if (ancestorMatch) candidates.push(ancestorMatch);
 
   for (const root of listGitWorktreeRoots()) {
     const worktreeMatch = resolveFromAncestorNodeModules(root);
-    if (worktreeMatch) return worktreeMatch;
+    if (worktreeMatch) candidates.push(worktreeMatch);
   }
 
-  return null;
+  candidates.push(resolve(projectRoot, "node_modules", "tsx", "dist", "cli.mjs"));
+
+  return candidates.find((candidate) => candidate && existsSync(candidate)) ?? null;
+}
+
+// cmd.exe does not auto-quote args when spawning with `shell: true`, so wrap
+// anything that isn't a bare token (paths with spaces, etc.) ourselves.
+function quoteForCmd(arg) {
+  if (/^[A-Za-z0-9_.,:=\\/-]+$/.test(arg)) return arg;
+  return `"${arg.replaceAll('"', '""')}"`;
 }
 
 function runEvalScript() {
-  const tsxBin = resolveTsxCli();
+  const targetPath = resolve(projectRoot, targetScript);
+  const tsxBin = resolveTsxCliBin();
 
-  if (!tsxBin) {
-    console.error(
-      "Could not resolve the tsx runtime. Run `npm install` first (or invoke the script with `npx tsx` directly).",
-    );
-    process.exit(1);
+  let command;
+  let commandArgs;
+  let useShell = false;
+
+  if (tsxBin) {
+    command = process.execPath;
+    commandArgs = [tsxBin, targetPath, ...forwardArgs];
+  } else {
+    // Last resort: let npx locate a tsx runtime (e.g. from a global cache or a
+    // parent workspace) without reaching out to the network to install it.
+    console.warn("[eval] tsx not found in node_modules; falling back to `npx --no-install tsx`.");
+    useShell = isWindows; // npx is a .cmd shim on Windows and needs a shell.
+    command = isWindows ? "npx.cmd" : "npx";
+    commandArgs = ["--no-install", "tsx", targetPath, ...forwardArgs];
+    if (useShell) commandArgs = commandArgs.map(quoteForCmd);
   }
 
-  const child = spawn(process.execPath, [tsxBin, resolve(projectRoot, targetScript), ...forwardArgs], {
+  const child = spawn(command, commandArgs, {
     cwd: projectRoot,
     stdio: "inherit",
     windowsHide: true,
+    shell: useShell,
   });
 
   const stopEvalProcess = () => {

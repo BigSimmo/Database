@@ -158,7 +158,7 @@ function SourceCapsule() {
       className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] ${focusRing}`}
     >
       <span className="min-w-0 truncate">Source-backed</span>
-      <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-[11px] font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+      <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
         3
       </span>
       <ChevronDown className="h-3.5 w-3.5 shrink-0" />
@@ -185,7 +185,7 @@ function SourceRows() {
             </span>
             <span className="grid min-w-[4.75rem] justify-items-end gap-1">
               <Pill tone={support === "Related" ? "warn" : "success"}>{support}</Pill>
-              <span className="nums text-[11px] font-semibold text-[color:var(--text-soft)]">{score}</span>
+              <span className="nums text-2xs font-semibold text-[color:var(--text-soft)]">{score}</span>
             </span>
           </button>
         </div>
@@ -285,7 +285,7 @@ function EvidenceTabs({ selected }: { selected: string }) {
             >
               <Icon className="h-3.5 w-3.5 shrink-0" />
               <span className="min-w-0 truncate">{label}</span>
-              <span className="nums inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1 text-[11px] opacity-90 shadow-[var(--shadow-inset)]">
+              <span className="nums inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1 text-2xs opacity-90 shadow-[var(--shadow-inset)]">
                 {count}
               </span>
             </button>
@@ -408,7 +408,7 @@ function SourceCards() {
             </div>
             <span className="grid justify-items-end gap-1">
               <Pill tone={support === "Related" ? "warn" : "success"}>{support}</Pill>
-              <span className="nums text-[11px] font-semibold text-[color:var(--text-soft)]">{score}</span>
+              <span className="nums text-2xs font-semibold text-[color:var(--text-soft)]">{score}</span>
             </span>
           </div>
           <p className="mt-2 line-clamp-2 text-sm leading-6 text-[color:var(--text-muted)]">
@@ -669,7 +669,7 @@ export default function AnswerEvidencePopupsMockupPage() {
           body="Small inline popover opened from the source-backed capsule underneath the natural-language answer."
         >
           <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-            <p className="max-w-[68ch] text-[15px] font-medium leading-[1.56] text-[color:var(--text-heading)]">
+            <p className="max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)]">
               Clozapine monitoring should include FBC/ANC, myocarditis symptoms, metabolic checks, constipation
               prevention, and shared-care communication.
             </p>

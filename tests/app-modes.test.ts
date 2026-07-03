@@ -63,8 +63,8 @@ describe("app mode search contract", () => {
 
     expect(isSearchableAppMode("services")).toBe(true);
     expect(mode?.label).toBe("Services");
-    expect(config.kind).toBe("documents");
-    expect(config.resultKind).toBe("documents");
+    expect(config.kind).toBe("services");
+    expect(config.resultKind).toBe("services");
     expect(config.placeholder.toLowerCase()).toContain("services");
   });
 
@@ -106,7 +106,7 @@ describe("app mode search contract", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("documents")).toBe(true);
-    expect(appModeCanUseSourceLibraryShortcut("services")).toBe(true);
+    expect(appModeCanUseSourceLibraryShortcut("services")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("forms")).toBe(true);
     expect(appModeCanUseSourceLibraryShortcut("favourites")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("prescribing")).toBe(true);

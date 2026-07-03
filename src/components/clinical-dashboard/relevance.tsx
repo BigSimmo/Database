@@ -55,7 +55,7 @@ export function RelevanceBadge({
     <span
       data-testid={testId}
       className={cn(
-        "inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold leading-none sm:min-h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs",
+        "inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-2xs font-semibold leading-none sm:min-h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs",
         relevanceChipClasses(relevance, grounded),
       )}
       aria-label={label}
@@ -86,7 +86,7 @@ export function QueryCoverageChips({
   return (
     <div className="flex flex-wrap gap-1.5">
       {chips.slice(0, limit).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
           {chip}
         </span>
       ))}

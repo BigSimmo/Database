@@ -48,6 +48,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  webpack(config) {
+    // Avoid a Next/webpack WasmHash worker crash observed on Node 24 during local production builds.
+    config.output = {
+      ...config.output,
+      hashFunction: "sha256",
+    };
+    return config;
+  },
   async headers() {
     return [
       {

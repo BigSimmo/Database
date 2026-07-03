@@ -61,7 +61,7 @@ export function DocumentOrganizationBadges({
   const needsReview = profile?.review_status === "needs_review";
   const manualOverride = profile?.review_status === "manual_override";
   const candidateCount = profile?.site?.candidates?.length ?? 0;
-  const sizeClass = compact ? "min-h-6 px-2 text-[10px]" : "min-h-7 px-2 text-[11px]";
+  const sizeClass = compact ? "min-h-6 px-2 text-3xs" : "min-h-7 px-2 text-2xs";
 
   if (!siteLabel && !typeLabel && !needsReview && !manualOverride) return null;
 

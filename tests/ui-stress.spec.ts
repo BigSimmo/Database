@@ -258,7 +258,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       if (await legacyAnswerModeToggle.isVisible().catch(() => false)) {
         await legacyAnswerModeToggle.click();
       } else {
-        const appModeMenu = page.getByRole("button", { name: /Current app mode:/ });
+        const appModeMenu = page.getByRole("button", { name: /^Mode / });
         await expect(appModeMenu).toBeVisible();
         await appModeMenu.click({ force: true });
         const answerMode = page
@@ -266,7 +266,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
           .getByRole("menuitemradio", { name: /^Answer\b/ });
         await expect(answerMode).toBeVisible();
         await answerMode.click({ force: true });
-        await expect(page.getByRole("button", { name: "Current app mode: Answer" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
       }
 
       await page

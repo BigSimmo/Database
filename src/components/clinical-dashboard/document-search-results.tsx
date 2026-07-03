@@ -151,11 +151,7 @@ function DocumentTagFacetRail({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            className={cn(floatingControl, "min-h-11 px-2 text-[11px] sm:min-h-8")}
-          >
+          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-11 px-2 text-2xs sm:min-h-8")}>
             <X className="h-3.5 w-3.5" />
             Clear
           </button>
@@ -169,7 +165,7 @@ function DocumentTagFacetRail({
             const Icon = documentFacetIcons[group];
             return (
               <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
                   {group}
                 </h3>
@@ -184,14 +180,14 @@ function DocumentTagFacetRail({
                         aria-pressed={selected}
                         title={`Filter to ${facet.label}`}
                         className={cn(
-                          "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-[11px] font-semibold shadow-[var(--shadow-inset)] transition",
+                          "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
                           selected
                             ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                         )}
                       >
                         <span className="truncate">{facet.label}</span>
-                        <span className="rounded bg-[color:var(--surface)] px-1 text-[10px] text-[color:var(--text-soft)]">
+                        <span className="rounded bg-[color:var(--surface)] px-1 text-3xs text-[color:var(--text-soft)]">
                           {facet.count}
                         </span>
                       </button>
@@ -380,7 +376,7 @@ function RecentDocumentLink({ document }: { document: ClinicalDocument }) {
 
 function DocumentSearchHome({
   documentCount,
-  recentDocuments,
+  recentDocuments = [],
   onOpenRecentDocuments,
   onOpenLibrary,
   onOpenSourcePdf,
@@ -388,7 +384,7 @@ function DocumentSearchHome({
   desktopComposerSlotId,
 }: {
   documentCount: number;
-  recentDocuments: ClinicalDocument[];
+  recentDocuments?: ClinicalDocument[];
   onOpenRecentDocuments: () => void;
   onOpenLibrary: () => void;
   onOpenSourcePdf: () => void;
@@ -423,7 +419,9 @@ function DocumentSearchHome({
   const tableLikeCount = recentDocuments.filter((document) =>
     document.labels?.some((label) => /table|chart|checklist|form/i.test(label.label)),
   ).length;
+  const previewDocument = recent[0] ?? null;
   const facets = topDocumentFacets(recentDocuments);
+  const previewFacetCount = facets.length;
 
   return (
     <div data-testid="document-search-empty-state" className="mx-auto w-full max-w-6xl space-y-4">
@@ -457,6 +455,19 @@ function DocumentSearchHome({
               source document{documentCount === 1 ? "" : "s"} ready for search
             </p>
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]">
+            Command center
+          </span>
+          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)]">
+            Fast scan
+          </span>
+          {previewFacetCount > 0 ? (
+            <span className="ml-auto text-xs font-bold text-[color:var(--text-muted)]">
+              {previewFacetCount} live facet{previewFacetCount === 1 ? "" : "s"} active
+            </span>
+          ) : null}
         </div>
 
         {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="mt-5 hidden lg:block" /> : null}
@@ -504,6 +515,41 @@ function DocumentSearchHome({
             <DocumentHomeLane title="Review states" count={reviewDueCount} icon={AlertCircle} tone="warning" />
             <DocumentHomeLane title="Tables and forms" count={tableLikeCount} icon={ListChecks} tone="info" />
           </div>
+          {previewDocument ? (
+            <section
+              aria-label="Active source preview"
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Active source preview</h3>
+                <button
+                  type="button"
+                  onClick={onOpenRecentDocuments}
+                  className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                >
+                  <Clock3 className="h-4 w-4" aria-hidden="true" />
+                  History
+                </button>
+              </div>
+              <div className="mt-3 grid gap-2">
+                <p className="line-clamp-2 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
+                  {documentDisplayTitle(previewDocument)}
+                </p>
+                <p className="text-xs font-semibold text-[color:var(--text-soft)]">
+                  {documentStatusText(previewDocument)} • {previewDocument.page_count} page
+                  {previewDocument.page_count === 1 ? "" : "s"} • {formatDocumentDate(previewDocument.updated_at)}
+                </p>
+                <DocumentActionLink
+                  href={`/documents/${previewDocument.id}`}
+                  icon={ExternalLink}
+                  className="min-h-10 w-full rounded-lg px-2.5 text-xs"
+                  aria-label={`Open ${documentDisplayTitle(previewDocument)} preview`}
+                >
+                  Open active source
+                </DocumentActionLink>
+              </div>
+            </section>
+          ) : null}
           <section
             aria-label="Smart facets"
             className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
@@ -630,23 +676,19 @@ function DocumentResultsOverview({
       <div className="min-w-0">
         <p className="text-sm font-semibold text-[color:var(--text-heading)]">Documents overview</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <DocumentBadge variant="best" icon={FileText} className="min-h-7 rounded-lg px-2.5 text-[11px]">
+          <DocumentBadge variant="best" icon={FileText} className="min-h-7 rounded-lg px-2.5 text-2xs">
             {documentCount.toLocaleString()} indexed
           </DocumentBadge>
-          <DocumentBadge variant="neutral" icon={Target} className="min-h-7 rounded-lg px-2.5 text-[11px]">
+          <DocumentBadge variant="neutral" icon={Target} className="min-h-7 rounded-lg px-2.5 text-2xs">
             {matchCount.toLocaleString()} match{matchCount === 1 ? "" : "es"}
           </DocumentBadge>
           {activeFacetCount > 0 ? (
-            <DocumentBadge variant="relevant" icon={Filter} className="min-h-7 rounded-lg px-2.5 text-[11px]">
+            <DocumentBadge variant="relevant" icon={Filter} className="min-h-7 rounded-lg px-2.5 text-2xs">
               {displayedCount.toLocaleString()} after filters
             </DocumentBadge>
           ) : null}
           {trimmedQuery ? (
-            <DocumentBadge
-              variant="neutral"
-              icon={BookOpen}
-              className="min-h-7 max-w-full rounded-lg px-2.5 text-[11px]"
-            >
+            <DocumentBadge variant="neutral" icon={BookOpen} className="min-h-7 max-w-full rounded-lg px-2.5 text-2xs">
               <span className="truncate">{trimmedQuery}</span>
             </DocumentBadge>
           ) : null}
@@ -681,7 +723,7 @@ function cautionBadgeLabel(document: DocumentMatch) {
 function EvidencePanelRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
       <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
     </div>
   );
@@ -808,7 +850,7 @@ export function MatchExplanationChips({ source }: { source: SearchResult }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {chips.slice(0, 7).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
           {chip}
         </span>
       ))}
@@ -848,7 +890,7 @@ function SearchRecordResults({
             </p>
           </div>
         </div>
-        <span className={cn(metadataPill, "min-h-8 px-2.5 text-[11px]")}>{copy.chip}</span>
+        <span className={cn(metadataPill, "min-h-8 px-2.5 text-2xs")}>{copy.chip}</span>
       </div>
 
       <div className="grid gap-3">
@@ -872,7 +914,7 @@ function SearchRecordResults({
             >
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                  <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                     {service.catalogueLabel ?? "Source-backed record"}
                   </p>
                   <a
@@ -901,7 +943,7 @@ function SearchRecordResults({
               {chips.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {chips.slice(0, 5).map((chip) => (
-                    <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                    <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
                       {chip}
                     </span>
                   ))}
@@ -915,7 +957,7 @@ function SearchRecordResults({
                       key={card.id}
                       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
                     >
-                      <dt className="text-[10px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                      <dt className="text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                         {card.label ?? card.id}
                       </dt>
                       <dd className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
@@ -982,7 +1024,7 @@ export function DocumentSearchResultsPanel({
   query,
   loading,
   documentCount,
-  recentDocuments,
+  recentDocuments = [],
   realDataReady,
   authUnavailable,
   apiUnavailable,
@@ -1005,7 +1047,7 @@ export function DocumentSearchResultsPanel({
   query: string;
   loading: boolean;
   documentCount: number;
-  recentDocuments: ClinicalDocument[];
+  recentDocuments?: ClinicalDocument[];
   realDataReady: boolean;
   authUnavailable: boolean;
   apiUnavailable: boolean;
@@ -1160,7 +1202,7 @@ export function DocumentSearchResultsPanel({
                     aria-pressed={active}
                     onClick={() => setActiveResultType(tab.key)}
                     className={cn(
-                      "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-bold transition",
+                      "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition",
                       active
                         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -1182,7 +1224,7 @@ export function DocumentSearchResultsPanel({
             />
           ) : null}
           {activeFacetKeys.length > 0 ? (
-            <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-[11px]")}>
+            <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
               {displayedMatches.length} result{displayedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
@@ -1215,7 +1257,7 @@ export function DocumentSearchResultsPanel({
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                               <span>{documentKindLabel(document)}</span>
                               {index === 0 ? (
                                 <>
@@ -1239,7 +1281,7 @@ export function DocumentSearchResultsPanel({
                           <DocumentBadge
                             variant={relevanceVariant}
                             icon={Target}
-                            className="min-h-7 rounded-lg px-2.5 text-[11px]"
+                            className="min-h-7 rounded-lg px-2.5 text-2xs"
                           >
                             {relevanceDisplay.short}
                             <span className="sr-only">, {relevanceDisplay.detail}</span>
@@ -1247,7 +1289,7 @@ export function DocumentSearchResultsPanel({
                           <DocumentBadge
                             variant="neutral"
                             icon={BookOpen}
-                            className="min-h-7 rounded-lg px-2.5 text-[11px]"
+                            className="min-h-7 rounded-lg px-2.5 text-2xs"
                           >
                             {metadataBadgeLabel(document)}
                           </DocumentBadge>
@@ -1256,7 +1298,7 @@ export function DocumentSearchResultsPanel({
                             icon={
                               document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
                             }
-                            className="min-h-7 rounded-lg px-2.5 text-[11px]"
+                            className="min-h-7 rounded-lg px-2.5 text-2xs"
                           >
                             {cautionBadgeLabel(document)}
                           </DocumentBadge>

@@ -133,7 +133,7 @@ export function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
               <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">{item.label}</span>
               <span
                 className={cn(
-                  "inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[11px] font-bold",
+                  "inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-2xs font-bold",
                   setupBadgeClasses(item.status),
                 )}
               >
@@ -461,7 +461,7 @@ export function IngestionQualityConsole({
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {(Object.keys(counts) as IngestionQualityReviewType[]).map((type) => (
-            <span key={type} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+            <span key={type} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
               {qualityReviewLabels[type]}: {counts[type]}
             </span>
           ))}
@@ -476,16 +476,16 @@ export function IngestionQualityConsole({
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", qualityReviewTone(item.severity))}>
+                    <span className={cn(metadataPill, "min-h-6 px-2 text-3xs", qualityReviewTone(item.severity))}>
                       {qualityReviewLabels[item.type]}
                     </span>
                     {item.qualityScore !== null ? (
-                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-[10px]")}>
+                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-3xs")}>
                         index {item.qualityScore.toFixed(2)}
                       </span>
                     ) : null}
                     {item.extractionQuality ? (
-                      <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
+                      <span className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
                         extraction:{item.extractionQuality}
                       </span>
                     ) : null}
@@ -499,7 +499,7 @@ export function IngestionQualityConsole({
                   {item.reasons.length ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {item.reasons.slice(0, 4).map((reason) => (
-                        <span key={reason} className={cn(metadataPill, "text-[11px]")}>
+                        <span key={reason} className={cn(metadataPill, "text-2xs")}>
                           {reason}
                         </span>
                       ))}
@@ -610,7 +610,7 @@ export function LibraryHealthStrip({
     >
       <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Library health</p>
-        <span className={cn("text-[11px] font-semibold", textMuted)}>Read-only status</span>
+        <span className={cn("text-2xs font-semibold", textMuted)}>Read-only status</span>
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
         {items.map((item) => (
@@ -624,7 +624,7 @@ export function LibraryHealthStrip({
             )}
             aria-label={item.actionLabel}
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.06em] opacity-80">{item.label}</p>
+            <p className="text-3xs font-bold uppercase tracking-[0.06em] opacity-80">{item.label}</p>
             <p className="mt-1 text-xs font-semibold">{item.value}</p>
           </button>
         ))}

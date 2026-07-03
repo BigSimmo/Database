@@ -47,7 +47,9 @@ import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEviden
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
 import {
   cleanClinicalSummaryText,
+  fenceSourceEvidence,
   isLowYieldClinicalText,
+  neutralizePromptInstructions,
   sourceTextForClinicalProse,
   sourceTextForDisplay,
   sourceTextForModel,
@@ -6000,7 +6002,7 @@ function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResul
     metadataText(factMetadata, "accessible_table_markdown") ??
     metadataText(factMetadata, "table_text_snippet") ??
     metadataCells;
-  return compactContextText(neutralizeInstructions(snippet), 420);
+  return compactContextText(neutralizePromptInstructions(snippet), 420);
 }
 
 function formatTableFactForSourceBlock(
@@ -6010,7 +6012,7 @@ function formatTableFactForSourceBlock(
 ) {
   if (!rich) {
     return compactContextText(
-      neutralizeInstructions(
+      neutralizePromptInstructions(
         [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
           .filter(Boolean)
           .join(" | "),
@@ -6021,7 +6023,7 @@ function formatTableFactForSourceBlock(
 
   const snippet = tableSnippetForFact(result, fact);
   return compactContextText(
-    neutralizeInstructions(
+    neutralizePromptInstructions(
       [
         fact.table_title ? `table title: ${fact.table_title}` : "",
         fact.row_label ? `row label: ${fact.row_label}` : "",
@@ -6038,32 +6040,6 @@ function formatTableFactForSourceBlock(
   );
 }
 
-function neutralizeInstructions(text: string): string {
-  let cleaned = text;
-  cleaned = cleaned.replace(
-    /\b(?:ignore|disregard|override|forget)\s+(?:all\s+)?(?:(?:previous|prior|above)\s+)?instructions?(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
-    "[neutralized-instruction: source instruction removed]",
-  );
-  cleaned = cleaned.replace(
-    /\byou\s+are\s+now\s+an?\s+(?:unrestricted|jailbroken|assistant)(?:\s+\w+){0,3}/gi,
-    "[neutralized-instruction: source role-change removed]",
-  );
-  cleaned = cleaned.replace(
-    /\b(?:system|developer)\s+(?:prompt|message|instruction)s?\b/gi,
-    "[neutralized-instruction: privileged instruction reference removed]",
-  );
-  cleaned = cleaned.replace(
-    /\b(?:reveal|print|expose|show|leak|return)\s+(?:the\s+)?(?:api\s+key|secret|token|system\s+prompt|developer\s+message|developer\s+instructions?)\b/gi,
-    "[neutralized-instruction: secret-exfiltration request removed]",
-  );
-  cleaned = cleaned.replace(
-    /\bfollow\s+(?:these|the|this)\s+instructions?\b/gi,
-    "[neutralized-instruction: source instruction removed]",
-  );
-  cleaned = cleaned.replace(/\bdo\s+not\s+answer\b/gi, "[neutralized-instruction: answer-suppression request removed]");
-  return cleaned;
-}
-
 export function buildRagSourceBlock(results: SearchResult[], options?: RagSourceBlockOptions) {
   const richTableContext = richTableSourceContextEnabled(options);
   return results
@@ -6078,7 +6054,7 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
                 image.tableTitle,
                 image.caption,
                 image.tableTextSnippet
-                  ? `Table text: ${compactContextText(neutralizeInstructions(image.tableTextSnippet), 320)}`
+                  ? `Table text: ${compactContextText(neutralizePromptInstructions(image.tableTextSnippet), 320)}`
                   : "",
               ]
                 .filter(Boolean)
@@ -6087,12 +6063,12 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
             .join(" | ")}`
         : "";
       const adjacentContext = result.adjacent_context
-        ? `\nNearby context from the same source: ${compactContextText(neutralizeInstructions(result.adjacent_context), 900)}`
+        ? `\nNearby context from the same source: ${compactContextText(neutralizePromptInstructions(result.adjacent_context), 900)}`
         : "";
       const sectionPath = result.section_path?.length
-        ? `\nSection path: ${neutralizeInstructions(result.section_path.join(" > "))}`
+        ? `\nSection path: ${neutralizePromptInstructions(result.section_path.join(" > "))}`
         : result.section_heading
-          ? `\nSection: ${neutralizeInstructions(result.section_heading)}`
+          ? `\nSection: ${neutralizePromptInstructions(result.section_heading)}`
           : "";
       const tableFacts = result.table_facts?.length
         ? `\nStructured table facts: ${result.table_facts
@@ -6107,14 +6083,14 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
       const memoryCards = result.memory_cards?.length
         ? `\nStructured memory: ${result.memory_cards
             .slice(0, 3)
-            .map((card) => `${card.card_type}: ${compactContextText(neutralizeInstructions(card.content), 300)}`)
+            .map((card) => `${card.card_type}: ${compactContextText(neutralizePromptInstructions(card.content), 300)}`)
             .join(" | ")}`
         : "";
       const retrievalSynopsis = result.retrieval_synopsis
-        ? `\nRetrieval synopsis: ${compactContextText(neutralizeInstructions(result.retrieval_synopsis), 700)}`
+        ? `\nRetrieval synopsis: ${compactContextText(neutralizePromptInstructions(result.retrieval_synopsis), 700)}`
         : "";
-      const neutralizedContent = neutralizeInstructions(result.content);
-      const fencedContent = `<<<SOURCE_EXCERPT>>>\n${compactContextText(neutralizedContent, 1800)}\n<<<END_SOURCE_EXCERPT>>>`;
+      const neutralizedContent = neutralizePromptInstructions(result.content);
+      const fencedContent = fenceSourceEvidence(compactContextText(neutralizedContent, 1800));
       return [
         [
           `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,

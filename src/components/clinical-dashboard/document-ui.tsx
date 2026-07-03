@@ -48,7 +48,7 @@ export function DocumentFileTile({
     <span
       className={cn(
         "grid shrink-0 place-items-center rounded-lg border font-bold uppercase shadow-[var(--shadow-inset)]",
-        compact ? "h-10 w-10 text-[8px]" : "h-12 w-12 text-[9px]",
+        compact ? "h-10 w-10 text-4xs" : "h-12 w-12 text-3xs",
         tileStyles[tone],
         className,
       )}
@@ -74,7 +74,7 @@ export function DocumentBadge({
   return (
     <span
       className={cn(
-        "inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold leading-none",
+        "inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-semibold leading-none",
         badgeStyles[variant],
         className,
       )}

@@ -142,7 +142,7 @@ function MapLegend({ compact = false }: { compact?: boolean }) {
     <div
       className={cn(
         "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[color:var(--text-muted)]",
-        compact && "gap-x-3 text-[11px] sm:text-xs",
+        compact && "gap-x-3 text-2xs sm:text-xs",
       )}
     >
       {entries.map((entry) => (
@@ -186,7 +186,7 @@ function MapGraph({
       className={cn(
         "relative min-h-0 min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)]",
         "bg-[color:var(--surface)] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px),linear-gradient(color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px)] bg-[length:28px_28px,28px_28px]",
-        interactive ? "h-full cursor-grab active:cursor-grabbing" : "h-40 sm:h-44 lg:h-48",
+        interactive ? "h-full cursor-grab active:cursor-grabbing" : "h-56",
       )}
       style={{ touchAction: interactive ? "none" : "auto" }}
       onPointerDown={interactive ? onPointerDown : undefined}
@@ -228,8 +228,8 @@ function MapGraph({
             onSelect("diagnosis");
           }}
           className={cn(
-            "absolute left-1/2 top-[52%] z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[color:var(--clinical-accent)] p-3 text-center font-bold leading-tight text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-            interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-[10px] sm:h-16 sm:w-16 sm:text-[11px]",
+            "absolute left-1/2 top-[52%] z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center overflow-hidden rounded-full bg-[color:var(--clinical-accent)] p-3 px-2 text-center font-bold leading-tight break-words text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
+            interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-3xs sm:h-16 sm:w-16 sm:text-2xs",
             selectedId === "diagnosis" && "ring-4 ring-[color:var(--clinical-accent)]/25",
           )}
           aria-pressed={selectedId === "diagnosis"}
@@ -250,8 +250,8 @@ function MapGraph({
                 onSelect(node);
               }}
               className={cn(
-                "absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border p-2 text-center font-bold leading-tight shadow-[var(--shadow-inset)] transition hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-                interactive ? "h-24 w-24 text-xs" : "h-12 w-12 text-[8px] sm:h-14 sm:w-14 sm:text-[9px]",
+                "absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center overflow-hidden rounded-full border p-2 px-1.5 text-center font-bold leading-tight break-words shadow-[var(--shadow-inset)] transition hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
+                interactive ? "h-24 w-24 text-xs" : "h-12 w-12 text-4xs sm:h-14 sm:w-14 sm:text-3xs",
                 likelihoodTone[node.likelihood],
                 isSelected && "ring-4 ring-[color:var(--focus)]/25",
               )}
@@ -262,7 +262,7 @@ function MapGraph({
             >
               {node.label}
               {node.likelihood === "must-not-miss" && interactive ? (
-                <span className="absolute -right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--danger)] text-[10px] text-white shadow-[var(--shadow-tight)]">
+                <span className="absolute -right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--danger)] text-3xs text-white shadow-[var(--shadow-tight)]">
                   !
                 </span>
               ) : null}
@@ -500,7 +500,7 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
         </div>
 
         <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2.5 sm:p-3">
-          <MapGraph record={record} selectedId="diagnosis" onSelect={setSelected} scale={0.33} />
+          <MapGraph record={record} selectedId="diagnosis" onSelect={setSelected} scale={0.35} />
           <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
             <MapLegend compact />
             <button

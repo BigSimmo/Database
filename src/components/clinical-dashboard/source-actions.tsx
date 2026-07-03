@@ -24,7 +24,7 @@ export function SourceActionRow({
 }) {
   return (
     <div className={cn("flex flex-wrap gap-2", divider && "border-t border-[color:var(--border)] pt-3")}>
-      <Link href={viewerHref} className={cn(primaryControl, "min-h-[44px] px-4 text-xs")}>
+      <Link href={viewerHref} className={cn(primaryControl, "min-h-11 px-4 text-xs")}>
         <FileText className="h-4 w-4" />
         Open source
       </Link>
@@ -51,7 +51,7 @@ export function SourceActionRow({
         <span className="hidden sm:inline">Add scope</span>
       </button>
       {imageCount > 0 && (
-        <span className={cn(metadataPill, "min-h-[44px] rounded-lg px-3")}>
+        <span className={cn(metadataPill, "min-h-11 rounded-lg px-3")}>
           {imageCount} indexed image{imageCount === 1 ? "" : "s"}
         </span>
       )}
@@ -98,7 +98,7 @@ export function SourcePassageLinks({
           href={sourceResultHref(source)}
           className={cn(
             compact ? metadataPill : floatingControl,
-            "min-h-11 gap-1.5 px-2.5 text-[11px] sm:min-h-9 sm:px-3",
+            "min-h-11 gap-1.5 px-2.5 text-2xs sm:min-h-9 sm:px-3",
           )}
           title={`${source.title} · page ${source.page_number ?? "n/a"} · chunk ${source.chunk_index}`}
           aria-label={`Open source passage #${index + 1}`}

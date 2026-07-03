@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   AlertCircle,
@@ -1958,6 +1958,7 @@ function DocumentLabelReviewPanel({
                   onChange={(event) => setDraft(item.document.id, { ...draft, label: event.target.value })}
                   disabled={!canManage || busyAction !== null}
                   placeholder="Manual override label"
+                  aria-label="Manual override label"
                   className={fieldControlPlain}
                 />
                 <select
@@ -2493,6 +2494,7 @@ function DocumentDrawer({
               value={collectionDraft}
               onChange={(event) => setCollectionDraft(event.target.value)}
               placeholder="Collection name for selected documents"
+              aria-label="Collection name for selected documents"
               className={fieldControlPlain}
             />
             <button
@@ -2512,6 +2514,7 @@ function DocumentDrawer({
               <select
                 value={metadataDraft.sourceStatus}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceStatus: event.target.value }))}
+                aria-label="Bulk edit source status"
                 className={fieldControlPlain}
               >
                 <option value="">Source status unchanged</option>
@@ -2525,6 +2528,7 @@ function DocumentDrawer({
                 onChange={(event) =>
                   setMetadataDraft((current) => ({ ...current, validationStatus: event.target.value }))
                 }
+                aria-label="Bulk edit validation status"
                 className={fieldControlPlain}
               >
                 <option value="">Validation unchanged</option>
@@ -2537,6 +2541,7 @@ function DocumentDrawer({
                 onChange={(event) =>
                   setMetadataDraft((current) => ({ ...current, extractionQuality: event.target.value }))
                 }
+                aria-label="Bulk edit extraction quality"
                 className={fieldControlPlain}
               >
                 <option value="">Extraction unchanged</option>
@@ -2565,18 +2570,21 @@ function DocumentDrawer({
                 value={metadataDraft.jurisdiction}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, jurisdiction: event.target.value }))}
                 placeholder="Jurisdiction/locality"
+                aria-label="Bulk edit jurisdiction/locality"
                 className={fieldControlPlain}
               />
               <input
                 value={metadataDraft.sourceType}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceType: event.target.value }))}
                 placeholder="Source type"
+                aria-label="Bulk edit source type"
                 className={fieldControlPlain}
               />
               <input
                 value={metadataDraft.category}
                 onChange={(event) => setMetadataDraft((current) => ({ ...current, category: event.target.value }))}
                 placeholder="Category"
+                aria-label="Bulk edit category"
                 className={fieldControlPlain}
               />
             </div>
@@ -3069,10 +3077,12 @@ function ToolsHub({
   query,
   onQueryChange,
   desktopComposerSlotId,
+  showDetailPanel,
 }: {
   query: string;
   onQueryChange: (nextQuery: string) => void;
   desktopComposerSlotId?: string;
+  showDetailPanel?: boolean;
 }) {
   return (
     <ApplicationsLauncherWorkspace
@@ -3080,6 +3090,7 @@ function ToolsHub({
       query={query}
       onQueryChange={onQueryChange}
       desktopComposerSlotId={desktopComposerSlotId}
+      showDetailPanel={showDetailPanel}
     />
   );
 }
@@ -3532,6 +3543,7 @@ export function ClinicalDashboard({
   autoRunSearch = false,
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -3541,6 +3553,7 @@ export function ClinicalDashboard({
   const nextWorkStatePollRef = useRef(0);
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
+  const lastSyncedSearchParamsRef = useRef(searchParams.toString());
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const indexedDocumentTotal = documentsPagination?.total ?? documents.length;
@@ -3563,6 +3576,7 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
+  const requestedRun = searchParams.get("run") === "1";
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
   // unchanged and the registry is fetched once per active mode.
@@ -4260,6 +4274,31 @@ export function ClinicalDashboard({
   }, [focusSearch]);
 
   useEffect(() => {
+    const searchParamString = searchParams.toString();
+    if (lastSyncedSearchParamsRef.current === searchParamString) return;
+    lastSyncedSearchParamsRef.current = searchParamString;
+    if (searchParams.get("run") === "1") return;
+
+    const mode = searchParams.get("mode");
+    if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
+
+    const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
+    const shouldFocusComposer = searchParams.get("focus") === "1";
+    const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
+    const frame = window.requestAnimationFrame(() => {
+      if (mode === "differentials") clearDifferentialModeResultState();
+      setSearchMode(mode);
+      if (hasUrlQuery) setQuery(nextQuery);
+      setModeSearchSubmitted(false);
+      setLoading(false);
+      setError(null);
+      setAnswerProgress(null);
+      if (shouldFocusComposer) focusComposerInput();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
@@ -4291,7 +4330,8 @@ export function ClinicalDashboard({
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
-    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !canRunSearch) return;
+    const isRegistryOnlyMode = mode === "services" || mode === "forms";
+    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
@@ -4509,6 +4549,7 @@ export function ClinicalDashboard({
     // library, whose single `document_labels.in(<all ids>)` request produces an
     // over-long PostgREST URL that fails on large corpora. Corpus search runs
     // unscoped (like Documents); users opt into label filters explicitly.
+    const requestId = ++searchRequestSeqRef.current;
 
     setSearchMode(targetMode);
     setQuery(trimmedQuery);
@@ -4516,22 +4557,40 @@ export function ClinicalDashboard({
     if (isDifferentialsMode) clearDifferentialModeResultState();
 
     if (modeSearch.kind === "tools") {
+      setLoading(false);
+      setAnswerProgress(null);
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Tools filtered from the composer." });
       return;
     }
     if (modeSearch.kind === "favourites") {
+      setLoading(false);
+      setAnswerProgress(null);
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
+      return;
+    }
+    if (modeSearch.kind === "services" || targetMode === "forms") {
+      setAnswer(null);
+      setSources([]);
+      setDocumentMatches([]);
+      setSearchRelevance(null);
+      setSearchFacets(null);
+      setSearchScope(null);
+      setSourceGovernanceWarnings([]);
+      setAnswerProgress(null);
+      setLoading(false);
+      setError(null);
+      rememberRecentQuery(trimmedQuery);
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
       return;
     }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
       return;
     }
-    const requestId = ++searchRequestSeqRef.current;
     // M10 (diff-review hardening): progress updates emitted by this request's
     // in-flight machinery (retry messages, keyword fallback, stream progress)
     // must also be discarded once a newer search takes over, or a slow stale
@@ -4639,7 +4698,8 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    if (!autoRunSearch || !trimmedQuery || !canRunSearch || loading) return;
+    const canAutoRunMode = searchMode === "prescribing" || canRunSearch;
+    if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
@@ -5495,7 +5555,7 @@ export function ClinicalDashboard({
                       activeModeResultKind === "favourites" ||
                       activeModeResultKind === "differentials"
                     ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "documents"
+                    : activeModeResultKind === "documents" || activeModeResultKind === "services"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                       : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
               )}
@@ -5555,7 +5615,12 @@ export function ClinicalDashboard({
                   }}
                 />
               ) : activeModeResultKind === "tools" ? (
-                <ToolsHub query={query} onQueryChange={setQuery} desktopComposerSlotId={desktopHomeComposerSlotId} />
+                <ToolsHub
+                  query={query}
+                  onQueryChange={setQuery}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                  showDetailPanel={!requestedRun}
+                />
               ) : activeModeResultKind === "favourites" ? (
                 <FavouritesHub
                   query={query}
@@ -5569,7 +5634,7 @@ export function ClinicalDashboard({
                   }
                   desktopComposerSlotId={desktopHomeComposerSlotId}
                 />
-              ) : activeModeResultKind === "documents" ? (
+              ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace
                     query={query}
@@ -5579,7 +5644,7 @@ export function ClinicalDashboard({
                     apiUnavailable={false}
                     setupWarning={null}
                     onSuggestedSearch={setMedicationSearchQuery}
-                    showHome={!modeSearchSubmitted}
+                    showHome={!query.trim() && !modeSearchSubmitted}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
                 ) : (
