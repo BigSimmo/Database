@@ -180,7 +180,7 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
 function DesktopComparisonTable({ candidates }: { candidates: CandidateView[] }) {
   const workflow = acuteConfusionPresentationWorkflow;
   return (
-    <section className="hidden xl:block" aria-label="Desktop differential comparison table">
+    <section className="hidden md:block" aria-label="Differential comparison table">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -381,6 +381,34 @@ function ReviewPanel() {
   );
 }
 
+function CopyAfterReviewPanel({ text }: { text: string }) {
+  return (
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Copy after review</h2>
+      <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+        Create a concise comparison summary for documentation or handoff.
+      </p>
+      <CopyAfterReviewButton text={text} className="mt-3 w-full" />
+    </section>
+  );
+}
+
+/** The review/handoff panels shared by the desktop side rail (stacked) and the
+ *  tablet reflow grid below the comparison table. Safety snapshot is rendered
+ *  separately so it can lead each layout. */
+function ReviewPanels({ candidates }: { candidates: CandidateView[] }) {
+  const selectedCandidates = candidates.filter((candidate) => candidate.selected);
+  return (
+    <>
+      <SelectedDifferentialsPanel candidates={candidates} />
+      <HighestUrgencyPanel candidates={candidates} />
+      <ReviewPanel />
+      <CopyAfterReviewPanel text={comparisonCopy(selectedCandidates)} />
+      <SourceStatusPanel />
+    </>
+  );
+}
+
 function SourceStatusPanel() {
   const status = acuteConfusionPresentationWorkflow.sourceStatus;
   return (
@@ -454,7 +482,7 @@ function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; i
 function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
   const selected = candidates.filter((candidate) => candidate.selected);
   return (
-    <section className="grid gap-3 xl:hidden" aria-label="Mobile differential comparison">
+    <section className="grid gap-3 md:hidden" aria-label="Mobile differential comparison">
       <div className="grid grid-cols-[minmax(0,1fr)_3rem] gap-2">
         <button
           type="button"
@@ -481,17 +509,10 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
           <MobileCandidateCard key={candidate.record.slug} candidate={candidate} index={index} />
         ))}
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
-        <Link
-          href="/differentials/presentations"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
-        >
-          <GitCompareArrows className="h-4 w-4" aria-hidden />
-          Compare ({acuteConfusionPresentationWorkflow.selectedCount} selected)
-        </Link>
+      <div className="fixed inset-x-0 bottom-0 z-30 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
         <CopyAfterReviewButton
           text={comparisonCopy(candidates)}
-          className="min-h-11 bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
+          className="w-full min-h-11 bg-[color:var(--surface)] px-2 !text-sm !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)]"
         />
       </div>
     </section>
@@ -529,12 +550,11 @@ function MobileTabs() {
 export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: string }) {
   const workflow = acuteConfusionPresentationWorkflow;
   const candidates = getCandidates();
-  const selectedCandidates = candidates.filter((candidate) => candidate.selected);
 
   return (
     <main
       data-testid="differential-presentation-page"
-      className="min-h-[calc(100dvh-4rem)] overflow-x-hidden bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 xl:px-7 xl:pb-8 xl:pt-6"
+      className="min-h-[calc(100dvh-4rem)] overflow-x-hidden bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
     >
       <div className="mx-auto grid w-full max-w-[94rem] gap-5 xl:grid-cols-[minmax(0,1fr)_23.5rem]">
         <div className="min-w-0">
@@ -605,23 +625,21 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
           </section>
 
           <MobileTabs />
+          {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then
+              the review panels reflow into a grid below — no fixed side rail. */}
+          <div className="mb-4 hidden md:block xl:hidden">
+            <SafetySnapshot />
+          </div>
           <DesktopComparisonTable candidates={candidates} />
           <MobileComparison candidates={candidates} />
+          <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
+            <ReviewPanels candidates={candidates} />
+          </div>
         </div>
 
         <aside className="hidden min-w-0 gap-4 xl:grid" aria-label="Differential review sidebar">
           <SafetySnapshot />
-          <SelectedDifferentialsPanel candidates={candidates} />
-          <HighestUrgencyPanel candidates={candidates} />
-          <ReviewPanel />
-          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-            <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Copy after review</h2>
-            <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-              Create a concise comparison summary for documentation or handoff.
-            </p>
-            <CopyAfterReviewButton text={comparisonCopy(selectedCandidates)} className="mt-3 w-full" />
-          </section>
-          <SourceStatusPanel />
+          <ReviewPanels candidates={candidates} />
         </aside>
       </div>
 

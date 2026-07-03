@@ -19,8 +19,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Cloud,
-  Copy,
   FileText,
   Filter,
   Globe2,
@@ -34,7 +32,6 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
-  AlertCircle,
   ArrowLeft,
   X,
   Lock,
@@ -199,7 +196,6 @@ export function MasterSearchHeader({
   mobileSearchPlacement = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
-  workflowCopyText,
   desktopHomeComposerSlotId,
   heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
@@ -237,7 +233,6 @@ export function MasterSearchHeader({
   mobileSearchPlacement?: "default" | "bottom";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
-  workflowCopyText?: string;
   desktopHomeComposerSlotId?: string;
   /** Portal the composer into the hero slot from the tablet breakpoint (sm) up,
    *  rather than the default desktop (lg) breakpoint. */
@@ -1229,20 +1224,6 @@ export function MasterSearchHeader({
           <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
             {isWorkflowHeader ? (
               <>
-                <div className="hidden min-w-0 items-center gap-2 xl:flex">
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                    <CheckCircle2 className="h-4 w-4" aria-hidden />
-                    Local only
-                  </span>
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                    <Cloud className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-                    Offline ready
-                  </span>
-                  <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 text-xs font-extrabold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
-                    <AlertCircle className="h-4 w-4" aria-hidden />
-                    Source pending review
-                  </span>
-                </div>
                 <button
                   type="button"
                   className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
@@ -1260,16 +1241,6 @@ export function MasterSearchHeader({
                   title="New comparison"
                 >
                   <Plus className="h-5 w-5" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (workflowCopyText) void navigator.clipboard?.writeText(workflowCopyText);
-                  }}
-                  className="hidden min-h-11 items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:inline-flex"
-                >
-                  <Copy className="h-4 w-4" aria-hidden />
-                  Copy after review
                 </button>
               </>
             ) : null}

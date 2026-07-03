@@ -402,12 +402,6 @@ function HeaderChrome() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden rounded-lg border border-[color:var(--success)]/20 bg-[color:var(--success-soft)] px-3 py-2 text-xs font-bold text-[color:var(--success)] sm:inline-flex">
-            Local only
-          </span>
-          <span className="hidden rounded-lg border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-bold text-[color:var(--warning)] sm:inline-flex">
-            Source pending review
-          </span>
           <button
             className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
             aria-label="New item"
