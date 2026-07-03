@@ -23,7 +23,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -311,6 +311,58 @@ function ToolCard({ tool, suggested = false }: { tool: ToolFixture; suggested?: 
   );
 }
 
+function SelectableToolCard({
+  tool,
+  selected = false,
+  suggested = false,
+  onSelect,
+}: {
+  tool: ToolFixture;
+  selected?: boolean;
+  suggested?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={cn(
+        "flex min-w-0 max-w-full flex-col rounded-md border bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
+        selected || suggested
+          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
+          : "border-[color:var(--border)]",
+        focusRing,
+      )}
+    >
+      <div className="flex flex-1 items-start gap-3">
+        <ToolIcon tool={tool} />
+        <div className="min-w-0 flex-1">
+          <div className="grid gap-2">
+            <h3 className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{tool.title}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {suggested ? <SuggestedBadge /> : null}
+              <StatusPill status={tool.status} />
+              {tool.sourceBacked ? <SourceBackedBadge compact /> : null}
+            </div>
+          </div>
+          <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+            {tool.description}
+          </p>
+          <p className="mt-2 truncate text-xs font-bold text-[color:var(--text-soft)]">{tool.secondary}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="nums truncate text-xs font-semibold text-[color:var(--text-muted)]">{tool.lastUsed}</span>
+        <span className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]">
+          Preview
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
 function StatsStrip() {
   const stats = [
     { label: "Tools", value: String(tools.length), icon: Grid2X2 },
@@ -543,12 +595,19 @@ function PhoneBrowserPreview({
   title,
   toolIds,
   mode = "launch",
+  selectedTool,
+  onSelectTool,
+  onBackToDirectory,
 }: {
   title: string;
   toolIds: string[];
   mode?: "launch" | "workflow" | "directory";
+  selectedTool?: ToolFixture;
+  onSelectTool?: (tool: ToolFixture) => void;
+  onBackToDirectory?: () => void;
 }) {
   const featured = toolIds.map(toolById);
+  const SelectedIcon = selectedTool?.icon;
 
   return (
     <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
@@ -574,93 +633,170 @@ function PhoneBrowserPreview({
             </span>
           </div>
           <div className="space-y-3 p-3">
-            <div className="grid min-h-10 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2">
-              <Search className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
-              <span className="truncate text-xs font-bold text-[color:var(--text-soft)]">Search tools</span>
-              <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            </div>
+            {selectedTool && SelectedIcon ? (
+              <div className="grid gap-3">
+                <button
+                  type="button"
+                  onClick={onBackToDirectory}
+                  className={cn(
+                    "inline-flex min-h-9 w-fit items-center gap-1 rounded-md px-1 text-xs font-bold text-[color:var(--clinical-accent)]",
+                    focusRing,
+                  )}
+                >
+                  <ArrowRight className="h-3.5 w-3.5 rotate-180" aria-hidden="true" />
+                  All tools
+                </button>
 
-            {mode === "workflow" ? (
-              <div className="grid grid-cols-2 gap-2">
-                {["Assess", "Reference", "Treat", "Coordinate"].map((label) => (
-                  <span
-                    key={label}
-                    className="grid min-h-12 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-xs font-extrabold text-[color:var(--text-heading)]"
+                <section className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+                  <AccentIconTile icon={SelectedIcon} className="h-10 w-10" />
+                  <h3 className="mt-3 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
+                    {selectedTool.title}
+                  </h3>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
+                    {selectedTool.description}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <StatusPill status={selectedTool.status} />
+                    {selectedTool.sourceBacked ? <SourceBackedBadge compact /> : null}
+                  </div>
+                  <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
+                    <div>
+                      <dt className="text-3xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                        Best for
+                      </dt>
+                      <dd className="mt-0.5 text-xs font-bold leading-4 text-[color:var(--text-heading)]">
+                        {selectedTool.secondary}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-3xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                        Last used
+                      </dt>
+                      <dd className="mt-0.5 text-xs font-bold text-[color:var(--text-heading)]">
+                        {selectedTool.lastUsed}
+                      </dd>
+                    </div>
+                  </dl>
+                  <Link
+                    href={selectedTool.href}
+                    className={cn(
+                      "mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
+                      focusRing,
+                    )}
                   >
-                    {label}
-                  </span>
-                ))}
+                    Open {selectedTool.primaryAction.toLowerCase()}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </section>
+
+                <RecentWorkList compact title="Related work" />
               </div>
             ) : null}
 
-            <div className={cn("grid gap-2", mode === "directory" && "rounded-md border border-[color:var(--border)]")}>
-              {featured.map((tool, index) => {
-                const Icon = tool.icon;
-                return (
-                  <Link
-                    key={tool.id}
-                    href={tool.href}
-                    className={cn(
+            {!selectedTool ? (
+              <>
+                <div className="grid min-h-10 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2">
+                  <Search className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
+                  <span className="truncate text-xs font-bold text-[color:var(--text-soft)]">Search tools</span>
+                  <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                </div>
+
+                {mode === "workflow" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {["Assess", "Reference", "Treat", "Coordinate"].map((label) => (
+                      <span
+                        key={label}
+                        className="grid min-h-12 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-xs font-extrabold text-[color:var(--text-heading)]"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div
+                  className={cn("grid gap-2", mode === "directory" && "rounded-md border border-[color:var(--border)]")}
+                >
+                  {featured.map((tool, index) => {
+                    const Icon = tool.icon;
+                    const interactive = typeof onSelectTool === "function";
+                    const rowClassName = cn(
                       "grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-[color:var(--surface)] px-2 text-left shadow-[var(--shadow-inset)]",
                       mode === "directory" && "rounded-none border-t border-[color:var(--border)] first:border-t-0",
                       index === 0 && mode !== "directory" && "border border-[color:var(--clinical-accent-border)]",
                       focusRing,
-                    )}
-                  >
-                    <AccentIconTile icon={Icon} className="h-8 w-8" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-extrabold text-[color:var(--text-heading)]">
-                        {tool.title}
-                      </span>
-                      <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                        {areaLabels[tool.area]}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      {tool.sourceBacked ? (
-                        <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--success)]" aria-label="Source-backed" />
-                      ) : null}
-                      <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
+                    );
+                    const rowContent = (
+                      <>
+                        <AccentIconTile icon={Icon} className="h-8 w-8" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-extrabold text-[color:var(--text-heading)]">
+                            {tool.title}
+                          </span>
+                          <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                            {areaLabels[tool.area]}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          {tool.sourceBacked ? (
+                            <ShieldCheck
+                              className="h-3.5 w-3.5 text-[color:var(--success)]"
+                              aria-label="Source-backed"
+                            />
+                          ) : null}
+                          <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                        </span>
+                      </>
+                    );
 
-            <div className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)]">
-              <div className="flex min-h-8 items-center justify-between border-b border-[color:var(--border)] px-2">
-                <span className="text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-                  Recent work
-                </span>
-                <span className="text-2xs font-bold text-[color:var(--clinical-accent)]">View</span>
-              </div>
-              <div className="divide-y divide-[color:var(--border)]">
-                {recentWork.slice(0, 2).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.title}
-                      href="/favourites"
-                      className={cn(
-                        "grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2",
-                        focusRing,
-                      )}
-                    >
-                      <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-                      <span className="min-w-0">
-                        <span className="block truncate text-2xs font-extrabold text-[color:var(--text-heading)]">
-                          {item.title}
-                        </span>
-                        <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                          {item.area}
-                        </span>
-                      </span>
-                      <ArrowRight className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+                    return interactive ? (
+                      <button key={tool.id} type="button" onClick={() => onSelectTool(tool)} className={rowClassName}>
+                        {rowContent}
+                      </button>
+                    ) : (
+                      <Link key={tool.id} href={tool.href} className={rowClassName}>
+                        {rowContent}
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)]">
+                  <div className="flex min-h-8 items-center justify-between border-b border-[color:var(--border)] px-2">
+                    <span className="text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                      Recent work
+                    </span>
+                    <span className="text-2xs font-bold text-[color:var(--clinical-accent)]">View</span>
+                  </div>
+                  <div className="divide-y divide-[color:var(--border)]">
+                    {recentWork.slice(0, 2).map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.title}
+                          href="/favourites"
+                          className={cn(
+                            "grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2",
+                            focusRing,
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-2xs font-extrabold text-[color:var(--text-heading)]">
+                              {item.title}
+                            </span>
+                            <span className="block truncate text-3xs font-semibold text-[color:var(--text-soft)]">
+                              {item.area}
+                            </span>
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
@@ -917,6 +1053,9 @@ const splitPaneFilters: { id: ToolFilterId; label: string; icon: LucideIcon }[] 
 function SplitPaneMockup() {
   const filter = useToolFilter(tools);
   const suggestedId = "services";
+  const [selectedToolId, setSelectedToolId] = useState(suggestedId);
+  const selectedTool = selectedToolId ? toolById(selectedToolId) : undefined;
+  const overviewToolIds = ["clinical-kb-search", suggestedId, "medication-prescribing", "favourites"];
 
   return (
     <>
@@ -995,13 +1134,21 @@ function SplitPaneMockup() {
                     <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Launcher overview</h2>
                   </div>
                   <p className="max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Filters sit beside the overview, while the full-width All tools view below carries the main browsing
-                    weight.
+                    Choose a tool to preview its purpose and recent context in the phone frame before opening it.
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {["clinical-kb-search", suggestedId, "medication-prescribing", "favourites"].map((id) => (
-                      <ToolCard key={id} tool={toolById(id)} suggested={id === suggestedId} />
-                    ))}
+                    {overviewToolIds.map((id) => {
+                      const tool = toolById(id);
+                      return (
+                        <SelectableToolCard
+                          key={id}
+                          tool={tool}
+                          selected={selectedToolId === id}
+                          suggested={id === suggestedId}
+                          onSelect={() => setSelectedToolId(id)}
+                        />
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -1012,6 +1159,9 @@ function SplitPaneMockup() {
             title="Pocket directory"
             toolIds={["clinical-kb-search", "documents", "differentials", suggestedId, "forms", "favourites"]}
             mode="directory"
+            selectedTool={selectedTool}
+            onSelectTool={(tool) => setSelectedToolId(tool.id)}
+            onBackToDirectory={() => setSelectedToolId("")}
           />
         </section>
 

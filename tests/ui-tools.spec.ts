@@ -236,6 +236,13 @@ test.describe("Clinical KB applications launcher", () => {
       expect(headingBox).not.toBeNull();
       expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+      if (home.path === "/forms") {
+        await expect(page.getByRole("button", { name: "Open source scope" })).toHaveCount(0);
+        await page.getByRole("button", { name: "Open the form library" }).click();
+        await expect(page).toHaveURL(/\/forms$/);
+        await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
+        await expect(page.getByTestId("form-search-results")).toHaveCount(0);
+      }
       await expectNoPageHorizontalOverflow(page);
     }
   });
