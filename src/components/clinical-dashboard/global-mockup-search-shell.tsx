@@ -149,10 +149,7 @@ function GlobalMockupSearchShellClient({
 
   useEffect(() => {
     if (!requestedFocus) return undefined;
-    const shouldApplyFocus = (activeElement: Element | null) =>
-      !activeElement || activeElement === document.body || activeElement === document.documentElement;
     const focusInput = () => {
-      if (!shouldApplyFocus(document.activeElement)) return;
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);

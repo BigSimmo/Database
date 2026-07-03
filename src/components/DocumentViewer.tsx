@@ -2358,7 +2358,7 @@ export function DocumentViewer({
 
   return (
     <main
-      id="main-content"
+      id="document-viewer-main"
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >

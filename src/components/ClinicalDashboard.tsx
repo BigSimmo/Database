@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   AlertCircle,
@@ -3077,10 +3077,12 @@ function ToolsHub({
   query,
   onQueryChange,
   desktopComposerSlotId,
+  showDetailPanel,
 }: {
   query: string;
   onQueryChange: (nextQuery: string) => void;
   desktopComposerSlotId?: string;
+  showDetailPanel?: boolean;
 }) {
   return (
     <ApplicationsLauncherWorkspace
@@ -3088,6 +3090,7 @@ function ToolsHub({
       query={query}
       onQueryChange={onQueryChange}
       desktopComposerSlotId={desktopComposerSlotId}
+      showDetailPanel={showDetailPanel}
     />
   );
 }
@@ -3540,6 +3543,7 @@ export function ClinicalDashboard({
   autoRunSearch = false,
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -3549,6 +3553,7 @@ export function ClinicalDashboard({
   const nextWorkStatePollRef = useRef(0);
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
+  const lastSyncedSearchParamsRef = useRef(searchParams.toString());
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const indexedDocumentTotal = documentsPagination?.total ?? documents.length;
@@ -3571,6 +3576,7 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
+  const requestedRun = searchParams.get("run") === "1";
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
   // unchanged and the registry is fetched once per active mode.
@@ -4268,6 +4274,31 @@ export function ClinicalDashboard({
   }, [focusSearch]);
 
   useEffect(() => {
+    const searchParamString = searchParams.toString();
+    if (lastSyncedSearchParamsRef.current === searchParamString) return;
+    lastSyncedSearchParamsRef.current = searchParamString;
+    if (searchParams.get("run") === "1") return;
+
+    const mode = searchParams.get("mode");
+    if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
+
+    const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
+    const shouldFocusComposer = searchParams.get("focus") === "1";
+    const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
+    const frame = window.requestAnimationFrame(() => {
+      if (mode === "differentials") clearDifferentialModeResultState();
+      setSearchMode(mode);
+      if (hasUrlQuery) setQuery(nextQuery);
+      setModeSearchSubmitted(false);
+      setLoading(false);
+      setError(null);
+      setAnswerProgress(null);
+      if (shouldFocusComposer) focusComposerInput();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
@@ -4663,7 +4694,8 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    if (!autoRunSearch || !trimmedQuery || !canRunSearch || loading) return;
+    const canAutoRunMode = searchMode === "prescribing" || canRunSearch;
+    if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
@@ -5579,7 +5611,12 @@ export function ClinicalDashboard({
                   }}
                 />
               ) : activeModeResultKind === "tools" ? (
-                <ToolsHub query={query} onQueryChange={setQuery} desktopComposerSlotId={desktopHomeComposerSlotId} />
+                <ToolsHub
+                  query={query}
+                  onQueryChange={setQuery}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                  showDetailPanel={!requestedRun}
+                />
               ) : activeModeResultKind === "favourites" ? (
                 <FavouritesHub
                   query={query}
@@ -5603,7 +5640,7 @@ export function ClinicalDashboard({
                     apiUnavailable={false}
                     setupWarning={null}
                     onSuggestedSearch={setMedicationSearchQuery}
-                    showHome={!modeSearchSubmitted}
+                    showHome={!query.trim() && !modeSearchSubmitted}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
                 ) : (
