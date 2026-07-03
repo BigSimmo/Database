@@ -19,7 +19,7 @@ export type ModeHomePill = {
   href?: string;
   onClick?: () => void;
   icon?: LucideIcon;
-  tone?: "teal" | "primary" | "danger" | "info" | "success" | "neutral" | "purple";
+  tone?: "danger" | "info" | "success" | "neutral" | "primary" | "purple" | "indigo" | "rose" | "slate";
 };
 
 type ModeHomeTemplateProps = {
@@ -39,13 +39,18 @@ type ModeHomeTemplateProps = {
 };
 
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
+  // Semantic roles — genuine status pills only.
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
-  neutral: "bg-[color:var(--text-soft)]",
-  primary: "bg-[color:var(--clinical-accent)]",
-  purple: "bg-[color:var(--tone-purple)]",
   success: "bg-[color:var(--success)]",
-  teal: "bg-[color:var(--clinical-accent)]",
+  neutral: "bg-[color:var(--text-soft)]",
+  // Brand accent — featured emphasis, not a taxonomy colour.
+  primary: "bg-[color:var(--clinical-accent)]",
+  // Categorical scale — taxonomy/pathway dots, role-pure.
+  purple: "bg-[color:var(--tone-purple)]",
+  indigo: "bg-[color:var(--tone-indigo)]",
+  rose: "bg-[color:var(--tone-rose)]",
+  slate: "bg-[color:var(--tone-slate)]",
 };
 
 export function ModeHomeHero({
