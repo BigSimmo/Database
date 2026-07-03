@@ -256,7 +256,10 @@ export function MasterSearchHeader({
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
-    selectedSearch.kind === "services" || selectedSearch.kind === "tools" || selectedSearch.kind === "favourites";
+    searchMode === "forms" ||
+    selectedSearch.kind === "services" ||
+    selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "favourites";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;

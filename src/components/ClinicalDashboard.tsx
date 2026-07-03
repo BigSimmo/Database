@@ -4557,12 +4557,16 @@ export function ClinicalDashboard({
     if (isDifferentialsMode) clearDifferentialModeResultState();
 
     if (modeSearch.kind === "tools") {
+      setLoading(false);
+      setAnswerProgress(null);
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Tools filtered from the composer." });
       return;
     }
     if (modeSearch.kind === "favourites") {
+      setLoading(false);
+      setAnswerProgress(null);
       setError(null);
       rememberRecentQuery(trimmedQuery);
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });

@@ -547,7 +547,9 @@ function SourceStatusCard({
             {hasSourceEvidence ? workflow.sourceStatus.label : "Run source search"}
           </span>
           <span className="text-[color:var(--text-muted)]">
-            {hasSourceEvidence ? "312 sources" : "Not yet checked"}
+            {hasSourceEvidence
+              ? `${sourceCount.toLocaleString()} source${sourceCount === 1 ? "" : "s"}`
+              : "Not yet checked"}
           </span>
         </p>
       </div>
@@ -771,7 +773,7 @@ function SearchResultsView({
             ) : null}
           </div>
 
-          <div className="grid gap-2 max-sm:mt-72">
+          <div className="grid gap-2">
             {results.map((result, index) => (
               <div key={result.id}>
                 <div className="hidden lg:block">
