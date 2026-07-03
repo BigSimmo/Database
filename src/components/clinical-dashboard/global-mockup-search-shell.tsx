@@ -128,6 +128,9 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
+  const effectiveSidebarWidth = effectiveSidebarCollapsed ? "5.25rem" : "20rem";
+  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -252,18 +255,19 @@ function GlobalMockupSearchShellClient({
     <div
       className={cn(
         "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] lg:grid",
-        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
-          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width": effectiveSidebarWidth,
         } as CSSProperties
       }
     >
       <div className="hidden lg:block">
         <div className="sticky top-0 flex h-dvh min-h-0">
           <ClinicalDesktopSidebar
-            collapsed={sidebarCollapsed}
+            collapsed={effectiveSidebarCollapsed}
+            collapseLocked={isDifferentialPresentationWorkflow}
             recentQueries={recentQueries}
             identity={sidebarIdentity}
             activeMode={searchMode}
@@ -316,13 +320,14 @@ function GlobalMockupSearchShellClient({
           desktopSearchPlacement={
             (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
           }
-          searchComposerVisible={searchComposerVisible && !isDifferentialPresentationWorkflow}
+          searchComposerVisible={shouldShowSearchComposer}
           workflowCopyText={
             isDifferentialPresentationWorkflow
               ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
               : undefined
           }
           desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+          heroComposerFromTablet={isStandaloneModeHome}
         />
 
         <div
@@ -330,7 +335,7 @@ function GlobalMockupSearchShellClient({
           tabIndex={-1}
           className={cn(
             "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden focus:outline-none",
-            !searchComposerVisible
+            !shouldShowSearchComposer
               ? "pb-8"
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"

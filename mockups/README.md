@@ -23,6 +23,9 @@ were removed in July 2026 so stale palettes do not mislead future design review 
 - `settings-search-general` - runnable mockup only, in `src/app/mockups/settings-search-general/page.tsx`
 - `settings-search-clinical` - runnable mockup only, in `src/app/mockups/settings-search-clinical/page.tsx`
 - `settings-search-privacy` - runnable mockup only, in `src/app/mockups/settings-search-privacy/page.tsx`
+- `favourites-command-desk` - runnable mockup only, in `src/app/mockups/favourites-command-desk/page.tsx`
+- `favourites-set-board` - runnable mockup only, in `src/app/mockups/favourites-set-board/page.tsx`
+- `favourites-library-view` - runnable mockup only, in `src/app/mockups/favourites-library-view/page.tsx`
 
 ## App routes
 
@@ -41,6 +44,9 @@ The runnable versions remain in the Next.js app route tree:
 - `/mockups/settings-search-general`
 - `/mockups/settings-search-clinical`
 - `/mockups/settings-search-privacy`
+- `/mockups/favourites-command-desk`
+- `/mockups/favourites-set-board`
+- `/mockups/favourites-library-view`
 
 Favourites now lives in the live dashboard flow at `/?mode=favourites`; `/mockups/favourites-hub` redirects there for old links.
 
@@ -50,6 +56,7 @@ New runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB he
 `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
+- Tool and favourites mockups keep the shared app header but hide the bottom composer because they provide their own primary search surface.
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.

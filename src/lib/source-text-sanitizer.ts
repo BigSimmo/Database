@@ -6,6 +6,7 @@ const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g
 // bookkeeping that must never render or be copied.
 const omittedImageDataBlockPattern = /\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
 const omittedImageDataMarkerPattern = /\[\[\/?IMAGE_DATA_OMITTED\]\]/g;
+const evidenceFenceSentinelPattern = /<<<(?:END_)?[A-Z][A-Z0-9_]{0,63}>>>/g;
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;
@@ -386,6 +387,47 @@ export function sourceTextForModel(text: string) {
         .replace(internalImageMetadataPattern, " "),
     ),
   );
+}
+
+export function neutralizePromptInstructions(text: string): string {
+  let cleaned = text;
+  cleaned = cleaned.replace(
+    /\b(?:ignore|disregard|override|forget)\s+(?:all\s+)?(?:(?:previous|prior|above)\s+)?instructions?(?:\s+and\s+\w+(?:\s+\d+\s+\w+)?)?/gi,
+    "[neutralized-instruction: source instruction removed]",
+  );
+  cleaned = cleaned.replace(
+    /\byou\s+are\s+now\s+an?\s+(?:unrestricted|jailbroken|assistant)(?:\s+\w+){0,3}/gi,
+    "[neutralized-instruction: source role-change removed]",
+  );
+  cleaned = cleaned.replace(
+    /\b(?:system|developer)\s+(?:prompt|message|instruction)s?\b/gi,
+    "[neutralized-instruction: privileged instruction reference removed]",
+  );
+  cleaned = cleaned.replace(
+    /\b(?:reveal|print|expose|show|leak|return)\s+(?:the\s+)?(?:api\s+key|secret|token|system\s+prompt|developer\s+message|developer\s+instructions?)\b/gi,
+    "[neutralized-instruction: secret-exfiltration request removed]",
+  );
+  cleaned = cleaned.replace(
+    /\bfollow\s+(?:these|the|this)\s+instructions?\b/gi,
+    "[neutralized-instruction: source instruction removed]",
+  );
+  cleaned = cleaned.replace(/\bdo\s+not\s+answer\b/gi, "[neutralized-instruction: answer-suppression request removed]");
+  return cleaned;
+}
+
+export function sourceTextForModelEvidence(text: string) {
+  return neutralizePromptInstructions(sourceTextForModel(text));
+}
+
+export function escapeEvidenceFenceSentinels(text: string) {
+  return text.replace(evidenceFenceSentinelPattern, (sentinel) => {
+    const label = sentinel.slice(3, -3);
+    return `[escaped-evidence-fence: ${label}]`;
+  });
+}
+
+export function fenceSourceEvidence(text: string, kind = "SOURCE_EXCERPT") {
+  return `<<<${kind}>>>\n${escapeEvidenceFenceSentinels(text)}\n<<<END_${kind}>>>`;
 }
 
 export function sourceTextForDisplay(text: string) {

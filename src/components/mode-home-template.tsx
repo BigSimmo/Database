@@ -101,7 +101,11 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        "grid min-h-[calc(100dvh-4rem)] place-items-center bg-[color:var(--background)] px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:px-6 sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8 lg:pb-[clamp(1.75rem,5vh,3.25rem)]",
+        // Phone: content is vertically centred (not bottom-anchored) so the page
+        // no longer collapses all its slack into a void above the hero. Bottom
+        // padding still reserves room for the fixed mobile composer. From sm up
+        // the composer moves into the hero, so the reserved space drops away.
+        "grid min-h-[calc(100dvh-4rem)] items-center justify-items-center bg-[color:var(--background)] px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
         className,
       )}
     >
@@ -198,13 +202,13 @@ export function ModeHomeTemplate({
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
+        <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] sm:[&:not(:empty)]:block" />
       ) : null}
 
       {actions.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
+          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
@@ -214,7 +218,7 @@ export function ModeHomeTemplate({
                   <ActionIcon className="h-5 w-5 sm:h-7 sm:w-7" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] sm:text-[1.05rem]">
+                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-[1.05rem]">
                     {action.title}
                   </span>
                   <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.9rem] sm:leading-6">
@@ -266,7 +270,7 @@ export function ModeHomeTemplate({
               )}
             >
               {pillsTitle ? (
-                <h3 className="text-base font-bold text-[color:var(--text-heading)] sm:text-lg">{pillsTitle}</h3>
+                <h2 className="text-base font-bold text-[color:var(--text-heading)] sm:text-lg">{pillsTitle}</h2>
               ) : (
                 <span />
               )}

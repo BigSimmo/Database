@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   BookOpen,
   BrainCircuit,
-  ChevronDown,
   ClipboardList,
   FileText,
   Heart,
@@ -45,6 +44,10 @@ export function deriveSidebarIdentity(email: string | null | undefined): Sidebar
   const displayName =
     parts.length > 0 ? parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") : normalized;
   return { displayName, initials, detail: normalized, signedIn: true };
+}
+
+function accountProfileLabel(identity: SidebarIdentity) {
+  return `${identity.initials} ${identity.displayName} ${identity.detail}. Open account profile`;
 }
 
 const sidebarToolItems = [
@@ -100,6 +103,7 @@ export function ClinicalSidebarContent({
   const visibleRecentQueries = matchingRecentQueries.slice(0, 5);
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const nextThemeLabel = theme === "dark" ? "Light mode" : "Dark mode";
+  const accountLabel = accountProfileLabel(identity);
 
   return (
     <div className="clinical-sidebar-content flex min-h-0 min-w-0 flex-1 flex-col gap-4">
@@ -114,7 +118,7 @@ export function ClinicalSidebarContent({
           <button
             type="button"
             onClick={() => onCollapsedChange?.(true)}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             aria-label="Collapse sidebar"
             title="Collapse sidebar"
           >
@@ -129,7 +133,7 @@ export function ClinicalSidebarContent({
           onNewChat();
           onNavigate?.();
         }}
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
         <MessageSquarePlus className="h-4 w-4" />
         New chat
@@ -149,9 +153,7 @@ export function ClinicalSidebarContent({
 
       <section className="min-w-0">
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Recent chats
-          </p>
+          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Recent chats</p>
         </div>
         <div className="grid gap-1">
           {visibleRecentQueries.length ? (
@@ -191,7 +193,7 @@ export function ClinicalSidebarContent({
 
       <section>
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
+          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {sidebarToolItems.map((item) => {
@@ -224,17 +226,6 @@ export function ClinicalSidebarContent({
             );
           })}
         </div>
-        <Link
-          href="/?mode=tools"
-          prefetch
-          onFocus={onPrefetchApplications}
-          onPointerEnter={onPrefetchApplications}
-          onClick={onNavigate}
-          className="mt-2 inline-flex min-h-10 w-full items-center justify-between rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]"
-        >
-          View tools
-          <ChevronDown className="-rotate-90 h-4 w-4" />
-        </Link>
       </section>
 
       <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
@@ -277,7 +268,7 @@ export function ClinicalSidebarContent({
           }}
           data-testid="sidebar-account-settings"
           className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
+          aria-label={accountLabel}
         >
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)]">
             {identity.initials}
@@ -299,6 +290,7 @@ export function ClinicalSidebarContent({
 
 export function ClinicalDesktopSidebar({
   collapsed,
+  collapseLocked = false,
   recentQueries,
   identity,
   activeMode,
@@ -312,6 +304,7 @@ export function ClinicalDesktopSidebar({
   onPrefetchApplications,
 }: {
   collapsed: boolean;
+  collapseLocked?: boolean;
   recentQueries: string[];
   identity: SidebarIdentity;
   activeMode: AppModeId;
@@ -325,6 +318,7 @@ export function ClinicalDesktopSidebar({
   onPrefetchApplications: () => void;
 }) {
   const CollapsedThemeIcon = theme === "dark" ? Sun : Moon;
+  const accountLabel = accountProfileLabel(identity);
 
   if (collapsed) {
     return (
@@ -333,16 +327,27 @@ export function ClinicalDesktopSidebar({
         className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] lg:flex lg:w-[5.25rem] lg:flex-col lg:items-center"
       >
         <div className="grid w-full justify-items-center gap-2 px-3">
-          <button
-            type="button"
-            onClick={() => onCollapsedChange(false)}
-            className={cn(collapsedSidebarButton, "group")}
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-          >
-            <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
-            <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
-          </button>
+          {collapseLocked ? (
+            <Link
+              href="/differentials"
+              className={cn(collapsedSidebarButton, activeMode === "differentials" && collapsedSidebarActiveButton)}
+              aria-label="Differentials home"
+              title="Differentials"
+            >
+              <BrandMark className="h-7 w-7" />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onCollapsedChange(false)}
+              className={cn(collapsedSidebarButton, "group")}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
+              <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
+            </button>
+          )}
           <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
         </div>
 
@@ -358,7 +363,7 @@ export function ClinicalDesktopSidebar({
           </button>
           <button
             type="button"
-            onClick={() => onCollapsedChange(false)}
+            onClick={collapseLocked ? onNewChat : () => onCollapsedChange(false)}
             className={cn(collapsedSidebarButton, activeMode === "answer" && collapsedSidebarActiveButton)}
             aria-label="Search chats"
             title="Search chats"
@@ -448,7 +453,7 @@ export function ClinicalDesktopSidebar({
           data-testid="collapsed-account-settings"
           className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           title={identity.detail}
-          aria-label={identity.signedIn ? `Open account profile for ${identity.detail}` : "Open account profile"}
+          aria-label={accountLabel}
         >
           {identity.initials}
         </button>

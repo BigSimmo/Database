@@ -39,14 +39,14 @@ Static badges must not look clickable. Interactive chips must use proper button 
 
 Use six top-level tones only. Do not add more badge colours.
 
-| Tone            | Meaning                                      | Examples                                                                          | Do not use for                           |
-| --------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------- |
-| Neutral / slate | Reference metadata and passive facts         | `333 mg EC tablet`, `Item 8357W`, `Campral`, `p.4`, `PDF`, `Max 1,998 mg/day`     | Urgent risks, actions, or trust state    |
-| Clinical / teal | Action to take                               | `666 mg TID`, `Monitor renal`, `Take with food`, `Check baseline`                 | Verified/current/source-backed state     |
-| Success / green | Confirmed, current, available, source-backed | `Reviewed`, `Current`, `Source-backed`, `PBS streamlined`, `Completed`            | Clinical safety decisions                |
-| Warning / amber | Pause, check, adjust, uncertain, limited     | `Reduce <60 kg`, `Review due`, `Partial support`, `Limited evidence`, `Avoid >65` | Hard stops or contraindications          |
-| Danger / red    | Stop, avoid, failed, unsafe                  | `Cr >120 avoid`, `Contraindicated`, `Outdated`, `Failed`, `Do not use`            | Routine adverse effects or mild cautions |
-| Info / blue     | System or process information                | `Processing`, `Syncing`, `Pending`, `Importing`                                   | Core clinical meaning                    |
+| Tone              | Meaning                                      | Examples                                                                          | Do not use for                           |
+| ----------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------- |
+| Neutral / slate   | Reference metadata and passive facts         | `333 mg EC tablet`, `Item 8357W`, `Campral`, `p.4`, `PDF`, `Max 1,998 mg/day`     | Urgent risks, actions, or trust state    |
+| Clinical / Aegean | Action to take                               | `666 mg TID`, `Monitor renal`, `Take with food`, `Check baseline`                 | Verified/current/source-backed state     |
+| Success / green   | Confirmed, current, available, source-backed | `Reviewed`, `Current`, `Source-backed`, `PBS streamlined`, `Completed`            | Clinical safety decisions                |
+| Warning / amber   | Pause, check, adjust, uncertain, limited     | `Reduce <60 kg`, `Review due`, `Partial support`, `Limited evidence`, `Avoid >65` | Hard stops or contraindications          |
+| Danger / red      | Stop, avoid, failed, unsafe                  | `Cr >120 avoid`, `Contraindicated`, `Outdated`, `Failed`, `Do not use`            | Routine adverse effects or mild cautions |
+| Info / blue       | System or process information                | `Processing`, `Syncing`, `Pending`, `Importing`                                   | Core clinical meaning                    |
 
 Do not add purple, pink, orange, cyan, or extra medication-specific badge colours. Orange collapses into amber. Purple should not be used for clinical badges because it reads as product or AI styling rather than clinical meaning.
 
@@ -54,7 +54,7 @@ Do not add purple, pink, orange, cyan, or extra medication-specific badge colour
 
 Green means trusted, current, reviewed, available, or source-backed. It does not mean clinically safe.
 
-Teal means a clinical action or instruction. It does not mean good, safe, or verified.
+The clinical accent (Aegean blue-teal) means a clinical action or instruction. It does not mean good, safe, or verified.
 
 Amber means pause, check, adjust, review, or interpret with caution.
 
@@ -402,14 +402,14 @@ Avoid code-facing colour names such as `green`, `red`, `amber`, or `slate` for n
 
 Map semantic tones to existing tokens:
 
-| Semantic tone | Existing style direction            |
-| ------------- | ----------------------------------- |
-| `neutral`     | `toneNeutral` / metadata pill       |
-| `clinical`    | clinical teal token                 |
-| `success`     | `toneSuccess`                       |
-| `warning`     | `toneWarning` or `toneWarningQuiet` |
-| `danger`      | `toneDanger`                        |
-| `info`        | `toneInfo`                          |
+| Semantic tone | Existing style direction                    |
+| ------------- | ------------------------------------------- |
+| `neutral`     | `toneNeutral` / metadata pill               |
+| `clinical`    | clinical accent token (`--clinical-accent`) |
+| `success`     | `toneSuccess`                               |
+| `warning`     | `toneWarning` or `toneWarningQuiet`         |
+| `danger`      | `toneDanger`                                |
+| `info`        | `toneInfo`                                  |
 
 ## Accessibility Requirements
 
@@ -476,7 +476,7 @@ Avoid:
 - badge every answer bullet
 - use green for "safe"
 - use red for routine side effects
-- use teal for verified/current
+- use the clinical accent for verified/current
 - use blue for clinical action
 - add purple for AI
 - add orange beside amber

@@ -5,7 +5,8 @@
 /*
  * Design tokens that generate Tailwind utilities.
  * Colour ramps and per-theme values live in :root / .dark below and are
- * surfaced here via @theme inline so .dark overrides keep working.
+ * consumed directly via var(), e.g. text-[color:var(--text-muted)], so
+ * .dark overrides cascade to every call site without a generated colour bridge.
  *
  * Radius usage rules:
  *   rounded-md  chips, inner elements, metadata pills
@@ -20,9 +21,29 @@
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
 
+  /* Type scale — sub-`xs` micro steps plus the 13/15px "between" steps the
+     dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
+     Tailwind's default text-* tokens they carry no `--line-height` /
+     `--letter-spacing` companion, so `text-3xs` etc. set font-size alone and
+     drop in cleanly for the `text-[Npx]` arbitrary values they retire without
+     re-leading or re-tracking. This UI sets its own `leading-*` / `tracking-*`
+     per context (pills, tables, legends, eyebrow labels); a baked line-height
+     would be overridden at most call sites and silently shift the few without
+     one. Set leading/tracking explicitly where a step needs it — see
+     `eyebrowText` in ui-primitives.tsx for the uppercase eyebrow treatment
+     (`--text-2xs` used to bake that tracking in; it is now the neutral 11px
+     step and the tracking lives at the recipe/call site instead).
+       4xs         8px   micro floor: tiny super/badges; ≤9px legends snap here
+       3xs         10px  dense metadata, legend labels, count bubbles
+       2xs         11px  small chips / secondary labels (most common small size)
+       (xs 12 · sm 14 · base 16 come from Tailwind's default scale)
+       sm-minus    13px  one notch under sm — dense body/labels bigger than xs
+       base-minus  15px  one notch under base — comfortable body just under 16 */
+  --text-4xs: 0.5rem;
+  --text-3xs: 0.625rem;
   --text-2xs: 0.6875rem;
-  --text-2xs--line-height: 1rem;
-  --text-2xs--letter-spacing: 0.06em;
+  --text-sm-minus: 0.8125rem;
+  --text-base-minus: 0.9375rem;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
@@ -40,40 +61,6 @@
   --animate-pop-in: pop-in 180ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
   --animate-action-tray-in: action-tray-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-}
-
-/* Colour bridge: lets new/refactored code use bg-surface, text-muted, etc. */
-@theme inline {
-  --color-surface: var(--surface);
-  --color-raised: var(--surface-raised);
-  --color-subtle: var(--surface-subtle);
-  --color-inset: var(--surface-inset);
-  --color-line: var(--border);
-  --color-line-strong: var(--border-strong);
-  --color-ink: var(--text);
-  --color-heading: var(--text-heading);
-  --color-muted: var(--text-muted);
-  --color-soft: var(--text-soft);
-  --color-primary: var(--primary);
-  --color-primary-strong: var(--primary-strong);
-  --color-primary-soft: var(--primary-soft);
-  --color-chrome: var(--surface-chrome);
-  --color-command: var(--command);
-  --color-command-hover: var(--command-hover);
-  --color-command-contrast: var(--command-contrast);
-  --color-clinical-accent: var(--clinical-accent);
-  --color-clinical-accent-hover: var(--clinical-accent-hover);
-  --color-clinical-accent-soft: var(--clinical-accent-soft);
-  --color-clinical-accent-border: var(--clinical-accent-border);
-  --color-success: var(--success);
-  --color-success-soft: var(--success-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-warning: var(--warning);
-  --color-warning-soft: var(--warning-soft);
-  --color-info: var(--info);
-  --color-info-soft: var(--info-soft);
-  --color-focus: var(--focus);
 }
 
 /* Theme tokens */
@@ -339,13 +326,17 @@
 html {
   min-width: 320px;
   min-height: 100%;
+  min-height: 100svh;
   min-height: 100dvh;
   background-color: var(--background);
   overflow-x: clip;
+  overscroll-behavior-x: none;
+  scroll-padding-top: calc(4rem + env(safe-area-inset-top));
 }
 
 body {
   min-height: 100%;
+  min-height: 100svh;
   min-height: 100dvh;
   background: var(--background);
   color: var(--text);
@@ -356,6 +347,7 @@ body {
     "ss01" 1;
   text-rendering: optimizeLegibility;
   overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 /* Interactive element defaults */
@@ -611,7 +603,7 @@ summary::-webkit-details-marker {
 
 .answer-footer-search-chip {
   display: inline-flex;
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   align-items: center;
   gap: 0.4rem;
   border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
@@ -771,7 +763,7 @@ summary::-webkit-details-marker {
   .document-mobile-search-edge.answer-footer-search-edge {
     left: 50%;
     right: auto;
-    bottom: max(1.45rem, calc(var(--safe-area-bottom) + 1rem));
+    bottom: max(0.5rem, calc(var(--safe-area-bottom) + 0.375rem));
     width: min(calc(100vw - 16px - var(--safe-area-left) - var(--safe-area-right)), 400px);
     transform: translateX(-50%);
   }

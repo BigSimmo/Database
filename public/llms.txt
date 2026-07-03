@@ -1,0 +1,15 @@
+Clinical Guide
+
+Purpose: Clinical Guide is a local clinical knowledge-base interface for searching indexed source documents, reviewing evidence, and drafting source-backed clinical answers.
+
+Key routes:
+- / opens the main dashboard. Use ?mode=answer, ?mode=documents, ?mode=tools, ?mode=favourites, ?mode=differentials, or ?mode=prescribing to choose the workspace.
+- /documents/:id opens an indexed source document.
+- /services opens source-backed service records.
+- /forms opens source-backed forms.
+- /favourites opens saved clinical work.
+- /differentials opens differential-diagnosis support.
+
+Authentication caveat: Private indexed documents, source files, and clinical answer generation can require a signed-in session or local no-auth development mode. Public static files do not imply access to private source content.
+
+Clinical-content guidance: Treat generated answers as review aids. For clinical claims, rely on cited source evidence from the indexed library and verify source status, dates, and local governance before use.

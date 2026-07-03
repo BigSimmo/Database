@@ -78,7 +78,7 @@ async function switchToDocumentSearchMode(page: Page) {
     return;
   }
 
-  const appModeMenu = page.getByRole("button", { name: /^Current app mode:/ });
+  const appModeMenu = page.getByRole("button", { name: /^Mode / });
   if (!(await isVisibleWithoutThrow(appModeMenu))) {
     throw new Error(
       "Could not switch to document search mode: neither the legacy mode toggle nor the app mode menu is visible.",
@@ -95,7 +95,7 @@ async function switchToDocumentSearchMode(page: Page) {
     const documentsMode = appModeGroup.getByRole("menuitemradio", { name: /^Documents\b/ });
     await expect(documentsMode).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await documentsMode.click({ force: true });
-    await expect(appModeMenu).toHaveAccessibleName("Current app mode: Documents", { timeout: uiAssertionTimeoutMs });
+    await expect(appModeMenu).toHaveAccessibleName("Mode Documents", { timeout: uiAssertionTimeoutMs });
   }).toPass({ timeout: 8_000 });
 }
 
@@ -615,6 +615,50 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
+  test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=tools");
+
+    const sidebar = page.locator("#clinical-tools-sidebar");
+    const modeButton = page.getByRole("button", { name: "Mode Tools" });
+    await expect(modeButton).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "View tools" })).toHaveCount(0);
+    await expect(sidebar.getByRole("link", { name: "Tools", exact: true })).toHaveAttribute("href", "/?mode=tools");
+    await expect(sidebar.getByTestId("sidebar-account-settings")).toHaveAccessibleName(
+      /G Guest Not signed in\. Open account profile/,
+    );
+
+    const collapseSidebar = page.getByRole("button", { name: "Collapse sidebar" });
+    await expectMinTouchTarget(collapseSidebar);
+    await collapseSidebar.click();
+    await expect(page.getByTestId("collapsed-account-settings")).toHaveAccessibleName(
+      /G Guest Not signed in\. Open account profile/,
+    );
+
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await sidebar.getByRole("link", { name: "Answer", exact: true }).click();
+    await expect(page).toHaveURL(/\/\?mode=answer$/);
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
+    await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
+    await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+  });
+
+  test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
+    const llms = await page.request.get("/llms.txt");
+    expect(llms.status()).toBe(200);
+    const llmsText = await llms.text();
+    expect(llmsText).toContain("Clinical Guide");
+    expect(llmsText).toContain("rely on cited source evidence");
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=documents");
+    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
+  });
+
   test("account settings opens from desktop sidebar and collapsed avatar", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -720,7 +764,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
     const dailyActionsMenu = page.getByTestId("daily-actions-menu");
-    const appModeTrigger = page.getByRole("button", { name: "Current app mode: Answer" });
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
 
     await appModeTrigger.click();
@@ -1207,7 +1251,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/favourites?q=lithium%20set");
 
     const globalSearchInput = visibleQuestionInput(page);
-    await expect(page.getByRole("button", { name: "Current app mode: Favourites" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
@@ -1215,7 +1259,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\/favourites\?focus=1$/);
-    await expect(page.getByRole("button", { name: "Current app mode: Favourites" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 
@@ -1224,7 +1268,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
 
-    const appModeButton = page.getByRole("button", { name: "Current app mode: Answer" });
+    const appModeButton = page.getByRole("button", { name: "Mode Answer" });
     await appModeButton.click();
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
     await expect(appModeMenu).toBeVisible();
@@ -1269,7 +1313,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
     const globalSearchInput = page.getByTestId("global-search-input");
-    await expect(page.getByRole("button", { name: "Current app mode: Medication" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible();
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medications...");
     await expect(globalSearchInput).toHaveValue("acamprosate renal dose");
 
@@ -1345,22 +1389,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
 
-    await expect(page.getByRole("button", { name: "Current app mode: Tools" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
     await expect(page.getByTestId("tools-hub")).toBeVisible();
     await expect(page.getByTestId("tools-hub").getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
       "Medication Prescribing",
     );
-    await expect(page.getByTestId("tools-hub").getByTestId("selected-application-panel")).toContainText(
-      "Selected tool",
+    await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
+    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+      "href",
+      "/?mode=prescribing",
     );
-    await expect(
-      page
-        .getByTestId("tools-hub")
-        .getByTestId("application-row-medication-prescribing")
-        .getByLabel("Launch Medication Prescribing"),
-    ).toHaveAttribute("href", "/?mode=prescribing");
     await expectNoPageHorizontalOverflow(page);
   });
 

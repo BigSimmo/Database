@@ -40,7 +40,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     const normalizedSlug = normalizeRegistrySlug(slug);
     const { kind } = parseRequestQuery(request, registryDetailQuerySchema, "Invalid registry detail query.");
 
-    if (isDemoMode()) {
+    if (isDemoMode() || isLocalNoAuthMode()) {
       const record = kind === "form" ? getFormRecord(normalizedSlug) : getServiceRecord(normalizedSlug);
       if (!record) return notFoundResponse(normalizedSlug);
       const derived = deriveGovernanceColumns(record);

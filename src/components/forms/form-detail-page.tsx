@@ -189,19 +189,19 @@ function criterionToneClass(tone: ServiceCriterion["tone"]) {
 
 function DetailCard({ card }: { card: ServiceSummaryCard }) {
   return (
-    <article className="min-h-[6.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
-      <div className="mb-1.5 flex items-start gap-1.5 sm:mb-2 sm:gap-2">
+    <article className="min-h-[5.75rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
+      <div className="mb-1 flex items-start gap-1.5 sm:mb-2 sm:gap-2">
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-9 sm:w-9">
           {summaryIcon(card)}
         </span>
-        <p className="min-w-0 pt-0.5 text-[8.5px] font-bold uppercase leading-3 text-[color:var(--text-soft)] sm:text-[11px] sm:leading-4">
+        <p className="min-w-0 pt-0.5 text-4xs font-bold uppercase leading-[11px] text-[color:var(--text-soft)] sm:text-2xs sm:leading-4">
           {displayText(card.label, "Priority fact")}
         </p>
       </div>
-      <h3 className="text-[12.5px] font-semibold leading-4 text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
+      <h3 className="text-xs font-semibold leading-[15px] text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
         {displayText(card.title)}
       </h3>
-      <p className={cn("mt-1 text-[11px] font-medium leading-4 sm:text-xs sm:leading-5", textMuted)}>
+      <p className={cn("mt-0.5 text-3xs font-medium leading-[14px] sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
         {displayText(card.detail)}
       </p>
     </article>
@@ -212,10 +212,12 @@ function PathwayContextCard({
   form,
   code,
   criteria,
+  testId,
 }: {
   form: FormRecord;
   code: string;
   criteria: ServiceCriterion[];
+  testId?: string;
 }) {
   const parallelForms = form.slug.includes("transport")
     ? [
@@ -234,7 +236,10 @@ function PathwayContextCard({
     : [{ code: "Review", title: displayText(form.source?.reviewed, "Review source currency") }];
 
   return (
-    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+    <section
+      data-testid={testId}
+      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]"
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
@@ -253,7 +258,7 @@ function PathwayContextCard({
       <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Before</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Before</p>
           <div className="mt-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
             <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-2">
               <span className="text-sm font-bold text-[color:var(--text-heading)]">5(2)</span>
@@ -265,19 +270,19 @@ function PathwayContextCard({
         </div>
         <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
           <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
-          <p className="mb-2 text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Current</p>
+          <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
           <div className="flex items-center gap-2">
             <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
             <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
-          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-[10px] font-bold text-[color:var(--clinical-accent)]">
+          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]">
             You are here
           </span>
           <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
         </div>
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
             {parallelForms.map((item) => (
               <div
@@ -292,7 +297,7 @@ function PathwayContextCard({
         </div>
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">After</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">After</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
             {afterForms.map((item) => (
               <div
@@ -308,7 +313,7 @@ function PathwayContextCard({
         {criteria.length ? (
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-            <p className="text-[11px] font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
             <div className="mt-2 grid gap-1.5">
               {criteria.slice(0, 3).map((criterion) => (
                 <span
@@ -539,7 +544,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           </nav>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
@@ -639,8 +644,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               )}
             </section>
 
-            <section aria-label="Priority facts" className="space-y-3">
-              <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Priority facts</h2>
+            <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
+              <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
+                Priority facts
+              </h2>
               <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
                 {summaryCards.map((card) => (
                   <DetailCard key={card.id} card={card} />
@@ -649,7 +656,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <div className="lg:hidden">
-              <PathwayContextCard form={form} code={code} criteria={criteria} />
+              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
             </div>
 
             <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
@@ -660,9 +667,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
-                    <span className={cn(metadataPill, "rounded-full text-[10px] uppercase", toneWarning)}>
-                      Governance
-                    </span>
+                    <span className={cn(metadataPill, "rounded-full text-3xs uppercase", toneWarning)}>Governance</span>
                   </div>
                   <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {displayText(
@@ -703,7 +708,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           </div>
 
           <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-            <PathwayContextCard form={form} code={code} criteria={criteria} />
+            <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
             <SourceSnapshotCard form={form} />
             <ActionPanel
               onUse={useInNavigator}
@@ -719,7 +724,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   </p>
                   <span
                     className={cn(
-                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-[10px] font-bold",
+                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-3xs font-bold",
                       sourceToneClass(form),
                     )}
                   >
@@ -780,7 +785,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               {relatedTags.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {relatedTags.map((tag) => (
-                    <span key={tag} className={cn(metadataPill, "rounded-full text-[11px]")}>
+                    <span key={tag} className={cn(metadataPill, "rounded-full text-2xs")}>
                       {tag}
                     </span>
                   ))}

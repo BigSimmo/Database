@@ -1,5 +1,7 @@
 # Premium colour system plan
 
+> **Superseded — historical record (July 2026).** The active colour direction is now **Clinical White / Aegean Graphite**; see [`02-design-direction.md`](02-design-direction.md) and [`permanent-colour-direction.md`](permanent-colour-direction.md). This plan's porcelain/graphite foundation was replaced by a true-white canvas, and its single teal accent was split into role tokens — `--command` (graphite) for primary actions and `--clinical-accent` (Aegean blue-teal) for evidence/selected/send/focus, with green reserved for success only. Kept for reasoning history, not current guidance.
+
 ## Goal
 
 Create a light mode that feels modern, premium, calm, and clinically trustworthy without becoming sterile, washed out, or over-teal. Preserve the existing black-polish direction for dark mode, but make both modes feel like one system.

@@ -14,8 +14,26 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectVerticalSeparation(page: Page, upperSelector: string, lowerSelector: string, minimumGap = 8) {
+  const metrics = await page.evaluate(
+    ({ upperSelector, lowerSelector }) => {
+      const upper = document.querySelector(upperSelector)?.getBoundingClientRect();
+      const lower = document.querySelector(lowerSelector)?.getBoundingClientRect();
+      if (!upper || !lower) return null;
+      return {
+        upperBottom: upper.bottom,
+        lowerTop: lower.top,
+      };
+    },
+    { upperSelector, lowerSelector },
+  );
+
+  expect(metrics).not.toBeNull();
+  expect((metrics?.lowerTop ?? 0) - (metrics?.upperBottom ?? 0)).toBeGreaterThanOrEqual(minimumGap);
+}
+
 async function openAppModeMenu(page: Page, currentMode: string) {
-  const trigger = page.getByRole("button", { name: `Current app mode: ${currentMode}` });
+  const trigger = page.getByRole("button", { name: `Mode ${currentMode}` });
   const menu = page.getByRole("menu", { name: "Choose app mode" });
 
   await expect(trigger).toBeVisible();
@@ -64,7 +82,7 @@ test.describe("Clinical KB applications launcher", () => {
         await expect(desktopLaunchLink).toBeVisible();
         await expect(desktopLaunchLink).toHaveAttribute("href", "/?mode=answer");
       }
-      await expect(page.getByLabel("Current app mode: Tools")).toBeVisible();
+      await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
       await expect(page.getByLabel("Open selected application")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
@@ -106,13 +124,13 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=tools&q=medication&focus=1");
 
-    await expect(page.getByRole("button", { name: "Current app mode: Tools" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medication");
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
-    await expect(toolsHub.getByRole("region", { name: "Pinned tools" })).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { name: "Tools command center" })).toBeVisible();
+    await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
@@ -120,10 +138,10 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    const launchLink = toolsHub
-      .getByTestId("application-row-medication-prescribing")
-      .getByLabel("Launch Medication Prescribing");
-    await expect(launchLink).toHaveAttribute("href", "/?mode=prescribing");
+    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+      "href",
+      "/?mode=prescribing",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -136,7 +154,7 @@ test.describe("Clinical KB applications launcher", () => {
     await initialMenu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
 
     await expect(page).toHaveURL(/\/services$/);
-    await expect(page.getByRole("button", { name: "Current app mode: Services" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Find a service" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
@@ -159,7 +177,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeVisible();
     await servicesMenu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
     await expect(page).toHaveURL(/\/forms$/);
-    await expect(page.getByRole("button", { name: "Current app mode: Forms" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveValue("");
@@ -170,28 +188,29 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
-    await expect(page.getByRole("button", { name: "Current app mode: Services" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("service-search-results")).toBeVisible();
+    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
     let menu = await openAppModeMenu(page, "Services");
     await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
 
     await expect(page).toHaveURL(/\/forms$/);
-    await expect(page.getByRole("button", { name: "Current app mode: Forms" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
     await expect(page.getByTestId("global-search-input")).toHaveValue("");
 
     await gotoLauncher(page, "/forms");
-    await expect(page.getByRole("button", { name: "Current app mode: Forms" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
 
     menu = await openAppModeMenu(page, "Forms");
     await menu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
 
     await expect(page).toHaveURL(/\/services$/);
-    await expect(page.getByRole("button", { name: "Current app mode: Services" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
@@ -221,6 +240,33 @@ test.describe("Clinical KB applications launcher", () => {
     }
   });
 
+  test("mode home routes lift the shared search into the hero on tablet", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+
+    for (const home of [
+      { path: "/services", testId: "services-home", heading: "Find a service" },
+      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
+      { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
+    ] as const) {
+      await gotoLauncher(page, home.path);
+      await expect(page.getByTestId(home.testId)).toBeVisible();
+      await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+
+      // From the tablet breakpoint up the composer is portaled into the hero
+      // (inside the mode-home container) rather than floated over the heading.
+      const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
+      await expect(heroSearch).toBeVisible();
+
+      const searchBox = await heroSearch.boundingBox();
+      const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
+      expect(searchBox).not.toBeNull();
+      expect(headingBox).not.toBeNull();
+      // Search sits below the heading with no overlap.
+      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThanOrEqual(searchBox?.y ?? 0);
+      await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
   test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
@@ -236,7 +282,7 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
-    await expect(page.getByRole("button", { name: "Current app mode: Services" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search services..."]:visible').first()).toHaveValue("13YARN");
     await expect(page.getByTestId("service-search-results")).toBeVisible();
     await expect(page.getByTestId("service-search-result-13yarn")).toContainText("13YARN");
@@ -255,6 +301,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByText("Forms / Search")).toBeVisible();
     await expect(page.getByLabel("Search forms, clocks, sources")).toHaveValue("");
     await expect(page.getByLabel("Current forms query")).toHaveValue("transport forms");
+    await expect(page.getByLabel("Current forms query")).toBeFocused();
     await expect(page.getByTestId("form-search-results")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
@@ -279,7 +326,7 @@ test.describe("Clinical KB applications launcher", () => {
     // Structural coverage — runs on every browser, WebKit included: the form
     // detail page renders inside the shared shell with the Forms-mode composer
     // present and no stale results.
-    await expect(page.getByRole("button", { name: "Current app mode: Forms" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Transport order" })).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
@@ -311,6 +358,22 @@ test.describe("Clinical KB applications launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("form detail mobile keeps the floating global search clear of decision context", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/forms/transport-crisis-form");
+
+    await expect(page.getByTestId("form-detail-page")).toBeVisible();
+    await expect(page.getByTestId("form-decision-context-mobile")).toBeVisible();
+    await expect(page.locator('[data-testid="global-search-input"]:visible')).toHaveCount(1);
+    await expectVerticalSeparation(
+      page,
+      '[data-testid="form-decision-context-mobile"] [role="tablist"], [data-testid="form-decision-context-mobile"] > div:nth-child(2)',
+      '[data-testid="global-search-input"]',
+      8,
+    );
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("forms search mockup is usable without horizontal overflow on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
@@ -330,7 +393,7 @@ test.describe("Clinical KB applications launcher", () => {
     await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
 
     await expect(page).toHaveURL(/\/forms$/);
-    await expect(page.getByRole("button", { name: "Current app mode: Forms" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "What do you need from forms?" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
@@ -352,13 +415,13 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");
 
-    const modeButton = page.getByRole("button", { name: "Current app mode: Answer" });
+    const modeButton = page.getByRole("button", { name: "Mode Answer" });
     await expect(modeButton).toBeVisible();
     await modeButton.click();
 
     await page.getByRole("menuitemradio", { name: /Differentials/ }).click();
 
-    await expect(page.getByRole("button", { name: "Current app mode: Differentials" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
     await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
@@ -461,7 +524,7 @@ test.describe("Clinical KB applications launcher", () => {
     });
 
     await gotoLauncher(page, "/differentials");
-    await expect(page.getByRole("button", { name: "Current app mode: Differentials" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
     await expect(page.locator('button[aria-label="Search differential presentations"]:visible')).toBeEnabled();
     await page.locator('button[aria-label="Search differential presentations"]:visible').click();
@@ -484,7 +547,7 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1440, height: 920 });
     await gotoLauncher(page, "/differentials/presentations");
 
-    await expect(page.getByRole("button", { name: "Current app mode: Differentials" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
     await expect(page.getByText("Selected differentials (6 of 8)")).toBeVisible();
@@ -502,6 +565,8 @@ test.describe("Clinical KB applications launcher", () => {
       return element.scrollWidth > element.clientWidth;
     });
     expect(tableScrolls).toBe(true);
+    const desktopTableBox = await page.getByTestId("differential-comparison-scroll").boundingBox();
+    expect(desktopTableBox?.width ?? 0).toBeGreaterThan(900);
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -521,23 +586,16 @@ test.describe("Clinical KB applications launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("tools mode opens the selected tool slide-up on mobile", async ({ page }) => {
+  test("tools mode opens tools directly on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/?mode=tools");
 
     const toolsHub = page.getByTestId("tools-hub");
-    await expect(toolsHub.getByTestId("selected-application-panel")).toBeHidden();
-    await toolsHub.getByTestId("mobile-application-row-medication-prescribing").click();
-
-    const selectedSheet = page.getByRole("dialog", { name: "Selected tool" });
-    await expect(selectedSheet).toBeVisible();
-    await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Medication Prescribing");
-    const mobileLaunchLink = page
-      .getByTestId("selected-application-sheet-panel")
-      .getByLabel("Launch Medication Prescribing");
-    await expect(mobileLaunchLink).toHaveAttribute("href", "/?mode=prescribing");
-    await page.getByLabel("Close selected tool").click();
-    await expect(selectedSheet).toBeHidden();
+    await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
+    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+      "href",
+      "/?mode=prescribing",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 });
@@ -594,5 +652,85 @@ test.describe("Clinical KB service detail page", () => {
 
     await page.getByRole("button", { name: "Back to services" }).click();
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
+  });
+});
+
+test.describe("Responsive layout guards", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  // Widths straddle every breakpoint the mockups switch layout at: the sm (640px),
+  // lg (1024px), and xl (1280px) grid changes, plus the narrow phone floor (320px).
+  const responsiveWidths = [320, 375, 414, 640, 768, 1024, 1280] as const;
+
+  async function settleLayout(page: Page) {
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  }
+
+  const mockupRoutes = [
+    { name: "tools command center", path: "/mockups/tools-command-center" },
+    { name: "tools split pane", path: "/mockups/tools-split-pane" },
+    { name: "tools workflow board", path: "/mockups/tools-workflow-board" },
+  ] as const;
+
+  for (const route of mockupRoutes) {
+    test(`${route.name} never overflows horizontally across sizes`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await gotoLauncher(page, route.path);
+      await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+
+      for (const width of responsiveWidths) {
+        await page.setViewportSize({ width, height: 900 });
+        await settleLayout(page);
+        await expectNoPageHorizontalOverflow(page);
+      }
+    });
+  }
+
+  const modeHomeRoutes = [
+    { name: "prescribing", path: "/?mode=prescribing" },
+    { name: "differentials", path: "/?mode=differentials" },
+    { name: "services", path: "/?mode=services" },
+    { name: "forms", path: "/?mode=forms" },
+  ] as const;
+
+  for (const route of modeHomeRoutes) {
+    test(`${route.name} mode home never overflows horizontally across sizes`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await gotoLauncher(page, route.path);
+      await expect(page.getByRole("heading").first()).toBeVisible();
+
+      for (const width of responsiveWidths) {
+        await page.setViewportSize({ width, height: 900 });
+        await settleLayout(page);
+        await expectNoPageHorizontalOverflow(page);
+      }
+    });
+  }
+
+  test("prescribing mode home bottom-anchors its content on phones but centres on tablet", async ({ page }) => {
+    async function verticalWeighting(width: number) {
+      // Tall viewport exaggerates the free space so the anchor is unambiguous.
+      await page.setViewportSize({ width, height: 900 });
+      await gotoLauncher(page, "/?mode=prescribing");
+      const home = page.getByTestId("medication-home");
+      await expect(home).toBeVisible();
+      await settleLayout(page);
+      return page.evaluate(() => {
+        const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+        if (!rect) return null;
+        return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
+      });
+    }
+
+    // Phone (< sm): content is pushed toward the bottom, so the gap above exceeds the gap below.
+    const phone = await verticalWeighting(375);
+    expect(phone).not.toBeNull();
+    expect(phone?.topGap ?? 0).toBeGreaterThan(phone?.bottomGap ?? 0);
+
+    // Tablet (>= sm): content is vertically centred, so the two gaps are close to balanced.
+    const tablet = await verticalWeighting(768);
+    expect(tablet).not.toBeNull();
+    const balance = Math.abs((tablet?.topGap ?? 0) - (tablet?.bottomGap ?? 0));
+    expect(balance).toBeLessThan(Math.max(tablet?.topGap ?? 0, tablet?.bottomGap ?? 0));
   });
 });

@@ -111,7 +111,17 @@ export function Sheet({
       document.body.style.overflow = previousOverflow;
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
       window.requestAnimationFrame(() => {
-        if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
+        if (!restoreTarget?.isConnected) return;
+        restoreTarget.focus({ preventScroll: true });
+        window.setTimeout(() => {
+          if (
+            restoreTarget.isConnected &&
+            document.activeElement !== restoreTarget &&
+            document.activeElement === document.body
+          ) {
+            restoreTarget.focus({ preventScroll: true });
+          }
+        }, 50);
       });
     };
   }, [open, onClose, initialFocusRef, returnFocusRef]);

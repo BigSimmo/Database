@@ -43,7 +43,7 @@ export function SectionHeading({
           <Icon className={cn(compactMobile ? "h-4 w-4 sm:h-4.5 sm:w-4.5" : "h-4.5 w-4.5")} />
         </span>
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-[color:var(--text-heading)] sm:text-base">{title}</h2>
+          <h2 className="text-base-minus font-semibold text-[color:var(--text-heading)] sm:text-base">{title}</h2>
           {description && (
             <p className={cn("mt-1 text-sm leading-6", textMuted, hideDescriptionOnMobile && "hidden sm:block")}>
               {description}
@@ -264,10 +264,10 @@ export function GuideDialog({ open, onClose }: { open: boolean; onClose: () => v
             key={section.title}
             className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]"
           >
-            <h3 className="text-[13px] font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
+            <h3 className="text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
               {section.title}
             </h3>
-            <p className={cn("mt-1 text-[13px] font-normal leading-5 sm:text-sm sm:leading-6", textMuted)}>
+            <p className={cn("mt-1 text-sm-minus font-normal leading-5 sm:text-sm sm:leading-6", textMuted)}>
               {section.body}
             </p>
           </article>

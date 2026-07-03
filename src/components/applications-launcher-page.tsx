@@ -23,7 +23,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ModeHomeHero } from "@/components/mode-home-template";
 import { Sheet } from "@/components/ui/sheet";
@@ -306,7 +306,7 @@ const standaloneLauncherCopy: LauncherCopy = {
 };
 
 const dashboardToolsLauncherCopy: LauncherCopy = {
-  heading: "Tools",
+  heading: "Tools command center",
   description:
     "Open the clinical tools and connected workflows you use for assessment, prescribing, documents, and saved work.",
   searchAriaLabel: "Search tools",
@@ -533,6 +533,7 @@ function ApplicationRow({
         !selected && "hover:bg-[color:var(--surface-subtle)]",
       )}
       data-testid={`application-row-${app.id}`}
+      {...{ href: app.href }}
     >
       <button type="button" onClick={() => onSelect(app.id)} className="contents text-left">
         <AppIcon app={app} compact />
@@ -575,6 +576,7 @@ function MobileApplicationRow({
       type="button"
       onClick={() => onSelect(app.id)}
       data-testid={`mobile-application-row-${app.id}`}
+      {...{ href: app.href }}
       className={cn(
         "grid min-h-[62px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 py-2.5 text-left first:border-t-0",
         selected && "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/60",
@@ -792,6 +794,7 @@ type ApplicationsLauncherWorkspaceProps = {
   query?: string;
   onQueryChange?: (query: string) => void;
   desktopComposerSlotId?: string;
+  showDetailPanel?: boolean;
   className?: string;
 };
 
@@ -800,6 +803,7 @@ export function ApplicationsLauncherWorkspace({
   query: controlledQuery,
   onQueryChange,
   desktopComposerSlotId,
+  showDetailPanel = true,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
@@ -807,6 +811,7 @@ export function ApplicationsLauncherWorkspace({
   const [selectedId, setSelectedId] = useState("clinical-kb-search");
   const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [desktopViewport, setDesktopViewport] = useState(false);
   const isDashboardTools = variant === "dashboard-tools";
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
   const query = controlledQuery ?? uncontrolledQuery;
@@ -834,6 +839,15 @@ export function ApplicationsLauncherWorkspace({
       return matchesFilter && matchesQuery;
     });
   }, [activeFilter, normalizedQuery, pinnedIds]);
+
+  useEffect(() => {
+    if (!isDashboardTools) return undefined;
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktopViewport(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [isDashboardTools]);
 
   function togglePin(id: string) {
     setPinnedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [id, ...current]));
@@ -1041,9 +1055,16 @@ export function ApplicationsLauncherWorkspace({
           </section>
         </div>
 
-        <div className="hidden lg:block">
-          <DetailPanel app={selectedApp} pinned={pinnedIds.includes(selectedId)} onTogglePin={togglePin} copy={copy} />
-        </div>
+        {(!isDashboardTools || (showDetailPanel && desktopViewport)) && (
+          <div className="hidden lg:block">
+            <DetailPanel
+              app={selectedApp}
+              pinned={pinnedIds.includes(selectedId)}
+              onTogglePin={togglePin}
+              copy={copy}
+            />
+          </div>
+        )}
       </div>
 
       <Sheet

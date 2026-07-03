@@ -126,7 +126,7 @@ function AccessibleTableMarkup({
           aria-label={caption ?? undefined}
           className={cn(
             "w-full border-separate border-spacing-0 text-left md:table-fixed",
-            renderDensePreview ? "min-w-full table-fixed text-[11px]" : expanded ? "text-[15px]" : "text-sm",
+            renderDensePreview ? "min-w-full table-fixed text-2xs" : expanded ? "text-base-minus" : "text-sm",
           )}
         >
           <colgroup className="hidden md:table-column-group">
@@ -148,7 +148,7 @@ function AccessibleTableMarkup({
                       : "whitespace-normal break-words [overflow-wrap:anywhere]",
                     index > 0 && "border-l border-[color:var(--border)]/70",
                     renderDensePreview
-                      ? "px-2 py-1.5 text-[10px] uppercase tracking-[0.06em]"
+                      ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
                       : expanded
                         ? "px-4 py-3 text-sm"
                         : "px-3 py-2 text-xs",
@@ -164,7 +164,7 @@ function AccessibleTableMarkup({
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
                     "whitespace-normal break-words [overflow-wrap:anywhere]",
                     renderDensePreview
-                      ? "px-2 py-1.5 text-[10px] uppercase tracking-[0.06em]"
+                      ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
                       : expanded
                         ? "px-4 py-3 text-sm"
                         : "px-3 py-2 text-xs",
@@ -219,7 +219,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             renderDensePreview
                               ? "sr-only"
-                              : "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
+                              : "mb-1 block text-3xs font-bold uppercase tracking-[0.08em] md:hidden",
                             textMuted,
                           )}
                         >
@@ -229,7 +229,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             "block min-w-0",
                             renderDensePreview
-                              ? "truncate text-[11px] leading-4"
+                              ? "truncate text-2xs leading-4"
                               : "text-sm leading-6 md:text-inherit md:leading-inherit",
                           )}
                         >
@@ -253,7 +253,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           renderDensePreview
                             ? "sr-only"
-                            : "mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] md:hidden",
+                            : "mb-1 block text-3xs font-bold uppercase tracking-[0.08em] md:hidden",
                           textMuted,
                         )}
                       >
@@ -463,7 +463,7 @@ export function AccessibleTable({
           <div className="flex h-full min-w-0 flex-col" onClick={(event) => event.stopPropagation()}>
             <div className="flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)]">
               <div className="min-w-0">
-                <p className={cn("text-[11px] font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical table</p>
+                <p className={cn("text-2xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical table</p>
                 <h2
                   id={`${dialogId}-title`}
                   className="truncate text-base font-semibold text-[color:var(--text-heading)]"

@@ -348,7 +348,7 @@ function SummaryTile({ row, index, tone }: { row: SettingsRow; index: number; to
 
 function StatusChip({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-[11px] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+    <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
       {children}
     </span>
   );
@@ -398,7 +398,7 @@ function SettingRow({ row, tone }: { row: SettingsRow; tone: Concept["tone"] }) 
       type="button"
       className={cn(
         "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] text-left last:border-b-0",
-        tone === "compact" ? "min-h-[46px] py-1.5" : "min-h-[48px] py-1.5",
+        tone === "compact" ? "min-h-[46px] py-1.5" : "min-h-12 py-1.5",
       )}
     >
       {Icon ? <IconFrame icon={Icon} /> : <span className="h-8 w-8" />}
@@ -497,7 +497,7 @@ function DesktopModal({ concept }: { concept: Concept }) {
 
 function PhoneStatusBar() {
   return (
-    <div className="flex h-9 items-center justify-between px-5 text-[11px] font-bold text-[color:var(--text-heading)]">
+    <div className="flex h-9 items-center justify-between px-5 text-2xs font-bold text-[color:var(--text-heading)]">
       <span>9:41</span>
       <span className="flex items-center gap-1.5 text-[color:var(--text-heading)]">
         <Signal className="h-3.5 w-3.5" strokeWidth={2} />
@@ -563,7 +563,7 @@ function PhoneClinicalStatus() {
         <span
           key={item}
           className={cn(
-            "inline-flex min-h-8 items-center justify-center rounded-lg border px-2 text-[11px] font-semibold shadow-[var(--shadow-inset)]",
+            "inline-flex min-h-8 items-center justify-center rounded-lg border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
             index === 0
               ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
@@ -579,9 +579,9 @@ function PhoneClinicalStatus() {
 function PhoneSettingsSection({ section }: { section: SettingsSection }) {
   return (
     <section>
-      <h3 className="mb-1.5 px-1 text-[11px] font-semibold tracking-[0.02em] text-[color:var(--text-soft)]">
+      <h2 className="mb-1.5 px-1 text-2xs font-semibold tracking-[0.02em] text-[color:var(--text-soft)]">
         {section.title}
-      </h3>
+      </h2>
       <div className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)]">
         {section.rows.map((row, index) => {
           const Icon = row.icon ?? Settings;
@@ -609,7 +609,7 @@ function PhoneSettingsSection({ section }: { section: SettingsSection }) {
 
 function PhoneSheet({ concept }: { concept: Concept }) {
   return (
-    <section className="h-[760px] w-[350px] rounded-[42px] bg-[color:var(--app-shell)] p-2 shadow-[0_22px_55px_rgba(15,31,38,0.18)]">
+    <section className="h-[760px] w-full max-w-[350px] rounded-[42px] bg-[color:var(--app-shell)] p-2 shadow-[0_22px_55px_rgba(15,31,38,0.18)]">
       <div className="relative h-full overflow-hidden rounded-[34px] bg-[color:var(--surface-raised)]">
         <PhoneStatusBar />
         <PhoneBackdrop />
@@ -647,7 +647,7 @@ function BoardShell({ children, concept }: { children: ReactNode; concept: Conce
       <main
         className={cn(
           appBackdrop,
-          "fixed inset-0 z-[2147483647] overflow-auto px-8 py-7 text-[color:var(--text-heading)]",
+          "fixed inset-0 z-[2147483647] overflow-auto px-4 py-7 text-[color:var(--text-heading)] sm:px-8",
         )}
       >
         <div className="mx-auto max-w-[1320px]">
@@ -675,8 +675,12 @@ export function SettingsSearchMockupPage({ variant }: { variant: SettingsSearchM
 
   return (
     <BoardShell concept={concept}>
-      <PhoneSheet concept={concept} />
-      <DesktopModal concept={concept} />
+      <div className="lg:hidden">
+        <PhoneSheet concept={concept} />
+      </div>
+      <div className="hidden lg:block">
+        <DesktopModal concept={concept} />
+      </div>
     </BoardShell>
   );
 }
