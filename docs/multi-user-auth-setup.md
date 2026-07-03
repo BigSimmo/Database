@@ -59,12 +59,34 @@ Already used by the app; ensure they are set per environment:
 
 OAuth client secrets live in **Supabase**, not in app env.
 
-## 7. Database (prepared migration — apply with approval)
+## 7. Database RLS + storage — already in place (verified against live 2026-07-03)
 
-The owner-RLS + storage per-user policy migration (defense-in-depth backstop) is
-prepared on the branch but **not applied**. Apply it to the live project only
-after review — it does not change the service-role read path, but it gates any
-user-JWT/anon-key access and the storage buckets to `${user.id}/…`.
+The DB-level per-user backstop the plan anticipated **already exists on the live
+project**, so no broad RLS migration is required:
+
+- Every owner-scoped **user-data** table (documents + children, `rag_queries`,
+  `rag_query_misses`, `rag_retrieval_logs`, `import_batches`, `rag_aliases`,
+  `storage_cleanup_jobs`, `document_*`) has RLS enabled **and** an `authenticated`
+  owner-read policy: `owner_id = (select auth.uid())`.
+- Registry tables (`clinical_registry_records`, `_sources`) and internal tables
+  (`api_rate_limits`, `audit_logs`, `rag_response_cache`) are RLS-enabled and
+  **service-role-only** (fully server-mediated — intentional).
+- Both storage buckets (`clinical-documents`, `clinical-images`) are **private**;
+  file access is via server-minted signed URLs after an owner check. No direct
+  client storage access is enabled (so no per-user folder policy is needed unless
+  client-direct storage reads are ever added).
+
+Combined with the app-layer **fail-closed owner scoping** shipped on this branch,
+per-user isolation is enforced at both layers.
+
+**Two residual, low-priority items (out of scope for multi-user, no action needed
+to launch):**
+- `rag_visual_eval_cases` (an internal eval table) has RLS **disabled**, but it
+  has **no anon/authenticated grant** so it is effectively service-role-only. It
+  is also **not in `supabase/schema.sql`** (untracked live-only drift) — fixing it
+  properly means codifying the table first, a separate schema-hygiene task.
+- Registry tables are service-role-only by design; add `authenticated` owner-read
+  policies only if you later introduce client-side registry reads.
 
 ## Verification (staging, after the above)
 
