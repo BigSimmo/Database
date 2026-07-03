@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CHUNKER_VERSION,
+  DOCUMENT_CHUNKER_VERSION,
   buildChunks,
   buildImageTag,
   chunkContentKey,
@@ -418,12 +419,23 @@ describe("document-mode chunking (CI-1)", () => {
     expect(spanning).toBeDefined();
     expect(spanning?.metadata.page_start).toBe(1);
     expect(spanning?.metadata.page_end).toBe(2);
+    expect(spanning?.page_number).toBeNull();
     expect(spanning?.section_path).toContain("Clozapine Monitoring");
     // A cross-page chunk records a source span for each contributing page.
     const spanPageNumbers = (spanning?.metadata.source_spans as Array<{ page_number: number | null }>).map(
       (span) => span.page_number,
     );
     expect(spanPageNumbers).toEqual(expect.arrayContaining([1, 2]));
+    const pageTwoSpan = (
+      spanning?.metadata.source_spans as Array<{
+        page_number: number | null;
+        excerpt: string;
+        character_start: number | null;
+      }>
+    ).find((span) => span.page_number === 2);
+    expect(pageTwoSpan?.excerpt).toContain("Continue weekly blood test monitoring");
+    expect(pageTwoSpan?.excerpt).not.toContain("Baseline full blood count");
+    expect(pageTwoSpan?.character_start).not.toBeNull();
   });
 
   it("does not merge across a section boundary introduced by a new heading", async () => {
@@ -461,7 +473,63 @@ describe("document-mode chunking (CI-1)", () => {
         metadata: {},
       },
     ]);
-    expect(chunks[0].metadata.chunker_version).toBe(CHUNKER_VERSION);
+    expect(chunks[0].metadata.chunker_version).toBe(DOCUMENT_CHUNKER_VERSION);
+    expect(chunks[0].metadata.chunk_strategy).toBe("document");
     expect(chunks[0].metadata.chunk_key).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("keeps document-mode images scoped to pages that contributed to the chunk", async () => {
+    vi.stubEnv("CHUNK_SIZE", "900");
+    const pageOneBody = Array.from({ length: 90 }, (_, index) => `Baseline monitoring instruction ${index}.`).join(" ");
+    const chunks = await buildDocumentChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 1,
+        pageText: `Monitoring Guidance\n\n${pageOneBody}`,
+        metadata: {},
+        images: [],
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 2,
+        pageText: "Continuation dosing table text for later review.",
+        metadata: {},
+        images: [
+          {
+            id: "page-2-table",
+            caption: "Later-page table.",
+            pageNumber: 2,
+            sourceKind: "table_crop",
+            tableTitle: "Monitoring Guidance",
+          },
+        ],
+      },
+    ]);
+
+    const pageOneChunk = chunks.find((chunk) => chunk.metadata.page_start === 1 && chunk.metadata.page_end === 1);
+    expect(pageOneChunk).toBeDefined();
+    expect(pageOneChunk?.image_ids).not.toContain("page-2-table");
+  });
+
+  it("preserves repeated document-mode clinical chunks when page context differs", async () => {
+    const repeatedMonitoringText =
+      "Clozapine monitoring table\n\nANC threshold 0.5 x 10^9/L: withhold clozapine and repeat FBC daily.";
+    const chunks = await buildDocumentChunks([
+      {
+        documentId: "doc-1",
+        pageNumber: 4,
+        pageText: repeatedMonitoringText,
+        metadata: {},
+      },
+      {
+        documentId: "doc-1",
+        pageNumber: 7,
+        pageText: repeatedMonitoringText,
+        metadata: {},
+      },
+    ]);
+
+    expect(chunks.filter((chunk) => chunk.content.includes("ANC threshold 0.5 x 10^9/L"))).toHaveLength(2);
+    expect(chunks.map((chunk) => chunk.metadata.page_start)).toEqual([4, 7]);
   });
 });
