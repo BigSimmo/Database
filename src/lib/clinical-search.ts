@@ -1,5 +1,6 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
+import { freshnessDecayPenalty, rankingConfig } from "@/lib/ranking-config";
 import type {
   ClinicalQueryAnalysis,
   ClinicalQueryIntent,
@@ -242,6 +243,8 @@ const domainAliasGroups = [
   ["lai", "long acting injectable", "depot", "long-acting injectable"],
   ["im", "intramuscular"],
   ["po", "oral"],
+  ["sc", "subcutaneous", "subcut", "subcutaneously"],
+  ["sl", "sublingual", "sublingually"],
   ["prn", "as required"],
   ["mhsp", "mental health service procedure"],
   ["fda", "food and drug administration"],
@@ -319,7 +322,7 @@ const intentPatterns: Array<{
   {
     intent: "drug_dosing",
     pattern:
-      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer|table|chart|monitor/i,
+      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer|table|chart|monitor/i,
     imageEvidenceFocus: true,
     sectionedLookup: false,
   },
@@ -348,7 +351,7 @@ const tableThresholdPattern =
 // genuine medication_dose_risk query still matches via a drug name, dose/route term, or the
 // medication/pharmacology/agitation vocabulary retained below.
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|administer\w*|\bim\b|\bpo\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|subcutaneous|subcut|sublingual|administer\w*|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
 const documentIncludePattern =
   /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
 const explicitDocumentLookupPattern =
@@ -518,7 +521,9 @@ function queryClassFromSignals(args: {
   )
     return "document_lookup";
   if (
-    /\b(?:dose|dosage|dosing|route|mg|mcg|microgram|\bim\b|\bpo\b|\bprn\b)\b/i.test(args.normalizedQuery) &&
+    /\b(?:dose|dosage|dosing|route|mg|mcg|microgram|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b)\b/i.test(
+      args.normalizedQuery,
+    ) &&
     (args.medications.length > 0 || medicationDoseRiskPattern.test(args.normalizedQuery))
   ) {
     return "medication_dose_risk";
@@ -553,7 +558,9 @@ function intentFromSignals(queryClass: RagQueryClass, normalizedQuery: string): 
   if (queryClass === "document_lookup") return "document_lookup";
   if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") {
     if (
-      /(dose|dosage|dosing|mg|mcg|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer)/i.test(normalizedQuery)
+      /(dose|dosage|dosing|mg|mcg|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer)/i.test(
+        normalizedQuery,
+      )
     ) {
       return "drug_dosing";
     }
@@ -723,7 +730,7 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
   )
     .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
     .join(" ")}`.toLowerCase();
-  return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
+  return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
     haystack,
   );
 }
@@ -1078,7 +1085,9 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query);
   const wantsClozapineBloodMonitoring =
     /\bclozapine\b/i.test(correctedQueryText) &&
-    /\b(?:blood|bloods|fbc|full blood count|observation|observations|monitor|monitoring)\b/i.test(correctedQueryText);
+    /\b(?:blood|bloods|fbc|wcc|full blood count|white cell|observation|observations|monitor|monitoring)\b/i.test(
+      correctedQueryText,
+    );
   const wantsClozapineMissedDose =
     /\bclozapine\b/i.test(correctedQueryText) &&
     /\bmissed\b/i.test(correctedQueryText) &&
@@ -1217,8 +1226,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   const statusBoost = status === "outdated" ? -0.04 : 0;
   const publicationYearsAgo = parseDateAsYearsAgo(result.source_metadata?.publication_date);
   const reviewYearsAgo = parseDateAsYearsAgo(result.source_metadata?.review_date);
-  const freshnessBoost = publicationYearsAgo === null ? 0 : publicationYearsAgo >= 8 ? -0.015 : 0;
-  const reviewBoost = reviewYearsAgo === null ? 0 : reviewYearsAgo >= 5 ? -0.01 : 0;
+  const freshnessBoost = freshnessDecayPenalty(publicationYearsAgo, "publication", rankingConfig.freshness);
+  const reviewBoost = freshnessDecayPenalty(reviewYearsAgo, "review", rankingConfig.freshness);
   const imageBoost = imageEvidenceSignal(query, result);
   const sectionBoost = sectionMatchBoost(query, result);
   const sectionedLookupBoost = querySignal.sectionedLookup ? 0.02 : 0;
