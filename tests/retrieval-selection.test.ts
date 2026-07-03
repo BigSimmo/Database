@@ -160,6 +160,40 @@ describe("retrieval source selection", () => {
     expect(selection.summary.topChunkTypes.medication_chart).toBeGreaterThan(0);
   });
 
+  it("treats SC and SL administration rows as dose-route evidence", () => {
+    const intent = buildRetrievalIntent("What SC or SL route options are listed?", "medication_dose_risk");
+    const selected = summarizeRetrievalSelection({
+      query: "What SC or SL route options are listed?",
+      queryClass: "medication_dose_risk",
+      results: [
+        source({
+          id: "sc-sl-route-row",
+          title: "Medication Route Chart",
+          content: "Subcutaneous medication may be used for one option; sublingual medication is listed for another.",
+          hybrid_score: 0.66,
+          index_unit: {
+            id: "unit-sc-sl-route",
+            unit_type: "medication_chart_row",
+            title: "SC and SL route options",
+            content: "SC route and SL route options.",
+            source_chunk_id: "sc-sl-route-row",
+            source_image_id: null,
+            page_start: 2,
+            page_end: 2,
+            heading_path: ["Medication chart"],
+            normalized_terms: ["sc", "subcutaneous", "sl", "sublingual"],
+            quality_score: 0.9,
+            extraction_mode: "hybrid",
+          },
+        }),
+      ],
+    });
+
+    expect(intent.requiredTermSignals).toContain("route");
+    expect(selected.summary.requiredSignalsSatisfied).toBe(true);
+    expect(selected.summary.matchedSignals).toContain("route");
+  });
+
   it("promotes flowchart next-step evidence for red-zone pathway questions", () => {
     const selection = selectRetrievalEvidence({
       query: "In the clinical flowchart, what is the next step after red-zone risk?",

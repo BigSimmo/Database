@@ -1,7 +1,15 @@
+import { createHash } from "node:crypto";
 import { env } from "@/lib/env";
 import { sourceSpanForText } from "@/lib/source-spans";
 import { normalizeExtractedGlyphs, stripClassificationBanner } from "@/lib/source-text-sanitizer";
 import type { ChunkInput, DocumentChunk } from "@/lib/types";
+
+// Identity of the chunking strategy + params. Stamped into every chunk's metadata so a
+// re-index can tell which chunker produced a row, and so bumping the strategy deliberately
+// invalidates stale chunks. Bump this when chunk boundaries change (e.g. when cross-page
+// document-mode chunking is enabled by default).
+export const CHUNKER_VERSION = "1.0.0-page";
+export const DOCUMENT_CHUNKER_VERSION = "1.0.0-document";
 
 const sentenceBoundary = /(?<=[.!?])\s+/;
 const paragraphBoundary = /\n{2,}/;
@@ -167,6 +175,26 @@ function imageMatchScore(lookupText: string, sourceText: string) {
 
 function dedupeChunkFingerprint(text: string) {
   return normalizeLookupText(text).replace(/\s+/g, " ").trim();
+}
+
+const imageDataTagPattern =
+  /\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]|\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
+
+function normalizeChunkKeyContent(content: string) {
+  return content.replace(imageDataTagPattern, " ").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// CI-4: a stable, position-independent identity for a chunk. Keyed on the document, the
+// section anchor, and the normalized text — NOT on chunk_index or page — so re-indexing the
+// same source yields the same key. This makes re-index idempotent and lets cached citations
+// and eval anchors survive re-pagination and chunk reordering. Genuinely-identical content
+// within one section shares a key, which is the intended "same content = same identity"
+// semantics (a duplicate key is informational metadata, not a DB uniqueness constraint).
+export function chunkContentKey(documentId: string, sectionAnchor: string | null, content: string) {
+  return createHash("sha256")
+    .update(`${documentId}\0${sectionAnchor ?? ""}\0${normalizeChunkKeyContent(content)}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 function clampChunkSize(value: number, minimum: number, maximum: number) {
@@ -446,7 +474,139 @@ function buildPageImageContext(pageImages: NonNullable<ChunkInput["images"]>) {
   return selectedImages.join("\n");
 }
 
-export function buildChunks(inputs: ChunkInput[]) {
+type ChunkImages = NonNullable<ChunkInput["images"]>;
+type ChunkProfile = ReturnType<typeof adaptiveChunkProfile>;
+type SpanPage = { pageNumber: number | null; pageText: string };
+
+function pageLocalExcerptForChunk(chunkExcerpt: string, pageText: string) {
+  const compactPage = pageText.replace(/\s+/g, " ").trim();
+  if (!compactPage) return chunkExcerpt;
+
+  const chunkWords = new Set(
+    normalizeLookupText(chunkExcerpt)
+      .split(/\s+/)
+      .filter((word) => word.length >= 3),
+  );
+  if (chunkWords.size === 0) return compactPage;
+
+  const candidates = compactPage
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const words = normalizeLookupText(part).split(/\s+/).filter(Boolean);
+      const hits = words.filter((word) => chunkWords.has(word)).length;
+      return { part, hits };
+    })
+    .filter((entry) => entry.hits > 0)
+    .sort((left, right) => right.hits - left.hits);
+
+  const selected = candidates
+    .slice(0, 3)
+    .map((entry) => entry.part)
+    .join(" ");
+  return selected || compactPage;
+}
+
+// Shared chunk emission used by BOTH the page and document strategies so they produce an
+// identical DocumentChunk shape. Page mode passes a single page (pageStart===pageEnd, one
+// span page); document mode passes a page range and one span page per contributing page.
+function emitChunk(args: {
+  chunks: DocumentChunk[];
+  content: string;
+  documentId: string;
+  pageNumber: number | null;
+  pageStart: number | null;
+  pageEnd: number | null;
+  sectionPath: string[];
+  images: ChunkImages;
+  spanPages: SpanPage[];
+  baseMetadata: Record<string, unknown>;
+  pageLookupText: string;
+  chunkProfile: ChunkProfile;
+  pageChunkIndex: number;
+  chunkerVersion: string;
+}) {
+  const { content, sectionPath } = args;
+  const contentLookup = normalizeLookupText(content);
+  const heading = detectHeading(content);
+  const sectionContext = sectionPath.includes(heading ?? "") ? sectionPath : [...sectionPath];
+  const sectionAnchor = sectionAnchorId(heading);
+  const level = headingLevel(heading, sectionContext);
+  const parentHeading = sectionContext.length > 1 ? sectionContext[sectionContext.length - 2] : null;
+  const referencedImageIds = args.images
+    .filter((image) => {
+      const label = normalizeLookupText(image.tableLabel ?? "");
+      const title = normalizeLookupText(image.tableTitle ?? "");
+      const caption = normalizeLookupText(image.caption);
+      const imageText = [label, title, caption].filter(Boolean).flatMap((value) => value.split(/\s+/).filter(Boolean));
+      const imageLookup = imageText.join(" ");
+      const headerBoost = heading && imageText.some((token) => normalizeLookupText(heading).includes(token)) ? 1 : 0;
+      const direct = imageMatchScore(caption, contentLookup) >= 1 || imageMatchScore(imageLookup, contentLookup) >= 2;
+      const pathHit =
+        sectionContext.some((candidate) =>
+          normalizeLookupText(candidate)
+            .split(/\s+/)
+            .some((token) => imageLookup.includes(token)),
+        ) && image.sourceKind !== "embedded";
+      return direct || pathHit || (image.sourceKind === "table_crop" && headerBoost > 0) || headerBoost >= 1;
+    })
+    .map((image) => image.id);
+
+  const excerpt = content.replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, "").trim();
+  args.chunks.push({
+    document_id: args.documentId,
+    page_number: args.pageNumber,
+    chunk_index: args.chunks.length,
+    section_heading: heading,
+    section_path: sectionContext,
+    heading_level: level,
+    parent_heading: parentHeading,
+    anchor_id: sectionAnchor,
+    content,
+    retrieval_synopsis: buildRetrievalSynopsis({
+      content,
+      heading,
+      sectionContext,
+      pageNumber: args.pageNumber,
+      referencedImageCount: referencedImageIds.length,
+    }),
+    token_estimate: estimateTokens(content),
+    image_ids: referencedImageIds,
+    metadata: {
+      ...args.baseMetadata,
+      chunk_key: chunkContentKey(args.documentId, sectionAnchor, content),
+      chunker_version: args.chunkerVersion,
+      chunk_strategy: args.chunkerVersion === DOCUMENT_CHUNKER_VERSION ? "document" : "page",
+      page_chunk_index: args.pageChunkIndex,
+      chunk_profile: args.chunkProfile.profile,
+      adaptive_chunk_size: args.chunkProfile.chunkSize,
+      adaptive_chunk_overlap: args.chunkProfile.overlap,
+      page_start: args.pageStart,
+      page_end: args.pageEnd,
+      source_spans: args.spanPages.map((span) => {
+        const pageExcerpt = args.spanPages.length > 1 ? pageLocalExcerptForChunk(excerpt, span.pageText) : excerpt;
+        return sourceSpanForText({
+          pageNumber: span.pageNumber,
+          pageText: span.pageText,
+          excerpt: pageExcerpt,
+          fallbackExcerpt: content,
+        });
+      }),
+      heading_lookup: args.pageLookupText,
+      subsection_path: sectionContext,
+      section_anchor: sectionAnchor,
+      section_path: sectionContext,
+      heading_level: level,
+      parent_heading: parentHeading,
+      anchor_id: sectionAnchor,
+    },
+  });
+}
+
+// Page-bounded chunking (default). Behavior is intentionally unchanged from the original
+// buildChunks; the per-chunk emission is delegated to emitChunk.
+function buildPageModeChunks(inputs: ChunkInput[]) {
   const chunks: DocumentChunk[] = [];
   const chunkFingerprint = new Map<string, number>();
   const repeatedBoilerplateLines = buildRepeatedBoilerplateLines(inputs);
@@ -469,90 +629,161 @@ export function buildChunks(inputs: ChunkInput[]) {
     const pageChunks = chunkTextWithOverlap(pageText, chunkProfile.chunkSize, chunkProfile.overlap);
 
     pageChunks.forEach((content, pageChunkIndex) => {
-      const contentLookup = normalizeLookupText(content);
-      const heading = detectHeading(content);
-      const sectionContext = sectionPath.includes(heading ?? "") ? sectionPath : [...sectionPath];
-      const sectionAnchor = sectionAnchorId(heading);
-      const level = headingLevel(heading, sectionContext);
-      const parentHeading = sectionContext.length > 1 ? sectionContext[sectionContext.length - 2] : null;
-      const referencedImageIds = pageImages
-        .filter((image) => {
-          const label = normalizeLookupText(image.tableLabel ?? "");
-          const title = normalizeLookupText(image.tableTitle ?? "");
-          const caption = normalizeLookupText(image.caption);
-          const imageText = [label, title, caption]
-            .filter(Boolean)
-            .flatMap((value) => value.split(/\s+/).filter(Boolean));
-          const imageLookup = imageText.join(" ");
-          const headerBoost =
-            heading && imageText.some((token) => normalizeLookupText(heading).includes(token)) ? 1 : 0;
-          const direct =
-            imageMatchScore(caption, contentLookup) >= 1 || imageMatchScore(imageLookup, contentLookup) >= 2;
-          const pathHit =
-            sectionContext.some((candidate) =>
-              normalizeLookupText(candidate)
-                .split(/\s+/)
-                .some((token) => imageLookup.includes(token)),
-            ) && image.sourceKind !== "embedded";
-          return direct || pathHit || (image.sourceKind === "table_crop" && headerBoost > 0) || headerBoost >= 1;
-        })
-        .map((image) => image.id);
-
       const fingerprint = dedupeChunkFingerprint(content);
       const pageScopedFingerprint = fingerprint ? `${input.pageNumber ?? "unknown"}:${fingerprint}` : "";
-      if (pageScopedFingerprint && chunkFingerprint.has(pageScopedFingerprint)) {
-        return;
-      }
-
-      if (pageScopedFingerprint) {
-        chunkFingerprint.set(pageScopedFingerprint, chunks.length);
-      }
-      chunks.push({
-        document_id: input.documentId,
-        page_number: input.pageNumber,
-        chunk_index: chunks.length,
-        section_heading: heading,
-        section_path: sectionContext,
-        heading_level: level,
-        parent_heading: parentHeading,
-        anchor_id: sectionAnchor,
+      if (pageScopedFingerprint && chunkFingerprint.has(pageScopedFingerprint)) return;
+      if (pageScopedFingerprint) chunkFingerprint.set(pageScopedFingerprint, chunks.length);
+      emitChunk({
+        chunks,
         content,
-        retrieval_synopsis: buildRetrievalSynopsis({
-          content,
-          heading,
-          sectionContext,
-          pageNumber: input.pageNumber,
-          referencedImageCount: referencedImageIds.length,
-        }),
-        token_estimate: estimateTokens(content),
-        image_ids: referencedImageIds,
-        metadata: {
-          ...(input.metadata ?? {}),
-          page_chunk_index: pageChunkIndex,
-          chunk_profile: chunkProfile.profile,
-          adaptive_chunk_size: chunkProfile.chunkSize,
-          adaptive_chunk_overlap: chunkProfile.overlap,
-          page_start: input.pageNumber,
-          page_end: input.pageNumber,
-          source_spans: [
-            sourceSpanForText({
-              pageNumber: input.pageNumber,
-              pageText: normalizedPageText,
-              excerpt: content.replace(/\[\[IMAGE_DATA_START\]\][\s\S]*?\[\[IMAGE_DATA_END\]\]/g, "").trim(),
-              fallbackExcerpt: content,
-            }),
-          ],
-          heading_lookup: pageLookupText,
-          subsection_path: sectionContext,
-          section_anchor: sectionAnchor,
-          section_path: sectionContext,
-          heading_level: level,
-          parent_heading: parentHeading,
-          anchor_id: sectionAnchor,
-        },
+        documentId: input.documentId,
+        pageNumber: input.pageNumber,
+        pageStart: input.pageNumber,
+        pageEnd: input.pageNumber,
+        sectionPath,
+        images: pageImages,
+        spanPages: [{ pageNumber: input.pageNumber, pageText: normalizedPageText }],
+        baseMetadata: input.metadata ?? {},
+        pageLookupText,
+        chunkProfile,
+        pageChunkIndex,
+        chunkerVersion: CHUNKER_VERSION,
       });
     });
   }
 
   return chunks;
+}
+
+type DocumentPage = {
+  pageNumber: number | null;
+  normalizedText: string;
+  cleanedText: string;
+  images: ChunkImages;
+  metadata: Record<string, unknown>;
+  sectionHeadings: string[];
+  wordSet: Set<string>;
+};
+
+// CI-1: attribute a cross-page chunk to the page(s) that actually contributed its words,
+// by word-set overlap. Offset recovery is unreliable here (removePageNoise, whitespace
+// collapse and paragraph rejoin mean chunk text is not a verbatim substring of any page), so
+// word overlap is the robust signal. This only affects page_start/page_end/source_spans
+// metadata — never chunk content or the retrieval text.
+function attributeChunkToPages(contentWords: Set<string>, pages: DocumentPage[]): DocumentPage[] {
+  if (pages.length <= 1) return pages;
+  const scored = pages.map((page) => {
+    let hits = 0;
+    for (const word of contentWords) if (page.wordSet.has(word)) hits += 1;
+    return { page, hits, fraction: contentWords.size ? hits / contentWords.size : 0 };
+  });
+  const best = Math.max(...scored.map((entry) => entry.fraction));
+  if (best <= 0) return [pages[0]];
+  const threshold = Math.min(0.15, best * 0.5);
+  const contributing = scored
+    .filter((entry) => entry.hits >= 3 && entry.fraction >= threshold)
+    .map((entry) => entry.page);
+  const result = contributing.length
+    ? contributing
+    : [scored.reduce((top, entry) => (entry.fraction > top.fraction ? entry : top)).page];
+  return result.slice().sort((left, right) => (left.pageNumber ?? 0) - (right.pageNumber ?? 0));
+}
+
+// Structure-aware, cross-page chunking (CI-1). Documents are segmented into sections; each
+// section's pages are chunked together so a chunk can span a page break within the section.
+// A new section starts whenever a page introduces its own headings; heading-less continuation
+// pages append to the current section (this is where cross-page merging happens).
+function buildDocumentModeChunks(inputs: ChunkInput[]) {
+  const chunks: DocumentChunk[] = [];
+  if (inputs.length === 0) return chunks;
+  const documentId = inputs[0].documentId;
+  const repeatedBoilerplateLines = buildRepeatedBoilerplateLines(inputs);
+  // Document-scoped dedupe: unlike page mode (which keeps identical content on different
+  // pages), cross-page duplicates within a document are repeated boilerplate worth collapsing.
+  const chunkFingerprint = new Map<string, number>();
+
+  const pages: DocumentPage[] = inputs.map((input) => {
+    const normalizedText = normalizeExtractedGlyphs(input.pageText);
+    const cleanedText = removePageNoise(normalizedText, repeatedBoilerplateLines);
+    return {
+      pageNumber: input.pageNumber,
+      normalizedText,
+      cleanedText,
+      images: input.images ?? [],
+      metadata: input.metadata ?? {},
+      sectionHeadings: extractSectionHeadings(cleanedText),
+      wordSet: new Set(normalizeLookupText(cleanedText).split(/\s+/).filter(Boolean)),
+    };
+  });
+
+  type Section = { sectionPath: string[]; pages: DocumentPage[] };
+  const sections: Section[] = [];
+  let activeSectionPath: string[] = [];
+  for (const page of pages) {
+    if (page.sectionHeadings.length > 0) {
+      activeSectionPath = page.sectionHeadings;
+      sections.push({ sectionPath: activeSectionPath, pages: [page] });
+    } else if (sections.length === 0) {
+      sections.push({ sectionPath: activeSectionPath, pages: [page] });
+    } else {
+      sections[sections.length - 1].pages.push(page);
+    }
+  }
+
+  for (const section of sections) {
+    const combinedText = section.pages
+      .map((page) => [page.cleanedText, buildPageImageContext(page.images)].filter(Boolean).join("\n\n"))
+      .filter(Boolean)
+      .join("\n\n");
+    const combinedCleanText = section.pages
+      .map((page) => page.cleanedText)
+      .filter(Boolean)
+      .join("\n\n");
+    const chunkProfile = adaptiveChunkProfile(combinedCleanText, section.sectionPath);
+    const pageLookupText = normalizeLookupText(section.pages.map((page) => page.normalizedText).join(" "));
+    const sectionChunks = chunkTextWithOverlap(combinedText, chunkProfile.chunkSize, chunkProfile.overlap);
+
+    sectionChunks.forEach((content, pageChunkIndex) => {
+      const contentWords = new Set(
+        normalizeLookupText(content.replace(imageDataTagPattern, " ")).split(/\s+/).filter(Boolean),
+      );
+      const contributing = attributeChunkToPages(contentWords, section.pages);
+      const pageNumbers = contributing
+        .map((page) => page.pageNumber)
+        .filter((value): value is number => typeof value === "number");
+      const pageStart = pageNumbers.length ? Math.min(...pageNumbers) : (section.pages[0]?.pageNumber ?? null);
+      const pageEnd = pageNumbers.length ? Math.max(...pageNumbers) : pageStart;
+      const representativePage = pageStart === pageEnd ? pageStart : null;
+      const fingerprint = dedupeChunkFingerprint(content);
+      const contextualFingerprint = fingerprint
+        ? [section.sectionPath.join(" > "), pageStart ?? "unknown", pageEnd ?? "unknown", fingerprint].join(":")
+        : "";
+      if (contextualFingerprint && chunkFingerprint.has(contextualFingerprint)) return;
+      if (contextualFingerprint) chunkFingerprint.set(contextualFingerprint, chunks.length);
+      const contributingImages = contributing.flatMap((page) => page.images);
+
+      emitChunk({
+        chunks,
+        content,
+        documentId,
+        pageNumber: representativePage,
+        pageStart,
+        pageEnd,
+        sectionPath: section.sectionPath,
+        images: contributingImages,
+        spanPages: contributing.map((page) => ({ pageNumber: page.pageNumber, pageText: page.normalizedText })),
+        baseMetadata: contributing[0]?.metadata ?? section.pages[0]?.metadata ?? {},
+        pageLookupText,
+        chunkProfile,
+        pageChunkIndex,
+        chunkerVersion: DOCUMENT_CHUNKER_VERSION,
+      });
+    });
+  }
+
+  return chunks;
+}
+
+export function buildChunks(inputs: ChunkInput[]) {
+  return env.CHUNK_STRATEGY === "document" ? buildDocumentModeChunks(inputs) : buildPageModeChunks(inputs);
 }
