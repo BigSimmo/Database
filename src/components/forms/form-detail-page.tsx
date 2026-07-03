@@ -644,6 +644,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               )}
             </section>
 
+            <div className="lg:hidden">
+              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
+            </div>
+
             <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
               <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
                 Priority facts
@@ -654,10 +658,6 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 ))}
               </div>
             </section>
-
-            <div className="lg:hidden">
-              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
-            </div>
 
             <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
               <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">

@@ -523,14 +523,6 @@ export function DocumentSearchLiveOpener() {
         setState({ status: "opening", message: "Checking browser document access." });
         return;
       }
-      if (!authorizationHeader.authorization) {
-        setState({
-          status: "mock",
-          message:
-            "The live document viewer needs a signed-in private document session. This mock preview shows the same handoff behavior without requiring auth.",
-        });
-        return;
-      }
 
       try {
         setState({ status: "opening", message: "Finding a real indexed document." });

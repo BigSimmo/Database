@@ -898,10 +898,10 @@ export function MasterSearchHeader({
     );
   }
 
-  // "open-evidence" is the one footer-chip action that isn't already a mode-action
-  // id — every other chip dispatches through the existing runModeAction handler
-  // (the same dispatcher the "+" action menu already uses for these ids).
-  type FooterChipActionId = ModeActionId | "open-evidence";
+  // A couple of footer chips are mode-local shortcuts rather than shared
+  // ModeActionIds. Keep them explicit so they cannot fall through to document
+  // library behavior on non-document pages.
+  type FooterChipActionId = ModeActionId | "open-evidence" | "forms-library";
 
   type FooterActionChip = {
     icon: typeof Search;
@@ -937,7 +937,7 @@ export function MasterSearchHeader({
           icon: BadgeCheck,
           shortLabel: "Library",
           longLabel: "Form library",
-          actionId: "documents-collections",
+          actionId: "forms-library",
           ariaLabel: "Open the form library",
         };
       case "services":
@@ -985,9 +985,9 @@ export function MasterSearchHeader({
     }
   }
 
-  // The second footer chip. Answer/Documents/Forms use the shared document-scope
+  // The second footer chip. Answer/Documents use the shared document-scope
   // trigger instead (see hasScopeFooterChip below) since scope is a real, existing
-  // concept for those three modes. Tools has no genuine second action yet, so it
+  // concept for those two modes. Tools has no genuine second action yet, so it
   // intentionally ships with a single chip rather than an invented one.
   function footerSecondaryChipFor(mode: AppModeId): FooterActionChip | null {
     switch (mode) {
@@ -1033,6 +1033,11 @@ export function MasterSearchHeader({
       onOpenEvidence?.();
       return;
     }
+    if (actionId === "forms-library") {
+      onSearchModeChange("forms");
+      onQueryChange("");
+      return;
+    }
     runModeAction(actionId);
   }
 
@@ -1050,7 +1055,7 @@ export function MasterSearchHeader({
     const usesSendAffordance = usesAnswerFooterStyle;
     const usesModeIdentityAffordance = usesUniversalFooterStyle && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
-    const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
+    const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents";
     const trustFooterChip = footerTrustChipFor(searchMode);
     const secondaryFooterChip = footerSecondaryChipFor(searchMode);
     // Fallback icons here are never rendered — both are only used inside a JSX guard
