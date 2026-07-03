@@ -2,7 +2,7 @@
 
 Date: 2026-06-23
 
-> **Colour direction superseded (July 2026).** The layout, interaction, and answer-first plan below still stands, but its colour language predates the **Clinical White / Aegean Graphite** role-split; see [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). Where this doc says "teal", read the role tokens: `--command` (graphite) for primary actions and `--clinical-accent` (Aegean blue-teal) for evidence/selected/send/focus; green is success-only.
+> **Revised 2026-07-03 — colour aligned to Clinical White / Aegean Graphite.** The functional-colour and colour-specification sections below have been rewritten in-body onto the role-split token system: `--command` (graphite) for primary command, `--clinical-accent` (Aegean blue-teal) for clinical identity (evidence/selected/send/focus), and `--success` (green) for status only. See [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). The layout, interaction, and iteration plan are unchanged from the original 2026-06-23 draft.
 
 ## Purpose
 
@@ -97,17 +97,18 @@ Admin/setup/indexing/readiness controls should remain in Settings, Guide, upload
 
 ### 4. Functional colour only
 
-Colour should communicate state or meaning:
+Colour communicates state or meaning through role tokens, never decoration. The accent is role-split: graphite carries command, Aegean carries clinical identity.
 
-- Deep teal: primary action, active Answer tab, source-backed state, send button.
-- Pale teal: active/source-backed wash.
-- Clinical sand: clinical notes only.
-- Muted blue-grey: document/search surfaces.
-- Amber dot: review due/older source status only.
-- Green dot: ready/current/profile status only.
-- Grey dot: low-confidence/OCR uncertainty only.
+- `--command` (graphite): primary action, New chat, primary CTAs. Command is never teal or green.
+- `--clinical-accent` (Aegean): active Answer tab, source-backed/evidence state, send button, focus.
+- `--clinical-accent-soft`: the quiet active/source-backed wash and small evidence chips.
+- Clinical notes: a neutral quiet surface (`--surface-subtle`); safety/caution content inside uses `--warning`/`--danger`, not a warm tint.
+- `--info` (blue): document/search surfaces where clinical confidence is not implied.
+- `--warning` dot: review due/older source status only.
+- `--success` dot: ready/current/profile status only.
+- Muted/neutral dot: low-confidence/OCR uncertainty only.
 
-Avoid decorative colour and avoid colouring every chip.
+Avoid decorative colour, avoid colouring every chip, and do not map both command and clinical identity to a single accent.
 
 ### 5. Mobile is stricter
 
@@ -135,7 +136,7 @@ Recommended scale:
 | Bullets          | 14-15px | 450-550 | 1.55-1.65   | No bullet icons                   |
 | Sidebar labels   | 13px    | 500-600 | 1.3         | Icons secondary                   |
 | Metadata/chips   | 12-13px | 500-600 | 1.25        | Avoid tiny unreadable text        |
-| Table header     | 12-13px | 600     | 1.25        | Blue-grey header                  |
+| Table header     | 12-13px | 600     | 1.25        | Neutral surface header            |
 | Table cells      | 12-13px | 450-500 | 1.35        | Accessible expanded view required |
 | Mobile composer  | 15-16px | 400-500 | 1.3         | Prevent mobile zoom               |
 
@@ -147,25 +148,28 @@ Reading constraints:
 
 ## Colour specification
 
-Target tokens:
+Use the Clinical White / Aegean Graphite role tokens defined in `src/app/globals.css` (full palette and dark-mode values in [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md)). Reference the tokens, not raw hex; the light values below are for orientation only.
 
-| Token              | Value                               | Use                                          |
-| ------------------ | ----------------------------------- | -------------------------------------------- |
-| Deep teal          | `#006C67`                           | active tab, send, source capsule text/border |
-| Pale teal          | `#E7F4F2`                           | active tab/source capsule background         |
-| Clinical sand      | `#F7F1E6`                           | Clinical notes row only                      |
-| Document blue-grey | `#EEF3F6`                           | Documents mode/search surfaces               |
-| Table blue-grey    | `#F4F7F8`                           | Table header                                 |
-| Amber dot          | `#C88719`                           | older/review-due source dot only             |
-| Ready green dot    | `#1A8F5A`                           | profile/current/high-confidence dot only     |
-| Ink navy           | existing app ink token or `#13232B` | primary text                                 |
+| Role token                       | Light value           | Use                                                                             |
+| -------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
+| `--command`                      | `#111827`             | primary action, New chat, primary CTAs                                          |
+| `--command-hover`                | `#0B1220`             | command hover/pressed                                                           |
+| `--clinical-accent`              | `#0B6F86`             | active Answer tab, send, source capsule text/border, focus                      |
+| `--clinical-accent-soft`         | `#E7F6F8`             | active tab / source capsule / small evidence chip wash                          |
+| `--clinical-accent-border`       | `#B9E4EA`             | selected/evidence borders                                                       |
+| `--info`                         | `#2563EB`             | document/search signal (no clinical confidence implied)                         |
+| `--success`                      | `#0F7A49`             | ready/current/high-confidence dot only                                          |
+| `--warning`                      | `#A15C07`             | review-due/older source dot; caution states                                     |
+| `--danger`                       | `#B42318`             | critical/safety states only                                                     |
+| `--surface` / `--surface-subtle` | `#FFFFFF` / `#F7F8FA` | canvas and quiet nested surfaces (documents mode, table header, clinical notes) |
+| `--text` / `--text-heading`      | `#101418` / `#080B0F` | primary text and headings                                                       |
 
 Rules:
 
-- Teal is the only strong brand/action colour.
-- Sand must not become a generic panel colour.
-- Amber must not appear as large warning backgrounds unless there is a serious warning.
-- Green checks should be minimized; source-backed should use teal.
+- The accent is role-split: `--command` (graphite) carries primary command; `--clinical-accent` (Aegean) carries clinical identity (evidence/selected/send/focus). Do not collapse both into one accent.
+- The canvas is true white — no warm sand/cream tint. Clinical notes and other nested areas use neutral `--surface-subtle`, not a coloured panel.
+- Amber (`--warning`) must not appear as a large background unless there is a serious warning.
+- Green (`--success`) is success/ready only; source-backed state uses `--clinical-accent`, never green.
 
 ## Icon specification
 
@@ -210,9 +214,9 @@ Mapping:
 Status:
 
 - Use dots instead of warning icons in normal source metadata.
-- Green dot: current/high confidence.
-- Amber dot: review due/older source.
-- Grey dot: low confidence/OCR uncertainty.
+- `--success` dot: current/high confidence.
+- `--warning` dot: review due/older source.
+- Muted/neutral dot: low confidence/OCR uncertainty.
 
 ## Component mapping
 
@@ -330,7 +334,7 @@ Clinical notes 2
 
 Style:
 
-- Pale sand background only.
+- Neutral quiet surface (`--surface-subtle`) only — no warm sand tint.
 - Right chevron.
 - Compact collapsed default.
 
