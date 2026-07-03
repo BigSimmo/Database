@@ -6,6 +6,7 @@ const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g
 // bookkeeping that must never render or be copied.
 const omittedImageDataBlockPattern = /\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
 const omittedImageDataMarkerPattern = /\[\[\/?IMAGE_DATA_OMITTED\]\]/g;
+const evidenceFenceSentinelPattern = /<<<(?:END_)?[A-Z][A-Z0-9_]{0,63}>>>/g;
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;
@@ -418,8 +419,15 @@ export function sourceTextForModelEvidence(text: string) {
   return neutralizePromptInstructions(sourceTextForModel(text));
 }
 
+export function escapeEvidenceFenceSentinels(text: string) {
+  return text.replace(evidenceFenceSentinelPattern, (sentinel) => {
+    const label = sentinel.slice(3, -3);
+    return `[escaped-evidence-fence: ${label}]`;
+  });
+}
+
 export function fenceSourceEvidence(text: string, kind = "SOURCE_EXCERPT") {
-  return `<<<${kind}>>>\n${text}\n<<<END_${kind}>>>`;
+  return `<<<${kind}>>>\n${escapeEvidenceFenceSentinels(text)}\n<<<END_${kind}>>>`;
 }
 
 export function sourceTextForDisplay(text: string) {

@@ -134,6 +134,7 @@ test.describe("Clinical KB applications launcher", () => {
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "Tools command center" })).toBeVisible();
+    await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();

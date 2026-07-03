@@ -1097,7 +1097,9 @@ function DashboardToolsCommandCenter({
       </section>
 
       <main className="grid grid-cols-[minmax(0,1fr)] gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
-        {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="hidden" /> : null}
+        {desktopComposerSlotId ? (
+          <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
+        ) : null}
 
         <section className="grid gap-3">
           <DashboardSearchControl query={query} onQueryChange={onQueryChange} />

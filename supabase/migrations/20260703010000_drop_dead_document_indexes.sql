@@ -19,4 +19,4 @@ drop index if exists public.document_table_facts_source_image_id_idx;
 -- Single-column (owner_id) index strictly dominated by the required
 -- composite document_table_facts_owner_document_page_idx
 -- (owner_id, document_id, page_number).
-drop index if exists public.document_table_facts_owner_id_idx;
+drop index if exists public.document_table_facts_owner_idx;

@@ -546,7 +546,9 @@ function SourceStatusCard({
             <CircleHelp className="h-4 w-4" aria-hidden />
             {hasSourceEvidence ? workflow.sourceStatus.label : "Run source search"}
           </span>
-          <span className="text-[color:var(--text-muted)]">{hasSourceEvidence ? "312 sources" : "Not yet checked"}</span>
+          <span className="text-[color:var(--text-muted)]">
+            {hasSourceEvidence ? "312 sources" : "Not yet checked"}
+          </span>
         </p>
       </div>
       <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
@@ -747,8 +749,8 @@ function SearchResultsView({
                 className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 p-3 text-sm"
               >
                 <p className="font-semibold leading-5 text-[color:var(--text-heading)]">
-                  Showing guided local differential records. Source-library evidence has not been checked for this
-                  query yet.
+                  Showing guided local differential records. Source-library evidence has not been checked for this query
+                  yet.
                 </p>
                 <button
                   type="button"
@@ -903,7 +905,7 @@ export function DifferentialsHome({
         loading={loading}
         documentMatches={documentMatches}
         documentCount={documentCount}
-        onRunSearch={onRunSearch}
+        onRunSearch={runSearch}
       />
     );
   }

@@ -593,8 +593,6 @@ create unique index if not exists document_chunks_document_generation_chunk_idx
   on public.document_chunks(document_id, index_generation_id, chunk_index)
   where index_generation_id is not null;
 create index if not exists document_chunks_content_hash_idx on public.document_chunks(document_id, content_hash);
-create index if not exists document_chunks_section_path_gin_idx
-  on public.document_chunks using gin(section_path);
 create index if not exists document_chunks_anchor_idx
   on public.document_chunks(document_id, anchor_id)
   where anchor_id is not null;

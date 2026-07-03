@@ -508,6 +508,7 @@ describe("Supabase schema Data API grants", () => {
   });
 
   it("covers advisor-reported foreign key indexes for search support tables", () => {
+    expect(schema).not.toContain("create index if not exists document_chunks_section_path_gin_idx");
     expect(schema).toContain(
       "create index if not exists document_embedding_fields_owner_id_idx on public.document_embedding_fields(owner_id)",
     );
