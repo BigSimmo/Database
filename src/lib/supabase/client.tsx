@@ -100,8 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!client) return () => undefined;
     let active = true;
 
+    // Clear the URL param synchronously (no React state here — that would trip
+    // react-hooks/set-state-in-effect); surface it after the async load below.
     const callbackError = consumeAuthErrorParam();
-    if (callbackError) setError(decodeURIComponent(callbackError));
 
     const initializeSession = async () => {
       try {
@@ -114,7 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setSession(data.session);
         setStatus(data.session ? "authenticated" : "signed_out");
-        if (data.session) setError(null);
+        if (data.session) {
+          setError(null);
+        } else if (callbackError) {
+          setError(decodeURIComponent(callbackError));
+        }
       } catch {
         if (!active) return;
         setStatus("error");
