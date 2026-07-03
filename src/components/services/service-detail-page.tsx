@@ -655,7 +655,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
             <section
               aria-label="Service quick facts"
-              className="grid gap-3 pt-52 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
+              className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
             >
               {compactSummaryCards.map((card) => (
                 <SummaryCard key={card.id} card={card} />

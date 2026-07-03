@@ -7996,6 +7996,7 @@ export function ClinicalDashboard({
       return;
     }
     if (modeSearch.kind === "services") {
+      searchRequestSeqRef.current += 1;
       setAnswer(null);
       setSources([]);
       setDocumentMatches([]);

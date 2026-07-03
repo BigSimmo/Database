@@ -1,7 +1,7 @@
--- Fix: cover storage_cleanup_jobs.document_id FK with an index. The FK itself
--- was added in 20260702130000_storage_cleanup_jobs_document_fk.sql without a
--- covering index, leaving joins/cascades on it to full-scan.
-create index if not exists storage_cleanup_jobs_document_id_idx
+-- Fix: cover storage_cleanup_jobs.document_id FK with the existing bootstrap
+-- index name. Older tracked migrations/schema.sql already use this name, so
+-- reusing it avoids creating a duplicate btree on the same key.
+create index if not exists storage_cleanup_jobs_document_idx
   on public.storage_cleanup_jobs (document_id);
 
 -- Fix: document_embedding_fields is now the largest table in the schema
