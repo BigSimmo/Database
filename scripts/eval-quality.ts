@@ -753,6 +753,7 @@ async function runRetrievalQualityCases(args: {
         topK: testCase.topK,
         minSimilarity: 0.12,
         skipCache: true,
+        forceEmbedding: testCase.forceEmbedding,
       }),
     );
     const latencyMs =

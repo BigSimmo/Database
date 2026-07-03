@@ -229,17 +229,8 @@
     "id": "vector-ptsd",
     "query": "How is post-traumatic stress disorder managed in a person with intrusive flashbacks, nightmares, hyperarousal and avoidance after a traumatic event?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Traumatic Stress"
-    ],
-    "expectedContentTerms": [
-      [
-        "trauma",
-        "traumatic",
-        "ptsd",
-        "flashback"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Traumatic Stress"],
+    "expectedContentTerms": [["trauma", "traumatic", "ptsd", "flashback"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -248,17 +239,8 @@
     "id": "vector-ocd",
     "query": "How is obsessive-compulsive disorder managed in a person with distressing intrusive obsessions and repetitive compulsive rituals?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Obsessive"
-    ],
-    "expectedContentTerms": [
-      [
-        "obsess",
-        "compuls",
-        "intrusive",
-        "ocd"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Obsessive"],
+    "expectedContentTerms": [["obsess", "compuls", "intrusive", "ocd"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -267,16 +249,8 @@
     "id": "vector-panic",
     "query": "How is panic disorder managed in a person with recurrent unexpected panic attacks, palpitations and anticipatory anxiety?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Panic"
-    ],
-    "expectedContentTerms": [
-      [
-        "panic",
-        "attack",
-        "anxiety"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Panic"],
+    "expectedContentTerms": [["panic", "attack", "anxiety"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -285,16 +259,8 @@
     "id": "vector-anorexia",
     "query": "How is anorexia nervosa managed in a person with severe dietary restriction, intense fear of weight gain and body-image disturbance?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Anorexia"
-    ],
-    "expectedContentTerms": [
-      [
-        "anorexia",
-        "eating",
-        "weight"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Anorexia"],
+    "expectedContentTerms": [["anorexia", "eating", "weight"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -303,22 +269,10 @@
     "id": "vector-gad-worry",
     "query": "How is a patient managed who has persistent, excessive worry about many everyday things that they find very hard to control, along with restlessness and muscle tension?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Generalised Anxiety"
-    ],
+    "expectedDocumentSubstrings": ["Generalised Anxiety"],
     "expectedContentTerms": [
-      [
-        "worry",
-        "anxiety",
-        "generalised"
-      ],
-      [
-        "cbt",
-        "ssri",
-        "snri",
-        "antidepressant",
-        "psychotherapy"
-      ]
+      ["worry", "anxiety", "generalised"],
+      ["cbt", "ssri", "snri", "antidepressant", "psychotherapy"]
     ],
     "topK": 8,
     "expectTableEvidence": false,
@@ -328,16 +282,8 @@
     "id": "vector-tourette",
     "query": "How is Tourette syndrome managed in a child with chronic motor tics and vocal tics?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Tourette"
-    ],
-    "expectedContentTerms": [
-      [
-        "tic",
-        "tics",
-        "tourette"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Tourette"],
+    "expectedContentTerms": [["tic", "tics", "tourette"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -346,17 +292,8 @@
     "id": "vector-postnatal",
     "query": "How is postnatal (postpartum) depression managed in a new mother who develops low mood and poor bonding with her infant in the first weeks postpartum?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Postnatal"
-    ],
-    "expectedContentTerms": [
-      [
-        "postnatal",
-        "postpartum",
-        "perinatal",
-        "depression"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Postnatal"],
+    "expectedContentTerms": [["postnatal", "postpartum", "perinatal", "depression"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -365,17 +302,8 @@
     "id": "vector-bipolar",
     "query": "How is bipolar disorder managed in an adult with recurrent episodes of mania and depression?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Bipolar"
-    ],
-    "expectedContentTerms": [
-      [
-        "bipolar",
-        "mania",
-        "manic",
-        "mood"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Bipolar"],
+    "expectedContentTerms": [["bipolar", "mania", "manic", "mood"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -384,17 +312,8 @@
     "id": "vector-adhd",
     "query": "How is attention deficit hyperactivity disorder managed in an adult with inattention, distractibility and impulsivity?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Attention Deficit Hyperactivity"
-    ],
-    "expectedContentTerms": [
-      [
-        "attention",
-        "adhd",
-        "hyperactiv",
-        "impuls"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Attention Deficit Hyperactivity"],
+    "expectedContentTerms": [["attention", "adhd", "hyperactiv", "impuls"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
@@ -403,18 +322,8 @@
     "id": "vector-opioid",
     "query": "How is opioid use disorder managed in a person dependent on heroin?",
     "expectedQueryClass": "broad_summary",
-    "expectedDocumentSubstrings": [
-      "Opioid Use Disorder"
-    ],
-    "expectedContentTerms": [
-      [
-        "opioid",
-        "heroin",
-        "opiate",
-        "methadone",
-        "buprenorphine"
-      ]
-    ],
+    "expectedDocumentSubstrings": ["Opioid Use Disorder"],
+    "expectedContentTerms": [["opioid", "heroin", "opiate", "methadone", "buprenorphine"]],
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
