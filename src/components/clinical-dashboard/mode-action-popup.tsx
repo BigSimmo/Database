@@ -341,7 +341,7 @@ export function ModeActionPopup({
             )}
           >
             <div className="grid min-h-[4.1rem] grid-cols-[minmax(8.5rem,0.38fr)_minmax(0,1fr)_3.75rem] overflow-hidden border-b border-[color:var(--border)]/70 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--clinical-accent-soft)_42%,var(--surface)_58%)_0%,color-mix(in_srgb,var(--surface-raised)_92%,var(--clinical-accent-soft)_8%)_100%)]">
-              <div className="flex min-w-0 items-center gap-3 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--clinical-accent)_82%,#ffffff_18%)_0%,color-mix(in_srgb,var(--clinical-accent)_68%,var(--primary-strong)_32%)_100%)] px-3.5 text-[color:var(--primary-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255_/_22%)] sm:px-4">
+              <div className="flex min-w-0 items-center gap-3 bg-[color:var(--clinical-accent)] px-3.5 text-[color:var(--primary-contrast)] sm:px-4">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/25 bg-white/10 text-white shadow-[var(--shadow-inset)]">
                   <TitleIcon className="h-4.5 w-4.5" />
                 </span>

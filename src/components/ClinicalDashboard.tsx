@@ -261,7 +261,7 @@ import {
   shouldPollForUpdates,
 } from "@/lib/ward-output";
 
-const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
+const navigationHashes = ["#search", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
@@ -585,7 +585,7 @@ function VisualEvidenceStrip({
 
   if (collapsed) {
     return (
-      <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
+      <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
         <UtilityDrawer
           icon={FileImage}
           title="Nearby visual evidence"
@@ -694,11 +694,7 @@ function VisualEvidenceStrip({
 
   if (embedded) return <div className="space-y-3">{content}</div>;
 
-  return (
-    <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-      {content}
-    </section>
-  );
+  return <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">{content}</section>;
 }
 
 function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
@@ -1020,13 +1016,13 @@ function MobileEvidenceSheetContent({
           {primarySourceHref ? (
             <Link
               href={primarySourceHref}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -1034,7 +1030,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => void copyEvidence()}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copiedQuotes ? "Copied" : "Copy"}
@@ -1042,7 +1038,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -2355,8 +2351,14 @@ function DocumentDrawer({
       {/* Dynamic Browse Library Filters */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <label
+            htmlFor="browse-filter-type"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Type
+          </label>
           <select
+            id="browse-filter-type"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2371,8 +2373,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <label
+            htmlFor="browse-filter-site"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Site
+          </label>
           <select
+            id="browse-filter-site"
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2387,8 +2395,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <label
+            htmlFor="browse-filter-topic"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Topic
+          </label>
           <select
+            id="browse-filter-topic"
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2403,10 +2417,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+          <label
+            htmlFor="browse-filter-population"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
             Population
           </label>
           <select
+            id="browse-filter-population"
             value={selectedPopulation}
             onChange={(e) => setSelectedPopulation(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -5096,7 +5114,7 @@ export function ClinicalDashboard({
 
     const mainTop = main.getBoundingClientRect().top;
     const marker = mainTop + 96;
-    const sections = ["#quotes", "#images", "#sources"];
+    const sections = ["#sources"];
     const current =
       sections
         .map((section) => {
@@ -5151,7 +5169,6 @@ export function ClinicalDashboard({
     () => (answer ? buildAnswerRenderModel(answer, { sources, includeDebugReasons: true }) : null),
     [answer, sources],
   );
-  const visualEvidence = useMemo(() => answerRenderModel?.visualEvidence ?? [], [answerRenderModel]);
   const relatedDocuments = useMemo(() => answerRenderModel?.relatedDocuments ?? [], [answerRenderModel]);
   const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
   const weakEvidence = answerRenderModel
@@ -5260,26 +5277,6 @@ export function ClinicalDashboard({
               ? documentMatches.length
               : null,
       empty: activeModeResultKind === "documents" && documentMatches.length === 0,
-    },
-    {
-      label: "Quotes",
-      description: answer
-        ? answerRenderModel?.quoteCards.length
-          ? "Exact source excerpts"
-          : "No quotes yet"
-        : "No quotes yet",
-      icon: Quote,
-      href: "#quotes",
-      count: answer ? (answerRenderModel?.quoteCards.length ?? 0) : null,
-      empty: !answer || (answerRenderModel?.quoteCards.length ?? 0) === 0,
-    },
-    {
-      label: "Images",
-      description: answer ? (visualEvidence.length ? "Tables and diagrams" : "No images yet") : "No images yet",
-      icon: FileImage,
-      href: "#images",
-      count: answer ? visualEvidence.length : null,
-      empty: !answer || visualEvidence.length === 0,
     },
     {
       label: "Sources",

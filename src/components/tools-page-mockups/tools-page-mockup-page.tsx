@@ -290,7 +290,7 @@ function ToolCard({ tool, suggested = false }: { tool: ToolFixture; suggested?: 
         <div className="min-w-0 flex-1">
           <div className="grid gap-2">
             <h3 className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{tool.title}</h3>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {suggested ? <SuggestedBadge /> : null}
               <StatusPill status={tool.status} />
               {tool.sourceBacked ? <SourceBackedBadge compact /> : null}
@@ -437,15 +437,13 @@ function WideToolTile({
       <div className="flex items-start gap-3">
         <ToolIcon tool={tool} quiet={!suggested} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="min-w-0 flex-1 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
-              {tool.title}
-            </h3>
+          <h3 className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{tool.title}</h3>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {suggested ? <SuggestedBadge /> : null}
             <StatusPill status={tool.status} />
             {tool.sourceBacked ? <SourceBackedBadge compact /> : null}
           </div>
-          <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+          <p className="mt-2 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
             {tool.description}
           </p>
         </div>
