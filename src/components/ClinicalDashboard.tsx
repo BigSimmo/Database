@@ -62,9 +62,7 @@ import {
   answerSurface,
   chatMicroAction,
   clinicalDivider,
-  clinicalNotesRow,
   cn,
-  evidenceRow,
   EmptyState,
   fieldControlPlain,
   fieldControlWithIcon,
@@ -95,7 +93,7 @@ import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboar
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
+import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import {
   type SidebarIdentity,
   deriveSidebarIdentity,
@@ -149,7 +147,6 @@ import {
   primaryVisualTable,
   QuoteCards,
   SafetyFindingsPanel,
-  VerificationWorkspace,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -175,12 +172,8 @@ const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
   { ssr: false },
 );
-import {
-  DocumentSearchResultsPanel,
-  MatchExplanationChips,
-  type SearchFacets,
-} from "@/components/clinical-dashboard/document-search-results";
-import { isWeakRelevance, QueryCoverageChips, RelevanceBadge } from "@/components/clinical-dashboard/relevance";
+import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
+import { isWeakRelevance, QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   isRetryableError,
@@ -240,7 +233,6 @@ import type {
   QuoteCard,
   RagAnswer,
   AnswerSection,
-  ConflictOrGap,
   RelatedDocument,
   EvidenceSummary,
   SearchResult,
@@ -252,14 +244,7 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import {
-  type AnswerEvidenceMapRow,
-  type AnswerViewMode,
-  buildAnswerEvidenceMap,
-  buildClinicalOutputSections,
-  buildHighYieldClinicalOutputSections,
-  shouldPollForUpdates,
-} from "@/lib/ward-output";
+import { type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
@@ -476,72 +461,6 @@ async function readAnswerStream(response: Response, onProgress: (message: string
 
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
-}
-
-function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
-  const visibleSources = sources.slice(0, 3);
-  if (visibleSources.length === 0) return null;
-
-  return (
-    <details data-testid="why-this-matched" className={cn("group rounded-lg", panelSubtle)}>
-      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <Search className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Why this matched</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              Match signals, source strength, and term coverage for top passages
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="grid gap-2 border-t border-[color:var(--border)] p-3">
-        {visibleSources.map((source) => (
-          <article
-            key={source.id}
-            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="line-clamp-1 text-sm font-semibold text-[color:var(--text)]">
-                  {cleanDisplayTitle(source.title)}
-                </p>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                  <span className="font-mono tabular-nums">page {source.page_number ?? "n/a"}</span> ·{" "}
-                  <span className="font-mono tabular-nums">chunk {source.chunk_index}</span>
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <RelevanceBadge relevance={source.relevance} />
-                <StrengthBadge strength={source.source_strength} />
-                <SourceStatusBadge metadata={source.source_metadata} />
-              </div>
-            </div>
-            <MatchExplanationChips source={source} />
-            {source.index_unit ? (
-              <p
-                className={cn(
-                  "mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-1.5 text-xs leading-5",
-                  textMuted,
-                )}
-              >
-                <span className="font-semibold text-[color:var(--text)]">
-                  {source.index_unit.unit_type.replaceAll("_", " ")}:
-                </span>{" "}
-                {source.index_unit.title}
-              </p>
-            ) : null}
-            <div className="mt-2">
-              <QueryCoverageChips relevance={source.relevance} limit={5} />
-            </div>
-          </article>
-        ))}
-      </div>
-    </details>
-  );
 }
 
 function compactClinicalTableCaption(item: VisualEvidenceCard) {
@@ -886,7 +805,6 @@ function MobileEvidenceSheetContent({
   answer,
   sources,
   renderModel,
-  query,
   visualEvidence,
   answerEvidenceMapRows,
   sourceGovernanceWarnings,
@@ -902,7 +820,6 @@ function MobileEvidenceSheetContent({
   answer: RagAnswer;
   sources: SearchResult[];
   renderModel: AnswerRenderModel;
-  query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   sourceGovernanceWarnings: SourceGovernanceWarning[];
@@ -995,7 +912,6 @@ function MobileEvidenceSheetContent({
                 <MobileEvidenceTabPanel
                   tab={tab}
                   renderModel={renderModel}
-                  query={query}
                   visualEvidence={visualEvidence}
                   answerEvidenceMapRows={answerEvidenceMapRows}
                   copiedQuotes={copiedQuotes}
@@ -1056,7 +972,6 @@ function MobileEvidenceSheetContent({
 function MobileEvidenceTabPanel({
   tab,
   renderModel,
-  query,
   visualEvidence,
   answerEvidenceMapRows,
   copiedQuotes,
@@ -1066,7 +981,6 @@ function MobileEvidenceTabPanel({
 }: {
   tab: EvidenceTabName;
   renderModel: AnswerRenderModel;
-  query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   copiedQuotes: boolean;
@@ -1127,138 +1041,6 @@ function MobileEvidenceTabPanel({
   }
 
   return <EvidenceGapsPanel warnings={renderModel.warnings} />;
-}
-
-function UnifiedEvidenceDrawerContent({
-  answer,
-  renderModel,
-  query,
-  visualEvidence,
-  answerEvidenceMapRows,
-  pendingFeedback,
-  copiedQuotes,
-  onCopyQuotes,
-  onSubmitFeedback,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
-  answer: RagAnswer;
-  renderModel: AnswerRenderModel;
-  query: string;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pendingFeedback: AnswerFeedbackType | null;
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  const order = evidenceTabOrder(answer, renderModel);
-
-  return (
-    <div className="space-y-4">
-      <VerificationWorkspace
-        renderModel={renderModel}
-        query={query}
-        answerEvidenceMapRows={answerEvidenceMapRows}
-        pendingFeedback={pendingFeedback}
-        onSubmitFeedback={onSubmitFeedback}
-        onScopeDocument={onScopeDocument}
-      />
-
-      <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
-        {order.map((item) => (
-          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-            {item}
-          </span>
-        ))}
-      </div>
-
-      {order.map((section) => {
-        if (section === "Claims") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Claims</p>
-              <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />
-            </section>
-          );
-        }
-
-        if (section === "Tables") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tables</p>
-              {visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length) ? (
-                <div className="grid gap-2">
-                  {visualEvidence
-                    .filter((item) => item.accessibleTableMarkdown || item.tableRows?.length)
-                    .slice(0, 3)
-                    .map((item) => (
-                      <div key={item.id} className={cn(tableCard, "p-3")}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
-                            {compactClinicalTableCaption(item)}
-                          </p>
-                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
-                        </div>
-                        <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
-                          <Link href={item.viewer_href} className={chatMicroAction}>
-                            Expand
-                          </Link>
-                          <Link href={item.viewer_href} className={chatMicroAction}>
-                            Source
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
-              )}
-            </section>
-          );
-        }
-
-        if (section === "Images") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Images</p>
-              <UtilityDrawer
-                icon={FileImage}
-                title={`Images ${visualEvidence.length}`}
-                summary="Open to view table images, PDF page crops, and figures."
-                mobileSummary={`${visualEvidence.length} images`}
-              >
-                <VisualEvidenceStrip evidence={visualEvidence} embedded />
-              </UtilityDrawer>
-            </section>
-          );
-        }
-
-        if (section === "Quotes") {
-          return (
-            <section key={section} className="space-y-2">
-              <QuoteCards
-                quotes={renderModel.quoteCards}
-                copiedQuotes={copiedQuotes}
-                onCopyQuotes={onCopyQuotes}
-                onFollowUp={onFollowUpQuote}
-                onScopeDocument={onScopeDocument}
-              />
-            </section>
-          );
-        }
-
-        return (
-          <section key={section} className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Gaps</p>
-            <EvidenceGapsPanel warnings={renderModel.warnings} />
-          </section>
-        );
-      })}
-    </div>
-  );
 }
 
 function RelatedDocumentsPanel({
@@ -1322,20 +1104,15 @@ function StagedAnswerResultSurface({
   query,
   safeAnswerText,
   bestSource,
-  currentRelevance,
-  queryMode,
   sourceGovernanceWarnings,
   sourceSummary,
   renderModel,
   weakEvidence,
-  groupedGovernanceWarningCount,
   answerViewMode,
   answerEvidenceMapRows,
   onScopeDocument,
   answerGrounded,
   sources,
-  gaps,
-  searchScope,
   demoMode,
   safeAnswerSections,
   safetyFindings,
@@ -1348,20 +1125,15 @@ function StagedAnswerResultSurface({
   query: string;
   safeAnswerText: string;
   bestSource: BestSourceRecommendation | null;
-  currentRelevance: EvidenceRelevance | null | undefined;
-  queryMode: ClinicalQueryMode;
   sourceGovernanceWarnings: SourceGovernanceWarning[];
   sourceSummary?: EvidenceSummary;
   renderModel: AnswerRenderModel;
   weakEvidence: boolean;
-  groupedGovernanceWarningCount: number;
   answerViewMode: AnswerViewMode;
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   onScopeDocument: (documentId: string) => void;
   answerGrounded: boolean;
   sources: SearchResult[];
-  gaps: ConflictOrGap[];
-  searchScope: SearchScopeSummary | null;
   demoMode: boolean;
   safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
@@ -1568,7 +1340,6 @@ function StagedAnswerResultSurface({
                     answer={answer}
                     sources={sources}
                     renderModel={renderModel}
-                    query={query}
                     visualEvidence={renderModel.visualEvidence}
                     answerEvidenceMapRows={answerEvidenceMapRows}
                     sourceGovernanceWarnings={sourceGovernanceWarnings}
@@ -1664,7 +1435,6 @@ function StagedAnswerResultSurface({
               answer={answer}
               sources={sources}
               renderModel={renderModel}
-              query={query}
               visualEvidence={renderModel.visualEvidence}
               answerEvidenceMapRows={answerEvidenceMapRows}
               sourceGovernanceWarnings={sourceGovernanceWarnings}
@@ -5161,7 +4931,6 @@ export function ClinicalDashboard({
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answerRenderModel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
-  const gaps = answer?.conflictsOrGaps ?? answer?.smartPanel?.conflictsOrGaps ?? [];
   const answerGrounded =
     answer?.grounded === true &&
     answer.confidence !== "unsupported" &&
@@ -5685,20 +5454,15 @@ export function ClinicalDashboard({
                     query={query}
                     safeAnswerText={safeAnswerText}
                     bestSource={bestSource}
-                    currentRelevance={currentRelevance}
-                    queryMode={queryMode}
                     sourceGovernanceWarnings={sourceGovernanceWarnings}
                     sourceSummary={sourceSummary}
                     renderModel={answerRenderModel}
                     weakEvidence={weakEvidence}
-                    groupedGovernanceWarningCount={groupedGovernanceWarningCount}
                     answerViewMode={answerViewMode}
                     answerEvidenceMapRows={answerEvidenceMapRows}
                     onScopeDocument={scopeOnlyDocument}
                     answerGrounded={answerGrounded}
                     sources={answerRenderModel.reviewSources}
-                    gaps={gaps}
-                    searchScope={searchScope}
                     demoMode={demoMode}
                     safeAnswerSections={safeAnswerSections}
                     safetyFindings={safetyFindings}
