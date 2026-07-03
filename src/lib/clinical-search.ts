@@ -1688,6 +1688,19 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
       const hasImageEvidence = (result.images ?? []).some((image) => isClinicalImageEvidence(image));
       const imageEvidencePenalty = wantsImageEvidence && !hasImageEvidence ? -0.04 : 0;
       const score = explanation.finalScore + imageEvidencePenalty;
+      // finalScore is clamped to [0,1], so heavily-boosted results saturate at 1.0 and tie on `score`.
+      // The pre-clamp magnitude (the inner boost sum before the outer clamp) still carries the boost
+      // engineering that the clamp discards, so we use it as a deep tiebreak below the engineered
+      // rankingTieBreakScore — it can only discriminate results that are otherwise tied, never reorder
+      // above tieBreakScore.
+      const preClampFinalScore =
+        explanation.weightedHybridScore +
+        explanation.titleBoost +
+        explanation.metadataBoost +
+        explanation.clinicalSignalBoost +
+        explanation.rrfBoost +
+        explanation.penalty +
+        imageEvidencePenalty;
       return {
         result,
         explanation: {
@@ -1697,9 +1710,20 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
         },
         score,
         tieBreakScore: rankingTieBreakScore(query, result, explanation),
+        preClampFinalScore,
       };
     })
-    .sort((a, b) => b.score - a.score || b.tieBreakScore - a.tieBreakScore || b.result.similarity - a.result.similarity)
+    // Final `id` comparison is a stable, deterministic tiebreak so fully-tied results no longer order
+    // by arbitrary retrieval order (a residual run-to-run nondeterminism); it fires only after every
+    // meaningful signal has tied, so it never wastes the boost/relevance engineering above it.
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.tieBreakScore - a.tieBreakScore ||
+        b.preClampFinalScore - a.preClampFinalScore ||
+        b.result.similarity - a.result.similarity ||
+        a.result.id.localeCompare(b.result.id),
+    )
     .map((entry, index) => ({
       ...entry.result,
       score_explanation: {

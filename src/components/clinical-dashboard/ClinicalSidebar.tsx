@@ -52,9 +52,9 @@ const sidebarToolItems = [
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   { id: "services", label: "Services", icon: ClipboardList, href: "/services" },
   { id: "forms", label: "Forms", icon: FileText, href: "/forms" },
-  { id: "favourites", label: "Faves", icon: Heart, href: "/favourites" },
-  { id: "differentials", label: "Diffs", icon: BrainCircuit, href: "/differentials" },
-  { id: "prescribing", label: "Meds", icon: Pill, href: "/?mode=prescribing" },
+  { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
+  { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
+  { id: "prescribing", label: "Medications", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
 

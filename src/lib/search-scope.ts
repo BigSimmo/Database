@@ -52,6 +52,10 @@ export const searchScopeFiltersSchema = z
     locality: z.enum(["local", "non_local"]).optional(),
     importBatchIds: z.array(z.string().uuid()).max(25).optional(),
     collections: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+    // Match documents carrying ANY label of the requested type(s), without
+    // enumerating label values (e.g. "any document with a service label").
+    // Used by mode-default scopes for the Services/Forms surfaces.
+    labelTypesAny: z.array(z.enum(labelTypes)).max(13).optional(),
   })
   .default({});
 
@@ -142,7 +146,14 @@ export function activeScopeFilterCount(filters: SearchScopeFilters) {
     filters.locality ? [filters.locality] : [],
     filters.importBatchIds,
     filters.collections,
+    filters.labelTypesAny,
   ].filter((values) => values && values.length > 0).length;
+}
+
+function labelTypeAnyMatches(labels: ScopeLabelRow[], requestedTypes?: SearchScopeFilters["labelTypesAny"]) {
+  if (!hasValues(requestedTypes)) return true;
+  const wanted = new Set(requestedTypes!);
+  return labels.some((label) => wanted.has(label.label_type as (typeof labelTypes)[number]));
 }
 
 function labelMatches(labels: ScopeLabelRow[], type: DocumentLabelType, requested?: string[]) {
@@ -292,7 +303,8 @@ export async function resolveSearchScope(args: {
     hasValues(filters.clinicalActions) ||
     hasValues(filters.carePhases) ||
     hasValues(filters.documentIntents) ||
-    hasValues(filters.contentFeatures);
+    hasValues(filters.contentFeatures) ||
+    hasValues(filters.labelTypesAny);
   let labelsByDocument = new Map<string, ScopeLabelRow[]>();
   if (needsLabels) {
     const { data: labelRows, error: labelError } = await args.supabase
@@ -322,7 +334,8 @@ export async function resolveSearchScope(args: {
       labelMatches(labels, "clinical_action", filters.clinicalActions) &&
       labelMatches(labels, "care_phase", filters.carePhases) &&
       labelMatches(labels, "document_intent", filters.documentIntents) &&
-      labelMatches(labels, "content_feature", filters.contentFeatures)
+      labelMatches(labels, "content_feature", filters.contentFeatures) &&
+      labelTypeAnyMatches(labels, filters.labelTypesAny)
     );
   });
 

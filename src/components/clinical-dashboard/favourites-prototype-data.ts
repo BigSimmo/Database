@@ -94,25 +94,27 @@ export const favouriteItems: FavouriteItem[] = [
   },
 ];
 
+const countItemsInSet = (title: string) => favouriteItems.filter((item) => item.set === title).length;
+
 export const favouriteSets: FavouriteSet[] = [
   {
     id: "ward-round",
     title: "Ward round",
-    count: 12,
+    count: countItemsInSet("Ward round"),
     meta: "Medication pages, renal checks, forms",
     keywords: "ward round acamprosate lithium renal mht forms",
   },
   {
     id: "prescribing-safety",
     title: "Prescribing safety",
-    count: 9,
+    count: countItemsInSet("Prescribing safety"),
     meta: "Dose limits, pregnancy, renal cautions",
     keywords: "prescribing safety dose pregnancy renal qt interactions",
   },
   {
     id: "clozapine-clinic",
     title: "Clozapine clinic",
-    count: 7,
+    count: countItemsInSet("Clozapine clinic"),
     meta: "Monitoring, ANC table, counselling",
     keywords: "clozapine clinic monitoring anc table counselling",
   },

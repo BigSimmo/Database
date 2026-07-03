@@ -2026,7 +2026,9 @@ async function fetchEnabledRagAliases(
     ragAliasCache.set(cacheKey, { aliases: merged, expiresAt: Date.now() + ragAliasCacheTtlMs });
     return merged;
   } catch {
-    ragAliasCache.set(cacheKey, { aliases: [], expiresAt: Date.now() + ragAliasCacheTtlMs });
+    // Do not cache an empty result on a transient rag_aliases read failure: caching [] would suppress
+    // alias-based query expansion (and could let an alias-rescuable query short-circuit) for the whole
+    // TTL. Return empty for this call only and retry on the next call.
     return [];
   }
 }

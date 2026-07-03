@@ -26,4 +26,15 @@ describe("search scope filters", () => {
     });
     expect(activeScopeFilterCount(filters)).toBe(8);
   });
+
+  it("accepts label-type-any filters used by mode-default scopes", () => {
+    const filters = searchScopeFiltersSchema.parse({ labelTypesAny: ["service"] });
+
+    expect(filters.labelTypesAny).toEqual(["service"]);
+    expect(activeScopeFilterCount(filters)).toBe(1);
+  });
+
+  it("rejects unknown label types in labelTypesAny", () => {
+    expect(() => searchScopeFiltersSchema.parse({ labelTypesAny: ["not-a-label-type"] })).toThrow();
+  });
 });

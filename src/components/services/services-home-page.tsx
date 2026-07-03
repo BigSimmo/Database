@@ -1,7 +1,10 @@
-import { FileSearch, MapPinned, Route, Users } from "lucide-react";
+"use client";
+
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 
 import {
   ModeHomeMain,
+  ModeHomeStatusNotice,
   ModeHomeTemplate,
   ModeHomeVerificationFooter,
   type ModeHomeAction,
@@ -9,11 +12,12 @@ import {
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { defaultServiceSlug, serviceRecords } from "@/lib/services";
+import { defaultServiceSlug } from "@/lib/services";
+import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
-    title: "Find a service",
+    title: "Search services",
     description: "Search by need, catchment, provider, or keyword.",
     icon: FileSearch,
     href: appModeHomeHref("services", { focus: true }),
@@ -43,7 +47,7 @@ const commonPathways: ModeHomePill[] = [
     href: appModeHomeHref("services", { query: "crisis support services", focus: true, run: true }),
   },
   {
-    label: "ATSI-specific",
+    label: "Aboriginal and Torres Strait Islander",
     tone: "info",
     href: appModeHomeHref("services", {
       query: "Aboriginal Torres Strait Islander services",
@@ -73,11 +77,40 @@ const commonPathways: ModeHomePill[] = [
   },
 ];
 
-function verifiedCount() {
-  return serviceRecords.filter((service) => service.verification?.locallyVerified).length;
-}
-
 export function ServicesHomePage() {
+  const registry = useRegistryRecords("service");
+  const verifiedCount = countVerifiedRegistryRecords(registry);
+  const registryReady = registry.status === "ready";
+  const hasRegistryRecords = registryReady && registry.total > 0;
+  const registryNotice =
+    registry.status === "loading" ? (
+      <ModeHomeStatusNotice
+        icon={Loader2}
+        title="Loading services registry"
+        body="Service tasks will appear once your private registry is ready."
+      />
+    ) : registry.status === "unauthorized" ? (
+      <ModeHomeStatusNotice
+        icon={ShieldAlert}
+        title="Sign in required"
+        body="Sign in to open private service records and referral pathways."
+        actionHref="/"
+        actionLabel="Go to sign in"
+      />
+    ) : registry.status === "error" ? (
+      <ModeHomeStatusNotice
+        icon={ShieldAlert}
+        title="Could not load services"
+        body="The services registry could not be loaded. Try again shortly."
+      />
+    ) : !hasRegistryRecords ? (
+      <ModeHomeStatusNotice
+        icon={FileQuestion}
+        title="No services seeded yet"
+        body="Seed your services registry before opening service detail shortcuts."
+      />
+    ) : null;
+
   return (
     <ModeHomeMain testId="services-home">
       <ModeHomeTemplate
@@ -87,16 +120,21 @@ export function ServicesHomePage() {
         icon={Users}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
-        actions={taskCards}
+        actions={hasRegistryRecords ? taskCards : []}
         pillsTitle="Common pathways"
-        pills={commonPathways}
+        pills={hasRegistryRecords ? commonPathways : []}
         footer={
-          <ModeHomeVerificationFooter
-            label="Catalogue service data"
-            body="Confirm locally before use"
-            verifiedCount={verifiedCount()}
-            totalCount={serviceRecords.length}
-          />
+          hasRegistryRecords ? (
+            <ModeHomeVerificationFooter
+              icon={ShieldCheck}
+              label="Catalogue service data"
+              body="Confirm locally before use"
+              verifiedCount={verifiedCount}
+              totalCount={registry.total}
+            />
+          ) : (
+            registryNotice
+          )
         }
       />
     </ModeHomeMain>
