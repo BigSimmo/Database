@@ -26,13 +26,14 @@ describe("ranking-config defaults (W6 — zero behavior change)", () => {
     expect(w.lowIndexQualityThreshold).toBe(0.55);
   });
 
-  it("keeps document-diversity demotion OFF by default", () => {
-    expect(defaultRankingConfig.documentDiversityPenalty).toBe(0);
+  it("enables gentle document-diversity demotion by default (eval-gated 2026-07-03)", () => {
+    expect(defaultRankingConfig.documentDiversityPenalty).toBe(0.02);
+    expect(defaultRankingConfig.documentDiversityPenaltyCap).toBe(0.12);
   });
 
-  it("defaults freshness to the original step cliffs", () => {
+  it("defaults freshness to the ramped linear curve (eval-gated 2026-07-03), keeping the cliff params", () => {
     expect(defaultRankingConfig.freshness).toMatchObject({
-      mode: "step",
+      mode: "linear",
       publicationCliffYears: 8,
       publicationPenalty: -0.015,
       reviewCliffYears: 5,
@@ -75,7 +76,8 @@ describe("resolveRankingConfig override merge", () => {
 });
 
 describe("freshnessDecayPenalty", () => {
-  const step = defaultRankingConfig.freshness;
+  // The default is now "linear"; construct an explicit step config to validate step-mode behavior.
+  const step = { ...defaultRankingConfig.freshness, mode: "step" as const };
 
   it("step mode reproduces the original publication/review cliffs exactly", () => {
     expect(freshnessDecayPenalty(null, "publication", step)).toBe(0);
