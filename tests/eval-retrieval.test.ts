@@ -3,6 +3,7 @@ import {
   capturedRagCaseToGoldenCase,
   evaluateGoldenRetrievalCase,
   loadGoldenRetrievalCases,
+  retrievalLimitForGoldenCase,
   summarizeGoldenRetrievalResults,
 } from "../scripts/eval-retrieval";
 import type { SearchResult } from "../src/lib/types";
@@ -108,6 +109,69 @@ describe("golden retrieval eval helpers", () => {
     const summary = summarizeGoldenRetrievalResults([demoted, noContentCase]);
     expect(summary.content_mrr_case_count).toBe(1);
     expect(summary.content_mrr_at_10).toBeCloseTo(0.5, 4);
+  });
+
+  it("content_mrr@10 ignores document metadata when ranking answer-bearing passages", () => {
+    const testCase = {
+      id: "metadata-distractor",
+      query: "What is the patient property safety plan?",
+      expectedQueryClass: "document_lookup" as const,
+      expectedDocumentSubstrings: ["Patient Property Safety Plan"],
+      expectedContentTerms: ["patient", "property"],
+      topK: 8,
+      expectTableEvidence: false,
+    };
+    const metadataOnlyDistractor = result({
+      id: "metadata-only",
+      title: "Patient Property Safety Plan",
+      file_name: "PatientPropertySafetyPlan.pdf",
+      section_heading: "Patient property",
+      content: "This unrelated passage describes roster logistics without the expected evidence.",
+      retrieval_synopsis: undefined,
+    });
+    const answerPassage = result({
+      id: "answer-passage",
+      title: "Other Document",
+      file_name: "Other.pdf",
+      section_heading: "Unrelated heading",
+      content: "The patient property process requires documenting valuables in the safety plan.",
+      retrieval_synopsis: undefined,
+    });
+
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase,
+      results: [metadataOnlyDistractor, answerPassage],
+      telemetry: { query_class: "document_lookup", retrieval_strategy: "hybrid" },
+      latencyMs: 100,
+    });
+
+    expect(evaluated.contentRecallAt5).toBe(1);
+    expect(evaluated.contentReciprocalRankAt10).toBeCloseTo(0.5, 5);
+  });
+
+  it("fetches enough results to score content_mrr@10 even when hit@K uses a smaller topK", () => {
+    expect(
+      retrievalLimitForGoldenCase({
+        id: "top-k-8",
+        query: "What ANC threshold should withhold clozapine?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: ["anc"],
+        topK: 8,
+        expectTableEvidence: false,
+      }),
+    ).toBe(10);
+    expect(
+      retrievalLimitForGoldenCase({
+        id: "top-k-12",
+        query: "What ANC threshold should withhold clozapine?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: ["anc"],
+        topK: 12,
+        expectTableEvidence: false,
+      }),
+    ).toBe(12);
   });
 
   it("matches legacy compact expected document names to current corpus titles", () => {

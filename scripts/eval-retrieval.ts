@@ -277,6 +277,20 @@ function resultDocumentEvidenceText(result: SearchResult) {
 }
 
 function resultContentText(result: SearchResult) {
+  return normalized(
+    [
+      result.title,
+      result.file_name,
+      result.section_heading,
+      result.section_path?.join(" "),
+      resultContentEvidenceText(result),
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+}
+
+function resultContentEvidenceText(result: SearchResult) {
   const tableFactText = (result.table_facts ?? [])
     .map((fact) =>
       [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
@@ -291,10 +305,6 @@ function resultContentText(result: SearchResult) {
     .join(" ");
   return normalized(
     [
-      result.title,
-      result.file_name,
-      result.section_heading,
-      result.section_path?.join(" "),
       result.retrieval_synopsis,
       result.content,
       tableFactText,
@@ -363,11 +373,15 @@ function contentReciprocalRankAt10(
   const total = expectedTerms.reduce((sum, expectation) => {
     const alternatives = contentExpectationAlternatives(expectation);
     const index = top.findIndex((result) =>
-      alternatives.some((term) => textContainsClinicalTerm(resultContentText(result), term)),
+      alternatives.some((term) => textContainsClinicalTerm(resultContentEvidenceText(result), term)),
     );
     return sum + (index >= 0 ? 1 / (index + 1) : 0);
   }, 0);
   return total / expectedTerms.length;
+}
+
+export function retrievalLimitForGoldenCase(testCase: GoldenRetrievalCase) {
+  return Math.max(testCase.topK, 10);
 }
 
 function hasTableEvidence(results: SearchResult[], limit = 5) {
@@ -780,7 +794,7 @@ async function main() {
       searchChunksWithTelemetry({
         query: testCase.query,
         ownerId,
-        topK: testCase.topK,
+        topK: retrievalLimitForGoldenCase(testCase),
         minSimilarity: 0.12,
         skipCache: args.mode !== "latency",
       }),
