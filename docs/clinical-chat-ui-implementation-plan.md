@@ -153,7 +153,7 @@ Use the Clinical White / Aegean Graphite role tokens defined in `src/app/globals
 | Role token                       | Light value           | Use                                                                             |
 | -------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
 | `--command`                      | `#111827`             | primary action, New chat, primary CTAs                                          |
-| `--command-hover`                | `#0B1220`             | command hover/pressed                                                            |
+| `--command-hover`                | `#0B1220`             | command hover/pressed                                                           |
 | `--clinical-accent`              | `#0B6F86`             | active Answer tab, send, source capsule text/border, focus                      |
 | `--clinical-accent-soft`         | `#E7F6F8`             | active tab / source capsule / small evidence chip wash                          |
 | `--clinical-accent-border`       | `#B9E4EA`             | selected/evidence borders                                                       |
