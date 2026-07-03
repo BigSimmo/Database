@@ -1072,8 +1072,13 @@ export function MasterSearchHeader({
               : usesMobileBottomStyle
                 ? cn(
                     "document-mobile-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                    // Hero-placement mode-homes (services/forms) portal the composer into
+                    // the hero from sm up. Hide the default (non-portaled) composer at sm+
+                    // so it never briefly flashes as an overlapping float over the hero
+                    // before the portal activates; the mobile fixed-bottom slot still shows
+                    // below sm. Other homes keep a sticky bar until the portal lifts it.
                     isHeroDesktopComposer
-                      ? "forms-hero-search-edge sm:absolute"
+                      ? "sm:hidden"
                       : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
                   )
                 : "sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto w-full max-w-3xl px-3 py-3 sm:px-4 lg:max-w-4xl",
