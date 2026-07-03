@@ -1,0 +1,350 @@
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { format } from "prettier";
+
+import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { differentialRecords } from "@/lib/differentials";
+import { formRecords } from "@/lib/forms";
+import { serviceRecords } from "@/lib/services";
+
+const appDir = path.join(process.cwd(), "src", "app");
+const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
+const medicationSlugs = ["acamprosate"] as const;
+
+type RouteKind = "page" | "api";
+
+type DiscoveredRoute = {
+  route: string;
+  file: string;
+};
+
+type RedirectRoute = {
+  route: string;
+  file: string;
+  target: string;
+};
+
+type SiteMapData = {
+  pageRoutes: DiscoveredRoute[];
+  apiRoutes: DiscoveredRoute[];
+  redirects: RedirectRoute[];
+  nonRoutedMockupArtifacts: string[];
+};
+
+const routeDescriptions: Record<string, string> = {
+  "/": "Main Clinical KB shell.",
+  "/applications": "Application and tool launcher.",
+  "/differentials": "Differentials home and search surface.",
+  "/differentials/diagnoses": "Diagnosis stream.",
+  "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
+  "/differentials/presentations": "Presentation workflow stream.",
+  "/documents/[id]": "Document viewer/detail page.",
+  "/favourites": "Saved clinical items and sets.",
+  "/forms": "Forms home and search surface.",
+  "/forms/[slug]": "Registry-backed form detail.",
+  "/medications": "Medication index redirect.",
+  "/medications/[slug]": "Medication detail.",
+  "/services": "Services home and search surface.",
+  "/services/[slug]": "Registry-backed service detail.",
+};
+
+const apiDescriptions: Record<string, string> = {
+  "/api/answer": "Generate answer response.",
+  "/api/answer/stream": "Streaming answer response.",
+  "/api/documents": "Document collection operations.",
+  "/api/documents/[id]": "Document detail operations.",
+  "/api/documents/[id]/labels": "Document label operations.",
+  "/api/documents/[id]/reindex": "Single-document reindex operation.",
+  "/api/documents/[id]/search": "Search within one document.",
+  "/api/documents/[id]/signed-url": "Private document signed URL.",
+  "/api/documents/[id]/summarize": "Document summary operation.",
+  "/api/documents/[id]/table-facts": "Document table facts.",
+  "/api/documents/bulk": "Bulk document operations.",
+  "/api/documents/bulk/reindex": "Bulk reindex operation.",
+  "/api/eval-cases": "Evaluation case data.",
+  "/api/health": "Health check.",
+  "/api/images/[id]/signed-url": "Private image signed URL.",
+  "/api/ingestion/batches": "Ingestion batch state.",
+  "/api/ingestion/jobs": "Ingestion job collection.",
+  "/api/ingestion/jobs/[id]/retry": "Retry ingestion job.",
+  "/api/ingestion/quality": "Ingestion quality reporting.",
+  "/api/jobs": "Job state.",
+  "/api/local-project-id": "Local project identity guard.",
+  "/api/registry/records": "Registry record collection.",
+  "/api/registry/records/[slug]": "Registry record detail.",
+  "/api/search": "Search endpoint.",
+  "/api/search/interaction": "Search interaction telemetry.",
+  "/api/setup-status": "Setup status.",
+  "/api/upload": "Upload endpoint.",
+};
+
+const routeOwnershipRows = [
+  ["Root dashboard and query modes", "src/app/page.tsx, src/lib/app-modes.ts"],
+  ["Global shell layouts", "src/app/*/layout.tsx, src/components/clinical-dashboard/global-search-shell.tsx"],
+  ["Services", "src/app/services, src/lib/services.ts, src/app/api/registry/records"],
+  ["Forms", "src/app/forms, src/lib/forms.ts, src/app/api/registry/records"],
+  ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-home-page.tsx"],
+  ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
+  ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
+  ["Documents", "src/app/documents/[id], src/app/api/documents"],
+  ["Applications and tools", "src/app/applications, src/components/applications-launcher-page.tsx"],
+  ["Mockups", "src/app/mockups, mockups/"],
+] as const;
+
+function toPosixPath(value: string) {
+  return value.split(path.sep).join("/");
+}
+
+function routeSegment(segment: string) {
+  if (segment.startsWith("(") && segment.endsWith(")")) return null;
+  if (segment.startsWith("@")) return null;
+  return segment;
+}
+
+function fileToRoute(filePath: string, kind: RouteKind) {
+  const suffix = kind === "page" ? "page.tsx" : "route.ts";
+  const relative = toPosixPath(path.relative(appDir, filePath));
+  const withoutFile = relative.slice(0, -suffix.length).replace(/\/$/, "");
+  const segments = withoutFile.split("/").filter(Boolean).map(routeSegment).filter(Boolean);
+  return segments.length ? `/${segments.join("/")}` : "/";
+}
+
+function collectFiles(root: string, targetFileName: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectFiles(fullPath, targetFileName));
+      continue;
+    }
+    if (entry.isFile() && entry.name === targetFileName) files.push(fullPath);
+  }
+  return files;
+}
+
+function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
+  const targetFile = kind === "page" ? "page.tsx" : "route.ts";
+  return collectFiles(appDir, targetFile)
+    .map((file) => ({
+      route: fileToRoute(file, kind),
+      file: toPosixPath(path.relative(process.cwd(), file)),
+    }))
+    .sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
+}
+
+function discoverRedirects(pageRoutes: DiscoveredRoute[]): RedirectRoute[] {
+  return pageRoutes
+    .map((page) => {
+      const source = readFileSync(path.join(process.cwd(), page.file), "utf8");
+      const target = source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
+      return target ? { ...page, target } : null;
+    })
+    .filter((value): value is RedirectRoute => Boolean(value))
+    .sort((left, right) => left.route.localeCompare(right.route));
+}
+
+function discoverNonRoutedMockupArtifacts() {
+  const mockupsDir = path.join(process.cwd(), "mockups");
+  if (!existsSync(mockupsDir)) return [];
+  return collectFiles(mockupsDir, "page.tsx")
+    .map((file) => toPosixPath(path.relative(process.cwd(), file)))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+export function collectSiteMapData(): SiteMapData {
+  const pageRoutes = discoverRoutes("page");
+  return {
+    pageRoutes,
+    apiRoutes: discoverRoutes("api"),
+    redirects: discoverRedirects(pageRoutes),
+    nonRoutedMockupArtifacts: discoverNonRoutedMockupArtifacts(),
+  };
+}
+
+function bullet(route: string, description?: string) {
+  return `- \`${route}\`${description ? ` - ${description}` : ""}`;
+}
+
+function routeLine(route: DiscoveredRoute, descriptionMap: Record<string, string>) {
+  return bullet(
+    route.route,
+    `${descriptionMap[route.route] ?? "Route discovered from app directory"} Source: \`${route.file}\`.`,
+  );
+}
+
+function sortedSlugs(slugs: readonly string[]) {
+  return [...slugs].sort((left, right) => left.localeCompare(right));
+}
+
+function renderSlugInventory(title: string, routePattern: string, slugs: readonly string[]) {
+  return [
+    `### ${title}`,
+    "",
+    bullet(routePattern, "Dynamic route family."),
+    ...sortedSlugs(slugs).map((slug) => `- \`${slug}\``),
+  ];
+}
+
+function renderModeRoutes() {
+  const examples: Record<AppModeId, string> = {
+    answer: appModeHomeHref("answer", { query: "example question", focus: true, run: true }),
+    documents: appModeHomeHref("documents", { query: "lithium monitoring", focus: true, run: true }),
+    services: appModeHomeHref("services", { query: "13YARN", focus: true, run: true }),
+    forms: appModeHomeHref("forms", { query: "transport forms", focus: true, run: true }),
+    favourites: appModeHomeHref("favourites", { query: "clozapine set", focus: true, run: true }),
+    differentials: appModeHomeHref("differentials", { query: "acute confusion", focus: true, run: true }),
+    prescribing: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
+    tools: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
+  };
+
+  return appModeDefinitions.map((mode) =>
+    bullet(
+      ("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id),
+      `${mode.label} mode. Search kind: \`${mode.search.kind}\`. Query example: \`${examples[mode.id]}\`.`,
+    ),
+  );
+}
+
+function section(title: string, lines: string[]) {
+  return [`## ${title}`, "", ...lines, ""];
+}
+
+function renderSiteMapRaw(data = collectSiteMapData()) {
+  const productRoutes = data.pageRoutes.filter(
+    (route) =>
+      !route.route.startsWith("/api") &&
+      !route.route.startsWith("/mockups") &&
+      ![
+        "/documents/[id]",
+        "/services/[slug]",
+        "/forms/[slug]",
+        "/differentials/diagnoses/[slug]",
+        "/medications/[slug]",
+      ].includes(route.route),
+  );
+  const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
+
+  const lines = [
+    "# Clinical KB Site Map",
+    "",
+    "This file is generated by `npm run sitemap:update`. Run `npm run sitemap:check` to verify it is current.",
+    "",
+    ...section(
+      "Main product pages",
+      productRoutes.map((route) => routeLine(route, routeDescriptions)),
+    ),
+    ...section("Mode/query routes", renderModeRoutes()),
+    ...section("Registry-backed routes", [
+      bullet(
+        "/services/[slug]",
+        "Registry-backed service detail. Content depends on auth, demo mode, local no-auth mode, and per-user registry records.",
+      ),
+      bullet(
+        "/forms/[slug]",
+        "Registry-backed form detail. Content depends on auth, demo mode, local no-auth mode, and per-user registry records.",
+      ),
+      bullet("/api/registry/records?kind=service", "Service registry collection endpoint."),
+      bullet("/api/registry/records?kind=form", "Form registry collection endpoint."),
+      bullet("/api/registry/records/[slug]?kind=service|form", "Registry detail endpoint."),
+    ]),
+    ...section("Dynamic slug inventories", [
+      ...renderSlugInventory(
+        "Seeded service slugs",
+        "/services/[slug]",
+        serviceRecords.map((record) => record.slug),
+      ),
+      "",
+      ...renderSlugInventory(
+        "Seeded form slugs",
+        "/forms/[slug]",
+        formRecords.map((record) => record.slug),
+      ),
+      "",
+      ...renderSlugInventory(
+        "Differential diagnosis slugs",
+        "/differentials/diagnoses/[slug]",
+        differentialRecords.map((record) => record.slug),
+      ),
+      "",
+      ...renderSlugInventory("Medication slugs", "/medications/[slug]", medicationSlugs),
+    ]),
+    ...section("Document viewer route", [
+      bullet(
+        "/documents/[id]",
+        "Document viewer/detail page. Individual document IDs are intentionally not enumerated in this sitemap.",
+      ),
+    ]),
+    ...section("Mockup/prototype routes", [
+      ...mockupRoutes.map((route) => routeLine(route, routeDescriptions)),
+      ...(data.nonRoutedMockupArtifacts.length
+        ? [
+            "",
+            "### Non-routed mockup artifacts",
+            "",
+            ...data.nonRoutedMockupArtifacts.map((file) =>
+              bullet(file, "Root-level mockup artifact outside `src/app`; not a Next route."),
+            ),
+          ]
+        : []),
+    ]),
+    ...section(
+      "API routes",
+      data.apiRoutes.map((route) => routeLine(route, apiDescriptions)),
+    ),
+    ...section(
+      "Redirects",
+      data.redirects.length
+        ? data.redirects.map((redirect) =>
+            bullet(redirect.route, `Redirects to \`${redirect.target}\`. Source: \`${redirect.file}\`.`),
+          )
+        : ["- No page-level redirects discovered."],
+    ),
+    ...section("Known caveats and stale-path flags", [
+      "- No active stale internal route targets are expected in the current generated sitemap.",
+      "- `/mockups/favourites-hub` is a legacy compatibility route and should redirect to `/favourites`.",
+      "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
+      "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",
+      "- `/documents/[id]` is intentionally summarized as a route family; individual document IDs are private runtime data.",
+      "- Several differential records are placeholder scaffolds pending source-backed local clinical content.",
+    ]),
+    ...section("Route ownership/source map", [
+      "| Area | Source |",
+      "| --- | --- |",
+      ...routeOwnershipRows.map(([area, source]) => `| ${area} | \`${source}\` |`),
+    ]),
+  ];
+
+  return `${lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()}\n`;
+}
+
+export async function renderSiteMap(data = collectSiteMapData()) {
+  return format(renderSiteMapRaw(data), { parser: "markdown", printWidth: 120 });
+}
+
+async function main() {
+  const expected = await renderSiteMap();
+  const check = process.argv.includes("--check");
+
+  if (check) {
+    const current = existsSync(siteMapPath) ? readFileSync(siteMapPath, "utf8") : "";
+    if (current !== expected) {
+      console.error("docs/site-map.md is stale. Run `npm run sitemap:update` and commit the result.");
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  writeFileSync(siteMapPath, expected, "utf8");
+  console.log(`Updated ${toPosixPath(path.relative(process.cwd(), siteMapPath))}`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
