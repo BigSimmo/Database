@@ -1,4 +1,9 @@
 import { isDangerSourceGovernanceMessage } from "@/lib/source-governance";
+import {
+  documentExpectationAlternatives,
+  expectedFileCoverage,
+  normalizedDocumentName,
+} from "@/lib/eval-document-matching";
 import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 export type RagEvalCategory = "routine" | "complex" | "unsupported";
@@ -78,33 +83,24 @@ function containsNone(text: string, values: string[] | undefined) {
   return values.every((value) => !normalized.includes(value.toLowerCase()));
 }
 
-function normalizeDocumentSignal(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\.[a-z0-9]+$/i, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: RagAnswer, text: string) {
-  const expectedDocuments = testCase.expectedFiles.map(normalizeDocumentSignal).filter(Boolean);
-  if (!expectedDocuments.length) return /\b(?:document|guideline|policy|procedure|form)\b/i.test(text);
+  if (!testCase.expectedFiles.length) return /\b(?:document|guideline|policy|procedure|form)\b/i.test(text);
 
-  const citationSignals = answer.citations.flatMap((citation) => [
-    normalizeDocumentSignal(citation.file_name ?? ""),
-    normalizeDocumentSignal(citation.title ?? ""),
-  ]).filter(Boolean);
+  const expectedCoverage = expectedFileCoverage(testCase.expectedFiles, answer.citations, answer.citations.length);
+  if (expectedCoverage.anyHit) return true;
 
-  return expectedDocuments.some((expectedDocument) => {
-    const expectedTokens = expectedDocument.split(/\s+/).filter((token) => token.length > 2);
-    const hasExpectedCitation = citationSignals.some(
-      (signal) => signal === expectedDocument || signal.includes(expectedDocument) || expectedDocument.includes(signal),
-    );
-    const namesExpectedDocument =
-      text.includes(expectedDocument) ||
-      (expectedTokens.length > 0 && expectedTokens.every((token) => text.includes(token)));
-    return hasExpectedCitation || namesExpectedDocument;
-  });
+  const normalizedText = normalizedDocumentName(text);
+  return testCase.expectedFiles.some((expectedDocument) =>
+    documentExpectationAlternatives(expectedDocument).some(
+      (alternative) =>
+        text.includes(alternative) ||
+        normalizedText.includes(alternative) ||
+        alternative
+          .split(/\s+/)
+          .filter((token) => token.length > 2)
+          .every((token) => text.includes(token)),
+    ),
+  );
 }
 
 export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
@@ -164,9 +160,8 @@ export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: Ra
   const hasDoseFigure =
     /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms|g|ml|mmol\/l|mmol|units?|iu)\b/i.test(text) ||
     /\btitrat|\bdivided doses?\b/i.test(text);
-  const asksForThreshold = /\b(?:threshold|level|range|below|above|over|under|less than|greater than|cutoff|count)\b/i.test(
-    testCase.question,
-  );
+  const asksForThreshold =
+    /\b(?:threshold|level|range|below|above|over|under|less than|greater than|cutoff|count)\b/i.test(testCase.question);
   const hasRedAction = /\b(?:withhold|cease|stop|discontinu|hold|escalat|urgent|review|seek|refer)\w*/i.test(text);
   const hasMonitoringSchedule =
     /\b(?:weekly|monthly|annual|annually|every|baseline|then|ongoing|fbc|anc|\d+\s*(?:week|month|day|hour)s?)\b/i.test(

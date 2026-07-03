@@ -329,9 +329,7 @@ describe("captured RAG eval cases", () => {
         question: "What lithium level range is used for maintenance monitoring?",
         expectedIntent: "monitoring_schedule",
       } as AnswerQualityEvalCase;
-      expect(
-        scoreAnswerTargeting(monitoringCase, grounded("The maintenance range is 0.4-0.8 mmol/L.")),
-      ).toMatchObject({
+      expect(scoreAnswerTargeting(monitoringCase, grounded("The maintenance range is 0.4-0.8 mmol/L."))).toMatchObject({
         applicable: true,
         score: 1,
       });
@@ -360,6 +358,25 @@ describe("captured RAG eval cases", () => {
           grounded("The lithium guideline supports regular review.", {
             file_name: "CG.MHSP.Lithium.pdf",
             title: "CG.MHSP.Lithium",
+          }),
+        ),
+      ).toMatchObject({ applicable: true, score: 1 });
+    });
+
+    it("reuses eval document aliases for document-lookup targeting", () => {
+      const documentCase = {
+        ...doseCase,
+        question: "What discharge documentation is required?",
+        expectedIntent: "document_lookup",
+        expectedFiles: ["MHSP.Discharge.pdf"],
+      } as AnswerQualityEvalCase;
+
+      expect(
+        scoreAnswerTargeting(
+          documentCase,
+          grounded("The discharge planning document sets out documentation responsibilities.", {
+            file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+            title: "Admission to Discharge for Mental Health Inpatients",
           }),
         ),
       ).toMatchObject({ applicable: true, score: 1 });
