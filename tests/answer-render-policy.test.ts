@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildAnswerRenderModel } from "../src/lib/answer-render-policy";
+import {
+  buildAnswerRenderModel,
+  describeSourceStrengthForCopy,
+  formatAnswerRenderCopyText,
+} from "../src/lib/answer-render-policy";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -261,5 +265,41 @@ describe("answer render policy", () => {
 
     expect(model.quoteCards).toHaveLength(0);
     expect(model.allowedBlocks).not.toContain("quoteCards");
+  });
+
+  describe("copy-text source-strength gloss (P4b)", () => {
+    it("glosses each strength into a clinician-readable phrase and avoids the odd 'none support'", () => {
+      expect(describeSourceStrengthForCopy("strong")).toBe("strong match");
+      expect(describeSourceStrengthForCopy("moderate")).toBe("moderate match");
+      expect(describeSourceStrengthForCopy("limited")).toBe("limited match");
+      expect(describeSourceStrengthForCopy("none")).toBe("match strength not rated");
+    });
+
+    it("renders the glossed strength in the copy block, not the bare enum", () => {
+      const link = (
+        overrides: Partial<Parameters<typeof formatAnswerRenderCopyText>[0]["primarySources"][number]>,
+      ) => ({
+        id: "s1",
+        chunk_id: "c1",
+        document_id: "d1",
+        title: "T",
+        file_name: "f.pdf",
+        page_number: 4,
+        href: "/documents/doc-1?page=4",
+        label: "Clozapine Monitoring (AKG)",
+        sourceStrength: "strong" as const,
+        reason: "selected",
+        ...overrides,
+      });
+      const text = formatAnswerRenderCopyText({
+        answerText: "Withhold clozapine for a red-range result.",
+        trust: "high",
+        primarySources: [link({}), link({ label: "Legacy Note", href: "/documents/doc-2", sourceStrength: "none" })],
+        warnings: [],
+      });
+      expect(text).toContain("Clozapine Monitoring (AKG) | strong match | /documents/doc-1?page=4");
+      expect(text).toContain("Legacy Note | match strength not rated | /documents/doc-2");
+      expect(text).not.toContain("none support");
+    });
   });
 });
