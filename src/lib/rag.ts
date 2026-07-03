@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwnerScope } from "@/lib/owner-scope";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
@@ -2179,7 +2180,7 @@ async function searchTextChunkCandidates(args: {
       query_text: queryText,
       match_count: matchCount,
       document_filters: args.documentIds ?? undefined,
-      owner_filter: args.ownerId ?? undefined,
+      owner_filter: requireOwnerScope(args.ownerId),
     });
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
@@ -2332,7 +2333,7 @@ async function fetchBestDocumentLookupChunks(args: {
     query_text: args.query,
     document_filters: args.documentIds ?? undefined,
     match_count: Math.max(args.limit * 3, 24),
-    owner_filter: args.ownerId ?? undefined,
+    owner_filter: requireOwnerScope(args.ownerId),
   });
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -2436,7 +2437,7 @@ async function searchDocumentLookupFastPath(args: {
       const { data, error } = await args.supabase.rpc("match_documents_for_query", {
         query_text: variant,
         match_count: index === 0 ? 12 : 8,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
@@ -2790,7 +2791,7 @@ async function searchTableFactCandidates(args: {
         query_text: variant,
         match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
         document_filters: args.documentIds ?? undefined,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
@@ -2838,7 +2839,7 @@ async function searchEmbeddingFieldCandidates(args: {
     match_count: args.matchCount,
     min_similarity: 0.12,
     document_filters: args.documentIds ?? undefined,
-    owner_filter: args.ownerId ?? undefined,
+    owner_filter: requireOwnerScope(args.ownerId),
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2888,7 +2889,7 @@ async function searchIndexUnitCandidates(args: {
     match_count: args.matchCount,
     min_similarity: 0.1,
     document_filters: args.documentIds ?? undefined,
-    owner_filter: args.ownerId ?? undefined,
+    owner_filter: requireOwnerScope(args.ownerId),
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -5796,7 +5797,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filters: documentFilterList ?? undefined,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -5888,7 +5889,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filter: documentFilter ?? undefined,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
 
       if (error) throw new Error(error.message);

@@ -1,10 +1,12 @@
 "use client";
 
-import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
+export type OAuthProvider = "google" | "azure";
 
 type AuthContextValue = {
   client: SupabaseClient | null;
@@ -14,11 +16,15 @@ type AuthContextValue = {
   isConfigured: boolean;
   authorizationHeader: Record<string, string>;
   signInWithEmail: (email: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUpWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   signOut: () => Promise<void>;
   markSessionExpired: () => void;
 };
 
 export const AUTH_EMAIL_STORAGE_KEY = "clinical.dashboard.lastAuthEmail";
+const AUTH_CALLBACK_PATH = "/auth/callback";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 let browserSupabaseClient: SupabaseClient | null | undefined;
@@ -55,13 +61,10 @@ function createBrowserSupabaseClient() {
   }
 
   browserSupabaseClientConfig = configKey;
-  browserSupabaseClient = createClient(url, publishableKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
+  // @supabase/ssr browser client persists the session in cookies shared with the
+  // server (proxy + route handlers), so logins survive refreshes and the API can
+  // read the session. PKCE code flow returns via /auth/callback.
+  browserSupabaseClient = createBrowserClient(url, publishableKey);
   return browserSupabaseClient;
 }
 
@@ -70,19 +73,21 @@ export function authorizationHeadersForAccessToken(accessToken: string | null | 
   return { authorization: `Bearer ${accessToken}` };
 }
 
-function clearLocationHash() {
-  if (typeof window === "undefined") return;
-  if (!window.location.hash) return;
-  window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
+function authCallbackRedirect() {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
 }
 
-function isExpiredOtpError(errorCode: string | null, message: string) {
-  const normalizedMessage = message.toLowerCase();
-  return (
-    errorCode === "otp_expired" ||
-    normalizedMessage.includes("expired") ||
-    normalizedMessage.includes("invalid or has expired")
-  );
+/** Read and clear a `?auth_error=` param left by the /auth/callback route. */
+function consumeAuthErrorParam(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const authError = params.get("auth_error");
+  if (!authError) return null;
+  params.delete("auth_error");
+  const query = params.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  return authError;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -93,83 +98,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!client) return () => undefined;
-
     let active = true;
 
+    // Clear the URL param synchronously (no React state here — that would trip
+    // react-hooks/set-state-in-effect); surface it after the async load below.
+    const callbackError = consumeAuthErrorParam();
+
     const initializeSession = async () => {
-      if (typeof window !== "undefined") {
-        const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
-        const callbackParams = new URLSearchParams(hash);
-        const hasCallbackParams =
-          callbackParams.size > 0 &&
-          (callbackParams.has("access_token") ||
-            callbackParams.has("refresh_token") ||
-            callbackParams.has("type") ||
-            callbackParams.has("error") ||
-            callbackParams.has("error_code") ||
-            callbackParams.has("code"));
-
-        if (hasCallbackParams) {
-          const hasCallbackError = callbackParams.has("error") || callbackParams.has("error_code");
-          if (hasCallbackError) {
-            const errorCode = callbackParams.get("error_code");
-            const rawDescription = callbackParams.get("error_description");
-            const message = rawDescription
-              ? decodeURIComponent(rawDescription.replace(/\+/g, " "))
-              : "Sign-in verification failed.";
-            const expired = isExpiredOtpError(errorCode, message);
-            setSession(null);
-            setStatus(expired ? "expired" : "error");
-            setError(expired ? "This sign-in link is invalid or has expired. Send a new one." : message);
-            clearLocationHash();
-            return;
-          }
-
-          type AuthCallbackResult = {
-            data?: {
-              session?: Session | null;
-            };
-            error?: { message?: string } | null;
-          };
-
-          const getSessionFromUrl = (
-            client.auth as {
-              getSessionFromUrl?: () => Promise<AuthCallbackResult>;
-            }
-          ).getSessionFromUrl;
-          const callbackResult = getSessionFromUrl
-            ? await getSessionFromUrl()
-            : await client.auth.setSession({
-                access_token: decodeURIComponent(callbackParams.get("access_token") ?? ""),
-                refresh_token: decodeURIComponent(callbackParams.get("refresh_token") ?? ""),
-              });
-          if (!active) return;
-          clearLocationHash();
-
-          if (!callbackResult || callbackResult.error) {
-            const message = callbackResult?.error?.message ?? "Sign-in verification failed.";
-            const expired = isExpiredOtpError(callbackParams.get("error_code"), message);
-            setSession(null);
-            setStatus(expired ? "expired" : "error");
-            setError(expired ? "This sign-in link is invalid or has expired. Send a new one." : message);
-            return;
-          }
-
-          const callbackSession = callbackResult?.data?.session;
-          if (callbackSession) {
-            setSession(callbackSession);
-            setStatus("authenticated");
-            setError(null);
-            return;
-          }
-
-          setSession(null);
-          setStatus("signed_out");
-          setError("Sign-in verification did not return a session.");
-          return;
-        }
-      }
-
       try {
         const { data, error: sessionError } = await client.auth.getSession();
         if (!active) return;
@@ -180,7 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setSession(data.session);
         setStatus(data.session ? "authenticated" : "signed_out");
-        setError(null);
+        if (data.session) {
+          setError(null);
+        } else if (callbackError) {
+          setError(decodeURIComponent(callbackError));
+        }
       } catch {
         if (!active) return;
         setStatus("error");
@@ -195,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = client.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
-      setError(null);
+      if (nextSession) setError(null);
     });
 
     return () => {
@@ -204,33 +143,92 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [client]);
 
+  const requireClient = useCallback(() => {
+    if (client) return client;
+    setStatus("unconfigured");
+    setError("Supabase browser authentication is not configured.");
+    return null;
+  }, [client]);
+
   const signInWithEmail = useCallback(
     async (email: string) => {
-      if (!client) {
-        setStatus("unconfigured");
-        setError("Supabase browser authentication is not configured.");
-        return;
-      }
-
+      const active = requireClient();
+      if (!active) return;
       setStatus("loading");
       setError(null);
-      const { error: signInError } = await client.auth.signInWithOtp({
+      const { error: signInError } = await active.auth.signInWithOtp({
         email,
-        options: {
-          emailRedirectTo: typeof window === "undefined" ? undefined : window.location.origin,
-        },
+        options: { emailRedirectTo: authCallbackRedirect() },
       });
-
       if (signInError) {
         setStatus("error");
         setError("Sign-in email could not be sent.");
         return;
       }
-
       setStatus("signed_out");
       setError("Check your email for the sign-in link.");
     },
-    [client],
+    [requireClient],
+  );
+
+  const signInWithPassword = useCallback(
+    async (email: string, password: string) => {
+      const active = requireClient();
+      if (!active) return;
+      setStatus("loading");
+      setError(null);
+      const { error: signInError } = await active.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setStatus("error");
+        setError(signInError.message);
+      }
+      // onAuthStateChange flips status to "authenticated" on success.
+    },
+    [requireClient],
+  );
+
+  const signUpWithPassword = useCallback(
+    async (email: string, password: string) => {
+      const active = requireClient();
+      if (!active) return;
+      setStatus("loading");
+      setError(null);
+      const { data, error: signUpError } = await active.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: authCallbackRedirect() },
+      });
+      if (signUpError) {
+        setStatus("error");
+        setError(signUpError.message);
+        return;
+      }
+      // With "Confirm email" ON, no session is returned until confirmation.
+      if (!data.session) {
+        setStatus("signed_out");
+        setError("Check your email to confirm your account, then sign in.");
+      }
+    },
+    [requireClient],
+  );
+
+  const signInWithOAuth = useCallback(
+    async (provider: OAuthProvider) => {
+      const active = requireClient();
+      if (!active) return;
+      setStatus("loading");
+      setError(null);
+      const { error: oauthError } = await active.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: authCallbackRedirect() },
+      });
+      if (oauthError) {
+        setStatus("error");
+        setError(oauthError.message);
+      }
+      // On success the browser is redirected to the provider.
+    },
+    [requireClient],
   );
 
   const signOut = useCallback(async () => {
@@ -258,6 +256,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isConfigured: Boolean(client),
     authorizationHeader,
     signInWithEmail,
+    signInWithPassword,
+    signUpWithPassword,
+    signInWithOAuth,
     signOut,
     markSessionExpired,
   };

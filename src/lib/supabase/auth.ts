@@ -1,5 +1,7 @@
+import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { env } from "@/lib/env";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -67,17 +69,54 @@ export function unauthorizedResponse(error?: AuthenticationError) {
   return NextResponse.json({ error: "Authentication required." }, { status: 401 });
 }
 
+/**
+ * Resolve the user from the `@supabase/ssr` cookie session. The
+ * `sb-<ref>-auth-token` cookie it writes is base64-encoded (and chunked when
+ * large), which `extractSessionAccessToken`'s plain-JSON parser cannot read, so
+ * this uses the ssr server client to decode + validate it. Returns null when
+ * the public env is absent or no `sb-` cookie is present.
+ */
+async function getUserFromRequestCookies(request: Request): Promise<AuthenticatedUser | null> {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const cookieHeader = request.headers.get("cookie");
+  if (!url || !key || !cookieHeader || !cookieHeader.includes("sb-")) {
+    return null;
+  }
+
+  const client = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return parseCookieHeader(cookieHeader).map(({ name, value }) => ({ name, value: value ?? "" }));
+      },
+      setAll() {
+        // Read-only during the route-handler auth check; the proxy refreshes cookies.
+      },
+    },
+  });
+
+  const { data, error } = await client.auth.getUser();
+  if (error || !data.user?.id) {
+    return null;
+  }
+  return { id: data.user.id };
+}
+
 export async function requireAuthenticatedUser(request: Request, supabase: AdminClient): Promise<AuthenticatedUser> {
+  // 1. Bearer token / legacy cookie (programmatic callers + current clients).
   const token = extractSessionAccessToken(request);
-  if (!token) {
-    throw new AuthenticationError();
+  if (token) {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data.user?.id) {
+      return { id: data.user.id };
+    }
   }
 
-  const { data, error } = await supabase.auth.getUser(token);
-  const userId = data.user?.id;
-  if (error || !userId) {
-    throw new AuthenticationError();
+  // 2. @supabase/ssr cookie session (persistent cookie logins).
+  const cookieUser = await getUserFromRequestCookies(request);
+  if (cookieUser) {
+    return cookieUser;
   }
 
-  return { id: userId };
+  throw new AuthenticationError();
 }
