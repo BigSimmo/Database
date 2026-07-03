@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpDown, ChevronDown, Filter, Folder, FolderInput, Heart, Plus, Search, X } from "lucide-react";
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero } from "@/components/mode-home-template";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
@@ -9,11 +9,11 @@ import {
   favouriteItems,
   favouriteSets,
   favouriteTabs,
-  favouriteTypeCount,
   type FavouriteItem,
   type FavouriteSet,
   type FavouriteTabId,
 } from "@/components/clinical-dashboard/favourites-prototype-data";
+import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 
 function favouriteMatchesQuery(value: { title: string; meta?: string; set?: string; keywords: string }, query: string) {
   const normalized = query.trim().toLowerCase();
@@ -45,11 +45,20 @@ export function FavouritesHub({
   const tabButtonRef = useRef<HTMLButtonElement | null>(null);
   const tabOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const normalizedQuery = query.trim();
+  // Real saved services/forms (localStorage slugs hydrated via the registry
+  // API) merged in alongside the prototype items for the not-yet-backed types.
+  const savedRegistryItems = useSavedRegistryFavourites();
+  const allItems = useMemo(() => [...favouriteItems, ...savedRegistryItems], [savedRegistryItems]);
+  const countType = (type: FavouriteTabId) => {
+    if (type === "all") return allItems.length + favouriteSets.length;
+    if (type === "sets") return favouriteSets.length;
+    return allItems.filter((item) => item.type === type).length;
+  };
   const selectedSet = selectedSetId ? favouriteSets.find((set) => set.id === selectedSetId) : null;
   const tabItems =
     selectedTab === "all" || selectedTab === "sets"
-      ? favouriteItems
-      : favouriteItems.filter((item) => item.type === selectedTab);
+      ? allItems
+      : allItems.filter((item) => item.type === selectedTab);
   const visibleItems = tabItems
     .filter((item) => favouriteMatchesQuery(item, normalizedQuery))
     .filter((item) => !selectedSet || item.set === selectedSet.title);
@@ -59,9 +68,9 @@ export function FavouritesHub({
   const empty = (!showItems || visibleItems.length === 0) && (!showSets || visibleSets.length === 0);
   const selectedTabMeta = favouriteTabs.find((tab) => tab.id === selectedTab) ?? favouriteTabs[0];
   const selectedTabLabel = selectedTabMeta.label;
-  const selectedTabCount = favouriteTypeCount(selectedTab);
+  const selectedTabCount = countType(selectedTab);
   const SelectedTabIcon = selectedTabMeta.icon;
-  const itemCount = favouriteItems.length;
+  const itemCount = allItems.length;
   const setCount = favouriteSets.length;
   const activeFilterCount = (normalizedQuery ? 1 : 0) + (selectedSet ? 1 : 0);
   const selectedTabIndex = Math.max(
@@ -199,7 +208,7 @@ export function FavouritesHub({
                 {favouriteTabs.map((tab, index) => {
                   const Icon = tab.icon;
                   const selected = selectedTab === tab.id;
-                  const count = favouriteTypeCount(tab.id);
+                  const count = countType(tab.id);
                   return (
                     <button
                       key={tab.id}

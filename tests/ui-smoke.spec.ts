@@ -1263,6 +1263,30 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 
+  test("favourites hub hydrates saved services from the registry", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    // mockDemoApi does not cover the registry list used for favourite hydration.
+    await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          records: [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }],
+          total: 1,
+          demoMode: true,
+          governance: {},
+        },
+      });
+    });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("clinical-kb-saved-services", JSON.stringify(["13yarn"]));
+    });
+    await gotoApp(page, "/favourites");
+
+    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    // The saved service slug is hydrated to its registry title in the hub.
+    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+  });
+
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
