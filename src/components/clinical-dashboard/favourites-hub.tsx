@@ -135,7 +135,7 @@ export function FavouritesHub({
           {[
             { label: "Items", value: itemCount, icon: Heart },
             { label: "Sets", value: setCount, icon: Folder },
-            { label: "Active", value: activeFilterCount, icon: Filter },
+            { label: "Filters", value: activeFilterCount, icon: Filter },
           ].map((stat) => {
             const Icon = stat.icon;
             return (
@@ -490,7 +490,8 @@ function FavouriteSetRow({
             selected ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
           )}
         >
-          {favouriteSet.count} items{compact ? "" : ` · ${favouriteSet.meta}`}
+          {favouriteSet.count} {favouriteSet.count === 1 ? "item" : "items"}
+          {compact ? "" : ` · ${favouriteSet.meta}`}
         </span>
       </span>
       <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />

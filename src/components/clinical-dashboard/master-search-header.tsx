@@ -355,7 +355,6 @@ export function MasterSearchHeader({
     searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
-  const isStandaloneModeHomeHeader = Boolean(desktopHomeComposerSlotId);
   const useMobileBackControl = mobileLeadingAction === "back";
 
   function currentUsesScopeSheet() {
@@ -887,7 +886,8 @@ export function MasterSearchHeader({
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesUniversalFooterStyle = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-    const usesSendAffordance = usesAnswerFooterStyle || (isStandaloneModeHomeHeader && searchMode === "differentials");
+    // Only the Answer chat composer uses the send affordance; every search-mode home uses the magnifier.
+    const usesSendAffordance = usesAnswerFooterStyle;
     const composerPlaceholder =
       usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
 

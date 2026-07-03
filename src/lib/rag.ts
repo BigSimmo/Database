@@ -4670,6 +4670,7 @@ function buildTableOrVisualSourceLookupAnswer(args: { query: string; results: Se
   return {
     answer,
     citationChunkIds: [source.id],
+    preformatted: true,
     answerSections: [
       {
         heading: "Source match",
@@ -4702,6 +4703,7 @@ function buildDocumentSupportListAnswer(args: { query: string; results: SearchRe
       : `I found ${names.length} indexed documents that support this query: ${names.slice(0, -1).join("; ")}; and ${names.at(-1)}.`;
   return {
     answer,
+    preformatted: true,
     citationChunkIds: Array.from(
       new Set(
         documents.flatMap((document) =>
@@ -4814,6 +4816,7 @@ function buildExtractiveAnswer(args: {
     sources: args.results,
     modelUsed: null,
     routingMode: "extractive",
+    preformatted: hasExtractedAnswer && Boolean((naturalAnswer as { preformatted?: boolean }).preformatted),
     routingReason: args.routeReason,
     queryClass: args.queryClass,
     latencyTimings: args.timings,
@@ -5239,6 +5242,14 @@ function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: 
 }
 
 function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
+  // Deterministic, template-built answers (document-support lists, table/visual source
+  // references) are well-formed by construction and carry no free-text clinical claims.
+  // The clinical-prose sanitizer/quality gate below is designed for model prose and would
+  // strip their document names (facility codes like "(NOCC)(AKG)" read as non-prose),
+  // turning a valid answer into garble that then fails the gate. Return them untouched.
+  if (answer.preformatted && answer.grounded) {
+    return answer;
+  }
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   const gapLikeAnswer =
     /could not find enough clean|no relevant clinical source|no current source|cannot provide a clinical answer|cannot provide a source-backed clinical answer|nearby indexed passages|not strong enough to support a reliable answer|no specific\b.*\bcan be confirmed|do not contain indexed guidance|do not contain (?:specific\s+)?information|do not provide specific|no\b.*\bguidance\b.*\bincluded|defer to other sources/i.test(

@@ -284,7 +284,7 @@ export function formNavigatorQuery(form: FormRecord) {
   );
 }
 
-export function searchFormRecords(query: string, limit = formRecords.length): FormSearchMatch[] {
+export function rankFormRecords(records: FormRecord[], query: string, limit = records.length): FormSearchMatch[] {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
   if (/^services?$/.test(normalizedQuery)) return [];
@@ -307,7 +307,7 @@ export function searchFormRecords(query: string, limit = formRecords.length): Fo
     ].includes(term),
   );
 
-  return formRecords
+  return records
     .map((form) => {
       const title = normalizeSearchText(form.title);
       const slug = normalizeSearchText(form.slug);
@@ -338,9 +338,10 @@ export function searchFormRecords(query: string, limit = formRecords.length): Fo
       return { service: form, score, reasons };
     })
     .filter((match) => match.score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score || formRecords.indexOf(left.service) - formRecords.indexOf(right.service),
-    )
+    .sort((left, right) => right.score - left.score || records.indexOf(left.service) - records.indexOf(right.service))
     .slice(0, limit);
+}
+
+export function searchFormRecords(query: string, limit = formRecords.length): FormSearchMatch[] {
+  return rankFormRecords(formRecords, query, limit);
 }

@@ -129,6 +129,10 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Mental Health Medically Cleared for Discharge",
     "Mental Health Inpatient Triage to Discharge",
     "ACMHS and OACMHS Triage to Discharge",
+    // The synthetic MHSP.Discharge.pdf was superseded by real named discharge documents;
+    // "Discharge Planning for Community Patients / Inpatients" is the discharge counterpart
+    // that ranks for the admission-vs-discharge comparison, so recognize it as a real hit.
+    "Discharge Planning",
   ],
   Duress: ["Duress", "Duress Procedure", "Duress Response"],
   ECTProcedure: ["ECT Procedure", "Electroconvulsive Therapy", "Electroconvulsive Therapy ECT"],

@@ -1,3 +1,5 @@
+"use client";
+
 import { FileSearch, MapPinned, Route, Users } from "lucide-react";
 
 import {
@@ -9,11 +11,12 @@ import {
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { defaultServiceSlug, serviceRecords } from "@/lib/services";
+import { defaultServiceSlug } from "@/lib/services";
+import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
 const taskCards: ModeHomeAction[] = [
   {
-    title: "Find a service",
+    title: "Search services",
     description: "Search by need, catchment, provider, or keyword.",
     icon: FileSearch,
     href: appModeHomeHref("services", { focus: true }),
@@ -43,7 +46,7 @@ const commonPathways: ModeHomePill[] = [
     href: appModeHomeHref("services", { query: "crisis support services", focus: true, run: true }),
   },
   {
-    label: "ATSI-specific",
+    label: "Aboriginal and Torres Strait Islander",
     tone: "info",
     href: appModeHomeHref("services", {
       query: "Aboriginal Torres Strait Islander services",
@@ -73,11 +76,10 @@ const commonPathways: ModeHomePill[] = [
   },
 ];
 
-function verifiedCount() {
-  return serviceRecords.filter((service) => service.verification?.locallyVerified).length;
-}
-
 export function ServicesHomePage() {
+  const registry = useRegistryRecords("service");
+  const verifiedCount = countVerifiedRegistryRecords(registry);
+
   return (
     <ModeHomeMain testId="services-home">
       <ModeHomeTemplate
@@ -91,12 +93,14 @@ export function ServicesHomePage() {
         pillsTitle="Common pathways"
         pills={commonPathways}
         footer={
-          <ModeHomeVerificationFooter
-            label="Catalogue service data"
-            body="Confirm locally before use"
-            verifiedCount={verifiedCount()}
-            totalCount={serviceRecords.length}
-          />
+          registry.status === "ready" ? (
+            <ModeHomeVerificationFooter
+              label="Catalogue service data"
+              body="Confirm locally before use"
+              verifiedCount={verifiedCount}
+              totalCount={registry.total}
+            />
+          ) : null
         }
       />
     </ModeHomeMain>
