@@ -24,8 +24,9 @@ export type QualityGateSummary = {
   citation_failure_rate: number;
   numeric_grounding_failure_rate: number;
   source_governance_danger_failure_rate: number;
-  stale_review_unknown_rate?: number;
-  review_required_rate?: number;
+  expected_danger_warning_missing_count: number;
+  stale_review_unknown_rate: number;
+  review_required_rate: number;
   p95_latency_ms: number;
 };
 
@@ -43,6 +44,7 @@ export type ReindexGateConfig = {
     citationFailureRateCeiling: number;
     numericGroundingFailureRateCeiling: number;
     sourceGovernanceDangerFailureRateCeiling: number;
+    expectedDangerWarningMissingCountCeiling: number;
     staleReviewUnknownRateCeiling: number;
     reviewRequiredRateCeiling: number;
     p95LatencyMsCeiling: number;
@@ -66,6 +68,7 @@ export const defaultReindexGateConfig: ReindexGateConfig = {
     citationFailureRateCeiling: 0,
     numericGroundingFailureRateCeiling: 0,
     sourceGovernanceDangerFailureRateCeiling: 0,
+    expectedDangerWarningMissingCountCeiling: 0,
     staleReviewUnknownRateCeiling: 0.25,
     reviewRequiredRateCeiling: 0.25,
     p95LatencyMsCeiling: 25000,
@@ -90,6 +93,18 @@ export type ReindexGateDecision = {
   checks: MetricCheck[];
   failures: string[];
 };
+
+const requiredQualityMetrics = [
+  "grounded_supported_rate",
+  "unsupported_correct_rate",
+  "citation_failure_rate",
+  "numeric_grounding_failure_rate",
+  "source_governance_danger_failure_rate",
+  "expected_danger_warning_missing_count",
+  "stale_review_unknown_rate",
+  "review_required_rate",
+  "p95_latency_ms",
+] as const satisfies readonly (keyof QualityGateSummary)[];
 
 function evaluateCheck(input: {
   metric: string;
@@ -233,6 +248,14 @@ function qualityChecks(
       tolerance: 0,
     }),
     evaluateCheck({
+      metric: "expected_danger_warning_missing_count",
+      direction: "lower_better",
+      baseline: baseline.expected_danger_warning_missing_count,
+      candidate: candidate.expected_danger_warning_missing_count,
+      bound: config.expectedDangerWarningMissingCountCeiling,
+      tolerance: 0,
+    }),
+    evaluateCheck({
       metric: "p95_latency_ms",
       direction: "lower_better",
       baseline: baseline.p95_latency_ms,
@@ -253,34 +276,31 @@ function qualityChecks(
       }),
     );
   }
-  if (
-    typeof baseline.stale_review_unknown_rate === "number" &&
-    typeof candidate.stale_review_unknown_rate === "number"
-  ) {
-    checks.push(
-      evaluateCheck({
-        metric: "stale_review_unknown_rate",
-        direction: "lower_better",
-        baseline: baseline.stale_review_unknown_rate,
-        candidate: candidate.stale_review_unknown_rate,
-        bound: config.staleReviewUnknownRateCeiling,
-        tolerance: config.rateRegressionTolerance,
-      }),
-    );
-  }
-  if (typeof baseline.review_required_rate === "number" && typeof candidate.review_required_rate === "number") {
-    checks.push(
-      evaluateCheck({
-        metric: "review_required_rate",
-        direction: "lower_better",
-        baseline: baseline.review_required_rate,
-        candidate: candidate.review_required_rate,
-        bound: config.reviewRequiredRateCeiling,
-        tolerance: config.rateRegressionTolerance,
-      }),
-    );
-  }
+  checks.push(
+    evaluateCheck({
+      metric: "stale_review_unknown_rate",
+      direction: "lower_better",
+      baseline: baseline.stale_review_unknown_rate,
+      candidate: candidate.stale_review_unknown_rate,
+      bound: config.staleReviewUnknownRateCeiling,
+      tolerance: config.rateRegressionTolerance,
+    }),
+    evaluateCheck({
+      metric: "review_required_rate",
+      direction: "lower_better",
+      baseline: baseline.review_required_rate,
+      candidate: candidate.review_required_rate,
+      bound: config.reviewRequiredRateCeiling,
+      tolerance: config.rateRegressionTolerance,
+    }),
+  );
   return checks;
+}
+
+function missingQualityMetrics(label: "baselineQuality" | "candidateQuality", summary: QualityGateSummary) {
+  return requiredQualityMetrics.flatMap((metric) =>
+    typeof summary[metric] === "number" && Number.isFinite(summary[metric]) ? [] : [`${label}.${metric}`],
+  );
 }
 
 export function decideReindexGate(
@@ -306,6 +326,17 @@ export function decideReindexGate(
     };
   }
   if (input.baselineQuality && input.candidateQuality) {
+    const missingMetrics = [
+      ...missingQualityMetrics("baselineQuality", input.baselineQuality),
+      ...missingQualityMetrics("candidateQuality", input.candidateQuality),
+    ];
+    if (missingMetrics.length > 0) {
+      return {
+        decision: "NO_GO",
+        checks,
+        failures: [`quality summaries are missing required metrics: ${missingMetrics.join(", ")}`],
+      };
+    }
     checks.push(...qualityChecks(input.baselineQuality, input.candidateQuality, config.quality));
   }
 

@@ -20,6 +20,7 @@ function quality(overrides: Partial<QualityGateSummary> = {}): QualityGateSummar
     citation_failure_rate: 0,
     numeric_grounding_failure_rate: 0,
     source_governance_danger_failure_rate: 0,
+    expected_danger_warning_missing_count: 0,
     stale_review_unknown_rate: 0.1,
     review_required_rate: 0.1,
     p95_latency_ms: 18000,
@@ -108,6 +109,17 @@ describe("decideReindexGate — quality", () => {
     expect(decision.failures.join(" ")).toMatch(/citation_failure_rate 0.05 above absolute ceiling 0/);
   });
 
+  it("returns NO_GO when an expected danger warning is missing", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: retrieval(),
+      baselineQuality: quality(),
+      candidateQuality: quality({ expected_danger_warning_missing_count: 1 }),
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/expected_danger_warning_missing_count 1 above absolute ceiling 0/);
+  });
+
   it("returns NO_GO when grounded_supported_rate falls below the floor", () => {
     const decision = decideReindexGate({
       baselineRetrieval: retrieval(),
@@ -138,5 +150,21 @@ describe("decideReindexGate — quality", () => {
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/quality summaries must be provided for both/);
+  });
+
+  it("fails closed when quality summaries omit required source governance rates", () => {
+    const withoutGovernanceRates = quality() as Partial<QualityGateSummary>;
+    delete withoutGovernanceRates.stale_review_unknown_rate;
+    delete withoutGovernanceRates.review_required_rate;
+
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: retrieval(),
+      baselineQuality: quality(),
+      candidateQuality: withoutGovernanceRates as QualityGateSummary,
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/candidateQuality\.stale_review_unknown_rate/);
+    expect(decision.failures.join(" ")).toMatch(/candidateQuality\.review_required_rate/);
   });
 });
