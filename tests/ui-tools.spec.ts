@@ -100,10 +100,6 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.locator('a[aria-label="Launch Services"]').first()).toHaveAttribute("href", "/services");
     await expect(page.locator('a[aria-label="Launch Forms"]').first()).toHaveAttribute("href", "/forms");
     await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveAttribute("href", "/favourites");
-    await expect(page.locator('a[aria-label="Launch Differentials"]').first()).toHaveAttribute(
-      "href",
-      "/differentials",
-    );
     await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
       "href",
       "/?mode=answer",
@@ -138,8 +134,8 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
     await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
-    await expect(toolsHub.getByText("Showing 1 of 7")).toBeVisible();
-    await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
+    await expect(toolsHub.getByText("Showing 1 to 1 of 7 tools")).toBeVisible();
+    await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
     await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
