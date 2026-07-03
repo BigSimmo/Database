@@ -47,14 +47,14 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 | `primaryControl`         | Primary command button                | ✅                  | ✅                | ✅     | ✅                        | ✅       |
 | `floatingControl`        | Secondary / floating button           | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
 | `toolbarButton`          | Square icon button                    | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `navPill`                | Nav / segmented pill                  | `min-h-11`          | ✅                | ❌     | ✅                        | ❌       |
-| `chatMicroAction`        | Small chat action (copy, retry…)      | `min-h-11 min-w-11` | ✅                | ❌     | ✅                        | ❌       |
+| `navPill`                | Nav / segmented pill                  | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
+| `chatMicroAction`        | Small chat action (copy, retry…)      | `min-h-11 min-w-11` | ✅                | ❌     | ✅                        | ✅       |
 | `sourceCapsule`          | Inline citation capsule               | `min-h-11`          | ✅                | ❌     | ✅ (`focus-ring-premium`) | ❌       |
-| `chatComposerIconButton` | Composer icon button                  | `h-11 w-11`         | ✅                | ❌     | ✅                        | ❌       |
+| `chatComposerIconButton` | Composer icon button                  | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
 | `chatSendButton`         | Composer send (accent)                | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `sidebarItem`            | Sidebar nav row                       | `min-h-11`          | ✅                | ❌     | ✅                        | ❌       |
+| `sidebarItem`            | Sidebar nav row                       | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
 | `sidebarToolTile`        | Sidebar tool tile                     | `min-h-[64px]`      | ✅                | ❌     | ✅                        | ❌       |
-| `shellChip`              | Filter / mode chip                    | `min-h-10` ⚠️       | ✅                | ❌     | ❌                        | ❌       |
+| `shellChip`              | Filter / mode chip                    | `min-h-11`          | ✅                | ❌     | ❌                        | ❌       |
 
 ### Form fields
 
@@ -129,14 +129,17 @@ focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
    the primary buttons, matching the newer recipes (`chatSendButton`, etc.).
 2. **`active:translate-y-px` only on the `controlBase` family** — other buttons
    (`toolbarButton`, `chatSendButton`, icon buttons) have no press feedback.
-3. **`disabled:` unhandled** on `navPill`, `chatMicroAction`,
-   `chatComposerIconButton`, `sidebarItem` — a disabled state renders identically
-   to enabled.
-4. **`shellChip` is `min-h-10` (40px)** — below the 44px WCAG tap minimum used
-   everywhere else. Promote to `min-h-11` if it's a real tap target.
+3. ✅ **FIXED (2026-07-03).** Added `disabled:cursor-not-allowed disabled:opacity-50`
+   to `navPill`, `chatMicroAction`, `chatComposerIconButton`, `sidebarItem` — they now
+   honour the documented disabled state, including the disabled
+   `chatComposerIconButton` in `applications-launcher-page.tsx`.
+4. ✅ **FIXED (2026-07-03).** `shellChip` bumped `min-h-10` → `min-h-11` (40→44px) to
+   meet the WCAG tap minimum — it's used on a real `<button>` filter ("All documents"
+   in `master-search-header.tsx`).
 5. **Input focus uses `focus:` not `focus-visible:`** (`fieldControl`,
    `commandInput`) — intentional for text fields (focus ring should show on
    pointer focus too), but noted so it isn't "corrected" to `focus-visible:`.
 
-Gap 1 (the highest-value one) is now closed. Gaps 2–5 remain — all low-risk
-polish; gap 4 (`shellChip` tap size) is the next most worth doing.
+Gaps 1, 3, and 4 are now closed. Remaining: **gap 2** (`active:` press feedback
+beyond the `controlBase` family — an aesthetic/design-team call) and **gap 5**
+(inputs intentionally use `focus:`, no change needed).

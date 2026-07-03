@@ -909,7 +909,7 @@ export function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof 
                 href={finding.href}
                 className={cn(
                   raisedCard,
-                  "inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
+                  "inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
                 )}
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
@@ -981,7 +981,7 @@ function EvidenceGapPanel({
                 <Link
                   key={source.id}
                   href={sourceResultHref(source)}
-                  className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+                  className={cn(floatingControl, "min-h-11 px-3 text-xs")}
                   aria-label={`Open closest source ${cleanDisplayTitle(source.title)}`}
                 >
                   <ExternalLink className="h-4 w-4" />
@@ -1171,7 +1171,7 @@ function EvidenceSummaryCard({
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href={bestSource.viewer_href}
-              className={cn(primaryControl, "min-h-[44px] px-3 text-xs")}
+              className={cn(primaryControl, "min-h-11 px-3 text-xs")}
               aria-label={`Open ${sourceLabel.toLowerCase()}: ${formatCitationLabel(bestSource)}`}
             >
               Open source
@@ -1180,7 +1180,7 @@ function EvidenceSummaryCard({
             <button
               type="button"
               onClick={() => onScopeDocument(bestSource.document_id)}
-              className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+              className={cn(floatingControl, "min-h-11 px-3 text-xs")}
               aria-label={`Search only ${bestSource.title}`}
             >
               <Filter className="h-4 w-4" />
@@ -1600,7 +1600,7 @@ function RenderModelSourceList({
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
             <Link
               href={source.href}
-              className="block min-h-[44px] px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="block min-h-11 px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               aria-label={openLabel}
             >
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
@@ -1784,7 +1784,7 @@ export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
               data-testid="evidence-map-open-source"
               className={cn(
                 sourceCard,
-                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                "grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
               aria-label={`Open source for ${row.section}: ${row.bestSourceLabel}`}
             >
@@ -1889,6 +1889,11 @@ export function QuoteCards({
                 <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
+                {quote.isTruncated ? (
+                  <p className="mt-1 text-xs italic leading-5 text-[color:var(--text-muted)]">
+                    Quote truncated for length — open the source to read the full passage.
+                  </p>
+                ) : null}
                 <div
                   className={cn(
                     "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
@@ -1928,9 +1933,12 @@ export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
         // Clean the copied text the same way the card displays it, so clipboard
         // output never contains internal image-data blocks or glyph artifacts.
         `${index + 1}. "${sourceTextForVerbatimQuote(quote.quote)}"`,
+        quote.isTruncated ? "Warning: quote truncated for length; open the source to read the full passage." : null,
         `Source: ${formatCitationLabel(quote)}`,
         `Link: ${documentCitationHref(quote)}`,
-      ].join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     )
     .join("\n\n");
 }

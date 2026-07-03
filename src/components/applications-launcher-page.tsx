@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   Brain,
@@ -812,6 +813,7 @@ export function ApplicationsLauncherWorkspace({
   const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [desktopViewport, setDesktopViewport] = useState(false);
+  const router = useRouter();
   const isDashboardTools = variant === "dashboard-tools";
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
   const query = controlledQuery ?? uncontrolledQuery;
@@ -870,7 +872,18 @@ export function ApplicationsLauncherWorkspace({
   function submitFooterSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const firstMatch = filteredApps[0];
-    if (firstMatch) selectApplication(firstMatch.id);
+    if (!firstMatch) return;
+    // Dashboard-tools run mode hides the detail panel on desktop, so selecting a
+    // match has no visible effect — launch the top match directly instead.
+    if (isDashboardTools && !showDetailPanel && desktopViewport) {
+      if (firstMatch.external) {
+        window.open(firstMatch.href, "_blank", "noopener,noreferrer");
+      } else {
+        router.push(firstMatch.href);
+      }
+      return;
+    }
+    selectApplication(firstMatch.id);
   }
 
   const workspace = (

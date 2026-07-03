@@ -64,6 +64,7 @@
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
     "eval:rag": "node scripts/run-eval-safe.mjs scripts/eval-rag.ts",
+    "eval:answer-quality": "node scripts/run-eval-safe.mjs scripts/eval-answer-quality.ts",
     "eval:quality": "node scripts/run-eval-safe.mjs scripts/eval-quality.ts",
     "eval:quality:release": "npm run eval:quality -- --fail-on-threshold --source-metadata-debt docs/release-source-metadata-debt-2026-06-30.json",
     "eval:retrieval": "node scripts/run-eval-safe.mjs scripts/eval-retrieval.ts",

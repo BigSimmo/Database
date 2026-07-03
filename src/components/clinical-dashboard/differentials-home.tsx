@@ -904,7 +904,11 @@ export function DifferentialsHome({
     runSearch(action.query);
   }
 
-  if (trimmedQuery) {
+  // Only surface ranked results once an actual search has run (loading or
+  // evidence matches present) — not on every keystroke, and not for a query
+  // whose source search returned nothing. Otherwise the hard-coded demo
+  // rankings render as if relevant to any typed text.
+  if (trimmedQuery && (loading || hasEvidenceMatches)) {
     return (
       <SearchResultsView
         query={trimmedQuery}

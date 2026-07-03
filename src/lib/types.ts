@@ -425,6 +425,9 @@ export type QuoteCard = Citation & {
   quote: string;
   section_heading: string | null;
   source_strength?: SourceStrength;
+  // True when the quote was cut at the display cap; the card shows a "truncated — open source"
+  // affordance so a value past the cut is never read as the complete passage.
+  isTruncated?: boolean;
 };
 
 export type SourceStrength = "strong" | "moderate" | "limited";

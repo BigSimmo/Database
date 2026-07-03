@@ -509,10 +509,17 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
           <MobileCandidateCard key={candidate.record.slug} candidate={candidate} index={index} />
         ))}
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-30 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
+      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
+        <Link
+          href="/differentials/presentations"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
+        >
+          <GitCompareArrows className="h-4 w-4" aria-hidden />
+          Compare ({acuteConfusionPresentationWorkflow.selectedCount} selected)
+        </Link>
         <CopyAfterReviewButton
           text={comparisonCopy(candidates)}
-          className="w-full min-h-11 bg-[color:var(--surface)] px-2 !text-sm !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)]"
+          className="min-h-11 bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
         />
       </div>
     </section>

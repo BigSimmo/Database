@@ -1,9 +1,8 @@
 import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
-import { recordToRow, type RegistryRecordKind } from "@/lib/registry-records";
-import { serviceRecords } from "@/lib/services";
-import { formRecords } from "@/lib/forms";
+import { type RegistryRecordKind } from "@/lib/registry-records";
+import { buildDefaultRegistryRows, defaultRegistryRecords } from "@/lib/registry-seed";
 import type { ServiceRecord } from "@/lib/services";
 
 loadEnvConfig(process.cwd());
@@ -59,10 +58,8 @@ function parseArgs(argv: string[]): SeedArgs {
 }
 
 function seedSets(kind: SeedArgs["kind"]): Array<{ kind: RegistryRecordKind; records: ServiceRecord[] }> {
-  const sets: Array<{ kind: RegistryRecordKind; records: ServiceRecord[] }> = [];
-  if (kind === "service" || kind === "all") sets.push({ kind: "service", records: serviceRecords });
-  if (kind === "form" || kind === "all") sets.push({ kind: "form", records: formRecords });
-  return sets;
+  const kinds: RegistryRecordKind[] = kind === "all" ? ["service", "form"] : [kind];
+  return kinds.map((seedKind) => ({ kind: seedKind, records: defaultRegistryRecords(seedKind) }));
 }
 
 async function main() {
@@ -72,7 +69,7 @@ async function main() {
   }
 
   const sets = seedSets(args.kind);
-  const rows = sets.flatMap((set) => set.records.map((record) => recordToRow(record, args.ownerId!, set.kind)));
+  const rows = sets.flatMap((set) => buildDefaultRegistryRows(args.ownerId!, set.kind));
 
   console.log(`[registry:seed] owner ${args.ownerId}`);
   for (const row of rows) {
