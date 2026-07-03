@@ -52,12 +52,18 @@ consoles — Claude does not change the live Auth config. Target project:
 
 ## 6. App environment variables
 
-Already used by the app; ensure they are set per environment:
+Already used by the app; ensure they are set per environment. Concrete values
+for **this** project (retrieved read-only from the live project 2026-07-03):
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (anon/publishable — safe in the browser)
-- `SUPABASE_SERVICE_ROLE_KEY` (server-only; never exposed to the client)
+- `NEXT_PUBLIC_SUPABASE_URL` = `https://sjrfecxgysukkwxsowpy.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = `sb_publishable_TgAfWIQDozYC_reOI-d5cw_FLYPnqOa`
+  (modern publishable key — public by design, safe in the browser; a legacy anon
+  JWT is also still active for compatibility)
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; never exposed to the client — not
+  reproduced here; copy it from the Supabase dashboard → Project Settings → API)
 
+The **Supabase OAuth callback** to authorize in the Google Cloud / Azure AD app
+registrations (§1) is `https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback`.
 OAuth client secrets live in **Supabase**, not in app env.
 
 ## 7. Database RLS + storage — already in place (verified against live 2026-07-03)
