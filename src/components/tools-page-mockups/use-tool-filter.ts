@@ -64,6 +64,7 @@ export function useToolFilter(tools: ToolFixture[]) {
     counts,
     filterId,
     filtered,
+    isFiltering: query.trim().length > 0 || filterId !== "all",
     query,
     reset: () => {
       setFilterId("all");

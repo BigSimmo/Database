@@ -159,9 +159,12 @@ function tableRowQuoteCandidates(content: string) {
   return candidates;
 }
 
-function bestQuoteFromContent(content: string, query: string) {
+// Returns the best-matching quote plus whether it was cut at the 340-char cap. Truncation is
+// surfaced on the card (isTruncated) so a dose/threshold that fell past the cut is never presented
+// as if it were the complete passage — the reader is told to open the source.
+function bestQuoteFromContent(content: string, query: string): { quote: string; truncated: boolean } {
   const clean = normalizeText(content);
-  if (!clean) return "";
+  if (!clean) return { quote: "", truncated: false };
 
   const tokens = queryTokens(query);
   const displayContent = sourceTextForDisplay(content) || clean;
@@ -188,8 +191,8 @@ function bestQuoteFromContent(content: string, query: string) {
         (a, b) => b.adjustedScore - a.adjustedScore || b.score - a.score || a.sentence.length - b.sentence.length,
       )[0]?.sentence ?? clean;
 
-  if (best.length <= 340) return best;
-  return `${best.slice(0, 337).trim()}...`;
+  if (best.length <= 340) return { quote: best, truncated: false };
+  return { quote: `${best.slice(0, 337).trim()}...`, truncated: true };
 }
 
 function normalizeText(text: string) {
@@ -201,7 +204,7 @@ export function extractQuoteCards(results: SearchResult[], query: string, limit 
   const quoteCards: QuoteCard[] = [];
 
   for (const result of results) {
-    const quote = bestQuoteFromContent(result.content, query);
+    const { quote, truncated } = bestQuoteFromContent(result.content, query);
     if (!quote) continue;
     const key = `${result.document_id}:${result.page_number}:${quote.toLowerCase()}`;
     if (seen.has(key)) continue;
@@ -209,6 +212,7 @@ export function extractQuoteCards(results: SearchResult[], query: string, limit 
     quoteCards.push({
       ...citationFromResult(result),
       quote,
+      isTruncated: truncated,
       section_heading: result.section_heading,
       source_strength: result.source_strength ?? sourceStrengthForSimilarity(result.similarity),
     });

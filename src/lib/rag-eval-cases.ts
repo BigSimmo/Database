@@ -1,4 +1,9 @@
 import { isDangerSourceGovernanceMessage } from "@/lib/source-governance";
+import {
+  documentExpectationAlternatives,
+  expectedFileCoverage,
+  normalizedDocumentName,
+} from "@/lib/eval-document-matching";
 import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 export type RagEvalCategory = "routine" | "complex" | "unsupported";
@@ -78,6 +83,26 @@ function containsNone(text: string, values: string[] | undefined) {
   return values.every((value) => !normalized.includes(value.toLowerCase()));
 }
 
+function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: RagAnswer, text: string) {
+  if (!testCase.expectedFiles.length) return /\b(?:document|guideline|policy|procedure|form)\b/i.test(text);
+
+  const expectedCoverage = expectedFileCoverage(testCase.expectedFiles, answer.citations, answer.citations.length);
+  if (expectedCoverage.anyHit) return true;
+
+  const normalizedText = normalizedDocumentName(text);
+  return testCase.expectedFiles.some((expectedDocument) =>
+    documentExpectationAlternatives(expectedDocument).some(
+      (alternative) =>
+        text.includes(alternative) ||
+        normalizedText.includes(alternative) ||
+        alternative
+          .split(/\s+/)
+          .filter((token) => token.length > 2)
+          .every((token) => text.includes(token)),
+    ),
+  );
+}
+
 export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
   const text = answerTextForQuality(answer);
   const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -106,6 +131,91 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
     { metric: "intent_coverage", score: intentOk ? 1 : 0, reason: intentOk ? "covered" : "intent cue missing" },
     { metric: "fail_closed", score: failClosedOk ? 1 : 0, reason: failClosedOk ? "safe" : "did not fail closed" },
   ] satisfies AnswerQualityMetricScore[];
+}
+
+export type AnswerTargetingScore = {
+  /** 1 = the answer carries the structural shape the intent demands (or the case is n/a). */
+  score: 0 | 1;
+  /** false = not counted toward the targeting rate (unsupported/fail-closed or general intent). */
+  applicable: boolean;
+  reason: string;
+};
+
+export const answerTargetingMetricLabel =
+  "Answer carries the structural shape its intent demands: dose→figure/regimen, red-result→withhold/stop action, monitoring→schedule/interval, contraindication→avoid cue, referral→criteria/pathway, document-lookup→a named/cited document.";
+
+// P3 structural targeting metric — stronger than the loose keyword `mustContainAny` cue. It measures
+// how precisely a SUPPORTED answer hits the asked question (the "targeted / specific / high-yield"
+// bar), by checking the answer carries the shape its intent demands. It is INFORMATIONAL: never a
+// hard gate, so it can be calibrated against real answers without blocking anyone. Unsupported /
+// correctly fail-closed cases are n/a (a precise refusal is on-target by construction) and do not
+// count toward the applicable denominator.
+export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: RagAnswer): AnswerTargetingScore {
+  const unsupported = answer.confidence === "unsupported" || answer.grounded === false;
+  if (!testCase.supported || unsupported) {
+    return { score: 1, applicable: false, reason: "n/a: unsupported / fail-closed case" };
+  }
+  const text = answerTextForQuality(answer).toLowerCase();
+  const hasNumber = /\d/.test(text);
+  const hasDoseFigure =
+    /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms|g|ml|mmol\/l|mmol|units?|iu)\b/i.test(text) ||
+    /\btitrat|\bdivided doses?\b/i.test(text);
+  const asksForThreshold =
+    /\b(?:threshold|level|range|below|above|over|under|less than|greater than|cutoff|count)\b/i.test(testCase.question);
+  const hasRedAction = /\b(?:withhold|cease|stop|discontinu|hold|escalat|urgent|review|seek|refer)\w*/i.test(text);
+  const hasMonitoringSchedule =
+    /\b(?:weekly|monthly|annual|annually|every|baseline|then|ongoing|fbc|anc|\d+\s*(?:week|month|day|hour)s?)\b/i.test(
+      text,
+    );
+  const asksForMonitoringRange = /\b(?:level|range|target|therapeutic|maintenance)\b/i.test(testCase.question);
+  const hasMonitoringRange =
+    /\b\d+(?:\.\d+)?\s*(?:-|to|–)\s*\d+(?:\.\d+)?\s*(?:mmol\/l|mmol|mg\/l|microgram\/l|mcg\/l|ng\/ml)\b/i.test(text) ||
+    /\b(?:mmol\/l|mmol|mg\/l|microgram\/l|mcg\/l|ng\/ml)\b/i.test(text);
+
+  switch (testCase.expectedIntent) {
+    case "dose":
+      return hasDoseFigure
+        ? { score: 1, applicable: true, reason: "carries a dose figure/regimen" }
+        : { score: 0, applicable: true, reason: "no dose figure/regimen" };
+    case "red_result_action":
+      return hasRedAction && (!asksForThreshold || hasNumber)
+        ? {
+            score: 1,
+            applicable: true,
+            reason: asksForThreshold ? "states an action with a threshold" : "states a red-result action",
+          }
+        : {
+            score: 0,
+            applicable: true,
+            reason: asksForThreshold ? "no action with a threshold" : "no red-result action",
+          };
+    case "monitoring_schedule":
+      return hasMonitoringSchedule || (asksForMonitoringRange && hasMonitoringRange)
+        ? {
+            score: 1,
+            applicable: true,
+            reason: hasMonitoringSchedule ? "carries a schedule/interval" : "carries a monitoring level/range",
+          }
+        : {
+            score: 0,
+            applicable: true,
+            reason: asksForMonitoringRange ? "no schedule/interval or monitoring range" : "no schedule/interval",
+          };
+    case "contraindication":
+      return /\b(?:contraindicat|avoid|must not|do not|should not|not use|caution)\w*/i.test(text)
+        ? { score: 1, applicable: true, reason: "states a contraindication/avoid cue" }
+        : { score: 0, applicable: true, reason: "no contraindication cue" };
+    case "pathway_referral":
+      return /\b(?:refer|referral|criteria|pathway|indicat|eligib)\w*/i.test(text)
+        ? { score: 1, applicable: true, reason: "names referral/pathway criteria" }
+        : { score: 0, applicable: true, reason: "no referral/pathway cue" };
+    case "document_lookup":
+      return citesOrNamesExpectedDocument(testCase, answer, text)
+        ? { score: 1, applicable: true, reason: "names/cites a document" }
+        : { score: 0, applicable: true, reason: "no expected document named/cited" };
+    default:
+      return { score: 1, applicable: false, reason: "n/a: general intent" };
+  }
 }
 
 type CapturedEvalCaseRow = {
