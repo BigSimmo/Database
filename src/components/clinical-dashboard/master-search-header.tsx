@@ -1210,22 +1210,26 @@ export function MasterSearchHeader({
                 <span className="hidden sm:inline">{secondaryFooterChip.longLabel}</span>
               </button>
             ) : null}
-            {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
-              <div
-                ref={scopePopoverRef}
-                data-testid="scope-command-popover"
-                className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-50 max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
-              >
-                <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  <span>Document scope</span>
-                  <span className="nums">{scopeSummary}</span>
-                </div>
-                {scopePreview ? (
-                  <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
-                ) : null}
-                {renderScopeRows()}
-              </div>
+          </div>
+        ) : null}
+        {/* Rendered as a sibling of the chip row (not nested inside it) so the "+"
+            menu's "Set scope" action still opens this popover on screens where the
+            chip row itself is hidden (documents/forms desktop widths) — the popover
+            still anchors correctly since the form stays position:fixed/sticky there. */}
+        {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
+          <div
+            ref={scopePopoverRef}
+            data-testid="scope-command-popover"
+            className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-50 max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
+          >
+            <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
+              <span>Document scope</span>
+              <span className="nums">{scopeSummary}</span>
+            </div>
+            {scopePreview ? (
+              <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
             ) : null}
+            {renderScopeRows()}
           </div>
         ) : null}
         <Sheet
