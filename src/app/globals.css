@@ -38,12 +38,17 @@
        2xs         11px  small chips / secondary labels (most common small size)
        (xs 12 · sm 14 · base 16 come from Tailwind's default scale)
        sm-minus    13px  one notch under sm — dense body/labels bigger than xs
-       base-minus  15px  one notch under base — comfortable body just under 16 */
+       base-minus  15px  one notch under base — comfortable body just under 16
+       (lg 18 · xl 20 · 2xl 24 come from Tailwind's default scale)
+       lg-minus    17px  one notch under lg — display titles a shade under 18
+       2xl-minus   22px  one notch under 2xl — wide-screen nowrap headings */
   --text-4xs: 0.5rem;
   --text-3xs: 0.625rem;
   --text-2xs: 0.6875rem;
   --text-sm-minus: 0.8125rem;
   --text-base-minus: 0.9375rem;
+  --text-lg-minus: 1.0625rem;
+  --text-2xl-minus: 1.375rem;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
