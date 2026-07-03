@@ -117,7 +117,7 @@ export const areaLabels: Record<ToolArea, string> = {
   assessment: "Assess",
   care: "Treat",
   coordination: "Coordinate",
-  personal: "Resume",
+  personal: "Saved",
   reference: "Reference",
 };
 
