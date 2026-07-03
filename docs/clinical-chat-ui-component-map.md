@@ -2,7 +2,7 @@
 
 Date: 2026-06-24
 
-> **Colour direction superseded (July 2026).** This Phase-2 mapping artifact is retained as history. Its colour aliases ("deep teal", "pale teal", "clinical sand", "document blue-grey") predate the **Clinical White / Aegean Graphite** role tokens now in `globals.css`; see [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). Read colour references as the role tokens `--command` (graphite), `--clinical-accent` (Aegean), and `--success` (green, success-only).
+> **Revised 2026-07-03 — colour aligned to Clinical White / Aegean Graphite.** The colour aliases in this Phase-2 map have been rewritten in-body onto the role tokens now in `globals.css`: `--command` (graphite) for primary command, `--clinical-accent` (Aegean) for clinical identity, and `--success` (green) for status only. See [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). The component/file mapping and preservation rules are unchanged from the original 2026-06-24 draft.
 
 ## Purpose
 
@@ -138,7 +138,7 @@ Expected changes:
 
 - Add visual variants for:
   - default evidence row
-  - clinical notes sand row
+  - clinical notes row (neutral `--surface-subtle`, no sand tint)
   - compact daily drawer
 - Ensure right-aligned chevrons are consistent.
 - Keep accessible labels and state.
@@ -222,7 +222,7 @@ Expected additions:
 
 Expected refinements:
 
-- Make active teal/pale teal/sand/blue-grey use consistent tokens.
+- Route active/selected, source-backed, and evidence states through the `--clinical-accent` role tokens; keep primary command on `--command`; use neutral `--surface-subtle` for quiet panels.
 - Reduce dependency on heavy dashboard cards for answer surfaces.
 - Keep focus styles visible.
 
@@ -255,14 +255,12 @@ Final role:
 
 Expected changes:
 
-- Add clinical chat colour aliases if needed:
-  - deep teal
-  - pale teal
-  - clinical sand
-  - document blue-grey
-  - table blue-grey
-  - amber dot
-  - green ready dot
+- Use the Clinical White / Aegean Graphite role tokens already defined here; do not reintroduce ad-hoc chat aliases:
+  - `--command` / `--command-hover` (graphite command)
+  - `--clinical-accent` / `--clinical-accent-soft` / `--clinical-accent-border` (Aegean evidence/selected/send/focus)
+  - `--info` (document/search signal)
+  - `--success` / `--warning` / `--danger` (status dots and safety states)
+  - neutral `--surface` / `--surface-subtle` / `--surface-inset` for canvas, quiet panels, and table headers
 - Ensure reduced-motion behavior covers new sheet/popover/accordion animation.
 - Ensure mobile form controls stay at 16px minimum.
 
@@ -278,7 +276,7 @@ High-risk areas:
 
 Implementation note:
 
-Prefer adding new aliases over changing global brand tokens until visual comparison is complete.
+Prefer composing the existing role tokens over introducing new global colour tokens; only change the root palette when the design direction itself changes.
 
 ## Component behavior map
 
@@ -342,7 +340,7 @@ Current source:
 Final behavior:
 
 - Show collapsed row only when useful.
-- Pale sand row.
+- Neutral quiet row (`--surface-subtle`), no sand tint.
 - Open detail compactly.
 
 Needed adaptation:
