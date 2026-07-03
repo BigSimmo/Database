@@ -15,6 +15,7 @@ function retrieval(overrides: Partial<RetrievalGateSummary> = {}): RetrievalGate
 function quality(overrides: Partial<QualityGateSummary> = {}): QualityGateSummary {
   return {
     grounded_supported_rate: 0.95,
+    unsupported_count: 1,
     unsupported_correct_rate: 1,
     expected_hit_rate: 0.9,
     citation_failure_rate: 0,
@@ -107,6 +108,17 @@ describe("decideReindexGate — quality", () => {
     });
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/citation_failure_rate 0.05 above absolute ceiling 0/);
+  });
+
+  it("skips unsupported_correct_rate when there are no unsupported cases", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: retrieval(),
+      baselineQuality: quality({ unsupported_count: 0, unsupported_correct_rate: 0 }),
+      candidateQuality: quality({ unsupported_count: 0, unsupported_correct_rate: 0 }),
+    });
+    expect(decision.decision).toBe("GO");
+    expect(decision.checks.some((check) => check.metric === "unsupported_correct_rate")).toBe(false);
   });
 
   it("returns NO_GO when an expected danger warning is missing", () => {

@@ -19,6 +19,7 @@ export type RetrievalGateSummary = {
 
 export type QualityGateSummary = {
   grounded_supported_rate: number;
+  unsupported_count: number;
   unsupported_correct_rate: number;
   expected_hit_rate?: number;
   citation_failure_rate: number;
@@ -96,6 +97,7 @@ export type ReindexGateDecision = {
 
 const requiredQualityMetrics = [
   "grounded_supported_rate",
+  "unsupported_count",
   "unsupported_correct_rate",
   "citation_failure_rate",
   "numeric_grounding_failure_rate",
@@ -216,14 +218,6 @@ function qualityChecks(
       tolerance: config.rateRegressionTolerance,
     }),
     evaluateCheck({
-      metric: "unsupported_correct_rate",
-      direction: "higher_better",
-      baseline: baseline.unsupported_correct_rate,
-      candidate: candidate.unsupported_correct_rate,
-      bound: config.unsupportedCorrectRateFloor,
-      tolerance: 0,
-    }),
-    evaluateCheck({
       metric: "citation_failure_rate",
       direction: "lower_better",
       baseline: baseline.citation_failure_rate,
@@ -264,6 +258,18 @@ function qualityChecks(
       tolerance: config.latencyRegressionMs,
     }),
   ];
+  if (baseline.unsupported_count > 0 || candidate.unsupported_count > 0) {
+    checks.push(
+      evaluateCheck({
+        metric: "unsupported_correct_rate",
+        direction: "higher_better",
+        baseline: baseline.unsupported_correct_rate,
+        candidate: candidate.unsupported_correct_rate,
+        bound: config.unsupportedCorrectRateFloor,
+        tolerance: 0,
+      }),
+    );
+  }
   if (typeof baseline.expected_hit_rate === "number" && typeof candidate.expected_hit_rate === "number") {
     checks.push(
       evaluateCheck({
