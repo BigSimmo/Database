@@ -4,7 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
-import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
+import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
