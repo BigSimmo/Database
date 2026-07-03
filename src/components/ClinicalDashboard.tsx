@@ -213,7 +213,6 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
-<<<<<<< HEAD
 import { searchFormRecords, rankFormRecords } from "@/lib/forms";
 import { searchServiceRecords, serviceRecords, rankServiceRecords, type ServiceRecord } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -225,13 +224,6 @@ import {
   sourceTextForCompactDisplay,
   sourceTextForVerbatimQuote,
 } from "@/lib/source-text-sanitizer";
-=======
-import { rankFormRecords } from "@/lib/forms";
-import { rankServiceRecords } from "@/lib/services";
-import { useRegistryRecords } from "@/lib/use-registry-records";
-import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
-import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
->>>>>>> origin/main
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,

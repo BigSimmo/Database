@@ -898,10 +898,7 @@ export function MasterSearchHeader({
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesUniversalFooterStyle = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-<<<<<<< HEAD
     const showFooterSearchChips = usesUniversalFooterStyle && searchMode === "answer";
-=======
->>>>>>> origin/main
     // Only the Answer chat composer uses the send affordance; every search-mode home uses the magnifier.
     const usesSendAffordance = usesAnswerFooterStyle;
     const composerPlaceholder =

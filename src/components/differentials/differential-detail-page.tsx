@@ -214,11 +214,7 @@ function RelatedDiagnoses({ record }: { record: DifferentialRecord }) {
               <span className="min-w-0 truncate text-[color:var(--text-heading)]">{node.label}</span>
               <span
                 className={cn(
-<<<<<<< HEAD
                   "shrink-0 rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase",
-=======
-                  "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
->>>>>>> origin/main
                   tag.className,
                 )}
               >
@@ -291,11 +287,7 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
             </span>
             <span
               className={cn(
-<<<<<<< HEAD
                 "shrink-0 rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase",
-=======
-                "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
->>>>>>> origin/main
                 item.tag.className,
               )}
             >
