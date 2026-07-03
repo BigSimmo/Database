@@ -493,6 +493,23 @@ function blockDecisions(args: {
   } satisfies Record<AnswerRenderBlock, AnswerRenderDecision>;
 }
 
+// P4b: the copy/paste block previously emitted the bare enum ("strong"/"moderate"/"limited"/"none"
+// support) — which reads oddly ("none support") and gives no plain-English cue about how well the
+// source matched. Gloss it into a clinician-readable phrase so pasted drafts carry interpretable
+// source strength.
+export function describeSourceStrengthForCopy(strength: SourceStrength | "none"): string {
+  switch (strength) {
+    case "strong":
+      return "strong match";
+    case "moderate":
+      return "moderate match";
+    case "limited":
+      return "limited match";
+    default:
+      return "match strength not rated";
+  }
+}
+
 export function formatAnswerRenderCopyText(args: {
   answerText: string;
   trust: AnswerRenderTrust;
@@ -501,7 +518,8 @@ export function formatAnswerRenderCopyText(args: {
 }) {
   const sourceLines = args.primarySources.length
     ? args.primarySources.map(
-        (source, index) => `${index + 1}. ${source.label} | ${source.sourceStrength} support | ${source.href}`,
+        (source, index) =>
+          `${index + 1}. ${source.label} | ${describeSourceStrengthForCopy(source.sourceStrength)} | ${source.href}`,
       )
     : ["No policy-approved sources were attached."];
   const warningLines = args.warnings.length ? args.warnings.map((warning) => `- ${warning}`) : ["- None"];
