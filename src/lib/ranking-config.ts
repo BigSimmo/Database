@@ -7,13 +7,15 @@
 // (RAG_RANKING_CONFIG), so `tune:search-weights` and eval-gated experiments can adjust
 // ranking without code edits.
 //
-// IMPORTANT — defaults reproduce the exact prior behavior:
-//   * every secondStage weight equals the constant it replaced,
-//   * documentDiversityPenalty defaults to 0 (the diversity demotion is OFF),
-//   * freshness.mode defaults to "step" (the original cliff).
-// So merely landing this module changes nothing. The new behaviors (diversity demotion,
-// linear freshness curve) only take effect once explicitly configured and eval-gated, in
-// keeping with the "defaults unchanged until tuned" + non-degradation guarantees.
+// Defaults were eval-gated ON (2026-07-03). The secondStage weights still equal the constants
+// they replaced, but the two behaviors #213 shipped OFF are now ON by default because the golden
+// retrieval + rag-only quality evals showed a strict improvement with no regression on the safety
+// bar (retrieval mrr@10 0.728 -> 0.757, document/content recall@5 stays 1.0, grounded_supported
+// 0.967 -> 1.0, unsupported_correct unchanged, citation/numeric failure 0):
+//   * documentDiversityPenalty = 0.02 (gentle same-document crowding demotion, capped 0.12; RC7/CI-16),
+//   * freshness.mode = "linear" (ramped decay instead of the harsh cliff; CI-17).
+// The RAG_RANKING_CONFIG JSON override still allows further per-deployment tuning, and setting
+// documentDiversityPenalty:0 + freshness.mode:"step" restores the exact pre-flip behavior.
 
 export type SecondStageWeights = {
   /** Position-decay boost applied to the top result, decaying by positionStep per rank. */
@@ -79,10 +81,10 @@ export const defaultRankingConfig: RankingConfig = {
     lowIndexQualityPenalty: 0.035,
     lowIndexQualityThreshold: 0.55,
   },
-  documentDiversityPenalty: 0,
+  documentDiversityPenalty: 0.02,
   documentDiversityPenaltyCap: 0.12,
   freshness: {
-    mode: "step",
+    mode: "linear",
     publicationCliffYears: 8,
     publicationPenalty: -0.015,
     reviewCliffYears: 5,
@@ -142,7 +144,9 @@ export function resolveRankingConfig(raw?: string | null): RankingConfig {
     documentDiversityPenalty: Math.max(0, num(parsed.documentDiversityPenalty, d.documentDiversityPenalty)),
     documentDiversityPenaltyCap: Math.max(0, num(parsed.documentDiversityPenaltyCap, d.documentDiversityPenaltyCap)),
     freshness: {
-      mode: fr.mode === "linear" ? "linear" : "step",
+      // Honor a valid explicit override; otherwise fall back to the default mode (not a hardcoded
+      // "step") so the eval-gated default actually takes effect at runtime.
+      mode: fr.mode === "linear" || fr.mode === "step" ? fr.mode : d.freshness.mode,
       publicationCliffYears: num(fr.publicationCliffYears, d.freshness.publicationCliffYears),
       publicationPenalty: num(fr.publicationPenalty, d.freshness.publicationPenalty),
       reviewCliffYears: num(fr.reviewCliffYears, d.freshness.reviewCliffYears),
