@@ -956,14 +956,11 @@ export function MasterSearchHeader({
           actionId: "favourites-browse",
           ariaLabel: "Browse trusted favourites",
         };
-      case "differentials":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-linked",
-          actionId: "differentials-evidence",
-          ariaLabel: "Review cited differential evidence",
-        };
+      // Differentials has no differential-specific evidence view yet — the only
+      // handler for "differentials-evidence" is the answer-mode evidence drawer,
+      // which would take the user out of differentials context. Omit the trust
+      // chip here until a differential-specific action exists; "Criteria" (the
+      // secondary chip below) still gives differentials a footer action.
       case "prescribing":
         return {
           icon: ShieldCheck,
