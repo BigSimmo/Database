@@ -303,16 +303,7 @@ function resultContentEvidenceText(result: SearchResult) {
       [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet].filter(Boolean).join(" "),
     )
     .join(" ");
-  return normalized(
-    [
-      result.retrieval_synopsis,
-      result.content,
-      tableFactText,
-      imageText,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  );
+  return normalized([result.retrieval_synopsis, result.content, tableFactText, imageText].filter(Boolean).join(" "));
 }
 
 function expectedDocumentHits(expectedSubstrings: string[], results: SearchResult[], limit: number) {
