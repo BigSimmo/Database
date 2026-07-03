@@ -53,6 +53,7 @@
     "backfill:text-normalization": "tsx scripts/backfill-text-normalization.ts",
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
+    "check:type-scale": "node scripts/check-type-scale.mjs",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
     "registry:seed": "tsx scripts/seed-registry-records.ts",
     "reindex": "tsx scripts/reindex.ts",
