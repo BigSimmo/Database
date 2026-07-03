@@ -1275,7 +1275,7 @@ function MedicationDetail() {
         <div className="space-y-3.5">
           <section data-medication-section="summary" className="scroll-mt-16 px-1 sm:px-0">
             <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-            <IconTile icon={Pill} tone="teal" className="h-11 w-11 sm:h-14 sm:w-14" />
+              <IconTile icon={Pill} tone="teal" className="h-11 w-11 sm:h-14 sm:w-14" />
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2rem]">
                   Acamprosate

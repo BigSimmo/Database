@@ -292,10 +292,10 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
   const kind = mode.search.kind;
   return (
     kind === "answer" ||
-      kind === "documents" ||
-      kind === "services" ||
-      kind === "favourites" ||
-      kind === "differentials" ||
-      kind === "tools"
+    kind === "documents" ||
+    kind === "services" ||
+    kind === "favourites" ||
+    kind === "differentials" ||
+    kind === "tools"
   );
 }

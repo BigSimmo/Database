@@ -26,47 +26,47 @@ supplies only layout deltas (width, margin, one-off padding) and behaviour.
 Any recipe a user can click, type into, or focus should satisfy this contract.
 Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 
-| Concern | Convention |
-| --- | --- |
-| **Tap size** | Interactive controls: `min-h-11` / `h-11 w-11` (44px, WCAG 2.5.5). Large inputs / rows: `min-h-12` (48px). Non-tap labels/pills may be smaller (`min-h-7`/`min-h-10`). |
-| **Transition** | `transition` whenever any state changes appearance. |
-| **Hover** | Token shifts: `hover:border-[color:var(--border-strong)]`, `hover:bg-[color:var(--surface-subtle)]`, or accent (`hover:bg-[color:var(--…-hover)]`). |
-| **Active** | Press feedback `active:translate-y-px` on buttons. |
-| **Focus (buttons)** | `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]`. |
-| **Focus (inputs)** | `focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25` + `outline-none`, or `focus-within:` on the wrapping shell. |
-| **Disabled** | `disabled:cursor-not-allowed disabled:opacity-{45–55} disabled:hover:shadow-none`. |
-| **Loading** | Use the `LoadingPanel` component (`spinner` \| `skeleton`), not a recipe; it sets `role="status"` + `aria-label`. Buttons show loading via a spinning `Loader2` + `disabled`. |
+| Concern             | Convention                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tap size**        | Interactive controls: `min-h-11` / `h-11 w-11` (44px, WCAG 2.5.5). Large inputs / rows: `min-h-12` (48px). Non-tap labels/pills may be smaller (`min-h-7`/`min-h-10`).        |
+| **Transition**      | `transition` whenever any state changes appearance.                                                                                                                           |
+| **Hover**           | Token shifts: `hover:border-[color:var(--border-strong)]`, `hover:bg-[color:var(--surface-subtle)]`, or accent (`hover:bg-[color:var(--…-hover)]`).                           |
+| **Active**          | Press feedback `active:translate-y-px` on buttons.                                                                                                                            |
+| **Focus (buttons)** | `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]`.                                                    |
+| **Focus (inputs)**  | `focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25` + `outline-none`, or `focus-within:` on the wrapping shell.                               |
+| **Disabled**        | `disabled:cursor-not-allowed disabled:opacity-{45–55} disabled:hover:shadow-none`.                                                                                            |
+| **Loading**         | Use the `LoadingPanel` component (`spinner` \| `skeleton`), not a recipe; it sets `role="status"` + `aria-label`. Buttons show loading via a spinning `Loader2` + `disabled`. |
 
 ## Recipe catalog
 
 ### Interactive controls (tap targets)
 
-| Recipe | Purpose | Tap | Hover | Active | Focus-visible | Disabled |
-| --- | --- | --- | --- | --- | --- | --- |
-| `controlBase` | Base for buttons (composed by others) | `min-h-11` | — (subclass adds) | ✅ | ✅ | ✅ |
-| `primaryControl` | Primary command button | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `floatingControl` | Secondary / floating button | `min-h-11` | ✅ | ❌ | ✅ | ✅ |
-| `toolbarButton` | Square icon button | `h-11 w-11` | ✅ | ❌ | ✅ | ✅ |
-| `navPill` | Nav / segmented pill | `min-h-11` | ✅ | ❌ | ✅ | ❌ |
-| `chatMicroAction` | Small chat action (copy, retry…) | `min-h-11 min-w-11` | ✅ | ❌ | ✅ | ❌ |
-| `sourceCapsule` | Inline citation capsule | `min-h-11` | ✅ | ❌ | ✅ (`focus-ring-premium`) | ❌ |
-| `chatComposerIconButton` | Composer icon button | `h-11 w-11` | ✅ | ❌ | ✅ | ❌ |
-| `chatSendButton` | Composer send (accent) | `h-11 w-11` | ✅ | ❌ | ✅ | ✅ |
-| `sidebarItem` | Sidebar nav row | `min-h-11` | ✅ | ❌ | ✅ | ❌ |
-| `sidebarToolTile` | Sidebar tool tile | `min-h-[64px]` | ✅ | ❌ | ✅ | ❌ |
-| `shellChip` | Filter / mode chip | `min-h-10` ⚠️ | ✅ | ❌ | ❌ | ❌ |
+| Recipe                   | Purpose                               | Tap                 | Hover             | Active | Focus-visible             | Disabled |
+| ------------------------ | ------------------------------------- | ------------------- | ----------------- | ------ | ------------------------- | -------- |
+| `controlBase`            | Base for buttons (composed by others) | `min-h-11`          | — (subclass adds) | ✅     | ✅                        | ✅       |
+| `primaryControl`         | Primary command button                | ✅                  | ✅                | ✅     | ✅                        | ✅       |
+| `floatingControl`        | Secondary / floating button           | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
+| `toolbarButton`          | Square icon button                    | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
+| `navPill`                | Nav / segmented pill                  | `min-h-11`          | ✅                | ❌     | ✅                        | ❌       |
+| `chatMicroAction`        | Small chat action (copy, retry…)      | `min-h-11 min-w-11` | ✅                | ❌     | ✅                        | ❌       |
+| `sourceCapsule`          | Inline citation capsule               | `min-h-11`          | ✅                | ❌     | ✅ (`focus-ring-premium`) | ❌       |
+| `chatComposerIconButton` | Composer icon button                  | `h-11 w-11`         | ✅                | ❌     | ✅                        | ❌       |
+| `chatSendButton`         | Composer send (accent)                | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
+| `sidebarItem`            | Sidebar nav row                       | `min-h-11`          | ✅                | ❌     | ✅                        | ❌       |
+| `sidebarToolTile`        | Sidebar tool tile                     | `min-h-[64px]`      | ✅                | ❌     | ✅                        | ❌       |
+| `shellChip`              | Filter / mode chip                    | `min-h-10` ⚠️       | ✅                | ❌     | ❌                        | ❌       |
 
 ### Form fields
 
-| Recipe | Purpose | Focus | Notes |
-| --- | --- | --- | --- |
-| `fieldControl` | Base text input | `focus:` ring+border | `h-11`, `outline-none`, `placeholder:text-soft` |
-| `fieldControlWithIcon` / `fieldControlPlain` | `fieldControl` + padding for a leading icon / plain | — | compose `fieldControl` |
-| `commandInput` | Large command-bar input | `focus:` ring+border | `min-h-12`, `motion-safe:transition` |
-| `chatComposerShell` | Composer wrapper | `focus-within:border-accent` | `min-h-[56px]` pill container |
-| `chatComposerInput` | Bare composer input | via shell `focus-within` | `min-h-11`, `outline-none` |
-| `fieldLabel` | Field label (= `eyebrowText`) | — | — |
-| `fieldIcon` | Absolutely-positioned leading icon | — | `pointer-events-none` |
+| Recipe                                       | Purpose                                             | Focus                        | Notes                                           |
+| -------------------------------------------- | --------------------------------------------------- | ---------------------------- | ----------------------------------------------- |
+| `fieldControl`                               | Base text input                                     | `focus:` ring+border         | `h-11`, `outline-none`, `placeholder:text-soft` |
+| `fieldControlWithIcon` / `fieldControlPlain` | `fieldControl` + padding for a leading icon / plain | —                            | compose `fieldControl`                          |
+| `commandInput`                               | Large command-bar input                             | `focus:` ring+border         | `min-h-12`, `motion-safe:transition`            |
+| `chatComposerShell`                          | Composer wrapper                                    | `focus-within:border-accent` | `min-h-[56px]` pill container                   |
+| `chatComposerInput`                          | Bare composer input                                 | via shell `focus-within`     | `min-h-11`, `outline-none`                      |
+| `fieldLabel`                                 | Field label (= `eyebrowText`)                       | —                            | —                                               |
+| `fieldIcon`                                  | Absolutely-positioned leading icon                  | —                            | `pointer-events-none`                           |
 
 ### Surfaces & cards (non-interactive unless noted)
 
@@ -79,13 +79,13 @@ Overlay: **`sheetSurface`** / `sheetHandle` for the mobile bottom sheet
 
 ### Rows
 
-| Recipe | Tap | Interactive states |
-| --- | --- | --- |
-| `evidenceRow` | `min-h-12` | hover + focus-visible ✅ |
-| `clinicalNotesRow` | `min-h-12` | hover + focus-visible ✅ |
-| `chatActionRow` | `min-h-11 sm:min-h-8` | layout row (holds actions) |
-| `tableMicroActionRow` | `min-h-11 sm:min-h-9` | layout row |
-| `compactMetadataRow` | — | metadata line |
+| Recipe                | Tap                   | Interactive states         |
+| --------------------- | --------------------- | -------------------------- |
+| `evidenceRow`         | `min-h-12`            | hover + focus-visible ✅   |
+| `clinicalNotesRow`    | `min-h-12`            | hover + focus-visible ✅   |
+| `chatActionRow`       | `min-h-11 sm:min-h-8` | layout row (holds actions) |
+| `tableMicroActionRow` | `min-h-11 sm:min-h-9` | layout row                 |
+| `compactMetadataRow`  | —                     | metadata line              |
 
 ### Pills, badges, dots, tones
 
@@ -107,13 +107,13 @@ Overlay: **`sheetSurface`** / `sheetHandle` for the mobile bottom sheet
 
 ### React components
 
-| Component | Variants / states |
-| --- | --- |
+| Component           | Variants / states                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `SourceStatusBadge` | tone chosen from `document_status`: `current`→success, `outdated`→danger, `review_due`→warning, else `toneWarningQuiet`. |
-| `SourceProvenance` | dot-separated validation / review-date / jurisdiction / extraction-quality line; drops unknown segments. |
-| `PanelHeading` | `icon` + `title` + optional `description`. |
-| `LoadingPanel` | `variant: "spinner" \| "skeleton"`, `lines` (skeleton count); `role="status"` + `aria-label`. |
-| `EmptyState` | `icon` + `title` + `body`. |
+| `SourceProvenance`  | dot-separated validation / review-date / jurisdiction / extraction-quality line; drops unknown segments.                 |
+| `PanelHeading`      | `icon` + `title` + optional `description`.                                                                               |
+| `LoadingPanel`      | `variant: "spinner" \| "skeleton"`, `lines` (skeleton count); `role="status"` + `aria-label`.                            |
+| `EmptyState`        | `icon` + `title` + `body`.                                                                                               |
 
 ## Gaps to reconcile (follow-ups, not yet fixed)
 
@@ -123,7 +123,7 @@ Documenting the contract surfaces where recipes don't meet it. These are
 1. ✅ **FIXED (2026-07-03).** `focus-visible` was missing on the core button family
    — `controlBase`, `primaryControl`, `floatingControl`, `toolbarButton`, `navPill`.
    Added the standard `focus-visible:outline focus-visible:outline-2
-   focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
+focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
    to `controlBase` (inherited by `primaryControl`), `floatingControl`,
    `toolbarButton`, and `navPill`. Keyboard users now get a visible focus ring on
    the primary buttons, matching the newer recipes (`chatSendButton`, etc.).

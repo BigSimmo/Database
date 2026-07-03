@@ -4300,8 +4300,7 @@ export function ClinicalDashboard({
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
     const isRegistryOnlyMode = mode === "services" || mode === "forms";
-    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch)
-      return;
+    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.

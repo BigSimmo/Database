@@ -214,8 +214,12 @@ async function waitForProject(port) {
       stableSince ??= Date.now();
       const stableForMs = Date.now() - stableSince;
       if (stableForMs >= readyStableMs) {
-        const routeReadiness = await Promise.all(readinessPaths.map((routePath) => requestOk(`${localUrl(port)}${routePath}`)));
-        debug(`route readiness on ${port}: ${readinessPaths.map((routePath, index) => `${routePath}=${routeReadiness[index]}`).join(", ")}`);
+        const routeReadiness = await Promise.all(
+          readinessPaths.map((routePath) => requestOk(`${localUrl(port)}${routePath}`)),
+        );
+        debug(
+          `route readiness on ${port}: ${readinessPaths.map((routePath, index) => `${routePath}=${routeReadiness[index]}`).join(", ")}`,
+        );
         if (routeReadiness.every(Boolean) && (await isPortBusy(port))) return true;
         stableSince = null;
       }
