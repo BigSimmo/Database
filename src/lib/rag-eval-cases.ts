@@ -78,6 +78,35 @@ function containsNone(text: string, values: string[] | undefined) {
   return values.every((value) => !normalized.includes(value.toLowerCase()));
 }
 
+function normalizeDocumentSignal(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: RagAnswer, text: string) {
+  const expectedDocuments = testCase.expectedFiles.map(normalizeDocumentSignal).filter(Boolean);
+  if (!expectedDocuments.length) return /\b(?:document|guideline|policy|procedure|form)\b/i.test(text);
+
+  const citationSignals = answer.citations.flatMap((citation) => [
+    normalizeDocumentSignal(citation.file_name ?? ""),
+    normalizeDocumentSignal(citation.title ?? ""),
+  ]).filter(Boolean);
+
+  return expectedDocuments.some((expectedDocument) => {
+    const expectedTokens = expectedDocument.split(/\s+/).filter((token) => token.length > 2);
+    const hasExpectedCitation = citationSignals.some(
+      (signal) => signal === expectedDocument || signal.includes(expectedDocument) || expectedDocument.includes(signal),
+    );
+    const namesExpectedDocument =
+      text.includes(expectedDocument) ||
+      (expectedTokens.length > 0 && expectedTokens.every((token) => text.includes(token)));
+    return hasExpectedCitation || namesExpectedDocument;
+  });
+}
+
 export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
   const text = answerTextForQuality(answer);
   const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -134,7 +163,19 @@ export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: Ra
   const hasNumber = /\d/.test(text);
   const hasDoseFigure =
     /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms|g|ml|mmol\/l|mmol|units?|iu)\b/i.test(text) ||
-    /\bmaximum\b|\btitrat|\bdivided doses\b/i.test(text);
+    /\btitrat|\bdivided doses?\b/i.test(text);
+  const asksForThreshold = /\b(?:threshold|level|range|below|above|over|under|less than|greater than|cutoff|count)\b/i.test(
+    testCase.question,
+  );
+  const hasRedAction = /\b(?:withhold|cease|stop|discontinu|hold|escalat|urgent|review|seek|refer)\w*/i.test(text);
+  const hasMonitoringSchedule =
+    /\b(?:weekly|monthly|annual|annually|every|baseline|then|ongoing|fbc|anc|\d+\s*(?:week|month|day|hour)s?)\b/i.test(
+      text,
+    );
+  const asksForMonitoringRange = /\b(?:level|range|target|therapeutic|maintenance)\b/i.test(testCase.question);
+  const hasMonitoringRange =
+    /\b\d+(?:\.\d+)?\s*(?:-|to|–)\s*\d+(?:\.\d+)?\s*(?:mmol\/l|mmol|mg\/l|microgram\/l|mcg\/l|ng\/ml)\b/i.test(text) ||
+    /\b(?:mmol\/l|mmol|mg\/l|microgram\/l|mcg\/l|ng\/ml)\b/i.test(text);
 
   switch (testCase.expectedIntent) {
     case "dose":
@@ -142,15 +183,29 @@ export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: Ra
         ? { score: 1, applicable: true, reason: "carries a dose figure/regimen" }
         : { score: 0, applicable: true, reason: "no dose figure/regimen" };
     case "red_result_action":
-      return /\b(?:withhold|cease|stop|discontinu|hold)\w*/i.test(text) && hasNumber
-        ? { score: 1, applicable: true, reason: "states a withhold/stop action with a threshold" }
-        : { score: 0, applicable: true, reason: "no withhold/stop action with a threshold" };
+      return hasRedAction && (!asksForThreshold || hasNumber)
+        ? {
+            score: 1,
+            applicable: true,
+            reason: asksForThreshold ? "states an action with a threshold" : "states a red-result action",
+          }
+        : {
+            score: 0,
+            applicable: true,
+            reason: asksForThreshold ? "no action with a threshold" : "no red-result action",
+          };
     case "monitoring_schedule":
-      return /\b(?:weekly|monthly|annual|every|baseline|then|ongoing|fbc|anc|\d+\s*(?:week|month|day|hour)s?)\b/i.test(
-        text,
-      )
-        ? { score: 1, applicable: true, reason: "carries a schedule/interval" }
-        : { score: 0, applicable: true, reason: "no schedule/interval" };
+      return hasMonitoringSchedule || (asksForMonitoringRange && hasMonitoringRange)
+        ? {
+            score: 1,
+            applicable: true,
+            reason: hasMonitoringSchedule ? "carries a schedule/interval" : "carries a monitoring level/range",
+          }
+        : {
+            score: 0,
+            applicable: true,
+            reason: asksForMonitoringRange ? "no schedule/interval or monitoring range" : "no schedule/interval",
+          };
     case "contraindication":
       return /\b(?:contraindicat|avoid|must not|do not|should not|not use|caution)\w*/i.test(text)
         ? { score: 1, applicable: true, reason: "states a contraindication/avoid cue" }
@@ -160,9 +215,9 @@ export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: Ra
         ? { score: 1, applicable: true, reason: "names referral/pathway criteria" }
         : { score: 0, applicable: true, reason: "no referral/pathway cue" };
     case "document_lookup":
-      return answer.citations.length > 0 || /\b(?:document|guideline|policy|procedure|form)\b/i.test(text)
+      return citesOrNamesExpectedDocument(testCase, answer, text)
         ? { score: 1, applicable: true, reason: "names/cites a document" }
-        : { score: 0, applicable: true, reason: "no document named/cited" };
+        : { score: 0, applicable: true, reason: "no expected document named/cited" };
     default:
       return { score: 1, applicable: false, reason: "n/a: general intent" };
   }

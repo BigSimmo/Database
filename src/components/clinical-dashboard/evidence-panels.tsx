@@ -1933,9 +1933,12 @@ export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
         // Clean the copied text the same way the card displays it, so clipboard
         // output never contains internal image-data blocks or glyph artifacts.
         `${index + 1}. "${sourceTextForVerbatimQuote(quote.quote)}"`,
+        quote.isTruncated ? "Warning: quote truncated for length; open the source to read the full passage." : null,
         `Source: ${formatCitationLabel(quote)}`,
         `Link: ${documentCitationHref(quote)}`,
-      ].join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     )
     .join("\n\n");
 }
