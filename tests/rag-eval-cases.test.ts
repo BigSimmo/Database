@@ -6,6 +6,8 @@ import {
   mapCapturedEvalCase,
   mergeRagEvalCases,
   scoreAnswerQualityEvalCase,
+  scoreAnswerTargeting,
+  type AnswerQualityEvalCase,
 } from "../src/lib/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
 
@@ -242,5 +244,62 @@ describe("captured RAG eval cases", () => {
       "relevance",
     ]);
     expect(scores.every((score) => score.score === 1)).toBe(true);
+  });
+
+  describe("scoreAnswerTargeting (structural per-intent targeting)", () => {
+    const doseCase = {
+      id: "t-dose",
+      question: "What is the maximum sertraline dose?",
+      expectedIntent: "dose",
+      supported: true,
+      category: "routine",
+      expectedFiles: [],
+      allowedRoutes: ["fast"],
+      minCitations: 1,
+      latencyTargetMs: 20000,
+    } as unknown as AnswerQualityEvalCase;
+
+    function grounded(text: string): RagAnswer {
+      return {
+        answer: text,
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: "c1" } as never],
+        sources: [],
+        answerSections: [],
+      } as unknown as RagAnswer;
+    }
+
+    it("passes a dose answer that carries a figure+unit", () => {
+      const result = scoreAnswerTargeting(doseCase, grounded("The maximum dose is 200 mg daily."));
+      expect(result).toMatchObject({ applicable: true, score: 1 });
+    });
+
+    it("fails a supported dose answer that carries no dose figure or regimen", () => {
+      const bare = scoreAnswerTargeting(doseCase, grounded("Sertraline is an SSRI used for depression."));
+      expect(bare).toMatchObject({ applicable: true, score: 0 });
+    });
+
+    it("treats a fail-closed/unsupported case as n/a (not counted)", () => {
+      const unsupported = {
+        answer: "No current source with dose guidance for this query was found.",
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: [],
+        answerSections: [],
+      } as unknown as RagAnswer;
+      expect(scoreAnswerTargeting(doseCase, unsupported)).toMatchObject({ applicable: false, score: 1 });
+    });
+
+    it("requires a withhold/stop action with a threshold for red_result_action", () => {
+      const redCase = { ...doseCase, expectedIntent: "red_result_action" } as AnswerQualityEvalCase;
+      expect(scoreAnswerTargeting(redCase, grounded("Withhold clozapine if the ANC falls below 1.5."))).toMatchObject({
+        score: 1,
+      });
+      expect(scoreAnswerTargeting(redCase, grounded("Neutropenia is a recognised clozapine risk."))).toMatchObject({
+        score: 0,
+      });
+    });
   });
 });

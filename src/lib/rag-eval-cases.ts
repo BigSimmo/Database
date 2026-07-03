@@ -108,6 +108,66 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
   ] satisfies AnswerQualityMetricScore[];
 }
 
+export type AnswerTargetingScore = {
+  /** 1 = the answer carries the structural shape the intent demands (or the case is n/a). */
+  score: 0 | 1;
+  /** false = not counted toward the targeting rate (unsupported/fail-closed or general intent). */
+  applicable: boolean;
+  reason: string;
+};
+
+export const answerTargetingMetricLabel =
+  "Answer carries the structural shape its intent demands: dose→figure/regimen, red-result→withhold/stop action, monitoring→schedule/interval, contraindication→avoid cue, referral→criteria/pathway, document-lookup→a named/cited document.";
+
+// P3 structural targeting metric — stronger than the loose keyword `mustContainAny` cue. It measures
+// how precisely a SUPPORTED answer hits the asked question (the "targeted / specific / high-yield"
+// bar), by checking the answer carries the shape its intent demands. It is INFORMATIONAL: never a
+// hard gate, so it can be calibrated against real answers without blocking anyone. Unsupported /
+// correctly fail-closed cases are n/a (a precise refusal is on-target by construction) and do not
+// count toward the applicable denominator.
+export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: RagAnswer): AnswerTargetingScore {
+  const unsupported = answer.confidence === "unsupported" || answer.grounded === false;
+  if (!testCase.supported || unsupported) {
+    return { score: 1, applicable: false, reason: "n/a: unsupported / fail-closed case" };
+  }
+  const text = answerTextForQuality(answer).toLowerCase();
+  const hasNumber = /\d/.test(text);
+  const hasDoseFigure =
+    /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms|g|ml|mmol\/l|mmol|units?|iu)\b/i.test(text) ||
+    /\bmaximum\b|\btitrat|\bdivided doses\b/i.test(text);
+
+  switch (testCase.expectedIntent) {
+    case "dose":
+      return hasDoseFigure
+        ? { score: 1, applicable: true, reason: "carries a dose figure/regimen" }
+        : { score: 0, applicable: true, reason: "no dose figure/regimen" };
+    case "red_result_action":
+      return /\b(?:withhold|cease|stop|discontinu|hold)\w*/i.test(text) && hasNumber
+        ? { score: 1, applicable: true, reason: "states a withhold/stop action with a threshold" }
+        : { score: 0, applicable: true, reason: "no withhold/stop action with a threshold" };
+    case "monitoring_schedule":
+      return /\b(?:weekly|monthly|annual|every|baseline|then|ongoing|fbc|anc|\d+\s*(?:week|month|day|hour)s?)\b/i.test(
+        text,
+      )
+        ? { score: 1, applicable: true, reason: "carries a schedule/interval" }
+        : { score: 0, applicable: true, reason: "no schedule/interval" };
+    case "contraindication":
+      return /\b(?:contraindicat|avoid|must not|do not|should not|not use|caution)\w*/i.test(text)
+        ? { score: 1, applicable: true, reason: "states a contraindication/avoid cue" }
+        : { score: 0, applicable: true, reason: "no contraindication cue" };
+    case "pathway_referral":
+      return /\b(?:refer|referral|criteria|pathway|indicat|eligib)\w*/i.test(text)
+        ? { score: 1, applicable: true, reason: "names referral/pathway criteria" }
+        : { score: 0, applicable: true, reason: "no referral/pathway cue" };
+    case "document_lookup":
+      return answer.citations.length > 0 || /\b(?:document|guideline|policy|procedure|form)\b/i.test(text)
+        ? { score: 1, applicable: true, reason: "names/cites a document" }
+        : { score: 0, applicable: true, reason: "no document named/cited" };
+    default:
+      return { score: 1, applicable: false, reason: "n/a: general intent" };
+  }
+}
+
 type CapturedEvalCaseRow = {
   id: string;
   query: string;
