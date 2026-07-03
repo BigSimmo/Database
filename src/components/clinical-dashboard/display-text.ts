@@ -241,3 +241,12 @@ export function sourceDisplayMeta(source: SearchResult, title: string) {
     Boolean(fileBase) && fileBaseNormalized !== titleBase && !fileBaseNormalized.startsWith(titleBase);
   return [includeFile ? source.file_name : null, `page ${source.page_number ?? "n/a"}`].filter(Boolean).join(" · ");
 }
+
+export function comparableAnswerText(value: string) {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/\.\.\.$/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}

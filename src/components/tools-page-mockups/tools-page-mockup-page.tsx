@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Clock3,
   FileText,
-  Filter,
   Grid2X2,
   HeartPulse,
   History,
@@ -16,7 +15,6 @@ import {
   Pin,
   Search,
   SearchX,
-  Settings2,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -94,6 +92,15 @@ function SuggestedBadge() {
     <span className="inline-flex min-h-6 w-fit shrink-0 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
       <Sparkles className="h-3 w-3" aria-hidden="true" />
       Suggested
+    </span>
+  );
+}
+
+function SourceBackedBadge({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className="inline-flex min-h-6 w-fit shrink-0 items-center gap-1 rounded-md border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
+      <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+      {compact ? "Source" : "Source-backed"}
     </span>
   );
 }
@@ -286,6 +293,7 @@ function ToolCard({ tool, suggested = false }: { tool: ToolFixture; suggested?: 
             <div className="flex flex-wrap items-center gap-2">
               {suggested ? <SuggestedBadge /> : null}
               <StatusPill status={tool.status} />
+              {tool.sourceBacked ? <SourceBackedBadge compact /> : null}
             </div>
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
@@ -435,6 +443,7 @@ function WideToolTile({
             </h3>
             {suggested ? <SuggestedBadge /> : null}
             <StatusPill status={tool.status} />
+            {tool.sourceBacked ? <SourceBackedBadge compact /> : null}
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
             {tool.description}
@@ -608,7 +617,12 @@ function PhoneBrowserPreview({
                         {areaLabels[tool.area]}
                       </span>
                     </span>
-                    <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                    <span className="flex items-center gap-1.5">
+                      {tool.sourceBacked ? (
+                        <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--success)]" aria-label="Source-backed" />
+                      ) : null}
+                      <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                    </span>
                   </Link>
                 );
               })}
@@ -617,7 +631,7 @@ function PhoneBrowserPreview({
             <div className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)]">
               <div className="flex min-h-8 items-center justify-between border-b border-[color:var(--border)] px-2">
                 <span className="text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-                  Recents
+                  Recent work
                 </span>
                 <span className="text-2xs font-bold text-[color:var(--clinical-accent)]">View</span>
               </div>
@@ -656,7 +670,7 @@ function PhoneBrowserPreview({
 }
 
 const commandCenterFilters: { id: ToolFilterId; label: string; icon: LucideIcon }[] = [
-  { id: "all", label: "All tools", icon: Filter },
+  { id: "all", label: "All tools", icon: Grid2X2 },
   { id: "pinned", label: "Pinned", icon: Pin },
   { id: "review_due", label: "Review due", icon: Clock3 },
   { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
@@ -720,7 +734,7 @@ function CommandCenterMockup() {
           suggestedId={suggestedId}
         />
 
-        <RecentWorkList title="Recents" />
+        <RecentWorkList />
       </main>
     </>
   );
@@ -875,18 +889,18 @@ function WorkflowBoardMockup() {
           body="A spacious launch surface below the workflow board, so every tool remains visible without a cramped side rail."
         />
 
-        <RecentWorkList title="Recents" />
+        <RecentWorkList />
       </main>
     </>
   );
 }
 
 const splitPaneFilters: { id: ToolFilterId; label: string; icon: LucideIcon }[] = [
-  { id: "all", label: "All", icon: Grid2X2 },
-  { id: "clinical", label: "Clinical", icon: Stethoscope },
-  { id: "admin", label: "Admin", icon: Settings2 },
-  { id: "recent", label: "Recent", icon: History },
+  { id: "all", label: "All tools", icon: Grid2X2 },
+  { id: "pinned", label: "Pinned", icon: Pin },
   { id: "review_due", label: "Review due", icon: Clock3 },
+  { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
+  { id: "recent", label: "Recent", icon: History },
 ];
 
 function SplitPaneMockup() {
@@ -973,7 +987,7 @@ function SplitPaneMockup() {
           compact
         />
 
-        <RecentWorkList title="Recents" />
+        <RecentWorkList />
       </main>
     </>
   );

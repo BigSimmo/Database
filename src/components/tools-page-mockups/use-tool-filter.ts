@@ -6,7 +6,6 @@ export type ToolFilterId = "all" | "pinned" | "review_due" | "source_backed" | "
 
 type ToolFilterCounts = Record<ToolFilterId, number>;
 
-const sourceBackedToolIds = new Set(["clinical-kb-search", "documents", "differentials", "services", "forms"]);
 const clinicalAreas = new Set(["reference", "assessment", "care"]);
 const adminAreas = new Set(["coordination", "personal"]);
 
@@ -14,7 +13,7 @@ function matchesFilter(tool: ToolFixture, filterId: ToolFilterId) {
   if (filterId === "all") return true;
   if (filterId === "pinned") return pinnedToolIds.includes(tool.id as (typeof pinnedToolIds)[number]);
   if (filterId === "review_due") return tool.status === "review_due";
-  if (filterId === "source_backed") return sourceBackedToolIds.has(tool.id);
+  if (filterId === "source_backed") return tool.sourceBacked;
   if (filterId === "clinical") return clinicalAreas.has(tool.area);
   if (filterId === "admin") return adminAreas.has(tool.area);
   if (filterId === "recent") return tool.status === "recent";

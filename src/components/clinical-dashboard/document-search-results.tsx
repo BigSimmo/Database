@@ -14,6 +14,8 @@ import {
   Filter,
   FolderOpen,
   ListChecks,
+  Loader2,
+  Shield,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
@@ -54,6 +56,7 @@ import {
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
 import type { ClinicalDocument, DocumentMatch, SearchResult } from "@/lib/types";
+import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
@@ -981,10 +984,42 @@ function SearchRecordResults({
   );
 }
 
+function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus; mode: SearchRecordMode }) {
+  if (status === "ready") return null;
+  const noun = mode === "forms" ? "forms" : "services";
+  const config =
+    status === "loading"
+      ? { Icon: Loader2, spin: true, tone: "info" as const, text: `Loading your ${noun} registry...` }
+      : status === "unauthorized"
+        ? { Icon: Shield, spin: false, tone: "warning" as const, text: `Sign in to search your ${noun} registry.` }
+        : {
+            Icon: ShieldAlert,
+            spin: false,
+            tone: "danger" as const,
+            text: `Couldn't load the ${noun} registry. Try again shortly.`,
+          };
+  const toneClass =
+    config.tone === "danger"
+      ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50 text-[color:var(--danger)]"
+      : config.tone === "warning"
+        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]"
+        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]";
+  return (
+    <p
+      data-testid="dashboard-registry-status-notice"
+      className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold", toneClass)}
+    >
+      <config.Icon className={cn("h-4 w-4 shrink-0", config.spin && "animate-spin")} aria-hidden />
+      {config.text}
+    </p>
+  );
+}
+
 export function DocumentSearchResultsPanel({
   matches,
   recordMatches = [],
   recordMode = "services",
+  recordStatus = "ready",
   showRecordMatches = false,
   query,
   loading,
@@ -1007,6 +1042,7 @@ export function DocumentSearchResultsPanel({
   matches: DocumentMatch[];
   recordMatches?: SearchRecordMatch[];
   recordMode?: SearchRecordMode;
+  recordStatus?: RegistryRequestStatus;
   showRecordMatches?: boolean;
   query: string;
   loading: boolean;
@@ -1108,7 +1144,12 @@ export function DocumentSearchResultsPanel({
         </div>
       ) : null}
 
-      {showRecordMatches ? <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} /> : null}
+      {showRecordMatches ? (
+        <>
+          <RecordRegistryNotice status={recordStatus} mode={recordMode} />
+          <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} />
+        </>
+      ) : null}
 
       {loading ? (
         <LoadingPanel label="Finding matching documents" />

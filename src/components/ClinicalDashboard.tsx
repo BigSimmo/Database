@@ -1,27 +1,20 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  Activity,
   AlertCircle,
-  ArrowRight,
   Bell,
   BookOpen,
-  Bookmark,
   CheckCircle2,
   ChevronDown,
   CircleUserRound,
   ClipboardCheck,
   Copy,
-  DollarSign,
   ExternalLink,
   FileImage,
   FileText,
-  Filter,
   Globe2,
   HelpCircle,
   Heart,
@@ -29,46 +22,28 @@ import {
   Layers,
   ListChecks,
   Loader2,
-  LogIn,
   LogOut,
   LockKeyhole,
-  Mail,
   Palette,
   PanelTop,
-  Phone,
   Plus,
   Quote,
   RefreshCw,
   Search,
   Settings as SettingsIcon,
-  Scale,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
-  Table2,
   Tag,
-  Target,
   UploadCloud,
   UserRound,
-  Users,
   WifiOff,
   Wrench,
   X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  FormEvent,
-  memo,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type CSSProperties, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import {
   DocumentOrganizationBadges,
@@ -78,43 +53,30 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { documentCitationHref, formatCompactCitationLabel, formatCitationLabel } from "@/lib/citations";
-import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { formatCompactCitationLabel } from "@/lib/citations";
+import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isLocalNoAuthMode } from "@/lib/env";
-import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import {
   appBackdrop,
   answerSurface,
-  chatActionRow,
-  chatAnswerText,
   chatMicroAction,
-  codeText,
   clinicalDivider,
   clinicalNotesRow,
   cn,
   evidenceRow,
-  evidenceSurface,
   EmptyState,
   fieldControlPlain,
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
   iconTilePremium,
-  fieldLabel,
   metadataPill,
   panelSubtle,
   primaryControl,
-  proseMeasure,
-  raisedCard,
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
-  sourceCapsule,
-  statusDotMuted,
-  statusDotReady,
-  statusDotReview,
   subtleStatusPill,
   tableCard,
   tableCardHeader,
@@ -126,10 +88,11 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
+import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
-import { AnswerEmptyState, AnswerSkeleton, CopyButton } from "@/components/clinical-dashboard/answer-status";
+import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { StatusBadge, StrengthBadge } from "@/components/clinical-dashboard/badges";
@@ -158,10 +121,37 @@ import {
 } from "@/components/clinical-dashboard/dashboard-shell";
 import {
   cleanDisplayTitle,
-  compactSourceSnippet,
   sanitizeAnswerDisplayText,
   sanitizeDisplayText,
 } from "@/components/clinical-dashboard/display-text";
+import {
+  NaturalLanguageAnswer,
+  ScopeAndGovernanceNotice,
+  SourceImage,
+  UserQuestionBubble,
+} from "@/components/clinical-dashboard/answer-content";
+import {
+  AnswerFeedbackPanel,
+  AnswerSafetyNotice,
+  AnswerSupportSummaryCard,
+  answerHasCentralTable,
+  answerSupportPriority,
+  ClinicalNotesChecklistPanel,
+  clinicalNotesCount,
+  clinicalNotesDisplayCountForAnswer,
+  compactEvidenceSummary,
+  type EvidenceTabName,
+  simpleClinicalTableProps,
+  evidenceMapRowsFromRenderModel,
+  evidenceTabCount,
+  evidenceTabOrder,
+  formatQuoteCardsForClipboard,
+  primaryVisualTable,
+  QuoteCards,
+  SafetyFindingsPanel,
+  VerificationWorkspace,
+} from "@/components/clinical-dashboard/evidence-panels";
+import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
@@ -190,13 +180,7 @@ import {
   MatchExplanationChips,
   type SearchFacets,
 } from "@/components/clinical-dashboard/document-search-results";
-import {
-  hasStrongRelevanceIcon,
-  isWeakRelevance,
-  QueryCoverageChips,
-  relevanceChipLabel,
-  RelevanceBadge,
-} from "@/components/clinical-dashboard/relevance";
+import { isWeakRelevance, QueryCoverageChips, RelevanceBadge } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   isRetryableError,
@@ -223,16 +207,11 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
-import { searchFormRecords } from "@/lib/forms";
-import { searchServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
-import { buildAnswerRenderModel, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
-import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
-import {
-  clinicalProseUsefulness,
-  normalizeExtractedGlyphs,
-  sourceTextForCompactDisplay,
-  sourceTextForVerbatimQuote,
-} from "@/lib/source-text-sanitizer";
+import { rankFormRecords } from "@/lib/forms";
+import { rankServiceRecords } from "@/lib/services";
+import { useRegistryRecords } from "@/lib/use-registry-records";
+import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
@@ -261,7 +240,6 @@ import type {
   QuoteCard,
   RagAnswer,
   AnswerSection,
-  AnswerSectionKind,
   ConflictOrGap,
   RelatedDocument,
   EvidenceSummary,
@@ -285,25 +263,7 @@ import {
 
 const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
-const sourcePreviewSheetMediaQuery = "(max-width: 1023px)";
 
-function subscribeToMobilePreviewMedia(callback: () => void) {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
-  const media = window.matchMedia(sourcePreviewSheetMediaQuery);
-  media.addEventListener("change", callback);
-  return () => media.removeEventListener("change", callback);
-}
-
-function getMobilePreviewSnapshot() {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(sourcePreviewSheetMediaQuery).matches;
-}
-
-function useMobilePreviewSheet() {
-  return useSyncExternalStore(subscribeToMobilePreviewMedia, getMobilePreviewSnapshot, () => false);
-}
-
-const authEmailChangeEvent = "clinical-kb-auth-email-change";
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
@@ -356,7 +316,7 @@ type BatchesPayload = {
   hasActiveBatches?: boolean;
   pollAfterMs?: number | null;
 };
-type AnswerFeedbackType =
+export type AnswerFeedbackType =
   | "verified"
   | "needs_correction"
   | "source_insufficient"
@@ -370,7 +330,7 @@ type IngestionQualityPayload = {
   demoMode?: boolean;
 };
 
-const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
+export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "monitoring_schedule", label: "Monitoring" },
   { value: "dose_threshold_lookup", label: "Dose / thresholds" },
@@ -401,6 +361,7 @@ function compactScopeFilters(filters: SearchScopeFilters) {
   if (filters.locality) next.locality = filters.locality;
   if (filters.importBatchIds?.length) next.importBatchIds = filters.importBatchIds;
   if (filters.collections?.length) next.collections = filters.collections;
+  if (filters.labelTypesAny?.length) next.labelTypesAny = filters.labelTypesAny;
   return next;
 }
 
@@ -517,2830 +478,13 @@ function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
 
-function getAuthEmailSnapshot() {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem(AUTH_EMAIL_STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function getServerAuthEmailSnapshot() {
-  return "";
-}
-
-function subscribeAuthEmail(onStoreChange: () => void) {
-  if (typeof window === "undefined") return () => undefined;
-  const notify = () => onStoreChange();
-
-  window.addEventListener("storage", notify);
-  window.addEventListener(authEmailChangeEvent, notify);
-
-  return () => {
-    window.removeEventListener("storage", notify);
-    window.removeEventListener(authEmailChangeEvent, notify);
-  };
-}
-
-const SourceImage = memo(function SourceImage({
-  endpoint,
-  caption,
-  className = "max-h-52",
-}: {
-  endpoint: string;
-  caption: string;
-  className?: string;
-}) {
-  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
-
-  useEffect(() => {
-    const cached = getCachedSignedUrl(endpoint);
-    if (cached) return () => undefined;
-
-    let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
-          setFailed(false);
-        } else if (active) {
-          setFailed(true);
-        }
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired]);
-
-  function retryImage() {
-    clearCachedSignedUrl(endpoint);
-    setUrl(null);
-    setFailed(false);
-    setAttempt((current) => current + 1);
-  }
-
-  function handleImageError() {
-    clearCachedSignedUrl(endpoint);
-    setFailed(true);
-  }
-
-  if (failed) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid min-h-36 place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
-        )}
-      >
-        <div>
-          <AlertCircle className="mx-auto mb-2 h-5 w-5" />
-          Image preview could not load.
-          <button
-            type="button"
-            onClick={retryImage}
-            className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
-          >
-            Retry image
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!url) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid min-h-36 place-items-center rounded-lg bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]",
-        )}
-      >
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading image
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={url}
-      alt={caption}
-      loading="lazy"
-      decoding="async"
-      onError={handleImageError}
-      className={cn(className, "w-full rounded-lg object-contain")}
-    />
-  );
-});
-
-function ScopeAndGovernanceNotice({
-  scope,
-  warnings,
-}: {
-  scope: SearchScopeSummary | null;
-  warnings: SourceGovernanceWarning[];
-}) {
-  const groupedWarnings = groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(warnings)).slice(0, 4);
-  const showScope =
-    Boolean(scope && scope.activeFilterCount > 0) ||
-    Boolean(scope?.warnings?.length) ||
-    scope?.matchedDocumentCount === 0;
-  if (!showScope && groupedWarnings.length === 0) return null;
-  return (
-    <div className="space-y-2 rounded-lg border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] p-3 text-sm text-[color:var(--text)]">
-      {showScope && scope ? (
-        <p className="font-semibold">
-          Scope: {scope.summary}
-          {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
-        </p>
-      ) : null}
-      {scope?.warnings?.length ? (
-        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-          {scope.warnings.slice(0, 3).map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      ) : null}
-      {groupedWarnings.length ? (
-        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-          {groupedWarnings.map((warning) => (
-            <li key={warning.code}>
-              {warning.message}
-              {warning.titles.length ? (
-                <details className="mt-1 font-medium text-[color:var(--text-muted)]">
-                  <summary className="cursor-pointer">Sources affected</summary>
-                  <span className="mt-1 block">{warning.titles.slice(0, 5).join(", ")}</span>
-                </details>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function plainAnswerText(value: string) {
-  const useful = clinicalProseUsefulness(value);
-  return sanitizeAnswerDisplayText(useful.text || value, { minLength: 8, minTokens: 2 })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
-}
-
-function primaryAnswerDisplayText(value: string) {
-  const cleaned = plainAnswerText(value);
-  const fragments = cleaned
-    .split(/\r?\n+/)
-    .flatMap((line: string) =>
-      line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
-    )
-    .map((fragment: string) =>
-      fragment
-        .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
-        .replace(
-          /^(?:\*\*)?(?:answer|summary|bottom line|direct answer|clinical point|key point|required actions?|monitoring(?:\/timing)?|thresholds?|dose detail|medication(?:\/dose details?)?|escalation(?:\/risk)?|risk|safety|documentation(?:\/forms)?|source gaps?)(?:\*\*)?:\s+/i,
-          "",
-        )
-        .trim(),
-    )
-    .map((fragment: string) => clinicalProseUsefulness(fragment).text || fragment)
-    .filter((fragment: string) => {
-      if (!fragment) return false;
-      const useful = clinicalProseUsefulness(fragment);
-      return useful.useful || fragment.split(/\s+/).length >= 8;
-    });
-  const uniqueFragments = Array.from(new Set(fragments));
-  const selected = uniqueFragments.slice(0, 3).join(" ");
-  const words = selected.split(/\s+/).filter(Boolean);
-  if (words.length <= 85) return selected || cleaned;
-  return `${words
-    .slice(0, 85)
-    .join(" ")
-    .replace(/[;,:-]\s*$/, "")}...`;
-}
-
-function sourceCapsuleText({
-  sourceCount,
-  weakEvidence,
-  grounded,
-}: {
-  sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
-}) {
-  if (sourceCount <= 0) return "No direct source found";
-  if (!grounded) return "Review nearby sources";
-  if (weakEvidence) return "Review sources";
-  return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
-}
-
-function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
-  if (!metadata) return statusDotMuted;
-  if (metadata.document_status === "current") return statusDotReady;
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return statusDotReview;
-  return statusDotMuted;
-}
-
-type CapsulePreviewSource = {
-  id: string;
-  title: string;
-  pageNumber: number | null;
-  metadata: ReturnType<typeof normalizeSourceMetadata>;
-  score: number;
-  href: string;
-  snippet?: string;
-  sourceStrength?:
-    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
-};
-
-function sourceBadgeLabel(index: number) {
-  return `S${index + 1}`;
-}
-
-function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
-    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  }
-  if (index === 0) {
-    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]";
-  }
-  return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-}
-
-function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
-  if (!source.sourceStrength || source.sourceStrength === "none") return "Unsupported";
-  if (source.sourceStrength === "limited") return "Partial";
-  if (source.sourceStrength === "moderate") return "Partial";
-  if (index === 0 || source.sourceStrength === "strong") return "Direct";
-  return "Partial";
-}
-
-function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
-  if (metadata.document_status === "review_due") return "Review due";
-  if (metadata.document_status === "outdated") return "Outdated";
-  if (metadata.document_status === "current") return "Current";
-  return sourceStatusLabel(metadata);
-}
-
-function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
-  const uniquePages = new Set(previewSources.map((source) => source.pageNumber).filter((page) => page !== null));
-  const count = uniquePages.size || previewSources.length;
-  return `${count} page${count === 1 ? "" : "s"}`;
-}
-
-function capsulePreviewSources(
-  bestSource: BestSourceRecommendation | null,
-  sources: SearchResult[],
-  sourceLinks: SourceLink[] = [],
-) {
-  const rows: CapsulePreviewSource[] = [];
-  const seen = new Set<string>();
-  const pushRow = (row: CapsulePreviewSource) => {
-    const key = `${row.id}:${row.title}:${row.pageNumber ?? "n/a"}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    rows.push(row);
-  };
-
-  sourceLinks.slice(0, 5).forEach((source) => {
-    pushRow({
-      id: source.chunk_id,
-      title: source.title || source.file_name || "Source",
-      pageNumber: source.page_number,
-      metadata: normalizeSourceMetadata(source.sourceMetadata),
-      score: source.score ?? 0,
-      href: source.href,
-      snippet: source.snippet,
-      sourceStrength: source.sourceStrength,
-    });
-  });
-
-  if (bestSource) {
-    pushRow({
-      id: bestSource.chunk_id,
-      title: bestSource.title || bestSource.file_name || "Source",
-      pageNumber: bestSource.page_number,
-      metadata: normalizeSourceMetadata(bestSource.source_metadata),
-      score: bestSource.score,
-      href: bestSource.viewer_href,
-      sourceStrength: bestSource.source_strength,
-    });
-  }
-
-  sources.slice(0, 5).forEach((source) => {
-    pushRow({
-      id: source.id,
-      title: source.title || source.file_name || "Source",
-      pageNumber: source.page_number,
-      metadata: normalizeSourceMetadata(source.source_metadata),
-      score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
-      href: sourceResultHref(source),
-      sourceStrength: source.source_strength,
-    });
-  });
-
-  return rows.slice(0, 4);
-}
-
-function SourcePreviewContent({
-  previewSources,
-  quoteText,
-  copiedQuote,
-  onCopyQuote,
-  showHeader = true,
-}: {
-  previewSources: CapsulePreviewSource[];
-  quoteText?: string | null;
-  copiedQuote: boolean;
-  onCopyQuote: () => void;
-  showHeader?: boolean;
-}) {
-  const primaryPreviewSource = previewSources[0] ?? null;
-  const reviewDueSource = previewSources.find(
-    (source) => source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated",
-  );
-
-  return (
-    <>
-      {showHeader ? (
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
-              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
-                {sourcePreviewPageCountLabel(previewSources)}
-              </span>
-            </div>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>Open the original PDF page.</p>
-          </div>
-        </div>
-      ) : null}
-      <div
-        className={cn("grid gap-0 divide-y divide-[color:var(--border)]", showHeader ? "mt-3" : "")}
-        role="list"
-        aria-label="Sources behind this answer"
-      >
-        {previewSources.map((source, index) => (
-          <div
-            key={`${source.id}:${index}`}
-            role="listitem"
-            className={cn(
-              "min-w-0 py-2.5",
-              index === 0 &&
-                "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]",
-            )}
-          >
-            {index === 0 ? (
-              <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Best match
-              </p>
-            ) : index === 1 ? (
-              <p className="mb-1.5 text-xs font-semibold text-[color:var(--text-muted)]">Also used</p>
-            ) : null}
-            <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
-              <span
-                className={cn(
-                  "nums grid h-8 min-w-8 place-items-center rounded-md border px-1 text-xs font-bold shadow-[var(--shadow-inset)]",
-                  sourceBadgeToneClass(source.metadata, index),
-                )}
-              >
-                {sourceBadgeLabel(index)}
-              </span>
-              <span className="min-w-0">
-                <Link
-                  href={source.href}
-                  data-testid="source-capsule-preview-row"
-                  className="flex min-h-12 items-center rounded-md text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
-                >
-                  <span className="line-clamp-2">{cleanDisplayTitle(source.title)}</span>
-                </Link>
-                <span className={cn("mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs", textMuted)}>
-                  <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
-                  <span aria-hidden>·</span>
-                  <span>{sourceSupportLabel(source, index)}</span>
-                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
-                  <span
-                    className={
-                      source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated"
-                        ? "font-semibold text-[color:var(--warning)]"
-                        : undefined
-                    }
-                  >
-                    {sourceStatusShortLabel(source.metadata)}
-                  </span>
-                </span>
-              </span>
-              <Link
-                href={source.href}
-                className={cn(
-                  index === 0
-                    ? "inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]"
-                    : "grid h-12 w-12 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                )}
-                aria-label={`Open ${sourceBadgeLabel(index)} source page`}
-              >
-                <ExternalLink className="h-4 w-4" />
-                {index === 0 ? <span>Open</span> : null}
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-      {quoteText ? (
-        <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
-          &ldquo;{quoteText}&rdquo;
-        </blockquote>
-      ) : null}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        {primaryPreviewSource ? (
-          <Link
-            href={primaryPreviewSource.href}
-            className={chatMicroAction}
-            aria-label={`Open source page for ${primaryPreviewSource.title}`}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Open source page
-          </Link>
-        ) : null}
-        {quoteText ? (
-          <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
-            <Copy className="h-3.5 w-3.5" />
-            {copiedQuote ? "Copied quote" : "Copy quote"}
-          </button>
-        ) : null}
-      </div>
-      <div className="mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
-        <span
-          className={cn(
-            "inline-flex min-h-8 items-center gap-1.5",
-            reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
-          )}
-        >
-          {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-          {reviewDueSource
-            ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
-            : "Sources current"}
-        </span>
-        {primaryPreviewSource ? (
-          <Link
-            href={primaryPreviewSource.href}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            Evidence details
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-function NaturalLanguageAnswer({
-  text,
-  sourceCount,
-  weakEvidence,
-  grounded,
-  sourceOnly,
-  bestSource,
-  sources,
-  sourceLinks,
-  copied,
-  onCopy,
-}: {
-  text: string;
-  sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
-  sourceOnly: boolean;
-  bestSource: BestSourceRecommendation | null;
-  sources: SearchResult[];
-  sourceLinks: SourceLink[];
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
-  const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
-  const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
-  const copySourceQuoteTimerRef = useRef<number | null>(null);
-  const usePreviewSheet = useMobilePreviewSheet();
-  useEffect(() => {
-    return () => {
-      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
-    };
-  }, []);
-  const cleaned = primaryAnswerDisplayText(text);
-  if (!cleaned) return null;
-  const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
-  const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
-  const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
-  const canOpenSourcePreview = previewSources.length > 0;
-  async function copySourceQuote() {
-    if (!quoteText) return;
-    try {
-      await navigator.clipboard.writeText(quoteText);
-      setCopiedSourceQuote(true);
-      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
-      copySourceQuoteTimerRef.current = window.setTimeout(() => setCopiedSourceQuote(false), 1600);
-    } catch {
-      setCopiedSourceQuote(false);
-    }
-  }
-  const sourceCapsuleButton = (
-    <button
-      type="button"
-      ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit")}
-      aria-label="Open answer sources"
-      aria-expanded={sourcePreviewOpen}
-      onClick={() => {
-        if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
-      }}
-    >
-      {sourceCount > 0 ? (
-        <>
-          <span className="sm:hidden">
-            {sourceCount} source{sourceCount === 1 ? "" : "s"}
-          </span>
-          <span className="hidden sm:inline">{capsuleText}</span>
-        </>
-      ) : (
-        capsuleText
-      )}
-      {canOpenSourcePreview ? <ChevronDown className="h-3.5 w-3.5" /> : null}
-    </button>
-  );
-
-  return (
-    <section
-      data-testid="plain-answer-response"
-      aria-label="Primary natural-language answer"
-      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[color:var(--text-heading)]"
-    >
-      <span
-        data-testid="answer-clinical-icon"
-        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <ShieldCheck className="h-[18px] w-[18px]" />
-      </span>
-      <div className="min-w-0 space-y-1.5">
-        <p className={chatAnswerText}>
-          <span data-testid="plain-answer-prose">
-            <SafeBoldText text={cleaned} />
-          </span>
-        </p>
-        {sourceOnly ? (
-          <p
-            data-testid="source-only-disclosure"
-            role="note"
-            className={cn(
-              "rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1.5 text-xs leading-5",
-              textMuted,
-            )}
-          >
-            Source-only answer — assembled from your documents without the AI model, so it may be less complete. Verify
-            it against the cited passages below.
-          </p>
-        ) : null}
-        {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
-          >
-            <SourcePreviewContent
-              previewSources={previewSources}
-              quoteText={quoteText}
-              copiedQuote={copiedSourceQuote}
-              onCopyQuote={copySourceQuote}
-            />
-          </div>
-        ) : null}
-        <Sheet
-          open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
-          onClose={() => setSourcePreviewOpen(false)}
-          title="Sources"
-          description="Open the original PDF page."
-          titleAccessory={
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
-              {sourcePreviewPageCountLabel(previewSources)}
-            </span>
-          }
-          closeLabel="Close answer sources"
-          contentClassName="sm:max-w-xl"
-          returnFocusRef={sourceCapsuleRef}
-          portal
-        >
-          <div data-testid="source-capsule-preview">
-            <SourcePreviewContent
-              previewSources={previewSources}
-              quoteText={quoteText}
-              copiedQuote={copiedSourceQuote}
-              onCopyQuote={copySourceQuote}
-              showHeader={false}
-            />
-          </div>
-        </Sheet>
-        <div className={chatActionRow} aria-label="Answer actions">
-          <button
-            type="button"
-            onClick={onCopy}
-            className={chatMicroAction}
-            aria-label="Copy answer with source status"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {copied ? "Copied with sources" : "Copy with sources"}
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function UserQuestionBubble({ query }: { query: string }) {
-  const cleaned = query.trim();
-  if (!cleaned) return null;
-
-  return (
-    <section className="flex justify-end px-1" aria-label="User question">
-      <div
-        data-testid="user-question-bubble"
-        className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
-      >
-        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
-        <p className={cn("nums mt-0.5 text-2xs leading-4", textMuted)}>9:14 AM</p>
-      </div>
-    </section>
-  );
-}
-
-type KeyClinicalItem = {
-  id: string;
-  label?: string;
-  detail: string;
-};
-
-function keyClinicalItemFromText(item: string): KeyClinicalItem | null {
-  const cleaned = item.replace(/^[-*•]\s*/, "").trim();
-  if (cleaned.length < 24) return null;
-  const [labelCandidate, ...detailParts] = cleaned.split(/\s+(?:—|-)\s+/);
-  const label = labelCandidate?.trim();
-  const detail = detailParts.join(" — ").trim();
-  const id = comparableAnswerText(cleaned);
-  if (label && detail && label.length <= 64) return { id, label, detail };
-  return { id, detail: cleaned };
-}
-
-function keyClinicalItemsFromSections(
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
-): KeyClinicalItem[] {
-  const usefulKinds = new Set<AnswerSectionKind | undefined>([
-    "required_actions",
-    "monitoring_timing",
-    "medication_dose",
-    "thresholds",
-    "escalation_risk",
-    "contraindications_cautions",
-    "comparison",
-  ]);
-  return sections
-    .filter((section) => usefulKinds.has(section.kind))
-    .flatMap((section) =>
-      section.body
-        .split(/\n+|(?<=\.)\s+(?=(?:Monitor|Check|Use|Avoid|Escalate|Withhold|Review|Document|Repeat|Consider)\b)/)
-        .map((item) => keyClinicalItemFromText(item))
-        .filter((item): item is KeyClinicalItem => Boolean(item)),
-    )
-    .filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index)
-    .slice(0, 5);
-}
-
-function keyClinicalItemsFromTable(item: VisualEvidenceCard | null): KeyClinicalItem[] {
-  const rows = item?.tableRows?.filter((row) => row.some((cell) => cell.trim())) ?? [];
-  if (rows.length < 2) return [];
-
-  return rows
-    .slice(0, 3)
-    .map((row): KeyClinicalItem | null => {
-      const [domain, baseline] = row.map((cell) => cell.trim()).filter(Boolean);
-      if (!domain || !baseline) return null;
-      const detail = baseline;
-      return {
-        id: comparableAnswerText([domain, detail].join(" ")),
-        label: domain,
-        detail,
-      };
-    })
-    .filter((value): value is KeyClinicalItem => value !== null)
-    .slice(0, 5);
-}
-
-function KeyClinicalItems({
-  sections,
-  table,
-}: {
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  table: VisualEvidenceCard | null;
-}) {
-  const sectionItems = keyClinicalItemsFromSections(sections);
-  const tableItems = keyClinicalItemsFromTable(table);
-  const items = sectionItems.length >= 2 ? sectionItems : tableItems;
-  if (items.length < 2) return null;
-
-  return (
-    <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
-      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-base-minus">
-        Key monitoring items
-      </h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-base-minus">
-        {items.map((item) => (
-          <li key={item.id} className="pl-0.5">
-            {item.label ? (
-              <>
-                <span className="font-semibold">{item.label}</span>
-                <span className={textMuted}> — </span>
-                <SafeBoldText text={item.detail} />
-              </>
-            ) : (
-              <SafeBoldText text={item.detail} />
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-type AnswerSupportPriority = {
-  title: string;
-  detail: string;
-  sourceLabel?: string;
-  tone: "priority" | "caution";
-};
-
-function answerSupportPriority(
-  answer: RagAnswer,
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
-  table: VisualEvidenceCard | null,
-  safetyFindings: ReturnType<typeof extractSafetyFindings>,
-  options: { grounded: boolean; weakEvidence: boolean },
-): AnswerSupportPriority | null {
-  const firstSafetyFinding = safetyFindings[0];
-  if (firstSafetyFinding) {
-    return {
-      title: "Priority",
-      detail: formatSafetyFindingLabel(firstSafetyFinding),
-      sourceLabel: "S1",
-      tone: "caution",
-    };
-  }
-
-  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence) {
-    return {
-      title: "Review source match",
-      detail:
-        "Verify cited passages before using clinical numbers, monitoring, dose, route, timing, or risk decisions.",
-      sourceLabel: "Review",
-      tone: "caution",
-    };
-  }
-
-  const sectionItems = keyClinicalItemsFromSections(sections);
-  const tableItems = keyClinicalItemsFromTable(table);
-  const item = sectionItems[0] ?? tableItems[0] ?? null;
-  if (!item) return null;
-
-  return {
-    title: item.label ?? "Priority",
-    detail: item.detail,
-    sourceLabel: "S1",
-    tone: "priority",
-  };
-}
-
-function AnswerSupportSummaryCard({
-  priority,
-  clinicalCount,
-  evidenceSummary,
-  clinicalAvailable,
-  evidenceAvailable,
-  clinicalTriggerRef,
-  evidenceTriggerRef,
-  onOpenClinicalNotes,
-  onOpenEvidence,
-}: {
-  priority: AnswerSupportPriority | null;
-  clinicalCount: number;
-  evidenceSummary: string;
-  clinicalAvailable: boolean;
-  evidenceAvailable: boolean;
-  clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
-  evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
-  onOpenClinicalNotes: () => void;
-  onOpenEvidence: () => void;
-}) {
-  const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
-  const supportButtonClass =
-    "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
-
-  return (
-    <section
-      data-testid="answer-support-card"
-      className="max-w-[68ch] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
-      aria-label="Answer support"
-    >
-      {priority ? (
-        <div
-          className={cn(
-            "grid min-h-[68px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t-2 px-3 py-3",
-            priority.tone === "caution" ? "border-t-[color:var(--warning)]" : "border-t-[color:var(--warning)]",
-          )}
-        >
-          <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
-            aria-hidden="true"
-          >
-            {priority.tone === "caution" ? <AlertCircle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
-          </span>
-          <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
-            <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
-            <p className={cn("mt-1 line-clamp-2 text-sm leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
-          </div>
-          {priority.sourceLabel ? (
-            <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{priority.sourceLabel}</span>
-          ) : null}
-        </div>
-      ) : null}
-
-      {supportRowCount > 0 ? (
-        <div
-          className={cn(
-            "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
-            supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
-          )}
-        >
-          {clinicalAvailable ? (
-            <button
-              ref={clinicalTriggerRef}
-              id="answer-clinical-notes-drawer-mobile-trigger"
-              data-testid="answer-clinical-notes-trigger"
-              type="button"
-              onClick={onOpenClinicalNotes}
-              className={supportButtonClass}
-              aria-label="Open clinical notes"
-            >
-              <ClipboardCheck className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                  {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
-                </span>
-              </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          ) : null}
-          {evidenceAvailable ? (
-            <button
-              ref={evidenceTriggerRef}
-              id="answer-evidence-drawer-mobile-trigger"
-              data-testid="answer-evidence-trigger"
-              type="button"
-              onClick={onOpenEvidence}
-              className={supportButtonClass}
-              aria-label="Open evidence"
-            >
-              <Layers className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
-              </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function comparableAnswerText(value: string) {
-  return value
-    .replace(/\*\*/g, "")
-    .replace(/\.\.\.$/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function isRedundantStructuredItem(item: string, primaryAnswer: string) {
-  const itemText = comparableAnswerText(item);
-  const answerText = comparableAnswerText(primaryAnswer);
-  if (!itemText || !answerText) return false;
-  if (answerText.includes(itemText) || itemText.includes(answerText)) return true;
-  if (itemText.length < 40) return false;
-  const answerWords = new Set(answerText.split(" ").filter((word) => word.length > 3));
-  const itemWords = itemText.split(" ").filter((word) => word.length > 3);
-  if (itemWords.length < 6) return false;
-  const sharedWords = itemWords.filter((word) => answerWords.has(word)).length;
-  if (sharedWords / itemWords.length >= 0.82) return true;
-  return answerText.includes(itemText.slice(0, Math.min(160, itemText.length)));
-}
-
-type ClinicalDetailSection = ReturnType<typeof buildClinicalOutputSections>[number];
-
-function displayItemsForClinicalDetailSection(
-  section: ClinicalDetailSection,
-  primaryAnswer: string,
-  showLead: boolean,
-) {
-  if (showLead) return section.items;
-  const nonRedundantItems = section.items.filter((item) => !isRedundantStructuredItem(item, primaryAnswer));
-  return nonRedundantItems.length > 0 || section.items.length === 0 ? nonRedundantItems : section.items;
-}
-
-const clinicalDetailPriority: Record<string, number> = {
-  action: 10,
-  escalation: 20,
-  thresholds: 30,
-  cautions: 40,
-  monitoring: 50,
-  medication: 60,
-  documentation: 70,
-  comparison: 80,
-  "support-map": 90,
-  "source-gap": 100,
-};
-
-function clinicalDetailContentCount(section: ClinicalDetailSection) {
-  if (section.items.length > 0) return section.items.length;
-  const tableRows =
-    section.tables?.reduce((total, table) => total + (table.rows?.length ?? (table.markdown ? 1 : 0)), 0) ?? 0;
-  return tableRows || section.tables?.length || 0;
-}
-
-function sortClinicalDetailSections(sections: ClinicalDetailSection[]) {
-  return [...sections].sort((left, right) => {
-    const leftPriority = clinicalDetailPriority[left.id] ?? 75;
-    const rightPriority = clinicalDetailPriority[right.id] ?? 75;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.title.localeCompare(right.title);
-  });
-}
-
-function clinicalDetailMeta(section: ClinicalDetailSection): {
-  icon: typeof Search;
-  eyebrow: string;
-  toneClassName: string;
-  accentClassName: string;
-} {
-  if (section.id === "thresholds") {
-    return {
-      icon: Target,
-      eyebrow: "Thresholds",
-      toneClassName: toneWarning,
-      accentClassName: "bg-[color:var(--warning)]",
-    };
-  }
-  if (section.id === "escalation" || section.id === "cautions" || section.id === "source-gap") {
-    return {
-      icon: ShieldAlert,
-      eyebrow: section.id === "source-gap" ? "Source gap" : "Risk",
-      toneClassName: toneDanger,
-      accentClassName: "bg-[color:var(--danger)]",
-    };
-  }
-  if (section.id === "monitoring" || section.id === "medication") {
-    return {
-      icon: ClipboardCheck,
-      eyebrow: section.id === "monitoring" ? "Monitoring" : "Medication",
-      toneClassName: toneWarning,
-      accentClassName: "bg-[color:var(--warning)]",
-    };
-  }
-  if (section.id === "support-map" || section.id === "comparison") {
-    return {
-      icon: BookOpen,
-      eyebrow: section.id === "support-map" ? "Evidence support" : "Comparison",
-      toneClassName: toneInfo,
-      accentClassName: "bg-[color:var(--info)]",
-    };
-  }
-  if (section.id === "documentation") {
-    return {
-      icon: FileText,
-      eyebrow: "Documentation",
-      toneClassName: toneNeutral,
-      accentClassName: "bg-[color:var(--border-strong)]",
-    };
-  }
-  return {
-    icon: ListChecks,
-    eyebrow: "Clinical action",
-    toneClassName: toneSuccess,
-    accentClassName: "bg-[color:var(--success)]",
-  };
-}
-
-function clinicalDetailSummaryItems(sections: ClinicalDetailSection[]) {
-  const countById = (ids: string[]) =>
-    sections
-      .filter((section) => ids.includes(section.id))
-      .reduce((total, section) => total + clinicalDetailContentCount(section), 0);
-  const tableCount = sections.reduce((total, section) => total + (section.tables?.length ?? 0), 0);
-  const items = [
-    { label: "Actions", value: countById(["action", "escalation", "documentation"]) },
-    { label: "Monitoring", value: countById(["monitoring", "medication"]) },
-    { label: "Tables", value: tableCount },
-    { label: "Cautions", value: countById(["cautions", "source-gap"]) },
-    { label: "Evidence", value: countById(["support-map", "comparison"]) },
-  ];
-  return items.filter((item) => item.value > 0);
-}
-
-type ClinicalNotesTabId = "essentials" | "actions" | "safety";
-
-type ClinicalNotesRow = {
-  id: string;
-  title: string;
-  detail: string;
-  sourceIndex: number;
-  tone: "safe" | "warn";
-};
-
-const clinicalNotesTabMeta: Record<
-  ClinicalNotesTabId,
-  { label: string; icon: typeof ShieldCheck; sectionIds: string[] }
-> = {
-  essentials: {
-    label: "Essentials",
-    icon: ClipboardCheck,
-    sectionIds: ["thresholds", "monitoring", "medication", "support-map", "comparison"],
-  },
-  actions: {
-    label: "Actions",
-    icon: Activity,
-    sectionIds: ["action", "documentation", "monitoring", "medication"],
-  },
-  safety: {
-    label: "Safety",
-    icon: ShieldCheck,
-    sectionIds: ["escalation", "cautions", "source-gap", "thresholds"],
-  },
-};
-
-function compactClinicalNoteText(value: string) {
-  return normalizeExtractedGlyphs(value)
-    .replace(/\*\*/g, "")
-    .replace(/\s*\[\d+(?:,\s*\d+)*\]\s*/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function stripClinicalNoteLeadIn(value: string) {
-  let text = compactClinicalNoteText(value);
-  let previous = "";
-  while (text !== previous) {
-    previous = text;
-    text = text
-      .replace(/^(the\s+same\s+)?synthetic\s+source\s+says\s+/i, "")
-      .replace(/^the\s+(indexed\s+)?source\s+says\s+/i, "")
-      .replace(/^source\s+text\s+says\s+/i, "")
-      .replace(/^according\s+to\s+[^,]+,\s*/i, "")
-      .trim();
-  }
-  return text;
-}
-
-function titleCaseClinicalNote(value: string) {
-  return value
-    .replace(/\b\w[\w/-]*/g, (word) => {
-      if (/[A-Z]{2,}|\/|\d/.test(word)) return word;
-      return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
-    })
-    .replace(/\bAnd\b/g, "and")
-    .replace(/\bOr\b/g, "or")
-    .replace(/\bTo\b/g, "to");
-}
-
-function sentenceCaseClinicalNoteDetail(value: string) {
-  const text = stripClinicalNoteLeadIn(value);
-  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : text;
-}
-
-function clinicalNoteHeuristicTitle(value: string) {
-  const text = stripClinicalNoteLeadIn(value);
-  const lower = text.toLowerCase();
-
-  if (/\bbaseline checklist\b/.test(lower) && /\bconfirm indication\b/.test(lower)) return "Indication";
-  if (/\b(vomiting|diarrhoea|diarrhea|dehydration|acute kidney injury|tremor|confusion|ataxia)\b/.test(lower)) {
-    return "Toxicity review triggers";
-  }
-  if (
-    /\b(escalate|urgent review|urgent|red flag|seizures?|severe constipation|chest pain|dyspnoea|tachycardia)\b/.test(
-      lower,
-    )
-  ) {
-    return "Escalation triggers";
-  }
-  if (/\blithium levels?\b/.test(lower) && /\b(5\s*(?:to|-|–)\s*7|dose change|stable|days?)\b/.test(lower)) {
-    return "Lithium level timing";
-  }
-  if (/\b(lithium level|serum lithium|trough level)\b/.test(lower)) return "Lithium level check";
-  if (/\b(fbc|anc)\b/.test(lower)) return "FBC/ANC monitoring";
-  if (/\bmyocarditis\b/.test(lower)) return "Myocarditis screening";
-  if (/\b(metabolic|weight|lipids?|glucose|hba1c|waist)\b/.test(lower)) return "Metabolic monitoring";
-  if (/\b(constipation|bowel)\b/.test(lower)) return "Constipation prevention";
-  if (/\b(shared-care|shared care|communication|handover)\b/.test(lower)) return "Shared-care communication";
-  if (/\b(renal|kidney|creatinine|egfr)\b/.test(lower)) return "Renal function";
-  if (/\b(thyroid|tsh)\b/.test(lower)) return "Thyroid monitoring";
-  if (/\bcalcium\b/.test(lower)) return "Calcium monitoring";
-  if (/\b(nsaid|ace inhibitor|diuretic|interacting medicine|medicine reconciliation)\b/.test(lower)) {
-    return "Interacting medicines";
-  }
-
-  return null;
-}
-
-function clinicalNoteTitleFromItem(item: string, section: ClinicalDetailSection, index: number) {
-  const text = stripClinicalNoteLeadIn(item);
-  const heuristicTitle = clinicalNoteHeuristicTitle(text);
-  if (heuristicTitle) return heuristicTitle;
-  const colonIndex = text.indexOf(":");
-  if (colonIndex > 8 && colonIndex < 54) {
-    const title = text.slice(0, colonIndex).trim();
-    const detailStart = text
-      .slice(colonIndex + 1)
-      .split(/[,;]/)[0]
-      ?.trim();
-    if (/\b(checklist|checkpoint|points?)\b/i.test(title) && detailStart) {
-      return clinicalNoteTitleFromFragment(detailStart);
-    }
-    return title;
-  }
-  const dashIndex = text.search(/\s[-–]\s/);
-  if (dashIndex > 8 && dashIndex < 54) return text.slice(0, dashIndex).trim();
-  if (section.items.length === 1 && section.title.length <= 42) return section.title;
-  const words = text
-    .replace(/^(confirm|check|review|record|document)\s+/i, "")
-    .split(" ")
-    .filter(Boolean);
-  return words.slice(0, Math.min(words.length, index === 0 ? 5 : 4)).join(" ") || section.title;
-}
-
-function clinicalNoteDetailFromItem(item: string, title: string) {
-  const text = stripClinicalNoteLeadIn(item);
-  const normalizedTitle = title.toLowerCase();
-  const lowerText = text.toLowerCase();
-  const colonIndex = text.indexOf(":");
-  if (colonIndex > 8 && colonIndex < 64) {
-    const beforeColon = text.slice(0, colonIndex);
-    const afterColon = text.slice(colonIndex + 1).trim();
-    if (/\b(checklist|checkpoint|points?)\b/i.test(beforeColon) && afterColon) {
-      return sentenceCaseClinicalNoteDetail(afterColon);
-    }
-  }
-  if (lowerText.startsWith(`${normalizedTitle}:`)) {
-    return sentenceCaseClinicalNoteDetail(text.slice(title.length + 1).trim());
-  }
-  if (lowerText.startsWith(`${normalizedTitle} -`) || lowerText.startsWith(`${normalizedTitle} –`)) {
-    return sentenceCaseClinicalNoteDetail(text.slice(title.length + 2).trim());
-  }
-  if (text === title) return "Review linked source context before using this note.";
-  return sentenceCaseClinicalNoteDetail(text);
-}
-
-function clinicalNoteTitleFromFragment(fragment: string) {
-  const text = stripClinicalNoteLeadIn(fragment)
-    .replace(/^(and|or)\s+/i, "")
-    .replace(/^(confirm|check|review|record|document)\s+/i, "")
-    .replace(/[.;:,]+$/g, "");
-  if (!text) return "Clinical note";
-  return clinicalNoteHeuristicTitle(text) ?? titleCaseClinicalNote(text);
-}
-
-function splitClinicalNoteFragments(item: string, section: ClinicalDetailSection, title: string) {
-  const detail = clinicalNoteDetailFromItem(item, title);
-  const titleLooksGeneric = /\b(checkpoint|checklist|item|point|monitoring|safety)\b/i.test(title);
-  const itemLooksGeneric = /\b(checkpoint|checklist|item|point|monitoring|safety)\b/i.test(
-    stripClinicalNoteLeadIn(item),
-  );
-  if (!titleLooksGeneric && !itemLooksGeneric && section.items.length > 1) return null;
-
-  const fragments = detail
-    .replace(/\band\s+/gi, "")
-    .split(/[,;]\s+/)
-    .map((fragment) => compactClinicalNoteText(fragment).replace(/[.;:,]+$/g, ""))
-    .filter((fragment) => fragment.length > 5);
-
-  return fragments.length >= 3 ? fragments.slice(0, 5) : null;
-}
-
-function clinicalNoteToneForText(text: string, fallback: ClinicalNotesRow["tone"]) {
-  if (/\b(toxicity|toxic|warning|caution|urgent|red flag|adverse|confusion|ataxia|tremor)\b/i.test(text)) {
-    return "warn";
-  }
-  return fallback;
-}
-
-function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
-  const title = compactClinicalNoteText(row.title).toLowerCase();
-  const detail = compactClinicalNoteText(row.detail).toLowerCase();
-  return Boolean(detail) && detail !== title;
-}
-
-function clinicalNoteDetailLabel(row: ClinicalNotesRow) {
-  const text = `${row.title} ${row.detail}`.toLowerCase();
-  if (/\b(timing|level|schedule|dose change|stable|days?)\b/.test(text)) return "Timing";
-  if (/\b(escalation|escalate|urgent|toxicity|trigger|vomiting|confusion|ataxia|tremor)\b/.test(text)) {
-    return "Escalate";
-  }
-  if (/\b(baseline|confirm|record|document|check|review)\b/.test(text)) return "Action";
-  return "Note";
-}
-
-function ClinicalNoteDetailCard({ row }: { row: ClinicalNotesRow }) {
-  const detail = sentenceCaseClinicalNoteDetail(row.detail);
-  return (
-    <div className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 shadow-[var(--shadow-inset)]">
-      <p className="text-xs leading-[1.5] text-[color:var(--text)]">
-        <span className="mr-1.5 font-semibold text-[color:var(--text-muted)]">{clinicalNoteDetailLabel(row)}:</span>
-        {detail}
-      </p>
-    </div>
-  );
-}
-
-function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
-  return (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).filter(
-    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-  ).length;
-}
-
-function clinicalNotesRowsForTab(sections: ClinicalDetailSection[], tab: ClinicalNotesTabId) {
-  const meta = clinicalNotesTabMeta[tab];
-  const rows: ClinicalNotesRow[] = [];
-  let sourceIndex = 1;
-
-  for (const section of sections) {
-    const sectionText = `${section.title} ${section.items.join(" ")}`.toLowerCase();
-    const hasMonitoringText =
-      (tab === "actions" || tab === "essentials") &&
-      /\b(monitor|screen|level|fbc|anc|metabolic|renal|thyroid|function)\b/i.test(sectionText);
-    const hasSafetyText =
-      tab === "safety" &&
-      /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat|warning|review due)\b/i.test(sectionText);
-    if (!meta.sectionIds.includes(section.id) && !hasMonitoringText) {
-      if (!hasSafetyText) continue;
-    }
-    if (tab === "essentials" && section.id === "action" && rows.length >= 2) {
-      continue;
-    }
-    const tone: ClinicalNotesRow["tone"] = section.id === "escalation" || section.id === "cautions" ? "warn" : "safe";
-
-    for (const item of section.items.slice(0, 4)) {
-      if (section.tables?.length && /\b(table|showing domains|table showing)\b/i.test(item)) continue;
-      const title = clinicalNoteTitleFromItem(item, section, rows.length);
-      const fragments = splitClinicalNoteFragments(item, section, title);
-      if (fragments) {
-        for (const fragment of fragments) {
-          const fragmentTitle = clinicalNoteTitleFromFragment(fragment);
-          rows.push({
-            id: `${tab}:${section.id}:${rows.length}:${fragmentTitle}`,
-            title: fragmentTitle,
-            detail: fragment,
-            sourceIndex: sourceIndex++,
-            tone: clinicalNoteToneForText(fragment, tone),
-          });
-        }
-      } else {
-        rows.push({
-          id: `${tab}:${section.id}:${rows.length}:${title}`,
-          title,
-          detail: clinicalNoteDetailFromItem(item, title),
-          sourceIndex: sourceIndex++,
-          tone: clinicalNoteToneForText(item, tone),
-        });
-      }
-    }
-  }
-
-  return rows.slice(0, 6);
-}
-
-function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
-  return (Object.keys(clinicalNotesTabMeta) as ClinicalNotesTabId[])
-    .map((id) => ({ id, ...clinicalNotesTabMeta[id], count: clinicalNotesRowsForTab(sections, id).length }))
-    .filter((tab) => tab.count > 0);
-}
-
-function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
-  const sections =
-    viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
-  const primaryAnswer = plainAnswerText(answer.answer);
-  return sortClinicalDetailSections(
-    sections
-      .filter((section) => section.id !== "verify-source" && section.id !== "bottom-line")
-      .map((section) => ({
-        ...section,
-        items: displayItemsForClinicalDetailSection(section, primaryAnswer, false),
-      }))
-      .filter((section) => section.items.length > 0),
-  );
-}
-
-function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
-  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(answer, viewMode));
-  const largestTabCount = tabs.reduce((largest, tab) => Math.max(largest, tab.count), 0);
-  return Math.max(1, largestTabCount || fallback);
-}
-
-function ClinicalNotesChecklistPanel({
-  answer,
-  viewMode,
-  evidenceMapRows,
-  bestSource,
-  copied,
-  onCopy,
-  onOpenTables,
-}: {
-  answer: RagAnswer;
-  viewMode: AnswerViewMode;
-  evidenceMapRows: AnswerEvidenceMapRow[];
-  bestSource: BestSourceRecommendation | null;
-  copied: boolean;
-  onCopy: () => void;
-  onOpenTables?: () => void;
-}) {
-  const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
-  const tabs = clinicalNotesAvailableTabs(detailSections);
-  const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
-  const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
-  const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
-  const rows = clinicalNotesRowsForTab(detailSections, activeTab);
-  const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
-  const [added, setAdded] = useState(false);
-  const warningRows = clinicalNotesRowsForTab(detailSections, "safety");
-  const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
-
-  if (!tabs.length || rows.length === 0) {
-    return (
-      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
-    );
-  }
-
-  const activeMeta = clinicalNotesTabMeta[activeTab];
-
-  return (
-    <section data-testid="clinical-notes-checklist" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="sticky top-0 z-10 -mx-3 -mt-2 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-2 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
-        <div
-          role="tablist"
-          aria-label="Clinical notes categories"
-          className="grid min-w-0 grid-cols-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        >
-          {tabs.map((tab) => {
-            const selected = tab.id === activeTab;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-label={`${tab.label} (${tab.count})`}
-                onClick={() => setRequestedTab(tab.id)}
-                className={cn(
-                  "inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  selected
-                    ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <span className="truncate">{tab.label}</span>
-                <span
-                  className={cn(
-                    "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-3xs",
-                    selected
-                      ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
-                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-                  )}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-          {activeMeta.label} ({rows.length})
-        </p>
-        {tableEvidenceCount > 0 && onOpenTables ? (
-          <button
-            type="button"
-            onClick={onOpenTables}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            <Table2 className="h-3.5 w-3.5" />
-            Tables
-          </button>
-        ) : null}
-      </div>
-
-      <div className="mt-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-        {rows.map((row) => {
-          const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
-          const RowIcon = row.tone === "warn" ? AlertCircle : activeTab === "actions" ? Activity : CheckCircle2;
-          return (
-            <article
-              key={row.id}
-              data-testid="clinical-note-row"
-              className="grid min-h-[70px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
-            >
-              <span
-                className={cn(
-                  "grid h-8 w-8 shrink-0 place-items-center rounded-md",
-                  row.tone === "warn" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
-                )}
-                aria-hidden="true"
-              >
-                <RowIcon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <p className="min-w-0 flex-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {row.title}
-                  </p>
-                  <span
-                    className={cn(
-                      subtleStatusPill,
-                      "min-h-6 px-2 text-3xs",
-                      row.tone === "warn" ? toneWarning : toneSuccess,
-                    )}
-                  >
-                    {row.tone === "warn" ? "Review" : activeTab === "actions" ? "Action" : "Source"}
-                  </span>
-                </div>
-                {hasDistinctDetail ? (
-                  <p className={cn("mt-1 line-clamp-2 text-xs leading-5", textMuted)}>{row.detail}</p>
-                ) : null}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="nums grid h-7 min-w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                  S{row.sourceIndex}
-                </span>
-                <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      {warningCount > 0 && activeTab !== "safety" ? (
-        <button
-          type="button"
-          onClick={() => setRequestedTab("safety")}
-          className="mt-3 grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 py-2 text-left text-[color:var(--warning)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <AlertCircle className="h-5 w-5" />
-          <span className="min-w-0">
-            <span className="block text-xs font-bold uppercase tracking-[0.06em]">Safety preview ({warningCount})</span>
-            <span className="block truncate text-xs font-semibold">Review toxicity symptoms</span>
-          </span>
-          <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-xs")}>S1</span>
-        </button>
-      ) : null}
-
-      <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
-        <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
-          {bestSource ? (
-            <Link
-              href={bestSource.viewer_href}
-              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
-              style={{ minHeight: 48, minWidth: 48 }}
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Source
-            </Link>
-          ) : (
-            <span
-              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]"
-              style={{ minHeight: 48, minWidth: 48 }}
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Source
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onCopy}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
-            style={{ minHeight: 48, minWidth: 48 }}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {copied ? "Copied" : "Copy"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
-            style={{ minHeight: 48, minWidth: 48 }}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extractSafetyFindings> }) {
-  if (findings.length === 0) return null;
-
-  return (
-    <section
-      data-testid="safety-findings-panel"
-      className={cn(
-        evidenceSurface,
-        "border-l-4 border-l-[color:var(--warning)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning-soft)_42%,transparent),transparent_62%),var(--surface-raised)] p-3 sm:p-4",
-      )}
-    >
-      <SectionHeading
-        icon={ShieldAlert}
-        title="Safety-critical source findings"
-        description="Items come from source text. Verify before clinical use."
-        hideDescriptionOnMobile
-        compactMobile
-      />
-      <div className="mt-3 grid gap-2 sm:mt-4">
-        {findings.map((finding, index) => (
-          <article
-            key={`${finding.id}:${finding.href}:${index}`}
-            className={cn(sourceCard, "bg-[color:var(--surface-glass)] p-3 backdrop-blur-md")}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--warning-soft)] px-2 text-xs font-bold text-[color:var(--warning)]">
-                {finding.label}
-              </span>
-              <Link
-                href={finding.href}
-                className={cn(
-                  raisedCard,
-                  "inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
-                )}
-                aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
-              >
-                <ExternalLink className="h-4 w-4" />
-                Source
-              </Link>
-            </div>
-            <p className="mt-2 text-base-minus font-medium leading-6 text-[color:var(--text)]">{finding.text}</p>
-            <p className={cn("mt-2 text-xs font-semibold leading-5", textMuted)}>
-              {formatCitationLabel(finding.citation)}
-            </p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function EvidenceGapPanel({
-  relevance,
-  sources,
-  query,
-}: {
-  relevance?: EvidenceRelevance | null;
-  sources: SearchResult[];
-  query: string;
-}) {
-  if (!relevance || relevance.isSourceBacked) return null;
-  const closestSources = sources.slice(0, 3);
-  const found = relevance.matchedTerms.length
-    ? relevance.matchedTerms.slice(0, 6).join(", ")
-    : "Only weak neighboring passages were retrieved.";
-  const missing = relevance.missingTerms.length
-    ? relevance.missingTerms.slice(0, 6).join(", ")
-    : "No direct indexed passage covered the full question.";
-
-  return (
-    <section
-      data-testid="evidence-gap-panel"
-      className={cn(
-        evidenceSurface,
-        "border-l-4 border-l-[color:var(--warning)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning-soft)_38%,transparent),transparent_64%),var(--surface-raised)] p-3 sm:p-4",
-      )}
-    >
-      <SectionHeading
-        icon={AlertCircle}
-        title="Source gaps"
-        description={relevance.supportReason}
-        hideDescriptionOnMobile
-        compactMobile
-        action={<RelevanceBadge relevance={relevance} />}
-      />
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <article className={cn(sourceCard, "p-3")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">What was found</p>
-          <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>{found}</p>
-        </article>
-        <article className={cn(sourceCard, "p-3")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            What was not found
-          </p>
-          <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>{missing}</p>
-        </article>
-        <article className={cn(sourceCard, "p-3 md:col-span-2")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Closest sources</p>
-          {closestSources.length ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {closestSources.map((source) => (
-                <Link
-                  key={source.id}
-                  href={sourceResultHref(source)}
-                  className={cn(floatingControl, "min-h-11 px-3 text-xs")}
-                  aria-label={`Open closest source ${cleanDisplayTitle(source.title)}`}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="max-w-[12rem] truncate">{cleanDisplayTitle(source.title)}</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>No nearby indexed sources were returned.</p>
-          )}
-        </article>
-        <article className={cn(sourceCard, "p-3 md:col-span-2")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Suggested next search/upload
-          </p>
-          <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>
-            Try a narrower query using the missing terms, scope to a likely document, or upload/index the guideline that
-            directly covers &quot;{query.trim()}&quot;.
-          </p>
-        </article>
-      </div>
-    </section>
-  );
-}
-
-function EvidenceCounts({
-  answer,
-  sourceSummary,
-  sourceCount,
-}: {
-  answer: RagAnswer;
-  sourceSummary?: EvidenceSummary;
-  sourceCount: number;
-}) {
-  const counts = [
-    {
-      label: "Citations",
-      value: answer.citations.length,
-    },
-    {
-      label: "Quotes",
-      value: answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0,
-    },
-    {
-      label: "Images",
-      value:
-        answer.visualEvidence?.length ?? answer.smartPanel?.visualEvidence?.length ?? sourceSummary?.image_count ?? 0,
-    },
-    {
-      label: "Passages",
-      value: sourceCount || sourceSummary?.total_sources || 0,
-    },
-  ];
-
-  return (
-    <div data-testid="evidence-counts" className="grid grid-cols-2 gap-2">
-      {counts.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
-        >
-          <p className="text-lg font-semibold leading-none text-[color:var(--text-heading)]">{item.value}</p>
-          <p className={cn("mt-1 text-2xs font-bold uppercase tracking-[0.08em]", textMuted)}>{item.label}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AnswerSourceStatus({
-  source,
-  weakEvidence,
-}: {
-  source: BestSourceRecommendation | null | undefined;
-  weakEvidence: boolean;
-}) {
-  const metadata = source?.source_metadata;
-  return (
-    <div
-      data-testid="answer-source-status"
-      className={cn(
-        "rounded-lg border p-3",
-        weakEvidence
-          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45"
-          : "border-[color:var(--border)] bg-[color:var(--surface)]",
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-[color:var(--text)]">Source status</p>
-        <SourceStatusBadge metadata={metadata} />
-      </div>
-      <SourceProvenance metadata={metadata} />
-      {weakEvidence ? (
-        <p className="mt-2 text-xs font-semibold leading-5 text-[color:var(--warning)]">
-          Evidence support is limited. Treat this as a source-finding result until the linked passage is verified.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function EvidenceSummaryCard({
-  answer,
-  bestSource,
-  grounded,
-  relevance,
-  sourceSummary,
-  weakEvidence,
-  sources,
-  gaps,
-  onScopeDocument,
-  compact = false,
-  supporting = false,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  grounded: boolean;
-  relevance?: EvidenceRelevance | null;
-  sourceSummary?: EvidenceSummary;
-  weakEvidence: boolean;
-  sources: SearchResult[];
-  gaps: ConflictOrGap[];
-  onScopeDocument: (documentId: string) => void;
-  compact?: boolean;
-  supporting?: boolean;
-}) {
-  const sourceLabel = relevance && !relevance.isSourceBacked ? "Closest source" : "Top source";
-  const supportLabel = relevanceChipLabel(relevance, grounded);
-  const sourceStrength = bestSource?.source_strength ?? sourceSummary?.source_strength ?? "none";
-  const gapMessage =
-    gaps[0]?.message ??
-    (!relevance?.isSourceBacked && relevance?.supportReason
-      ? relevance.supportReason
-      : (sourceSummary?.summary ?? null));
-
-  return (
-    <aside
-      data-testid={supporting ? "evidence-support-panel" : compact ? "evidence-summary-card" : "evidence-rail"}
-      aria-label={
-        supporting ? "Answer evidence and sources" : compact ? "Answer evidence summary" : "Answer evidence rail"
-      }
-      className={cn(
-        evidenceSurface,
-        "space-y-3 p-3 sm:p-4",
-        weakEvidence && "border-[color:var(--warning)]/30 border-l-[color:var(--warning)]",
-        compact && !supporting && "xl:hidden",
-        !compact && !supporting && "xl:sticky xl:top-4 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto",
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Evidence review</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            {weakEvidence
-              ? "Verify before relying on this answer."
-              : "Source status and retrieved evidence at a glance."}
-          </p>
-        </div>
-        <RelevanceBadge relevance={relevance} grounded={grounded} />
-      </div>
-
-      <AnswerSourceStatus source={bestSource} weakEvidence={weakEvidence} />
-
-      <EvidenceCounts answer={answer} sourceSummary={sourceSummary} sourceCount={sources.length} />
-
-      {bestSource ? (
-        <article className={cn(sourceCard, "p-3")}>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                {sourceLabel}
-              </p>
-              <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text)]">
-                {bestSource.title}
-              </p>
-              <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                page {bestSource.page_number ?? "n/a"} · {sourceStrength} support
-              </p>
-            </div>
-            <span className={cn(subtleStatusPill, "nums")}>
-              {Math.round(Math.max(0, Math.min(1, bestSource.score)) * 100)}% match
-            </span>
-          </div>
-          <p className={cn("mt-3 line-clamp-3 text-sm-minus font-medium leading-5", textMuted)}>
-            &ldquo;{bestSource.snippet}&rdquo;
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href={bestSource.viewer_href}
-              className={cn(primaryControl, "min-h-11 px-3 text-xs")}
-              aria-label={`Open ${sourceLabel.toLowerCase()}: ${formatCitationLabel(bestSource)}`}
-            >
-              Open source
-              <ExternalLink className="h-4 w-4" />
-            </Link>
-            <button
-              type="button"
-              onClick={() => onScopeDocument(bestSource.document_id)}
-              className={cn(floatingControl, "min-h-11 px-3 text-xs")}
-              aria-label={`Search only ${bestSource.title}`}
-            >
-              <Filter className="h-4 w-4" />
-              Add scope
-            </button>
-          </div>
-        </article>
-      ) : (
-        <EmptyState icon={Target} title={emptyStates.topSource.title} body={emptyStates.topSource.body} />
-      )}
-
-      {gapMessage ? (
-        <div
-          className={cn(
-            "rounded-lg border p-3 text-sm leading-6",
-            weakEvidence
-              ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <p className="text-xs font-bold uppercase tracking-[0.08em]">Coverage note</p>
-          <p className="mt-1 font-medium">{gapMessage}</p>
-        </div>
-      ) : null}
-
-      <QueryCoverageChips relevance={relevance} limit={compact ? 3 : 5} />
-      <p className={cn("text-xs leading-5", textMuted)}>
-        {supportLabel}. Verify source before copying, including any clinical draft text.
-      </p>
-    </aside>
-  );
-}
-
-function compactEvidenceSummary(
-  answer: RagAnswer,
-  sources: SearchResult[],
-  sourceSummary?: EvidenceSummary,
-  renderModel?: AnswerRenderModel,
-) {
-  const support =
-    renderModel?.trust === "high"
-      ? "Strong support"
-      : renderModel?.trust === "medium"
-        ? "Supported"
-        : renderModel?.trust === "low"
-          ? "Limited support"
-          : "Review support";
-  const claimCount = renderModel?.evidenceRows.length || answer.answerSections?.length || answer.citations.length;
-  const quoteCount = renderModel?.quoteCards.length ?? answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0;
-  const tableCount = (renderModel?.visualEvidence ?? answer.visualEvidence ?? []).filter(
-    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-  ).length;
-  const sourceCount = renderModel?.primarySources.length || sourceSummary?.total_sources || sources.length;
-  const countParts = [
-    claimCount > 0 ? `${claimCount} claim${claimCount === 1 ? "" : "s"}` : null,
-    quoteCount > 0 ? `${quoteCount} quote${quoteCount === 1 ? "" : "s"}` : null,
-    tableCount > 0 ? `${tableCount} table${tableCount === 1 ? "" : "s"}` : null,
-  ].filter((part): part is string => Boolean(part));
-
-  if (countParts.length === 0 && sourceCount > 0) {
-    countParts.push(`${sourceCount} source${sourceCount === 1 ? "" : "s"}`);
-  }
-
-  return [support, ...countParts].join(" · ");
-}
-
-type EvidenceTabName = "Claims" | "Quotes" | "Tables" | "Images" | "Gaps";
-
-function renderModelAllows(renderModel: AnswerRenderModel, block: AnswerRenderModel["allowedBlocks"][number]) {
-  return renderModel.allowedBlocks.includes(block);
-}
-
-function evidenceTabOrder(_answer: RagAnswer, renderModel: AnswerRenderModel): EvidenceTabName[] {
-  const order: EvidenceTabName[] = ["Claims", "Quotes", "Tables", "Images", "Gaps"];
-  return order.filter((tab) => {
-    if (tab === "Tables") {
-      return (
-        renderModelAllows(renderModel, "visualEvidence") &&
-        renderModel.visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length)
-      );
-    }
-    if (tab === "Images") return renderModelAllows(renderModel, "visualEvidence");
-    if (tab === "Quotes") return renderModelAllows(renderModel, "quoteCards");
-    if (tab === "Gaps") return renderModel.warnings.length > 0;
-    return renderModelAllows(renderModel, "evidenceMap") || renderModelAllows(renderModel, "reviewSources");
-  });
-}
-
-function evidenceTabCount({
-  tab,
-  sources,
-  visualEvidence,
-  answerEvidenceMapRows,
-  renderModel,
-}: {
-  tab: EvidenceTabName;
-  sources: SearchResult[];
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  renderModel: AnswerRenderModel;
-}) {
-  if (tab === "Tables") {
-    return visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
-  }
-  if (tab === "Claims")
-    return (
-      answerEvidenceMapRows.length ||
-      renderModel.evidenceRows.length ||
-      sources.length ||
-      renderModel.primarySources.length
-    );
-  if (tab === "Images") return visualEvidence.length;
-  if (tab === "Quotes") return renderModel.quoteCards.length;
-  return renderModel.warnings.length;
-}
-
-function clinicalNotesCount(answer: RagAnswer) {
-  return buildHighYieldClinicalOutputSections(answer).filter((section) =>
-    ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
-  ).length;
-}
-
-function answerHasCentralTable(answer: RagAnswer) {
-  return (
-    answer.queryClass === "table_threshold" ||
-    answer.responseMode === "threshold_table" ||
-    Boolean(answer.visualEvidence?.some((item) => item.accessibleTableMarkdown || item.tableRows?.length))
-  );
-}
-
-function primaryVisualTable(answer: RagAnswer) {
-  return answer.visualEvidence?.find((item) => item.accessibleTableMarkdown || item.tableRows?.length) ?? null;
-}
-
-type RenderModelPdfSource = {
-  document_id: string;
-  title: string;
-  file_name: string;
-  page_number: number | null;
-  chunk_id: string | null;
-};
-
-function uniquePdfSourcesForRenderModel(renderModel: AnswerRenderModel): RenderModelPdfSource[] {
-  return renderModel.primarySources.map((source) => ({
-    document_id: source.document_id,
-    title: source.title,
-    file_name: source.file_name,
-    page_number: source.page_number,
-    chunk_id: source.chunk_id,
-  }));
-}
-
-function queryModeLabel(mode: ClinicalQueryMode) {
-  return clinicalQueryModeOptions.find((option) => option.value === mode)?.label ?? mode.replaceAll("_", " ");
-}
-
-function AnswerInsightBar({
-  answer,
-  bestSource,
-  relevance,
-  queryMode,
-  sourceGovernanceWarnings,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  relevance?: EvidenceRelevance | null;
-  queryMode: ClinicalQueryMode;
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-}) {
-  const frontendGovernanceWarnings = frontendSourceGovernanceWarnings(sourceGovernanceWarnings);
-  const metadata = normalizeSourceMetadata(
-    bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
-  );
-  const modeLabel =
-    answer.smartApiPlan?.displayMode?.replaceAll("_", " ") ??
-    answer.responseMode?.replaceAll("_", " ") ??
-    queryModeLabel(queryMode);
-  const sourceCount = answer.evidenceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
-  const support = relevanceChipLabel(relevance ?? answer.relevance, answer.grounded);
-  const sourceStatus = frontendGovernanceWarnings.length
-    ? `${frontendGovernanceWarnings.length} source status note${frontendGovernanceWarnings.length === 1 ? "" : "s"}`
-    : sourceStatusLabel(metadata);
-  const retrievalGate = answer.retrievalDiagnostics?.gateStatus;
-  const items = [
-    { label: "Mode", value: modeLabel, icon: SlidersHorizontal },
-    {
-      label: "Support",
-      value: support,
-      icon: hasStrongRelevanceIcon(relevance ?? answer.relevance, answer.grounded) ? CheckCircle2 : AlertCircle,
-    },
-    { label: "Sources", value: String(sourceCount), icon: FileText },
-    { label: "Confidence", value: answer.confidence, icon: Target },
-    {
-      label: "Retrieval",
-      value: retrievalGate ? `${retrievalGate} gate` : "Not logged",
-      icon: retrievalGate === "blocked" ? ShieldAlert : CheckCircle2,
-    },
-    { label: "Status", value: `${sourceStatus} / ${validationStatusLabel(metadata)}`, icon: BookOpen },
-  ];
-
-  return (
-    <div
-      data-testid="answer-insight-bar"
-      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 sm:flex sm:flex-wrap sm:items-center"
-      aria-label="Answer evidence summary"
-    >
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <span
-            key={item.label}
-            className="inline-flex min-h-8 min-w-0 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]"
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
-            <span className="shrink-0 text-3xs uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-              {item.label}
-            </span>
-            <span className="min-w-0 truncate">{item.value}</span>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function EvidenceVerificationStrip({
-  answer,
-  bestSource,
-  sourceSummary,
-  weakEvidence,
-  governanceWarningCount,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  sourceSummary?: EvidenceSummary | null;
-  weakEvidence: boolean;
-  governanceWarningCount: number;
-}) {
-  const metadata = normalizeSourceMetadata(
-    bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
-  );
-  const sourceCount = sourceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
-  const citationCount = answer.citations.length;
-  const gapCount = answer.conflictsOrGaps?.length ?? answer.smartPanel?.conflictsOrGaps?.length ?? 0;
-  const retrievalGateBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
-  const checks = [
-    {
-      label: "Citations",
-      value: citationCount ? `${citationCount} citation${citationCount === 1 ? "" : "s"}` : "None",
-      ready: citationCount > 0,
-    },
-    {
-      label: "Sources",
-      value: `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
-      ready: sourceCount > 0,
-    },
-    {
-      label: "Source status",
-      value: sourceStatusLabel(metadata),
-      ready: metadata.document_status === "current" && !governanceWarningCount,
-    },
-    {
-      label: "Retrieval gate",
-      value: retrievalGateBlocked ? "Blocked for low signal" : answer.retrievalDiagnostics ? "Passed" : "Not available",
-      ready: !retrievalGateBlocked,
-    },
-    {
-      label: "Gaps",
-      value: governanceWarningCount
-        ? `${governanceWarningCount} status note${governanceWarningCount === 1 ? "" : "s"}`
-        : gapCount
-          ? `${gapCount} gap${gapCount === 1 ? "" : "s"}`
-          : "None",
-      ready: !weakEvidence && !gapCount && !governanceWarningCount,
-    },
-  ];
-
-  return (
-    <section
-      data-testid="evidence-verification-strip"
-      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto]"
-      aria-label="Evidence verification progress"
-    >
-      <div className="grid gap-2 sm:grid-cols-4">
-        {checks.map((check) => (
-          <div
-            key={check.label}
-            className="min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2"
-          >
-            <div className="flex items-center gap-1.5">
-              {check.ready ? (
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
-              ) : (
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" />
-              )}
-              <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-                {check.label}
-              </p>
-            </div>
-            <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text)]">{check.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:max-w-72">
-        <span className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-          Pinned source
-        </span>
-        {bestSource ? (
-          <>
-            <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">{bestSource.title}</span>
-            <SourceStatusBadge metadata={bestSource.source_metadata} showTitle={false} />
-          </>
-        ) : (
-          <span className="text-xs font-semibold text-[color:var(--text-muted)]">No pinned source yet</span>
-        )}
-      </div>
-    </section>
-  );
-}
-
-const answerFeedbackOptions: Array<{
-  type: AnswerFeedbackType;
-  label: string;
-  icon: typeof CheckCircle2;
-  tone: "success" | "warning" | "danger" | "neutral";
-}> = [
-  { type: "verified", label: "Verified", icon: CheckCircle2, tone: "success" },
-  { type: "needs_correction", label: "Needs correction", icon: AlertCircle, tone: "warning" },
-  { type: "source_insufficient", label: "Source insufficient", icon: ShieldAlert, tone: "warning" },
-  { type: "wrong_source", label: "Wrong source", icon: FileText, tone: "danger" },
-  { type: "missing_source", label: "Missing source", icon: Search, tone: "warning" },
-  { type: "unsupported_answer", label: "Unsupported answer", icon: ShieldAlert, tone: "danger" },
-  { type: "numeric_error", label: "Numeric error", icon: Target, tone: "danger" },
-  { type: "outdated_guidance", label: "Outdated guidance", icon: RefreshCw, tone: "warning" },
-];
-
-function feedbackToneClass(tone: "success" | "warning" | "danger" | "neutral") {
-  if (tone === "success") return toneSuccess;
-  if (tone === "warning") return toneWarning;
-  if (tone === "danger") return toneDanger;
-  return toneNeutral;
-}
-
-function AnswerFeedbackPanel({
-  pending,
-  onSubmit,
-}: {
-  pending: AnswerFeedbackType | null;
-  onSubmit: (feedbackType: AnswerFeedbackType) => void;
-}) {
-  return (
-    <section
-      data-testid="answer-review-panel"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-      aria-label="Answer review"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Answer review</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Capture misses for retrieval and RAG evals without changing the answer.
-          </p>
-        </div>
-        {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Saving
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {answerFeedbackOptions.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.type}
-              type="button"
-              disabled={Boolean(pending)}
-              onClick={() => onSubmit(item.type)}
-              className={cn(
-                "inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-                feedbackToneClass(item.tone),
-              )}
-            >
-              {pending === item.type ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function RenderModelSourceList({
-  sources,
-  query,
-  onScopeDocument,
-}: {
-  sources: SourceLink[];
-  query: string;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  if (sources.length === 0) {
-    return (
-      <EmptyState icon={FileText} title={emptyStates.sourcePassages.title} body={emptyStates.sourcePassages.body} />
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {sources.map((source, index) => {
-        const metadata = normalizeSourceMetadata(source.sourceMetadata);
-        const snippet = compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title });
-        const openLabel = `Open source ${index + 1}: ${cleanDisplayTitle(source.title)}${query ? ` for ${query}` : ""}`;
-        return (
-          <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
-            <Link
-              href={source.href}
-              className="block min-h-11 px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              aria-label={openLabel}
-            >
-              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-                <span className={sourceStatusDotClass(metadata)} aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
-                    {cleanDisplayTitle(source.title)}
-                  </p>
-                  <p className={cn("mt-1 text-xs", textMuted)}>
-                    p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)} · {source.sourceStrength} support
-                  </p>
-                </div>
-                <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-              </div>
-              {snippet ? <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>{snippet}</p> : null}
-            </Link>
-            <div className={cn(tableMicroActionRow, "justify-start border-t px-3 py-2")}>
-              <button type="button" onClick={() => onScopeDocument(source.document_id)} className={chatMicroAction}>
-                <Filter className="h-3.5 w-3.5" />
-                Scope document
-              </button>
-            </div>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
-function VerificationWorkspace({
-  renderModel,
-  query,
-  answerEvidenceMapRows,
-  pendingFeedback,
-  onSubmitFeedback,
-  onScopeDocument,
-}: {
-  renderModel: AnswerRenderModel;
-  query: string;
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pendingFeedback: AnswerFeedbackType | null;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  const verificationSources = renderModel.primarySources.slice(0, renderModel.trust === "unsupported" ? 3 : 6);
-  return (
-    <section
-      data-testid="answer-verification-workspace"
-      className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]"
-    >
-      <div className="space-y-3">
-        <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-        <div className={cn(panelSubtle, "p-3")}>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Section support map</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Each answer section should resolve back to a linked cited passage before clinical use.
-          </p>
-          <div className="mt-3">
-            <EvidenceMapTable rows={answerEvidenceMapRows} />
-          </div>
-        </div>
-      </div>
-      <div className="space-y-3">
-        <div className={cn(panelSubtle, "p-3")}>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Cited source excerpts</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Open the document to inspect the PDF page and highlighted indexed passage.
-          </p>
-        </div>
-        <RenderModelSourceList sources={verificationSources} query={query} onScopeDocument={onScopeDocument} />
-      </div>
-    </section>
-  );
-}
-
-function AnswerViewModeControl({
-  value,
-  onChange,
-}: {
-  value: AnswerViewMode;
-  onChange: (mode: AnswerViewMode) => void;
-}) {
-  const modes: Array<{ value: AnswerViewMode; label: string; shortLabel: string; icon: typeof Search }> = [
-    { value: "standard", label: "Standard", shortLabel: "All", icon: ListChecks },
-    { value: "high_yield", label: "High-yield", shortLabel: "Key", icon: Target },
-    { value: "evidence_map", label: "Evidence map", shortLabel: "Map", icon: BookOpen },
-  ];
-
-  return (
-    <div
-      data-testid="answer-view-mode-control"
-      className="flex w-full max-w-full flex-wrap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)] sm:w-auto sm:flex-nowrap"
-      role="group"
-      aria-label="Answer detail view"
-    >
-      {modes.map((mode) => {
-        const Icon = mode.icon;
-        const active = value === mode.value;
-        return (
-          <button
-            key={mode.value}
-            type="button"
-            onClick={() => onChange(mode.value)}
-            aria-pressed={active}
-            aria-label={`Show ${mode.label.toLowerCase()} answer view`}
-            title={mode.label}
-            className={cn(
-              "inline-flex min-h-9 min-w-0 flex-1 basis-[4.75rem] items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition sm:flex-none sm:basis-auto sm:px-2.5",
-              active
-                ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-sm"
-                : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate sm:hidden">{mode.shortLabel}</span>
-            <span className="hidden truncate sm:inline">{mode.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const simpleClinicalTableProps = {
-  compact: false,
-  expandOnMobile: true,
-} as const;
-
-function compactEvidenceCell(value: string | null | undefined, max = 140) {
-  const text = value ? value.replace(/\s+/g, " ").trim() : "";
-  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
-}
-
-function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerEvidenceMapRow[] {
-  return renderModel.evidenceRows.map((row, index) => ({
-    id: row.id || `${row.source.chunk_id}:${index}`,
-    section: row.section || "Source evidence",
-    detail:
-      sourceTextForCompactDisplay(row.quote || row.source.snippet || row.source.reason || "") ||
-      cleanDisplayTitle(row.source.title),
-    supportLevel: row.supportLevel || row.source.sourceStrength,
-    citationCount: 1,
-    sourceStatus:
-      row.source.sourceStrength === "none" ? "Source requires review" : `${row.source.sourceStrength} source support`,
-    bestSourceLabel: row.source.label,
-    bestLinkedPassage: row.quote || row.source.snippet || row.source.reason,
-    href: row.source.href,
-  }));
-}
-
-function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
-  if (rows.length === 0) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
-  }
-
-  const tableRows = rows.map((row) => [
-    compactEvidenceCell(row.section),
-    row.supportLevel,
-    String(row.citationCount),
-    compactEvidenceCell(row.sourceStatus),
-    compactEvidenceCell(row.bestSourceLabel, 72),
-    row.bestLinkedPassage || "Open source passage.",
-  ]);
-  const linkedRows = rows.filter((row) => row.href);
-
-  return (
-    <div data-testid="answer-evidence-map" className="space-y-3">
-      <AccessibleTable
-        caption="Source support by answer section"
-        columns={["Section", "Support level", "Citations", "Evidence status", "Top source", "Passage sample"]}
-        rows={tableRows}
-        dialogTitle="Source support by answer section"
-        {...simpleClinicalTableProps}
-      />
-      {linkedRows.length ? (
-        <div className="grid gap-2" aria-label="Evidence map source actions">
-          {linkedRows.map((row) => (
-            <Link
-              key={`${row.id}:${row.href}`}
-              href={row.href!}
-              data-testid="evidence-map-open-source"
-              className={cn(
-                sourceCard,
-                "grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              )}
-              aria-label={`Open source for ${row.section}: ${row.bestSourceLabel}`}
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-semibold text-[color:var(--text-heading)]">{row.section}</span>
-                <span className={cn("block truncate text-xs", textMuted)}>{row.bestSourceLabel}</span>
-              </span>
-              <span className={cn(chatMicroAction, "pointer-events-none min-h-9 px-2 text-xs")}>
-                Open source
-                <ExternalLink className="h-3.5 w-3.5" />
-              </span>
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function AnswerSafetyNotice({
-  demoMode,
-  weakEvidence = false,
-  retrievalDiagnostics,
-}: {
-  demoMode: boolean;
-  weakEvidence?: boolean;
-  retrievalDiagnostics?: RagAnswer["retrievalDiagnostics"];
-}) {
-  const retrievalGateBlocked = retrievalDiagnostics?.gateStatus === "blocked";
-  return (
-    <div
-      data-testid="answer-safety-notice"
-      className={cn(
-        "rounded-lg border p-3 text-sm leading-6",
-        weakEvidence
-          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45"
-          : "border-[color:var(--border)] bg-[color:var(--surface)]",
-      )}
-    >
-      <p className="font-semibold text-[color:var(--text)]">
-        {weakEvidence
-          ? "Weak source support; verify the linked source before relying on this answer."
-          : "Draft only; verify source first before pasting into the medical record."}
-      </p>
-      {retrievalGateBlocked ? (
-        <p className="mt-1 font-semibold text-[color:var(--warning)]">
-          Retrieval confidence gate was triggered (low-confidence retrieval signal). Expand evidence details before
-          using this result.
-        </p>
-      ) : null}
-      {demoMode ? (
-        <p className="mt-1 font-semibold text-[color:var(--warning)]">
-          Synthetic demo only: this is not clinical guidance.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function QuoteCards({
-  quotes,
-  copiedQuotes,
-  onCopyQuotes,
-  onFollowUp,
-  onScopeDocument,
-}: {
-  quotes: QuoteCard[];
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onFollowUp?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  return (
-    <section id="quotes" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-      <SectionHeading
-        icon={Quote}
-        title="Source quotes"
-        description="Verbatim excerpts linked to the source PDF and page."
-        hideDescriptionOnMobile
-        compactMobile
-        action={
-          quotes.length > 0 ? (
-            <CopyButton label="Copy exact quotes" shortLabel="Quotes" copied={copiedQuotes} onClick={onCopyQuotes} />
-          ) : null
-        }
-      />
-      {quotes.length === 0 ? (
-        <EmptyState icon={Quote} title={emptyStates.exactQuotes.title} body={emptyStates.exactQuotes.body} />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {quotes.map((quote, index) => {
-            const quoteText = sourceTextForVerbatimQuote(quote.quote);
-            const quoteTitle = cleanDisplayTitle(quote.title);
-            return (
-              <article key={`${quote.chunk_id}:${quote.quote}`} className={cn(sourceCard, "p-3 sm:p-4")}>
-                <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
-                  <span className={cn(iconTilePremium, codeText, "h-7 w-7 text-xs font-bold sm:h-8 sm:w-8")}>
-                    {index + 1}
-                  </span>
-                  <StrengthBadge strength={quote.source_strength} />
-                </div>
-                <blockquote
-                  className={cn(proseMeasure, "text-base-minus font-medium leading-6 text-[color:var(--text)]")}
-                >
-                  &ldquo;{quoteText}&rdquo;
-                </blockquote>
-                <div
-                  className={cn(
-                    "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
-                    clinicalDivider,
-                  )}
-                >
-                  <span className="max-w-full text-base-minus font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
-                    {formatCompactCitationLabel(quote)}
-                  </span>
-                  <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">
-                    {quoteTitle}, page {quote.page_number ?? "n/a"}
-                  </span>
-                  <div className="w-full sm:w-auto">
-                    <SourceActionRow
-                      viewerHref={documentCitationHref(quote)}
-                      sourceTitle={`quote ${index + 1} from ${quoteTitle}`}
-                      documentId={quote.document_id}
-                      onScopeDocument={onScopeDocument}
-                      onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
-                      divider={false}
-                    />
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
-  return quotes
-    .map((quote, index) =>
-      [
-        // Clean the copied text the same way the card displays it, so clipboard
-        // output never contains internal image-data blocks or glyph artifacts.
-        `${index + 1}. "${sourceTextForVerbatimQuote(quote.quote)}"`,
-        `Source: ${formatCitationLabel(quote)}`,
-        `Link: ${documentCitationHref(quote)}`,
-      ].join("\n"),
-    )
-    .join("\n\n");
-}
-
-function ClinicalOutputPanel({
-  answer,
-  collapsed = false,
-  showLead = true,
-  viewMode = "standard",
-  onViewModeChange,
-  evidenceMapRows,
-}: {
-  answer: RagAnswer;
-  collapsed?: boolean;
-  showLead?: boolean;
-  viewMode?: AnswerViewMode;
-  onViewModeChange?: (mode: AnswerViewMode) => void;
-  evidenceMapRows?: AnswerEvidenceMapRow[];
-}) {
-  const sections =
-    viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
-  const rows = evidenceMapRows ?? buildAnswerEvidenceMap(answer);
-  if (sections.length === 0 && (viewMode !== "evidence_map" || rows.length === 0)) return null;
-  const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
-  const primaryAnswer = plainAnswerText(answer.answer);
-  const detailSections = sections
-    .filter((section) => section.id !== "verify-source")
-    .filter((section) => (showLead ? section.id !== leadSection?.id : section.id !== "bottom-line"))
-    .map((section) => ({
-      ...section,
-      items: displayItemsForClinicalDetailSection(section, primaryAnswer, showLead),
-    }))
-    .filter((section) => section.items.length > 0 || Boolean(section.tables?.length));
-  const orderedDetailSections = sortClinicalDetailSections(detailSections);
-  const summaryItems = clinicalDetailSummaryItems(orderedDetailSections);
-  const title =
-    viewMode === "evidence_map"
-      ? "Evidence map"
-      : viewMode === "high_yield"
-        ? "High-yield clinical details"
-        : showLead
-          ? "Clinical answer"
-          : "Structured clinical details";
-  const description =
-    viewMode === "evidence_map"
-      ? "Mapped answer sections to linked source support and source status."
-      : viewMode === "high_yield"
-        ? "Actions, thresholds, cautions, escalation triggers, monitoring, and dose details."
-        : showLead
-          ? "Dense source-backed structure for review."
-          : "Adaptive source-backed support below the concise answer.";
-
-  const content = (
-    <section data-testid="clinical-action-view" className={cn(panelSubtle, "p-3 sm:p-4")}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionHeading
-          icon={ListChecks}
-          title={title}
-          description={description}
-          action={onViewModeChange ? <AnswerViewModeControl value={viewMode} onChange={onViewModeChange} /> : undefined}
-          hideDescriptionOnMobile
-          compactMobile
-        />
-      </div>
-      {summaryItems.length ? (
-        <div
-          data-testid="clinical-detail-summary"
-          className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center"
-          aria-label="High-yield clinical detail summary"
-        >
-          {summaryItems.map((item) => (
-            <span
-              key={item.label}
-              className={cn(
-                subtleStatusPill,
-                "min-h-12 min-w-0 justify-between gap-2 rounded-lg px-3 py-2 text-left sm:min-h-9",
-              )}
-            >
-              <span className="min-w-0 truncate text-2xs uppercase tracking-[0.06em]">{item.label}</span>
-              <span className="shrink-0 text-sm font-bold text-[color:var(--text-heading)]">{item.value}</span>
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {showLead && leadSection ? (
-        <div className="mt-3 rounded-md border border-[color:var(--primary)]/15 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
-          <div className="flex items-start gap-2.5">
-            <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
-              <CheckCircle2 className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
-                {leadSection.title}
-              </p>
-              <p className="mt-1 text-base-minus font-semibold leading-6 text-[color:var(--text-heading)]">
-                <SafeBoldText text={leadSection.items[0] ?? "Review the source-backed answer and citations."} />
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {viewMode === "evidence_map" ? (
-        <div className="mt-3">
-          <EvidenceMapTable rows={rows} />
-        </div>
-      ) : orderedDetailSections.length ? (
-        <div
-          className={cn(
-            "mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
-            showLead && "border-t border-[color:var(--border)] pt-3",
-          )}
-        >
-          {orderedDetailSections.map((section) => {
-            const isWide = section.id === "thresholds" || Boolean(section.tables?.length);
-            const itemCount = clinicalDetailContentCount(section);
-            const meta = clinicalDetailMeta(section);
-            const Icon = meta.icon;
-            return (
-              <article
-                key={section.id}
-                data-testid="clinical-detail-card"
-                className={cn(
-                  "min-w-0 rounded-lg border border-[color:var(--border)]/80 bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-                  isWide && "md:col-span-2 xl:col-span-3",
-                )}
-              >
-                <div className="flex min-w-0 items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    <span
-                      className={cn(
-                        "grid h-9 w-9 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
-                        meta.toneClassName,
-                      )}
-                      aria-hidden="true"
-                    >
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-                        {meta.eyebrow}
-                      </p>
-                      <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                        {section.title}
-                      </h3>
-                    </div>
-                  </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-3xs")}>{itemCount}</span>
-                </div>
-                {section.tables?.length ? (
-                  <div className="mt-3 grid gap-3">
-                    {section.tables.map((table) => (
-                      <div key={table.id} data-testid="clinical-detail-table" className="min-w-0 space-y-2">
-                        <AccessibleTable
-                          caption={table.caption}
-                          markdown={table.markdown}
-                          rows={table.rows}
-                          columns={table.columns}
-                          {...simpleClinicalTableProps}
-                          clinicalOnly
-                          dialogTitle={table.caption || "Clinical table"}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {section.items.length ? (
-                  <ul className="mt-3 grid gap-2 text-base-minus leading-6 text-[color:var(--text)]">
-                    {section.items.map((item, index) => (
-                      <li
-                        key={`${section.id}:${index}:${item.slice(0, 48)}`}
-                        className="grid min-h-10 min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-md border border-[color:var(--border)]/70 bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)] sm:min-h-9"
-                      >
-                        <span
-                          className={cn("mt-1 h-4 w-1 shrink-0 rounded-full", meta.accentClassName)}
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0 break-words">
-                          <SafeBoldText text={item} />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
-    </section>
-  );
-
-  if (collapsed) {
-    return (
-      <UtilityDrawer
-        icon={ListChecks}
-        title="Clinical answer"
-        summary="Collapsed because direct source support was not found."
-        mobileSummary="Clinical formats"
-      >
-        {content}
-      </UtilityDrawer>
-    );
-  }
-
-  return content;
-}
-
 function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
   const visibleSources = sources.slice(0, 3);
   if (visibleSources.length === 0) return null;
 
   return (
     <details data-testid="why-this-matched" className={cn("group rounded-lg", panelSubtle)}>
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
+      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
             <Search className="h-4 w-4" />
@@ -3490,7 +634,7 @@ function VisualEvidenceStrip({
                     caption={sourceHeader.caption || sourceHeader.title}
                   />
                 </div>
-                <figcaption className="mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text)] sm:mt-3">
+                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
                   {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
                   {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
                   <AccessibleTable
@@ -3510,7 +654,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
+                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
                           {label}
                         </span>
                       ))}
@@ -3523,19 +667,19 @@ function VisualEvidenceStrip({
                     clinicalDivider,
                   )}
                 >
-                  <span className={cn("text-base-minus font-semibold leading-6 sm:hidden", textMuted)}>
+                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
                     {formatCompactCitationLabel(item)}
                   </span>
                   <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
                     {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
                       {item.image_type.replaceAll("_", " ")}
                     </span>
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
-                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-11 px-4 text-xs")}>
+                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
                     <ExternalLink className="h-4 w-4" />
                     Open source
                   </Link>
@@ -3827,7 +971,7 @@ function MobileEvidenceSheetContent({
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab}
-                {count ? <span className="nums text-2xs opacity-80">{count}</span> : null}
+                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
               </button>
             );
           })}
@@ -3876,17 +1020,13 @@ function MobileEvidenceSheetContent({
           {primarySourceHref ? (
             <Link
               href={primarySourceHref}
-              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
-              style={{ minHeight: 48, minWidth: 48 }}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span
-              className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]"
-              style={{ minHeight: 48, minWidth: 48 }}
-            >
+            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -3894,8 +1034,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => void copyEvidence()}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
-            style={{ minHeight: 48, minWidth: 48 }}
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copiedQuotes ? "Copied" : "Copy"}
@@ -3903,8 +1042,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
-            style={{ minHeight: 48, minWidth: 48 }}
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -4031,7 +1169,7 @@ function UnifiedEvidenceDrawerContent({
 
       <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
         {order.map((item) => (
-          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
             {item}
           </span>
         ))}
@@ -4062,7 +1200,7 @@ function UnifiedEvidenceDrawerContent({
                           <p className="text-sm font-semibold text-[color:var(--text-heading)]">
                             {compactClinicalTableCaption(item)}
                           </p>
-                          <span className={cn(metadataPill, "text-2xs")}>p.{item.page_number ?? "n/a"}</span>
+                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
                         </div>
                         <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
                           <Link href={item.viewer_href} className={chatMicroAction}>
@@ -4148,7 +1286,7 @@ function RelatedDocumentsPanel({
               <div className="min-w-0">
                 <Link
                   href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
-                  className="inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                 >
                   <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                 </Link>
@@ -4161,13 +1299,13 @@ function RelatedDocumentsPanel({
               <button
                 type="button"
                 onClick={() => onScopeDocument(document.document_id)}
-                className={cn(floatingControl, "min-h-11 px-3 text-xs")}
+                className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
               >
                 Scope
               </button>
             </div>
             {document.summary && (
-              <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>
+              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
                 <SafeBoldText text={document.summary} />
               </p>
             )}
@@ -4394,7 +1532,7 @@ function StagedAnswerResultSurface({
                       <h3 className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
                         {activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
                       </h3>
-                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
+                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
                         {activeReviewPanel === "clinical" ? clinicalNoteDisplayCount : "Supported"}
                       </span>
                     </div>
@@ -4465,7 +1603,7 @@ function StagedAnswerResultSurface({
               </span>
             }
             titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
@@ -4481,7 +1619,7 @@ function StagedAnswerResultSurface({
               ) : null
             }
             headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-base-minus leading-5"
+            titleClassName="text-[15px] leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
             contentStyle={{ height: "80dvh" }}
@@ -4507,7 +1645,9 @@ function StagedAnswerResultSurface({
             onClose={closeEvidenceReview}
             title="Evidence"
             description="Review by evidence type."
-            titleAccessory={<span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs")}>{evidenceTrustLabel}</span>}
+            titleAccessory={
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
+            }
             closeLabel="Close evidence"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
@@ -4542,100 +1682,6 @@ function StagedAnswerResultSurface({
 
       <SafetyFindingsPanel findings={safetyFindings} />
     </div>
-  );
-}
-
-function AuthPanel() {
-  const { status, error, isConfigured, signInWithEmail, signOut, session } = useAuthSession();
-  const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
-  const [draftEmail, setDraftEmail] = useState<string | null>(null);
-  const email = draftEmail ?? savedEmail;
-  const busy = status === "loading";
-  const isExpired = status === "expired";
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!email.trim()) return;
-    await signInWithEmail(email.trim());
-  }
-
-  if (!isConfigured) {
-    return (
-      <div className={cn(panelSubtle, "p-3")}>
-        <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--text)]">Real-data sign-in unavailable</p>
-            <p className={cn("mt-1 text-base-minus leading-6", textMuted)}>
-              Configure the Supabase public URL and publishable key before using private documents.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "authenticated") {
-    return (
-      <div className={cn(panelSubtle, "p-3")}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>{session?.user.email ?? "Authenticated session"}</p>
-          </div>
-          <button type="button" onClick={signOut} className={cn(floatingControl, "px-3 text-xs")}>
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={submit} className={cn(panelSubtle, "space-y-3 p-3")}>
-      <div className="flex items-start gap-3">
-        <LogIn className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--primary)]" />
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">
-            {isExpired ? "Sign-in link expired" : "Sign in for private documents"}
-          </p>
-          <p className={cn("mt-1 text-base-minus leading-6", textMuted)}>
-            {isExpired
-              ? "Send a fresh link if this one failed or already timed out."
-              : "Real-data search, upload, and source previews require a Supabase Auth session."}
-          </p>
-        </div>
-      </div>
-      <label className="block">
-        <span className={fieldLabel}>Email address</span>
-        <div className="relative">
-          <Mail className={fieldIcon} />
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setDraftEmail(event.target.value)}
-            placeholder="you@example.com"
-            className={fieldControlWithIcon}
-          />
-        </div>
-      </label>
-      <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-        Send sign-in link
-      </button>
-      {error && (
-        <p
-          role="alert"
-          className={cn(
-            "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs",
-            textMuted,
-          )}
-        >
-          {error}
-        </p>
-      )}
-    </form>
   );
 }
 
@@ -4786,14 +1832,14 @@ function DocumentLabelReviewPanel({
                   >
                     {documentDisplayTitle(item.document)}
                   </Link>
-                  <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
+                  <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
                     {item.visible.length} visible · {item.ranking.length} ranking · {item.hidden.length} hidden
                   </p>
                 </div>
                 {item.needsReview ? (
-                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-2xs")}>Needs review</span>
+                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-[11px]")}>Needs review</span>
                 ) : (
-                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-2xs")}>Reviewed</span>
+                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-[11px]")}>Reviewed</span>
                 )}
               </div>
 
@@ -4807,7 +1853,7 @@ function DocumentLabelReviewPanel({
                 if (!labelRows.length) return null;
                 return (
                   <section key={title} className="grid gap-1.5">
-                    <p className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                       {title}
                     </p>
                     <div className="grid gap-1.5">
@@ -4821,14 +1867,14 @@ function DocumentLabelReviewPanel({
                               <span className="truncate text-xs font-semibold text-[color:var(--text)]">
                                 {label.displayLabel}
                               </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-3xs")}>
+                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-[10px]")}>
                                 {label.tier}
                               </span>
-                              <span className={cn(metadataPill, "min-h-6 text-3xs")}>
+                              <span className={cn(metadataPill, "min-h-6 text-[10px]")}>
                                 {labelTypeDisplay(label.labelType)}
                               </span>
                             </div>
-                            <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
+                            <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
                               {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
                             </p>
                           </div>
@@ -4845,7 +1891,7 @@ function DocumentLabelReviewPanel({
                                     `restore:${label.id}`,
                                   )
                                 }
-                                className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
+                                className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
                               >
                                 Restore
                               </button>
@@ -4862,7 +1908,7 @@ function DocumentLabelReviewPanel({
                                       `approve:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
+                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
                                 >
                                   Approve
                                 </button>
@@ -4877,7 +1923,7 @@ function DocumentLabelReviewPanel({
                                       `hide:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs text-[color:var(--danger)]")}
+                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px] text-[color:var(--danger)]")}
                                 >
                                   Hide
                                 </button>
@@ -4979,7 +2025,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
       <div className="mt-3 space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
-            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-2xs", tagQualityTone[kind])}>
+            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-[11px]", tagQualityTone[kind])}>
               {tagQualityLabel(kind)}: {counts[kind]}
             </span>
           ))}
@@ -4992,17 +2038,17 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-3xs", tagQualityTone[issue.kind])}>
+                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", tagQualityTone[issue.kind])}>
                     {tagQualityLabel(issue.kind)}
                   </span>
                   <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
                   {issue.count > 1 ? (
-                    <span className={cn("text-2xs font-semibold", textMuted)}>{issue.count} hits</span>
+                    <span className={cn("text-[11px] font-semibold", textMuted)}>{issue.count} hits</span>
                   ) : null}
                 </div>
                 <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
                 {issue.examples.length || issue.documentTitles.length ? (
-                  <p className={cn("mt-1 truncate text-2xs font-semibold", textMuted)}>
+                  <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
                     {[
                       issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "",
                       issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : "",
@@ -5074,16 +2120,16 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "nums text-2xs")}>
+              <span className={cn(metadataPill, "nums text-[11px]")}>
                 index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={cn(metadataPill, "text-2xs")}>extraction:{item.extractionQuality}</span>
-              <span className={cn(metadataPill, "text-2xs")}>sections:{item.sectionCount}</span>
-              <span className={cn(metadataPill, "text-2xs")}>memory:{item.memoryCardCount}</span>
+              <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>
+              <span className={cn(metadataPill, "text-[11px]")}>sections:{item.sectionCount}</span>
+              <span className={cn(metadataPill, "text-[11px]")}>memory:{item.memoryCardCount}</span>
               {item.issues.slice(0, 4).map((issue) => (
-                <span key={issue} className={cn(metadataPill, "text-2xs")}>
+                <span key={issue} className={cn(metadataPill, "text-[11px]")}>
                   {issue}
                 </span>
               ))}
@@ -5309,7 +2355,7 @@ function DocumentDrawer({
       {/* Dynamic Browse Library Filters */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
-          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
@@ -5325,7 +2371,7 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
           <select
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
@@ -5341,7 +2387,7 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
           <select
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
@@ -5357,7 +2403,7 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
             Population
           </label>
           <select
@@ -5578,7 +2624,7 @@ function DocumentDrawer({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
-                    className="flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
@@ -5588,7 +2634,7 @@ function DocumentDrawer({
                     {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
                   </p>
                   {document.summary?.summary && (
-                    <p className={cn("mt-2 line-clamp-2 text-sm-minus leading-5", textMuted)}>
+                    <p className={cn("mt-2 line-clamp-2 text-[13px] leading-5", textMuted)}>
                       <SafeBoldText text={document.summary.summary} />
                     </p>
                   )}
@@ -5617,7 +2663,7 @@ function DocumentDrawer({
                     type="button"
                     onClick={() => onToggleScope(document.id)}
                     className={cn(
-                      "inline-flex min-h-11 items-center rounded-lg border px-3 text-xs font-semibold transition",
+                      "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
                       selected
                         ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -5668,7 +2714,7 @@ function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
 
 function DrawerGroupLabel({ title }: { title: string }) {
   return (
-    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
+    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }
 
@@ -5814,13 +2860,13 @@ export function SettingsDialog({
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-0.5 text-2xs font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
+                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
                   Clinical context
                 </p>
-                <p className="truncate text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
+                <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
                   {identity.displayName}
                 </p>
-                <p className="text-xs font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-sm-minus lg:leading-5">
+                <p className="text-[12px] font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-[13px] lg:leading-5">
                   Consultant psychiatrist, Western Australia
                 </p>
               </div>
@@ -5842,7 +2888,7 @@ export function SettingsDialog({
             <div className="grid gap-3 lg:gap-4">
               {settingSections.map((section) => (
                 <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-xs font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-sm-minus lg:text-[color:var(--text-heading)]">
+                  <h3 className="mb-1 px-1 text-[12px] font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-[13px] lg:text-[color:var(--text-heading)]">
                     {section.title}
                   </h3>
                   <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgba(0,0,0,0.04),var(--shadow-inset)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.24),var(--shadow-inset)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
@@ -5880,7 +2926,7 @@ export function SettingsDialog({
 
 function SettingsChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
+    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
       {label}
     </span>
   );
@@ -5888,7 +2934,7 @@ function SettingsChip({ label }: { label: string }) {
 
 function SettingsClinicalContextStrip() {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
+    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
@@ -5919,7 +2965,7 @@ function SettingsSummaryTile({
           : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
       )}
     >
-      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-11 lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
+      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-[44px] lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
@@ -5931,10 +2977,10 @@ function SettingsSummaryTile({
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-3xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
+          <span className="block truncate text-[10px] font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
             {label}
           </span>
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-sm-minus">
+          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-[13px]">
             {value}
           </span>
         </span>
@@ -5973,7 +3019,7 @@ function SettingsRow({
       <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
         <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
         {value ? (
-          <span className="mt-0.5 block max-w-full truncate text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-sm-minus">
+          <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
             {value}
           </span>
         ) : null}
@@ -6016,7 +3062,7 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm-minus font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-[13px] font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         data-testid="settings-row-guide-help"
       >
         <BookOpen className="h-4 w-4" />
@@ -6024,500 +3070,6 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
         <ChevronDown className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
       </button>
     </div>
-  );
-}
-
-function matchingServicesFor(query: string) {
-  const trimmedQuery = query.trim();
-  if (!trimmedQuery) return serviceRecords;
-  const matches = searchServiceRecords(trimmedQuery);
-  return matches.length ? matches.map((match) => match.service) : [];
-}
-
-function serviceConfidenceLabel(service: ServiceRecord) {
-  const confidence = service.verification?.confidence ?? "Unknown";
-  const status = service.source?.status;
-  return status ? `${confidence} confidence - ${status}` : `${confidence} confidence`;
-}
-
-function serviceMeetsCount(service: ServiceRecord) {
-  return (service.criteria ?? []).filter((criterion) => criterion.tone === "meet").length;
-}
-
-function serviceCautionCount(service: ServiceRecord) {
-  return (service.criteria ?? []).filter((criterion) => criterion.tone === "caution").length;
-}
-
-function serviceRejectCount(service: ServiceRecord) {
-  return (service.criteria ?? []).filter((criterion) => criterion.tone === "reject").length;
-}
-
-function serviceFitLabel(service: ServiceRecord) {
-  if (serviceRejectCount(service) > 0) return "Review fit";
-  if (serviceCautionCount(service) > 0) return "Confirm";
-  return "Meets";
-}
-
-function serviceChipClassName(tone?: string | null) {
-  if (tone === "danger")
-    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
-  if (tone === "info") return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-  if (tone === "warning")
-    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  if (tone === "success")
-    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
-  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
-}
-
-function ServiceStatusChips({ service, compact = false }: { service: ServiceRecord; compact?: boolean }) {
-  const chips = (service.statusChips ?? []).filter((chip) => chip.label).slice(0, compact ? 3 : 4);
-  if (!chips.length) return null;
-
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      {chips.map((chip) => (
-        <span
-          key={chip.label}
-          className={cn(
-            "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-2xs font-bold leading-none max-sm:min-h-5 max-sm:px-1.5 max-sm:text-3xs",
-            serviceChipClassName(chip.tone),
-          )}
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-          {chip.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function ServiceMetric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Phone;
-  label: string;
-  value?: string | null;
-  detail?: string | null;
-}) {
-  return (
-    <div className="grid min-h-[4.25rem] grid-cols-[1.55rem_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 shadow-[var(--shadow-inset)] sm:grid-cols-[1.85rem_minmax(0,1fr)] sm:px-3 max-sm:min-h-[3.35rem] max-sm:px-2 max-sm:py-1.5">
-      <Icon className="h-[1.125rem] w-[1.125rem] text-[color:var(--clinical-accent)] sm:h-5 sm:w-5" aria-hidden />
-      <div className="min-w-0">
-        <p className="truncate text-3xs font-bold uppercase leading-4 text-[color:var(--text-soft)]">{label}</p>
-        <p className="truncate text-xs font-bold leading-5 text-[color:var(--text-heading)] sm:text-sm">
-          {value || "Confirm locally"}
-        </p>
-        {detail ? (
-          <p className="truncate text-3xs font-semibold text-[color:var(--text-muted)] sm:text-2xs">{detail}</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function ServiceResultCard({
-  service,
-  index,
-  selected,
-  onToggleSelected,
-}: {
-  service: ServiceRecord;
-  index: number;
-  selected: boolean;
-  onToggleSelected: (slug: string) => void;
-}) {
-  const rank = index + 1;
-  const highlighted = rank === 1;
-  const primaryContact = service.primaryContact?.value ?? "Confirm locally";
-  const contactDetail = service.primaryContact?.detail ?? service.route ?? "Referral route pending";
-  const eligibility =
-    service.eligibility ?? service.summaryCards?.find((card) => card.id === "eligibility")?.title ?? "Confirm locally";
-  const cost = service.cost ?? service.summaryCards?.find((card) => card.id === "cost")?.title ?? "Confirm locally";
-  const isFree = cost.toLowerCase().includes("free");
-
-  return (
-    <article
-      data-testid={`service-mode-result-${service.slug}`}
-      className={cn(
-        "service-referral-card rounded-lg border bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-tight)] transition sm:p-4",
-        highlighted
-          ? "border-[color:var(--clinical-accent)] shadow-[var(--glow-primary)]"
-          : "border-[color:var(--border)] hover:border-[color:var(--border-strong)]",
-      )}
-    >
-      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-2.5 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:gap-3">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] sm:h-9 sm:w-9">
-          {rank}
-        </span>
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className="min-w-0 text-base-minus font-bold leading-5 text-[color:var(--text-heading)] sm:text-lg sm:leading-6">
-              {service.title}
-            </h3>
-            <ServiceStatusChips service={service} compact />
-          </div>
-          <p className={cn("mt-1 text-sm-minus font-medium leading-5 sm:text-sm sm:leading-6", textMuted)}>
-            {service.subtitle ?? service.bestUse ?? "Open the service record for referral details."}
-          </p>
-        </div>
-        <button
-          type="button"
-          aria-label={selected ? `Remove ${service.title} from selected services` : `Select ${service.title}`}
-          onClick={() => onToggleSelected(service.slug)}
-          className={cn(
-            "hidden h-9 min-w-[6.25rem] items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold shadow-[var(--shadow-tight)] sm:inline-flex",
-            selected
-              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
-          )}
-        >
-          <CheckCircle2 className="h-4 w-4" aria-hidden />
-          {selected ? "Selected" : "Select"}
-        </button>
-        <button
-          type="button"
-          aria-label={selected ? `Remove ${service.title} from selected services` : `Select ${service.title}`}
-          onClick={() => onToggleSelected(service.slug)}
-          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
-        >
-          <Bookmark className={cn("h-5 w-5", selected && "fill-current text-[color:var(--clinical-accent)]")} />
-        </button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
-        <ServiceMetric icon={Phone} label="Route / contact" value={primaryContact} detail={contactDetail} />
-        <ServiceMetric icon={Users} label="Eligibility" value={eligibility} detail="See details" />
-        <ServiceMetric
-          icon={ShieldCheck}
-          label="Confidence"
-          value={service.verification?.confidence ?? "Unknown"}
-          detail={service.source?.status ?? "Source status pending"}
-        />
-        <ServiceMetric
-          icon={DollarSign}
-          label="Cost"
-          value={cost}
-          detail={isFree ? "No cost to access" : "Confirm before referral"}
-        />
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap gap-1.5">
-          <span className={cn(metadataPill, "min-h-7 rounded-full max-sm:min-h-6 max-sm:text-2xs")}>
-            {serviceConfidenceLabel(service)}
-          </span>
-          {(service.tags ?? []).slice(0, 4).map((tag, tagIndex) => (
-            <span
-              key={tag}
-              className={cn(
-                metadataPill,
-                "min-h-7 rounded-full max-sm:min-h-6 max-sm:text-2xs",
-                tagIndex > 1 && "max-sm:hidden",
-              )}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {highlighted ? (
-            <span className="hidden min-h-7 items-center rounded-full bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] sm:inline-flex">
-              Best fit
-            </span>
-          ) : null}
-          <Link
-            href={`/services/${service.slug}`}
-            aria-label={`Open ${service.title}`}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] max-sm:min-h-8"
-          >
-            Open
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ServicesHub({ query, onQueryChange }: { query: string; onQueryChange: (nextQuery: string) => void }) {
-  const matches = matchingServicesFor(query);
-  const trimmedQuery = query.trim();
-  const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
-  const selectedServices = serviceRecords.filter((service) => selectedSlugs.includes(service.slug));
-  const totalMeets = matches.reduce((count, service) => count + serviceMeetsCount(service), 0);
-  const totalCautions = matches.reduce((count, service) => count + serviceCautionCount(service), 0);
-  const totalRejects = matches.reduce((count, service) => count + serviceRejectCount(service), 0);
-  const verifiedCount = matches.filter((service) => service.verification?.locallyVerified).length;
-  const localConfirmationCount = matches.filter((service) =>
-    [service.source?.status, ...(service.statusChips ?? []).map((chip) => chip.label)]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes("confirmation"),
-  ).length;
-
-  function toggleSelected(slug: string) {
-    setSelectedSlugs((current) => {
-      if (current.includes(slug)) return current.filter((item) => item !== slug);
-      return [slug, ...current].slice(0, 5);
-    });
-  }
-
-  return (
-    <section
-      data-testid="services-hub"
-      className="services-navigator-hub mx-auto w-full max-w-7xl space-y-4"
-      aria-label="Referral services"
-    >
-      <h2 className="sr-only">Referral services</h2>
-      <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] lg:grid lg:grid-cols-[repeat(4,minmax(0,1fr))] lg:items-center lg:gap-3">
-        {[
-          ["1", "Search", "Find services"],
-          ["2", "Shortlist", "Pick best options"],
-          ["3", "Compare", "Review side by side"],
-          ["4", "Refer", "Send with confidence"],
-        ].map(([step, title, body], index) => (
-          <div key={step} className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-2">
-            <span
-              className={cn(
-                "grid h-9 w-9 place-items-center rounded-full border text-sm font-bold",
-                index === 0
-                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                  : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-              )}
-            >
-              {step}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
-              <span className="block truncate text-xs font-semibold text-[color:var(--text-soft)]">{body}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
-        <div className="min-w-0 space-y-4">
-          <div className="grid gap-2">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-2xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-3xl max-sm:text-[1.45rem]">
-                  {matches.length} referral match{matches.length === 1 ? "" : "es"}
-                </h2>
-              </div>
-              <button type="button" className={cn(floatingControl, "min-h-10 shrink-0 gap-2 px-3 max-sm:min-h-9")}>
-                <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                Sort
-              </button>
-            </div>
-            <p className={cn("max-w-3xl text-sm leading-6 max-sm:text-sm-minus max-sm:leading-5", textMuted)}>
-              {trimmedQuery
-                ? `Best fit for ${trimmedQuery}; review route, eligibility, confidence, and source status.`
-                : `Best fit view across ${serviceRecords.length} referral services; search to narrow by need, patient group, route, or region.`}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2" aria-label="Service filters">
-            {["Best fit", "Crisis", "ATSI-specific", "Phone referral", "Free", "WA"].map((suggestion, index) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => onQueryChange(index === 0 ? "" : suggestion)}
-                className={cn(
-                  "inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-bold transition max-sm:min-h-7 max-sm:px-2.5",
-                  index === 0
-                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                )}
-              >
-                {suggestion}
-              </button>
-            ))}
-            {trimmedQuery ? (
-              <button
-                type="button"
-                onClick={() => onQueryChange("")}
-                className="min-h-8 px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline"
-              >
-                Clear all
-              </button>
-            ) : null}
-          </div>
-
-          {matches.length ? (
-            <div className="grid gap-3">
-              {matches.map((service, index) => (
-                <ServiceResultCard
-                  key={service.slug}
-                  service={service}
-                  index={index}
-                  selected={selectedSlugs.includes(service.slug)}
-                  onToggleSelected={toggleSelected}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={Search}
-              title="No services match"
-              body="Try crisis, Aboriginal, phone, regional, or clear the search to browse every service."
-            />
-          )}
-        </div>
-
-        <aside className="hidden space-y-4 lg:block">
-          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
-              <span className="text-xs font-bold text-[color:var(--clinical-accent)]">
-                {selectedServices.length} selected
-              </span>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {selectedServices.map((service, index) => (
-                <button
-                  key={service.slug}
-                  type="button"
-                  onClick={() => toggleSelected(service.slug)}
-                  className="grid min-h-14 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left shadow-[var(--shadow-inset)]"
-                >
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
-                      {service.title}
-                    </span>
-                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                      {serviceFitLabel(service)} - {service.cost ?? "Cost pending"}
-                    </span>
-                  </span>
-                  <span className="text-lg leading-none text-[color:var(--text-soft)]">x</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
-              <button type="button" className="text-xs font-bold text-[color:var(--clinical-accent)]">
-                Edit
-              </button>
-            </div>
-            <div className="mt-3 grid gap-3 text-sm font-semibold">
-              {[
-                ["Meets", totalMeets, "bg-[color:var(--success)]"],
-                ["Caution", totalCautions, "bg-[color:var(--warning)]"],
-                ["Does not meet", totalRejects, "bg-[color:var(--danger)]"],
-                ["Source verified", verifiedCount, "bg-[color:var(--success)]"],
-                ["Local confirmation", localConfirmationCount, "bg-[color:var(--warning)]"],
-              ].map(([label, count, dotClass]) => (
-                <div key={String(label)} className="flex items-center justify-between gap-3">
-                  <span className="inline-flex min-w-0 items-center gap-2 text-[color:var(--text-muted)]">
-                    <span className={cn("h-3 w-3 rounded-full", dotClass as string)} aria-hidden />
-                    {label}
-                  </span>
-                  <span className="nums font-bold text-[color:var(--text-heading)]">{String(count)}</span>
-                </div>
-              ))}
-            </div>
-            <button
-              className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]"
-              type="button"
-            >
-              Review details
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </button>
-          </section>
-
-          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
-              <button type="button" className="text-xs font-bold text-[color:var(--clinical-accent)]">
-                View details
-              </button>
-            </div>
-            <div className="mt-4 grid h-3 grid-cols-[3fr_3fr_1fr_1fr] overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
-              <span className="bg-[color:var(--success)]" />
-              <span className="bg-[color:var(--warning)]" />
-              <span className="bg-[color:var(--danger)]" />
-              <span className="bg-[color:var(--border-strong)]" />
-            </div>
-            <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>
-                High
-                <br />
-                <b className="nums text-[color:var(--text-heading)]">
-                  {matches.filter((service) => service.verification?.confidence === "High").length}
-                </b>
-              </span>
-              <span>
-                Medium
-                <br />
-                <b className="nums text-[color:var(--text-heading)]">
-                  {matches.filter((service) => service.verification?.confidence === "Medium").length}
-                </b>
-              </span>
-              <span>
-                Low
-                <br />
-                <b className="nums text-[color:var(--text-heading)]">
-                  {matches.filter((service) => service.verification?.confidence === "Low").length}
-                </b>
-              </span>
-              <span>
-                Unknown
-                <br />
-                <b className="nums text-[color:var(--text-heading)]">
-                  {
-                    matches.filter(
-                      (service) => !service.verification?.confidence || service.verification?.confidence === "Unknown",
-                    ).length
-                  }
-                </b>
-              </span>
-            </div>
-          </section>
-
-          <button
-            type="button"
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
-          >
-            <Scale className="h-5 w-5" aria-hidden />
-            Compare selected ({selectedServices.length})
-          </button>
-
-          <section className="grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
-            <span className="min-w-0">
-              <span className="block text-sm font-bold text-[color:var(--clinical-accent)]">Next step</span>
-              <span className="block text-sm leading-5 text-[color:var(--text-muted)]">
-                Compare services side by side to confirm the best referral for your patient.
-              </span>
-            </span>
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
-              <ArrowRight className="h-5 w-5" aria-hidden />
-            </span>
-          </section>
-        </aside>
-      </div>
-
-      {selectedServices.length ? (
-        <div className="fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-30 grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[0_14px_32px_rgb(15_37_48_/_24%)] lg:hidden">
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <Scale className="h-5 w-5" aria-hidden />
-            {selectedServices.length} selected
-          </span>
-          <button type="button" className="inline-flex min-h-10 items-center gap-2">
-            Compare
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -6599,15 +3151,6 @@ function buildMobileSectionFabState({
         statusLabel: "Tools",
         statusTone: "neutral",
         nextStep: "Launch a clinical tool",
-        badgeLabel: null,
-        badgeTone: "neutral",
-      };
-    }
-    if (modeSearch.resultKind === "services") {
-      return {
-        statusLabel: "Services",
-        statusTone: "neutral",
-        nextStep: modeSearch.nextStep,
         badgeLabel: null,
         badgeTone: "neutral",
       };
@@ -6782,7 +3325,7 @@ function MobileSectionFab({
           <span
             aria-hidden="true"
             className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-3xs font-bold leading-4 shadow-[var(--shadow-tight)]",
+              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-[10px] font-bold leading-4 shadow-[var(--shadow-tight)]",
               fabToneClassName(state.badgeTone),
             )}
           >
@@ -6816,7 +3359,10 @@ function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <p
+                id={labelId}
+                className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+              >
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -6825,7 +3371,7 @@ function MobileSectionFab({
             </div>
             <span
               data-testid="mobile-section-fab-status"
-              className={cn("rounded-full border px-2 py-1 text-2xs font-bold", fabToneClassName(state.statusTone))}
+              className={cn("rounded-full border px-2 py-1 text-[11px] font-bold", fabToneClassName(state.statusTone))}
             >
               {state.statusLabel}
             </span>
@@ -6880,14 +3426,14 @@ function MobileSectionFab({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
                     {item.description}
                   </span>
                 </span>
                 {item.count !== null ? (
                   <span
                     className={cn(
-                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-2xs font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
+                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
                         "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
@@ -6994,8 +3540,6 @@ export function ClinicalDashboard({
   autoRunSearch = false,
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const searchParamString = searchParams?.toString() ?? "";
   const mainRef = useRef<HTMLElement>(null);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -7003,7 +3547,7 @@ export function ClinicalDashboard({
   const autoRunSearchSignatureRef = useRef<string | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const nextWorkStatePollRef = useRef(0);
-  const searchModeRef = useRef<AppModeId>(initialSearchMode);
+  const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
@@ -7027,15 +3571,19 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
+  // Record matches come from the owner-scoped registry API (mock fixtures in
+  // demo mode); ranking stays client-side so live-typing behaviour is
+  // unchanged and the registry is fetched once per active mode.
+  const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
+    enabled: searchMode === "services" || searchMode === "forms",
+  });
   const serviceSearchMatches = useMemo(
-    () => (searchMode === "services" ? searchServiceRecords(query) : []),
-    [query, searchMode],
+    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, query) : []),
+    [query, searchMode, registryRecords.records],
   );
-  const serviceNavigatorResultCount =
-    searchMode === "services" ? (query.trim() ? serviceSearchMatches.length : serviceRecords.length) : 0;
   const formSearchMatches = useMemo(
-    () => (searchMode === "forms" ? searchFormRecords(query) : []),
-    [query, searchMode],
+    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, query) : []),
+    [query, searchMode, registryRecords.records],
   );
   const recordSearchMatches = useMemo(
     () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
@@ -7072,22 +3620,6 @@ export function ClinicalDashboard({
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
-  const resetSearchModeState = useCallback((mode: AppModeId) => {
-    setQuery("");
-    if (mode === "differentials" || mode === "answer") {
-      setAnswer(null);
-      setSources([]);
-    }
-    setModeSearchSubmitted(false);
-    setLoading(false);
-    setError(null);
-    setAnswerProgress(null);
-    setSearchRelevance(null);
-    setSearchFacets(null);
-    setSearchScope(null);
-    setSourceGovernanceWarnings([]);
-    setDocumentMatches([]);
-  }, []);
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -7718,10 +4250,6 @@ export function ClinicalDashboard({
   }, [activeIndexingWork, canUsePrivateApis, clientDemoMode, refresh]);
 
   useEffect(() => {
-    searchModeRef.current = searchMode;
-  }, [searchMode]);
-
-  useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
     updateOnline();
     window.addEventListener("online", updateOnline);
@@ -7740,23 +4268,22 @@ export function ClinicalDashboard({
   }, [focusSearch]);
 
   useEffect(() => {
-    const params = new URLSearchParams(searchParamString);
+    if (urlSearchBootstrappedRef.current) return;
+    const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
-    const searchText = params.has("q") ? (params.get("q") ?? "").trim() : null;
+    const searchText = params.get("q")?.trim();
     const shouldFocusComposer = params.get("focus") === "1";
     if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
+    urlSearchBootstrappedRef.current = true;
     const targetMode = mode;
     const frame = window.requestAnimationFrame(() => {
-      if (targetMode !== searchModeRef.current) {
-        resetSearchModeState(targetMode);
-        setSearchMode(targetMode);
-        searchModeRef.current = targetMode;
-      }
-      if (searchText !== null) setQuery(searchText);
+      if (targetMode === "differentials") clearDifferentialModeResultState();
+      setSearchMode(targetMode);
+      if (searchText) setQuery(searchText);
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [resetSearchModeState, searchParamString]);
+  }, []);
 
   useEffect(() => {
     if (urlDocumentSearchBootstrappedRef.current) return;
@@ -7772,7 +4299,9 @@ export function ClinicalDashboard({
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
-    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !canRunSearch) return;
+    const isRegistryOnlyMode = mode === "services" || mode === "forms";
+    if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch)
+      return;
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
@@ -7985,6 +4514,11 @@ export function ClinicalDashboard({
     const modeSearch = appModeSearchConfig(targetMode);
     const targetQueryMode = appModeQueryMode(targetMode, queryMode);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
+    // Note: no automatic mode-default label scope for Services/Forms. Applying
+    // one on every search routed resolveSearchScope's label path over the whole
+    // library, whose single `document_labels.in(<all ids>)` request produces an
+    // over-long PostgREST URL that fails on large corpora. Corpus search runs
+    // unscoped (like Documents); users opt into label filters explicitly.
     const requestId = ++searchRequestSeqRef.current;
 
     setSearchMode(targetMode);
@@ -8004,7 +4538,7 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
-    if (modeSearch.kind === "services") {
+    if (modeSearch.kind === "services" || targetMode === "forms") {
       setAnswer(null);
       setSources([]);
       setDocumentMatches([]);
@@ -8130,11 +4664,7 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    const localAutoRunMode =
-      activeModeSearch.kind === "services" ||
-      activeModeSearch.kind === "tools" ||
-      activeModeSearch.kind === "favourites";
-    if (!autoRunSearch || !trimmedQuery || (!canRunSearch && !localAutoRunMode) || loading) return;
+    if (!autoRunSearch || !trimmedQuery || !canRunSearch || loading) return;
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
@@ -8365,7 +4895,21 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
-    resetSearchModeState(mode);
+    if (mode === "differentials") clearDifferentialModeResultState();
+    setQuery("");
+    if (mode === "answer") {
+      setAnswer(null);
+      setSources([]);
+    }
+    setModeSearchSubmitted(false);
+    setLoading(false);
+    setError(null);
+    setAnswerProgress(null);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setDocumentMatches([]);
     setSearchMode(mode);
     router.push(appModeHomeHref(mode));
   }
@@ -8650,47 +5194,37 @@ export function ClinicalDashboard({
           ? query.trim()
             ? "Filtered tools"
             : "Browse tools"
-          : activeModeResultKind === "services"
+          : activeModeResultKind === "favourites"
             ? query.trim()
-              ? "Filtered services"
-              : "Referral services"
-            : activeModeResultKind === "favourites"
-              ? query.trim()
-                ? "Filtered favourites"
-                : "Browse favourites"
-              : activeModeResultKind === "answer"
-                ? answer
-                  ? weakEvidence
-                    ? "Read synthesis carefully"
-                    : "Clinical synthesis"
-                  : activeModeSearch.nextStep
-                : documentMatches.length
-                  ? "Document results"
-                  : activeModeSearch.readyTitle,
+              ? "Filtered favourites"
+              : "Browse favourites"
+            : activeModeResultKind === "answer"
+              ? answer
+                ? weakEvidence
+                  ? "Read synthesis carefully"
+                  : "Clinical synthesis"
+                : activeModeSearch.nextStep
+              : documentMatches.length
+                ? "Document results"
+                : activeModeSearch.readyTitle,
       icon:
         activeModeResultKind === "tools"
           ? Wrench
-          : activeModeResultKind === "services"
-            ? ShieldCheck
-            : activeModeResultKind === "favourites"
-              ? Heart
-              : activeModeResultKind === "answer"
-                ? Search
-                : FileText,
+          : activeModeResultKind === "favourites"
+            ? Heart
+            : activeModeResultKind === "answer"
+              ? Search
+              : FileText,
       href: "#search",
       count:
         activeModeResultKind === "tools"
           ? applicationsLauncherItemCount
-          : activeModeResultKind === "services"
-            ? serviceNavigatorResultCount
-            : activeModeResultKind === "favourites"
-              ? null
-              : activeModeResultKind === "documents"
-                ? documentMatches.length
-                : null,
-      empty:
-        (activeModeResultKind === "documents" && documentMatches.length === 0) ||
-        (activeModeResultKind === "services" && serviceNavigatorResultCount === 0),
+          : activeModeResultKind === "favourites"
+            ? null
+            : activeModeResultKind === "documents"
+              ? documentMatches.length
+              : null,
+      empty: activeModeResultKind === "documents" && documentMatches.length === 0,
     },
     {
       label: "Quotes",
@@ -8735,7 +5269,7 @@ export function ClinicalDashboard({
       mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
       className={className}
     >
-      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
+      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
         {demoMode
           ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
           : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
@@ -8773,7 +5307,7 @@ export function ClinicalDashboard({
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
-      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
+      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
           : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
@@ -8861,41 +5395,34 @@ export function ClinicalDashboard({
           ? "Admin"
           : "Library";
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
-  const isServicesNavigator = activeModeResultKind === "services";
 
   return (
     <div
       className={cn(
         appBackdrop,
         "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:overflow-hidden",
-        isServicesNavigator
-          ? "lg:grid-cols-[minmax(0,1fr)]"
-          : sidebarCollapsed
-            ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]"
-            : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
-          "--clinical-sidebar-width": isServicesNavigator ? "0rem" : sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
         } as CSSProperties
       }
     >
-      {isServicesNavigator ? null : (
-        <ClinicalDesktopSidebar
-          collapsed={sidebarCollapsed}
-          recentQueries={recentQueries}
-          identity={sidebarIdentity}
-          activeMode={searchMode}
-          onCollapsedChange={setSidebarCollapsed}
-          onNewChat={startNewChat}
-          onPickRecent={pickRecentQuery}
-          onOpenGuide={openGuide}
-          onOpenSettings={openSettings}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onPrefetchApplications={prefetchApplications}
-        />
-      )}
+      <ClinicalDesktopSidebar
+        collapsed={sidebarCollapsed}
+        recentQueries={recentQueries}
+        identity={sidebarIdentity}
+        activeMode={searchMode}
+        onCollapsedChange={setSidebarCollapsed}
+        onNewChat={startNewChat}
+        onPickRecent={pickRecentQuery}
+        onOpenGuide={openGuide}
+        onOpenSettings={openSettings}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onPrefetchApplications={prefetchApplications}
+      />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:h-full">
         <MasterSearchHeader
@@ -8907,7 +5434,7 @@ export function ClinicalDashboard({
           selectedDocumentIds={selectedDocumentIds}
           queryMode={queryMode}
           scopeFilters={scopeFilters}
-          realDataReady={canRunSearch || isServicesNavigator}
+          realDataReady={canRunSearch}
           onQueryChange={setQuery}
           onSearchModeChange={selectSearchMode}
           onAsk={ask}
@@ -8954,7 +5481,6 @@ export function ClinicalDashboard({
           <div
             className={cn(
               "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-              isServicesNavigator && "lg:pt-5",
               searchMode === "answer"
                 ? "pb-32 sm:pb-36 lg:pb-40"
                 : hasMobileBottomSearch
@@ -8989,16 +5515,14 @@ export function ClinicalDashboard({
               className={cn(
                 "min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? "grid w-full items-end justify-items-center sm:items-center"
-                  : activeModeResultKind === "services"
-                    ? "mx-auto w-full max-w-7xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "tools" ||
-                        activeModeResultKind === "favourites" ||
-                        activeModeResultKind === "differentials"
+                  ? "grid w-full place-items-center"
+                  : activeModeResultKind === "tools" ||
+                      activeModeResultKind === "favourites" ||
+                      activeModeResultKind === "differentials"
+                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                    : activeModeResultKind === "documents" || activeModeResultKind === "services"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : activeModeResultKind === "documents"
-                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
               )}
             >
               <h2 data-testid="answer-section-heading" className="sr-only">
@@ -9017,7 +5541,7 @@ export function ClinicalDashboard({
               {loading && answerProgress && searchMode !== "prescribing" && (
                 <div
                   role="status"
-                  className="flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                 >
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
                   <span className="min-w-0 truncate">{answerProgress}</span>
@@ -9029,7 +5553,6 @@ export function ClinicalDashboard({
                   query={query}
                   loading={loading}
                   documentMatches={documentMatches}
-                  documentCount={indexedDocumentTotal}
                   realDataReady={canRunSearch}
                   authUnavailable={!clientDemoMode && !canUsePrivateApis}
                   apiUnavailable={apiUnavailable}
@@ -9071,9 +5594,7 @@ export function ClinicalDashboard({
                   }
                   desktopComposerSlotId={desktopHomeComposerSlotId}
                 />
-              ) : activeModeResultKind === "services" ? (
-                <ServicesHub query={query} onQueryChange={setQuery} />
-              ) : activeModeResultKind === "documents" ? (
+              ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace
                     query={query}
@@ -9093,6 +5614,7 @@ export function ClinicalDashboard({
                       matches={documentMatches}
                       recordMatches={recordSearchMatches}
                       recordMode={recordSearchMode}
+                      recordStatus={registryRecords.status}
                       showRecordMatches={searchMode === "services" || searchMode === "forms"}
                       query={query}
                       loading={loading}
@@ -9258,7 +5780,9 @@ export function ClinicalDashboard({
                               <Icon className="h-3.5 w-3.5" />
                               {tab.label}
                             </span>
-                            <span className="mt-1 block truncate text-2xs font-semibold opacity-80">{tab.summary}</span>
+                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                              {tab.summary}
+                            </span>
                           </button>
                         );
                       })}

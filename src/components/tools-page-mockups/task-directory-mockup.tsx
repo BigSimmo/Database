@@ -10,10 +10,12 @@ import {
   BookOpen,
   ClipboardList,
   Clock3,
-  Filter,
+  Grid2X2,
   HeartPulse,
+  History,
+  Pin,
   Search,
-  Settings2,
+  ShieldCheck,
   Star,
   Stethoscope,
   type LucideIcon,
@@ -22,27 +24,31 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
-import { statusLabels, statusStyles, tools, type ToolArea, type ToolFixture, type ToolStatus } from "./tool-fixtures";
+import {
+  pinnedToolIds,
+  statusLabels,
+  statusStyles,
+  tools,
+  type ToolArea,
+  type ToolFixture,
+  type ToolStatus,
+} from "./tool-fixtures";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-type FilterId = "all" | "clinical" | "admin" | "review_due";
+type FilterId = "all" | "pinned" | "review_due" | "source_backed" | "clinical" | "admin";
 
-// Derived from `area` so the Clinical / Admin filters map to real tool data.
-const categoryByArea: Record<ToolArea, "clinical" | "admin"> = {
-  reference: "clinical",
-  assessment: "clinical",
-  care: "clinical",
-  coordination: "admin",
-  personal: "admin",
-};
+const clinicalAreas = new Set<ToolArea>(["reference", "assessment", "care"]);
+const adminAreas = new Set<ToolArea>(["coordination", "personal"]);
 
 const predicates: Record<FilterId, (tool: ToolFixture) => boolean> = {
   all: () => true,
-  clinical: (tool) => categoryByArea[tool.area] === "clinical",
-  admin: (tool) => categoryByArea[tool.area] === "admin",
+  pinned: (tool) => pinnedToolIds.includes(tool.id as (typeof pinnedToolIds)[number]),
   review_due: (tool) => tool.status === "review_due",
+  source_backed: (tool) => tool.sourceBacked,
+  clinical: (tool) => clinicalAreas.has(tool.area),
+  admin: (tool) => adminAreas.has(tool.area),
 };
 
 const groups: { area: ToolArea; title: string; icon: LucideIcon }[] = [
@@ -54,10 +60,12 @@ const groups: { area: ToolArea; title: string; icon: LucideIcon }[] = [
 ];
 
 const chips: { id: FilterId; label: string; icon: LucideIcon }[] = [
-  { id: "all", label: "All", icon: Filter },
-  { id: "clinical", label: "Clinical", icon: Stethoscope },
-  { id: "admin", label: "Admin", icon: Settings2 },
+  { id: "all", label: "All tools", icon: Grid2X2 },
+  { id: "pinned", label: "Pinned", icon: Pin },
   { id: "review_due", label: "Review due", icon: Clock3 },
+  { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
+  { id: "clinical", label: "Clinical", icon: Stethoscope },
+  { id: "admin", label: "Admin", icon: ClipboardList },
 ];
 
 function matchesQuery(tool: ToolFixture, query: string): boolean {
@@ -76,6 +84,42 @@ function StatusPill({ status }: { status: ToolStatus }) {
     >
       {statusLabels[status]}
     </span>
+  );
+}
+
+function SourceBackedBadge() {
+  return (
+    <span className="inline-flex min-h-6 shrink-0 items-center gap-1 rounded-md border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
+      <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+      Source-backed
+    </span>
+  );
+}
+
+function StatsStrip() {
+  const stats = [
+    { label: "Tools", value: String(tools.length), icon: Grid2X2 },
+    { label: "Review due", value: String(tools.filter((tool) => tool.status === "review_due").length), icon: Clock3 },
+    { label: "Recent", value: String(tools.filter((tool) => tool.status === "recent").length), icon: History },
+  ];
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[26rem]">
+      {stats.map(({ label, value, icon: Icon }) => (
+        <div
+          key={label}
+          className="grid min-h-20 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-inset)]"
+        >
+          <span className="grid h-9 w-9 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span>
+            <span className="nums block text-xl font-extrabold text-[color:var(--text-heading)]">{value}</span>
+            <span className="text-xs font-bold text-[color:var(--text-muted)]">{label}</span>
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -170,6 +214,7 @@ function ToolRow({ tool }: { tool: ToolFixture }) {
             {tool.title}
           </h3>
           <StatusPill status={tool.status} />
+          {tool.sourceBacked ? <SourceBackedBadge /> : null}
         </div>
         <p className="mt-1 line-clamp-1 text-sm font-medium text-[color:var(--text-muted)]">{tool.description}</p>
         <p className="mt-1 truncate text-xs font-bold text-[color:var(--text-soft)]">{tool.secondary}</p>
@@ -222,7 +267,14 @@ export function ToolsTaskDirectoryMockup() {
   );
   const counts = useMemo(() => {
     const count = (id: FilterId) => tools.filter(predicates[id]).length;
-    return { all: count("all"), clinical: count("clinical"), admin: count("admin"), review_due: count("review_due") };
+    return {
+      all: count("all"),
+      admin: count("admin"),
+      clinical: count("clinical"),
+      pinned: count("pinned"),
+      review_due: count("review_due"),
+      source_backed: count("source_backed"),
+    };
   }, []);
 
   const reset = () => {
@@ -238,22 +290,24 @@ export function ToolsTaskDirectoryMockup() {
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]">
-              Concept 4
-            </span>
-            <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)]">
-              Recommended build direction
-            </span>
+        <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:px-8">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]">
+                Concept 4
+              </span>
+              <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)]">
+                Recommended build direction
+              </span>
+            </div>
+            <h1 className="mt-3 text-balance text-3xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
+              Task directory
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
+              Grouped by clinical job and listed for scale, with source status and recent work visible before launch.
+            </p>
           </div>
-          <h1 className="mt-3 text-balance text-3xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-            Task directory
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Grouped by clinical job and listed for scale — Concept 2&apos;s task grouping with Concept 3&apos;s row
-            density.
-          </p>
+          <StatsStrip />
         </div>
       </header>
 

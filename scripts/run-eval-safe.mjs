@@ -207,10 +207,36 @@ function terminateEvalProcess(pid) {
   terminateEvalProcessTree(pid);
 }
 
+function resolveFromAncestorNodeModules(startDir) {
+  let dir = startDir;
+  for (;;) {
+    const candidate = resolve(dir, "node_modules", "tsx", "dist", "cli.mjs");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+function listGitWorktreeRoots() {
+  const result = spawnSync("git", ["worktree", "list", "--porcelain"], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.status !== 0) return [];
+
+  return (result.stdout || "")
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length).trim())
+    .filter(Boolean);
+}
+
 // Resolve the tsx CLI without assuming node_modules sits directly under the
 // repo root. Fresh git worktrees frequently have a junctioned or hoisted
 // node_modules (or none at all), so honour Node's real resolution algorithm
-// first and only fall back to the historical hard-coded path.
+// before walking sibling worktrees and falling back to the historical path.
 function resolveTsxCliBin() {
   const candidates = [];
 
@@ -218,7 +244,7 @@ function resolveTsxCliBin() {
   try {
     candidates.push(fileURLToPath(import.meta.resolve("tsx/cli")));
   } catch {
-    // Not resolvable via import.meta.resolve — try the next strategy.
+    // Not resolvable via import.meta.resolve - try the next strategy.
   }
 
   // CJS fallback: resolve the (always-exported) package.json and read its `bin`.
@@ -230,10 +256,17 @@ function resolveTsxCliBin() {
     const bin = require("tsx/package.json").bin;
     if (typeof bin === "string") candidates.push(resolve(dirname(pkgPath), bin));
   } catch {
-    // Not resolvable via require — try the next strategy.
+    // Not resolvable via require - try the next strategy.
   }
 
-  // Original behaviour: node_modules directly under the repo root.
+  const ancestorMatch = resolveFromAncestorNodeModules(projectRoot);
+  if (ancestorMatch) candidates.push(ancestorMatch);
+
+  for (const root of listGitWorktreeRoots()) {
+    const worktreeMatch = resolveFromAncestorNodeModules(root);
+    if (worktreeMatch) candidates.push(worktreeMatch);
+  }
+
   candidates.push(resolve(projectRoot, "node_modules", "tsx", "dist", "cli.mjs"));
 
   return candidates.find((candidate) => candidate && existsSync(candidate)) ?? null;

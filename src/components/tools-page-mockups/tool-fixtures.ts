@@ -10,6 +10,7 @@ export type ToolFixture = {
   href: string;
   icon: LucideIcon;
   area: ToolArea;
+  sourceBacked: boolean;
   status: ToolStatus;
   lastUsed: string;
   primaryAction: string;
@@ -24,6 +25,7 @@ export const tools: ToolFixture[] = [
     href: "/?mode=answer",
     icon: Search,
     area: "reference",
+    sourceBacked: true,
     status: "ready",
     lastUsed: "Today, 7:30 AM",
     primaryAction: "Ask",
@@ -36,6 +38,7 @@ export const tools: ToolFixture[] = [
     href: "/?mode=documents",
     icon: FileText,
     area: "reference",
+    sourceBacked: true,
     status: "ready",
     lastUsed: "May 10, 2025",
     primaryAction: "Search",
@@ -48,6 +51,7 @@ export const tools: ToolFixture[] = [
     href: "/differentials",
     icon: Brain,
     area: "assessment",
+    sourceBacked: true,
     status: "recent",
     lastUsed: "Today, 8:40 AM",
     primaryAction: "Compare",
@@ -60,6 +64,7 @@ export const tools: ToolFixture[] = [
     href: "/?mode=prescribing",
     icon: Pill,
     area: "care",
+    sourceBacked: true,
     status: "review_due",
     lastUsed: "May 12, 2025",
     primaryAction: "Prescribe",
@@ -72,6 +77,7 @@ export const tools: ToolFixture[] = [
     href: "/services",
     icon: ClipboardList,
     area: "coordination",
+    sourceBacked: true,
     status: "review_due",
     lastUsed: "Today, 8:15 AM",
     primaryAction: "Refer",
@@ -84,6 +90,7 @@ export const tools: ToolFixture[] = [
     href: "/forms",
     icon: FileCheck2,
     area: "coordination",
+    sourceBacked: true,
     status: "ready",
     lastUsed: "Today, 8:05 AM",
     primaryAction: "Open",
@@ -96,6 +103,7 @@ export const tools: ToolFixture[] = [
     href: "/favourites",
     icon: Star,
     area: "personal",
+    sourceBacked: false,
     status: "recent",
     lastUsed: "Today, 8:45 AM",
     primaryAction: "Resume",

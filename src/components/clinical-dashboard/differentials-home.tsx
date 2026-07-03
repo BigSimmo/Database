@@ -613,13 +613,11 @@ function SearchResultsView({
   query,
   loading,
   documentMatches,
-  documentCount,
   onRunSearch,
 }: {
   query: string;
   loading: boolean;
   documentMatches?: DocumentMatch[];
-  documentCount?: number;
   onRunSearch?: (query: string) => void;
 }) {
   const results = useMemo(() => buildDifferentialResults(), []);
@@ -630,11 +628,9 @@ function SearchResultsView({
   const selectedCount = selectedIds.size;
   const hasSourceEvidence = Boolean(documentMatches?.length);
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
-  const reviewedSourceCount = hasSourceEvidence
-    ? documentCount && documentCount > 0
-      ? documentCount
-      : (documentMatches?.length ?? 0)
-    : 0;
+  // Count the sources that actually matched this search, never the whole
+  // indexed library - the surrounding copy states these reflect real matches.
+  const reviewedSourceCount = hasSourceEvidence ? (documentMatches?.length ?? 0) : 0;
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -655,18 +651,28 @@ function SearchResultsView({
       data-testid="differentials-search-results"
       className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(14rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
     >
+      <p
+        data-testid="differentials-demo-content-notice"
+        className="flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--warning)] sm:text-sm"
+      >
+        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <span>
+          The ranked diagnoses below are synthetic demonstration content, not clinically authored guidance. Source
+          counts reflect real matches from your indexed library.
+        </span>
+      </p>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
         <section className="min-w-0 space-y-3" aria-label="Differential diagnosis results">
           <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
-                <span className="inline-flex items-center gap-1.5 text-[color:var(--clinical-accent)]">
-                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                  {hasSourceEvidence ? "Source-backed results" : "Guided local differential"}
+                <span className="inline-flex items-center gap-1.5 text-[color:var(--warning)]">
+                  <CircleHelp className="h-3.5 w-3.5" aria-hidden />
+                  Demonstration ranking
                 </span>
                 <span className="hidden sm:inline">
                   {hasSourceEvidence
-                    ? "Reviewed content prioritised. Review before use."
+                    ? "Source matches available. Review before use."
                     : "Run source search to validate against indexed local documents."}
                 </span>
               </div>
@@ -792,7 +798,7 @@ function SearchResultsView({
             type="button"
             className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:inline-flex"
           >
-            View all results (14)
+            View all demonstration results ({results.length})
             <ChevronRight className="h-4 w-4 rotate-90" aria-hidden />
           </button>
 
@@ -838,7 +844,6 @@ export function DifferentialsHome({
   query,
   loading,
   documentMatches,
-  documentCount,
   onQueryChange,
   onSuggestedSearch,
   onRunSearch,
@@ -849,7 +854,6 @@ export function DifferentialsHome({
   query: string;
   loading: boolean;
   documentMatches?: DocumentMatch[];
-  documentCount?: number;
   realDataReady?: boolean;
   authUnavailable?: boolean;
   apiUnavailable?: boolean;
@@ -904,7 +908,6 @@ export function DifferentialsHome({
         query={trimmedQuery}
         loading={loading}
         documentMatches={documentMatches}
-        documentCount={documentCount}
         onRunSearch={runSearch}
       />
     );
@@ -915,7 +918,7 @@ export function DifferentialsHome({
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
-        subtitle="Find differentials, compare causes, and open reviewed clinical summaries."
+        subtitle="Compare demonstration differentials against matches from your indexed library."
         icon={BrainCircuit}
         headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}
@@ -927,7 +930,7 @@ export function DifferentialsHome({
           onClick: () => handleAction(action),
           disabled: loading,
         }))}
-        pillsTitle={hasEvidenceMatches ? "Reviewed matches" : "Recent work"}
+        pillsTitle={hasEvidenceMatches ? "Library matches" : "Recent work"}
         pillsAction={
           <button
             type="button"
