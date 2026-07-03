@@ -1889,6 +1889,11 @@ export function QuoteCards({
                 <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
+                {quote.isTruncated ? (
+                  <p className="mt-1 text-xs italic leading-5 text-[color:var(--text-muted)]">
+                    Quote truncated for length — open the source to read the full passage.
+                  </p>
+                ) : null}
                 <div
                   className={cn(
                     "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
@@ -1928,9 +1933,12 @@ export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
         // Clean the copied text the same way the card displays it, so clipboard
         // output never contains internal image-data blocks or glyph artifacts.
         `${index + 1}. "${sourceTextForVerbatimQuote(quote.quote)}"`,
+        quote.isTruncated ? "Warning: quote truncated for length; open the source to read the full passage." : null,
         `Source: ${formatCitationLabel(quote)}`,
         `Link: ${documentCitationHref(quote)}`,
-      ].join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     )
     .join("\n\n");
 }

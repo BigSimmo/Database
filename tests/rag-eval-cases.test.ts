@@ -6,6 +6,8 @@ import {
   mapCapturedEvalCase,
   mergeRagEvalCases,
   scoreAnswerQualityEvalCase,
+  scoreAnswerTargeting,
+  type AnswerQualityEvalCase,
 } from "../src/lib/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
 
@@ -242,5 +244,142 @@ describe("captured RAG eval cases", () => {
       "relevance",
     ]);
     expect(scores.every((score) => score.score === 1)).toBe(true);
+  });
+
+  describe("scoreAnswerTargeting (structural per-intent targeting)", () => {
+    const doseCase = {
+      id: "t-dose",
+      question: "What is the maximum sertraline dose?",
+      expectedIntent: "dose",
+      supported: true,
+      category: "routine",
+      expectedFiles: [],
+      allowedRoutes: ["fast"],
+      minCitations: 1,
+      latencyTargetMs: 20000,
+    } as unknown as AnswerQualityEvalCase;
+
+    function grounded(text: string, citation: Partial<RagAnswer["citations"][number]> = {}): RagAnswer {
+      return {
+        answer: text,
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: "c1", ...citation } as RagAnswer["citations"][number]],
+        sources: [],
+        answerSections: [],
+      } as unknown as RagAnswer;
+    }
+
+    it("passes a dose answer that carries a figure+unit", () => {
+      const result = scoreAnswerTargeting(doseCase, grounded("The maximum dose is 200 mg daily."));
+      expect(result).toMatchObject({ applicable: true, score: 1 });
+    });
+
+    it("fails a supported dose answer that carries no dose figure or regimen", () => {
+      const bare = scoreAnswerTargeting(doseCase, grounded("Sertraline is an SSRI used for depression."));
+      expect(bare).toMatchObject({ applicable: true, score: 0 });
+    });
+
+    it("does not count maximum alone as dose targeting", () => {
+      const result = scoreAnswerTargeting(doseCase, grounded("The maximum sertraline dose is in the source."));
+      expect(result).toMatchObject({ applicable: true, score: 0 });
+    });
+
+    it("treats a fail-closed/unsupported case as n/a (not counted)", () => {
+      const unsupported = {
+        answer: "No current source with dose guidance for this query was found.",
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: [],
+        answerSections: [],
+      } as unknown as RagAnswer;
+      expect(scoreAnswerTargeting(doseCase, unsupported)).toMatchObject({ applicable: false, score: 1 });
+    });
+
+    it("requires a withhold/stop action with a threshold for red_result_action", () => {
+      const redCase = {
+        ...doseCase,
+        question: "What ANC threshold should trigger clozapine withholding?",
+        expectedIntent: "red_result_action",
+      } as AnswerQualityEvalCase;
+      expect(scoreAnswerTargeting(redCase, grounded("Withhold clozapine if the ANC falls below 1.5."))).toMatchObject({
+        score: 1,
+      });
+      expect(scoreAnswerTargeting(redCase, grounded("Neutropenia is a recognised clozapine risk."))).toMatchObject({
+        score: 0,
+      });
+    });
+
+    it("allows red-result action answers without a numeric threshold when the question asks for action", () => {
+      const redCase = {
+        ...doseCase,
+        question: "What action is required for suspected lithium toxicity?",
+        expectedIntent: "red_result_action",
+      } as AnswerQualityEvalCase;
+      expect(scoreAnswerTargeting(redCase, grounded("Stop lithium and seek urgent medical review."))).toMatchObject({
+        applicable: true,
+        score: 1,
+      });
+    });
+
+    it("accepts monitoring level ranges for monitoring cases that ask for a range", () => {
+      const monitoringCase = {
+        ...doseCase,
+        question: "What lithium level range is used for maintenance monitoring?",
+        expectedIntent: "monitoring_schedule",
+      } as AnswerQualityEvalCase;
+      expect(scoreAnswerTargeting(monitoringCase, grounded("The maintenance range is 0.4-0.8 mmol/L."))).toMatchObject({
+        applicable: true,
+        score: 1,
+      });
+    });
+
+    it("requires document-lookup targeting to name or cite the expected document", () => {
+      const documentCase = {
+        ...doseCase,
+        question: "What documents support lithium monitoring?",
+        expectedIntent: "document_lookup",
+        expectedFiles: ["CG.MHSP.Lithium.pdf"],
+      } as AnswerQualityEvalCase;
+
+      expect(
+        scoreAnswerTargeting(
+          documentCase,
+          grounded("The monitoring document supports regular review.", {
+            file_name: "Unrelated.Policy.pdf",
+            title: "Unrelated Policy",
+          }),
+        ),
+      ).toMatchObject({ applicable: true, score: 0 });
+      expect(
+        scoreAnswerTargeting(
+          documentCase,
+          grounded("The lithium guideline supports regular review.", {
+            file_name: "CG.MHSP.Lithium.pdf",
+            title: "CG.MHSP.Lithium",
+          }),
+        ),
+      ).toMatchObject({ applicable: true, score: 1 });
+    });
+
+    it("reuses eval document aliases for document-lookup targeting", () => {
+      const documentCase = {
+        ...doseCase,
+        question: "What discharge documentation is required?",
+        expectedIntent: "document_lookup",
+        expectedFiles: ["MHSP.Discharge.pdf"],
+      } as AnswerQualityEvalCase;
+
+      expect(
+        scoreAnswerTargeting(
+          documentCase,
+          grounded("The discharge planning document sets out documentation responsibilities.", {
+            file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+            title: "Admission to Discharge for Mental Health Inpatients",
+          }),
+        ),
+      ).toMatchObject({ applicable: true, score: 1 });
+    });
   });
 });
