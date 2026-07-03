@@ -21,6 +21,14 @@
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
 
+  /* Minimum interactive target (WCAG 2.5.5 / 2.5.8). Named spacing token so the
+     44px tap-target minimum is a single source of truth instead of copy-pasted
+     `min-h-11` / `h-[44px]` magic numbers. Generates min-h-tap, h-tap, w-tap,
+     min-w-tap, size-tap. Semantic intent: "this is a touch target", not "44px".
+     NB: controls that flake the ui-smoke sub-pixel tap-target check when scrolled
+     deep in sheets stay on min-h-12 (48px) — do not downgrade those to the token. */
+  --spacing-tap: 2.75rem;
+
   /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
      Tailwind's default text-* tokens they carry no `--line-height` /
