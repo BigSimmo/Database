@@ -32,10 +32,7 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
     sourceMeta: type === "services" ? "Service" : "Form",
     primaryAction: "Open",
     icon: type === "services" ? Stethoscope : ClipboardList,
-    keywords: [record.title, record.subtitle, ...(record.tags ?? [])]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase(),
+    keywords: [record.title, record.subtitle, ...(record.tags ?? [])].filter(Boolean).join(" ").toLowerCase(),
   };
 }
 

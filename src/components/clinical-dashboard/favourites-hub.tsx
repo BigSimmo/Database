@@ -56,9 +56,7 @@ export function FavouritesHub({
   };
   const selectedSet = selectedSetId ? favouriteSets.find((set) => set.id === selectedSetId) : null;
   const tabItems =
-    selectedTab === "all" || selectedTab === "sets"
-      ? allItems
-      : allItems.filter((item) => item.type === selectedTab);
+    selectedTab === "all" || selectedTab === "sets" ? allItems : allItems.filter((item) => item.type === selectedTab);
   const visibleItems = tabItems
     .filter((item) => favouriteMatchesQuery(item, normalizedQuery))
     .filter((item) => !selectedSet || item.set === selectedSet.title);
