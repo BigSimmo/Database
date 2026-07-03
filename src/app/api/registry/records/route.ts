@@ -99,14 +99,16 @@ export async function GET(request: Request) {
     let rows = await fetchRecords();
     if (rows.length === 0) {
       // First visit for this owner: lazily seed the curated defaults so new
-      // accounts get populated Services/Forms instead of the empty state.
-      // Non-fatal — a seed failure falls back to the empty set, never a 500.
+      // accounts get populated Services/Forms instead of the empty state. Only
+      // the seed write is best-effort (a failure falls back to the empty set);
+      // the re-read stays outside the try so a genuine read failure still
+      // surfaces as an error rather than a misleading empty registry.
       try {
         await ensureRegistrySeeded(supabase, user.id, kind);
-        rows = await fetchRecords();
       } catch (seedError) {
         console.error(`[registry] auto-seed failed for owner ${user.id} (${kind})`, seedError);
       }
+      rows = await fetchRecords();
     }
 
     const records = rows.map(rowToServiceRecord);

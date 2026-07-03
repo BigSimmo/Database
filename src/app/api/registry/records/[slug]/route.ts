@@ -91,12 +91,14 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
         .eq("kind", kind);
       if (countError) throw new Error(countError.message);
       if ((count ?? 0) === 0) {
+        // Only the seed write is best-effort; the re-read stays outside the try
+        // so a genuine read failure surfaces rather than a misleading 404.
         try {
           await ensureRegistrySeeded(supabase, user.id, kind);
-          row = await fetchRecord();
         } catch (seedError) {
           console.error(`[registry] auto-seed failed for owner ${user.id} (${kind})`, seedError);
         }
+        row = await fetchRecord();
       }
     }
     if (!row) return notFoundResponse(normalizedSlug);
