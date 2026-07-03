@@ -261,7 +261,7 @@ import {
   shouldPollForUpdates,
 } from "@/lib/ward-output";
 
-const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
+const navigationHashes = ["#search", "#sources"] as const;
 const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
@@ -585,7 +585,7 @@ function VisualEvidenceStrip({
 
   if (collapsed) {
     return (
-      <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
+      <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
         <UtilityDrawer
           icon={FileImage}
           title="Nearby visual evidence"
@@ -695,7 +695,7 @@ function VisualEvidenceStrip({
   if (embedded) return <div className="space-y-3">{content}</div>;
 
   return (
-    <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
+    <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
       {content}
     </section>
   );
@@ -5096,7 +5096,7 @@ export function ClinicalDashboard({
 
     const mainTop = main.getBoundingClientRect().top;
     const marker = mainTop + 96;
-    const sections = ["#quotes", "#images", "#sources"];
+    const sections = ["#sources"];
     const current =
       sections
         .map((section) => {
@@ -5151,7 +5151,6 @@ export function ClinicalDashboard({
     () => (answer ? buildAnswerRenderModel(answer, { sources, includeDebugReasons: true }) : null),
     [answer, sources],
   );
-  const visualEvidence = useMemo(() => answerRenderModel?.visualEvidence ?? [], [answerRenderModel]);
   const relatedDocuments = useMemo(() => answerRenderModel?.relatedDocuments ?? [], [answerRenderModel]);
   const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
   const weakEvidence = answerRenderModel
@@ -5260,26 +5259,6 @@ export function ClinicalDashboard({
               ? documentMatches.length
               : null,
       empty: activeModeResultKind === "documents" && documentMatches.length === 0,
-    },
-    {
-      label: "Quotes",
-      description: answer
-        ? answerRenderModel?.quoteCards.length
-          ? "Exact source excerpts"
-          : "No quotes yet"
-        : "No quotes yet",
-      icon: Quote,
-      href: "#quotes",
-      count: answer ? (answerRenderModel?.quoteCards.length ?? 0) : null,
-      empty: !answer || (answerRenderModel?.quoteCards.length ?? 0) === 0,
-    },
-    {
-      label: "Images",
-      description: answer ? (visualEvidence.length ? "Tables and diagrams" : "No images yet") : "No images yet",
-      icon: FileImage,
-      href: "#images",
-      count: answer ? visualEvidence.length : null,
-      empty: !answer || visualEvidence.length === 0,
     },
     {
       label: "Sources",
