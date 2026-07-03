@@ -550,15 +550,19 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
-    await expect(page.getByText("Selected differentials (6 of 8)")).toBeVisible();
+    await expect(
+      page.getByLabel("Differential review sidebar").getByText("Selected differentials (6 of 8)"),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/differentials");
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
-    await expect(page.getByText("Local only")).toBeVisible();
-    await expect(page.getByText("Offline ready")).toBeVisible();
-    await expect(page.getByText("Source pending review").first()).toBeVisible();
-    await expect(page.locator("header").getByRole("button", { name: "Copy after review" })).toBeVisible();
+    // Page-specific status now lives in the page (Source status panel), not the
+    // shared global header — the header carries no differential trust chips.
+    await expect(page.locator("header").getByText("Local only")).toHaveCount(0);
+    await expect(page.locator("header").getByText("Offline ready")).toHaveCount(0);
+    await expect(page.locator("header").getByText("Source pending review")).toHaveCount(0);
+    await expect(page.locator("header").getByRole("button", { name: "Copy after review" })).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {
@@ -567,6 +571,14 @@ test.describe("Clinical KB applications launcher", () => {
     expect(tableScrolls).toBe(true);
     const desktopTableBox = await page.getByTestId("differential-comparison-scroll").boundingBox();
     expect(desktopTableBox?.width ?? 0).toBeGreaterThan(900);
+    await expectNoPageHorizontalOverflow(page);
+
+    // Mid-size (tablet): the scrollable comparison table replaces the phone
+    // accordions, and the review panels reflow below it instead of a side rail.
+    await page.setViewportSize({ width: 900, height: 1000 });
+    await gotoLauncher(page, "/differentials/presentations");
+    await expect(page.getByTestId("differential-comparison-scroll")).toBeVisible();
+    await expect(page.getByLabel("Mobile differential comparison")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 390, height: 844 });

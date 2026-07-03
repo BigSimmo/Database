@@ -321,11 +321,6 @@ function GlobalMockupSearchShellClient({
             (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
           }
           searchComposerVisible={shouldShowSearchComposer}
-          workflowCopyText={
-            isDifferentialPresentationWorkflow
-              ? "Acute confusion / encephalopathy differential comparison. Stabilise ABCs, check BGL, sats, attention test, collateral, and review medications/substances before handoff."
-              : undefined
-          }
           desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
           heroComposerFromTablet={isStandaloneModeHome}
         />
