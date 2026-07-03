@@ -1,0 +1,51 @@
+import { formRecords } from "@/lib/forms";
+import {
+  recordToRow,
+  type RegistryRecordInsert,
+  type RegistryRecordKind,
+  type RegistryRecordRow,
+} from "@/lib/registry-records";
+import { serviceRecords } from "@/lib/services";
+
+// Type-only reference to the admin client so this module carries no runtime
+// dependency on the Supabase admin singleton — the CLI can import the row
+// builders without pulling in service-role env, and callers pass their own
+// client into `ensureRegistrySeeded`.
+type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
+
+/** The curated default registry fixtures for a kind — the same set the CLI
+ *  seeds and the API falls back to when an owner has no records yet. */
+export function defaultRegistryRecords(kind: RegistryRecordKind) {
+  return kind === "form" ? formRecords : serviceRecords;
+}
+
+/** Build insertable rows for an owner from the default fixtures. Shared by the
+ *  CLI (`scripts/seed-registry-records.ts`) and the lazy API auto-seed so both
+ *  map fixtures → rows identically. */
+export function buildDefaultRegistryRows(ownerId: string, kind: RegistryRecordKind): RegistryRecordInsert[] {
+  return defaultRegistryRecords(kind).map((record) => recordToRow(record, ownerId, kind));
+}
+
+/**
+ * Idempotently seed the curated default registry records for an owner + kind
+ * and return the stored rows. Called lazily by the registry API when an
+ * authenticated owner has no records yet, so new accounts get populated
+ * Services/Forms instead of the empty state. Safe under concurrent first
+ * requests — the (owner_id, kind, slug) conflict target dedupes the upsert.
+ *
+ * First-seed helper only: it does NOT preserve post-seed governance edits, so
+ * the reseed path (the CLI) layers its own preservation on top.
+ */
+export async function ensureRegistrySeeded(
+  supabase: AdminClient,
+  ownerId: string,
+  kind: RegistryRecordKind,
+): Promise<RegistryRecordRow[]> {
+  const rows = buildDefaultRegistryRows(ownerId, kind);
+  const { data, error } = await supabase
+    .from("clinical_registry_records")
+    .upsert(rows, { onConflict: "owner_id,kind,slug" })
+    .select("*");
+  if (error) throw new Error(`Registry seed failed: ${error.message}`);
+  return (data ?? []) as RegistryRecordRow[];
+}

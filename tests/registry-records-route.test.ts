@@ -12,6 +12,8 @@ type QueryCall = {
   filters: QueryFilter[];
   inFilters: Array<{ column: string; values: unknown[] }>;
   maybeSingle: boolean;
+  upsert?: boolean;
+  upsertRows?: unknown[];
 };
 type QueryResolver = (call: QueryCall) => QueryResult;
 
@@ -80,6 +82,12 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 
   limit() {
+    return this;
+  }
+
+  upsert(rows: unknown) {
+    this.call.upsert = true;
+    this.call.upsertRows = Array.isArray(rows) ? rows : [rows];
     return this;
   }
 
@@ -298,5 +306,50 @@ describe("registry records API", () => {
     expect(payload.demoMode).toBe(true);
     expect(payload.record.slug).toBe("transport-crisis-form");
     expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("seeds the curated default set for an owner with an empty registry", async () => {
+    let stored: Array<Record<string, unknown>> = [];
+    const client = createSupabaseMock((call) => {
+      if (call.table !== "clinical_registry_records") return ok([]);
+      if (call.upsert) {
+        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
+        return ok(stored);
+      }
+      return ok(stored);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+    const { serviceRecords } = await import("../src/lib/services");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=service"));
+    const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
+
+    expect(response.status).toBe(200);
+    // The empty owner is seeded once, owner-scoped, with the full default set.
+    const upsertCall = client.calls.find((call) => call.table === "clinical_registry_records" && call.upsert);
+    expect(upsertCall).toBeDefined();
+    expect(upsertCall?.upsertRows).toHaveLength(serviceRecords.length);
+    expect(
+      (upsertCall?.upsertRows ?? []).every((row) => {
+        const typed = row as { owner_id: string; kind: string };
+        return typed.owner_id === userId && typed.kind === "service";
+      }),
+    ).toBe(true);
+    expect(payload.records).toHaveLength(serviceRecords.length);
+    expect(payload.total).toBe(serviceRecords.length);
+  });
+
+  it("does not seed when the owner already has registry records", async () => {
+    const client = createSupabaseMock((call) =>
+      call.table === "clinical_registry_records" ? ok([registryRow()]) : ok([]),
+    );
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=service"));
+
+    expect(response.status).toBe(200);
+    expect(client.calls.some((call) => call.upsert)).toBe(false);
   });
 });
