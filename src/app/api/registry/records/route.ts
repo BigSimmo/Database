@@ -12,6 +12,7 @@ import {
   type RegistryRecordKind,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
+import { ensureRegistrySeeded } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceSearchMatch } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -83,16 +84,31 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Registry requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    const { data, error } = await supabase
-      .from("clinical_registry_records")
-      .select("*")
-      .eq("owner_id", user.id)
-      .eq("kind", kind)
-      .order("title")
-      .limit(REGISTRY_MAX_RECORDS);
-    if (error) throw new Error(error.message);
+    const fetchRecords = async () => {
+      const { data, error } = await supabase
+        .from("clinical_registry_records")
+        .select("*")
+        .eq("owner_id", user.id)
+        .eq("kind", kind)
+        .order("title")
+        .limit(REGISTRY_MAX_RECORDS);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as RegistryRecordRow[];
+    };
 
-    const rows = (data ?? []) as RegistryRecordRow[];
+    let rows = await fetchRecords();
+    if (rows.length === 0) {
+      // First visit for this owner: lazily seed the curated defaults so new
+      // accounts get populated Services/Forms instead of the empty state.
+      // Non-fatal — a seed failure falls back to the empty set, never a 500.
+      try {
+        await ensureRegistrySeeded(supabase, user.id, kind);
+        rows = await fetchRecords();
+      } catch (seedError) {
+        console.error(`[registry] auto-seed failed for owner ${user.id} (${kind})`, seedError);
+      }
+    }
+
     const records = rows.map(rowToServiceRecord);
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
 

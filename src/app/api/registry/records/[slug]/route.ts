@@ -12,6 +12,7 @@ import {
   rowToServiceRecord,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
+import { ensureRegistrySeeded } from "@/lib/registry-seed";
 import { getServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -65,17 +66,40 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       return rateLimitJsonResponse("Registry requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    const { data, error } = await supabase
-      .from("clinical_registry_records")
-      .select("*")
-      .eq("owner_id", user.id)
-      .eq("kind", kind)
-      .eq("slug", normalizedSlug)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) return notFoundResponse(normalizedSlug);
+    const fetchRecord = async () => {
+      const { data, error } = await supabase
+        .from("clinical_registry_records")
+        .select("*")
+        .eq("owner_id", user.id)
+        .eq("kind", kind)
+        .eq("slug", normalizedSlug)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as RegistryRecordRow | null) ?? null;
+    };
 
-    const row = data as RegistryRecordRow;
+    let row = await fetchRecord();
+    if (!row) {
+      // A new owner may deep-link a default record (e.g. a saved favourite)
+      // before ever loading the Services/Forms home list that seeds them. If
+      // this owner has no records of this kind at all, lazily seed the curated
+      // defaults and retry once. Non-fatal — fall through to 404 on failure.
+      const { count, error: countError } = await supabase
+        .from("clinical_registry_records")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", user.id)
+        .eq("kind", kind);
+      if (countError) throw new Error(countError.message);
+      if ((count ?? 0) === 0) {
+        try {
+          await ensureRegistrySeeded(supabase, user.id, kind);
+          row = await fetchRecord();
+        } catch (seedError) {
+          console.error(`[registry] auto-seed failed for owner ${user.id} (${kind})`, seedError);
+        }
+      }
+    }
+    if (!row) return notFoundResponse(normalizedSlug);
 
     const { data: links, error: linksError } = await supabase
       .from("clinical_registry_record_sources")
