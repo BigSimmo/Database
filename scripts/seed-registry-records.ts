@@ -113,6 +113,11 @@ async function main() {
   const upsertRows = rows.map((row) => {
     const prior = governanceByKey.get(`${row.kind}:${row.slug}`);
     if (!prior) return row;
+    const hasReviewedGovernance =
+      Boolean(prior.last_reviewed_at) ||
+      prior.validation_status === "locally_reviewed" ||
+      prior.validation_status === "approved";
+    if (!hasReviewedGovernance) return row;
     preserved += 1;
     return {
       ...row,
