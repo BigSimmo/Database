@@ -307,6 +307,10 @@ export type SearchChunksArgs = {
   // Internal: set when this call is a re-run on a trigram-corrected query, to prevent the
   // unsupported-short-circuit typo-correction path from recursing more than once.
   typoCorrected?: boolean;
+  // Diagnostic/eval-only: bypass every lexical text-fast-path so retrieval always exercises
+  // the embedding/vector stage. Lets the golden eval measure the vector index directly for a
+  // re-index, instead of being masked by lexical shortcuts. Never set on production paths.
+  forceEmbedding?: boolean;
 };
 
 export type AnswerProgressEvent = {
@@ -1429,7 +1433,7 @@ function stableHash(value: string) {
 export function retrievalPlanCacheQuery(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity"
+    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity" | "forceEmbedding"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -1445,6 +1449,7 @@ export function retrievalPlanCacheQuery(
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
     `rag:${ragDeepMemoryVersion}`,
+    `force:${args.forceEmbedding ? 1 : 0}`,
   ].join("|");
   return queryCacheKeyForStorage(cacheKey);
 }
@@ -5516,7 +5521,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     });
 
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
-    if (shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
+    if (!args.forceEmbedding && shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
       textFastResults = await attachPageVisualEvidence(supabase, baseTextResults);
       textFastResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
@@ -5567,7 +5572,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
 
     const boostedTextFastPath = decideTextFastPath(args.query, textFastResults, queryClassification.queryClass);
-    if (boostedTextFastPath.returnFastPath) {
+    if (!args.forceEmbedding && boostedTextFastPath.returnFastPath) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
@@ -5673,7 +5678,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         documentLookupResults,
         queryClassification.queryClass,
       );
-      if (documentLookupFastPath.returnFastPath) {
+      if (!args.forceEmbedding && documentLookupFastPath.returnFastPath) {
         markEmbeddingSkippedByTextFastPath(
           telemetry,
           documentLookupFastPath.reason ? `document_lookup_fast_path:${documentLookupFastPath.reason}` : null,
@@ -5700,7 +5705,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     });
     const coverageGate = evaluateEvidenceCoverageGate(args.query, coverageGateResults, queryClassification.queryClass);
     applyCoverageGateTelemetry(telemetry, coverageGate, coverageGate.accepted);
-    if (coverageGate.accepted) {
+    if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
       setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
@@ -5744,6 +5749,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     latencyMs: telemetry.embedding_latency_ms,
   });
 
+  if (args.forceEmbedding) {
+    // Force-embedding eval isolation: drop the lexical / memory-card / table candidates gathered
+    // before embedding so the returned results reflect the embedding-driven retrieval layers only
+    // (otherwise a broken vector index could still be masked by the lexical text candidate path).
+    textFastResults = [];
+  }
+
   // A1: the embedding-field, index-unit, and chunk-hybrid RPCs each depend only on the
   // already-computed query embedding and have no data dependency on one another, so run
   // them concurrently instead of as three sequential Supabase round-trips. The two helper
@@ -5780,7 +5792,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       const startedAt = Date.now();
       const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
         query_embedding: embedding as unknown as string,
-        query_text: textSearchQuery,
+        query_text: args.forceEmbedding ? "" : textSearchQuery,
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filters: documentFilterList ?? undefined,

@@ -756,6 +756,7 @@ async function runRetrievalQualityCases(args: {
         topK: retrievalLimitForGoldenCase(testCase),
         minSimilarity: 0.12,
         skipCache: true,
+        forceEmbedding: testCase.forceEmbedding,
       }),
     );
     const latencyMs =
