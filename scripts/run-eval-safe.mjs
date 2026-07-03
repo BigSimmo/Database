@@ -206,14 +206,8 @@ function terminateEvalProcess(pid) {
   terminateEvalProcessTree(pid);
 }
 
-function resolveTsxCli() {
-  // Fresh git worktrees often have no node_modules of their own, so walk up
-  // the ancestor directories like Node's own module resolution does: the repo
-  // root's install wins when present, otherwise the main checkout's install is
-  // found (worktrees live inside the repo directory). A plain existsSync walk
-  // is used instead of require.resolve because tsx's package "exports" map
-  // does not expose dist/cli.mjs.
-  let dir = projectRoot;
+function resolveFromAncestorNodeModules(startDir) {
+  let dir = startDir;
   for (;;) {
     const candidate = resolve(dir, "node_modules", "tsx", "dist", "cli.mjs");
     if (existsSync(candidate)) return candidate;
@@ -223,11 +217,45 @@ function resolveTsxCli() {
   }
 }
 
+function listGitWorktreeRoots() {
+  const result = spawnSync("git", ["worktree", "list", "--porcelain"], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.status !== 0) return [];
+
+  return (result.stdout || "")
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length).trim())
+    .filter(Boolean);
+}
+
+function resolveTsxCli() {
+  // Fresh git worktrees often have no node_modules of their own. First walk up
+  // ancestor directories like Node's own module resolution; then inspect Git's
+  // known worktrees so sibling/external worktrees can reuse the main checkout's
+  // install. A plain existsSync probe is used because tsx's package "exports"
+  // map does not expose dist/cli.mjs.
+  const ancestorMatch = resolveFromAncestorNodeModules(projectRoot);
+  if (ancestorMatch) return ancestorMatch;
+
+  for (const root of listGitWorktreeRoots()) {
+    const worktreeMatch = resolveFromAncestorNodeModules(root);
+    if (worktreeMatch) return worktreeMatch;
+  }
+
+  return null;
+}
+
 function runEvalScript() {
   const tsxBin = resolveTsxCli();
 
   if (!tsxBin) {
-    console.error("Could not resolve the tsx runtime. Run `npm install` first (or invoke the script with `npx tsx` directly).");
+    console.error(
+      "Could not resolve the tsx runtime. Run `npm install` first (or invoke the script with `npx tsx` directly).",
+    );
     process.exit(1);
   }
 
