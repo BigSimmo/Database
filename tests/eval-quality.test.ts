@@ -26,6 +26,7 @@ function retrievalResult(overrides: Partial<GoldenRetrievalResult> = {}): Golden
     hitAtK: true,
     topK: 8,
     reciprocalRankAt10: 1,
+    contentReciprocalRankAt10: 1,
     latencyMs: 120,
     retrievalStrategy: "hybrid",
     retrievalPlan: "table_threshold:table_facts_visual_units_then_chunks",

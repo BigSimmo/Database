@@ -3,6 +3,7 @@ import {
   capturedRagCaseToGoldenCase,
   evaluateGoldenRetrievalCase,
   loadGoldenRetrievalCases,
+  retrievalLimitForGoldenCase,
   summarizeGoldenRetrievalResults,
 } from "../scripts/eval-retrieval";
 import type { SearchResult } from "../src/lib/types";
@@ -55,7 +56,122 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.documentRecallAt5).toBe(1);
     expect(evaluated.contentRecallAt5).toBe(1);
     expect(evaluated.reciprocalRankAt10).toBe(1);
+    expect(evaluated.contentReciprocalRankAt10).toBe(1);
     expect(evaluated.failures).toEqual([]);
+  });
+
+  it("content_mrr@10 penalises answer passages that rank below distractors even when recall is perfect", () => {
+    const testCase = {
+      id: "content-rank",
+      query: "What ANC threshold should withhold clozapine?",
+      expectedQueryClass: "table_threshold" as const,
+      expectedDocumentSubstrings: ["ClozapinePresAdminMonitor"],
+      expectedContentTerms: ["anc", "withhold"],
+      topK: 8,
+      expectTableEvidence: false,
+    };
+    // A distractor with no matching content terms sits above the real answer passage.
+    const distractor = result({
+      id: "chunk-distractor",
+      title: "Unrelated Ward Policy",
+      file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+      section_heading: "General notes",
+      content: "This section covers unrelated logistics and has no matching clinical terms.",
+      retrieval_synopsis: undefined,
+    });
+    const topRanked = evaluateGoldenRetrievalCase({
+      testCase,
+      results: [result(), distractor],
+      telemetry: { query_class: "table_threshold", retrieval_strategy: "hybrid" },
+      latencyMs: 100,
+    });
+    const demoted = evaluateGoldenRetrievalCase({
+      testCase,
+      results: [distractor, result()],
+      telemetry: { query_class: "table_threshold", retrieval_strategy: "hybrid" },
+      latencyMs: 100,
+    });
+
+    // Content recall is blind to ordering — both keep the answer passage in the top 5.
+    expect(topRanked.contentRecallAt5).toBe(1);
+    expect(demoted.contentRecallAt5).toBe(1);
+    // Passage rank is not: demoting the answer passage to rank 2 halves each term's RR.
+    expect(topRanked.contentReciprocalRankAt10).toBe(1);
+    expect(demoted.contentReciprocalRankAt10).toBeCloseTo(0.5, 5);
+
+    // The summary averages content_mrr only over cases that declare content terms.
+    const noContentCase = evaluateGoldenRetrievalCase({
+      testCase: { ...testCase, id: "no-content", expectedContentTerms: [] },
+      results: [result()],
+      telemetry: { query_class: "table_threshold", retrieval_strategy: "hybrid" },
+      latencyMs: 100,
+    });
+    const summary = summarizeGoldenRetrievalResults([demoted, noContentCase]);
+    expect(summary.content_mrr_case_count).toBe(1);
+    expect(summary.content_mrr_at_10).toBeCloseTo(0.5, 4);
+  });
+
+  it("content_mrr@10 ignores document metadata when ranking answer-bearing passages", () => {
+    const testCase = {
+      id: "metadata-distractor",
+      query: "What is the patient property safety plan?",
+      expectedQueryClass: "document_lookup" as const,
+      expectedDocumentSubstrings: ["Patient Property Safety Plan"],
+      expectedContentTerms: ["patient", "property"],
+      topK: 8,
+      expectTableEvidence: false,
+    };
+    const metadataOnlyDistractor = result({
+      id: "metadata-only",
+      title: "Patient Property Safety Plan",
+      file_name: "PatientPropertySafetyPlan.pdf",
+      section_heading: "Patient property",
+      content: "This unrelated passage describes roster logistics without the expected evidence.",
+      retrieval_synopsis: undefined,
+    });
+    const answerPassage = result({
+      id: "answer-passage",
+      title: "Other Document",
+      file_name: "Other.pdf",
+      section_heading: "Unrelated heading",
+      content: "The patient property process requires documenting valuables in the safety plan.",
+      retrieval_synopsis: undefined,
+    });
+
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase,
+      results: [metadataOnlyDistractor, answerPassage],
+      telemetry: { query_class: "document_lookup", retrieval_strategy: "hybrid" },
+      latencyMs: 100,
+    });
+
+    expect(evaluated.contentRecallAt5).toBe(1);
+    expect(evaluated.contentReciprocalRankAt10).toBeCloseTo(0.5, 5);
+  });
+
+  it("fetches enough results to score content_mrr@10 even when hit@K uses a smaller topK", () => {
+    expect(
+      retrievalLimitForGoldenCase({
+        id: "top-k-8",
+        query: "What ANC threshold should withhold clozapine?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: ["anc"],
+        topK: 8,
+        expectTableEvidence: false,
+      }),
+    ).toBe(10);
+    expect(
+      retrievalLimitForGoldenCase({
+        id: "top-k-12",
+        query: "What ANC threshold should withhold clozapine?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: ["anc"],
+        topK: 12,
+        expectTableEvidence: false,
+      }),
+    ).toBe(12);
   });
 
   it("matches legacy compact expected document names to current corpus titles", () => {
