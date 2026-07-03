@@ -68,6 +68,8 @@ next-env.d.ts
 
 # agent/QA artifacts
 .codex-screenshots/
+# design/UX review scratch dumps (favourites-review, tools-page-review, etc.) — never commit
+artifacts/
 # local hook tool cache — machine-local, never commit
 .impeccable/
 # Local debugging scratch space — never commit (accidentally landed once via 'Save Codex local changes')

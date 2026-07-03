@@ -484,7 +484,7 @@ function WhyThisMatchedPanel({ sources }: { sources: SearchResult[] }) {
 
   return (
     <details data-testid="why-this-matched" className={cn("group rounded-lg", panelSubtle)}>
-      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
             <Search className="h-4 w-4" />
@@ -679,7 +679,7 @@ function VisualEvidenceStrip({
                     </span>
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
-                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
+                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-11 px-4 text-xs")}>
                     <ExternalLink className="h-4 w-4" />
                     Open source
                   </Link>
@@ -1016,13 +1016,13 @@ function MobileEvidenceSheetContent({
           {primarySourceHref ? (
             <Link
               href={primarySourceHref}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -1030,7 +1030,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => void copyEvidence()}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copiedQuotes ? "Copied" : "Copy"}
@@ -1038,7 +1038,7 @@ function MobileEvidenceSheetContent({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -1282,7 +1282,7 @@ function RelatedDocumentsPanel({
               <div className="min-w-0">
                 <Link
                   href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                 >
                   <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                 </Link>
@@ -1295,7 +1295,7 @@ function RelatedDocumentsPanel({
               <button
                 type="button"
                 onClick={() => onScopeDocument(document.document_id)}
-                className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
+                className={cn(floatingControl, "min-h-11 px-3 text-xs")}
               >
                 Scope
               </button>
@@ -2351,8 +2351,14 @@ function DocumentDrawer({
       {/* Dynamic Browse Library Filters */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <label
+            htmlFor="browse-filter-type"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Type
+          </label>
           <select
+            id="browse-filter-type"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2367,8 +2373,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <label
+            htmlFor="browse-filter-site"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Site
+          </label>
           <select
+            id="browse-filter-site"
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2383,8 +2395,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <label
+            htmlFor="browse-filter-topic"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Topic
+          </label>
           <select
+            id="browse-filter-topic"
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2399,10 +2417,14 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+          <label
+            htmlFor="browse-filter-population"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
             Population
           </label>
           <select
+            id="browse-filter-population"
             value={selectedPopulation}
             onChange={(e) => setSelectedPopulation(e.target.value)}
             className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
@@ -2620,7 +2642,7 @@ function DocumentDrawer({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
-                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
@@ -2659,7 +2681,7 @@ function DocumentDrawer({
                     type="button"
                     onClick={() => onToggleScope(document.id)}
                     className={cn(
-                      "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
+                      "inline-flex min-h-11 items-center rounded-lg border px-3 text-xs font-semibold transition",
                       selected
                         ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -2961,7 +2983,7 @@ function SettingsSummaryTile({
           : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
       )}
     >
-      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-[44px] lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
+      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-11 lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
@@ -5551,7 +5573,7 @@ export function ClinicalDashboard({
               {loading && answerProgress && searchMode !== "prescribing" && (
                 <div
                   role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className="flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                 >
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
                   <span className="min-w-0 truncate">{answerProgress}</span>
@@ -5567,7 +5589,12 @@ export function ClinicalDashboard({
                   authUnavailable={!clientDemoMode && !canUsePrivateApis}
                   apiUnavailable={apiUnavailable}
                   setupWarning={setupWarning}
-                  onQueryChange={setQuery}
+                  onQueryChange={(nextQuery) => {
+                    setQuery(nextQuery);
+                    // Clear stale evidence so an edited (but unsubmitted) query
+                    // doesn't keep rendering the previous search's rankings.
+                    setDocumentMatches([]);
+                  }}
                   desktopComposerSlotId={desktopHomeComposerSlotId}
                   onSuggestedSearch={(nextQuery) => {
                     setQuery(nextQuery);
@@ -5635,7 +5662,7 @@ export function ClinicalDashboard({
                       loading={loading}
                       documentCount={indexedDocumentTotal}
                       recentDocuments={documents}
-                      realDataReady={canRunSearch}
+                      realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
                       authUnavailable={!clientDemoMode && !canUsePrivateApis}
                       apiUnavailable={apiUnavailable}
                       setupWarning={setupWarning}
