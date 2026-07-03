@@ -53,6 +53,7 @@ export type GoldenRetrievalResult = {
   hitAtK: boolean;
   topK: number;
   reciprocalRankAt10: number;
+  contentReciprocalRankAt10: number;
   latencyMs: number;
   retrievalStrategy: string | null;
   retrievalPlan: string | null;
@@ -344,6 +345,31 @@ function reciprocalRankAt10(expectedSubstrings: string[], results: SearchResult[
   return index >= 0 ? 1 / (index + 1) : 0;
 }
 
+/**
+ * Passage-level rank quality ("best-passage rank"): the mean over expected content terms of
+ * the reciprocal rank of the earliest top-10 result whose content carries that term. Where
+ * `contentRecallAt5` only asks *whether* an answer-bearing passage appears in the top 5, this
+ * asks *how high* it ranks — so a rerank/chunking change that lifts the right passage from #5
+ * to #1 is measurable (content recall stays 1.0 across that move; doc-level `mrr@10` is blind
+ * to passage order within a document). 1.0 iff every expected term rides the rank-1 passage.
+ * Cases with no expected content terms return 0 and are excluded from the summary average.
+ */
+function contentReciprocalRankAt10(
+  expectedTerms: GoldenRetrievalCase["expectedContentTerms"],
+  results: SearchResult[],
+) {
+  if (expectedTerms.length === 0) return 0;
+  const top = results.slice(0, 10);
+  const total = expectedTerms.reduce((sum, expectation) => {
+    const alternatives = contentExpectationAlternatives(expectation);
+    const index = top.findIndex((result) =>
+      alternatives.some((term) => textContainsClinicalTerm(resultContentText(result), term)),
+    );
+    return sum + (index >= 0 ? 1 / (index + 1) : 0);
+  }, 0);
+  return total / expectedTerms.length;
+}
+
 function hasTableEvidence(results: SearchResult[], limit = 5) {
   return results.slice(0, limit).some((result) => {
     if ((result.table_facts?.length ?? 0) > 0) return true;
@@ -490,6 +516,7 @@ export function evaluateGoldenRetrievalCase(args: {
     hitAtK,
     topK,
     reciprocalRankAt10: reciprocalRankAt10(args.testCase.expectedDocumentSubstrings, args.results),
+    contentReciprocalRankAt10: contentReciprocalRankAt10(args.testCase.expectedContentTerms, args.results),
     latencyMs: args.latencyMs,
     retrievalStrategy: args.telemetry.retrieval_strategy ?? null,
     retrievalPlan: args.telemetry.retrieval_plan ?? null,
@@ -520,6 +547,9 @@ export function evaluateGoldenRetrievalCase(args: {
 export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]) {
   const documentRecallDenominator = Math.max(results.length, 1);
   const contentRecallDenominator = Math.max(results.length, 1);
+  // Passage-rank quality is only meaningful for cases that declare answer-bearing content
+  // terms; averaging over cases without them would dilute the signal with structural zeros.
+  const contentRankCases = results.filter((result) => result.expectedContentTerms.length > 0);
   const strategyCounts = results.reduce<Record<string, number>>((counts, result) => {
     const strategy = result.retrievalStrategy ?? "none";
     counts[strategy] = (counts[strategy] ?? 0) + 1;
@@ -562,6 +592,13 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
     mrr_at_10: Number(
       (results.reduce((sum, result) => sum + result.reciprocalRankAt10, 0) / Math.max(results.length, 1)).toFixed(4),
     ),
+    content_mrr_at_10: Number(
+      (
+        contentRankCases.reduce((sum, result) => sum + result.contentReciprocalRankAt10, 0) /
+        Math.max(contentRankCases.length, 1)
+      ).toFixed(4),
+    ),
+    content_mrr_case_count: contentRankCases.length,
     median_latency_ms: percentile(
       results.map((result) => result.latencyMs),
       50,
@@ -646,6 +683,9 @@ function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalRe
   console.log(`  content_recall@5=${summary.content_recall_at_5}`);
   console.log(`  top_k_hit_rate=${summary.top_k_hit_rate}`);
   console.log(`  mrr@10=${summary.mrr_at_10}`);
+  console.log(
+    `  content_mrr@10=${summary.content_mrr_at_10} (over ${summary.content_mrr_case_count} content-term case(s))`,
+  );
   console.log(`  median_latency_ms=${summary.median_latency_ms}`);
   console.log(`  p90_latency_ms=${summary.p90_latency_ms}`);
   console.log(`  retrieval_strategy_counts=${JSON.stringify(summary.retrieval_strategy_counts)}`);
@@ -787,7 +827,7 @@ async function main() {
             ? "FAIL"
             : "PASS";
       console.log(
-        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
+        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
       );
     }
   }
