@@ -10,6 +10,8 @@
 // Subsets of scripts/eval-retrieval.ts and scripts/eval-quality.ts summary output. Field
 // names match those scripts so the driver can pass summaries through unchanged.
 export type RetrievalGateSummary = {
+  case_count: number;
+  case_fingerprint?: string;
   document_recall_at_5: number;
   content_recall_at_5: number;
   top_k_hit_rate: number;
@@ -18,6 +20,8 @@ export type RetrievalGateSummary = {
 };
 
 export type QualityGateSummary = {
+  case_count: number;
+  case_fingerprint?: string;
   grounded_supported_rate: number;
   unsupported_count: number;
   unsupported_correct_rate: number;
@@ -95,7 +99,15 @@ export type ReindexGateDecision = {
   failures: string[];
 };
 
+const requiredRetrievalMetrics = [
+  "case_count",
+  "document_recall_at_5",
+  "content_recall_at_5",
+  "top_k_hit_rate",
+] as const satisfies readonly (keyof RetrievalGateSummary)[];
+
 const requiredQualityMetrics = [
+  "case_count",
   "grounded_supported_rate",
   "unsupported_count",
   "unsupported_correct_rate",
@@ -309,6 +321,53 @@ function missingQualityMetrics(label: "baselineQuality" | "candidateQuality", su
   );
 }
 
+function missingRetrievalMetrics(label: "baselineRetrieval" | "candidateRetrieval", summary: RetrievalGateSummary) {
+  return requiredRetrievalMetrics.flatMap((metric) =>
+    typeof summary[metric] === "number" && Number.isFinite(summary[metric]) ? [] : [`${label}.${metric}`],
+  );
+}
+
+function populationFailures(args: {
+  baselineRetrieval: RetrievalGateSummary;
+  candidateRetrieval: RetrievalGateSummary;
+  baselineQuality?: QualityGateSummary;
+  candidateQuality?: QualityGateSummary;
+}) {
+  const failures: string[] = [];
+  if (args.baselineRetrieval.case_count !== args.candidateRetrieval.case_count) {
+    failures.push(
+      `retrieval case_count mismatch: baseline ${args.baselineRetrieval.case_count} vs candidate ${args.candidateRetrieval.case_count}`,
+    );
+  }
+  const baselineRetrievalFingerprint = args.baselineRetrieval.case_fingerprint;
+  const candidateRetrievalFingerprint = args.candidateRetrieval.case_fingerprint;
+  if (baselineRetrievalFingerprint || candidateRetrievalFingerprint) {
+    if (!baselineRetrievalFingerprint || !candidateRetrievalFingerprint) {
+      failures.push("retrieval case_fingerprint must be present for both baseline and candidate, or neither");
+    } else if (baselineRetrievalFingerprint !== candidateRetrievalFingerprint) {
+      failures.push("retrieval case_fingerprint mismatch");
+    }
+  }
+
+  if (args.baselineQuality && args.candidateQuality) {
+    if (args.baselineQuality.case_count !== args.candidateQuality.case_count) {
+      failures.push(
+        `quality case_count mismatch: baseline ${args.baselineQuality.case_count} vs candidate ${args.candidateQuality.case_count}`,
+      );
+    }
+    const baselineQualityFingerprint = args.baselineQuality.case_fingerprint;
+    const candidateQualityFingerprint = args.candidateQuality.case_fingerprint;
+    if (baselineQualityFingerprint || candidateQualityFingerprint) {
+      if (!baselineQualityFingerprint || !candidateQualityFingerprint) {
+        failures.push("quality case_fingerprint must be present for both baseline and candidate, or neither");
+      } else if (baselineQualityFingerprint !== candidateQualityFingerprint) {
+        failures.push("quality case_fingerprint mismatch");
+      }
+    }
+  }
+  return failures;
+}
+
 export function decideReindexGate(
   input: {
     baselineRetrieval: RetrievalGateSummary;
@@ -318,7 +377,20 @@ export function decideReindexGate(
   },
   config: ReindexGateConfig = defaultReindexGateConfig,
 ): ReindexGateDecision {
+  const missingRetrieval = [
+    ...missingRetrievalMetrics("baselineRetrieval", input.baselineRetrieval),
+    ...missingRetrievalMetrics("candidateRetrieval", input.candidateRetrieval),
+  ];
+  if (missingRetrieval.length > 0) {
+    return {
+      decision: "NO_GO",
+      checks: [],
+      failures: [`retrieval summaries are missing required metrics: ${missingRetrieval.join(", ")}`],
+    };
+  }
+
   const checks = retrievalChecks(input.baselineRetrieval, input.candidateRetrieval, config.retrieval);
+  const gateFailures = populationFailures(input);
 
   const hasBaselineQuality = Boolean(input.baselineQuality);
   const hasCandidateQuality = Boolean(input.candidateQuality);
@@ -328,7 +400,7 @@ export function decideReindexGate(
     return {
       decision: "NO_GO",
       checks,
-      failures: ["quality summaries must be provided for both baseline and candidate, or neither"],
+      failures: [...gateFailures, "quality summaries must be provided for both baseline and candidate, or neither"],
     };
   }
   if (input.baselineQuality && input.candidateQuality) {
@@ -340,12 +412,12 @@ export function decideReindexGate(
       return {
         decision: "NO_GO",
         checks,
-        failures: [`quality summaries are missing required metrics: ${missingMetrics.join(", ")}`],
+        failures: [...gateFailures, `quality summaries are missing required metrics: ${missingMetrics.join(", ")}`],
       };
     }
     checks.push(...qualityChecks(input.baselineQuality, input.candidateQuality, config.quality));
   }
 
-  const failures = checks.flatMap((check) => check.reasons);
+  const failures = [...gateFailures, ...checks.flatMap((check) => check.reasons)];
   return { decision: failures.length === 0 ? "GO" : "NO_GO", checks, failures };
 }

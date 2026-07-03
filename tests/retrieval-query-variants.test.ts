@@ -633,6 +633,34 @@ describe("retrieval query variants", () => {
     ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
   });
 
+  it("accepts SC and SL route evidence for dose-route fast gates", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "What SC route dose is listed?",
+        [
+          result({
+            content: "Medication chart: 2 mg subcutaneous administration is listed for the route option.",
+            similarity: 0.8,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        "What SL route dose is listed?",
+        [
+          result({
+            content: "Medication chart: 2 mg sublingual administration is listed for the route option.",
+            similarity: 0.8,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+  });
+
   it("requires direct source image evidence for source image/table requests", () => {
     const query = "Show the source table image for the patient property restricted items table.";
     expect(

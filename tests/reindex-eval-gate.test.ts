@@ -3,6 +3,7 @@ import { decideReindexGate, type QualityGateSummary, type RetrievalGateSummary }
 
 function retrieval(overrides: Partial<RetrievalGateSummary> = {}): RetrievalGateSummary {
   return {
+    case_count: 4,
     document_recall_at_5: 0.9,
     content_recall_at_5: 0.9,
     top_k_hit_rate: 0.95,
@@ -14,6 +15,7 @@ function retrieval(overrides: Partial<RetrievalGateSummary> = {}): RetrievalGate
 
 function quality(overrides: Partial<QualityGateSummary> = {}): QualityGateSummary {
   return {
+    case_count: 4,
     grounded_supported_rate: 0.95,
     unsupported_count: 1,
     unsupported_correct_rate: 1,
@@ -79,12 +81,30 @@ describe("decideReindexGate — retrieval", () => {
 
   it("skips optional metrics when either summary omits them", () => {
     const decision = decideReindexGate({
-      baselineRetrieval: { document_recall_at_5: 0.9, content_recall_at_5: 0.9, top_k_hit_rate: 0.9 },
-      candidateRetrieval: { document_recall_at_5: 0.9, content_recall_at_5: 0.9, top_k_hit_rate: 0.9 },
+      baselineRetrieval: { case_count: 4, document_recall_at_5: 0.9, content_recall_at_5: 0.9, top_k_hit_rate: 0.9 },
+      candidateRetrieval: { case_count: 4, document_recall_at_5: 0.9, content_recall_at_5: 0.9, top_k_hit_rate: 0.9 },
     });
     expect(decision.decision).toBe("GO");
     expect(decision.checks.some((check) => check.metric === "mrr_at_10")).toBe(false);
     expect(decision.checks.some((check) => check.metric === "p90_latency_ms")).toBe(false);
+  });
+
+  it("fails closed when retrieval summaries cover different eval populations", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval({ case_count: 12 }),
+      candidateRetrieval: retrieval({ case_count: 4 }),
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/retrieval case_count mismatch/);
+  });
+
+  it("fails closed when retrieval case fingerprints differ", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval({ case_fingerprint: "all-cases-v1" }),
+      candidateRetrieval: retrieval({ case_fingerprint: "limited-cases-v1" }),
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/retrieval case_fingerprint mismatch/);
   });
 });
 
@@ -178,5 +198,16 @@ describe("decideReindexGate — quality", () => {
     expect(decision.decision).toBe("NO_GO");
     expect(decision.failures.join(" ")).toMatch(/candidateQuality\.stale_review_unknown_rate/);
     expect(decision.failures.join(" ")).toMatch(/candidateQuality\.review_required_rate/);
+  });
+
+  it("fails closed when quality summaries cover different eval populations", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: retrieval(),
+      baselineQuality: quality({ case_count: 9 }),
+      candidateQuality: quality({ case_count: 3 }),
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/quality case_count mismatch/);
   });
 });

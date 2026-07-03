@@ -3434,7 +3434,9 @@ function hasDoseAmountEvidenceForGate(result: SearchResult) {
 }
 
 function hasRouteEvidenceForGate(result: SearchResult) {
-  return /\b(?:oral|orally|intramuscular|intramuscularly|\bim\b|\bpo\b)\b/i.test(evidenceTextForGate(result));
+  return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
+    evidenceTextForGate(result),
+  );
 }
 
 function hasDirectSourceImageEvidence(result: SearchResult) {
@@ -3585,7 +3587,10 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
-    const asksDoseRoute = /\b(?:dose|dosage|dosing|route|oral|intramuscular|\bim\b|\bpo\b)\b/i.test(query);
+    const asksDoseRoute =
+      /\b(?:dose|dosage|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
+        query,
+      );
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
     const accepted = hasDoseEvidence && hasDoseAmount && (!asksDoseRoute || hasRoute) && agitationOk;
     return {
