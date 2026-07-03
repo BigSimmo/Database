@@ -21,8 +21,8 @@ This document turns the current process review into phased, durable repo practic
 
 ## Phase 3 - Structural cleanup
 
-- [ ] Decompose `src/components/ClinicalDashboard.tsx` into the planned `src/components/clinical-dashboard/` modules.
-- Preserve `data-testid`, `aria-label`, and AST-pinned `ClinicalOutputPanel` contracts during the move.
+- [x] Decompose `src/components/ClinicalDashboard.tsx` into the planned `src/components/clinical-dashboard/` modules. **DONE** — all 6 approved render-surface modules extracted (~8.8k → ~4.7k lines); see the progress log below. Only the deferred admin surfaces remain in the monolith.
+- Preserved `data-testid`, `aria-label`, and AST-pinned `ClinicalOutputPanel`/`NaturalLanguageAnswer` contracts across every move (byte-identical sha1 checksum + retargeted AST guards).
 - After decomposition, run `npm run verify:cheap`, `npm run verify:ui`, and focused visual/browser checks against the dashboard and document viewer.
 
 ### Phase 3 progress (started)
@@ -38,13 +38,13 @@ This document turns the current process review into phased, durable repo practic
 
 - **2026-07-03:** extracted `visual-evidence.tsx` — `compactClinicalTableCaption`, `visualEvidenceHeader`, `VisualEvidenceStrip`, `InlineTableCard`, `supportDotClass`, `supportLabel`, `claimRowsForEvidencePanel`, `EvidenceClaimsList`, `EvidenceGapsPanel`, `MobileEvidenceSheetContent`, `MobileEvidenceTabPanel`, `UnifiedEvidenceDrawerContent` (contiguous block 547–1259, moved verbatim). Monolith 5953 → 5241 lines. **No runtime cycle** — the only monolith import is `type AnswerFeedbackType` (erased at compile time); the module imports one-way from `evidence-panels`/`answer-content`/siblings, and the monolith imports `InlineTableCard` + `MobileEvidenceSheetContent` back. Added `visual-evidence.tsx` to the `rendered-text-formatting.test.ts` corpus (the `item.tableTextSnippet`/`item.title`/`item.caption` render surfaces moved here). Stripped 22 now-orphaned monolith imports. Done on a **dedicated worktree/branch** `claude/clinical-dashboard-decomp` (off `main`) instead of the shared claude branch, to avoid the squash-ancestry churn.
 
-#### Remaining decomposition — hand-off (do on a stable `main`, one module per commit)
+- **2026-07-03:** extracted `document-results.tsx` — `WhyThisMatchedPanel`, `RelatedDocumentsPanel`, `StagedAnswerResultSurface` (contiguous block 456–944, moved verbatim). Monolith 5216 → 4726 lines. **No runtime cycle** — the only monolith import is `type AnswerFeedbackType` (erased); `StagedAnswerResultSurface` is a leaf result-surface that imports one-way from every sibling module (answer-content, evidence-panels, visual-evidence, relevance, document-search-results, badges, dashboard-shell, display-text, use-mobile-preview-sheet) and the monolith imports `RelatedDocumentsPanel` + `StagedAnswerResultSurface` back. The monolith's `visual-evidence` import (`InlineTableCard`/`MobileEvidenceSheetContent`) moved into `document-results` as predicted. Added `document-results.tsx` to the `rendered-text-formatting.test.ts` corpus; stripped 35 now-orphaned monolith imports.
 
-The approved move map (`docs/redesign/04-deferred.md` §2) has 1 module left:
+#### Decomposition COMPLETE (approved move map)
 
-1. `document-results.tsx` — `WhyThisMatchedPanel` (~line 481, before visual-evidence was extracted), `RelatedDocumentsPanel`, `StagedAnswerResultSurface`. These are the answer-results surfaces around the former visual-evidence block; check whether `InlineTableCard`/`MobileEvidenceSheetContent` (now imported from `visual-evidence`) are rendered by `StagedAnswerResultSurface` — if so the monolith's `visual-evidence` import moves into `document-results`.
+All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went from ~8.8k → ~4.7k lines and now holds the main `ClinicalDashboard` orchestrator, its data/state hooks, and the deferred admin surfaces only. The 6 extracted modules live in `src/components/clinical-dashboard/`: `auth-panel`, `answer-content`, `evidence-panels`, `output-panel`, `visual-evidence`, `document-results` (+ the shared `use-mobile-preview-sheet` hook and `display-text` helpers). The barrel `index.ts` was intentionally not extended.
 
-For each: trace which module-scope helpers/icons/types it uses; move solely-consumed ones with it, import shared ones; strip newly-orphaned monolith imports (lint flags them); run the per-module gate above; commit immediately. Keep the main `ClinicalDashboard` export in `ClinicalDashboard.tsx` (the barrel/bridge stays). Admin surfaces (`DocumentDrawer`, `SettingsDialog`, `ToolsHub`, `MobileSectionFab`) are out of the approved map — a later pass.
+**Out of scope (deferred admin surfaces, optional later pass):** `DocumentDrawer`, `SettingsDialog`, `ToolsHub`, `MobileSectionFab`, `DocumentLabelReviewPanel`/`DocumentTagQualityPanel`/`DocumentIndexRepairPanel` and their label helpers (`tagQualityTone`, `labelTierTone`, `documentLabelTypeOptions`) all remain in `ClinicalDashboard.tsx`.
 
 ## Phase 4 - Release maturity
 
